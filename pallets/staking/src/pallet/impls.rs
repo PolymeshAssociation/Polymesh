@@ -890,17 +890,18 @@ impl<T: Config> Pallet<T> {
 
             if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
                 nominators_seen.saturating_inc();
-                if Self::is_nominator_compliant(&voter) {
-                    let voter_weight = weight_of(&voter);
-                    if !targets.is_empty() {
-                        all_voters.push((voter.clone(), voter_weight, targets));
-                    }
-                    min_active_stake = if voter_weight < min_active_stake {
+
+                let voter_weight = weight_of(&voter);
+                if !targets.is_empty() {
+                    all_voters.push((voter.clone(), voter_weight, targets));
+                }
+                min_active_stake = {
+                    if voter_weight < min_active_stake {
                         voter_weight
                     } else {
                         min_active_stake
-                    };
-                }
+                    }
+                };
             } else if Validators::<T>::contains_key(&voter) {
                 validators_seen.saturating_inc();
                 if Self::is_validator_compliant(&voter)
@@ -1115,18 +1116,6 @@ impl<T: Config> Pallet<T> {
             pallet_identity::Pallet::<T>::has_valid_cdd(id)
                 && Self::permissioned_identity(id).is_some()
         })
-    }
-
-    /// Returns `true` if `who` has a valid cdd claim. Otherwise, returns `false`.
-    pub(crate) fn is_nominator_compliant(who: &T::AccountId) -> bool {
-        pallet_identity::Pallet::<T>::get_identity(who)
-            .map_or(false, |id| pallet_identity::Pallet::<T>::has_valid_cdd(id))
-    }
-
-    pub(crate) fn get_bonding_duration_period() -> u64 {
-        (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
-            * T::EpochDuration::get() // session length
-            * T::ExpectedBlockTime::get().saturated_into::<u64>()
     }
 
     /// Decrease the running count of validators by 1 for the stash identity.
