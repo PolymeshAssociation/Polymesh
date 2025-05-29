@@ -20,7 +20,7 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, PortfolioKind, Signatory};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
@@ -59,6 +59,14 @@ impl<T: Config> Pallet<T> {
             number_of_given_auths < T::MaxGivenAuths::get(),
             Error::<T>::ExceededNumberOfGivenAuths
         );
+
+        if let AuthorizationData::PortfolioCustody(pid) = &authorization_data {
+            ensure!(
+                pid.kind != PortfolioKind::Default,
+                Error::<T>::DefaultPortfoliosCannotHaveCustodians
+            );
+        }
+
         NumberOfGivenAuths::<T>::insert(from, number_of_given_auths.saturating_add(1));
 
         let new_auth_id = CurrentAuthId::<T>::get().saturating_add(1);

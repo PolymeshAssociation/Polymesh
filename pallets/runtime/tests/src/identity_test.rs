@@ -28,8 +28,8 @@ use polymesh_primitives::{
     constants::currency::POLY, traits::group::GroupTrait, traits::CddAndFeeDetails, AccountId,
     AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId,
     ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord, PalletName,
-    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
-    SubsetRestriction, SystematicIssuers, Ticker, GC_DID,
+    PalletPermissions, Permissions, PortfolioId, PortfolioKind, PortfolioNumber, Scope,
+    SecondaryKey, Signatory, SubsetRestriction, SystematicIssuers, Ticker, GC_DID,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
@@ -2282,4 +2282,24 @@ fn do_create_child_identities_with_auth_test() {
         child_keys,
         expires_at
     ));
+}
+
+#[test]
+fn assign_custody_of_default_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+
+        // Change custody of the default portfolio
+        assert_noop!(
+            Identity::add_auth(
+                alice.did,
+                Signatory::from(bob.did),
+                AuthorizationData::PortfolioCustody(portfolio_id),
+                None,
+            ),
+            Error::DefaultPortfoliosCannotHaveCustodians
+        );
+    });
 }
