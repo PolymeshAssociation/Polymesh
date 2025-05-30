@@ -130,7 +130,13 @@ fn issue_tokens_assigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+        let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
+        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AliceUserPortfolio".to_vec())
+        ));
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
@@ -157,7 +163,7 @@ fn issue_tokens_assigned_custody() {
             alice.origin(),
             asset_id,
             1_000,
-            PortfolioKind::Default
+            portfolio_kind
         ));
         assert_eq!(BalanceOf::<TestStorage>::get(asset_id, alice.did), 1_000);
         assert_eq!(

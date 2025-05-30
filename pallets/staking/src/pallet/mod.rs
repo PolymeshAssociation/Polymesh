@@ -53,11 +53,10 @@ use crate::{
 use frame_support::traits::schedule::Anon;
 use frame_support::traits::IsSubType;
 use frame_system::offchain::SendTransactionTypes;
-use sp_runtime::traits::{AccountIdConversion, Dispatchable};
+use sp_runtime::traits::Dispatchable;
 use sp_runtime::Permill;
 
 use pallet_identity::Config as IdentityConfig;
-use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::GC_DID;
 use polymesh_primitives::{storage_migration_ver, traits::IdentityFnTrait, IdentityId};
 
@@ -1436,20 +1435,11 @@ pub mod pallet {
 
             // Polymesh change
             // -----------------------------------------------------------------
-            let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash)
-                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
-            let bounding_duration_period = Self::get_bonding_duration_period() as u32;
-
-            if let None = pallet_identity::Pallet::<T>::fetch_cdd(
-                nominator_did,
-                bounding_duration_period.into(),
-            ) {
-                return Err(Error::<T>::StashIdentityNotCDDed.into());
-            }
+            let nominator_did = pallet_identity::Pallet::<T>::get_identity(&stash);
 
             Self::release_running_validator(&stash);
             Self::deposit_event(Event::<T>::Nominated {
-                nominator_identity: nominator_did,
+                nominator_identity: nominator_did.unwrap_or_default(),
                 stash: ledger.stash.clone(),
                 targets: targets.to_vec(),
             });
@@ -2152,62 +2142,6 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::PermissionedIdentityRemoved {
                 governance_councill_did: GC_DID,
                 validators_identity: identity,
-            });
-            Ok(())
-        }
-
-        /// Validate the nominators CDD expiry time.
-        ///
-        /// If an account from a given set of address is nominating then check the CDD expiry time
-        /// of it and if it is expired then the account should be unbonded and removed from the
-        /// nominating process.
-        #[pallet::call_index(28)]
-        #[pallet::weight(<T as Config>::WeightInfo::validate_cdd_expiry_nominators(targets.len() as u32))]
-        pub fn validate_cdd_expiry_nominators(
-            origin: OriginFor<T>,
-            targets: Vec<T::AccountId>,
-        ) -> DispatchResult {
-            ensure_root(origin.clone())?;
-
-            ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
-
-            let mut expired_nominators = Vec::new();
-            // Iterate provided list of accountIds (These accountIds should be stash type account).
-            for target in targets
-                .iter()
-                // Nominator must be vouching for someone.
-                .filter(|target| Self::nominators(target).is_some())
-                // Access the DIDs of the nominators whose CDDs have expired.
-                .filter(|target| {
-                    // Fetch all the claim values provided by the trusted service providers
-                    // There is a possibility that nominator will have more than one claim for the same key,
-                    // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
-                    // valid CDD otherwise it will be removed from the pool of the nominators.
-                    // If the target has no DID, it's also removed.
-                    pallet_identity::Pallet::<T>::get_identity(&target)
-                        .filter(|did| pallet_identity::Pallet::<T>::has_valid_cdd(*did))
-                        .is_none()
-                })
-            {
-                // Un-bonding the balance that bonded with the controller account of a Stash account
-                // This unbonded amount only be accessible after completion of the BondingDuration
-                // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
-
-                let controller = Self::bonded(target).ok_or(Error::<T>::NotStash)?;
-                let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
-                let active_balance = ledger.active;
-                if ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize {
-                    Self::unbond_balance(controller, &mut ledger, active_balance)?;
-
-                    expired_nominators.push(target.clone());
-                    // Free the nominator from the valid nominator list
-                    <Nominators<T>>::remove(target);
-                }
-            }
-            Self::deposit_event(Event::<T>::InvalidatedNominators {
-                governance_councill_did: GC_DID,
-                governance_councill_account: GC_PALLET_ID.into_account_truncating(),
-                expired_nominators: expired_nominators,
             });
             Ok(())
         }
