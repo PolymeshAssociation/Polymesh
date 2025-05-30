@@ -664,7 +664,7 @@ where
         class: DispatchClass,
     ) -> FeeDetails<BalanceOf<T>> {
         #[cfg(feature = "disable_fees")]
-        if Self::disable_fees() {
+        if DisableFees::<T>::get() {
             return FeeDetails {
                 inclusion_fee: None,
                 tip: 0u32.into(),
