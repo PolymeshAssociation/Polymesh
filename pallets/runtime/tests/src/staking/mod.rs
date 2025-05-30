@@ -878,12 +878,7 @@ fn double_staking_should_fail() {
             Error::<Test>::NotController
         );
         // 2 = controller  => nominating should work.
-        assert_noop!(
-            Staking::nominate(RuntimeOrigin::signed(2), vec![1]),
-            Error::<Test>::StashIdentityDoesNotExist
-        );
-        provide_did_to_user(1);
-        assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![1]));
+        assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![1]),);
     });
 }
 
@@ -6586,7 +6581,7 @@ fn create_on_offence_now(offender: u64) {
 }
 
 #[test]
-fn add_nominator_with_invalid_expiry() {
+fn add_nominator_without_cdd() {
     ExtBuilder::default().nominate(true).build_and_execute(|| {
         let alice_acc = 500;
         let alice_controller_acc = 501;
@@ -6606,11 +6601,8 @@ fn add_nominator_with_invalid_expiry() {
         ));
 
         set_timestamp(Utc::now().timestamp() as u64);
-        assert_noop!(
-            Staking::nominate(alice_controller_signed, vec![10, 20, 30]),
-            Error::<Test>::StashIdentityNotCDDed,
-        );
-        assert!(Staking::nominators(&alice_acc).is_none());
+        assert_ok!(Staking::nominate(alice_controller_signed, vec![10, 20, 30]),);
+        assert!(Staking::nominators(&alice_acc).is_some());
     });
 }
 
@@ -6681,18 +6673,6 @@ fn validate_nominators_with_valid_cdd() {
 
             assert_ok!(Staking::nominate(eve_controller_signed, vec![11, 21, 31]));
             assert!(!Staking::nominators(&eve_acc).is_none());
-
-            set_timestamp((Utc::now().timestamp() as u64) + 800_u64);
-            assert_ok!(Staking::validate_cdd_expiry_nominators(
-                RuntimeOrigin::root(),
-                vec![alice_acc.clone(), eve_acc.clone()]
-            ));
-            assert!(Staking::nominators(&alice_acc).is_none());
-            assert!(!Staking::nominators(&eve_acc).is_none());
-
-            let ledger_data = Staking::ledger(&alice_controller_acc).unwrap();
-            assert_eq!(ledger_data.active, 0);
-            assert_eq!(ledger_data.unlocking.len(), 1);
         });
 }
 

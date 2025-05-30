@@ -1750,7 +1750,13 @@ fn redeem_token_assigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+        let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
+        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AliceUserPortfolio".to_vec())
+        ));
 
         let asset_id = create_and_issue_sample_asset(&alice);
         // Change custody of the default portfolio
@@ -1767,12 +1773,7 @@ fn redeem_token_assigned_custody() {
         ));
 
         assert_noop!(
-            Asset::redeem(
-                alice.origin(),
-                asset_id,
-                ISSUE_AMOUNT,
-                PortfolioKind::Default
-            ),
+            Asset::redeem(alice.origin(), asset_id, ISSUE_AMOUNT, portfolio_kind),
             PortfolioError::UnauthorizedCustodian
         );
     })

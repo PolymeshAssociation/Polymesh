@@ -51,7 +51,6 @@ type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig
 // -----------------------------------------------------------------
 
 use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_primitives::identity_claim::ClaimType;
 use polymesh_primitives::{IdentityId, Permissions};
 
 use crate::types::SlashingSwitch;
@@ -988,39 +987,6 @@ benchmarks! {
                 ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() }
             );
         });
-    }
-
-    validate_cdd_expiry_nominators {
-        let n in 1 .. T::MaxNominations::get();
-
-        clear_validators_and_nominators::<T>();
-
-        let (validator, nominators) = create_validator_with_nominators::<T>(
-            n,
-            T::MaxNominatorRewardedPerValidator::get() as u32,
-            true,
-            RewardDestination::Controller,
-            Some(10_000_000)
-        )?;
-
-        for nominator in &nominators {
-            let claim_first = pallet_identity::Claim1stKey {
-                target: nominator.0.did(),
-                claim_type: ClaimType::CustomerDueDiligence
-            };
-            let _ = pallet_identity::Claims::<T>::clear_prefix(claim_first, 1, None);
-        }
-
-        let nominators: Vec<T::AccountId> = nominators.iter().map(|x| x.0.account()).collect();
-        for nominator in &nominators {
-            assert!(Nominators::<T>::contains_key(nominator));
-        }
-
-    }: _(RawOrigin::Root, nominators.clone())
-    verify {
-        for nominator in nominators {
-            assert!(!Nominators::<T>::contains_key(nominator));
-        }
     }
 
     // -----------------------------------------------------------------

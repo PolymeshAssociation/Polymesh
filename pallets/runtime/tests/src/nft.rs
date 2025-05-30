@@ -16,8 +16,8 @@ use polymesh_primitives::settlement::{InstructionId, Leg, SettlementType};
 use polymesh_primitives::{
     with_transaction, AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode,
     IdentityId, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, PortfolioNumber, PortfolioUpdateReason, Scope, Signatory, TrustedFor,
-    TrustedIssuer, WeightMeter,
+    PortfolioKind, PortfolioName, PortfolioNumber, PortfolioUpdateReason, Scope, Signatory,
+    TrustedFor, TrustedIssuer, WeightMeter,
 };
 use sp_keyring::AccountKeyring;
 
@@ -506,10 +506,16 @@ fn burn_nft_no_custody() {
 
         let bob: User = User::new(AccountKeyring::Bob);
         let alice: User = User::new(AccountKeyring::Alice);
+        let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
+        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
 
-        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"AliceUserPortfolio".to_vec())
+        ));
 
         let asset_id = create_nft_collection(
             alice.clone(),
@@ -537,18 +543,12 @@ fn burn_nft_no_custody() {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec()),
             }],
-            PortfolioKind::Default,
+            portfolio_kind,
         )
         .unwrap();
 
         assert_noop!(
-            NFT::redeem_nft(
-                alice.origin(),
-                asset_id,
-                NFTId(1),
-                PortfolioKind::Default,
-                None
-            ),
+            NFT::redeem_nft(alice.origin(), asset_id, NFTId(1), portfolio_kind, None),
             PortfolioError::UnauthorizedCustodian
         );
     });

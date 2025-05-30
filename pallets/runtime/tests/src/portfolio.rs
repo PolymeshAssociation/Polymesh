@@ -1153,3 +1153,25 @@ fn allow_identity_to_create_portfolios_not_allowed() {
         );
     });
 }
+
+#[test]
+fn assign_custody_of_default_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
+
+        let auth_id = Identity::add_auth(
+            alice.did,
+            Signatory::from(bob.did),
+            AuthorizationData::PortfolioCustody(portfolio_id),
+            None,
+        )
+        .unwrap();
+
+        assert_noop!(
+            Portfolio::accept_portfolio_custody(bob.origin(), auth_id),
+            Error::DefaultPortfoliosCannotHaveCustodians
+        );
+    });
+}
