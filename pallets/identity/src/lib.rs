@@ -1094,8 +1094,6 @@ pub mod pallet {
         UnauthorizedCallerDidMissingCdd,
         /// The key does not have permissions to execute the extrinsic.
         UnauthorizedCallerMissingPermissions,
-        /// Default portfolios cannot have custodians.
-        DefaultPortfoliosCannotHaveCustodians,
     }
 }
 

@@ -382,6 +382,8 @@ pub mod pallet {
         SelfAdditionNotAllowed,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// Default portfolios cannot have custodians.
+        DefaultPortfoliosCannotHaveCustodians,
     }
 
     #[pallet::call]
@@ -898,6 +900,11 @@ impl<T: Config> Pallet<T> {
         let to = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
         pallet_identity::Pallet::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
             let pid = extract_auth!(data, PortfolioCustody(p));
+
+            ensure!(
+                pid.kind != PortfolioKind::Default,
+                Error::<T>::DefaultPortfoliosCannotHaveCustodians
+            );
 
             let curr = Self::custodian(&pid);
             pallet_identity::Pallet::<T>::ensure_auth_by(from, curr)?;
