@@ -840,11 +840,6 @@ impl<T: Config> Pallet<T> {
                 FundingAsset::OffChain(ticker)
             }
         };
-        log::error!(
-            "STO legs = {:?}, investor_portfolios={:?}",
-            legs,
-            investment_portfolio
-        );
 
         <Portfolio<T>>::unlock_tokens(
             &fundraiser.offering_portfolio,
