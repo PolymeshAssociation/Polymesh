@@ -492,7 +492,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Invest in a fundraiser using an off-chain receipt.
+        /// Invest in a fundraiser.
         ///
         /// * `offering_asset` - Asset to invest in.
         /// * `id` - ID of the fundraiser to invest in.
