@@ -2324,6 +2324,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "log",
+ "parity-scale-codec",
  "polymesh-api",
  "polymesh-api-client-extras",
  "polymesh-api-tester",

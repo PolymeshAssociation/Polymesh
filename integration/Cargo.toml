@@ -30,6 +30,7 @@ sp-core = "36.1"
 sp-runtime = "41.1"
 sp-keyring = "41.0"
 sp-weights = "31.1"
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "max-encoded-len"] }
 
 polymesh-api = { version = "3.11.0", features = ["download_metadata"] }
 polymesh-api-client-extras = { version = "3.6.0" }

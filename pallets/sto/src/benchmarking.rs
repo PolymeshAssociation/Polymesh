@@ -1,13 +1,15 @@
 use frame_benchmarking::benchmarks;
 use frame_support::dispatch::DispatchError;
 use scale_info::prelude::format;
+use sp_runtime::MultiSignature;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_asset::BalanceOf;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_settlement::VenueCounter;
+use polymesh_primitives::crypto::BytesWrapped;
 use polymesh_primitives::settlement::VenueDetails;
-use polymesh_primitives::TrustedIssuer;
+use polymesh_primitives::{Ticker, TrustedIssuer};
 
 use crate::*;
 
@@ -125,6 +127,36 @@ where
     setup_portfolios
 }
 
+fn sign_receipt<T: Config>(
+    signer: &User<T>,
+    uid: u64,
+    fundraiser_id: FundraiserId,
+    fundraiser_did: IdentityId,
+    investor_did: IdentityId,
+    ticker: Ticker,
+    amount: u128,
+) -> FundraiserReceiptDetails<T::AccountId, T::OffChainSignature> {
+    let receipt = FundraiserReceipt::new(
+        uid,
+        fundraiser_id,
+        investor_did,
+        fundraiser_did,
+        ticker,
+        amount,
+    );
+    let signature = signer
+        .sign(&BytesWrapped(&receipt).encode())
+        .expect("Failed to sign receipt");
+    let encoded_signature = MultiSignature::from(signature).encode();
+    let signature = T::OffChainSignature::decode(&mut &encoded_signature[..]).unwrap();
+    FundraiserReceiptDetails {
+        uid,
+        signer: signer.account(),
+        signature: signature.into(),
+        metadata: None,
+    }
+}
+
 benchmarks! {
     create_fundraiser {
         // Number of tiers
@@ -153,19 +185,54 @@ benchmarks! {
         assert!(FundraiserCount::<T>::get(setup_portfolios.offering_asset_id) > FundraiserId(0), "create_fundraiser");
     }
 
-    invest {
+    invest_onchain {
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
         let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
-    }: _(
+    }: invest(
             bob.origin(),
-            setup_portfolios.investor_offering_portfolio,
-            setup_portfolios.investor_raising_portfolio,
             setup_portfolios.offering_asset_id,
             FundraiserId(0),
+            setup_portfolios.investor_offering_portfolio,
+            FundingMethod::OnChain(setup_portfolios.investor_raising_portfolio),
             100,
-            Some(1_000_000u128.into()),
-            None
+            Some(1_000_000u128.into())
+        )
+    verify {
+        assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
+    }
+
+    invest_offchain {
+        let id = FundraiserId(0);
+        let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
+        let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
+        let ticker = Ticker::from_slice_truncated(b"TEST");
+
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
+        Sto::<T>::enable_offchain_funding(
+            alice.origin().into(),
+            setup_portfolios.offering_asset_id,
+            id,
+            ticker
+        ).unwrap();
+
+        let receipt = sign_receipt(
+            &alice,
+            0,
+            id,
+            alice.did(),
+            bob.did(),
+            ticker,
+            10
+        );
+    }: invest(
+            bob.origin(),
+            setup_portfolios.offering_asset_id,
+            FundraiserId(0),
+            setup_portfolios.investor_offering_portfolio,
+            FundingMethod::OffChain(receipt),
+            100,
+            Some(1_000_000u128.into())
         )
     verify {
         assert!(BalanceOf::<T>::get(&setup_portfolios.offering_asset_id, bob.did()) > 0u32.into(), "invest");
@@ -211,4 +278,12 @@ benchmarks! {
     verify {
         assert!(<Fundraisers<T>>::get(setup_portfolios.offering_asset_id, id).unwrap().is_closed(), "stop");
     }
+
+    enable_offchain_funding {
+        let id = FundraiserId(0);
+        let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
+        let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
+        let ticker = Ticker::from_slice_truncated(b"TEST");
+        let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, 1);
+    }: _(alice.origin(), setup_portfolios.offering_asset_id, id, ticker)
 }

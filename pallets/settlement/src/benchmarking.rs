@@ -17,7 +17,6 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::{Get, TryCollect};
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
-use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
@@ -297,8 +296,10 @@ fn setup_receipt_details<T: Config>(
         Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes()),
         amount,
     );
-    let raw_signature: [u8; 64] = signer.sign(&receipt.encode()).unwrap().0;
-    let encoded_signature = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
+    let signature = signer
+        .sign(&receipt.encode())
+        .expect("Failed to sign receipt");
+    let encoded_signature = MultiSignature::from(signature).encode();
     let signature = T::OffChainSignature::decode(&mut &encoded_signature[..]).unwrap();
     ReceiptDetails::new(
         leg_id as u64,
