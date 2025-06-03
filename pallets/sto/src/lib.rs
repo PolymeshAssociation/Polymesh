@@ -265,7 +265,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A new fundraiser has been created.
-        /// 
+        ///
         /// [agent_did, offering_asset, raising_asset, fundraiser_id, fundraiser_name, fundraiser]
         FundraiserCreated {
             /// Identity of the external agent who created the fundraiser.
@@ -282,7 +282,7 @@ pub mod pallet {
             fundraiser: Fundraiser<T::Moment>,
         },
         /// An investor successfully invested in the fundraiser.
-        /// 
+        ///
         /// [investor_did, offering_asset, fundraiser_id, funding_asset, offering_amount, raise_amount]
         Invested {
             /// Identity of the investor.
@@ -299,7 +299,7 @@ pub mod pallet {
             raise_amount: Balance,
         },
         /// A fundraiser has been frozen, preventing new investments.
-        /// 
+        ///
         /// [agent_did, offering_asset, fundraiser_id]
         FundraiserFrozen {
             /// Identity of the external agent who froze the fundraiser.
@@ -310,7 +310,7 @@ pub mod pallet {
             fundraiser_id: FundraiserId,
         },
         /// A fundraiser has been unfrozen, allowing new investments.
-        /// 
+        ///
         /// [agent_did, offering_asset, fundraiser_id]
         FundraiserUnfrozen {
             /// Identity of the external agent who unfroze the fundraiser.
@@ -321,7 +321,7 @@ pub mod pallet {
             fundraiser_id: FundraiserId,
         },
         /// A fundraiser's time window has been modified.
-        /// 
+        ///
         /// [agent_did, offering_asset, fundraiser_id, old_start, old_end, new_start, new_end]
         FundraiserWindowModified {
             /// Identity of the external agent who modified the window.
@@ -340,7 +340,7 @@ pub mod pallet {
             new_end: Option<T::Moment>,
         },
         /// A fundraiser has been permanently closed.
-        /// 
+        ///
         /// [agent_did, offering_asset, fundraiser_id]
         FundraiserClosed {
             /// Identity of the external agent who closed the fundraiser.
@@ -351,7 +351,7 @@ pub mod pallet {
             fundraiser_id: FundraiserId,
         },
         /// Off-chain funding has been enabled for a fundraiser.
-        /// 
+        ///
         /// [agent_did, offering_asset, fundraiser_id, ticker]
         FundraiserOffchainFundingEnabled {
             /// Identity of the external agent who enabled off-chain funding.
@@ -787,7 +787,8 @@ pub mod pallet {
         ) -> DispatchResult {
             let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
 
-            let agent_did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+            let agent_did =
+                <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
             if fundraiser.creator != agent_did {
                 <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, agent_did)?;
             }
@@ -847,7 +848,8 @@ pub mod pallet {
             fundraiser_id: FundraiserId,
             ticker: Ticker,
         ) -> DispatchResult {
-            let agent_did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+            let agent_did =
+                <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
 
             let fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
             if fundraiser.creator != agent_did {
