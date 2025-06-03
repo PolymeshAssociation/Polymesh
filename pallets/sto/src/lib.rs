@@ -1,24 +1,52 @@
 // Copyright (c) 2020 Polymesh Association
 
-//! # Sto Module
+//! # Security Token Offering (STO) Pallet
 //!
-//! Sto module creates and manages security token offerings
+//! The STO pallet enables the creation and management of security token offerings on Polymesh.
+//! It provides a comprehensive framework for conducting compliant fundraising activities
+//! through tokenized securities.
 //!
 //! ## Overview
 //!
-//! Sufficiently permissioned external agent's can create and manage fundraisers of assets.
-//! Fundraisers are of fixed supply, with optional expiry and tiered pricing.
-//! Fundraisers allow a single payment asset, known as the raising asset.
-//! Investors can invest through on-chain balance or off-chain receipts.
+//! This pallet allows authorized external agents to create and manage fundraisers for assets.
+//! Fundraisers support sophisticated pricing models with multiple tiers, optional time windows,
+//! and flexible payment methods including both on-chain and off-chain funding mechanisms.
+//!
+//! ### Key Features
+//!
+//! - **Tiered Pricing**: Support for up to 10 price tiers per fundraiser with different token amounts and prices
+//! - **Flexible Timing**: Optional start and end times for fundraising periods
+//! - **Multiple Payment Methods**: Accept payments via on-chain portfolios or off-chain receipts
+//! - **Venue Integration**: Leverage Polymesh's settlement infrastructure for secure token transfers
+//! - **Fine-grained Control**: Freeze, unfreeze, modify, and stop fundraisers as needed
+//! - **Minimum Investment**: Enforce minimum investment thresholds per transaction
+//! - **Price Protection**: Optional maximum price limits to protect investors
+//!
+//! ### Use Cases
+//!
+//! - **Primary Offerings**: Initial public offerings (IPOs) and private placements
+//! - **Secondary Fundraising**: Follow-on offerings and rights issues  
+//! - **Tokenized Asset Sales**: Real estate, commodities, or other asset-backed tokens
+//! - **Compliance-First Fundraising**: KYC/AML compliant token distributions
+//! - **Institutional Investment**: Professional investor participation through off-chain receipts
 //!
 //! ## Dispatchable Functions
 //!
-//! - `create_fundraiser` - Create a new fundraiser.
-//! - `invest` - Invest in a fundraiser.
-//! - `freeze_fundraiser` - Freeze a fundraiser.
-//! - `unfreeze_fundraiser` - Unfreeze a fundraiser.
-//! - `modify_fundraiser_window` - Modify the time window a fundraiser is active.
-//! - `stop` - stop a fundraiser.
+//! ### Fundraiser Management
+//! - [`create_fundraiser`] - Create a new fundraiser with tiered pricing and time windows
+//! - [`stop`] - Permanently stop a fundraiser and unlock remaining tokens
+//! - [`freeze_fundraiser`] - Temporarily freeze a fundraiser to prevent new investments
+//! - [`unfreeze_fundraiser`] - Resume a frozen fundraiser
+//! - [`modify_fundraiser_window`] - Update the active time window for a fundraiser
+//! - [`enable_offchain_funding`] - Enable off-chain payment support for a fundraiser
+//!
+//! ### Investment
+//! - [`invest`] - Invest in a fundraiser using on-chain or off-chain funding
+//!
+//! ## Permissions
+//!
+//! All fundraiser management functions require appropriate asset permissions through the
+//! External Agents pallet. Investment functions require portfolio custody permissions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -237,78 +265,135 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A new fundraiser has been created.
-        /// (Agent DID, offering token, fundraiser id, fundraiser name, fundraiser details)
-        FundraiserCreated(
-            IdentityId,
-            AssetId,
-            FundraiserId,
-            FundraiserName,
-            Fundraiser<T::Moment>,
-        ),
-        /// An investor invested in the fundraiser.
-        /// (Investor, offering token, fundraiser_id, raise token, offering_token_amount, raise_token_amount)
-        Invested(
-            IdentityId,
-            AssetId,
-            FundraiserId,
-            FundingAsset,
-            Balance,
-            Balance,
-        ),
-        /// A fundraiser has been frozen.
-        /// (Agent DID, offering token, fundraiser id)
-        FundraiserFrozen(IdentityId, AssetId, FundraiserId),
-        /// A fundraiser has been unfrozen.
-        /// (Agent DID, offering token, fundraiser id)  
-        FundraiserUnfrozen(IdentityId, AssetId, FundraiserId),
-        /// A fundraiser window has been modified.
-        /// (Agent DID, offering token, fundraiser id, old_start, old_end, new_start, new_end)
-        FundraiserWindowModified(
-            EventDid,
-            AssetId,
-            FundraiserId,
-            T::Moment,
-            Option<T::Moment>,
-            T::Moment,
-            Option<T::Moment>,
-        ),
-        /// A fundraiser has been stopped.
-        /// (Agent DID, offering token, fundraiser id)
-        FundraiserClosed(IdentityId, AssetId, FundraiserId),
-        /// A fundraiser has enabled off-chain funding.
-        /// (Agent DID, offering token, fundraiser id, ticker)
-        FundraiserOffchainFundingEnabled(IdentityId, AssetId, FundraiserId, Ticker),
+        /// 
+        /// [agent_did, offering_asset, raising_asset, fundraiser_id, fundraiser_name, fundraiser]
+        FundraiserCreated {
+            /// Identity of the external agent who created the fundraiser.
+            agent_did: IdentityId,
+            /// Asset being offered for sale in the fundraiser.
+            offering_asset: AssetId,
+            /// Asset being accepted as payment in the fundraiser.
+            raising_asset: AssetId,
+            /// Unique identifier for the fundraiser.
+            fundraiser_id: FundraiserId,
+            /// Human-readable name of the fundraiser.
+            fundraiser_name: FundraiserName,
+            /// Complete fundraiser configuration.
+            fundraiser: Fundraiser<T::Moment>,
+        },
+        /// An investor successfully invested in the fundraiser.
+        /// 
+        /// [investor_did, offering_asset, fundraiser_id, funding_asset, offering_amount, raise_amount]
+        Invested {
+            /// Identity of the investor.
+            investor_did: IdentityId,
+            /// Asset being purchased.
+            offering_asset: AssetId,
+            /// Fundraiser that was invested in.
+            fundraiser_id: FundraiserId,
+            /// Type of funding used (on-chain or off-chain).
+            funding_asset: FundingAsset,
+            /// Amount of offering asset purchased.
+            offering_amount: Balance,
+            /// Amount of raising asset spent.
+            raise_amount: Balance,
+        },
+        /// A fundraiser has been frozen, preventing new investments.
+        /// 
+        /// [agent_did, offering_asset, fundraiser_id]
+        FundraiserFrozen {
+            /// Identity of the external agent who froze the fundraiser.
+            agent_did: IdentityId,
+            /// Asset associated with the fundraiser.
+            offering_asset: AssetId,
+            /// Fundraiser that was frozen.
+            fundraiser_id: FundraiserId,
+        },
+        /// A fundraiser has been unfrozen, allowing new investments.
+        /// 
+        /// [agent_did, offering_asset, fundraiser_id]
+        FundraiserUnfrozen {
+            /// Identity of the external agent who unfroze the fundraiser.
+            agent_did: IdentityId,
+            /// Asset associated with the fundraiser.
+            offering_asset: AssetId,
+            /// Fundraiser that was unfrozen.
+            fundraiser_id: FundraiserId,
+        },
+        /// A fundraiser's time window has been modified.
+        /// 
+        /// [agent_did, offering_asset, fundraiser_id, old_start, old_end, new_start, new_end]
+        FundraiserWindowModified {
+            /// Identity of the external agent who modified the window.
+            agent_did: EventDid,
+            /// Asset associated with the fundraiser.
+            offering_asset: AssetId,
+            /// Fundraiser whose window was modified.
+            fundraiser_id: FundraiserId,
+            /// Previous start time.
+            old_start: T::Moment,
+            /// Previous end time (if any).
+            old_end: Option<T::Moment>,
+            /// New start time.
+            new_start: T::Moment,
+            /// New end time (if any).
+            new_end: Option<T::Moment>,
+        },
+        /// A fundraiser has been permanently closed.
+        /// 
+        /// [agent_did, offering_asset, fundraiser_id]
+        FundraiserClosed {
+            /// Identity of the external agent who closed the fundraiser.
+            agent_did: IdentityId,
+            /// Asset associated with the fundraiser.
+            offering_asset: AssetId,
+            /// Fundraiser that was closed.
+            fundraiser_id: FundraiserId,
+        },
+        /// Off-chain funding has been enabled for a fundraiser.
+        /// 
+        /// [agent_did, offering_asset, fundraiser_id, ticker]
+        FundraiserOffchainFundingEnabled {
+            /// Identity of the external agent who enabled off-chain funding.
+            agent_did: IdentityId,
+            /// Asset associated with the fundraiser.
+            offering_asset: AssetId,
+            /// Fundraiser for which off-chain funding was enabled.
+            fundraiser_id: FundraiserId,
+            /// Ticker symbol of the off-chain asset.
+            ticker: Ticker,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Sender does not have required permissions.
+        /// Sender does not have required permissions for the requested operation.
         Unauthorized,
-        /// An arithmetic operation overflowed.
+        /// An arithmetic operation resulted in overflow or underflow.
         Overflow,
-        /// Not enough tokens left for sale.
+        /// The fundraiser does not have enough tokens remaining to fulfil the investment.
         InsufficientTokensRemaining,
-        /// Fundraiser not found.
+        /// The specified fundraiser does not exist for the given asset.
         FundraiserNotFound,
-        /// Fundraiser is either frozen or stopped.
+        /// The fundraiser is not in a live state (either frozen or stopped).
         FundraiserNotLive,
-        /// Fundraiser has been closed/stopped already.
+        /// The fundraiser has been permanently closed or stopped.
         FundraiserClosed,
-        /// Interacting with a fundraiser past the end `Moment`.
+        /// Attempting to interact with a fundraiser after its end time has passed.
         FundraiserExpired,
-        /// An invalid venue provided.
+        /// The provided venue is invalid (does not exist, wrong type, or wrong creator).
         InvalidVenue,
-        /// An individual price tier was invalid or a set of price tiers was invalid.
+        /// One or more price tiers have invalid parameters (zero total, too many tiers, etc.).
         InvalidPriceTiers,
-        /// Window (start time, end time) has invalid parameters, e.g start time is after end time.
+        /// The fundraiser time window has invalid parameters (start time after end time).
         InvalidOfferingWindow,
-        /// Price of the investment exceeded the max price.
+        /// The calculated price per token exceeds the maximum price specified by the investor.
         MaxPriceExceeded,
-        /// Investment amount is lower than minimum investment amount.
+        /// The investment amount is below the minimum investment threshold for this fundraiser.
         InvestmentAmountTooLow,
-        /// Invalid receipt signature.
+        /// The off-chain receipt signature is invalid or could not be verified.
         InvalidSignature,
-        /// Off-chain funding is not allowed for this fundraiser.
+        /// Off-chain funding has not been enabled for this fundraiser.
         OffchainFundingNotAllowed,
     }
 
@@ -384,22 +469,34 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Create a new fundraiser.
+        /// Create a new fundraiser for a security token offering.
         ///
-        /// * `offering_portfolio` - Portfolio containing the `offering_asset`.
-        /// * `offering_asset` - Asset being offered.
-        /// * `raising_portfolio` - Portfolio containing the `raising_asset`.
-        /// * `raising_asset` - Asset being exchanged for `offering_asset` on investment.
-        /// * `tiers` - Price tiers to charge investors on investment.
-        /// * `venue_id` - Venue to handle settlement.
-        /// * `start` - Fundraiser start time, if `None` the fundraiser will start immediately.
-        /// * `end` - Fundraiser end time, if `None` the fundraiser will never expire.
-        /// * `minimum_investment` - Minimum amount of `raising_asset` that an investor needs to spend to invest in this raise.
-        /// * `fundraiser_name` - Fundraiser name, only used in the UIs.
+        /// This function creates a tiered pricing fundraiser where investors can purchase
+        /// tokens at different price points. The fundraiser uses Polymesh's settlement
+        /// infrastructure to ensure compliant and secure token transfers.
         ///
-        /// # Permissions
-        /// * Asset
-        /// * Portfolio
+        /// # Parameters
+        /// * `offering_portfolio` - Portfolio containing the tokens being offered for sale
+        /// * `offering_asset` - Asset ID of the security token being sold
+        /// * `raising_portfolio` - Portfolio that will receive the raised funds
+        /// * `raising_asset` - Asset ID of the payment token (e.g., POLYX, stablecoin)
+        /// * `tiers` - Vector of price tiers (1-10 tiers), each with total amount and price per unit
+        /// * `venue_id` - STO venue ID for handling settlements (must be owned by caller)
+        /// * `start` - Optional start time; if `None`, fundraiser begins immediately
+        /// * `end` - Optional end time; if `None`, fundraiser runs indefinitely
+        /// * `minimum_investment` - Minimum amount of `raising_asset` required per investment
+        /// * `fundraiser_name` - Human-readable name for UI display (length limited)
+        ///
+        /// # Permissions Required
+        /// * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+        /// * **Portfolio Custody**: Caller must have custody of both `offering_portfolio` and `raising_portfolio`
+        /// * **Venue Ownership**: The specified `venue_id` must be an STO venue owned by the caller
+        ///
+        /// # Errors
+        /// * `InvalidVenue` - Venue doesn't exist, wrong type, or not owned by caller
+        /// * `InvalidPriceTiers` - Invalid tier configuration (0 tiers, >10 tiers, zero amounts)
+        /// * `InvalidOfferingWindow` - Start time is after end time
+        /// * `Overflow` - Total offering amount calculation overflowed
         #[pallet::weight(<T as Config>::WeightInfo::create_fundraiser(tiers.len() as u32))]
         #[pallet::call_index(0)]
         pub fn create_fundraiser(
@@ -459,7 +556,7 @@ pub mod pallet {
 
             // Get the next fundraiser ID.
             let mut seq = FundraiserCount::<T>::get(&offering_asset);
-            let id = try_next_post::<T, _>(&mut seq)?;
+            let fundraiser_id = try_next_post::<T, _>(&mut seq)?;
 
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
 
@@ -478,37 +575,58 @@ pub mod pallet {
             };
 
             FundraiserCount::<T>::insert(offering_asset, seq);
-            Fundraisers::<T>::insert(offering_asset, id, fundraiser.clone());
-            FundraiserNames::<T>::insert(offering_asset, id, fundraiser_name.clone());
+            Fundraisers::<T>::insert(offering_asset, fundraiser_id, fundraiser.clone());
+            FundraiserNames::<T>::insert(offering_asset, fundraiser_id, fundraiser_name.clone());
 
-            Self::deposit_event(Event::FundraiserCreated(
-                did,
+            Self::deposit_event(Event::FundraiserCreated {
+                agent_did: did,
                 offering_asset,
-                id,
+                raising_asset,
+                fundraiser_id,
                 fundraiser_name,
                 fundraiser,
-            ));
+            });
 
             Ok(())
         }
 
-        /// Invest in a fundraiser.
+        /// Invest in a fundraiser using on-chain or off-chain funding.
         ///
-        /// * `offering_asset` - Asset to invest in.
-        /// * `id` - ID of the fundraiser to invest in.
-        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
-        /// * `funding` - Funding method, either on-chain portfolio or off-chain receipt.
-        /// * `purchase_amount` - Amount of `offering_asset` to purchase.
-        /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
+        /// This function allows investors to purchase tokens from an active fundraiser.
+        /// The investment is processed through multiple price tiers in order, starting
+        /// with the lowest-priced tier. The purchase creates a settlement instruction
+        /// that transfers tokens and payment between the appropriate portfolios.
         ///
-        /// # Permissions
-        /// * Portfolio
+        /// # Parameters
+        /// * `offering_asset` - Asset ID of the security token being purchased
+        /// * `fundraiser_id` - Unique identifier of the fundraiser to invest in
+        /// * `investment_portfolio` - Portfolio where purchased tokens will be deposited
+        /// * `funding` - Payment method: either `OnChain(portfolio_id)` for on-chain assets
+        ///   or `OffChain(receipt_details)` for off-chain receipts with signature verification
+        /// * `purchase_amount` - Number of `offering_asset` tokens to purchase
+        /// * `max_price` - Optional maximum price per token; if specified, investment fails
+        ///   if the blended price across tiers exceeds this limit
+        ///
+        /// # Permissions Required
+        /// * **Portfolio Custody**: Caller must have custody of `investment_portfolio`
+        /// * **Funding Portfolio**: If using on-chain funding, caller must have custody
+        ///   of the funding portfolio specified in the `FundingMethod`
+        ///
+        /// # Errors
+        /// * `FundraiserNotFound` - Specified fundraiser doesn't exist
+        /// * `FundraiserNotLive` - Fundraiser is frozen or closed
+        /// * `FundraiserExpired` - Current time is outside fundraiser's active window
+        /// * `InsufficientTokensRemaining` - Not enough tokens available across all tiers
+        /// * `InvestmentAmountTooLow` - Total cost is below minimum investment threshold
+        /// * `MaxPriceExceeded` - Blended price exceeds investor's maximum price limit
+        /// * `OffchainFundingNotAllowed` - Off-chain funding not enabled for this fundraiser
+        /// * `InvalidSignature` - Off-chain receipt signature verification failed
         #[pallet::weight(<T as Config>::WeightInfo::invest(funding.is_onchain()))]
         #[pallet::call_index(1)]
         pub fn invest(
             origin: OriginFor<T>,
             offering_asset: AssetId,
-            id: FundraiserId,
+            fundraiser_id: FundraiserId,
             investment_portfolio: PortfolioId,
             funding: FundingMethod<T::AccountId, T::OffChainSignature>,
             purchase_amount: Balance,
@@ -517,7 +635,7 @@ pub mod pallet {
             Self::base_invest(
                 origin,
                 offering_asset,
-                id,
+                fundraiser_id,
                 investment_portfolio,
                 funding,
                 purchase_amount,
@@ -525,63 +643,97 @@ pub mod pallet {
             )
         }
 
-        /// Freeze a fundraiser.
+        /// Temporarily freeze a fundraiser to prevent new investments.
         ///
-        /// * `offering_asset` - Asset to freeze.
-        /// * `id` - ID of the fundraiser to freeze.
+        /// When a fundraiser is frozen, it cannot accept new investments but remains
+        /// otherwise intact. This is useful for pausing activity while resolving
+        /// issues or during maintenance periods. The fundraiser can be unfrozen
+        /// later to resume normal operations.
         ///
-        /// # Permissions
-        /// * Asset
+        /// # Parameters
+        /// * `offering_asset` - Asset ID associated with the fundraiser to freeze
+        /// * `fundraiser_id` - Unique identifier of the fundraiser to freeze
+        ///
+        /// # Permissions Required
+        /// * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+        ///
+        /// # Errors
+        /// * `FundraiserNotFound` - Specified fundraiser doesn't exist
+        /// * `FundraiserClosed` - Fundraiser has already been permanently closed
+        /// * `Unauthorized` - Caller lacks required asset agent permissions
         #[pallet::weight(<T as Config>::WeightInfo::freeze_fundraiser())]
         #[pallet::call_index(2)]
         pub fn freeze_fundraiser(
             origin: OriginFor<T>,
             offering_asset: AssetId,
-            id: FundraiserId,
+            fundraiser_id: FundraiserId,
         ) -> DispatchResult {
-            Self::set_frozen(origin, offering_asset, id, true)?;
+            Self::set_frozen(origin, offering_asset, fundraiser_id, true)?;
             Ok(())
         }
 
-        /// Unfreeze a fundraiser.
+        /// Resume a frozen fundraiser to allow new investments.
         ///
-        /// * `offering_asset` - Asset to unfreeze.
-        /// * `id` - ID of the fundraiser to unfreeze.
+        /// This function unfreezes a previously frozen fundraiser, returning it to
+        /// the Live status where it can accept new investments. The fundraiser
+        /// must not be permanently closed for this operation to succeed.
         ///
-        /// # Permissions
-        /// * Asset
+        /// # Parameters
+        /// * `offering_asset` - Asset ID associated with the fundraiser to unfreeze
+        /// * `fundraiser_id` - Unique identifier of the fundraiser to unfreeze
+        ///
+        /// # Permissions Required
+        /// * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+        ///
+        /// # Errors
+        /// * `FundraiserNotFound` - Specified fundraiser doesn't exist
+        /// * `FundraiserClosed` - Fundraiser has been permanently closed and cannot be unfrozen
+        /// * `Unauthorized` - Caller lacks required asset agent permissions
         #[pallet::weight(<T as Config>::WeightInfo::unfreeze_fundraiser())]
         #[pallet::call_index(3)]
         pub fn unfreeze_fundraiser(
             origin: OriginFor<T>,
             offering_asset: AssetId,
-            id: FundraiserId,
+            fundraiser_id: FundraiserId,
         ) -> DispatchResult {
-            Self::set_frozen(origin, offering_asset, id, false)?;
+            Self::set_frozen(origin, offering_asset, fundraiser_id, false)?;
             Ok(())
         }
 
-        /// Modify the time window a fundraiser is active
+        /// Modify the time window when a fundraiser is active for investments.
         ///
-        /// * `offering_asset` - Asset to modify.
-        /// * `id` - ID of the fundraiser to modify.
-        /// * `start` - New start of the fundraiser.
-        /// * `end` - New end of the fundraiser to modify.
+        /// This function allows authorized agents to update the start and end times
+        /// of an active fundraiser. This can be useful for extending fundraising
+        /// periods, adjusting launch timing, or responding to market conditions.
+        /// The fundraiser must not be permanently closed to modify its window.
         ///
-        /// # Permissions
-        /// * Asset
+        /// # Parameters
+        /// * `offering_asset` - Asset ID associated with the fundraiser to modify
+        /// * `fundraiser_id` - Unique identifier of the fundraiser to modify
+        /// * `start` - New start time for the fundraiser (can be in the past or future)
+        /// * `end` - New optional end time; if `None`, the fundraiser runs indefinitely
+        ///
+        /// # Permissions Required
+        /// * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+        ///
+        /// # Errors
+        /// * `FundraiserNotFound` - Specified fundraiser doesn't exist
+        /// * `FundraiserClosed` - Fundraiser has been permanently closed
+        /// * `FundraiserExpired` - Fundraiser has already expired (past its original end time)
+        /// * `InvalidOfferingWindow` - New start time is after new end time
+        /// * `Unauthorized` - Caller lacks required asset agent permissions
         #[pallet::weight(<T as Config>::WeightInfo::modify_fundraiser_window())]
         #[pallet::call_index(4)]
         pub fn modify_fundraiser_window(
             origin: OriginFor<T>,
             offering_asset: AssetId,
-            id: FundraiserId,
+            fundraiser_id: FundraiserId,
             start: T::Moment,
             end: Option<T::Moment>,
         ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?.for_event();
 
-            <Fundraisers<T>>::try_mutate(offering_asset, id, |fundraiser| {
+            <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
                 ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
                 if let Some(end) = fundraiser.end {
@@ -590,15 +742,15 @@ pub mod pallet {
                 if let Some(end) = end {
                     ensure!(start < end, Error::<T>::InvalidOfferingWindow);
                 }
-                Self::deposit_event(Event::FundraiserWindowModified(
-                    did,
+                Self::deposit_event(Event::FundraiserWindowModified {
+                    agent_did: did,
                     offering_asset,
-                    id,
-                    fundraiser.start,
-                    fundraiser.end,
-                    start,
-                    end,
-                ));
+                    fundraiser_id,
+                    old_start: fundraiser.start,
+                    old_end: fundraiser.end,
+                    new_start: start,
+                    new_end: end,
+                });
                 fundraiser.start = start;
                 fundraiser.end = end;
                 Ok::<_, DispatchError>(())
@@ -607,25 +759,37 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Stop a fundraiser.
+        /// Permanently stop a fundraiser and unlock remaining tokens.
         ///
-        /// * `offering_asset` - Asset to stop.
-        /// * `id` - ID of the fundraiser to stop.
+        /// This function permanently closes a fundraiser, preventing any further
+        /// investments. Any remaining tokens that haven't been sold are unlocked
+        /// and returned to the offering portfolio. Once stopped, a fundraiser
+        /// cannot be restarted.
         ///
-        /// # Permissions
-        /// * Asset
+        /// # Parameters
+        /// * `offering_asset` - Asset ID associated with the fundraiser to stop
+        /// * `fundraiser_id` - Unique identifier of the fundraiser to stop
+        ///
+        /// # Permissions Required
+        /// * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+        ///   OR be the original creator of the fundraiser
+        ///
+        /// # Errors
+        /// * `FundraiserNotFound` - Specified fundraiser doesn't exist
+        /// * `FundraiserClosed` - Fundraiser has already been permanently closed
+        /// * `Unauthorized` - Caller lacks required permissions
         #[pallet::weight(<T as Config>::WeightInfo::stop())]
         #[pallet::call_index(5)]
         pub fn stop(
             origin: OriginFor<T>,
             offering_asset: AssetId,
-            id: FundraiserId,
+            fundraiser_id: FundraiserId,
         ) -> DispatchResult {
-            let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
+            let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
 
-            let did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
-            if fundraiser.creator != did {
-                <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, did)?;
+            let agent_did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+            if fundraiser.creator != agent_did {
+                <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, agent_did)?;
             }
 
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
@@ -645,44 +809,60 @@ pub mod pallet {
                 Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
                 _ => FundraiserStatus::Closed,
             };
-            <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
-            Self::deposit_event(Event::FundraiserClosed(did, offering_asset, id));
+            <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
+            Self::deposit_event(Event::FundraiserClosed {
+                agent_did,
+                offering_asset,
+                fundraiser_id,
+            });
 
             Ok(())
         }
 
-        /// Enable support for off-chain funding.
+        /// Enable off-chain funding support for a fundraiser.
         ///
-        /// * `offering_asset` - Asset to enable off-chain funding for.
-        /// * `id` - ID of the fundraiser to enable off-chain funding for.
-        /// * `ticker` - Ticker of the asset to use for off-chain funding.
+        /// This function allows a fundraiser to accept off-chain payments through
+        /// cryptographically signed receipts. Once enabled, investors can use the
+        /// `invest` function with `FundingMethod::OffChain` to provide payment
+        /// receipts instead of on-chain portfolio transfers.
         ///
-        /// # Permissions
-        /// * Asset
+        /// # Parameters
+        /// * `offering_asset` - Asset ID associated with the fundraiser
+        /// * `fundraiser_id` - Unique identifier of the fundraiser to enable off-chain funding for
+        /// * `ticker` - Ticker symbol of the off-chain asset that will be accepted as payment
+        ///
+        /// # Permissions Required
+        /// * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+        ///   OR be the original creator of the fundraiser
+        ///
+        /// # Errors
+        /// * `FundraiserNotFound` - Specified fundraiser doesn't exist
+        /// * `FundraiserClosed` - Fundraiser has been permanently closed
+        /// * `Unauthorized` - Caller lacks required permissions
         #[pallet::weight(<T as Config>::WeightInfo::enable_offchain_funding())]
         #[pallet::call_index(6)]
         pub fn enable_offchain_funding(
             origin: OriginFor<T>,
             offering_asset: AssetId,
-            id: FundraiserId,
+            fundraiser_id: FundraiserId,
             ticker: Ticker,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+            let agent_did = <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
 
-            let fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
-            if fundraiser.creator != did {
-                <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, did)?;
+            let fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
+            if fundraiser.creator != agent_did {
+                <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, agent_did)?;
             }
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
-            FundraiserOffchainAsset::<T>::insert(offering_asset, id, ticker);
+            FundraiserOffchainAsset::<T>::insert(offering_asset, fundraiser_id, ticker);
 
-            Self::deposit_event(Event::FundraiserOffchainFundingEnabled(
-                did,
+            Self::deposit_event(Event::FundraiserOffchainFundingEnabled {
+                agent_did,
                 offering_asset,
-                id,
+                fundraiser_id,
                 ticker,
-            ));
+            });
 
             Ok(())
         }
@@ -727,7 +907,7 @@ impl<T: Config> Pallet<T> {
         // Remaining tokens to fulfil the investment amount
         let mut remaining = purchase_amount;
         // Total cost to to fulfil the investment amount.
-        // Primary use is to calculate the blended price (offering_token_amount / cost).
+        // Primary use is to calculate the blended price (offering_amount / cost).
         // Blended price must be <= to max_price or the investment will fail.
         let mut cost = Balance::from(0u32);
 
@@ -878,14 +1058,14 @@ impl<T: Config> Pallet<T> {
             fundraiser.tiers[id].remaining -= amount;
         }
 
-        Self::deposit_event(Event::Invested(
+        Self::deposit_event(Event::Invested {
             investor_did,
             offering_asset,
             fundraiser_id,
             funding_asset,
-            purchase_amount,
-            cost,
-        ));
+            offering_amount: purchase_amount,
+            raise_amount: cost,
+        });
 
         <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
 
@@ -895,20 +1075,28 @@ impl<T: Config> Pallet<T> {
     fn set_frozen(
         origin: T::RuntimeOrigin,
         offering_asset: AssetId,
-        id: FundraiserId,
+        fundraiser_id: FundraiserId,
         frozen: bool,
     ) -> DispatchResult {
-        let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?;
-        let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
+        let agent_did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?;
+        let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {
             fundraiser.status = FundraiserStatus::Frozen;
-            Self::deposit_event(Event::FundraiserFrozen(did, offering_asset, id));
+            Self::deposit_event(Event::FundraiserFrozen {
+                agent_did,
+                offering_asset,
+                fundraiser_id,
+            });
         } else {
             fundraiser.status = FundraiserStatus::Live;
-            Self::deposit_event(Event::FundraiserUnfrozen(did, offering_asset, id));
+            Self::deposit_event(Event::FundraiserUnfrozen {
+                agent_did,
+                offering_asset,
+                fundraiser_id,
+            });
         }
-        <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
+        <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         Ok(())
     }
 
