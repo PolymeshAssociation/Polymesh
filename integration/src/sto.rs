@@ -29,8 +29,8 @@ pub async fn get_fundraiser_id(
     if let Some(events) = res.events().await? {
         for rec in &events.0 {
             match &rec.event {
-                RuntimeEvent::Sto(StoEvent::FundraiserCreated(_, asset, fundraiser, ..)) => {
-                    return Ok(Some((*asset, fundraiser.clone())));
+                RuntimeEvent::Sto(StoEvent::FundraiserCreated { offering_asset, fundraiser_id, .. }) => {
+                    return Ok(Some((*offering_asset, fundraiser_id.clone())));
                 }
                 _ => (),
             }
