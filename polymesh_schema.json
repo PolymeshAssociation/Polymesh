@@ -6,6 +6,31 @@
     "CddId": "[u8; 32]",
     "PalletName": "Text",
     "ExtrinsicName": "Text",
+    "AuthorizationNonce": "u64",
+    "TargetIdAuthorization": {
+      "targetId": "IdentityId",
+      "nonce": "AuthorizationNonce",
+      "expiresAt": "Moment"
+    },
+    "Receipt": {
+      "uid": "u64",
+      "instructionId": "InstructionId",
+      "legId": "LegId",
+      "senderIdentity": "IdentityId",
+      "receiverIdentity": "IdentityId",
+      "ticker": "Ticker",
+      "amount": "Balance"
+    },
+    "FundraiserId": "u64",
+    "FundraiserReceipt": {
+      "uid": "u64",
+      "fundraiserId": "FundraiserId",
+      "legId": "LegId",
+      "senderIdentity": "IdentityId",
+      "receiverIdentity": "IdentityId",
+      "ticker": "Ticker",
+      "amount": "Balance"
+    },
     "AssetPermissions": {
       "_enum": {
         "Whole": "",
@@ -516,6 +541,7 @@
     },
     "PolymeshMoment": "u64",
     "InstructionId": "u64",
+    "LegId": "u64",
     "TargetIdentity": {
       "_enum": {
         "ExternalAgent": "",
