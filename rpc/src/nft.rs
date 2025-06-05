@@ -15,13 +15,13 @@
 
 use std::sync::Arc;
 
-use sp_runtime::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{ErrorObject};
+use jsonrpsee::types::error::ErrorObject;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
+use sp_runtime::DispatchError;
 
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
 use polymesh_primitives::{NFTs, PortfolioId};

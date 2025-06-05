@@ -21,7 +21,6 @@ use crate::{
     PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::Encode as _;
-use sp_runtime::DispatchResult;
 use frame_support::ensure;
 use frame_support::traits::{Currency as _, Get as _};
 use frame_system::ensure_signed;
@@ -44,6 +43,7 @@ use polymesh_primitives::{
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::AccountIdConversion as _;
 use sp_runtime::DispatchError;
+use sp_runtime::DispatchResult;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
 

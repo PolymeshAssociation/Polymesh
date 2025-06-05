@@ -68,11 +68,7 @@ use crate as ca;
 use ca::{CAId, Tax};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use frame_support::{
-    ensure,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;

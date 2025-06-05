@@ -55,8 +55,8 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::pallet_prelude::{ValueQuery, *};
 use frame_support::ensure;
+use frame_support::pallet_prelude::{ValueQuery, *};
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
 use polymesh_primitives::crypto::verify_signature;

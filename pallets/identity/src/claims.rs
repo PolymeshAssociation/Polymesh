@@ -17,10 +17,10 @@ use crate::{
     Claim1stKey, Claim2ndKey, Claims, Config, CustomClaimIdSequence, CustomClaims,
     CustomClaimsInverse, DidRecords, Error, Event, Pallet, ParentDid,
 };
-use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::ensure;
 use frame_system::ensure_root;
 use pallet_base::{ensure_string_limited, try_next_pre};
+use sp_runtime::{DispatchError, DispatchResult};
 
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::identity_claim::CustomClaimTypeId;

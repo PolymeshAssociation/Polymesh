@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use sp_runtime::{DispatchError, DispatchResult};
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_runtime::{DispatchError, DispatchResult};
 
 use crate::{
     asset::AssetId, asset_metadata::AssetMetadataKey, compliance_manager::AssetComplianceResult,

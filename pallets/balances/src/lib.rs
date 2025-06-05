@@ -168,6 +168,7 @@ pub mod imbalances;
 pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::pallet_prelude::*;
 use frame_support::{
     ensure,
     traits::{
@@ -183,7 +184,6 @@ use frame_support::{
     },
     weights::Weight,
 };
-use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_primitives::traits::{BlockRewardsReserveCurrency, CheckCdd, IdentityFnTrait};

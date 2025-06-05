@@ -83,11 +83,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use core::mem;
 use frame_support::pallet_prelude::{ValueQuery, *};
-use frame_support::{
-    ensure,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};

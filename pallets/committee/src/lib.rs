@@ -58,17 +58,13 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use core::mem;
-use codec::{Decode, Encode, MaxEncodedLen};
-use sp_runtime::traits::Dispatchable;
 use frame_support::pallet_prelude::*;
 use frame_support::weights::Weight;
 use frame_support::{
-    dispatch::{
-        DispatchClass, GetDispatchInfo, Parameter,
-        PostDispatchInfo,
-    },
+    dispatch::{DispatchClass, GetDispatchInfo, Parameter, PostDispatchInfo},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
 };
@@ -80,6 +76,7 @@ use polymesh_primitives::{
     IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use scale_info::TypeInfo;
+use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 

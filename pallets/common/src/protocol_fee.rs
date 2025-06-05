@@ -14,9 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_runtime::DispatchResult;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+use sp_runtime::DispatchResult;
 
 /// Protocol fee operations.
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]

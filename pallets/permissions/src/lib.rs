@@ -27,16 +27,14 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::mem;
-use sp_runtime::{DispatchError, DispatchResult};
-use frame_support::{
-    traits::{CallMetadata, GetCallMetadata},
-};
+use frame_support::traits::{CallMetadata, GetCallMetadata};
 use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::{fmt, marker::PhantomData, result::Result, vec};
 
 use frame_support::pallet_prelude::*;

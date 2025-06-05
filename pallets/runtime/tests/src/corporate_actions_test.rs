@@ -6,10 +6,7 @@ use super::{
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::asset_test::{check_schedules, next_schedule_id, set_timestamp};
 use core::iter;
-use sp_runtime::{DispatchError, DispatchResult};
-use frame_support::{
-    assert_noop, assert_ok,
-};
+use frame_support::{assert_noop, assert_ok};
 use pallet_asset::checkpoint::{
     CheckpointIdSequence, ScheduleIdSequence, SchedulePoints, ScheduleRefCount, Timestamps,
 };
@@ -35,6 +32,7 @@ use polymesh_primitives::{
 };
 use sp_arithmetic::Permill;
 use sp_keyring::AccountKeyring;
+use sp_runtime::{DispatchError, DispatchResult};
 use std::convert::TryInto;
 
 type System = frame_system::Pallet<TestStorage>;

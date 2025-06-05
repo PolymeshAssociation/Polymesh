@@ -1,6 +1,4 @@
 use codec::{Decode, DecodeLimit, Encode};
-use sp_runtime::DispatchError;
-use sp_runtime::traits::Dispatchable;
 use frame_support::dispatch::GetDispatchInfo;
 use frame_support::ensure;
 use frame_support::storage::unhashed;
@@ -12,6 +10,8 @@ use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::UncheckedFrom;
+use sp_runtime::traits::Dispatchable;
+use sp_runtime::DispatchError;
 
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;

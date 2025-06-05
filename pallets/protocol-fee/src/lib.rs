@@ -38,7 +38,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons},
     weights::Weight,
@@ -51,6 +50,7 @@ use polymesh_primitives::{
     Balance, IdentityId, PosRatio, GC_DID,
 };
 use sp_runtime::{traits::Zero, Perbill};
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::vec::Vec;
 
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<

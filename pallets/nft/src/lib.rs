@@ -1,9 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::dispatch::{DispatchResultWithPostInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::{OptionQuery, *};
-use frame_support::dispatch::{
-    DispatchResultWithPostInfo, PostDispatchInfo,
-};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{ensure, require_transactional};

@@ -18,9 +18,7 @@ use std::sync::Arc;
 use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::{
-  error::{ErrorObject},
-};
+use jsonrpsee::types::error::ErrorObject;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;

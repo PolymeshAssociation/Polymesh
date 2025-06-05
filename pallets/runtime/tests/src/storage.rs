@@ -5,7 +5,6 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
-use sp_runtime::DispatchResult;
 use frame_support::dispatch::Weight;
 use frame_support::traits::{
     Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, TryCollect,
@@ -28,6 +27,7 @@ use sp_runtime::traits::{
     Verify,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
+use sp_runtime::DispatchResult;
 use sp_runtime::{create_runtime_str, AnySignature, KeyTypeId, Perbill, Permill};
 use sp_staking::{EraIndex, SessionIndex};
 use sp_version::RuntimeVersion;

@@ -71,13 +71,11 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::convert::From;
-use frame_support::pallet_prelude::*;
-use frame_support::weights::Weight;
-use frame_support::dispatch::{
-    DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
-};
+use frame_support::dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo};
 use frame_support::ensure;
+use frame_support::pallet_prelude::*;
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
+use frame_support::weights::Weight;
 use frame_support::BoundedVec;
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Dispatchable, Hash};

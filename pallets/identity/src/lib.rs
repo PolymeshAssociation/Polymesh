@@ -93,11 +93,8 @@ pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData,
 
 use codec::{Decode, Encode};
 use core::convert::From;
-use sp_runtime::DispatchError;
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
-use frame_support::dispatch::{
-    GetDispatchInfo, Pays, PostDispatchInfo,
-};
+use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::traits::{
     ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers,
 };
@@ -122,6 +119,7 @@ use polymesh_primitives::{
 use polymesh_primitives::{SystematicIssuers, GC_DID};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
+use sp_runtime::DispatchError;
 use sp_std::prelude::*;
 use sp_std::vec::Vec;
 

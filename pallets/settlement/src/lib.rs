@@ -50,10 +50,8 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::dispatch::{
-    DispatchErrorWithPostInfo, DispatchResultWithPostInfo,
-    PostDispatchInfo,
+    DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo,
 };
 use frame_support::pallet_prelude::*;
 use frame_support::storage::with_transaction as frame_support_with_transaction;
@@ -65,6 +63,7 @@ use frame_support::{ensure, BoundedBTreeSet};
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, RawOrigin};
 use sp_runtime::traits::One;
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;

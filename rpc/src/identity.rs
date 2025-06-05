@@ -150,8 +150,7 @@ where
                     ErrorCode::MethodNotFound.code(),
                     format!("Cannot find `IdentityApi` for block {:?}", at),
                     None::<()>,
-                )
-                );
+                ));
             }
         }
         .map_err(|e| {
@@ -200,8 +199,7 @@ where
                     "Provided vector length is more than the maximum allowed length i.e {:?}",
                     MAX_IDENTITIES_ALLOWED_TO_QUERY
                 )),
-            )
-            );
+            ));
         }
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);

@@ -20,7 +20,6 @@
 use std::collections::BTreeMap;
 
 use frame_election_provider_support::{onchain, SequentialPhragmen};
-use sp_runtime::DispatchResult;
 use frame_support::dispatch::Weight;
 use frame_support::traits::{
     ConstU32, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, KeyOwnerProofSystem,
@@ -35,6 +34,7 @@ use sp_runtime::testing::{TestXt, UintAuthorityId};
 use sp_runtime::traits::{IdentityLookup, Zero};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::BuildStorage;
+use sp_runtime::DispatchResult;
 use sp_runtime::{KeyTypeId, Perbill};
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};

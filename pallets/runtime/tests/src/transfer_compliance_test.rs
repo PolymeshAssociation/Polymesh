@@ -2,10 +2,7 @@ use super::{
     storage::{account_from, make_account, TestStorage, User},
     ExtBuilder,
 };
-use sp_runtime::{DispatchError, DispatchResult};
-use frame_support::{
-    assert_noop, assert_ok,
-};
+use frame_support::{assert_noop, assert_ok};
 use pallet_external_agents::Event;
 use pallet_statistics::AssetStats;
 use polymesh_primitives::asset::AssetId;
@@ -15,6 +12,7 @@ use polymesh_primitives::{
 };
 use sp_arithmetic::Permill;
 use sp_keyring::AccountKeyring;
+use sp_runtime::{DispatchError, DispatchResult};
 use std::collections::{HashMap, HashSet};
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;

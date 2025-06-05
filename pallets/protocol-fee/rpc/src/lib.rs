@@ -13,11 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{ErrorObject},
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::error::ErrorObject};
 use node_rpc::Error;
 pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
 use polymesh_common_utilities::protocol_fee::ProtocolOp;

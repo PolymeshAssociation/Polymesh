@@ -56,9 +56,7 @@ pub mod benchmarking;
 pub mod chain_extension;
 
 use codec::{Compact, Decode, Encode};
-use frame_support::dispatch::{
-    DispatchErrorWithPostInfo, DispatchResultWithPostInfo,
-};
+use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
 use frame_support::ensure;
 use frame_support::pallet_prelude::*;
 use frame_support::traits::Get;
@@ -73,8 +71,8 @@ use sp_std::{vec, vec::Vec};
 
 pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::weights::WeightInfo as FrameWeightInfo;
-use pallet_contracts::Config as BConfig;
 use pallet_contracts::Code;
+use pallet_contracts::Config as BConfig;
 use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as IdentityWeightInfo};
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};

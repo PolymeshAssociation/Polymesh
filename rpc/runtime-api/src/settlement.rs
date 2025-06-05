@@ -15,8 +15,8 @@
 
 //! Runtime API definition for Settlement module.
 
-use sp_runtime::DispatchError;
 use frame_support::weights::Weight;
+use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo};

@@ -17,12 +17,12 @@ use crate::{
     AuthorizationType, Authorizations, AuthorizationsGiven, Config, CurrentAuthId, Error, Event,
     KeyRecords, NumberOfGivenAuths, OutdatedAuthorizations, Pallet,
 };
-use sp_runtime::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
 use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
 use sp_core::Get;
 use sp_runtime::DispatchError;
+use sp_runtime::DispatchResult;
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {

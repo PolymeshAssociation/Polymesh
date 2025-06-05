@@ -7,7 +7,6 @@ use super::{
     },
     ExtBuilder,
 };
-use sp_runtime::{DispatchError, DispatchResult};
 use frame_support::{
     assert_noop, assert_ok,
     traits::{LockableCurrency, WithdrawReasons},
@@ -24,6 +23,7 @@ use pallet_pips::{
 use pallet_treasury as treasury;
 use polymesh_primitives::{AccountId, BlockNumber, MaybeBlock, Url, GC_DID};
 use sp_keyring::AccountKeyring;
+use sp_runtime::{DispatchError, DispatchResult};
 use std::ops::Deref;
 
 type System = frame_system::Pallet<TestStorage>;

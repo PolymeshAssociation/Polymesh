@@ -71,11 +71,11 @@ impl<T: BlockRewardConfig> Imbalance<Balance> for PositiveImbalance<T> {
         (Self::new(first), Self::new(second))
     }
 
-		fn extract(&mut self, amount: Balance) -> Self {
-			let new = self.0.min(amount);
-			self.0 = self.0 - new;
-			Self::new(new)
-		}
+    fn extract(&mut self, amount: Balance) -> Self {
+        let new = self.0.min(amount);
+        self.0 = self.0 - new;
+        Self::new(new)
+    }
 
     fn merge(mut self, other: Self) -> Self {
         self.0 = self.0.saturating_add(other.0);
@@ -161,11 +161,11 @@ impl<T: BlockRewardConfig> Imbalance<Balance> for NegativeImbalance<T> {
         (Self::new(first), Self::new(second))
     }
 
-		fn extract(&mut self, amount: Balance) -> Self {
-			let new = self.0.min(amount);
-			self.0 = self.0 - new;
-			Self::new(new)
-		}
+    fn extract(&mut self, amount: Balance) -> Self {
+        let new = self.0.min(amount);
+        self.0 = self.0 - new;
+        Self::new(new)
+    }
 
     fn merge(mut self, other: Self) -> Self {
         self.0 = self.0.saturating_add(other.0);

@@ -5,10 +5,7 @@ use super::{
         RuntimeCall, TestStorage,
     },
 };
-use sp_runtime::{DispatchError, DispatchResult};
-use frame_support::{
-    assert_noop, assert_ok,
-};
+use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
 use pallet_committee::{
     self as committee, Event as CommitteeRawEvent, Members, PolymeshVotes, Proposals,
@@ -21,6 +18,7 @@ use polymesh_primitives::{IdentityId, MaybeBlock};
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::traits::Hash;
+use sp_runtime::{DispatchError, DispatchResult};
 use std::convert::TryFrom;
 
 type Committee = committee::Pallet<TestStorage, committee::Instance1>;

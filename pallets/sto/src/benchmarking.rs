@@ -1,6 +1,6 @@
 use frame_benchmarking::benchmarks;
-use sp_runtime::DispatchError;
 use scale_info::prelude::format;
+use sp_runtime::DispatchError;
 use sp_runtime::MultiSignature;
 
 use pallet_asset::benchmarking::setup_asset_transfer;

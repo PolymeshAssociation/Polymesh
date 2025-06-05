@@ -17,7 +17,7 @@
 //! RPC interface for the transaction payment module.
 
 use codec::Decode;
-use jsonrpsee::core::{RpcResult};
+use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::error::{ErrorCode, ErrorObject};
 pub use node_rpc_runtime_api::transaction_payment::{
@@ -94,11 +94,7 @@ where
         })?;
 
         fn map_err(error: impl ToString, desc: &'static str) -> ErrorObject<'static> {
-            ErrorObject::owned(
-                Error::RuntimeError.into(),
-                desc,
-                Some(error.to_string()),
-            )
+            ErrorObject::owned(Error::RuntimeError.into(), desc, Some(error.to_string()))
         }
 
         let api_version = api

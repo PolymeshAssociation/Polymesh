@@ -92,8 +92,8 @@ pub mod ballot;
 pub mod distribution;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::pallet_prelude::{ValueQuery, *};
 use frame_support::ensure;
+use frame_support::pallet_prelude::{ValueQuery, *};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::ensure_root;

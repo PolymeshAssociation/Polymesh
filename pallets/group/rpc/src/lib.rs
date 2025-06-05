@@ -2,11 +2,7 @@ pub use pallet_group_rpc_runtime_api::{GroupApi as GroupRuntimeApi, Member};
 
 use std::{marker::PhantomData, sync::Arc};
 
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{ErrorObject},
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::error::ErrorObject};
 use node_rpc::Error;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
