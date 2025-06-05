@@ -10,7 +10,7 @@
     "TargetIdAuthorization": {
       "targetId": "IdentityId",
       "nonce": "AuthorizationNonce",
-      "expiresAt": "Moment"
+      "expiresAt": "PolymeshMoment"
     },
     "Receipt": {
       "uid": "u64",
