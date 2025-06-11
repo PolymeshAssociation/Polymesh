@@ -17,7 +17,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-pub mod cdd_check;
 pub mod fee_details;
 pub mod impls;
 pub mod migration;
@@ -45,8 +44,7 @@ use polymesh_primitives::constants::currency::*;
 pub use polymesh_primitives::RocksDbWeight;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
 
-pub use cdd_check::CddChecker;
-pub use impls::{Author, CurrencyToVoteHandler};
+pub use impls::Author;
 
 pub type NegativeImbalance<T> =
     <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;

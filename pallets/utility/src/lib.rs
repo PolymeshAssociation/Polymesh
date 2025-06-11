@@ -88,7 +88,7 @@ use pallet_balances::Config as BalancesConfig;
 use pallet_identity::{Config as IdentityConfig, Context};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::identity::AuthorizationNonce;
-use polymesh_primitives::{crypto::verify_signature, traits::CheckCdd, IdentityId};
+use polymesh_primitives::{crypto::verify_signature, IdentityId};
 
 type Identity<T> = pallet_identity::Pallet<T>;
 
@@ -246,6 +246,8 @@ pub mod pallet {
         InvalidNonce,
         /// Decoding derivative account Id failed.
         UnableToDeriveAccountId,
+        /// No identity found for the target account.
+        IdentityNotFound,
     }
 
     /// Nonce for `relay_tx`.
@@ -362,8 +364,10 @@ pub mod pallet {
                 Error::<T>::InvalidSignature
             );
 
+            let target_did = pallet_identity::Pallet::<T>::get_identity(&target)
+                .ok_or(Error::<T>::IdentityNotFound)?;
             ensure!(
-                T::CddChecker::check_key_cdd(&target),
+                pallet_identity::Pallet::<T>::has_valid_cdd(target_did),
                 Error::<T>::TargetCddMissing
             );
 

@@ -291,7 +291,7 @@ fn _relay_unhappy_cases() {
             AccountKeyring::Bob.sign(&transaction.encode()).into(),
             transaction.clone()
         ),
-        Error::TargetCddMissing
+        Error::IdentityNotFound
     );
 
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();

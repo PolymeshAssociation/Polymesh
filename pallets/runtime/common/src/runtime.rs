@@ -91,7 +91,7 @@ macro_rules! misc_pallet_impls {
             /// What to do if an account is fully reaped from the system.
             type OnKilledAccount = ();
             /// The data to be stored in an account.
-            type AccountData = pallet_balances::AccountData;
+            type AccountData = pallet_balances::AccountData<Balance>;
             type SystemWeightInfo = polymesh_weights::frame_system::SubstrateWeight;
             type OnSetCode = ();
             type MaxConsumers = frame_support::traits::ConstU32<16>;
@@ -177,18 +177,17 @@ macro_rules! misc_pallet_impls {
             type WeightToFeeConst = polymesh_runtime_common::WeightToFee;
         }
 
-        impl pallet_balances::BlockRewardConfig for Runtime {
-            type BlockRewardsReserve = pallet_balances::Pallet<Runtime>;
-        }
-
         impl pallet_balances::Config for Runtime {
-            type MaxLocks = MaxLocks;
+            type Balance = Balance;
             type DustRemoval = ();
             type RuntimeEvent = RuntimeEvent;
             type ExistentialDeposit = ExistentialDeposit;
             type AccountStore = frame_system::Pallet<Runtime>;
-            type CddChecker = polymesh_runtime_common::cdd_check::CddChecker<Runtime>;
             type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
+            type MaxLocks = MaxLocks;
+            type MaxReserves = MaxReserves;
+            type ReserveIdentifier = [u8; 8];
+            type Memo = polymesh_primitives::Memo;
         }
 
         impl pallet_protocol_fee::Config for Runtime {

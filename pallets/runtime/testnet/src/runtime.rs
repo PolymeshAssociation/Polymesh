@@ -83,6 +83,7 @@ parameter_types! {
     // Balances:
     pub const ExistentialDeposit: Balance = 0u128;
     pub const MaxLocks: u32 = 50;
+    pub const MaxReserves: u32 = 50;
 
     // Timestamp:
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
