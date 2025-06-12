@@ -284,16 +284,6 @@ fn _relay_unhappy_cases() {
         Error::InvalidSignature
     );
 
-    assert_noop!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob.clone(),
-            AccountKeyring::Bob.sign(&transaction.encode()).into(),
-            transaction.clone()
-        ),
-        Error::IdentityNotFound
-    );
-
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     let transaction = UniqueCall::new(

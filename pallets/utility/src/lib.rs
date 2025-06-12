@@ -364,13 +364,6 @@ pub mod pallet {
                 Error::<T>::InvalidSignature
             );
 
-            let target_did = pallet_identity::Pallet::<T>::get_identity(&target)
-                .ok_or(Error::<T>::IdentityNotFound)?;
-            ensure!(
-                pallet_identity::Pallet::<T>::has_valid_cdd(target_did),
-                Error::<T>::TargetCddMissing
-            );
-
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             let info = call.call.get_dispatch_info();
