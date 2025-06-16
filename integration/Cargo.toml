@@ -32,6 +32,6 @@ sp-keyring = "41.0"
 sp-weights = "31.1"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "max-encoded-len"] }
 
-polymesh-api = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "update-new-type", features = ["download_metadata"] }
+polymesh-api = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "update-new-type", features = ["polymesh_v8"] }
 polymesh-api-client-extras = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "update-new-type", features = ["polymesh_v8"]}
 polymesh-api-tester = { git = "https://github.com/PolymeshAssociation/polymesh-api", branch = "update-new-type", features = ["download_metadata"] }
