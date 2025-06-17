@@ -3078,7 +3078,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api"
 version = "3.11.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "async-trait",
  "ink",
@@ -3095,7 +3095,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client"
 version = "3.9.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3128,7 +3128,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client-extras"
 version = "3.6.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "parity-scale-codec",
  "polymesh-api",
@@ -3140,7 +3140,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen"
 version = "3.7.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "frame-metadata",
  "heck 0.4.1",
@@ -3159,7 +3159,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen-macro"
 version = "3.7.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -3173,7 +3173,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-ink"
 version = "1.6.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "hex",
  "ink",
@@ -3188,7 +3188,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-tester"
 version = "0.10.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#60bb0122780bb14ccdfda4fd6e7cac2acfc3d907"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "async-trait",
  "env_logger 0.11.8",

@@ -427,7 +427,6 @@ jobs:
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
             --package polymesh-runtime-tests
-            --package pallet-balances:0.1.0
             --package asset-metadata
           no_output_timeout: 30m
       - save-sccache-cache
@@ -472,7 +471,7 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests against the previous version.
-          command: cargo nextest run --features previous_release --locked
+          command: cargo nextest run --features current_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
