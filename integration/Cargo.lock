@@ -3078,8 +3078,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api"
 version = "3.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45ff80f4052cb02de5dcf3eb34d709c054d56f9d670e1d0c79f6eb2aee8c8a9a"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "async-trait",
  "ink",
@@ -3096,8 +3095,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client"
 version = "3.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d56cf9e3a73fada7c5859a0a8821975553d9478f840f8dfae0b97fbf766ea5bd"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3130,8 +3128,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-client-extras"
 version = "3.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a684432bc48150f1de14f8695da6c3bb9629e45b5e76fdfde14e994bd334f6b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "parity-scale-codec",
  "polymesh-api",
@@ -3143,8 +3140,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen"
 version = "3.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a63d6a2adabd1d0dc37b9deefef14221e9a1c606044e42366677ddc0605887e7"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "frame-metadata",
  "heck 0.4.1",
@@ -3163,8 +3159,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-codegen-macro"
 version = "3.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27676a20d1b51d72f53e6209ad4c0357e02a4a64459c88876df979b2dafc3615"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -3178,8 +3173,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-ink"
 version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47a1895afdbf02486aa486e5508e7fe7c9fa2bffa23dbeb16f91558ce3b5c30b"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "hex",
  "ink",
@@ -3194,8 +3188,7 @@ dependencies = [
 [[package]]
 name = "polymesh-api-tester"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "998e2026b62c49a2bfe25b95f64815947eafd1ae8410a80d959780e02d3d8a99"
+source = "git+https://github.com/PolymeshAssociation/polymesh-api?branch=update-new-type#ec295c9d5c5a8c26c198072f5ac69b69efb0e6a9"
 dependencies = [
  "async-trait",
  "env_logger 0.11.8",
