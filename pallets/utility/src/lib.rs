@@ -246,8 +246,6 @@ pub mod pallet {
         InvalidNonce,
         /// Decoding derivative account Id failed.
         UnableToDeriveAccountId,
-        /// No identity found for the target account.
-        IdentityNotFound,
     }
 
     /// Nonce for `relay_tx`.
