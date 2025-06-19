@@ -89,7 +89,7 @@ use sp_std::convert::From;
 use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 
-use pallet_balances::LockableCurrencyExt;
+use pallet_balances::impls::LockableCurrencyExt;
 use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -361,7 +361,7 @@ pub mod pallet {
         frame_system::Config + pallet_timestamp::Config + IdentityConfig + pallet_base::Config
     {
         /// Currency type for this module.
-        type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: LockableCurrencyExt<Self::AccountId, Balance, Moment = Self::BlockNumber>;
         /// Origin type for enacting results for PIPs (e.g., reject, approve, skip).
         type VotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         /// Governance committee responsible for overseeing the PIPs.

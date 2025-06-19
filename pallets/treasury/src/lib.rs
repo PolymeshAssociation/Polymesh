@@ -43,7 +43,6 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_balances::Config as BalancesConfig;
 use pallet_identity as identity;
 use polymesh_primitives::{constants::TREASURY_PALLET_ID, Beneficiary, IdentityId, GC_DID};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -70,7 +69,9 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + BalancesConfig {
+    pub trait Config:
+        frame_system::Config + pallet_identity::Config + pallet_balances::Config
+    {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The native currency.

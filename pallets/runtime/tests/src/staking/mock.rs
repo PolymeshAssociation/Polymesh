@@ -38,7 +38,6 @@ use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 use sp_staking::{EraIndex, SessionIndex};
 
 use pallet_balances::AccountData;
-use pallet_balances::BlockRewardConfig;
 use pallet_staking::*;
 use pallet_validators::types::SlashingSwitch;
 use polymesh_primitives::asset::AssetId;
@@ -149,6 +148,7 @@ parameter_types! {
 
     pub const MaxLen: u32 = 256;
     pub const MaxLocks: u32 = 1024;
+    pub const MaxReserves: u32 = 50;
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub BlockWeights: frame_system::limits::BlockWeights =
@@ -175,7 +175,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = AccountData;
+    type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -189,19 +189,17 @@ impl pallet_base::Config for Test {
     type MaxLen = MaxLen;
 }
 
-impl BlockRewardConfig for Test {
-    type BlockRewardsReserve = pallet_balances::Pallet<Test>;
-}
-
 impl pallet_balances::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
+    type Balance = Balance;
     type DustRemoval = ();
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-
-    type CddChecker = Test;
-    type MaxLocks = MaxLocks;
     type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
+    type MaxLocks = MaxLocks;
+    type MaxReserves = MaxReserves;
+    type ReserveIdentifier = [u8; 8];
+    type Memo = polymesh_primitives::Memo;
 }
 
 sp_runtime::impl_opaque_keys! {

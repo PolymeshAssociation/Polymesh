@@ -164,7 +164,6 @@ fn batch_optimistic_failures_listed() {
         );
         // skip Balances::Transfer event.
         events.pop().unwrap();
-        events.pop().unwrap();
 
         assert_eq!(
             events.pop().unwrap().event,
