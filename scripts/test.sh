@@ -11,6 +11,5 @@ SKIP_WASM_BUILD=1 RUST_BACKTRACE=1 \
   --package node-rpc-runtime-api \
   --package pallet-transaction-payment \
   --package polymesh-runtime-tests \
-  --package pallet-balances:0.1.0 \
   --package asset-metadata \
   "$@"
