@@ -107,7 +107,6 @@ substrate-test-utils = { git = "https://github.com/PolymeshAssociation/polkadot-
 members = [
     "node-rpc",
     "pallets/asset",
-    "pallets/balances",
     "pallets/base",
     "pallets/committee",
     "pallets/compliance-manager",
@@ -156,7 +155,6 @@ exclude = [
 [workspace.dependencies]
 # Our pallets
 pallet-asset = { path = "pallets/asset", default-features = false }
-pallet-balances = { path = "pallets/balances", default-features = false }
 pallet-base = { path = "pallets/base", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-compliance-manager = { path = "pallets/compliance-manager", default-features = false }
@@ -213,6 +211,7 @@ frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false
 pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
+pallet-balances = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "7.0.0", default-features = false}
 pallet-election-provider-multi-phase = { version = "4.0.0-dev", default-features = false }
