@@ -455,6 +455,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 12;
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
+    pub const MaxReserves: u32 = 50;
     pub const MaxLen: u32 = 256;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
