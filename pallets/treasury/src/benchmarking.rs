@@ -28,14 +28,14 @@ benchmarks! {
         let b in 1..MAX_BENEFICIARIES;
         let initial_balance = Pallet::<T>::balance();
         // Refill treasury
-        let refiller = UserBuilder::<T>::default().balance(200u32 + REWARD * b).generate_did().build("refiller");
-        Pallet::<T>::reimbursement( refiller.origin().into(), (100 + (REWARD * b)).into())
+        let refiller = UserBuilder::<T>::default().balance(5_000 + REWARD * b).generate_did().build("refiller");
+        Pallet::<T>::reimbursement( refiller.origin().into(), (5_000 + (REWARD * b)).into())
             .expect("Tresury cannot be refill");
 
         // Create beneficiaries
         let beneficiaries = (0..b).map( |idx| {
             let user = UserBuilder::<T>::default()
-                .balance(100u32)
+                .balance(1_000u32)
                 .seed(idx)
                 .generate_did()
                 .build("beneficiary")
@@ -46,12 +46,12 @@ benchmarks! {
 
     }: _(RawOrigin::Root, beneficiaries)
     verify {
-        assert_eq!(Pallet::<T>::balance(), (initial_balance + 100u32.into()));
+        assert_eq!(Pallet::<T>::balance(), (initial_balance + 5_000u32.into()));
     }
 
     reimbursement {
         let initial_balance = Pallet::<T>::balance();
-        let caller = UserBuilder::<T>::default().balance(1_000u32).generate_did().build("caller");
+        let caller = UserBuilder::<T>::default().balance(2_000u32).generate_did().build("caller");
         let amount = 500u32.into();
     }: _(caller.origin(), amount)
     verify {
