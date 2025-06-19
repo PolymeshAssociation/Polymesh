@@ -58,45 +58,9 @@ impl pallet_balances::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:2 w:0)
     // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     fn transfer() -> Weight {
-        // Minimum execution time: 41_953 nanoseconds.
-        Weight::from_ref_time(45_729_000)
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(2))
-    }
-    // Storage: System Account (r:2 w:2)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    fn transfer_with_memo() -> Weight {
-        // Minimum execution time: 42_414 nanoseconds.
-        Weight::from_ref_time(43_586_000)
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(2))
-    }
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
-    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: System Account (r:2 w:2)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    fn deposit_block_reward_reserve_balance() -> Weight {
-        // Minimum execution time: 60_511 nanoseconds.
-        Weight::from_ref_time(64_106_000)
+        // Minimum execution time: 67_431 nanoseconds.
+        Weight::from_ref_time(74_752_000)
             .saturating_add(DbWeight::get().reads(8))
-            .saturating_add(DbWeight::get().writes(2))
-    }
-    // Storage: System Account (r:2 w:2)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    fn set_balance() -> Weight {
-        // Minimum execution time: 48_843 nanoseconds.
-        Weight::from_ref_time(50_946_000)
-            .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: System Account (r:2 w:2)
@@ -109,20 +73,44 @@ impl pallet_balances::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(2))
     }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
-    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    fn transfer_keep_alive() -> Weight {
+        // Minimum execution time: 28_184 nanoseconds.
+        Weight::from_ref_time(49_250_000)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
+    }
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    fn set_balance_creating() -> Weight {
+        // Minimum execution time: 17_474 nanoseconds.
+        Weight::from_ref_time(17_777_000)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
+    }
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    fn set_balance_killing() -> Weight {
+        // Minimum execution time: 20_962 nanoseconds.
+        Weight::from_ref_time(21_419_000)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
+    }
     // Storage: System Account (r:1 w:1)
-    // Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-    fn burn_account_balance() -> Weight {
-        // Minimum execution time: 44_236 nanoseconds.
-        Weight::from_ref_time(45_638_000)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(1))
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    fn transfer_all() -> Weight {
+        // Minimum execution time: 34_878 nanoseconds.
+        Weight::from_ref_time(35_121_000)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
+    }
+    /// Storage: System Account (r:1 w:1)
+    /// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+    fn force_unreserve() -> Weight {
+        // Minimum execution time: 16_790 nanoseconds.
+        Weight::from_ref_time(17_029_000)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
     }
 }
