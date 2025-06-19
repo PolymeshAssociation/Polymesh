@@ -2178,7 +2178,7 @@ fn bond_with_no_staked_value() {
     // Particularly when they votes and the candidate is elected.
     ExtBuilder::default()
         .validator_count(3)
-        .existential_deposit(5)
+        .existential_deposit(0)
         .balance_factor(5)
         .nominate(false)
         .minimum_validator_count(1)
@@ -3027,7 +3027,7 @@ fn only_slash_for_max_in_era() {
 fn garbage_collection_after_slashing() {
     // ensures that `SlashingSpans` and `SpanSlash` of an account is removed after reaping.
     ExtBuilder::default()
-        .existential_deposit(2)
+        .existential_deposit(0)
         .balance_factor(2)
         .build_and_execute(|| {
             assert_eq!(Balances::free_balance(11), 2000);
@@ -5046,7 +5046,7 @@ fn session_buffering_no_offset() {
 #[test]
 fn cannot_rebond_to_lower_than_ed() {
     ExtBuilder::default()
-        .existential_deposit(10)
+        .existential_deposit(0)
         .balance_factor(10)
         .build_and_execute(|| {
             // initial stuff.
@@ -5089,7 +5089,7 @@ fn cannot_rebond_to_lower_than_ed() {
 #[test]
 fn cannot_bond_extra_to_lower_than_ed() {
     ExtBuilder::default()
-        .existential_deposit(10)
+        .existential_deposit(0)
         .balance_factor(10)
         .build_and_execute(|| {
             // initial stuff.
@@ -5133,7 +5133,7 @@ fn cannot_bond_extra_to_lower_than_ed() {
 fn do_not_die_when_active_is_ed() {
     let ed = 10;
     ExtBuilder::default()
-        .existential_deposit(ed)
+        .existential_deposit(0)
         .balance_factor(ed)
         .build_and_execute(|| {
             // given
