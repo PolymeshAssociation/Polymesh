@@ -566,6 +566,8 @@ pub mod pallet {
         ExceededMaximumLockingPeriod,
         /// Not all conditions for transferring the asset have been met.
         FailedAssetTransferringConditions,
+        /// Locked instructions can't have affirmations withdrawn.
+        InvalidInstructionStatusForWithdrawal,
     }
 
     storage_migration_ver!(3);
@@ -1718,6 +1720,10 @@ impl<T: Config> Pallet<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
+        if InstructionStatus::LockedForExecution == InstructionStatuses::<T>::get(id) {
+            return Err(Error::<T>::InvalidInstructionStatusForWithdrawal.into());
+        }
+
         // checks custodianship of portfolios and affirmation status
         Self::ensure_portfolios_and_affirmation_status(
             id,
