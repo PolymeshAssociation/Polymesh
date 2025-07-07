@@ -145,6 +145,8 @@ parameter_types! {
 
     pub const MaxLen: u32 = 256;
     pub const MaxLocks: u32 = 1024;
+    pub const MaxHolds: u32 = 32;
+    pub const MaxFreezes: u32 = 32;
     pub const MaxReserves: u32 = 50;
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
@@ -196,6 +198,10 @@ impl pallet_balances::Config for Test {
     type MaxReserves = MaxReserves;
     type ReserveIdentifier = [u8; 8];
     type Memo = polymesh_primitives::Memo;
+    type RuntimeHoldReason = [u8; 32];
+    type FreezeIdentifier = [u8; 8];
+    type MaxHolds = MaxHolds;
+    type MaxFreezes = MaxFreezes;
 }
 
 sp_runtime::impl_opaque_keys! {
