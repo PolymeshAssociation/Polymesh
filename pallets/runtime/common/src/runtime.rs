@@ -176,6 +176,10 @@ macro_rules! misc_pallet_impls {
             type MaxReserves = MaxReserves;
             type ReserveIdentifier = [u8; 8];
             type Memo = polymesh_primitives::Memo;
+            type RuntimeHoldReason = [u8; 32];
+            type FreezeIdentifier = [u8; 8];
+            type MaxHolds = MaxHolds;
+            type MaxFreezes = MaxFreezes;
         }
 
         impl pallet_protocol_fee::Config for Runtime {

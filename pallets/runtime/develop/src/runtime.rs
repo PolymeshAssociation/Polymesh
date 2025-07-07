@@ -85,6 +85,8 @@ parameter_types! {
     pub const BenchmarkEd: Balance = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxReserves: u32 = 50;
+    pub const MaxHolds: u32 = 32;
+    pub const MaxFreezes: u32 = 32;
 
 
     // Timestamp:
