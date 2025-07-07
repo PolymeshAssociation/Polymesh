@@ -125,7 +125,7 @@ fn force_unstake_works() {
         // Cant transfer
         assert_noop!(
             Balances::transfer(RuntimeOrigin::signed(11), 1, 10),
-            BalancesError::<Test>::LiquidityRestrictions
+            sp_runtime::TokenError::Frozen
         );
         // Force unstake requires root.
         assert_noop!(
@@ -1098,7 +1098,7 @@ fn cannot_transfer_staked_balance() {
         // Confirm account 11 cannot transfer as a result
         assert_noop!(
             Balances::transfer(RuntimeOrigin::signed(11), 20, 1),
-            BalancesError::<Test>::LiquidityRestrictions
+            sp_runtime::TokenError::Frozen
         );
 
         // Give account 11 extra free balance
@@ -1123,7 +1123,7 @@ fn cannot_transfer_staked_balance_2() {
         // Confirm account 21 can transfer at most 1000
         assert_noop!(
             Balances::transfer(RuntimeOrigin::signed(21), 20, 1001),
-            BalancesError::<Test>::LiquidityRestrictions
+            sp_runtime::TokenError::Frozen
         );
         assert_ok!(Balances::transfer(RuntimeOrigin::signed(21), 20, 1000));
     });

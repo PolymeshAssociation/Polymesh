@@ -60,12 +60,6 @@ fn transfer(to: AccountId, amount: Balance) -> RuntimeCall {
     })
 }
 
-const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
-    index: 5,
-    error: [2, 0, 0, 0],
-    message: None,
-});
-
 #[track_caller]
 fn assert_event(event: Event<TestStorage>) {
     assert_eq!(
@@ -117,7 +111,7 @@ fn batch_early_exit_works() {
         assert_balance(bob, 1000 + 400, 0);
         assert_event(Event::BatchInterrupted {
             index: 1,
-            error: ERROR,
+            error: sp_runtime::TokenError::FundsUnavailable.into(),
         });
     })
 }
@@ -156,7 +150,9 @@ fn batch_optimistic_failures_listed() {
         );
         assert_eq!(
             events.pop().unwrap().event,
-            EventTest::Utility(Event::ItemFailed { error: ERROR })
+            EventTest::Utility(Event::ItemFailed {
+                error: sp_runtime::TokenError::FundsUnavailable.into()
+            })
         );
         assert_eq!(
             events.pop().unwrap().event,
@@ -166,11 +162,15 @@ fn batch_optimistic_failures_listed() {
         events.pop().unwrap();
         assert_eq!(
             events.pop().unwrap().event,
-            EventTest::Utility(Event::ItemFailed { error: ERROR })
+            EventTest::Utility(Event::ItemFailed {
+                error: sp_runtime::TokenError::FundsUnavailable.into()
+            })
         );
         assert_eq!(
             events.pop().unwrap().event,
-            EventTest::Utility(Event::ItemFailed { error: ERROR })
+            EventTest::Utility(Event::ItemFailed {
+                error: sp_runtime::TokenError::FundsUnavailable.into()
+            })
         );
         assert_eq!(
             events.pop().unwrap().event,
@@ -202,7 +202,7 @@ fn batch_atomic_early_exit_works() {
         let calls = vec![trans(400), trans(900), trans(400)];
         assert_storage_noop!(assert_err_ignore_postinfo!(
             Utility::batch_all(RuntimeOrigin::signed(alice.clone()), calls),
-            pallet_balances::Error::<TestStorage>::InsufficientBalance
+            sp_runtime::TokenError::FundsUnavailable
         ));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
@@ -617,7 +617,7 @@ fn sub_batch_all_revert() {
                     ),
                     pays_fee: Pays::Yes
                 },
-                error: pallet_balances::Error::<TestStorage>::InsufficientBalance.into()
+                error: sp_runtime::TokenError::FundsUnavailable.into(),
             }
         );
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
