@@ -134,11 +134,7 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
         .call(
             contract.into(),
             0,
-<<<<<<< HEAD
             Weight::from_parts(10_500_000_000, 0),
-=======
-            Weight::from_parts(19_000_000_000, 40_000),
->>>>>>> 7841af1c... Bump contract gas fees.
             None,
             encoded_call,
         )?
