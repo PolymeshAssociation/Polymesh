@@ -325,7 +325,7 @@ macro_rules! misc_pallet_impls {
                     RuntimeCall::Checkpoint(_) => true,
                     RuntimeCall::ComplianceManager(_) => true,
                     RuntimeCall::CorporateAction(_) => true,
-                    RuntimeCall::CorporateBallet(_) => true,
+                    RuntimeCall::CorporateBallot(_) => true,
                     RuntimeCall::ExternalAgents(_) => true,
                     RuntimeCall::Portfolio(_) => true,
                     RuntimeCall::Settlement(_) => true,
