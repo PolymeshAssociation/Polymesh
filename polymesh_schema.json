@@ -1268,7 +1268,7 @@
                 "type": "InstructionId"
               }
             ],
-            "type": "Weight"
+            "type": "Result<Weight, DispatchError>"
           }
         },
         "version": 2
