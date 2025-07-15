@@ -548,3 +548,41 @@ fn success() {
         );
     });
 }
+
+#[test]
+fn lock_twice_success() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        assert_ok!(Settlement::lock_instruction(
+            dave.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
+
+        assert_ok!(Settlement::lock_instruction(
+            dave.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
+
+        assert_eq!(
+            InstructionStatuses::<TestStorage>::get(InstructionId(0)),
+            InstructionStatus::LockedForExecution
+        );
+
+        assert!(LockedTimestamp::<TestStorage>::get(InstructionId(0)).is_some());
+
+        let mut system_events = System::events();
+        assert_eq!(
+            system_events.pop().unwrap().event,
+            EventTest::Settlement(Event::InstructionLocked(dave.did, InstructionId(0)))
+        );
+    });
+}
