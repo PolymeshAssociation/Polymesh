@@ -103,11 +103,8 @@ wat = "1.0"
 sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 
 [features]
-default = ["std", "testing", "equalize"]
+default = ["std", "equalize"]
 
-testing = [
-  "pallet-staking/testing",
-]
 equalize = []
 only-staking = []
 
