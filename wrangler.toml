@@ -1,7 +1,0 @@
-name = "polymesh-docs"
-workers_dev = true
-main = "workers-site/index.js"
-compatibility_date = "2023-03-24"
-
-[site]
-bucket = "./target/doc"
