@@ -14,39 +14,43 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Document type
-use crate::{DocumentHash, Moment};
-use codec::{Decode, Encode, MaxEncodedLen};
-use polymesh_primitives_derive::VecU8StrongTyped;
+
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
+use polymesh_primitives_derive::VecU8StrongTyped;
+
+use crate::{DocumentHash, Moment};
+
 /// The local, per-ticker, ID of an asset documentation.
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
-#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Serialize, Deserialize)]
 pub struct DocumentId(pub u32);
 
 /// A wrapper for a document name.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[derive(Serialize, Deserialize)]
 pub struct DocumentName(pub Vec<u8>);
 
 /// A wrapper for a document URI.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[derive(Serialize, Deserialize)]
 pub struct DocumentUri(pub Vec<u8>);
 
 /// A wrapper for a document's type.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[derive(Serialize, Deserialize)]
 pub struct DocumentType(pub Vec<u8>);
 
 /// Represents a document associated with an asset
-#[derive(Decode, Encode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
 pub struct Document {
     /// An URI where more details can be discovered.

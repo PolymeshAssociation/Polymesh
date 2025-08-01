@@ -69,7 +69,7 @@ sp-arithmetic = { workspace = true, default-features = false }
 #
 pallet-authorship = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
-pallet-contracts-primitives = { workspace = true, default-features = false }
+#pallet-contracts-primitives = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }

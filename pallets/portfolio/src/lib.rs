@@ -47,9 +47,9 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
-use frame_support::pallet_prelude::Get;
+use frame_support::pallet_prelude::{DispatchError, Get};
 use frame_support::weights::Weight;
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -57,13 +57,11 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::identity_id::PortfolioValidityResult;
+use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait};
 use polymesh_primitives::{
-    extract_auth,
-    identity_id::PortfolioValidityResult,
-    storage_migration_ver,
-    traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait},
-    Balance, Fund, FundDescription, IdentityId, Memo, NFTId, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, SecondaryKey,
+    extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
 };
 
 fn count_token_moves(funds: &[Fund]) -> (u32, u32) {

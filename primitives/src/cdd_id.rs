@@ -1,10 +1,10 @@
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use polymesh_primitives_derive::SliceU8StrongTyped;
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use scale_info::TypeInfo;
 
 /// A CDD ID only has meaning to the CDD provider that issues a CDD claim.
-#[derive(Encode, Decode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, SliceU8StrongTyped)]
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)]
 pub struct CddId([u8; 32]);

@@ -1,19 +1,18 @@
+use frame_support::traits::fungible::Inspect;
+use frame_support::traits::schedule::Anon;
+use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::{pallet_prelude::*, traits::Get};
 use frame_system::RawOrigin;
 use frame_system::{ensure_root, pallet_prelude::*};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::prelude::*;
 
-use frame_support::traits::schedule::Anon;
-use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
-use frame_support::traits::Currency;
-
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
 
-use pallet_staking::{PermissionedStaking, WhoToSlash};
+use pallet_staking::permissioned_staking::{PermissionedStaking, WhoToSlash};
 
 use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
 use crate::*;

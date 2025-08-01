@@ -44,21 +44,21 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure, fail,
-    traits::{Contains, GetCallMetadata},
-    weights::Weight,
-};
+use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::{Contains, GetCallMetadata};
+use frame_support::weights::Weight;
+use frame_support::{ensure, fail};
 use frame_system::ensure_signed;
-use pallet_identity::PermissionedCallOriginData;
-use polymesh_primitives::{
-    extract_auth, traits::SubsidiserTrait, AuthorizationData, Balance, EventDid, IdentityId,
-    Signatory, TransactionError,
-};
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_std::vec;
+
+use pallet_identity::PermissionedCallOriginData;
+use polymesh_primitives::traits::SubsidiserTrait;
+use polymesh_primitives::{
+    extract_auth, AuthorizationData, Balance, EventDid, IdentityId, Signatory, TransactionError,
+};
 
 type Identity<T> = pallet_identity::Pallet<T>;
 

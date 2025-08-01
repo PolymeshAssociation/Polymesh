@@ -74,12 +74,13 @@ mod types;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass::Operational;
-use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, Weight};
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::ensure;
 use frame_support::pallet_prelude::*;
 use frame_support::storage::types::StorageValue;
 use frame_support::traits::schedule::{DispatchTime, Named};
 use frame_support::traits::{Currency, EnsureOrigin, Get, WithdrawReasons};
+use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};

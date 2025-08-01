@@ -1,5 +1,5 @@
 use crate::impl_checked_inc;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 /// By *local*, we mean that the same number might be used for a different `Ticker`
 /// to uniquely identify a different Agent Group.
 #[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct AGId(pub u32);
 impl_checked_inc!(AGId);
 
 /// The available set of agent groups.
 #[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum AgentGroup {
     /// Has all permissions.

@@ -36,17 +36,17 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced},
-    weights::Weight,
-};
+use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced};
+use frame_support::weights::Weight;
 use frame_system::ensure_root;
-use pallet_identity as identity;
-use polymesh_primitives::{constants::TREASURY_PALLET_ID, Beneficiary, IdentityId, GC_DID};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
 use sp_std::prelude::*;
+
+use pallet_identity as identity;
+use polymesh_primitives::{constants::TREASURY_PALLET_ID, Beneficiary, IdentityId, GC_DID};
 
 pub type ProposalIndex = u32;
 

@@ -25,7 +25,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::Add;
 use frame_support::parameter_types;
 use frame_support::traits::Get;
@@ -120,9 +120,9 @@ impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
 }
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
-#[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize)]
 pub struct PosRatio(pub u32, pub u32);
 
 impl Default for PosRatio {
@@ -336,18 +336,19 @@ pub struct Beneficiary<Balance> {
 }
 
 /// A short on-chain memo for POLYX transfer, asset transfer and portfolio moves.
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo, SliceU8StrongTyped)]
-#[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped)]
+#[derive(Clone, Default)]
 pub struct Memo(pub [u8; 32]);
 
 /// Url for linking to off-chain resources.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct Url(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// The name of a pallet.
-#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct PalletName(pub String);
@@ -360,7 +361,7 @@ impl PalletName {
 }
 
 /// The name of an extrinsic within a pallet.
-#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct ExtrinsicName(pub String);
@@ -397,7 +398,7 @@ pub struct OldWeight(pub u64);
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
 ///
 /// Transactions can be arbitrarily nested with commits happening to the parent.
-pub fn with_transaction<T, E: From<frame_support::dispatch::DispatchError>>(
+pub fn with_transaction<T, E: From<frame_support::pallet_prelude::DispatchError>>(
     tx: impl FnOnce() -> Result<T, E>,
 ) -> Result<T, E> {
     use frame_support::storage::{with_transaction, TransactionOutcome};

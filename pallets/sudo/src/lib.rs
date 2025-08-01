@@ -151,7 +151,7 @@ pub mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
-			(dispatch_info.weight.max(MIN_WEIGHT), dispatch_info.class)
+			(dispatch_info.total_weight().max(MIN_WEIGHT), dispatch_info.class)
 		})]
         pub fn sudo(
             origin: OriginFor<T>,
@@ -227,7 +227,7 @@ pub mod pallet {
         #[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				dispatch_info.weight.max(MIN_WEIGHT)
+				dispatch_info.total_weight().max(MIN_WEIGHT)
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
 				dispatch_info.class,
