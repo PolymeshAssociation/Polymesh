@@ -72,12 +72,12 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::convert::From;
 use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
-    Weight,
+    DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
 };
-use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
-use frame_support::BoundedVec;
+use frame_support::weights::Weight;
+use frame_support::{ensure, BoundedVec};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
@@ -260,7 +260,7 @@ pub mod pallet {
         #[pallet::weight({
           <T as Config>::WeightInfo::create_proposal()
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
-            .saturating_add(proposal.get_dispatch_info().weight)
+            .saturating_add(proposal.get_dispatch_info().total_weight())
         })]
         pub fn create_proposal(
             origin: OriginFor<T>,
@@ -1047,7 +1047,7 @@ impl<T: Config> Pallet<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(multisig, &signer)?;
-        let max_weight = proposal.get_dispatch_info().weight;
+        let max_weight = proposal.get_dispatch_info().total_weight();
         let caller_did = Self::ensure_ms_get_did(multisig)?;
         let proposal_id = NextProposalId::<T>::get(multisig);
         Self::ensure_valid_expiry(&expiry)?;
@@ -1126,7 +1126,7 @@ impl<T: Config> Pallet<T> {
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
         // Ensure `max_weight` was enough to cover the worst-case weight.
-        let proposal_weight = proposal.get_dispatch_info().weight;
+        let proposal_weight = proposal.get_dispatch_info().total_weight();
         ensure!(
             proposal_weight.all_lte(max_weight),
             Error::<T>::MaxWeightTooLow

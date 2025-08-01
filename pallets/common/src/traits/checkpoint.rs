@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -10,13 +10,23 @@ use polymesh_primitives::calendar::{CalendarPeriod, CheckpointSchedule};
 use polymesh_primitives::{impl_checked_inc, Moment};
 
 /// ID of a `StoredSchedule`.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ScheduleId(pub u64);
 impl_checked_inc!(ScheduleId);
 
 /// One or more scheduled checkpoints in the future.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq
+)]
 pub struct ScheduleCheckpoints {
     /// The timestamps of the scheduled checkpoints.
     pub pending: BTreeSet<Moment>,

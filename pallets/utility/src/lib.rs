@@ -71,10 +71,10 @@ mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
-use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight};
+use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
 use frame_support::ensure;
-use frame_support::traits::GetCallMetadata;
-use frame_support::traits::{IsSubType, OriginTrait, UnfilteredDispatchable};
+use frame_support::traits::{GetCallMetadata, IsSubType, OriginTrait, UnfilteredDispatchable};
+use frame_support::weights::Weight;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -340,7 +340,7 @@ pub mod pallet {
                 let dispatch_info = call.call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::relay_tx()
-                        .saturating_add(dispatch_info.weight),
+                        .saturating_add(dispatch_info.total_weight()),
                     dispatch_info.class,
                 )
             })]
@@ -463,7 +463,7 @@ pub mod pallet {
                 let dispatch_info = call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::dispatch_as()
-                        .saturating_add(dispatch_info.weight),
+                        .saturating_add(dispatch_info.total_weight()),
                     dispatch_info.class,
                 )
             })]
@@ -567,7 +567,7 @@ pub mod pallet {
 			(
 				<T as Config>::WeightInfo::as_derivative()
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.total_weight()),
 				dispatch_info.class,
 			)
         })]
@@ -589,7 +589,7 @@ impl<T: Config> Pallet<T> {
             (Weight::zero(), DispatchClass::Operational),
             |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
                 (
-                    total_weight.saturating_add(di.weight),
+                    total_weight.saturating_add(di.total_weight()),
                     // If not all are `Operational`, we want to use `DispatchClass::Normal`.
                     if di.class == DispatchClass::Normal {
                         di.class

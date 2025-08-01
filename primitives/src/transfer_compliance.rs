@@ -13,18 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::asset::AssetId;
-use crate::statistics::{v1, Percentage, StatClaim, StatOpType, StatType};
-use crate::{ClaimType, IdentityId};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::Get, BoundedBTreeSet};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
+use crate::asset::AssetId;
+use crate::statistics::{v1, Percentage, StatClaim, StatOpType, StatType};
+use crate::{ClaimType, IdentityId};
+
 /// Transfer condition.
 #[derive(Serialize, Deserialize)]
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TransferCondition {
     /// Maximum investor count.
@@ -113,7 +114,7 @@ impl From<v1::TransferManagerResult> for TransferConditionResult {
 }
 
 /// Transfer Condition Exempt key.
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct TransferConditionExemptKey {
     /// The [`AssetId`] of the token.

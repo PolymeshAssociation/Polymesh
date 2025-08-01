@@ -29,16 +29,13 @@ pub mod permissioned;
 pub use permissioned::PolymeshConvertCurve;
 
 pub mod types;
-pub use pallet_staking::PermissionedStaking;
+pub use pallet_staking::permissioned_staking::PermissionedStaking;
 
+use frame_support::pallet_prelude::*;
 use frame_support::traits::schedule::Anon;
+use frame_support::traits::Get;
 use frame_support::traits::IsSubType;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    pallet_prelude::*,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill, Permill};
@@ -319,9 +316,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
-            T::MaxNominatorRewardedPerValidator::get()
-        ))]
+        #[pallet::weight(<T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
         pub fn payout_stakers_by_system(
             origin: OriginFor<T>,
             validator_stash: T::AccountId,

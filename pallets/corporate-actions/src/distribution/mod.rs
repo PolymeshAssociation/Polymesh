@@ -64,15 +64,17 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use crate as ca;
-use ca::{CAId, Tax};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    weights::Weight,
-};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+use sp_runtime::traits::Zero;
+use sp_std::prelude::*;
+
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
@@ -80,10 +82,9 @@ use polymesh_primitives::{
     constants::currency::ONE_UNIT, storage_migration_ver, traits::PortfolioSubTrait, Balance,
     EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,
 };
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
-use sp_runtime::traits::Zero;
-use sp_std::prelude::*;
+
+use crate as ca;
+use ca::{CAId, Tax};
 
 storage_migration_ver!(1);
 
@@ -100,7 +101,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 /// A capital distribution's various details.
 ///
 /// All information contained is used by on-chain logic.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, DecodeWithMemTracking)]
 #[derive(
     Copy,
     Clone,

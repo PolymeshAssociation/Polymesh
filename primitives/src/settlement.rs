@@ -18,7 +18,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::alloc::string::ToString;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
@@ -32,13 +32,13 @@ use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
 /// A global and unique venue ID.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct VenueId(pub u64);
 impl_checked_inc!(VenueId);
 
 /// A wrapper for VenueDetails
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VenueDetails(Vec<u8>);
 
@@ -62,20 +62,8 @@ pub enum InstructionStatus<BlockNumber> {
 }
 
 /// Type of the venue. Used for offchain filtering.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum VenueType {
     /// Default type - used for mixed and unknown types
     #[default]
@@ -89,20 +77,8 @@ pub enum VenueType {
 }
 
 /// Status of a leg
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Copy, Clone, Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LegStatus<AccountId> {
     /// It is waiting for affirmation
     #[default]
@@ -114,19 +90,8 @@ pub enum LegStatus<AccountId> {
 }
 
 /// Status of an affirmation
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    TypeInfo
-)]
+#[derive(Clone, Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AffirmationStatus {
     /// Invalid affirmation
     #[default]
@@ -153,15 +118,15 @@ pub enum SettlementType<BlockNumber> {
 }
 
 /// A per-Instruction leg ID.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct LegId(pub u64);
 impl_checked_inc!(LegId);
 
 /// A global and unique instruction ID.
-#[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Deserialize, Serialize)]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
 
@@ -191,8 +156,8 @@ pub struct Instruction<Moment, BlockNumber> {
 }
 
 /// Defines a [`Leg`] (i.e the action of a settlement).
-#[derive(Serialize, Deserialize)]
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Leg {
     /// Fungible token
     Fungible {
@@ -257,17 +222,8 @@ pub struct Venue {
 }
 
 /// An offchain transaction receipt.
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq)]
+#[derive(Clone, Debug, MaxEncodedLen, Ord, PartialOrd)]
 pub struct Receipt<Balance> {
     /// Unique receipt number set by the signer for their receipts.
     uid: u64,
@@ -309,23 +265,13 @@ impl<Balance> Receipt<Balance> {
 }
 
 /// A wrapper of [`[u8; 32]`] that can be used for generic messages.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, SliceU8StrongTyped)]
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, MaxEncodedLen, SliceU8StrongTyped)]
+#[derive(Clone, Default, Encode, Eq, Ord, PartialEq, PartialOrd, TypeInfo)]
 pub struct ReceiptMetadata([u8; 32]);
 
 /// Details about an offchain transaction receipt.
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
     uid: u64,
@@ -393,19 +339,8 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
 }
 
 /// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
-#[derive(Serialize, Deserialize)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Decode,
-    MaxEncodedLen,
-    Default,
-    Encode,
-    Eq,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, Default, DecodeWithMemTracking, Encode, Eq, PartialEq)]
 pub struct AssetCount {
     fungible: u32,
     non_fungible: u32,
@@ -697,19 +632,8 @@ impl FilteredLegs {
 }
 
 /// Holds the [`AssetCount`] for both the sender and receiver side and the number of offchain assets.
-#[derive(Serialize, Deserialize)]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, Default, DecodeWithMemTracking, Encode, Eq, PartialEq)]
 pub struct AffirmationCount {
     /// The [`AssetCount`] for sender side.
     sender_asset_count: AssetCount,
@@ -798,17 +722,8 @@ impl ExecuteInstructionInfo {
 }
 
 /// The status of the mediator's affirmation.
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Clone, Debug, Decode, Default, Encode, Eq)]
+#[derive(MaxEncodedLen, PartialEq, TypeInfo)]
 pub enum MediatorAffirmationStatus<T> {
     /// Invalid affirmation status
     #[default]

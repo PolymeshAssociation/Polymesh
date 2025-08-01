@@ -15,7 +15,7 @@
 
 use crate::asset::AssetId;
 use crate::{ExtrinsicName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{
@@ -53,7 +53,7 @@ pub type ExtrinsicNames = SubsetRestriction<ExtrinsicName>;
 
 /// A permission to call a set of functions, as described by `extrinsics`,
 /// within a given pallet `pallet_name`.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct PalletPermissions {
@@ -101,7 +101,7 @@ impl PalletPermissions {
 }
 
 /// Extrinsic permissions.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub enum ExtrinsicPermissions {
@@ -211,7 +211,7 @@ pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 /// Common cases of permissions:
 /// - `Permissions::empty()`: no permissions,
 /// - `Permissions::default()`: full permissions.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct Permissions {

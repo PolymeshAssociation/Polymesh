@@ -15,7 +15,7 @@
 
 //! Data types and definitions of jurisdictions.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -23,7 +23,7 @@ use sp_std::prelude::*;
 macro_rules! country_codes {
     ( $([$discr:expr,$alpha2:ident, $alpha3:ident, $un:literal, $($extra:expr),*]),* $(,)? ) => {
         /// Existing country codes according to ISO-3166-1.
-        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, Encode, MaxEncodedLen, TypeInfo, Hash)]
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo, Hash)]
         #[derive(Serialize, Deserialize)]
         pub enum CountryCode {
         $(
