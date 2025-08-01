@@ -13,16 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::condition::{conditions_total_counts, Condition};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
+use crate::condition::{conditions_total_counts, Condition};
+
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
-#[derive(Serialize, Deserialize)]
-#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
+
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Debug)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct ComplianceRequirement {
     /// List of sender conditions
     pub sender_conditions: Vec<Condition>,

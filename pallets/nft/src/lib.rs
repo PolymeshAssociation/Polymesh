@@ -1,8 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
-};
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo};
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{ensure, require_transactional};
@@ -19,8 +18,8 @@ use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
 };
 use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
-    traits::{ComplianceFnConfig, NFTTrait},
     IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, WeightMeter,
 };
 

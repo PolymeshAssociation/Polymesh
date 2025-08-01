@@ -25,21 +25,21 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::mem;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::{CallMetadata, GetCallMetadata},
-};
-use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
-use scale_info::TypeInfo;
-use sp_runtime::{
-    traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-    transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
-};
-use sp_std::{fmt, marker::PhantomData, result::Result, vec};
-
+use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::*;
+use frame_support::traits::{CallMetadata, GetCallMetadata};
+use scale_info::TypeInfo;
+use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension};
+use sp_runtime::transaction_validity::{
+    TransactionValidity, TransactionValidityError, ValidTransaction,
+};
+use sp_std::marker::PhantomData;
+use sp_std::result::Result;
+use sp_std::{fmt, vec};
+
+use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 
 pub use pallet::*;
 
@@ -152,7 +152,8 @@ pub mod pallet {
 }
 
 /// A signed extension used in checking call permissions.
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, Default)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
+#[derive(Clone, Default, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct StoreCallMetadata<T: Config>(PhantomData<T>);
 

@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_128;
 use sp_std::prelude::Vec;
@@ -26,7 +26,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 
 /// An unique asset identifier.
 #[derive(Serialize, Deserialize)]
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AssetId([u8; 16]);
 
@@ -59,44 +59,25 @@ impl From<Ticker> for AssetId {
 }
 
 /// A per-asset checkpoint ID.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct CheckpointId(pub u64);
 impl_checked_inc!(CheckpointId);
 
 /// A wrapper for a token name.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AssetName(pub Vec<u8>);
 
 /// The ID of a custom asset type.
-#[derive(
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Copy,
-    Clone,
-    Default,
-    Debug,
-    PartialEq,
-    Eq
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct CustomAssetTypeId(pub u32);
 impl_checked_inc!(CustomAssetTypeId);
 
 /// The type of security represented by a token.
-#[derive(
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AssetType {
     /// Common stock - a security that represents ownership in a corporation.
     EquityCommon,
@@ -138,17 +119,8 @@ pub enum AssetType {
 }
 
 /// Defines all non-fungible variants.
-#[derive(
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NonFungibleType {
     /// Derivative contract - a contract between two parties for buying or selling a security at a
     /// predetermined price within a specific time period.
@@ -199,6 +171,6 @@ impl AssetType {
 }
 
 /// A wrapper for a funding round name.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct FundingRoundName(pub Vec<u8>);

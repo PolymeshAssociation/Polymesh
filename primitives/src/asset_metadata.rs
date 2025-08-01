@@ -13,35 +13,36 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::impl_checked_inc;
-use crate::Url;
 use codec::MaxEncodedLen;
-use codec::{Decode, DecodeAll, Encode};
-use polymesh_primitives_derive::VecU8StrongTyped;
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode};
 use scale_info::{PortableRegistry, TypeInfo};
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
+use polymesh_primitives_derive::VecU8StrongTyped;
+
+use crate::{impl_checked_inc, Url};
+
 /// Asset Metadata Name.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
 #[derive(Serialize, Deserialize)]
 pub struct AssetMetadataName(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// Asset Metadata Global Key.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataGlobalKey(pub u64);
 impl_checked_inc!(AssetMetadataGlobalKey);
 
 /// Asset Metadata Local Key.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataLocalKey(pub u64);
 impl_checked_inc!(AssetMetadataLocalKey);
 
 /// Asset Metadata Key.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub enum AssetMetadataKey {
     /// Global Metadata Key.
@@ -63,8 +64,8 @@ impl From<AssetMetadataGlobalKey> for AssetMetadataKey {
 }
 
 /// Asset Metadata Value.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AssetMetadataValue(pub Vec<u8>);
 
 /// Asset Metadata Value details.
@@ -122,13 +123,13 @@ impl<Moment> Default for AssetMetadataLockStatus<Moment> {
 }
 
 /// Asset Metadata description.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[derive(Serialize, Deserialize)]
 pub struct AssetMetadataDescription(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// Asset Metadata Specs.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[derive(Serialize, Deserialize)]
 pub struct AssetMetadataSpec {

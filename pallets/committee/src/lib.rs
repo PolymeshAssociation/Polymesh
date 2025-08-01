@@ -58,27 +58,23 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use core::mem;
-use frame_support::{
-    codec::{Decode, Encode, MaxEncodedLen},
-    dispatch::{
-        DispatchClass, DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter,
-        PostDispatchInfo, Weight,
-    },
-    ensure,
-    traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
+use frame_support::dispatch::{
+    DispatchClass, DispatchResult, GetDispatchInfo, Parameter, PostDispatchInfo,
 };
-use polymesh_primitives::{
-    traits::{
-        group::{GroupTrait, InactiveMember, MemberCount},
-        GovernanceGroupTrait,
-    },
-    IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
-};
+use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::{ChangeMembers, EnsureOrigin, InitializeMembers};
+use frame_support::weights::Weight;
 use scale_info::TypeInfo;
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{prelude::*, vec};
+
+use polymesh_primitives::traits::group::{GroupTrait, InactiveMember, MemberCount};
+use polymesh_primitives::traits::GovernanceGroupTrait;
+use polymesh_primitives::{IdentityId, MaybeBlock, SystematicIssuers, GC_DID};
 
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
 
@@ -407,7 +403,10 @@ pub mod pallet {
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
-        #[pallet::weight((<T as Config<I>>::WeightInfo::vote_or_propose_new_proposal().saturating_add(call.get_dispatch_info().weight), DispatchClass::Operational))]
+        #[pallet::weight((<T as Config<I>>::WeightInfo::vote_or_propose_new_proposal()
+            .saturating_add(call.get_dispatch_info().total_weight()),
+            DispatchClass::Operational
+        ))]
         #[pallet::call_index(3)]
         pub fn vote_or_propose(
             origin: OriginFor<T>,

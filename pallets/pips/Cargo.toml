@@ -56,6 +56,7 @@ std = [
     "frame-system/std",
     "pallet-base/std",
     "pallet-balances/std",
+    "pallet-committee/std",
     "pallet-group/std",
     "pallet-identity/std",
     "pallet-timestamp/std",

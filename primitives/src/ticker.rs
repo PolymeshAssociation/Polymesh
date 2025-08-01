@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Ticker symbol
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use scale_info::TypeInfo;
 
@@ -28,7 +28,7 @@ pub const TICKER_LEN: usize = 12;
 /// This type stores fixed-length case-sensitive byte strings. Any value of this type that is
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)]
 pub struct Ticker([u8; TICKER_LEN]);

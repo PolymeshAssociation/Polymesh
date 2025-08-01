@@ -1,15 +1,17 @@
 use codec::{Decode, DecodeLimit, Encode};
-use frame_support::dispatch::{DispatchError, Dispatchable, GetDispatchInfo};
+use frame_support::dispatch::GetDispatchInfo;
 use frame_support::ensure;
-use frame_support::log::trace;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::storage::unhashed;
 use frame_support::traits::{Get, GetCallMetadata};
+use frame_support::LOG_TARGET;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::UncheckedFrom;
+use sp_runtime::traits::Dispatchable;
 
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
@@ -166,14 +168,14 @@ where
         env.charge_weight(<T as Config>::WeightInfo::read_storage(key_len, max_len))?;
 
     let key = env.read(key_len)?;
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract ReadStorage: key={:x?}",
         key
     );
     let value = unhashed::get_raw(key.as_slice());
     let value_len = value.as_ref().map(|v| v.len() as u32).unwrap_or_default();
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract ReadStorage: value length={:?}",
         value_len
@@ -193,14 +195,14 @@ where
         );
     }
 
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract ReadStorage: value={:x?}",
         value
     );
     let encoded = value.encode();
     env.write(&encoded, false, None).map_err(|err| {
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension failed to write storage value into contract memory:{:?}",
             err
@@ -233,7 +235,7 @@ where
     }
     .encode();
     env.write(&version, false, None).map_err(|err| {
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension failed to write value into contract memory:{:?}",
             err
@@ -256,18 +258,18 @@ where
     env.charge_weight(<T as Config>::WeightInfo::get_key_did())?;
 
     let key: T::AccountId = env.read_as()?;
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract GetKeyDid: key={key:?}",
     );
     let did = Identity::<T>::get_identity(&key);
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract GetKeyDid: did={did:?}",
     );
     let encoded = did.encode();
     env.write(&encoded, false, None).map_err(|err| {
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension failed to write identity value into contract memory:{:?}",
             err
@@ -306,12 +308,12 @@ where
         (KeyHasher::Twox, HashSize::B128) => hashing::twox_128(data.as_slice()).encode(),
         (KeyHasher::Twox, HashSize::B256) => hashing::twox_256(data.as_slice()).encode(),
     };
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract KeyHasher: hash={hash:x?}",
     );
     env.write(&hash, false, None).map_err(|err| {
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension failed to write hash into contract memory:{:?}",
             err
@@ -358,13 +360,13 @@ where
         return Err(Error::<T>::NoUpgradesSupported.into());
     }
 
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract GetLatestApiUpgrade: {latest_api_hash:?}",
     );
     let encoded_api_hash = latest_api_hash.unwrap_or_default().encode();
     env.write(&encoded_api_hash, false, None).map_err(|err| {
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension failed to write api code hash value into contract memory:{err:?}",
         );
@@ -472,18 +474,18 @@ where
     env.charge_weight(<T as Config>::WeightInfo::get_next_asset_id())?;
 
     let caller_account: T::AccountId = env.read_as()?;
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: caller_account={caller_account:?}",
     );
     let asset_id = T::AssetFn::generate_asset_id(caller_account);
-    trace!(
+    log::trace!(
         target: "runtime",
         "PolymeshExtension contract GetNextAssetId: asset_id={asset_id:?}",
     );
     let encoded = asset_id.encode();
     env.write(&encoded, false, None).map_err(|err| {
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension failed to write asset_id value into contract memory:{:?}",
             err
@@ -517,7 +519,7 @@ where
         // Decode chain extension id.
         let func_id = FuncId::try_from(ext_id);
 
-        trace!(
+        log::trace!(
             target: "runtime",
             "PolymeshExtension contract calling: {func_id:?}",
         );
@@ -540,7 +542,7 @@ where
             Some(FuncId::CallRuntimeWithError) => call_runtime(env, true),
             Some(FuncId::GetNextAssetId) => get_next_asset_id(env),
             None => {
-                trace!(
+                log::trace!(
                     target: "runtime",
                     "PolymeshExtension contract calling invalid ext_id={ext_id:?}",
                 );
@@ -548,7 +550,7 @@ where
             }
         };
         if let Err(err) = &res {
-            trace!(
+            log::trace!(
                 target: "runtime",
                 "PolymeshExtension: err={err:?}",
             );

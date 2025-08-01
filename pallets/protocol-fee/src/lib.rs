@@ -38,20 +38,18 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons},
-    weights::Weight,
-};
+use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons};
+use frame_support::weights::Weight;
+use sp_runtime::{traits::Zero, Perbill};
+use sp_std::vec::Vec;
+
 use frame_system::ensure_root;
 use pallet_identity::Config as IdentityConfig;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::{
-    traits::{CddAndFeeDetails, SubsidiserTrait},
-    Balance, IdentityId, PosRatio, GC_DID,
-};
-use sp_runtime::{traits::Zero, Perbill};
-use sp_std::vec::Vec;
+use polymesh_primitives::traits::{CddAndFeeDetails, SubsidiserTrait};
+use polymesh_primitives::{Balance, IdentityId, PosRatio, GC_DID};
 
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,

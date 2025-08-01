@@ -15,15 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
-use sp_runtime::{
-    traits::{DispatchInfoOf, Dispatchable, SignedExtension},
-    transaction_validity::{
-        InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
-        UnknownTransaction, ValidTransaction,
-    },
+use sp_runtime::traits::{DispatchInfoOf, Dispatchable, SignedExtension};
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+    UnknownTransaction, ValidTransaction,
 };
 use sp_std::{fmt, marker::PhantomData};
 
@@ -37,7 +35,7 @@ use crate::{Config, Key};
 /// fail on applying them as they are not allowed/disabled/whatever. This would be some huge dos
 /// vector to any kind of chain. This extension solves the dos vector by preventing any kind of
 /// transaction entering the pool as long as it is not signed by the sudo account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckOnlySudoAccount<T: Config + Send + Sync>(PhantomData<T>);
 
@@ -91,7 +89,7 @@ where
         ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
 
         Ok(ValidTransaction {
-            priority: info.weight.ref_time() as TransactionPriority,
+            priority: info.total_weight().ref_time() as TransactionPriority,
             ..Default::default()
         })
     }

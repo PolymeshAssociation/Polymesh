@@ -51,8 +51,7 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
-    DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
-    PostDispatchInfo,
+    DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
 use frame_support::pallet_prelude::*;
 use frame_support::storage::with_transaction as frame_support_with_transaction;
@@ -2991,7 +2990,7 @@ impl<T: Config> Pallet<T> {
         minimum_weight: Weight,
         weight_limit: Weight,
     ) -> Result<WeightMeter, DispatchErrorWithPostInfo> {
-        WeightMeter::from_limit(minimum_weight, weight_limit).map_err(|_| {
+        WeightMeter::with_limit(minimum_weight, weight_limit).map_err(|_| {
             DispatchErrorWithPostInfo {
                 post_info: Some(weight_limit).into(),
                 error: Error::<T>::InputWeightIsLessThanMinimum.into(),

@@ -16,7 +16,7 @@
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use serde::{Deserialize, Serialize};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt::{Display, Formatter};
 use core::str;
 use scale_info::TypeInfo;
@@ -85,7 +85,7 @@ impl GenesisIdentityRecord<AccountId> {
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 #[derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)]
 pub struct IdentityId(pub [u8; UUID_LEN]);
@@ -223,13 +223,13 @@ impl Printable for IdentityId {
 
 /// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
 /// default ones are nameless.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct PortfolioNumber(pub u64);
@@ -247,7 +247,7 @@ impl From<u64> for PortfolioNumber {
 }
 
 /// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub enum PortfolioKind {
@@ -272,7 +272,7 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
 }
 
 /// The identification of a portfolio. Contains the [`IdentityId`] of the portfolio owner and the [`PortfolioKind`].
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Serialize, Deserialize)]
 pub struct PortfolioId {

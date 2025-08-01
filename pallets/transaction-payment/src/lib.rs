@@ -50,34 +50,28 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-    dispatch::{
-        DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
-        Weight,
-    },
-    pallet_prelude::*,
-    traits::{Currency, Get, GetCallMetadata},
-    weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::dispatch::{
+    DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 };
+use frame_support::pallet_prelude::*;
+use frame_support::traits::{Currency, Get, GetCallMetadata};
+use frame_support::weights::{Weight, WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial};
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
-use polymesh_primitives::{
-    traits::{group::GroupTrait, CddAndFeeDetails, IdentityFnTrait, SubsidiserTrait},
-    TransactionError,
+use sp_runtime::traits::{
+    Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
+    SignedExtension, Zero,
 };
-use scale_info::TypeInfo;
-use sp_runtime::{
-    traits::{
-        Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
-        SignedExtension, Zero,
-    },
-    transaction_validity::{
-        InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
-        ValidTransaction,
-    },
-    FixedPointNumber, FixedPointOperand, FixedU128, Perquintill, RuntimeDebug,
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+    ValidTransaction,
 };
+use sp_runtime::{FixedPointNumber, FixedPointOperand, FixedU128, Perquintill, RuntimeDebug};
 use sp_std::prelude::*;
+
+use polymesh_primitives::traits::group::GroupTrait;
+use polymesh_primitives::traits::{CddAndFeeDetails, IdentityFnTrait, SubsidiserTrait};
+use polymesh_primitives::TransactionError;
 
 mod payment;
 mod types;
@@ -509,24 +503,25 @@ where
         // `Extra`. Alternatively, we could actually execute the tx's per-dispatch and record the
         // balance of the sender before and after the pipeline.. but this is way too much hassle for
         // a very very little potential gain in the future.
-        let mut dispatch_info =
-            <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
-        if let Some(weight) = actual {
-            dispatch_info.weight = weight;
-        }
 
-        let partial_fee = if unchecked_extrinsic.is_signed().unwrap_or(false) {
-            Self::compute_fee(len, &dispatch_info, 0u32.into())
-        } else {
-            // Unsigned extrinsics have no partial fee.
-            0u32.into()
+        let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
+
+        let tip = 0u32.into();
+        let tx_class = dispatch_info.class;
+        let weight = actual.unwrap_or(dispatch_info.total_weight());
+
+        let partial_fee = {
+            if unchecked_extrinsic.is_signed().unwrap_or(false) {
+                Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class)
+                    .final_fee()
+            } else {
+                0u32.into()
+            }
         };
-
-        let DispatchInfo { weight, class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
             weight,
-            class,
+            class: tx_class,
             partial_fee,
         }
     }
@@ -540,22 +535,20 @@ where
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
-        let mut dispatch_info =
-            <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
-        if let Some(weight) = actual {
-            dispatch_info.weight = weight;
-        }
+        let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
         let tip = 0u32.into();
+        let tx_class = dispatch_info.class;
+        let weight = actual.unwrap_or(dispatch_info.total_weight());
 
         if unchecked_extrinsic.is_signed().unwrap_or(false) {
-            Self::compute_fee_details(len, &dispatch_info, tip)
-        } else {
-            // Unsigned extrinsics have no inclusion fee.
-            FeeDetails {
-                inclusion_fee: None,
-                tip,
-            }
+            return Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class);
+        }
+
+        // Unsigned extrinsics have no inclusion fee.
+        FeeDetails {
+            inclusion_fee: None,
+            tip: 0u32.into(),
         }
     }
 
@@ -568,16 +561,18 @@ where
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
     {
-        let mut dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
-        if let Some(weight) = actual {
-            dispatch_info.weight = weight;
-        }
-        let DispatchInfo { weight, class, .. } = dispatch_info;
+        let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+
+        let tip = 0u32.into();
+        let tx_class = dispatch_info.class;
+        let weight = actual.unwrap_or(dispatch_info.total_weight());
+        let partial_fee =
+            Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class).final_fee();
 
         RuntimeDispatchInfo {
             weight,
-            class,
-            partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
+            class: tx_class,
+            partial_fee,
         }
     }
 
@@ -590,37 +585,11 @@ where
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
     {
-        let mut dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
-        if let Some(weight) = actual {
-            dispatch_info.weight = weight;
-        }
+        let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
         let tip = 0u32.into();
-
-        Self::compute_fee_details(len, &dispatch_info, tip)
-    }
-
-    /// Compute the final fee value for a particular transaction.
-    pub fn compute_fee(
-        len: u32,
-        info: &DispatchInfoOf<T::RuntimeCall>,
-        tip: BalanceOf<T>,
-    ) -> BalanceOf<T>
-    where
-        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-    {
-        Self::compute_fee_details(len, info, tip).final_fee()
-    }
-
-    /// Compute the fee details for a particular transaction.
-    pub fn compute_fee_details(
-        len: u32,
-        info: &DispatchInfoOf<T::RuntimeCall>,
-        tip: BalanceOf<T>,
-    ) -> FeeDetails<BalanceOf<T>>
-    where
-        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-    {
-        Self::compute_fee_raw(len, info.weight, tip, info.pays_fee, info.class)
+        let tx_class = dispatch_info.class;
+        let weight = actual.unwrap_or(dispatch_info.total_weight());
+        Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class)
     }
 
     /// Compute the actual post dispatch fee for a particular transaction.
@@ -745,9 +714,9 @@ pub type WithdrawFeeInfo<T, AccountId> = (
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, Eq, PartialEq)]
 #[scale_info(skip_type_params(T))]
-pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
+pub struct ChargeTransactionPayment<T: Config>(BalanceOf<T>);
 
 impl<T: Config> ChargeTransactionPayment<T>
 where
@@ -768,7 +737,14 @@ where
         len: usize,
     ) -> Result<WithdrawFeeInfo<T, T::AccountId>, TransactionValidityError> {
         let tip = self.0;
-        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+        let fee = Pallet::<T>::compute_fee_raw(
+            len as u32,
+            info.total_weight(),
+            tip,
+            info.pays_fee,
+            info.class,
+        )
+        .final_fee();
 
         // Polymesh: Changed how the tx fee payer is selected.
 
