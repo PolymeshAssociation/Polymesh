@@ -121,4 +121,28 @@ impl frame_system::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(p.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(p.into())))
     }
+    /// Storage: `System::AuthorizedUpgrade` (r:0 w:1)
+    /// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+    fn authorize_upgrade() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 12_466_000 picoseconds.
+        Weight::from_parts(15_570_000, 0).saturating_add(DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `System::AuthorizedUpgrade` (r:1 w:1)
+    /// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+    /// Storage: `MultiBlockMigrations::Cursor` (r:1 w:0)
+    /// Proof: `MultiBlockMigrations::Cursor` (`max_values`: Some(1), `max_size`: Some(65550), added: 66045, mode: `MaxEncodedLen`)
+    /// Storage: UNKNOWN KEY `0x3a636f6465` (r:0 w:1)
+    /// Proof: UNKNOWN KEY `0x3a636f6465` (r:0 w:1)
+    fn apply_authorized_upgrade() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `21`
+        //  Estimated: `67035`
+        // Minimum execution time: 163_673_542_000 picoseconds.
+        Weight::from_parts(166_858_158_000, 67035)
+            .saturating_add(DbWeight::get().reads(2_u64))
+            .saturating_add(DbWeight::get().writes(2_u64))
+    }
 }

@@ -9,9 +9,9 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
 
-#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Member {
     pub id: IdentityId,
