@@ -220,7 +220,6 @@ pallet-authorship = { version = "40.0.0", default-features = false }
 pallet-babe = { version = "40.0.0", default-features = false }
 pallet-balances = { version = "41.1.1", default-features = false, features = ['insecure_zero_ed']}
 pallet-contracts = { version = "40.1.0", default-features = false }
-#pallet-contracts-primitives = { version = "29.0.0", default-features = false}
 pallet-election-provider-multi-phase = { version = "39.2.0", default-features = false }
 pallet-grandpa = { version = "40.0.0", default-features = false }
 pallet-im-online = { version = "39.1.0", default-features = false }

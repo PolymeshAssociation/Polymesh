@@ -55,7 +55,7 @@
 pub mod benchmarking;
 pub mod chain_extension;
 
-use codec::{Compact, Decode, Encode};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{
     DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
 };
@@ -73,8 +73,8 @@ use sp_std::{vec, vec::Vec};
 
 pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::weights::WeightInfo as FrameWeightInfo;
-use pallet_contracts::Config as BConfig;
-use pallet_contracts_primitives::Code;
+use pallet_contracts::Code;
+use pallet_contracts::Config as ContractsConfig;
 use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as IdentityWeightInfo};
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
@@ -86,7 +86,8 @@ type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub struct ContractPolymeshHooks;
 
-#[derive(Clone, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
 pub struct Api {
     desc: [u8; 4],
     major: u32,
@@ -98,7 +99,8 @@ impl Api {
     }
 }
 
-#[derive(Clone, Decode, Encode, MaxEncodedLen, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, MaxEncodedLen, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
 #[scale_info(skip_type_params(T))]
 pub struct ApiCodeHash<T: Config> {
     pub hash: CodeHash<T>,
@@ -124,18 +126,8 @@ impl<T: Config> sp_std::fmt::Debug for ApiCodeHash<T> {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialOrd,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(MaxEncodedLen, Eq, Ord, PartialOrd, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode)]
 pub struct ChainVersion {
     spec_version: u32,
     tx_version: u32,
@@ -319,7 +311,10 @@ pub mod pallet {
     /// The `Config` trait for the smart contracts pallet.
     #[pallet::config]
     pub trait Config:
-        IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config + AssetFnConfig
+        IdentityConfig
+        + ContractsConfig<Currency = Self::Balances>
+        + frame_system::Config
+        + AssetFnConfig
     {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -686,7 +681,7 @@ where
         perms: Option<&Permissions>,
     ) -> Weight {
         let instantiate_weight =
-            <T as BConfig>::WeightInfo::instantiate_with_code(code_len, data_len, salt_len)
+            <T as ContractsConfig>::WeightInfo::instantiate_with_code(code_len, data_len, salt_len)
                 .saturating_add(<T as Config>::WeightInfo::base_weight_with_code(
                     code_len, data_len, salt_len,
                 ));
@@ -699,10 +694,10 @@ where
         salt_len: u32,
         perms: Option<&Permissions>,
     ) -> Weight {
-        let instantiate_weight = <T as BConfig>::WeightInfo::instantiate(data_len, salt_len)
-            .saturating_add(<T as Config>::WeightInfo::base_weight_with_hash(
-                data_len, salt_len,
-            ));
+        let instantiate_weight =
+            <T as ContractsConfig>::WeightInfo::instantiate(data_len, salt_len).saturating_add(
+                <T as Config>::WeightInfo::base_weight_with_hash(data_len, salt_len),
+            );
         instantiate_weight.saturating_add(Self::weight_link_contract_to_did(perms))
     }
 

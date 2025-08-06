@@ -97,4 +97,15 @@ impl pallet_indices::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    /// Storage: `Indices::Accounts` (r:1 w:1)
+    /// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
+    fn poke_deposit() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `75`
+        //  Estimated: `3534`
+        // Minimum execution time: 20_268_000 picoseconds.
+        Weight::from_parts(20_592_000, 3534)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
+    }
 }

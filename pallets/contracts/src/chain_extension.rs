@@ -4,7 +4,6 @@ use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::storage::unhashed;
 use frame_support::traits::{Get, GetCallMetadata};
-use frame_support::LOG_TARGET;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use scale_info::prelude::string::String;
@@ -26,9 +25,9 @@ type Identity<T> = pallet_identity::Pallet<T>;
 const MAX_DECODE_DEPTH: u32 = 10;
 
 /// ExtrinsicId
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[derive(Serialize, Deserialize)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Serialize)]
 pub struct ExtrinsicId(u8, u8);
 
 impl From<ExtrinsicId> for [u8; 2] {
@@ -418,7 +417,7 @@ where
 
     // Charge weight for the call.
     let di = call.get_dispatch_info();
-    let charged_amount = env.charge_weight(di.weight)?;
+    let charged_amount = env.charge_weight(di.total_weight())?;
 
     // Execute call requested by contract, with current DID set to the contract owner.
     let addr = env.ext().address().clone();

@@ -53,6 +53,7 @@ std = [
     "pallet-timestamp/std",
     "pallet-permissions/std",
     "pallet-compliance-manager/std",
+    "pallet-nft/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
