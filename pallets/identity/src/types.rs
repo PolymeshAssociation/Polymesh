@@ -15,9 +15,9 @@ pub fn zero_account_id<AccountId: Decode>() -> AccountId {
 }
 
 /// A result of execution of get_votes.
-#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RpcDidRecords<AccountId> {
     /// Id was found and has the following primary key and secondary keys.
@@ -29,9 +29,9 @@ pub enum RpcDidRecords<AccountId> {
     IdNotFound,
 }
 
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub enum DidStatus {
     Unknown,
     Exists,
@@ -39,8 +39,8 @@ pub enum DidStatus {
 }
 
 /// Aggregate information about an `AccountId` in relation to an `IdentityId`.
-#[derive(Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Deserialize, Serialize)]
 pub struct KeyIdentityData<IdentityId> {
     /// The identity of the provided `AccountId`.
     pub identity: IdentityId,

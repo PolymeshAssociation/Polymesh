@@ -1,17 +1,15 @@
-pub use pallet_group_rpc_runtime_api::{GroupApi as GroupRuntimeApi, Member};
-
 use std::{marker::PhantomData, sync::Arc};
 
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
-};
+use jsonrpsee:: core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::{ErrorObject};
 use node_rpc::Error;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use sp_std::prelude::*;
+
+pub use pallet_group_rpc_runtime_api::{GroupApi as GroupRuntimeApi, Member};
 
 /// Group RPC methods.
 #[rpc(client, server)]
@@ -48,12 +46,11 @@ where
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_cdd_valid_members(at_hash).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch CDD providers.",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 
@@ -61,12 +58,11 @@ where
         let api = self.client.runtime_api();
         let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_gc_valid_members(at_hash).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch Governance Committee members.",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 }

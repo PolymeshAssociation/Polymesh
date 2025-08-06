@@ -18,8 +18,8 @@ use std::sync::Arc;
 use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
-use sp_api::ProvideRuntimeApi;
+use jsonrpsee::types::error::ErrorObject;
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
@@ -27,8 +27,6 @@ pub use node_rpc_runtime_api::compliance::ComplianceApi as ComplianceRuntimeApi;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::ComplianceReport;
 use polymesh_primitives::IdentityId;
-
-use crate::Error;
 
 #[rpc(client, server)]
 pub trait ComplianceApi<BlockHash> {
@@ -71,18 +69,16 @@ where
         receiver_identity: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Result<ComplianceReport, DispatchError>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.compliance_report(at_hash, &asset_id, &sender_identity, &receiver_identity)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call compliance_report runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.compliance_report(
+                at,
+                &asset_id,
+                &sender_identity,
+                &receiver_identity,
+            ),
+            "Unable to query `compliance_report`."
+        )
     }
 }

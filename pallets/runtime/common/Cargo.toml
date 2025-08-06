@@ -46,6 +46,7 @@ std = [
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-committee/std",
     "polymesh-primitives/std",
     "polymesh-common-utilities/std",
     "sp-runtime/std",

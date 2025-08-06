@@ -96,6 +96,7 @@ use core::convert::From;
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
 use frame_support::dispatch::{DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::tokens::fungible::{Inspect, Mutate, MutateHold};
 use frame_support::traits::{
     ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers,
 };
@@ -239,7 +240,10 @@ pub mod pallet {
         /// Group module
         type CddServiceProviders: GroupTrait<Self::Moment>;
         /// Balances module
-        type Balances: Currency<Self::AccountId, Balance = Balance>;
+        type Balances: Currency<Self::AccountId, Balance = Balance>
+            + Inspect<Self::AccountId, Balance = Balance>
+            + Mutate<Self::AccountId>
+            + MutateHold<Self::AccountId>;
         /// Used to check and update CDD
         type CddHandler: CddAndFeeDetails<
             Self::AccountId,

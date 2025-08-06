@@ -29,7 +29,7 @@ pub mod capped {
 
     use serde::{Deserialize, Serialize};
 
-    #[derive(Eq, PartialEq, Encode, Decode)]
+    #[derive(Clone, Decode, Encode, Eq, PartialEq)]
     #[cfg_attr(feature = "std", derive(Debug))]
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
