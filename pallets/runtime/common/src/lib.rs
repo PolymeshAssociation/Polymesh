@@ -22,6 +22,7 @@ pub mod impls;
 pub mod migration;
 pub mod runtime;
 
+use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 pub use frame_support::dispatch::{DispatchClass, GetDispatchInfo};
 pub use frame_support::parameter_types;
 pub use frame_support::traits::{Currency, Get};
@@ -135,10 +136,12 @@ parameter_types! {
         .saturating_sub(BlockExecutionWeight::get());
 
     // Staking constants
+    pub MaxExposurePageSize: u32 = 64;
     pub MaxNominations: u32 = 16;
     pub HistoryDepth:u32 = 84;
     pub MaxUnlockingChunks: u32 = 32;
     pub MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
+    pub MaxControllersInDeprecationBatch: u32 = 100;
 
     // Multi-phase election parameters
     // Signed phase
@@ -150,16 +153,16 @@ parameter_types! {
     pub const SignedRewardBase: Balance = 0;
     pub const SignedDepositBase: Balance = 0;
     pub const SignedDepositByte: Balance = 0;
-    // Unsigned phase
-    pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
     pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2 - 1u64;
     // Fallback parameters
     pub MaxOnChainElectingVoters: u32 = 5000;
     pub MaxOnChainElectableTargets: u16 = 1250;
     // Other config parameters
     pub OffChainRepeat: BlockNumber = 5;
-    pub MaxElectingVoters: u32 = 40_000;
-    pub MaxElectableTargets: u16 = 10_000;
+    pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
+        .voters_count(10_000.into()).targets_count(1_500.into()).build();
+    pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
+        .voters_count(5_000.into()).targets_count(1_250.into()).build();
     pub MaxActiveValidators: u32 = 1_000;
     // Miner Config parameters
     pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
@@ -171,16 +174,6 @@ parameter_types! {
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
         .saturating_sub(BlockExecutionWeight::get());
 }
-
-frame_election_provider_support::generate_solution_type!(
-    #[compact]
-    pub struct NposSolution16::<
-        VoterIndex = u32,
-        TargetIndex = u16,
-        Accuracy = sp_runtime::PerU16,
-        MaxVoters = MaxElectingVoters,
-    >(16)
-);
 
 /// Converts Weight to Fee
 pub struct WeightToFee;
