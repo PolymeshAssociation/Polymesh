@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use jsonrpsee:: core::RpcResult;
+use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{ErrorObject};
+use jsonrpsee::types::error::ErrorObject;
 use node_rpc::Error;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
