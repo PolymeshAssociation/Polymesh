@@ -163,23 +163,23 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_balances::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            type RuntimeHoldReason = [u8; 32];
+            type RuntimeFreezeReason = ();
+            type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
             type Balance = Balance;
             type DustRemoval = ();
-            type RuntimeEvent = RuntimeEvent;
             #[cfg(not(feature = "runtime-benchmarks"))]
             type ExistentialDeposit = ExistentialDeposit;
             #[cfg(feature = "runtime-benchmarks")]
             type ExistentialDeposit = BenchmarkEd;
             type AccountStore = frame_system::Pallet<Runtime>;
-            type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
+            type ReserveIdentifier = [u8; 8];
+            type FreezeIdentifier = [u8; 8];
             type MaxLocks = MaxLocks;
             type MaxReserves = MaxReserves;
-            type ReserveIdentifier = [u8; 8];
+            type DoneSlashHandler = ();
             type Memo = polymesh_primitives::Memo;
-            type RuntimeHoldReason = [u8; 32];
-            type FreezeIdentifier = [u8; 8];
-            type MaxHolds = MaxHolds;
-            type MaxFreezes = MaxFreezes;
         }
 
         impl pallet_protocol_fee::Config for Runtime {
@@ -233,13 +233,15 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_staking::Config for Runtime {
+            type OldCurrency = Balances;
             type Currency = Balances;
+            type RuntimeHoldReason = [u8; 32];
             type CurrencyBalance = Balance;
             type UnixTime = Timestamp;
             type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
             type ElectionProvider = ElectionProviderMultiPhase;
             type GenesisElectionProvider = Self::ElectionProvider;
-            type MaxNominations = polymesh_runtime_common::MaxNominations;
+            type NominationsQuota = polymesh_runtime_common::MaxNominations;
             type HistoryDepth = polymesh_runtime_common::HistoryDepth;
             type RewardRemainder = ();
             type RuntimeEvent = RuntimeEvent;
@@ -252,12 +254,13 @@ macro_rules! misc_pallet_impls {
             type SessionInterface = Self;
             type EraPayout = pallet_validators::PolymeshConvertCurve<Self, RewardCurve>;
             type NextNewSession = Session;
-            type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
-            type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
+            type MaxExposurePageSize = polymesh_runtime_common::MaxExposurePageSize;
             type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
             type TargetList = pallet_staking::UseValidatorsMap<Self>;
             type MaxUnlockingChunks = polymesh_runtime_common::MaxUnlockingChunks;
+            type MaxControllersInDeprecationBatch = polymesh_runtime_common::MaxControllersInDeprecationBatch;
             type EventListeners = ();
+            type Filter = frame_support::traits::Nothing;
             type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
             type Permissioned = Validators;
@@ -486,20 +489,24 @@ macro_rules! misc_pallet_impls {
         }
 
         parameter_types! {
-            pub const PreimageMaxSize: u32 = 4096 * 1024;
             pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
             pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+            pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
             pub const BridgePalletName: &'static str = "Bridge";
         }
 
         impl pallet_preimage::Config for Runtime {
-            type WeightInfo = polymesh_weights::pallet_preimage::SubstrateWeight;
             type RuntimeEvent = RuntimeEvent;
+            type WeightInfo = polymesh_weights::pallet_preimage::SubstrateWeight;
             type Currency = Balances;
             type ManagerOrigin = polymesh_primitives::EnsureRoot;
-            type BaseDeposit = PreimageBaseDeposit;
-            type ByteDeposit = PreimageByteDeposit;
+            type Consideration = frame_support::traits::tokens::fungible::HoldConsideration<
+		        polymesh_primitives::AccountId,
+		        Balances,
+		        PreimageHoldReason,
+		        frame_support::traits::LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	        >;
         }
 
         impl pallet_offences::Config for Runtime {
@@ -569,17 +576,14 @@ macro_rules! misc_pallet_impls {
         where
             RuntimeCall: From<LocalCall>,
         {
-            fn create_transaction<
+            fn create_signed_transaction<
                 C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
             >(
                 call: RuntimeCall,
                 public: <polymesh_primitives::Signature as Verify>::Signer,
                 account: polymesh_primitives::AccountId,
                 nonce: polymesh_primitives::Nonce,
-            ) -> Option<(
-                RuntimeCall,
-                <UncheckedExtrinsic as Extrinsic>::SignaturePayload,
-            )> {
+            ) -> Option<UncheckedExtrinsic> {
                 // take the biggest period possible.
                 let period = polymesh_runtime_common::BlockHashCount::get()
                     .checked_next_power_of_two()
@@ -609,7 +613,8 @@ macro_rules! misc_pallet_impls {
                 let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
                 let address = Indices::unlookup(account);
                 let (call, extra, _) = raw_payload.deconstruct();
-                Some((call, (address, signature, extra)))
+                let transaction = UncheckedExtrinsic::new_signed(call, address, signature, extra);
+                Some(transaction)
             }
         }
 
@@ -618,12 +623,12 @@ macro_rules! misc_pallet_impls {
             type Signature = polymesh_primitives::Signature;
         }
 
-        impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+        impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
         where
             RuntimeCall: From<C>,
         {
             type Extrinsic = UncheckedExtrinsic;
-            type OverarchingCall = RuntimeCall;
+            type RuntimeCall = RuntimeCall;
         }
 
         impl pallet_nft::Config for Runtime {
@@ -649,8 +654,6 @@ macro_rules! misc_pallet_impls {
             type SignedPhase = polymesh_runtime_common::SignedPhaseBench;
             // The minimum amount of improvement to the solution score in the Signed phase
             type BetterSignedThreshold = ();
-            // The minimum amount of improvement to the solution score in the Unsigned phase
-            type BetterUnsignedThreshold = polymesh_runtime_common::BetterUnsignedThreshold;
             // The repeat threshold of the offchain worker
             type OffchainRepeat = polymesh_runtime_common::OffChainRepeat;
             // The priority of the unsigned transaction submitted in the unsigned-phase
@@ -665,18 +668,16 @@ macro_rules! misc_pallet_impls {
             type SignedMaxRefunds = polymesh_runtime_common::SignedMaxRefunds;
             // Base reward for a signed solution
             type SignedRewardBase = polymesh_runtime_common::SignedRewardBase;
-            // Base deposit for a signed solution
-            type SignedDepositBase = polymesh_runtime_common::SignedDepositBase;
             // Per-byte deposit for a signed solution
             type SignedDepositByte = polymesh_runtime_common::SignedDepositByte;
             // Per-weight deposit for a signed solution
             type SignedDepositWeight = ();
-            // The maximum number of electing voters to put in the snapshot
-            type MaxElectingVoters = polymesh_runtime_common::MaxElectingVoters;
-            // The maximum number of electable targets to put in the snapshot
-            type MaxElectableTargets = polymesh_runtime_common::MaxElectableTargets;
             // The maximum number of winners that can be elected by this `ElectionProvider` implementation
             type MaxWinners = polymesh_runtime_common::MaxActiveValidators;
+            // Base deposit for a signed solution
+            type SignedDepositBase = polymesh_runtime_common::SignedDepositBase;
+            /// The maximum number of electing voters and electable targets to put in the snapshot.
+            type ElectionBounds = polymesh_runtime_common::ElectionBoundsMultiPhase;
             // Handler for the slashed deposits
             type SlashHandler = ();
             // Handler for the rewards
@@ -705,11 +706,8 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
             type AccountId = polymesh_primitives::AccountId;
-	          type MaxLength = polymesh_runtime_common::MinerMaxLength;
-	          type MaxWeight = polymesh_runtime_common::MinerMaxWeight;
-	          type Solution = polymesh_runtime_common::NposSolution16;
-	          type MaxVotesPerVoter =
-	              <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
+	        type MaxVotesPerVoter =
+	            <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
             type MaxWinners = polymesh_runtime_common::MaxActiveValidators;
 
 	          // The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
@@ -729,9 +727,10 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
-        use frame_support::dispatch::{GetStorageVersion, DispatchError};
+        use frame_support::pallet_prelude::DispatchError;
+        use frame_support::traits::GetStorageVersion;
         use sp_inherents::{CheckInherentsResult, InherentData};
-        use frame_support::dispatch::result::Result as FrameResult;
+        use frame_support::dispatch::DispatchResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords};
@@ -967,7 +966,7 @@ macro_rules! runtime_apis {
                     gas_limit: Option<Weight>,
                     storage_deposit_limit: Option<Balance>,
                     input_data: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
+                ) -> pallet_contracts::ContractExecResult<Balance, EventRecord> {
                     let gas_limit = gas_limit.unwrap_or(polymesh_runtime_common::RuntimeBlockWeights::get().max_block);
                     Contracts::bare_call(
                         origin,
@@ -987,10 +986,10 @@ macro_rules! runtime_apis {
                     value: Balance,
                     gas_limit: Option<Weight>,
                     storage_deposit_limit: Option<Balance>,
-                    code: pallet_contracts_primitives::Code<polymesh_primitives::Hash>,
+                    code: pallet_contracts::Code<polymesh_primitives::Hash>,
                     data: Vec<u8>,
                     salt: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance, EventRecord> {
+                ) -> pallet_contracts::ContractInstantiateResult<polymesh_primitives::AccountId, Balance, EventRecord> {
                     let gas_limit = gas_limit.unwrap_or(polymesh_runtime_common::RuntimeBlockWeights::get().max_block);
                     Contracts::bare_instantiate(
                         origin,
@@ -1010,14 +1009,14 @@ macro_rules! runtime_apis {
                     code: Vec<u8>,
                     storage_deposit_limit: Option<Balance>,
                     determinism: pallet_contracts::Determinism,
-                ) -> pallet_contracts_primitives::CodeUploadResult<polymesh_primitives::Hash, Balance> {
+                ) -> pallet_contracts::CodeUploadResult<polymesh_primitives::Hash, Balance> {
                     Contracts::bare_upload_code(origin, code, storage_deposit_limit, determinism)
                 }
 
                 fn get_storage(
                     address: polymesh_primitives::AccountId,
                     key: Vec<u8>,
-                ) -> pallet_contracts_primitives::GetStorageResult {
+                ) -> pallet_contracts::GetStorageResult {
                     Contracts::get_storage(address, key)
                 }
             }
@@ -1235,7 +1234,7 @@ macro_rules! runtime_apis {
                     asset_id: &AssetId,
                     sender_identity: &IdentityId,
                     receiver_identity: &IdentityId,
-                ) -> FrameResult<ComplianceReport, DispatchError> {
+                ) -> DispatchResult<ComplianceReport> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     ComplianceManager::compliance_report(
                         asset_id,
@@ -1253,7 +1252,7 @@ macro_rules! runtime_apis {
                     sender_did: &IdentityId,
                     receiver_did: &IdentityId,
                     transfer_amount: Balance,
-                ) -> FrameResult<Vec<TransferCondition>, DispatchError> {
+                ) -> DispatchResult<Vec<TransferCondition>> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Statistics::transfer_restrictions_report(
                         asset_id,

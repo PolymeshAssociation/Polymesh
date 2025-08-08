@@ -88,7 +88,6 @@ parameter_types! {
     pub const MaxHolds: u32 = 32;
     pub const MaxFreezes: u32 = 32;
 
-
     // Timestamp:
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
 
@@ -507,6 +506,5 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
     type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
     type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
-    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
-    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
+    type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
 }
