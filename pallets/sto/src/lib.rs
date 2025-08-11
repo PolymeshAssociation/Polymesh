@@ -103,7 +103,7 @@ pub enum FundraiserStatus {
 }
 
 /// Funding method.  On-chain asset or off-chain receipt.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum FundingMethod<AccountId, OffChainSignature> {
@@ -130,7 +130,7 @@ pub enum FundingAsset {
 }
 
 /// Details about the Fundraiser.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Moment> {
     /// The permissioned agent that created the `Fundraiser`.
@@ -177,7 +177,7 @@ pub struct PriceTier {
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier {
     /// Total amount available.
