@@ -106,7 +106,7 @@ pub enum ProposalData {
 }
 
 /// The various sorts of committees that can make a PIP.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Committee {
     /// The technical committee.
@@ -116,7 +116,7 @@ pub enum Committee {
 }
 
 /// The proposer of a certain PIP.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Proposer<AccountId> {
     /// The proposer is of the community.

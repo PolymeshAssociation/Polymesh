@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -25,8 +25,8 @@ use crate::secondary_key::Permissions;
 use crate::{Balance, PortfolioId, Ticker};
 
 /// Authorization data for two step processes.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),

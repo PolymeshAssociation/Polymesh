@@ -68,7 +68,7 @@
 
 mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::DispatchClass;
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
 use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
@@ -117,7 +117,8 @@ pub type ErrorAt = (u32, DispatchError);
 
 /// Wraps a `Call` and provides uniqueness through a nonce
 /// POLYMESH: used for `relay_tx`
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
 pub struct UniqueCall<C> {
     nonce: AuthorizationNonce,
     call: Box<C>,

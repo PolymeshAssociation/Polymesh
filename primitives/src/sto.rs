@@ -15,6 +15,7 @@
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use serde::de;
 
 use crate::settlement::ReceiptMetadata;
 use crate::{impl_checked_inc, IdentityId, Ticker};
@@ -74,18 +75,8 @@ impl<Balance> FundraiserReceipt<Balance> {
 }
 
 /// Details about an offchain transaction receipt.
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
 pub struct FundraiserReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
     pub uid: u64,

@@ -338,18 +338,8 @@ impl<AccountId> KeyRecord<AccountId> {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    TypeInfo
-)]
-#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Deserialize, Serialize, TypeInfo)]
 pub enum Signatory<AccountId> {
     #[serde(alias = "identity")]
     Identity(IdentityId),
@@ -436,9 +426,9 @@ where
 }
 
 /// A secondary key and its permissions.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Serialize)]
 pub struct SecondaryKey<AccountId> {
     /// The account key.
     pub key: AccountId,
