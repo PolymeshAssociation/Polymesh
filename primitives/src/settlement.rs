@@ -103,7 +103,7 @@ pub enum AffirmationStatus {
 }
 
 /// Type of settlement
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum SettlementType<BlockNumber> {
     /// Instruction should be settled in the next block as soon as all affirmations are received.

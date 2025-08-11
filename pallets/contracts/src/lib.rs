@@ -142,7 +142,8 @@ impl ChainVersion {
     }
 }
 
-#[derive(Clone, Decode, Encode, MaxEncodedLen, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq)]
+#[derive(MaxEncodedLen, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct NextUpgrade<T: Config> {
     pub chain_version: ChainVersion,

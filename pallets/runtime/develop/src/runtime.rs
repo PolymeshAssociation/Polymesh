@@ -60,7 +60,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
-    state_version: 1,
+    system_version: 1,
 };
 
 parameter_types! {
@@ -391,7 +391,7 @@ construct_runtime!(
         Offences: pallet_offences::{Pallet, Storage, Event} = 18,
 
         // Session: Genesis config deps: System.
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 19,
+        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>} = 19,
         AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>} = 20,
         Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event} = 21,
         Historical: pallet_session_historical::{Pallet} = 22,

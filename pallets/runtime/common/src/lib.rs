@@ -36,7 +36,7 @@ pub use frame_support::weights::{
 use frame_system::limits::{BlockLength, BlockWeights};
 use smallvec::smallvec;
 pub use sp_runtime::transaction_validity::TransactionPriority;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{Perbill, Permill, Percent};
 
 pub use impls::Author;
 use pallet_balances as balances;
@@ -142,6 +142,7 @@ parameter_types! {
     pub MaxUnlockingChunks: u32 = 32;
     pub MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub MaxControllersInDeprecationBatch: u32 = 100;
+    pub MaxTransientStorageSize: u32 = 1_048_576; // 1 MiB
 
     // Multi-phase election parameters
     // Signed phase
@@ -151,7 +152,8 @@ parameter_types! {
     pub const SignedMaxWeight: Weight = Weight::zero();
     pub const SignedMaxRefunds: u32 = 0;
     pub const SignedRewardBase: Balance = 0;
-    pub const SignedDepositBase: Balance = 0;
+    pub const SignedFixedDeposit: Balance = 0;
+    pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(0);
     pub const SignedDepositByte: Balance = 0;
     pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2 - 1u64;
     // Fallback parameters
@@ -173,7 +175,18 @@ parameter_types! {
         .get(DispatchClass::Normal)
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
         .saturating_sub(BlockExecutionWeight::get());
+    pub MaxElectingVotersSolution: u32 = 40_000;
 }
+
+frame_election_provider_support::generate_solution_type!(
+	#[compact]
+	pub struct NposSolution16::<
+		VoterIndex = u32,
+		TargetIndex = u16,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = MaxElectingVotersSolution,
+	>(16)
+);
 
 /// Converts Weight to Fee
 pub struct WeightToFee;

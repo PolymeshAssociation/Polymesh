@@ -84,29 +84,14 @@ impl<const T: u32> Get<u32> for ConstSize<T> {
 impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
 
 /// Either a block number, or nothing.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Debug
-)]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, MaxEncodedLen, Serialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
 pub enum MaybeBlock<BlockNumber> {
     /// Has a block number.
     Some(BlockNumber),
     /// No block number.
+    #[default]
     None,
-}
-
-impl<T> Default for MaybeBlock<T> {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
@@ -327,7 +312,8 @@ pub enum TransactionError {
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Beneficiary<Balance> {
     /// Beneficiary identity.
     pub id: IdentityId,
