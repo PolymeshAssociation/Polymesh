@@ -15,7 +15,6 @@
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use serde::de;
 
 use crate::settlement::ReceiptMetadata;
 use crate::{impl_checked_inc, IdentityId, Ticker};

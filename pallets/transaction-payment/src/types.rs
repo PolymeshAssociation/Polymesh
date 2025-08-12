@@ -28,7 +28,7 @@ use sp_std::prelude::*;
 use frame_support::dispatch::DispatchClass;
 
 /// The base fee and adjusted weight and length fees constitute the _inclusion fee_.
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct InclusionFee<Balance> {
@@ -39,9 +39,9 @@ pub struct InclusionFee<Balance> {
     pub len_fee: Balance,
     ///
     /// - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on the
-    ///     congestion of the network.
+    ///   congestion of the network.
     /// - `weight_fee`: This amount is computed based on the weight of the transaction. Weight
-    ///     accounts for the execution time of a transaction.
+    /// accounts for the execution time of a transaction.
     ///
     /// adjusted_weight_fee = targeted_fee_adjustment * weight_fee
     pub adjusted_weight_fee: Balance,
@@ -64,7 +64,7 @@ impl<Balance: AtLeast32BitUnsigned + Copy> InclusionFee<Balance> {
 ///   - (Optional) `inclusion_fee`: Only the `Pays::Yes` transaction can have the inclusion fee.
 ///   - `tip`: If included in the transaction, the tip will be added on top. Only signed
 ///     transactions can have a tip.
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct FeeDetails<Balance> {
@@ -92,8 +92,8 @@ impl<Balance: AtLeast32BitUnsigned + Copy> FeeDetails<Balance> {
 
 /// Information related to a dispatchable's class, weight, and fee that can be queried from the
 /// runtime.
-#[derive(Eq, PartialEq, Encode, Decode, TypeInfo, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Clone))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "std",
@@ -111,7 +111,7 @@ pub struct RuntimeDispatchInfo<Balance, Weight = frame_support::weights::Weight>
     /// The inclusion fee of this dispatch.
     ///
     /// This does not include a tip or anything else that
-    /// depends on the signature (i.e. depends on a `SignedExtension`).
+    /// depends on the signature (i.e. depends on a `TransactionExtension`).
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub partial_fee: Balance,
 }
