@@ -55,36 +55,35 @@ use frame_support::dispatch::{
     DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 };
 use frame_support::pallet_prelude::*;
-use frame_support::traits::{Currency, Get, GetCallMetadata};
-use frame_support::weights::{Weight, WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial};
+use frame_support::traits::Get;
+use frame_support::weights::{Weight, WeightToFee};
+use frame_support::RuntimeDebugNoBound;
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
+use scale_info::TypeInfo;
 use sp_runtime::traits::{
-    Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
-    SignedExtension, Zero,
+    Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating, TransactionExtension,
+    Zero,
 };
-use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
-    ValidTransaction,
+use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
+use sp_runtime::{
+    FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
-use sp_runtime::{FixedPointNumber, FixedPointOperand, FixedU128, Perquintill, RuntimeDebug};
-use sp_std::prelude::*;
 
 use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::traits::{CddAndFeeDetails, IdentityFnTrait, SubsidiserTrait};
 use polymesh_primitives::TransactionError;
 
+pub use pallet::*;
+pub use payment::*;
+pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
+
 mod payment;
 mod types;
-
-pub use pallet::*;
-pub use payment::{CurrencyAdapter, OnChargeTransaction};
-pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
-type BalanceOf<T> =
-    <<T as crate::pallet::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -92,24 +91,31 @@ type BalanceOf<T> =
 /// system pallet.
 ///
 /// given:
-///     s = previous block weight
-///     s'= ideal block weight
-///     m = maximum block weight
-///     diff = (s - s')/m
-///     v = 0.00001
-///     t1 = (v * diff)
-///     t2 = (v * diff)^2 / 2
-/// then:
-///     next_multiplier = prev_multiplier * (1 + t1 + t2)
+/// 	s = previous block weight
+/// 	s'= ideal block weight
+/// 	m = maximum block weight
+/// 		diff = (s - s')/m
+/// 		v = 0.00001
+/// 		t1 = (v * diff)
+/// 		t2 = (v * diff)^2 / 2
+/// 	then:
+/// 	next_multiplier = prev_multiplier * (1 + t1 + t2)
 ///
 /// Where `(s', v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
 /// must provide the minimum allowed value for the multiplier. Note that a runtime should ensure
 /// with tests that the combination of this `M` and `V` is not such that the multiplier can drop to
 /// zero and never recover.
 ///
-/// note that `s'` is interpreted as a portion in the _normal transaction_ capacity of the block.
+/// Note that `s'` is interpreted as a portion in the _normal transaction_ capacity of the block.
 /// For example, given `s' == 0.25` and `AvailableBlockRatio = 0.75`, then the target fullness is
 /// _0.25 of the normal capacity_ and _0.1875 of the entire block_.
+///
+/// Since block weight is multi-dimension, we use the scarcer resource, referred as limiting
+/// dimension, for calculation of fees. We determine the limiting dimension by comparing the
+/// dimensions using the ratio of `dimension_value / max_dimension_value` and selecting the largest
+/// ratio. For instance, if a block is 30% full based on `ref_time` and 25% full based on
+/// `proof_size`, we identify `ref_time` as the limiting dimension, indicating that the block is 30%
+/// full.
 ///
 /// This implementation implies the bound:
 /// - `v ≤ p / k * (s − s')`
@@ -121,8 +127,8 @@ type BalanceOf<T> =
 /// - in a fully congested chain: `p >= v * k * (1 - s')`.
 /// - in an empty chain: `p >= v * k * (-s')`.
 ///
-/// For example, when all blocks are full and there are 28800 blocks per day (default in `substrate-node`)
-/// and v == 0.00001, s' == 0.1875, we'd have:
+/// For example, when all blocks are full and there are 28800 blocks per day (default in
+/// `substrate-node`) and v == 0.00001, s' == 0.1875, we'd have:
 ///
 /// p >= 0.00001 * 28800 * 0.8125
 /// p >= 0.234
@@ -130,7 +136,7 @@ type BalanceOf<T> =
 /// Meaning that fees can change by around ~23% per day, given extreme congestion.
 ///
 /// More info can be found at:
-/// <https://w3f-research.readthedocs.io/en/latest/polkadot/Token%20Economics.html>
+/// <https://research.web3.foundation/Polkadot/overview/token-economics>
 pub struct TargetedFeeAdjustment<T, S, V, M, X>(sp_std::marker::PhantomData<(T, S, V, M, X)>);
 
 /// Something that can convert the current multiplier to the next one.
@@ -204,20 +210,38 @@ where
             .get(DispatchClass::Normal)
             .max_total
             .unwrap_or(weights.max_block);
-        let current_block_weight = <frame_system::Pallet<T>>::block_weight();
+        let current_block_weight = frame_system::Pallet::<T>::block_weight();
         let normal_block_weight = current_block_weight
             .get(DispatchClass::Normal)
             .min(normal_max_weight);
 
-        // TODO: Handle all weight dimensions
-        let normal_max_weight = normal_max_weight.ref_time();
-        let normal_block_weight = normal_block_weight.ref_time();
+        // Normalize dimensions so they can be compared. Ensure (defensive) max weight is non-zero.
+        let normalized_ref_time = Perbill::from_rational(
+            normal_block_weight.ref_time(),
+            normal_max_weight.ref_time().max(1),
+        );
+        let normalized_proof_size = Perbill::from_rational(
+            normal_block_weight.proof_size(),
+            normal_max_weight.proof_size().max(1),
+        );
 
-        let s = S::get();
-        let v = V::get();
+        // Pick the limiting dimension. If the proof size is the limiting dimension, then the
+        // multiplier is adjusted by the proof size. Otherwise, it is adjusted by the ref time.
+        let (normal_limiting_dimension, max_limiting_dimension) =
+            if normalized_ref_time < normalized_proof_size {
+                (
+                    normal_block_weight.proof_size(),
+                    normal_max_weight.proof_size(),
+                )
+            } else {
+                (normal_block_weight.ref_time(), normal_max_weight.ref_time())
+            };
 
-        let target_weight = (s * normal_max_weight) as u128;
-        let block_weight = normal_block_weight as u128;
+        let target_block_fullness = S::get();
+        let adjustment_variable = V::get();
+
+        let target_weight = (target_block_fullness * max_limiting_dimension) as u128;
+        let block_weight = normal_limiting_dimension as u128;
 
         // determines if the first_term is positive
         let positive = block_weight >= target_weight;
@@ -225,12 +249,13 @@ where
 
         // defensive only, a test case assures that the maximum weight diff can fit in Multiplier
         // without any saturation.
-        let diff = Multiplier::saturating_from_rational(diff_abs, normal_max_weight.max(1));
+        let diff = Multiplier::saturating_from_rational(diff_abs, max_limiting_dimension.max(1));
         let diff_squared = diff.saturating_mul(diff);
 
-        let v_squared_2 = v.saturating_mul(v) / Multiplier::saturating_from_integer(2);
+        let v_squared_2 = adjustment_variable.saturating_mul(adjustment_variable)
+            / Multiplier::saturating_from_integer(2);
 
-        let first_term = v.saturating_mul(diff);
+        let first_term = adjustment_variable.saturating_mul(diff);
         let second_term = v_squared_2.saturating_mul(diff_squared);
 
         if positive {
@@ -253,7 +278,7 @@ where
 }
 
 /// A struct to make the fee multiplier a constant
-pub struct ConstFeeMultiplier<M: Get<Multiplier>>(sp_std::marker::PhantomData<M>);
+pub struct ConstFeeMultiplier<M: Get<Multiplier>>(core::marker::PhantomData<M>);
 
 impl<M: Get<Multiplier>> MultiplierUpdate for ConstFeeMultiplier<M> {
     fn min() -> Multiplier {
@@ -282,7 +307,7 @@ where
 /// Storage releases of the pallet.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Copy, Default, Eq, MaxEncodedLen, PartialEq, RuntimeDebug)]
-enum Releases {
+pub enum Releases {
     /// Original version of the pallet.
     #[default]
     V1Ancient,
@@ -304,9 +329,6 @@ pub mod pallet {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// The currency type in which fees will be paid.
-        type Currency: Currency<Self::AccountId> + Send + Sync;
-
         /// Handler for withdrawing, refunding and depositing the transaction fee.
         /// Transaction fees are withdrawn before the transaction is executed.
         /// After the transaction was executed the transaction weight can be
@@ -315,52 +337,58 @@ pub mod pallet {
         /// might be refunded. In the end the fees can be deposited.
         type OnChargeTransaction: OnChargeTransaction<Self>;
 
-        /// The fee to be paid for making a transaction; the per-byte portion.
-        #[pallet::constant]
-        type TransactionByteFee: Get<BalanceOf<Self>>;
-
         /// Convert a weight value into a deductible fee based on the currency type.
-        type WeightToFee: WeightToFeePolynomial<Balance = BalanceOf<Self>>;
+        type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
+
+        /// Convert a length value into a deductible fee based on the currency type.
+        type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
         /// Update the multiplier of the next block, based on the previous block's weight.
         type FeeMultiplierUpdate: MultiplierUpdate;
 
-        // Polymesh note: This was specifically added for Polymesh
+        /// A fee multiplier for `Operational` extrinsics to compute "virtual tip" to boost their
+        /// `priority`
+        ///
+        /// This value is multiplied by the `final_fee` to obtain a "virtual tip" that is later
+        /// added to a tip component in regular `priority` calculations.
+        /// It means that a `Normal` transaction can front-run a similarly-sized `Operational`
+        /// extrinsic (with no tip), by including a tip value greater than the virtual tip.
+        ///
+        /// ```rust,ignore
+        /// // For `Normal`
+        /// let priority = priority_calc(tip);
+        ///
+        /// // For `Operational`
+        /// let virtual_tip = (inclusion_fee + tip) * OperationalFeeMultiplier;
+        /// let priority = priority_calc(tip + virtual_tip);
+        /// ```
+        ///
+        /// Note that since we use `final_fee` the multiplier applies also to the regular `tip`
+        /// sent with the transaction. So, not only does the transaction get a priority bump based
+        /// on the `inclusion_fee`, but we also amplify the impact of tips applied to `Operational`
+        /// transactions.
+        #[pallet::constant]
+        type OperationalFeeMultiplier: Get<u8>;
+
+        /// The weight information of this pallet.
+        type WeightInfo: WeightInfo;
+
+        // Polymesh change
+        // -----------------------------------------------------------------
+
         /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
         type CddHandler: CddAndFeeDetails<Self::AccountId, Self::RuntimeCall>;
 
-        // Polymesh note: This was specifically added for Polymesh
-        /// Connection to the `Relayer` pallet.
-        /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
+        /// Used to charge transaction fees to a subsidiser, instead of the payer.
         type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
 
-        // Polymesh note: This was specifically added for Polymesh
-        /// CDD providers group.
         type CddProviders: GroupTrait<Self::Moment>;
 
-        // Polymesh note: This was specifically added for Polymesh
-        /// Governance committee.
         type GovernanceCommittee: GroupTrait<Self::Moment>;
 
-        // Polymesh note: This was specifically added for Polymesh
-        /// Identity functionality.
         type Identity: IdentityFnTrait<Self::AccountId>;
 
-        /// The polynomial that is applied in order to derive fee from weight.
-        #[pallet::constant]
-        type WeightToFeeConst: Get<Vec<WeightToFeeCoefficient<BalanceOf<Self>>>>;
-    }
-
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {
-        /// A transaction fee `actual_fee`, of which `tip` was added to the minimum inclusion fee,
-        /// has been paid by `who`.
-        TransactionFeePaid {
-            who: T::AccountId,
-            actual_fee: BalanceOf<T>,
-            tip: BalanceOf<T>,
-        },
+        // -----------------------------------------------------------------
     }
 
     #[pallet::type_value]
@@ -369,32 +397,36 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    pub type NextFeeMultiplier<T> =
+    #[pallet::whitelist_storage]
+    pub type NextFeeMultiplier<T: Config> =
         StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
+    #[pallet::storage]
+    pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+
+    // Polymesh change
+    // -----------------------------------------------------------------
     #[cfg(feature = "disable_fees")]
     #[pallet::storage]
     pub type DisableFees<T: Config> = StorageValue<_, bool, ValueQuery>;
-
-    #[pallet::storage]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+    // -----------------------------------------------------------------
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig<T> {
+    pub struct GenesisConfig<T: Config> {
         pub multiplier: Multiplier,
+        #[serde(skip)]
+        pub _config: core::marker::PhantomData<T>,
         #[cfg(feature = "disable_fees")]
         pub disable_fees: bool,
-        #[serde(skip)]
-        pub _config: sp_std::marker::PhantomData<T>,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
                 multiplier: MULTIPLIER_DEFAULT_VALUE,
+                _config: Default::default(),
                 #[cfg(feature = "disable_fees")]
                 disable_fees: false,
-                _config: Default::default(),
             }
         }
     }
@@ -409,59 +441,68 @@ pub mod pallet {
         }
     }
 
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        /// A transaction fee `actual_fee`, of which `tip` was added to the minimum inclusion fee,
+        /// has been paid by `who`.
+        TransactionFeePaid {
+            who: T::AccountId,
+            actual_fee: BalanceOf<T>,
+            tip: BalanceOf<T>,
+        },
+    }
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        #[cfg(feature = "std")]
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
             // at most be maximum block weight. Make sure that this can fit in a multiplier without
             // loss.
             assert!(
                 <Multiplier as sp_runtime::traits::Bounded>::max_value()
-                    >= Multiplier::checked_from_integer::<u64>(
-                        T::BlockWeights::get().max_block.ref_time()
+                    >= Multiplier::checked_from_integer::<u128>(
+                        T::BlockWeights::get()
+                            .max_block
+                            .ref_time()
+                            .try_into()
+                            .unwrap()
                     )
                     .unwrap(),
             );
 
-            // This is the minimum value of the multiplier. Make sure that if we collapse to this
-            // value, we can recover with a reasonable amount of traffic. For this test we assert
-            // that if we collapse to minimum, the trend will be positive with a weight value
-            // which is 1% more than the target.
             let target = T::FeeMultiplierUpdate::target()
                 * T::BlockWeights::get()
                     .get(DispatchClass::Normal)
                     .max_total
                     .expect(
                         "Setting `max_total` for `Normal` dispatch class is not compatible with \
-                    `transaction-payment` pallet.",
+					`transaction-payment` pallet.",
                     );
-
             // add 1 percent;
             let addition = target / 100;
             if addition == Weight::zero() {
-                // this is most likely because in a test setup we set everything to ().
+                // this is most likely because in a test setup we set everything to ()
+                // or to `ConstFeeMultiplier`.
                 return;
             }
 
-            #[cfg(any(feature = "std", test))]
-            sp_io::TestExternalities::new_empty().execute_with(|| {
-                // This is the minimum value of the multiplier. Make sure that if we collapse to
-                // this value, we can recover with a reasonable amount of traffic. For this test we
-                // assert that if we collapse to minimum, the trend will be positive with a weight
-                // value which is 1% more than the target.
-                let min_value = T::FeeMultiplierUpdate::min();
+            // This is the minimum value of the multiplier. Make sure that if we collapse to this
+            // value, we can recover with a reasonable amount of traffic. For this test we assert
+            // that if we collapse to minimum, the trend will be positive with a weight value which
+            // is 1% more than the target.
+            let min_value = T::FeeMultiplierUpdate::min();
+            let target = target + addition;
 
-                let target = target + addition;
-
-                <frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
-                let next = T::FeeMultiplierUpdate::convert(min_value);
-                assert!(
-                    next > min_value,
-                    "The minimum bound of the multiplier is too low. When \
-                    block saturation is more than target by 1% and multiplier is minimal then \
-                    the multiplier doesn't increase."
-                );
-            })
+            frame_system::Pallet::<T>::set_block_consumed_resources(target, 0);
+            let next = T::FeeMultiplierUpdate::convert(min_value);
+            assert!(
+                next > min_value,
+                "The minimum bound of the multiplier is too low. When \
+				block saturation is more than target by 1% and multiplier is minimal then \
+				the multiplier doesn't increase."
+            );
         }
     }
 
@@ -490,10 +531,9 @@ where
     ///
     /// All dispatchables must be annotated with weight and will have some fee info. This function
     /// always returns.
-    pub fn query_info<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+    pub fn query_info<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
         unchecked_extrinsic: Extrinsic,
         len: u32,
-        actual: Option<Weight>,
     ) -> RuntimeDispatchInfo<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
@@ -503,34 +543,28 @@ where
         // `Extra`. Alternatively, we could actually execute the tx's per-dispatch and record the
         // balance of the sender before and after the pipeline.. but this is way too much hassle for
         // a very very little potential gain in the future.
-
         let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-        let tip = 0u32.into();
-        let tx_class = dispatch_info.class;
-        let weight = actual.unwrap_or(dispatch_info.total_weight());
-
-        let partial_fee = {
-            if unchecked_extrinsic.is_signed().unwrap_or(false) {
-                Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class)
-                    .final_fee()
-            } else {
-                0u32.into()
-            }
+        let partial_fee = if unchecked_extrinsic.is_bare() {
+            // Bare extrinsics have no partial fee.
+            0u32.into()
+        } else {
+            Self::compute_fee(len, &dispatch_info, 0u32.into())
         };
 
+        let DispatchInfo { class, .. } = dispatch_info;
+
         RuntimeDispatchInfo {
-            weight,
-            class: tx_class,
+            weight: dispatch_info.total_weight(),
+            class,
             partial_fee,
         }
     }
 
     /// Query the detailed fee of a given `call`.
-    pub fn query_fee_details<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+    pub fn query_fee_details<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
         unchecked_extrinsic: Extrinsic,
         len: u32,
-        actual: Option<Weight>,
     ) -> FeeDetails<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
@@ -538,58 +572,66 @@ where
         let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
         let tip = 0u32.into();
-        let tx_class = dispatch_info.class;
-        let weight = actual.unwrap_or(dispatch_info.total_weight());
 
-        if unchecked_extrinsic.is_signed().unwrap_or(false) {
-            return Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class);
-        }
-
-        // Unsigned extrinsics have no inclusion fee.
-        FeeDetails {
-            inclusion_fee: None,
-            tip: 0u32.into(),
+        if unchecked_extrinsic.is_bare() {
+            // Bare extrinsics have no inclusion fee.
+            FeeDetails {
+                inclusion_fee: None,
+                tip,
+            }
+        } else {
+            Self::compute_fee_details(len, &dispatch_info, tip)
         }
     }
 
     /// Query information of a dispatch class, weight, and fee of a given encoded `Call`.
-    pub fn query_call_info(
-        call: T::RuntimeCall,
-        len: u32,
-        actual: Option<Weight>,
-    ) -> RuntimeDispatchInfo<BalanceOf<T>>
+    pub fn query_call_info(call: T::RuntimeCall, len: u32) -> RuntimeDispatchInfo<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
     {
         let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
-
-        let tip = 0u32.into();
-        let tx_class = dispatch_info.class;
-        let weight = actual.unwrap_or(dispatch_info.total_weight());
-        let partial_fee =
-            Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class).final_fee();
+        let DispatchInfo { class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
-            weight,
-            class: tx_class,
-            partial_fee,
+            weight: dispatch_info.total_weight(),
+            class,
+            partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
         }
     }
 
     /// Query fee details of a given encoded `Call`.
-    pub fn query_call_fee_details(
-        call: T::RuntimeCall,
-        len: u32,
-        actual: Option<Weight>,
-    ) -> FeeDetails<BalanceOf<T>>
+    pub fn query_call_fee_details(call: T::RuntimeCall, len: u32) -> FeeDetails<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
     {
         let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
         let tip = 0u32.into();
-        let tx_class = dispatch_info.class;
-        let weight = actual.unwrap_or(dispatch_info.total_weight());
-        Self::compute_fee_raw(len, weight, tip, dispatch_info.pays_fee, tx_class)
+
+        Self::compute_fee_details(len, &dispatch_info, tip)
+    }
+
+    /// Compute the final fee value for a particular transaction.
+    pub fn compute_fee(
+        len: u32,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        tip: BalanceOf<T>,
+    ) -> BalanceOf<T>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+    {
+        Self::compute_fee_details(len, info, tip).final_fee()
+    }
+
+    /// Compute the fee details for a particular transaction.
+    pub fn compute_fee_details(
+        len: u32,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        tip: BalanceOf<T>,
+    ) -> FeeDetails<BalanceOf<T>>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+    {
+        Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
     }
 
     /// Compute the actual post dispatch fee for a particular transaction.
@@ -646,7 +688,6 @@ where
             // the adjustable part of the fee.
             let unadjusted_weight_fee = Self::weight_to_fee(weight);
             let multiplier = NextFeeMultiplier::<T>::get();
-
             // final adjusted weight fee.
             let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
@@ -670,31 +711,41 @@ where
         }
     }
 
-    fn length_to_fee(length: u32) -> BalanceOf<T> {
-        let len = <BalanceOf<T>>::from(length);
-        let per_byte = T::TransactionByteFee::get();
-
-        per_byte.saturating_mul(len)
+    /// Compute the length portion of a fee by invoking the configured `LengthToFee` impl.
+    pub fn length_to_fee(length: u32) -> BalanceOf<T> {
+        T::LengthToFee::weight_to_fee(&Weight::from_parts(length as u64, 0))
     }
 
-    fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
+    /// Compute the unadjusted portion of the weight fee by invoking the configured `WeightToFee`
+    /// impl. Note that the input `weight` is capped by the maximum block weight before computation.
+    pub fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
         // cap the weight to the maximum defined in runtime, otherwise it will be the
         // `Bounded` maximum of its data type, which is not desired.
         let capped_weight = weight.min(T::BlockWeights::get().max_block);
         T::WeightToFee::weight_to_fee(&capped_weight)
     }
 
-    /// Polymesh-Note :- Change for the supporting the test
+    /// Deposit the [`Event::TransactionFeePaid`] event.
+    pub fn deposit_fee_paid_event(who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T>) {
+        Self::deposit_event(Event::TransactionFeePaid {
+            who,
+            actual_fee,
+            tip,
+        });
+    }
+
+    // Polymesh change
+    // -----------------------------------------------------------------
     #[cfg(debug_assertions)]
     pub fn put_next_fee_multiplier(m: Multiplier) {
         NextFeeMultiplier::<T>::put(m)
     }
+    // -----------------------------------------------------------------
 }
 
 impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
 where
     T: Config,
-    BalanceOf<T>: FixedPointOperand,
 {
     /// Compute the fee for the specified weight.
     ///
@@ -706,27 +757,33 @@ where
     }
 }
 
-pub type WithdrawFeeInfo<T, AccountId> = (
-    BalanceOf<T>,
-    <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-    Option<AccountId>,
-);
-
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, Eq, PartialEq)]
+///
+/// # Transaction Validity
+///
+/// This extension sets the `priority` field of `TransactionValidity` depending on the amount
+/// of tip being paid per weight unit.
+///
+/// Operational transactions will receive an additional priority bump, so that they are normally
+/// considered before regular transactions.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct ChargeTransactionPayment<T: Config>(BalanceOf<T>);
+pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 
 impl<T: Config> ChargeTransactionPayment<T>
 where
-    T::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
-    BalanceOf<T>: Send + Sync + FixedPointOperand + Into<u128>,
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    BalanceOf<T>: Send + Sync + Into<u128>,
 {
     /// utility constructor. Used only in client/factory code.
     pub fn from(fee: BalanceOf<T>) -> Self {
         Self(fee)
+    }
+
+    /// Returns the tip as being chosen by the transaction sender.
+    pub fn tip(&self) -> BalanceOf<T> {
+        self.0
     }
 
     fn withdraw_fee(
@@ -734,75 +791,147 @@ where
         who: &T::AccountId,
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
-        len: usize,
-    ) -> Result<WithdrawFeeInfo<T, T::AccountId>, TransactionValidityError> {
+        fee: BalanceOf<T>,
+    ) -> Result<
+        (
+            BalanceOf<T>,
+            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+            Option<T::AccountId>,
+        ),
+        TransactionValidityError,
+    > {
         let tip = self.0;
-        let fee = Pallet::<T>::compute_fee_raw(
-            len as u32,
-            info.total_weight(),
-            tip,
-            info.pays_fee,
-            info.class,
-        )
-        .final_fee();
 
-        // Polymesh: Changed how the tx fee payer is selected.
+        // Polymesh change
+        // -----------------------------------------------------------------
 
-        // Only mess with balances if fee is not zero.
         if fee.is_zero() {
-            let liquidity_info = Default::default();
-            return Ok((fee, liquidity_info, None));
+            return Ok((fee, Default::default(), None));
         }
 
         // Get the payer for this transaction.
-        let payer_key =
+        let payers_key =
             T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&payer_key, fee.into(), Some(call))?;
+        let subsidiser = T::Subsidiser::check_subsidy(&payers_key, fee.into(), Some(call))?;
 
         // key to pay the fee.
-        let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
-        let liquidity_info =
+        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
+
+        let liq_info =
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
                 fee_key, call, info, fee, tip,
             )?;
-        T::CddHandler::set_payer_context(Some(payer_key));
-        Ok((fee, liquidity_info, subsidiser))
+
+        T::CddHandler::set_payer_context(Some(payers_key));
+        Ok((fee, liq_info, subsidiser))
+
+        // -----------------------------------------------------------------
     }
 
-    // Polymesh: Used to allow GC/CDD member to include a `tip`.
-    /// Returns `true` iff `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
+    fn can_withdraw_fee(
+        &self,
+        who: &T::AccountId,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+    ) -> Result<BalanceOf<T>, TransactionValidityError> {
+        let tip = self.0;
+        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+
+        // Polymesh change
+        // -----------------------------------------------------------------
+
+        if fee.is_zero() {
+            return Ok(fee);
+        }
+
+        // Get the payer for this transaction.
+        let payers_key =
+            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
+
+        // Check if the payer is being subsidised.
+        let subsidiser = T::Subsidiser::check_subsidy(&payers_key, fee.into(), Some(call))?;
+
+        // key to pay the fee.
+        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
+
+        <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
+            fee_key, call, info, fee, tip,
+        )?;
+
+        T::CddHandler::set_payer_context(Some(payers_key));
+        Ok(fee)
+
+        // -----------------------------------------------------------------
+    }
+
+    // Polymesh change: Used to allow GC/CDD member to include a `tip`.
+    // -----------------------------------------------------------------
+
+    /// Returns `true` if `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
     fn is_gc_or_cdd_member(who: &T::AccountId) -> bool {
         T::Identity::get_identity(who)
             .map(|did| T::GovernanceCommittee::is_member(&did) || T::CddProviders::is_member(&did))
             .unwrap_or(false)
     }
 
-    // Polymesh: Used to allow GC/CDD member to include a `tip`.
     /// Ensures that the transaction tip is valid.
     ///
-    /// We only allow tip != 0 if the transaction is `DispatchClass::Operational` and it was
-    /// created by a Governance or CDD Provider member.
-    /// A `DispatchClass::Mandatory` transaction is going to be included in the block, so adding a
-    /// tip does not matter.
+    /// Tipping is allowed for `DispatchClass::Operational` created by a Governance or CDD Provider member.
+    /// Mandatory transactions are going to be included in the block, so adding a tip does not matter.
     fn ensure_valid_tip(
         &self,
         who: &T::AccountId,
         info: &DispatchInfoOf<T::RuntimeCall>,
     ) -> Result<BalanceOf<T>, TransactionValidityError> {
-        let is_valid_tip = match info.class {
-            DispatchClass::Normal => self.0 == Zero::zero(),
-            DispatchClass::Operational => self.0 == Zero::zero() || Self::is_gc_or_cdd_member(who),
-            DispatchClass::Mandatory => true,
-        };
+        match info.class {
+            DispatchClass::Normal | DispatchClass::Operational => {
+                if self.0.is_zero() {
+                    return Ok(self.0);
+                }
 
-        is_valid_tip
-            .then_some(self.0)
-            .ok_or(TransactionValidityError::Invalid(
-                InvalidTransaction::Custom(TransactionError::ZeroTip as u8),
-            ))
+                if Self::is_gc_or_cdd_member(who) {
+                    return Ok(self.0);
+                }
+
+                Err(TransactionValidityError::Invalid(
+                    InvalidTransaction::Custom(TransactionError::ZeroTip as u8),
+                ))
+            }
+            DispatchClass::Mandatory => Ok(self.0),
+        }
     }
+}
+
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+#[derive(RuntimeDebugNoBound)]
+pub enum Val<T: Config> {
+    Charge {
+        tip: BalanceOf<T>,
+        // who paid the fee
+        who: T::AccountId,
+        // transaction fee
+        fee: BalanceOf<T>,
+    },
+    NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+    Charge {
+        tip: BalanceOf<T>,
+        // who paid the fee
+        who: T::AccountId,
+        // imbalance resulting from withdrawing the fee
+        imbalance: <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+    },
+    NoCharge {
+        // weight initially estimated by the extension, to be refunded
+        refund: Weight,
+    },
 }
 
 impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
@@ -816,99 +945,62 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
     }
 }
 
-// Polymesh: Almost all of this implementation was changed to enforce zero tip, support subsidiser and charge fee to proper payer.
-impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
-    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand + Into<u128>,
-    T::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-    type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
-    type AdditionalSigned = ();
-    type Pre = (
-        // tip
-        BalanceOf<T>,
-        // The payer for the transaction, they might be subsidised.
-        Self::AccountId,
-        // Imbalance resulting from withdrawing the fee.
-        <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-        // Polymesh: Subsidiser
-        Option<Self::AccountId>,
-    );
-    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-        Ok(())
+    type Implicit = ();
+    type Val = Val<T>;
+    type Pre = Pre<T>;
+
+    fn weight(&self, _: &T::RuntimeCall) -> Weight {
+        unimplemented!()
     }
 
     fn validate(
         &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
-    ) -> TransactionValidity {
-        let tip = self.ensure_valid_tip(who, info)?;
-
-        let (_fee, _, _) = self.withdraw_fee(who, call, info, len)?;
-        // Polymesh: `tip` can only be used by GC/CDD members.
-        Ok(ValidTransaction {
-            priority: tip.saturated_into::<TransactionPriority>(),
-            ..Default::default()
-        })
+        _origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+        _: (),
+        _implication: &impl Encode,
+        _source: TransactionSource,
+    ) -> Result<
+        (
+            ValidTransaction,
+            Self::Val,
+            <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        unimplemented!()
     }
 
-    fn pre_dispatch(
+    fn prepare(
         self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
+        _val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let tip = self.ensure_valid_tip(who, info)?;
-        let (_fee, imbalance, subsidiser) = self.withdraw_fee(who, call, info, len)?;
-        Ok((tip, who.clone(), imbalance, subsidiser))
+        unimplemented!()
     }
 
     fn post_dispatch(
-        pre: Option<Self::Pre>,
-        info: &DispatchInfoOf<Self::Call>,
-        post_info: &PostDispatchInfoOf<Self::Call>,
-        len: usize,
+        _pre: Self::Pre,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance, subsidiser) = match pre {
-            Some(pre) => pre,
-            None => return Ok(()),
-        };
-        let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
-
-        // Fee returned to original payer.
-        // If payer context is empty, the fee is returned to the caller account.
-        let payer = T::CddHandler::get_payer_from_context().unwrap_or(who.clone());
-
-        // `fee_key` is either a subsidiser or the original payer.
-        let fee_key = if let Some(subsidiser_key) = subsidiser {
-            // Debit the actual fee from the subsidy.
-            // This shouldn't fail, since the subsidy was checked in `pre_dispatch`.
-            T::Subsidiser::debit_subsidy(&payer, actual_fee.into())?;
-            subsidiser_key
-        } else {
-            // No subsidy.
-            payer
-        };
-
-        T::OnChargeTransaction::correct_and_deposit_fee(
-            &fee_key, info, post_info, actual_fee, tip, imbalance,
-        )?;
-        Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid {
-            who: fee_key,
-            actual_fee,
-            tip,
-        });
-
-        // It clears the identity and payer in the context after transaction.
-        T::CddHandler::clear_context();
-        Ok(())
+        unimplemented!()
     }
+}
+
+/// Weight functions needed for `pallet_transaction_payment`.
+pub trait WeightInfo {
+    fn charge_transaction_payment() -> Weight;
 }

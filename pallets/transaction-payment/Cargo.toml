@@ -29,6 +29,7 @@ serde_json = "1.0.56"
 default = ["std"]
 disable_fees = []
 no_std = []
+runtime-benchmarks = []
 std = [
 	"serde",
 	"polymesh-primitives/std",
