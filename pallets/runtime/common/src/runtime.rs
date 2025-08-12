@@ -165,18 +165,18 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_transaction_payment::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Currency = Balances;
             type OnChargeTransaction =
-                pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
-            type TransactionByteFee = polymesh_runtime_common::TransactionByteFee;
+                pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees>;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
+            type LengthToFee = polymesh_runtime_common::LengthToFee;
             type FeeMultiplierUpdate = ();
+            type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
+            type WeightInfo = polymesh_weights::pallet_babe::SubstrateWeight;
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
             type CddProviders = CddServiceProviders;
             type Identity = Identity;
-            type WeightToFeeConst = polymesh_runtime_common::WeightToFee;
         }
 
         impl pallet_balances::Config for Runtime {
@@ -706,7 +706,7 @@ macro_rules! misc_pallet_impls {
             // The maximum number of winners that can be elected by this `ElectionProvider` implementation
             type MaxWinners = polymesh_runtime_common::MaxActiveValidators;
             // Base deposit for a signed solution
-            type SignedDepositBase = 
+            type SignedDepositBase =
                 pallet_election_provider_multi_phase::GeometricDepositBase<Balance, polymesh_runtime_common::SignedFixedDeposit, polymesh_runtime_common::SignedDepositIncreaseFactor>;
             /// The maximum number of electing voters and electable targets to put in the snapshot.
             type ElectionBounds = polymesh_runtime_common::ElectionBoundsMultiPhase;

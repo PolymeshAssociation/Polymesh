@@ -36,7 +36,7 @@ pub use frame_support::weights::{
 use frame_system::limits::{BlockLength, BlockWeights};
 use smallvec::smallvec;
 pub use sp_runtime::transaction_validity::TransactionPriority;
-pub use sp_runtime::{Perbill, Permill, Percent};
+pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion};
 
 pub use impls::Author;
 use pallet_balances as balances;
@@ -86,6 +86,8 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
+    /// The multiplier for operational fees.
+    pub const OperationalFeeMultiplier: u8 = 5;
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
     pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_mul(75).saturating_div(100);
@@ -179,40 +181,41 @@ parameter_types! {
 }
 
 frame_election_provider_support::generate_solution_type!(
-	#[compact]
-	pub struct NposSolution16::<
-		VoterIndex = u32,
-		TargetIndex = u16,
-		Accuracy = sp_runtime::PerU16,
-		MaxVoters = MaxElectingVotersSolution,
-	>(16)
+    #[compact]
+    pub struct NposSolution16::<
+        VoterIndex = u32,
+        TargetIndex = u16,
+        Accuracy = sp_runtime::PerU16,
+        MaxVoters = MaxElectingVotersSolution,
+    >(16)
 );
 
 /// Converts Weight to Fee
 pub struct WeightToFee;
 
-impl WeightToFeePolynomial for WeightToFee {
+impl frame_support::weights::WeightToFee for WeightToFee {
     type Balance = Balance;
-    /// We want a 0.03 POLYX fee per ExtrinsicBaseWeight.
-    /// 650_000_000 weight = 30_000 fee => 21_666 weight = 1 fee.
-    /// Hence, 1 fee = 0 + 1/21_666 weight.
-    /// This implies, coeff_integer = 0 and coeff_frac = 1/21_666.
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        smallvec![WeightToFeeCoefficient {
-            degree: 1,
-            coeff_frac: Perbill::from_rational(
-                PolyXBaseFee::get(),
-                ExtrinsicBaseWeight::get().ref_time() as u128
-            ),
-            coeff_integer: 0u128, // Coefficient is zero.
-            negative: false,
-        }]
+
+    fn weight_to_fee(weight: &Weight) -> Self::Balance {
+        let weight_ref_time = weight.ref_time();
+
+        Self::Balance::saturated_from(weight_ref_time)
+            .saturating_mul(PolyXBaseFee::get())
+            .max(PolyXBaseFee::get())
     }
 }
 
-impl Get<Vec<WeightToFeeCoefficient<Balance>>> for WeightToFee {
-    fn get() -> Vec<WeightToFeeCoefficient<Balance>> {
-        Self::polynomial().to_vec()
+pub struct LengthToFee;
+
+impl frame_support::weights::WeightToFee for LengthToFee {
+    type Balance = Balance;
+
+    fn weight_to_fee(weight: &Weight) -> Self::Balance {
+        let weight_ref_time = weight.ref_time();
+
+        Self::Balance::saturated_from(weight_ref_time)
+            .saturating_mul(TransactionByteFee::get())
+            .max(TransactionByteFee::get())
     }
 }
 
