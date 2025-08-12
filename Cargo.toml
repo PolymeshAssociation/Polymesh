@@ -144,7 +144,7 @@ members = [
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
-    "utils/permissions", "pallets/common",
+    "pallets/common",
 ]
 exclude = [
     "contracts",
