@@ -34,7 +34,6 @@ pub use frame_support::weights::{
     RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use smallvec::smallvec;
 pub use sp_runtime::transaction_validity::TransactionPriority;
 pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion};
 
