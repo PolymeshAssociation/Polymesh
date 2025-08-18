@@ -54,12 +54,12 @@ pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
 
 impl PipId {
-    /// Converts a PIP ID into a name of a PIP scheduled for execution.
+    /// Converts [`PipId`] into a [`TaskName`] of a PIP scheduled for execution.
     pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
         (PIP_EXECUTION, self.0).encode().try_into()
     }
 
-    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
+    /// Converts [`PipId`] into a [`TaskName`] of a PIP scheduled for expiry.
     pub fn expiry_name(&self) -> Result<TaskName, Vec<u8>> {
         (PIP_EXPIRY, self.0).encode().try_into()
     }
