@@ -28,9 +28,8 @@ pub mod benchmarking;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::mem;
 use frame_support::dispatch::DispatchResult;
-use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::*;
-use frame_support::traits::CallMetadata;
+use frame_support::traits::{CallMetadata, GetCallMetadata};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension};
 use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
@@ -189,7 +188,7 @@ impl<T: Config + Send + Sync> StoreCallMetadata<T> {
 
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StoreCallMetadata<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    T::RuntimeCall: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
     type Implicit = ();
@@ -202,7 +201,7 @@ where
 
     fn validate(
         &self,
-        _origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
         _call: &T::RuntimeCall,
         _info: &DispatchInfoOf<T::RuntimeCall>,
         _len: usize,
@@ -217,18 +216,20 @@ where
         ),
         TransactionValidityError,
     > {
-        unimplemented!()
+        Ok((ValidTransaction::default(), (), origin))
     }
 
     fn prepare(
         self,
         _val: Self::Val,
         _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-        _call: &T::RuntimeCall,
+        call: &T::RuntimeCall,
         _info: &DispatchInfoOf<T::RuntimeCall>,
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        unimplemented!()
+        let metadata = call.get_call_metadata();
+        Self::set_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
+        Ok(())
     }
 
     fn post_dispatch(
@@ -238,7 +239,8 @@ where
         _len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        unimplemented!()
+        Self::clear_call_metadata();
+        Ok(())
     }
 }
 
