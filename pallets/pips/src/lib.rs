@@ -78,8 +78,10 @@ use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::ensure;
 use frame_support::pallet_prelude::*;
 use frame_support::storage::types::StorageValue;
-use frame_support::traits::schedule::{DispatchTime, Named};
+use frame_support::traits::schedule::v3::Named as ScheduleNamed;
+use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::{Currency, EnsureOrigin, Get, WithdrawReasons};
+use frame_support::traits::{QueryPreimage, StorePreimage};
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
@@ -185,6 +187,8 @@ pub mod pallet {
         ProposalNotInScheduledState,
         /// Invalid PIP ID. Pip id was not expected to be in the live queue.
         InvalidPipId,
+        /// TaskName cannot exceed 32 bytes.
+        InvalidTaskName,
     }
 
     #[pallet::event]
@@ -378,12 +382,19 @@ pub mod pallet {
         /// Scheduler for executed or expired proposals. The scheduler module does not have instances,
         /// so the names of scheduled tasks must be unique within this pallet. Names cannot be just PIP
         /// IDs because names of executed and expired PIPs should be different.
-        type Scheduler: Named<BlockNumberFor<Self>, Self::SchedulerCall, Self::SchedulerOrigin>;
+        type Scheduler: ScheduleNamed<
+            BlockNumberFor<Self>,
+            Self::SchedulerCall,
+            Self::SchedulerOrigin,
+            Hasher = Self::Hashing,
+        >;
         /// A call type used by the scheduler.
-        type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
+        type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal> + Encode;
         /// The maximum number of votes that can be pruned at once.
         #[pallet::constant]
         type MaxRefundsAndVotesPruned: Get<u32>;
+        /// Preimage provider for the scheduler.
+        type SchedulerPreimage: QueryPreimage<H = Self::Hashing> + StorePreimage;
     }
 
     /// Set to `true` if historical PIPs data must be removed.
@@ -779,7 +790,7 @@ pub mod pallet {
 
             // Schedule for expiry, as long as `Pending`, at block with number `expiring_at`.
             if let MaybeBlock::Some(expiring_at) = expiry {
-                Self::schedule_pip_for_expiry(id, expiring_at);
+                Self::schedule_pip_for_expiry(id, expiring_at)?;
             }
 
             // Record the deposit and as a signal if we have a community PIP.
@@ -938,7 +949,7 @@ pub mod pallet {
             );
 
             // All is good, schedule PIP for execution.
-            Self::schedule_pip_for_execution(id);
+            Self::schedule_pip_for_execution(id)?;
             Ok(())
         }
 
@@ -969,7 +980,7 @@ pub mod pallet {
                 Self::is_active(proposal_state),
                 Error::<T>::IncorrectProposalState
             );
-            Self::maybe_unschedule_pip(id, proposal_state);
+            Self::maybe_unschedule_pip(id, proposal_state)?;
             Self::maybe_unsnapshot_pip(id, proposal_state);
             Self::unsafe_reject_proposal(GC_DID, id);
             Ok(())
@@ -1044,8 +1055,10 @@ pub mod pallet {
 
             // Update enactment period & reschedule it.
             PipToSchedule::<T>::insert(id, new_until);
-            let res =
-                T::Scheduler::reschedule_named(id.execution_name(), DispatchTime::At(new_until));
+            let task_name = id
+                .execution_name()
+                .map_err(|_| Error::<T>::InvalidTaskName)?;
+            let res = T::Scheduler::reschedule_named(task_name, DispatchTime::At(new_until));
             Self::handle_exec_scheduling_result(id, new_until, res);
             Ok(())
         }
@@ -1220,7 +1233,7 @@ pub mod pallet {
 
                 // Approve proposals as instructed.
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(pip_id);
+                    Self::schedule_pip_for_execution(pip_id)?;
                 }
 
                 let id = SnapshotMeta::<T>::get().map(|m| m.id);
@@ -1358,21 +1371,27 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Adds a PIP expiry call to the PIP expiry schedule.
-    fn schedule_pip_for_expiry(id: PipId, at: BlockNumberFor<T>) {
+    fn schedule_pip_for_expiry(id: PipId, at: BlockNumberFor<T>) -> DispatchResult {
         let did = GC_DID;
-        let call = Call::<T>::expire_scheduled_pip { did, id }.into();
-        let event = match T::Scheduler::schedule_named(
-            id.expiry_name(),
+
+        let scheduler_call =
+            <T as pallet::Config>::SchedulerCall::from(Call::<T>::expire_scheduled_pip { did, id });
+
+        let expire_pip_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
+
+        match T::Scheduler::schedule_named(
+            id.expiry_name().map_err(|_| Error::<T>::InvalidTaskName)?,
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
             RawOrigin::Root.into(),
-            call,
+            expire_pip_call,
         ) {
-            Err(_) => Event::ExpirySchedulingFailed(did, id, at),
-            Ok(_) => Event::ExpiryScheduled(did, id, at),
+            Err(_) => Self::deposit_event(Event::ExpirySchedulingFailed(did, id, at)),
+            Ok(_) => Self::deposit_event(Event::ExpiryScheduled(did, id, at)),
         };
-        Self::deposit_event(event);
+
+        Ok(())
     }
 
     /// Changes the vote of `voter` to `vote`, if any.
@@ -1480,22 +1499,29 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Add a PIP execution call to the PIP execution schedule.
-    fn schedule_pip_for_execution(id: PipId) {
+    fn schedule_pip_for_execution(id: PipId) -> DispatchResult {
         // The enactment period is at least 1 block,
         // as you can only schedule calls for future blocks.
         let at = DefaultEnactmentPeriod::<T>::get()
             .max(One::one())
             .saturating_add(System::<T>::block_number());
 
-        // Add to schedule.
-        let call = Call::<T>::execute_scheduled_pip { id }.into();
+        let scheduler_call =
+            <T as pallet::Config>::SchedulerCall::from(Call::<T>::execute_scheduled_pip { id });
+
+        let execute_pip_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
+
+        let task_name = id
+            .execution_name()
+            .map_err(|_| Error::<T>::InvalidTaskName)?;
+
         let res = T::Scheduler::schedule_named(
-            id.execution_name(),
+            task_name,
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
             RawOrigin::Root.into(),
-            call,
+            execute_pip_call,
         );
         Self::handle_exec_scheduling_result(id, at, res);
 
@@ -1504,6 +1530,8 @@ impl<T: Config> Pallet<T> {
 
         // Set the proposal to scheduled.
         Self::update_proposal_state(GC_DID, id, ProposalState::Scheduled);
+
+        Ok(())
     }
 
     /// Emit event based on a `result` from scheduling a PIP for execution.
@@ -1547,10 +1575,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Unschedule PIP with given `id` if it's scheduled for execution.
-    fn maybe_unschedule_pip(id: PipId, state: ProposalState) {
+    fn maybe_unschedule_pip(id: PipId, state: ProposalState) -> DispatchResult {
         if let ProposalState::Scheduled = state {
-            Self::unschedule_pip(id);
+            Self::unschedule_pip(id)?;
         }
+        Ok(())
     }
 
     /// Remove the PIP with `id` from the snapshot if it is there.
@@ -1575,11 +1604,16 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
-    fn unschedule_pip(id: PipId) {
+    fn unschedule_pip(id: PipId) -> DispatchResult {
+        let task_name = id
+            .execution_name()
+            .map_err(|_| Error::<T>::InvalidTaskName)?;
+
         PipToSchedule::<T>::remove(id);
-        if T::Scheduler::cancel_named(id.execution_name()).is_err() {
+        if T::Scheduler::cancel_named(task_name).is_err() {
             Self::deposit_event(Event::ExecutionCancellingFailed(id));
         }
+        Ok(())
     }
 
     /// Sets the proposal state to `new_state`, adds the proposal to the pending refunds queue and

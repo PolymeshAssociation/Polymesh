@@ -15,6 +15,7 @@
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
+use frame_support::traits::schedule::v3::TaskName;
 use frame_support::traits::schedule::{Priority, HARD_DEADLINE};
 use frame_support::traits::LockIdentifier;
 use scale_info::TypeInfo;
@@ -54,13 +55,13 @@ impl_checked_inc!(PipId);
 
 impl PipId {
     /// Converts a PIP ID into a name of a PIP scheduled for execution.
-    pub fn execution_name(&self) -> Vec<u8> {
-        (PIP_EXECUTION, self.0).encode()
+    pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
+        (PIP_EXECUTION, self.0).encode().try_into()
     }
 
     /// Converts a PIP ID into a name of a PIP scheduled for expiry.
-    pub fn expiry_name(&self) -> Vec<u8> {
-        (PIP_EXPIRY, self.0).encode()
+    pub fn expiry_name(&self) -> Result<TaskName, Vec<u8>> {
+        (PIP_EXPIRY, self.0).encode().try_into()
     }
 }
 
@@ -176,14 +177,6 @@ pub struct Vote(
     /// How strongly do they feel about it?
     pub Balance,
 );
-
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Serialize, Deserialize)]
-#[derive(Clone, Decode, Encode, Eq, PartialEq)]
-pub struct VoteByPip<VoteType> {
-    pub pip: PipId,
-    pub vote: VoteType,
-}
 
 /// The state a PIP is in.
 #[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
