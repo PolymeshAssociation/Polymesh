@@ -13,9 +13,7 @@ use frame_support::weights::Weight;
 use frame_support::{construct_runtime, parameter_types};
 use sp_runtime::create_runtime_str;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify,
-};
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT, NumberFor, StaticLookup, Verify};
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{Perbill, Permill};
 use sp_std::prelude::*;
