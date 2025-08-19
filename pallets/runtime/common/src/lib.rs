@@ -38,13 +38,13 @@ pub use sp_runtime::transaction_validity::TransactionPriority;
 pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion};
 
 pub use impls::Author;
-use pallet_balances as balances;
 use polymesh_primitives::constants::currency::*;
 pub use polymesh_primitives::RocksDbWeight;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
 
-pub type NegativeImbalance<T> =
-    <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     items as Balance * 15 * CENTS + (bytes as Balance) * 6 * CENTS

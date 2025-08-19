@@ -16,18 +16,17 @@
 // limitations under the License.
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
+use frame_support::dispatch::DispatchInfo;
 use frame_support::pallet_prelude::Weight;
-use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension};
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
-use sp_runtime::transaction_validity::{TransactionSource, ValidTransactionBuilder};
-use sp_runtime::transaction_validity::{TransactionValidity, TransactionValidityError};
-use sp_runtime::transaction_validity::{UnknownTransaction, ValidTransaction};
+use sp_runtime::transaction_validity::TransactionSource;
+use sp_runtime::transaction_validity::TransactionValidityError;
+use sp_runtime::transaction_validity::ValidTransaction;
 use sp_runtime::DispatchResult;
 use sp_std::{fmt, marker::PhantomData};
 
-use crate::{Config, Key};
+use crate::Config;
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///

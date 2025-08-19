@@ -39,6 +39,7 @@ pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false  }
 pallet-statistics = { workspace = true, default-features = false  }
 pallet-sto = { workspace = true, default-features = false  }
+pallet-transaction-payment = { workspace = true, default-features = false  }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
