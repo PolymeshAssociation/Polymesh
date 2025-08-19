@@ -16,13 +16,15 @@
 // limitations under the License.
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
+use frame_support::pallet_prelude::Weight;
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
-use sp_runtime::traits::{DispatchInfoOf, Dispatchable, SignedExtension};
-use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
-    UnknownTransaction, ValidTransaction,
-};
+use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
+use sp_runtime::transaction_validity::{TransactionSource, ValidTransactionBuilder};
+use sp_runtime::transaction_validity::{TransactionValidity, TransactionValidityError};
+use sp_runtime::transaction_validity::{UnknownTransaction, ValidTransaction};
+use sp_runtime::DispatchResult;
 use sp_std::{fmt, marker::PhantomData};
 
 use crate::{Config, Key};
@@ -64,43 +66,58 @@ impl<T: Config + Send + Sync> CheckOnlySudoAccount<T> {
     }
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckOnlySudoAccount<T>
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+    for CheckOnlySudoAccount<T>
 where
     <T as Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
     const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
-    type AccountId = T::AccountId;
-    type Call = <T as Config>::RuntimeCall;
-    type AdditionalSigned = ();
+    type Implicit = ();
+    type Val = ();
     type Pre = ();
 
-    fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-        Ok(())
+    fn weight(&self, _: &<T as Config>::RuntimeCall) -> Weight {
+        unimplemented!()
     }
 
     fn validate(
         &self,
-        who: &Self::AccountId,
-        _call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
+        _origin: <<T as Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &<T as Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
         _len: usize,
-    ) -> TransactionValidity {
-        let sudo_key: T::AccountId = Key::<T>::get().ok_or(UnknownTransaction::CannotLookup)?;
-        ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
-
-        Ok(ValidTransaction {
-            priority: info.total_weight().ref_time() as TransactionPriority,
-            ..Default::default()
-        })
+        _: (),
+        _implication: &impl Encode,
+        _source: TransactionSource,
+    ) -> Result<
+        (
+            ValidTransaction,
+            Self::Val,
+            <<T as Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        unimplemented!()
     }
 
-    fn pre_dispatch(
+    fn prepare(
         self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
+        _val: Self::Val,
+        _origin: &<<T as Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &<T as Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        self.validate(who, call, info, len).map(|_| ())
+        unimplemented!();
+    }
+
+    fn post_dispatch(
+        _pre: Self::Pre,
+        _info: &DispatchInfoOf<<T as Config>::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<<T as Config>::RuntimeCall>,
+        _len: usize,
+        _result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        unimplemented!();
     }
 }

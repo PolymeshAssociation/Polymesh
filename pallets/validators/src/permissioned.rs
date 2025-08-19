@@ -1,5 +1,5 @@
 use frame_support::traits::fungible::Inspect;
-use frame_support::traits::schedule::Anon;
+use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
 use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::{pallet_prelude::*, traits::Get};
 use frame_system::RawOrigin;
@@ -137,7 +137,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     }
 
     /// Schedule reward payouts.
-    fn schedule_payouts(active_era: &ActiveEraInfo) {
+    fn schedule_payouts(active_era: &ActiveEraInfo) -> DispatchResult {
         let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
         for (index, validator_id) in <T as StakingConfig>::SessionInterface::validators()
             .into_iter()
@@ -145,36 +145,44 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         {
             let schedule_block_number =
                 next_block_number + index.saturated_into::<BlockNumberFor<T>>();
+
+            let scheduler_call =
+                <T as pallet::Config>::SchedulerCall::from(Call::<T>::payout_stakers_by_system {
+                    validator_stash: validator_id.clone(),
+                    era: active_era.index,
+                });
+
+            let payout_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
+
             match T::RewardScheduler::schedule(
-                    DispatchTime::At(schedule_block_number),
-                    None,
-                    HIGHEST_PRIORITY,
-                    RawOrigin::Root.into(),
-                    Call::<T>::payout_stakers_by_system {
-                        validator_stash: validator_id.clone(),
+                DispatchTime::At(schedule_block_number),
+                None,
+                HIGHEST_PRIORITY,
+                RawOrigin::Root.into(),
+                payout_call
+            ) {
+                Ok(_) => log!(
+                    info,
+                    "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                    &validator_id,
+                    schedule_block_number,
+                ),
+                Err(error) => {
+                    log!(
+                        error,
+                        "⛔ Detected error in scheduling the reward payment: {:?}",
+                        error
+                    );
+                    Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
+                        account_id: validator_id,
                         era: active_era.index,
-                    }.into()
-                ) {
-                    Ok(_) => log!(
-                        info,
-                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
-                        &validator_id,
-                        schedule_block_number,
-                    ),
-                    Err(error) => {
-                        log!(
-                            error,
-                            "⛔ Detected error in scheduling the reward payment: {:?}",
-                            error
-                        );
-                        Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
-                            account_id: validator_id,
-                            era: active_era.index,
-                            error
-                        });
-                    }
+                        error
+                    });
                 }
+            }
         }
+
+        Ok(())
     }
 
     /// Who should be slashed?
