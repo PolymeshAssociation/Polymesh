@@ -288,11 +288,10 @@ macro_rules! misc_pallet_impls {
         impl pallet_validators::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_validators::SubstrateWeight;
-
             type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
             type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
             type FixedYearlyReward = FixedYearlyReward;
-            type Call = RuntimeCall;
+            type SchedulerCall = RuntimeCall;
             type PalletsOrigin = OriginCaller;
             type RewardScheduler = Scheduler;
         }
@@ -574,7 +573,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_settlement::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type Proposal = RuntimeCall;
+            type SchedulerCall = RuntimeCall;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::SubstrateWeight;
             type Portfolio = Portfolio;

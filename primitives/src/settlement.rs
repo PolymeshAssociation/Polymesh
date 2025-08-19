@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use codec::alloc::string::ToString;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
+use frame_support::traits::schedule::v3::TaskName;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_std::collections::btree_set::BTreeSet;
@@ -131,9 +132,9 @@ pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
 
 impl InstructionId {
-    /// Converts an instruction id into a scheduler name.
-    pub fn execution_name(&self) -> Vec<u8> {
-        (SETTLEMENT_INSTRUCTION_EXECUTION, self.0).encode()
+    /// Converts an instruction id into [`TaskName`].
+    pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
+        (SETTLEMENT_INSTRUCTION_EXECUTION, self.0).encode().try_into()
     }
 }
 
