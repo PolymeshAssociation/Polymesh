@@ -6416,6 +6416,7 @@ dependencies = [
  "pallet-statistics",
  "pallet-sto",
  "pallet-timestamp",
+ "pallet-transaction-payment 2.0.0",
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",

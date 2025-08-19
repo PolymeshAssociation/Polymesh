@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
-use frame_support::traits::fungible::{Balanced, Credit, Debt, Inspect};
-use frame_support::traits::tokens::{Precision, WithdrawConsequence};
-use frame_support::traits::{Imbalance, OnUnbalanced};
+use frame_support::pallet_prelude::CheckedSub;
+use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{ExistenceRequirement, WithdrawReasons};
 use frame_support::unsigned::TransactionValidityError;
 use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero};
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -64,67 +64,101 @@ pub trait OnChargeTransaction<T: Config> {
     // -----------------------------------------------------------------
 }
 
-/// Implements transaction payment for a pallet implementing the [`frame_support::traits::fungible`]
-/// trait (eg. pallet_balances) using an unbalance handler (implementing
+type NegativeImbalanceOf<C, T> =
+    <C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
+/// Implements the transaction payment for a pallet implementing the [`Currency`]
+/// trait (eg. the pallet_balances) using an unbalance handler (implementing
 /// [`OnUnbalanced`]).
 ///
 /// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
 /// then `tip`.
-pub struct FungibleAdapter<F, OU>(PhantomData<(F, OU)>);
+pub struct CurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
 
-impl<T, F, OU> OnChargeTransaction<T> for FungibleAdapter<F, OU>
+/// Default implementation for a Currency and an OnUnbalanced handler.
+///
+/// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
+/// then `tip`.
+impl<T, C, OU> OnChargeTransaction<T> for CurrencyAdapter<C, OU>
 where
     T: Config,
-    F: Balanced<T::AccountId>,
-    OU: OnUnbalanced<Credit<T::AccountId, F>>,
+    C: Currency<<T as frame_system::Config>::AccountId>,
+    C::PositiveImbalance: Imbalance<
+        <C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+        Opposite = C::NegativeImbalance,
+    >,
+    C::NegativeImbalance: Imbalance<
+        <C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+        Opposite = C::PositiveImbalance,
+    >,
+    OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
 {
-    type LiquidityInfo = Option<Credit<T::AccountId, F>>;
-    type Balance = <F as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+    type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
+    type Balance = <C as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+    /// Withdraw the predicted fee from the transaction origin.
+    ///
+    /// Note: The `fee` already includes the `tip`.
     fn withdraw_fee(
-        who: &<T>::AccountId,
-        _call: &<T>::RuntimeCall,
-        _dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
+        who: &T::AccountId,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
         fee: Self::Balance,
-        _tip: Self::Balance,
+        tip: Self::Balance,
     ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
         if fee.is_zero() {
             return Ok(None);
         }
 
-        match F::withdraw(
-            who,
-            fee,
-            Precision::Exact,
-            frame_support::traits::tokens::Preservation::Preserve,
-            frame_support::traits::tokens::Fortitude::Polite,
-        ) {
+        let withdraw_reason = if tip.is_zero() {
+            WithdrawReasons::TRANSACTION_PAYMENT
+        } else {
+            WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+        };
+
+        match C::withdraw(who, fee, withdraw_reason, ExistenceRequirement::KeepAlive) {
             Ok(imbalance) => Ok(Some(imbalance)),
             Err(_) => Err(InvalidTransaction::Payment.into()),
         }
     }
 
+    /// Check if the predicted fee from the transaction origin can be withdrawn.
+    ///
+    /// Note: The `fee` already includes the `tip`.
     fn can_withdraw_fee(
         who: &T::AccountId,
         _call: &T::RuntimeCall,
-        _dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
         fee: Self::Balance,
-        _tip: Self::Balance,
+        tip: Self::Balance,
     ) -> Result<(), TransactionValidityError> {
         if fee.is_zero() {
             return Ok(());
         }
 
-        match F::can_withdraw(who, fee) {
-            WithdrawConsequence::Success => Ok(()),
-            _ => Err(InvalidTransaction::Payment.into()),
-        }
+        let withdraw_reason = if tip.is_zero() {
+            WithdrawReasons::TRANSACTION_PAYMENT
+        } else {
+            WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+        };
+
+        let new_balance = C::free_balance(who)
+            .checked_sub(&fee)
+            .ok_or(InvalidTransaction::Payment)?;
+        C::ensure_can_withdraw(who, fee, withdraw_reason, new_balance)
+            .map(|_| ())
+            .map_err(|_| InvalidTransaction::Payment.into())
     }
 
+    /// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
+    /// Since the predicted fee might have been too high, parts of the fee may
+    /// be refunded.
+    ///
+    /// Note: The `corrected_fee` already includes the `tip`.
     fn correct_and_deposit_fee(
-        who: &<T>::AccountId,
-        _dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
-        _post_info: &PostDispatchInfoOf<<T>::RuntimeCall>,
+        who: &T::AccountId,
+        _dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+        _post_info: &PostDispatchInfoOf<T::RuntimeCall>,
         corrected_fee: Self::Balance,
         tip: Self::Balance,
         already_withdrawn: Self::LiquidityInfo,
@@ -132,17 +166,13 @@ where
         if let Some(paid) = already_withdrawn {
             // Calculate how much refund we should return
             let refund_amount = paid.peek().saturating_sub(corrected_fee);
-            // Refund to the the account that paid the fees if it exists & refund is non-zero.
-            // Otherwise, don't refund anything.
-            let refund_imbalance =
-                if refund_amount > Zero::zero() && F::total_balance(who) > F::Balance::zero() {
-                    F::deposit(who, refund_amount, Precision::BestEffort)
-                        .unwrap_or_else(|_| Debt::<T::AccountId, F>::zero())
-                } else {
-                    Debt::<T::AccountId, F>::zero()
-                };
+            // refund to the the account that paid the fees. If this fails, the
+            // account might have dropped below the existential balance. In
+            // that case we don't refund anything.
+            let refund_imbalance = C::deposit_into_existing(who, refund_amount)
+                .unwrap_or_else(|_| C::PositiveImbalance::zero());
             // merge the imbalance caused by paying the fees and refunding parts of it again.
-            let adjusted_paid: Credit<T::AccountId, F> = paid
+            let adjusted_paid = paid
                 .offset(refund_imbalance)
                 .same()
                 .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
@@ -150,27 +180,28 @@ where
             let (tip, fee) = adjusted_paid.split(tip);
             OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
         }
-
         Ok(())
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn endow_account(who: &T::AccountId, amount: Self::Balance) {
-        let _ = F::deposit(who, amount, Precision::BestEffort);
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn minimum_balance() -> Self::Balance {
-        F::minimum_balance()
     }
 
     // Polymesh change
     // -----------------------------------------------------------------
-    fn charge_fee(
-        _who: &T::AccountId,
-        _fee: Self::Balance,
-    ) -> Result<(), TransactionValidityError> {
-        unimplemented!("");
+    fn charge_fee(who: &T::AccountId, fee: Self::Balance) -> Result<(), TransactionValidityError> {
+        if fee.is_zero() {
+            return Ok(());
+        }
+
+        match C::withdraw(
+            who,
+            fee,
+            WithdrawReasons::TRANSACTION_PAYMENT,
+            ExistenceRequirement::KeepAlive,
+        ) {
+            Ok(imbalance) => {
+                OU::on_unbalanced(imbalance);
+                Ok(())
+            }
+            Err(_) => Err(InvalidTransaction::Payment.into()),
+        }
     }
     // -----------------------------------------------------------------
 }

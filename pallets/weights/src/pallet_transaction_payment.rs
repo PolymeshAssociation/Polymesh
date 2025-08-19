@@ -38,8 +38,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use core::marker::PhantomData;
+use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 
 /// Weight functions needed for `pallet_transaction_payment`.
 pub trait WeightInfo {
@@ -47,8 +46,8 @@ pub trait WeightInfo {
 }
 
 /// Weights for `pallet_transaction_payment` using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct SubstrateWeight;
+impl pallet_transaction_payment::WeightInfo for SubstrateWeight {
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn charge_transaction_payment() -> Weight {
@@ -57,7 +56,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3593`
 		// Minimum execution time: 35_425_000 picoseconds.
 		Weight::from_parts(35_979_000, 3593)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(DbWeight::get().reads(1_u64))
+			.saturating_add(DbWeight::get().writes(1_u64))
 	}
 }

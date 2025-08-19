@@ -166,12 +166,12 @@ macro_rules! misc_pallet_impls {
         impl pallet_transaction_payment::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type OnChargeTransaction =
-                pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees>;
+                pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type LengthToFee = polymesh_runtime_common::LengthToFee;
             type FeeMultiplierUpdate = ();
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
-            type WeightInfo = polymesh_weights::pallet_babe::SubstrateWeight;
+            type WeightInfo = polymesh_weights::pallet_transaction_payment::SubstrateWeight;
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
