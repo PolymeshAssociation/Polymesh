@@ -32,9 +32,8 @@ pub mod types;
 pub use pallet_staking::permissioned_staking::PermissionedStaking;
 
 use frame_support::pallet_prelude::*;
-use frame_support::traits::schedule::Anon;
-use frame_support::traits::Get;
-use frame_support::traits::IsSubType;
+use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
+use frame_support::traits::{Get, IsSubType, QueryPreimage, StorePreimage};
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
 use sp_runtime::traits::Dispatchable;
@@ -81,7 +80,7 @@ mod migrations {
     use frame_support::traits::{Get, GetStorageVersion};
 
     pub fn migrate_v1<T: Config>() -> Weight {
-        let in_code = Pallet::<T>::current_storage_version();
+        let in_code = Pallet::<T>::in_code_storage_version();
         let on_chain = Pallet::<T>::on_chain_storage_version();
 
         if on_chain < 1 {
@@ -155,17 +154,21 @@ pub mod pallet {
         type FixedYearlyReward: Get<BalanceOf<Self>>;
 
         /// The overarching call type.
-        type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
+        type SchedulerCall: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone + Encode;
 
         /// Overarching type of all pallets origins.
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
         /// To schedule the rewards for the stakers after the end of era.
-        type RewardScheduler: Anon<
+        type RewardScheduler: ScheduleAnon<
             BlockNumberFor<Self>,
-            <Self as Config>::Call,
+            Self::SchedulerCall,
             Self::PalletsOrigin,
+            Hasher = Self::Hashing,
         >;
+
+        /// Preimage provider for the scheduler.
+        type SchedulerPreimage: QueryPreimage<H = Self::Hashing> + StorePreimage;
     }
 
     /// Entities that are allowed to run operator/validator nodes.
