@@ -279,6 +279,7 @@ impl pallet_pips::Config for Runtime {
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
     type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
+    type SchedulerPreimage = Preimage;
 }
 
 /// CddProviders instance of group

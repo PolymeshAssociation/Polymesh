@@ -53,9 +53,6 @@ pub type ProposalIndex = u32;
 type Identity<T> = identity::Pallet<T>;
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
 
 pub use pallet::*;
 
@@ -231,12 +228,19 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-/// That trait implementation is needed to receive a portion of the fees from transactions.
-impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Pallet<T> {
-    fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
-        let numeric_amount = amount.peek();
+use frame_support::traits::fungible::Credit;
 
-        let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
-        Self::deposit_event(Event::TreasuryReimbursement(GC_DID, numeric_amount));
+pub type NegativeImbalanceOf<T> =
+    Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+
+/// That trait implementation is needed to receive a portion of the fees from transactions.
+impl<T> OnUnbalanced<NegativeImbalanceOf<T>> for Pallet<T>
+where
+    T: frame_system::Config + Config,
+    <T as pallet::Config>::Currency:
+        frame_support::traits::fungible::Balanced<<T as frame_system::Config>::AccountId>,
+{
+    fn on_nonzero_unbalanced(_amount: NegativeImbalanceOf<T>) {
+        unimplemented!()
     }
 }
