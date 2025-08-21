@@ -134,7 +134,8 @@ pub mod pallet {
     }
 
     /// Origin for the committee module.
-    #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+    #[derive(Debug, Decode, DecodeWithMemTracking, Encode)]
+    #[derive(Clone, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
     #[scale_info(skip_type_params(I))]
     pub enum RawOrigin<AccountId, I> {
         /// It has been condoned by M of N members of this committee
