@@ -24,8 +24,9 @@ scale-info = { workspace = true, default-features = false, features = ["derive",
 default = ["std"]
 std = [
 	"serde/std",
+    "codec/std",
 	"sp-api/std",
-	"codec/std",
 	"sp-std/std",
+    "scale-info/std",
 	"polymesh-primitives/std",
 ]
