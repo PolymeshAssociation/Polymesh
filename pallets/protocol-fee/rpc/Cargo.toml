@@ -9,7 +9,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = false, features = ["derive"] }
-jsonrpsee = { version = "0.24.8", features = ["server", "macros"] }
+jsonrpsee = { version = "0.24.9", features = ["server-core", "client-core", "macros"] }
 sp-api = { workspace = true, default-features = false }
 sp-blockchain = { workspace = true }
 sp-core = { workspace = true, default-features = false }
@@ -22,7 +22,6 @@ frame-system = { workspace = true, default-features = false }
 node-rpc = { workspace = true }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { workspace = true }
 
 # General
-serde = { version = "1.0.104", default-features = false, features = ["derive"] }
+serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
