@@ -6679,6 +6679,7 @@ dependencies = [
  "frame-system",
  "jsonrpsee",
  "node-rpc",
+ "pallet-protocol-fee-rpc-runtime-api",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",

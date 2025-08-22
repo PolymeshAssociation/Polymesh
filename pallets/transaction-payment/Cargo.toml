@@ -31,11 +31,12 @@ disable_fees = []
 no_std = []
 runtime-benchmarks = []
 std = [
-	"serde",
+	"serde/std",
 	"polymesh-primitives/std",
 	"codec/std",
 	"sp-api/std",
 	"sp-std/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",

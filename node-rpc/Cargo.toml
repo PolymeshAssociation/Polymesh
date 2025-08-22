@@ -13,9 +13,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 jsonrpsee = { version = "0.24.8", features = ["server"] }
 
 polymesh-primitives = { workspace = true, default-features = false }
-pallet-group-rpc = { workspace = true }
-pallet-protocol-fee-rpc = {  workspace = true }
-node-rpc = { workspace = true }
+pallet-group-rpc = { workspace = true, default-features = false }
+pallet-protocol-fee-rpc = {  workspace = true, default-features = false }
+node-rpc = { workspace = true, default-features = false }
 
 sc-chain-spec = { workspace = true }
 sc-client-api = { workspace = true }
@@ -28,11 +28,25 @@ sc-rpc-api = { workspace = true }
 sc-rpc-spec-v2 = { workspace = true }
 sc-sync-state-rpc = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-blockchain = { workspace = true }
-sp-consensus = { workspace = true }
-sp-consensus-babe = { workspace = true }
-sp-keystore = { workspace = true }
-sp-runtime = { workspace = true }
-substrate-frame-rpc-system = { workspace = true }
+sp-api = { workspace = true, default-features = false }
+sp-block-builder = { workspace = true, default-features = false }
+sp-blockchain = { workspace = true, default-features = false }
+sp-consensus = { workspace = true, default-features = false }
+sp-consensus-babe = { workspace = true, default-features = false }
+sp-keystore = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+substrate-frame-rpc-system = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "polymesh-primitives/std",
+    "pallet-group-rpc/std",
+    "pallet-protocol-fee-rpc/std",
+    "node-rpc/std",
+    "sp-api/std",
+    "sp-block-builder/std",
+    "sp-consensus-babe/std",
+    "sp-keystore/std",
+    "sp-runtime/std",
+]
