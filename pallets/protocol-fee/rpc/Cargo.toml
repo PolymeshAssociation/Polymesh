@@ -22,6 +22,22 @@ frame-system = { workspace = true, default-features = false }
 node-rpc = { workspace = true }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { workspace = true }
 
 # General
 serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std",
+    "polymesh-primitives/std",
+    "polymesh-common-utilities/std",
+    "pallet-protocol-fee-rpc-runtime-api/std"
+]
