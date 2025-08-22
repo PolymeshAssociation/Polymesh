@@ -150,11 +150,6 @@ parameter_types! {
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 
-    // State trie Migration
-    pub const MigrationSignedDepositPerItem: Balance = 1_000;
-    pub const MigrationSignedDepositBase: Balance = 1_000_000;
-    pub const MaxKeyLen: u32 = 2048;
-
     // PIPs
     pub const MaxRefundsAndVotesPruned: u32 = 128;
 
@@ -163,14 +158,6 @@ parameter_types! {
     pub const BondingDuration: sp_staking::EraIndex = 7;
     pub const SlashDeferDuration: sp_staking::EraIndex = 4;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-
-    //pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
-    //pub const MaxIterations: u32 = 10;
-    //// 0.05%. The higher the value, the more strict solution acceptance becomes.
-    //pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
-    // pub const MinimumBond: Balance = ONE_POLY;
-    /// We prioritize im-online heartbeats over election solution submission.
-    //pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 
     // Validators
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
