@@ -32,6 +32,7 @@ serde = { version = "1.0.104", default-features = false, features = ["derive"] }
 [features]
 default = ["std"]
 std = [
+    "node-rpc/std",
     "codec/std",
 	"sp-api/std",
     "sp-core/std",

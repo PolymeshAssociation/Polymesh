@@ -38,6 +38,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "polymesh-primitives/std",
+    "node-rpc/std",
     "polymesh-common-utilities/std",
     "pallet-protocol-fee-rpc-runtime-api/std"
 ]
