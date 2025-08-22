@@ -13,18 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
-};
+use std::sync::Arc;
+
+use jsonrpsee::core::RpcResult;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::error::ErrorObject;
 use node_rpc::Error;
-pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
-use std::sync::Arc;
+
+pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 
 #[rpc(client, server)]
 pub trait ProtocolFeeApi<BlockHash> {
@@ -60,17 +60,16 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<CappedFee> {
         let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(||
-            // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash);
+
+        // If the block hash is not supplied assume the best block.
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.compute_fee(at_hash, op).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
+            ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to query dispatch info.",
                 Some(e.to_string()),
-            ))
-            .into()
+            )
         })
     }
 }
