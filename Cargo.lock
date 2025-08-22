@@ -7693,7 +7693,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "7.3.0"
+version = "8.0.0"
 dependencies = [
  "clap",
  "frame-benchmarking",

@@ -36,9 +36,8 @@ use jsonrpsee::RpcModule;
 use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Moment, Nonce, Ticker};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::BabeWorkerHandle;
-use sc_consensus_grandpa::{
-    FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
-};
+use sc_consensus_grandpa::{FinalityProofProvider, GrandpaJustificationStream};
+use sc_consensus_grandpa::{SharedAuthoritySet, SharedVoterState};
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
@@ -81,8 +80,6 @@ pub struct FullDeps<C, P, SC, B> {
     pub select_chain: SC,
     /// A copy of the chain spec.
     pub chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
-    /// Whether to deny unsafe calls
-    pub deny_unsafe: DenyUnsafe,
     /// BABE specific dependencies.
     pub babe: BabeDeps,
     /// GRANDPA specific dependencies.
@@ -93,16 +90,7 @@ pub struct FullDeps<C, P, SC, B> {
 
 /// Instantiate all Full RPC extensions.
 pub fn create_full<C, P, SC, B>(
-    FullDeps {
-        client,
-        pool,
-        select_chain,
-        chain_spec,
-        deny_unsafe,
-        babe,
-        grandpa,
-        backend: _,
-    }: FullDeps<C, P, SC, B>,
+    full_client_deps: FullDeps<C, P, SC, B>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
@@ -148,69 +136,59 @@ where
 
     let mut io = RpcModule::new(());
 
-    let BabeDeps {
-        keystore,
-        babe_worker_handle,
-    } = babe;
-    let GrandpaDeps {
-        shared_voter_state,
-        shared_authority_set,
-        justification_stream,
-        subscription_executor,
-        finality_provider,
-    } = grandpa;
-
-    let chain_name = chain_spec.name().to_string();
-    let genesis_hash = client
+    let chain_name = full_client_deps.chain_spec.name().to_string();
+    let genesis_hash = full_client_deps
+        .client
         .block_hash(0)
         .ok()
         .flatten()
         .expect("Genesis block exists; qed");
-    let properties = chain_spec.properties();
+    let properties = full_client_deps.chain_spec.properties();
     io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 
-    io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-    io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+    io.merge(System::new(full_client_deps.client.clone(), full_client_deps.pool).into_rpc())?;
+
+    io.merge(TransactionPayment::new(full_client_deps.client.clone()).into_rpc())?;
+
     io.merge(
         Babe::new(
-            client.clone(),
-            babe_worker_handle.clone(),
-            keystore,
-            select_chain,
-            deny_unsafe,
+            full_client_deps.client.clone(),
+            full_client_deps.babe.babe_worker_handle.clone(),
+            full_client_deps.babe.keystore,
+            full_client_deps.select_chain,
         )
         .into_rpc(),
     )?;
+
     io.merge(
         Grandpa::new(
-            subscription_executor,
-            shared_authority_set.clone(),
-            shared_voter_state,
-            justification_stream,
-            finality_provider,
+            full_client_deps.grandpa.subscription_executor,
+            full_client_deps.grandpa.shared_authority_set.clone(),
+            full_client_deps.grandpa.shared_voter_state,
+            full_client_deps.grandpa.justification_stream,
+            full_client_deps.grandpa.finality_provider,
         )
         .into_rpc(),
     )?;
 
     io.merge(
         SyncState::new(
-            chain_spec,
-            client.clone(),
-            shared_authority_set,
-            babe_worker_handle,
+            full_client_deps.chain_spec,
+            full_client_deps.client.clone(),
+            full_client_deps.grandpa.shared_authority_set.clone(),
+            full_client_deps.babe.babe_worker_handle.clone(),
         )?
         .into_rpc(),
     )?;
 
-    io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
-
-    io.merge(Pips::new(client.clone()).into_rpc())?;
-    io.merge(Identity::new(client.clone()).into_rpc())?;
-    io.merge(ProtocolFee::new(client.clone()).into_rpc())?;
-    io.merge(Asset::new(client.clone()).into_rpc())?;
-    io.merge(Group::from(client.clone()).into_rpc())?;
-    io.merge(NFT::new(client.clone()).into_rpc())?;
-    io.merge(Settlement::new(client).into_rpc())?;
+    io.merge(Dev::new(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(Pips::new(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(Identity::new(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(ProtocolFee::new(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(Asset::new(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(Group::from(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(NFT::new(full_client_deps.client.clone()).into_rpc())?;
+    io.merge(Settlement::new(full_client_deps.client.clone()).into_rpc())?;
 
     Ok(io)
 }
