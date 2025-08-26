@@ -389,6 +389,7 @@ sp-consensus-slots = { workspace = true }
 sp-keyring = { workspace = true }
 sp-core = { workspace = true }
 sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
