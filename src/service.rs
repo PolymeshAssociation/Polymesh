@@ -1,29 +1,31 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use futures::prelude::*;
+use std::sync::Arc;
+
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{AccountId, Balance, Block, IdentityId, Moment, Nonce, Ticker};
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
-use prometheus_endpoint::Registry;
 
+use futures::prelude::*;
+use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_slots::SlotProportion;
 use sc_executor::NativeElseWasmExecutor;
 use sc_executor::NativeExecutionDispatch;
 use sc_network::{event::Event, NetworkEventStream, NetworkService};
 use sc_network_sync::SyncingService;
-use sc_service::{
-    config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager, WarpSyncParams,
-};
-use sc_service::{config::PrometheusConfig, ChainSpec, Error};
+use sc_network_sync::WarpSyncConfig;
+use sc_service::config::{Configuration, PrometheusConfig};
+use sc_service::error::Error as ServiceError;
+use sc_service::ChainSpec;
+use sc_service::{RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ConstructRuntimeApi;
 use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Block as BlockT;
-use std::sync::Arc;
 
 /// Known networks based on name.
 pub enum Network {
@@ -38,14 +40,15 @@ pub trait IsNetwork {
 
 impl IsNetwork for dyn ChainSpec {
     fn network(&self) -> Network {
-        let name = self.name();
-        if name.starts_with("Polymesh Mainnet") {
-            Network::Mainnet
-        } else if name.starts_with("Polymesh Testnet") {
-            Network::Testnet
-        } else {
-            Network::Other
+        if self.name().starts_with("Polymesh Mainnet") {
+            return Network::Mainnet;
         }
+
+        if self.name().starts_with("Polymesh Testnet") {
+            return Network::Testnet;
+        }
+
+        Network::Other
     }
 }
 
@@ -71,6 +74,7 @@ pub type EHF = (
     frame_benchmarking::benchmarking::HostFunctions,
     polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
 );
+
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type EHF = ();
 
@@ -91,7 +95,7 @@ pub trait RuntimeApiCollection:
     + sp_offchain::OffchainWorkerApi<Block>
     + sp_session::SessionKeys<Block>
     + sp_authority_discovery::AuthorityDiscoveryApi<Block>
-    + pallet_staking_runtime_api::StakingApi<Block, Balance>
+    + pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId>
     + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
     + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
     + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
@@ -99,13 +103,10 @@ pub trait RuntimeApiCollection:
     + pallet_group_rpc_runtime_api::GroupApi<Block>
     + node_rpc_runtime_api::nft::NFTApi<Block>
     + node_rpc_runtime_api::settlement::SettlementApi<Block>
-where
-    <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
 
-impl<Api> RuntimeApiCollection for Api
-where
+impl<Api> RuntimeApiCollection for Api where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
         + sp_api::ApiExt<Block>
         + sp_consensus_babe::BabeApi<Block>
@@ -117,19 +118,18 @@ where
         + sp_offchain::OffchainWorkerApi<Block>
         + sp_session::SessionKeys<Block>
         + sp_authority_discovery::AuthorityDiscoveryApi<Block>
-        + pallet_staking_runtime_api::StakingApi<Block, Balance>
+        + pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId>
         + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
         + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
         + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
         + node_rpc_runtime_api::nft::NFTApi<Block>
-        + node_rpc_runtime_api::settlement::SettlementApi<Block>,
-    <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+        + node_rpc_runtime_api::settlement::SettlementApi<Block>
 {
 }
 
-// Using prometheus, use a registry with a prefix of `polymesh`.
+/// Sets the registry with a `polymesh` prefix.
 fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceError> {
     if let Some(PrometheusConfig { registry, .. }) = config.prometheus_config.as_mut() {
         *registry = Registry::new_custom(Some("polymesh".into()), None)?;
@@ -138,53 +138,56 @@ fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceErro
     Ok(())
 }
 
-type BabeLink = sc_consensus_babe::BabeLink<Block>;
-
-type FullLinkHalf<R, D> = grandpa::LinkHalf<Block, FullClient<R, D>, FullSelectChain>;
+/// The Full client type definition
 pub type FullClient<R, D> = sc_service::TFullClient<Block, R, NativeElseWasmExecutor<D>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type FullGrandpaBlockImport<R, D> =
-    grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<R, D>, FullSelectChain>;
-type FullBabeImportQueue<R, D> = sc_consensus::DefaultImportQueue<Block, FullClient<R, D>>;
-type FullStateBackend = sc_client_api::StateBackendFor<FullBackend, Block>;
-type FullPool<R, D> = sc_transaction_pool::FullPool<Block, FullClient<R, D>>;
-pub type FullServiceComponents<R, D, F> = sc_service::PartialComponents<
-    FullClient<R, D>,
-    FullBackend,
-    FullSelectChain,
-    FullBabeImportQueue<R, D>,
-    FullPool<R, D>,
-    (
-        F,
-        (FullBabeBlockImport<R, D>, FullLinkHalf<R, D>, BabeLink),
-        grandpa::SharedVoterState,
-        Option<Telemetry>,
-    ),
->;
-type FullBabeBlockImport<R, D> =
-    sc_consensus_babe::BabeBlockImport<Block, FullClient<R, D>, FullGrandpaBlockImport<R, D>>;
+type FullGrandpaBlockImport<R, D> = grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<R, D>, FullSelectChain>;
+
+//type BabeLink = sc_consensus_babe::BabeLink<Block>;
+//type FullLinkHalf<R, D> = grandpa::LinkHalf<Block, FullClient<R, D>, FullSelectChain>;
+//pub type FullClient<R, D> = sc_service::TFullClient<Block, R, NativeElseWasmExecutor<D>>;
+//type FullBackend = sc_service::TFullBackend<Block>;
+//type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+//type FullGrandpaBlockImport<R, D> =
+//    grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<R, D>, FullSelectChain>;
+//type FullBabeImportQueue = sc_consensus::DefaultImportQueue<Block>;
+//type FullStateBackend = sc_client_api::StateBackendFor<FullBackend, Block>;
+//type FullPool<R, D> = sc_transaction_pool::TransactionPoolHandle<Block, FullClient<R, D>>;
+//pub type FullServiceComponents<R, D, F> = sc_service::PartialComponents<
+//    FullClient<R, D>,
+//    FullBackend,
+//    FullSelectChain,
+//    FullBabeImportQueue,
+//    FullPool<R, D>,
+//    (
+//        F,
+//        (FullBabeBlockImport<R, D>, FullLinkHalf<R, D>, BabeLink),
+//        grandpa::SharedVoterState,
+//        Option<Telemetry>,
+//    ),
+//>;
+//type FullBabeBlockImport<R, D> =
+//    sc_consensus_babe::BabeBlockImport<Block, FullClient<R, D>, FullGrandpaBlockImport<R, D>>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
+/// Creates a new partial node.
 pub fn new_partial<R, D>(
     config: &mut Configuration,
 ) -> Result<
     FullServiceComponents<
         R,
         D,
-        impl Fn(
-            sc_rpc::DenyUnsafe,
-            sc_rpc::SubscriptionTaskExecutor,
-        ) -> Result<jsonrpsee::RpcModule<()>, Error>,
+        impl Fn(sc_rpc::SubscriptionTaskExecutor) -> Result<jsonrpsee::RpcModule<()>, ServiceError>,
     >,
-    Error,
+    ServiceError,
 >
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection,
     D: NativeExecutionDispatch + 'static,
 {
     set_prometheus_registry(config)?;
@@ -219,12 +222,15 @@ where
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-    let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-        config.transaction_pool.clone(),
-        config.role.is_authority().into(),
-        config.prometheus_registry(),
-        task_manager.spawn_essential_handle(),
-        client.clone(),
+    let transaction_pool = Arc::from(
+        sc_transaction_pool::Builder::new(
+            task_manager.spawn_essential_handle(),
+            client.clone(),
+            config.role.is_authority().into(),
+        )
+        .with_options(config.transaction_pool.clone())
+        .with_prometheus(config.prometheus_registry())
+        .build(),
     );
 
     let (grandpa_block_import, grandpa_link) = grandpa::block_import(
@@ -290,13 +296,12 @@ where
         let chain_spec = config.chain_spec.cloned_box();
 
         let rpc_backend = backend.clone();
-        let rpc_extensions_builder = move |deny_unsafe, subscription_executor| {
+        let rpc_extensions_builder = move |subscription_executor| {
             let deps = node_rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 select_chain: select_chain.clone(),
                 chain_spec: chain_spec.cloned_box(),
-                deny_unsafe,
                 babe: node_rpc::BabeDeps {
                     keystore: keystore.clone(),
                     babe_worker_handle: babe_worker_handle.clone(),
@@ -333,7 +338,7 @@ where
 pub struct NewFullBase<R, D>
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection,
     D: NativeExecutionDispatch + 'static,
 {
     /// The task manager of the node.
@@ -358,9 +363,17 @@ pub fn new_full_base<R, D, F>(
 where
     F: FnOnce(&FullBabeBlockImport<R, D>, &BabeLink),
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection,
     D: NativeExecutionDispatch + 'static,
 {
+    let role = config.role.clone();
+    let force_authoring = config.force_authoring;
+    let backoff_authoring_blocks = None;
+    let name = config.network.node_name.clone();
+    let enable_grandpa = !config.disable_grandpa;
+    let prometheus_registry = config.prometheus_registry().cloned();
+    let enable_offchain_worker = config.offchain_worker.enabled;
+
     let sc_service::PartialComponents {
         client,
         backend,
@@ -372,21 +385,31 @@ where
         other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
     } = new_partial(&mut config)?;
 
+    let metrics =
+        N::register_notification_metrics(prometheus_registry.as_ref().map(|cfg| &cfg.registry));
     let shared_voter_state = rpc_setup;
     let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
-    let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 
-    let grandpa_protocol_name = grandpa::protocol_standard_name(
-        &client
-            .block_hash(0)
-            .ok()
-            .flatten()
-            .expect("Genesis block exists; qed"),
-        &config.chain_spec,
+    let mut net_config = sc_network::config::FullNetworkConfiguration::new(
+        &config.network,
+        prometheus_registry.as_ref().map(|cfg| cfg.registry.clone()),
     );
-    net_config.add_notification_protocol(grandpa::grandpa_peers_set_config(
-        grandpa_protocol_name.clone(),
-    ));
+
+    let genesis_hash = client
+        .block_hash(0)
+        .ok()
+        .flatten()
+        .expect("Genesis block exists; qed");
+    let peer_store_handle = net_config.peer_store_handle();
+    let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
+
+    let (grandpa_protocol_config, grandpa_notification_service) =
+        grandpa::grandpa_peers_set_config::<_, N>(
+            grandpa_protocol_name.clone(),
+            metrics.clone(),
+            Arc::clone(&peer_store_handle),
+        );
+    net_config.add_notification_protocol(grandpa_protocol_config);
 
     let warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
@@ -403,20 +426,8 @@ where
             spawn_handle: task_manager.spawn_handle(),
             import_queue,
             block_announce_validator_builder: None,
-            warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+            warp_sync_config: Some(WarpSyncParams::WithProvider(warp_sync)),
         })?;
-
-    let role = config.role.clone();
-    let force_authoring = config.force_authoring;
-    let backoff_authoring_blocks = if false {
-        Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default())
-    } else {
-        None
-    };
-    let name = config.network.node_name.clone();
-    let enable_grandpa = !config.disable_grandpa;
-    let prometheus_registry = config.prometheus_registry().cloned();
-    let enable_offchain_worker = config.offchain_worker.enabled;
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
@@ -628,7 +639,7 @@ pub fn mainnet_new_full(config: Configuration) -> TaskResult {
 pub type NewChainOps<R, D> = (
     Arc<FullClient<R, D>>,
     Arc<FullBackend>,
-    FullBabeImportQueue<R, D>,
+    FullBabeImportQueue,
     TaskManager,
 );
 
@@ -636,7 +647,7 @@ pub type NewChainOps<R, D> = (
 pub fn chain_ops<R, D>(config: &mut Configuration) -> Result<NewChainOps<R, D>, ServiceError>
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection,
     D: NativeExecutionDispatch + 'static,
 {
     config.keystore = sc_service::config::KeystoreConfig::InMemory;
