@@ -2,7 +2,6 @@ use pallet_staking::StakerStatus;
 use sc_chain_spec::ChainType;
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
-use serde_json::json;
 use sp_runtime::traits::AccountIdConversion;
 
 use polymesh_primitives::constants::TREASURY_PALLET_ID;

@@ -1,5 +1,5 @@
 //mod ci_runtime;
-mod common;
-mod develop_runtime;
-mod mainnet_runtime;
-mod testnet_runtime;
+pub(crate) mod common;
+pub(crate) mod develop_runtime;
+pub(crate) mod mainnet_runtime;
+pub(crate) mod testnet_runtime;

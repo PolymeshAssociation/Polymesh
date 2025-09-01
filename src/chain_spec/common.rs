@@ -4,14 +4,12 @@ use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use sc_chain_spec::ChainSpecExtension;
-use sc_network::config::MultiaddrWithPeerId;
-use sc_service::{ChainType, Properties};
-use sc_telemetry::TelemetryEndpoints;
+use sc_service::Properties;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::Perbill;
 
 use pallet_asset::TickerRegistrationConfig;
@@ -53,7 +51,7 @@ pub struct Extensions {
 }
 
 /// Specialized `ChainSpec`.
-pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
+pub(crate) type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 pub(crate) fn polymesh_properties(ss58_format: u8) -> Properties {
     let mut properties = Properties::new();
