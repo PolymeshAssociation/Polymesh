@@ -1,11 +1,22 @@
+use node_rpc_runtime_api::identity;
 use sc_chain_spec::ChainType;
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
 
+use polymesh_primitives::{AccountId, IdentityId, MaybeBlock};
+use polymesh_runtime_testnet::constants::time::DAYS;
+use polymesh_runtime_testnet::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
+
+use crate::chain_spec::common::group_genesis_config;
 use crate::chain_spec::common::STAGING_TELEMETRY_URL;
+use crate::chain_spec::common::{asset_genesis_config, protocol_fee_genesis_config};
+use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
+use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
 use crate::chain_spec::common::{get_authority_keys_from_seed, polymesh_properties, seeded_acc_id};
+use crate::chain_spec::common::{pips_genesis_config, polymesh_contracts_genesis_config};
 use crate::chain_spec::common::{ChainSpec, ChainSpecMode};
+use crate::chain_spec::common::{GenesisData, InitialAuth, StakersData};
 
 pub fn testnet_chain_spec(chain_spec_mode: ChainSpecMode) -> ChainSpec {
     let code = polymesh_runtime_testnet::runtime::WASM_BINARY
@@ -38,7 +49,7 @@ fn bootstap_chain_spec(code: &[u8]) -> ChainSpec {
         .with_telemetry_endpoints(testnet_telemetry)
         .with_protocol_id("/polymesh/testnet")
         .with_properties(polymesh_properties(42))
-        .with_genesis_config_patch(testnet_genesis_config())
+        .with_genesis_config_patch(testnet_genesis_config(initial_authorities, root_key))
         .build()
 }
 
@@ -52,7 +63,7 @@ fn dev_chain_spec(code: &[u8]) -> ChainSpec {
         .with_id("dev_testnet")
         .with_chain_type(ChainType::Development)
         .with_properties(polymesh_properties(42))
-        .with_genesis_config_patch(testnet_genesis_config())
+        .with_genesis_config_patch(testnet_genesis_config(initial_authorities, root_key))
         .build()
 }
 
@@ -70,12 +81,59 @@ fn local_chain_spec(code: &[u8]) -> ChainSpec {
         .with_id("local_testnet")
         .with_chain_type(ChainType::Local)
         .with_properties(polymesh_properties(42))
-        .with_genesis_config_patch(testnet_genesis_config())
+        .with_genesis_config_patch(testnet_genesis_config(initial_authorities, root_key))
         .build()
 }
 
-fn testnet_genesis_config() -> serde_json::Value {
-    unimplemented!()
+fn testnet_genesis_config(
+    initial_authorities: Vec<InitialAuth>,
+    root_key: AccountId,
+) -> serde_json::Value {
+    let genesis_data =
+        crate::chain_spec::mainnet_runtime::genesis_data(&initial_authorities, root_key.clone());
+
+    let session_keys = session_keys(&initial_authorities);
+
+    let (identity_1, identity_2, identity_3) = (
+        IdentityId::from(1),
+        IdentityId::from(2),
+        IdentityId::from(3),
+    );
+
+    let (identity_4, identity_5) = (IdentityId::from(4), IdentityId::from(5));
+
+    serde_json::json!({
+        "asset": asset_genesis_config(),
+        "checkpoint": checkpoint_genesis_config(),
+        "identity": {
+            "identities": genesis_data.identities_record,
+        },
+        "balances": {
+            "balances": genesis_data.identities_balance,
+        },
+        "session": {
+            "keys": session_keys,
+        },
+        "staking": staking_genesis_config(&genesis_data.stakers_data),
+        "pips": pips_genesis_config(DAYS * 30, MaybeBlock::None, 1_000),
+        "babe": {
+            "epoch_config": Some(BABE_GENESIS_EPOCH_CONFIG),
+        },
+        // Governing council
+        "committee_membership": group_genesis_config(vec![identity_1, identity_2, identity_3]),  // three GC members
+        "polymesh_committee": committee_genesis_config((2, 3), identity_1), // RC = 1, 2/3 votes required
+        // CDD providers
+        "cdd_service_providers": group_genesis_config(vec![identity_1]),
+        // Technical Committee
+        "technical_committee_membership": group_genesis_config(vec![identity_3, identity_4, identity_5]), // One GC member + genesis operator + Bridge Multisig
+        "technical_committee": committee_genesis_config((1, 2), identity_3), // RC = 3, 1/2 votes required
+        // Upgrade Committee
+        "upgrade_committee_membership": group_genesis_config(vec![identity_1]), // One GC member
+        "upgrade_committee": committee_genesis_config((1, 2), identity_1), // 1/2 votes required
+        "protocol_fee": protocol_fee_genesis_config(),
+        "corporate_action": corporate_actions_genesis_config(),
+        "polymesh_contracts": polymesh_contracts_genesis_config(root_key),
+    })
 }
 
 fn testnet_boot_nodes() -> Vec<MultiaddrWithPeerId> {
@@ -87,4 +145,24 @@ fn testnet_boot_nodes() -> Vec<MultiaddrWithPeerId> {
         "/dns4/testnet-bootnode-002.polymesh.live/tcp/30333/p2p/12D3KooW9uY8zFnHB5UKyLuwUpZLpPUSJYT2tYfFvpfNCd2K1ceZ".parse().expect("Unable to parse bootnode"),
         "/dns4/testnet-bootnode-003.polymesh.live/tcp/30333/p2p/12D3KooWB7AyqsmerKTmcMoyMJJw6ddwWUJ7nFBDGw2viNGN2DBX".parse().expect("Unable to parse bootnode"),
     ]
+}
+
+/// Returns the initial list of validator at genesis representing by their `(AccountId, ValidatorId, Keys)`.
+fn session_keys(init_authorities: &[InitialAuth]) -> Vec<(AccountId, AccountId, SessionKeys)> {
+    let mut initial_session_keys = Vec::new();
+
+    for initial_auth in init_authorities {
+        initial_session_keys.push((
+            initial_auth.0.clone(),
+            initial_auth.0.clone(),
+            SessionKeys {
+                grandpa: initial_auth.2.clone(),
+                babe: initial_auth.3.clone(),
+                im_online: initial_auth.4.clone(),
+                authority_discovery: initial_auth.5.clone(),
+            },
+        ))
+    }
+
+    initial_session_keys
 }
