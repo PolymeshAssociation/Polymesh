@@ -1,5 +1,5 @@
 use pallet_staking::StakerStatus;
-use polymesh_primitives::Balance;
+use polymesh_primitives::{committee, Balance};
 use sc_chain_spec::ChainType;
 use sc_rpc::chain;
 use serde_json::json;
@@ -7,11 +7,18 @@ use sp_runtime::traits::AccountIdConversion;
 
 use polymesh_primitives::constants::TREASURY_PALLET_ID;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
-use polymesh_primitives::{AccountId, IdentityId, SecondaryKey};
+use polymesh_primitives::{AccountId, IdentityId, MaybeBlock, SecondaryKey};
+use polymesh_runtime_develop::constants::time::MINUTES;
+use polymesh_runtime_develop::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
-use crate::chain_spec::common::{get_authority_keys_from_seed, polymesh_properties};
-use crate::chain_spec::common::{seeded_acc_id, GenesisData, InitialAuth, StakersData};
-use crate::chain_spec::common::{ChainSpec, ChainSpecMode, DEV_KEYS, DEV_TREASURY, INITIAL_BOND};
+use crate::chain_spec::common::{asset_genesis_config, protocol_fee_genesis_config};
+use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
+use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
+use crate::chain_spec::common::{get_authority_keys_from_seed, pips_genesis_config};
+use crate::chain_spec::common::{group_genesis_config, polymesh_properties};
+use crate::chain_spec::common::{polymesh_contracts_genesis_config, seeded_acc_id};
+use crate::chain_spec::common::{ChainSpec, DEV_KEYS, DEV_TREASURY, INITIAL_BOND};
+use crate::chain_spec::common::{ChainSpecMode, GenesisData, InitialAuth, StakersData};
 
 pub(crate) fn develop_chain_spec(chain_spec_mode: ChainSpecMode) -> ChainSpec {
     let code = polymesh_runtime_develop::runtime::WASM_BINARY
@@ -80,27 +87,42 @@ fn develop_genesis_config(
 ) -> serde_json::Value {
     let genesis_data = genesis_data(&initial_authorities, &other_funded_accounts);
 
+    let session_keys = session_keys(&initial_authorities);
+
+    let (vote_threshold, identity_1) = ((1, 2), IdentityId::from(1));
+    let group_genesis_config = group_genesis_config(vec![identity_1]);
+    let committee_genesis_config = committee_genesis_config(vote_threshold, identity_1);
+
     serde_json::json!({
-        "asset": crate::chain_spec::common::asset_genesis_config(),
-        "chekpoint": crate::chain_spec::common::checkpoint_genesis_config(),
-        "identity": 
-        "balances":
-        "indices":
-        "sudo":
-        "session":
-        "staking":
-        "pips":
-        "babe":
-        "committee_membership":
-        "polymesh_committee":
-        "cdd_service_providers":
-        "technical_committee_membership":
-        "technical_committee":
-        "upgrade_committee_membership":
-        "upgrade_committee":
-        "protocol_fee":
-        "corporate_action": 
-        "polymesh_contracts":
+        "asset": asset_genesis_config(),
+        "checkpoint": checkpoint_genesis_config(),
+        "identity": {
+            "identities": genesis_data.identities_record,
+        },
+        "balances": {
+            "balances": genesis_data.identities_balance,
+        },
+        "sudo": {
+            "key": Some(root_key.clone()),
+        },
+        "session": {
+            "keys": session_keys,
+        },
+        "staking": staking_genesis_config(&genesis_data.stakers_data),
+        "pips": pips_genesis_config(MINUTES, MaybeBlock::None, 25),
+        "babe": {
+            "epoch_config": Some(BABE_GENESIS_EPOCH_CONFIG),
+        },
+        "committee_membership": group_genesis_config,
+        "polymesh_committee": committee_genesis_config,
+        "cdd_service_providers": group_genesis_config,
+        "technical_committee_membership": group_genesis_config,
+        "technical_committee": committee_genesis_config,
+        "upgrade_committee_membership": group_genesis_config,
+        "upgrade_committee": committee_genesis_config,
+        "protocol_fee": protocol_fee_genesis_config(),
+        "corporate_action": corporate_actions_genesis_config(),
+        "polymesh_contracts": polymesh_contracts_genesis_config(root_key),
     })
 }
 
@@ -161,4 +183,24 @@ fn add_secondary_key(
     genesis_id_record
         .secondary_keys
         .push(SecondaryKey::from_account_id_with_full_perms(account_id));
+}
+
+/// Returns the initial list of validator at genesis representing by their `(AccountId, ValidatorId, Keys)`.
+fn session_keys(init_authorities: &[InitialAuth]) -> Vec<(AccountId, AccountId, SessionKeys)> {
+    let mut initial_session_keys = Vec::new();
+
+    for initial_auth in init_authorities {
+        initial_session_keys.push((
+            initial_auth.0.clone(),
+            initial_auth.0.clone(),
+            SessionKeys {
+                grandpa: initial_auth.2.clone(),
+                babe: initial_auth.3.clone(),
+                im_online: initial_auth.4.clone(),
+                authority_discovery: initial_auth.5.clone(),
+            },
+        ))
+    }
+
+    initial_session_keys
 }
