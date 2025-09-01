@@ -7,10 +7,17 @@ use sp_runtime::traits::AccountIdConversion;
 
 use polymesh_primitives::constants::TREASURY_PALLET_ID;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
-use polymesh_primitives::{AccountId, Balance, IdentityId, SecondaryKey, SystematicIssuers};
+use polymesh_primitives::{AccountId, MaybeBlock, SecondaryKey};
+use polymesh_primitives::{Balance, IdentityId, SystematicIssuers};
+use polymesh_runtime_mainnet::constants::time::DAYS;
+use polymesh_runtime_mainnet::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
 use crate::chain_spec::common::{adjust_last, get_authority_keys_from_seed};
-use crate::chain_spec::common::{polymesh_properties, seeded_acc_id};
+use crate::chain_spec::common::{asset_genesis_config, protocol_fee_genesis_config};
+use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
+use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
+use crate::chain_spec::common::{group_genesis_config, polymesh_properties, seeded_acc_id};
+use crate::chain_spec::common::{pips_genesis_config, polymesh_contracts_genesis_config};
 use crate::chain_spec::common::{ChainSpec, ChainSpecMode};
 use crate::chain_spec::common::{GenesisData, InitialAuth, StakersData};
 use crate::chain_spec::common::{BOOTSTRAP_KEYS, BOOTSTRAP_TREASURY};
@@ -48,7 +55,7 @@ fn bootstap_chain_spec(code: &[u8]) -> ChainSpec {
         .with_telemetry_endpoints(mainnet_telemetry)
         .with_protocol_id("/polymesh/mainnet")
         .with_properties(polymesh_properties(12))
-        .with_genesis_config_patch(mainnet_genesis_config())
+        .with_genesis_config_patch(mainnet_genesis_config(initial_authorities, root_key))
         .build()
 }
 
@@ -63,7 +70,7 @@ fn dev_chain_spec(code: &[u8]) -> ChainSpec {
         .with_id("dev_mainnet")
         .with_chain_type(ChainType::Development)
         .with_properties(polymesh_properties(12))
-        .with_genesis_config_patch(mainnet_genesis_config())
+        .with_genesis_config_patch(mainnet_genesis_config(initial_authorities, root_key))
         .build()
 }
 
@@ -82,12 +89,56 @@ fn local_chain_spec(code: &[u8]) -> ChainSpec {
         .with_id("local_mainnet")
         .with_chain_type(ChainType::Local)
         .with_properties(polymesh_properties(12))
-        .with_genesis_config_patch(mainnet_genesis_config())
+        .with_genesis_config_patch(mainnet_genesis_config(initial_authorities, root_key))
         .build()
 }
 
-fn mainnet_genesis_config() -> serde_json::Value {
-    unimplemented!()
+fn mainnet_genesis_config(
+    initial_authorities: Vec<InitialAuth>,
+    root_key: AccountId,
+) -> serde_json::Value {
+    let genesis_data = genesis_data(&initial_authorities, root_key.clone());
+
+    let session_keys = session_keys(&initial_authorities);
+
+    let (identity_1, identity_2, identity_3) = (
+        IdentityId::from(1),
+        IdentityId::from(2),
+        IdentityId::from(3),
+    );
+
+    serde_json::json!({
+        "asset": asset_genesis_config(),
+        "checkpoint": checkpoint_genesis_config(),
+        "identity": {
+            "identities": genesis_data.identities_record,
+        },
+        "balances": {
+            "balances": genesis_data.identities_balance,
+        },
+        "session": {
+            "keys": session_keys,
+        },
+        "staking": staking_genesis_config(&genesis_data.stakers_data),
+        "pips": pips_genesis_config(DAYS * 30, MaybeBlock::Some(DAYS * 90), 1_000),
+        "babe": {
+            "epoch_config": Some(BABE_GENESIS_EPOCH_CONFIG),
+        },
+        // Governing council
+        "committee_membership": group_genesis_config(vec![identity_1, identity_2, identity_3]),  // three GC members
+        "polymesh_committee": committee_genesis_config((2, 3), identity_1), // RC = 1, 2/3 votes required
+        // CDD providers
+        "cdd_service_providers": group_genesis_config(vec![identity_1]), // GC_1 is also a CDD provider
+        // Technical Committee
+        "technical_committee_membership": group_genesis_config(vec![identity_1]), // One GC member
+        "technical_committee": committee_genesis_config((1, 2), identity_1), // 1/2 votes required
+        // Upgrade Committee
+        "upgrade_committee_membership": group_genesis_config(vec![identity_1]), // One GC member
+        "upgrade_committee": committee_genesis_config((1, 2), identity_1), // 1/2 votes required
+        "protocol_fee": protocol_fee_genesis_config(),
+        "corporate_action": corporate_actions_genesis_config(),
+        "polymesh_contracts": polymesh_contracts_genesis_config(root_key),
+    })
 }
 
 pub(crate) fn genesis_data(
@@ -213,4 +264,24 @@ fn mainnet_boot_nodes() -> Vec<MultiaddrWithPeerId> {
         "/dns4/mainnet-bootnode-006.polymesh.network/tcp/30333/p2p/12D3KooWBQhDAjfo13dM4nsogXD39F5TcN9iTVzjXgPqFn9Yaccz".parse().expect("Unable to parse bootnode"),
         "/dns4/mainnet-bootnode-007.polymesh.network/tcp/30333/p2p/12D3KooWMwFdYC53MqdyR9WYvJiPfxfYXh65NfY9QSuZeyKa53fg".parse().expect("Unable to parse bootnode"),
     ]
+}
+
+/// Returns the initial list of validator at genesis representing by their `(AccountId, ValidatorId, Keys)`.
+fn session_keys(init_authorities: &[InitialAuth]) -> Vec<(AccountId, AccountId, SessionKeys)> {
+    let mut initial_session_keys = Vec::new();
+
+    for initial_auth in init_authorities {
+        initial_session_keys.push((
+            initial_auth.0.clone(),
+            initial_auth.0.clone(),
+            SessionKeys {
+                grandpa: initial_auth.2.clone(),
+                babe: initial_auth.3.clone(),
+                im_online: initial_auth.4.clone(),
+                authority_discovery: initial_auth.5.clone(),
+            },
+        ))
+    }
+
+    initial_session_keys
 }

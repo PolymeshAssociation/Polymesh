@@ -12,12 +12,16 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, Verify};
+use sp_runtime::Perbill;
 
+use pallet_asset::TickerRegistrationConfig;
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::asset_metadata::{AssetMetadataName, AssetMetadataSpec};
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit};
 use polymesh_primitives::constants::currency::ONE_POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
-use polymesh_primitives::{ticker, AccountId, Balance, IdentityId, Moment, Signature, Ticker};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, IdentityId, Moment, Signature, Ticker};
+use polymesh_primitives::{MaybeBlock, PosRatio};
 
 // The URL for the telemetry server.
 pub(crate) const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.network/submit/";
@@ -115,6 +119,143 @@ pub(crate) fn adjust_last(bytes: &mut [u8], n: u8) -> &str {
     core::str::from_utf8(bytes).unwrap()
 }
 
+//==========================================================================
+// Common genesis config uses across different runtimes
+//==========================================================================
+
+pub(crate) fn asset_genesis_config() -> serde_json::Value {
+    let ticker_reg_config = TickerRegistrationConfig::<Moment> {
+        max_ticker_length: 12,
+        registration_length: Some(5_184_000_000),
+    };
+
+    serde_json::json!({
+        "ticker_registration_config": ticker_reg_config,
+        "reserved_country_currency_codes": currency_codes(),
+        "asset_metadata": asset_metadata(),
+    })
+}
+
+pub(crate) fn checkpoint_genesis_config() -> serde_json::Value {
+    let period = CalendarPeriod {
+        unit: CalendarUnit::Week,
+        amount: 1,
+    };
+
+    serde_json::json!({
+        "schedules_max_complexity": period.complexity(),
+    })
+}
+
+pub(crate) fn staking_genesis_config(initial_stakers: &[StakersData]) -> serde_json::Value {
+    serde_json::json!({
+        "validator_count": 40,
+        "minimum_validator_count": 1,
+        "stakers": initial_stakers,
+        "slash_reward_fraction": Perbill::from_percent(10),
+    })
+}
+
+pub(crate) fn pips_genesis_config(
+    enactment_period: BlockNumber,
+    pending_pip_expiry: MaybeBlock<BlockNumber>,
+    active_pip_limit: u32,
+) -> serde_json::Value {
+    serde_json::json!({
+        "prune_historical_pips": false,
+        "min_proposal_deposit": 2_000_000_000,
+        "default_enactment_period": enactment_period,
+        "pending_pip_expiry": pending_pip_expiry,
+        "max_pip_skip_count": 2,
+        "active_pip_limit": active_pip_limit,
+    })
+}
+
+pub(crate) fn group_genesis_config(active_members_ids: Vec<IdentityId>) -> serde_json::Value {
+    serde_json::json!({
+       "active_members_limit": 20,
+       "active_members": active_members_ids,
+    })
+}
+
+pub(crate) fn committee_genesis_config(
+    vote_threshold: (u32, u32),
+    release_coordinator: IdentityId,
+) -> serde_json::Value {
+    serde_json::json!({
+        "vote_threshold": vote_threshold,
+        "release_coordinator": release_coordinator,
+    })
+}
+
+pub(crate) fn protocol_fee_genesis_config() -> serde_json::Value {
+    let protocol_fee: Vec<(ProtocolOp, u128)> = vec![
+        (ProtocolOp::AssetCreateAsset, 2_500 * 1_000_000),
+        (ProtocolOp::AssetRegisterTicker, 500 * 1_000_000),
+    ];
+
+    serde_json::json!({
+        "base_fees": protocol_fee,
+        "coefficient": PosRatio(1, 1)
+    })
+}
+
+pub(crate) fn corporate_actions_genesis_config() -> serde_json::Value {
+    serde_json::json!({
+        "max_details_length": 1_024,
+    })
+}
+
+pub(crate) fn polymesh_contracts_genesis_config(upgradable_owner: AccountId) -> serde_json::Value {
+    let upgradable_description: [u8; 4] = "POLY".as_bytes().try_into().unwrap();
+
+    serde_json::json!({
+        "call_whitelist": contracts_call_whitelist(),
+        "upgradable_code": upgradable_code(),
+        "upgradable_description": upgradable_description,
+        "upgradable_major": 7,
+        "upgradable_owner": upgradable_owner,
+    })
+}
+
+fn currency_codes() -> Vec<Ticker> {
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct FiatCurrency<String> {
+        pub codes: Vec<String>,
+    }
+
+    let currency_file = include_str!("../data/currency_symbols.json");
+    let currency_data: FiatCurrency<String> =
+        serde_json::from_str(&currency_file).expect("unable do parse/deserialize currency file");
+
+    currency_data
+        .codes
+        .into_iter()
+        .map(|y| Ticker::from_slice_truncated(y.as_bytes()))
+        .collect()
+}
+
+fn asset_metadata() -> Vec<(AssetMetadataName, AssetMetadataSpec)> {
+    let asset_metadata_file = include_str!("../data/asset_metadata.json");
+    serde_json::from_str(&asset_metadata_file)
+        .expect("unable do parse/deserialize asset_metadata file")
+}
+
+fn contracts_call_whitelist() -> Vec<polymesh_contracts::ExtrinsicId> {
+    let whitelist_file = include_str!("../data/contracts_call_whitelist.json");
+    serde_json::from_str::<Vec<polymesh_contracts::ExtrinsicId>>(&whitelist_file)
+        .expect("unable do parse/deserialize contracts_call_whitelist file")
+}
+
+fn upgradable_code() -> Vec<u8> {
+    // Contract should match the `upgradable_major` version above.
+    include_bytes!("../data/contracts/polymesh_ink_7.wasm").to_vec()
+}
+
+//==========================================================================
+// Types used for generating the genesis config
+//==========================================================================
+
 /// The `ChainSpec` setup mode.
 pub(crate) enum ChainSpecMode {
     Bootstrap,
@@ -123,6 +264,7 @@ pub(crate) enum ChainSpecMode {
 }
 
 /// Data required for setting up a staker in genesis.
+#[derive(Serialize, Deserialize)]
 pub(crate) struct StakersData {
     identity_id: IdentityId,
     stash_id: AccountId,
@@ -152,9 +294,9 @@ impl StakersData {
 
 /// Data required for setting up the initial genesis state.
 pub(crate) struct GenesisData {
-    identities_record: Vec<GenesisIdentityRecord<AccountId>>,
-    stakers_data: Vec<StakersData>,
-    identities_balance: Vec<(AccountId, Balance)>,
+    pub(crate) identities_record: Vec<GenesisIdentityRecord<AccountId>>,
+    pub(crate) stakers_data: Vec<StakersData>,
+    pub(crate) identities_balance: Vec<(AccountId, Balance)>,
 }
 
 impl GenesisData {
@@ -170,53 +312,4 @@ impl GenesisData {
             identities_balance,
         }
     }
-}
-
-pub(crate) fn asset_genesis_config() -> serde_json::Value {
-    serde_json::json!({
-        "ticker_registration_config": ticker_registration_config(),
-        "reserved_country_currency_codes": currency_codes(),
-        "asset_metadata": asset_metadata(),
-    })
-}
-
-pub(crate) fn checkpoint_genesis_config() -> serde_json::Value {
-    let period = CalendarPeriod {
-        unit: CalendarUnit::Week,
-        amount: 1,
-    };
-
-    serde_json::json!({
-        "schedules_max_complexity": period.complexity(),
-    })
-}
-
-fn ticker_registration_config() -> pallet_asset::TickerRegistrationConfig<Moment> {
-    pallet_asset::TickerRegistrationConfig {
-        max_ticker_length: 12,
-        registration_length: Some(5_184_000_000),
-    }
-}
-
-fn currency_codes() -> Vec<Ticker> {
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct FiatCurrency<String> {
-        pub codes: Vec<String>,
-    }
-
-    let currency_file = include_str!("../data/currency_symbols.json");
-    let currency_data: FiatCurrency<String> =
-        serde_json::from_str(&currency_file).expect("unable do parse/deserialize currency file");
-
-    currency_data
-        .codes
-        .into_iter()
-        .map(|y| Ticker::from_slice_truncated(y.as_bytes()))
-        .collect()
-}
-
-fn asset_metadata() -> Vec<(AssetMetadataName, AssetMetadataSpec)> {
-    let asset_metadata_file = include_str!("../data/asset_metadata.json");
-    serde_json::from_str(&asset_metadata_file)
-        .expect("unable do parse/deserialize asset metadata file")
 }
