@@ -1,22 +1,18 @@
-use node_rpc_runtime_api::identity;
 use sc_chain_spec::ChainType;
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
-use serde_json::json;
 
 use polymesh_primitives::{AccountId, IdentityId, MaybeBlock};
 use polymesh_runtime_testnet::constants::time::DAYS;
 use polymesh_runtime_testnet::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
 use crate::chain_spec::common::group_genesis_config;
-use crate::chain_spec::common::STAGING_TELEMETRY_URL;
 use crate::chain_spec::common::{asset_genesis_config, protocol_fee_genesis_config};
 use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
 use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
 use crate::chain_spec::common::{get_authority_keys_from_seed, polymesh_properties, seeded_acc_id};
 use crate::chain_spec::common::{pips_genesis_config, polymesh_contracts_genesis_config};
-use crate::chain_spec::common::{ChainSpec, ChainSpecMode};
-use crate::chain_spec::common::{GenesisData, InitialAuth, StakersData};
+use crate::chain_spec::common::{ChainSpec, ChainSpecMode, InitialAuth, STAGING_TELEMETRY_URL};
 
 pub fn testnet_chain_spec(chain_spec_mode: ChainSpecMode) -> ChainSpec {
     let code = polymesh_runtime_testnet::runtime::WASM_BINARY

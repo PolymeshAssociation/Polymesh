@@ -23,10 +23,8 @@ use sc_service::error::Error as ServiceError;
 use sc_service::ChainSpec;
 use sc_service::{RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ConstructRuntimeApi;
-use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Block as BlockT;
 
 /// Known networks based on name.
