@@ -196,7 +196,7 @@ where
     type Pre = ();
 
     fn weight(&self, _: &T::RuntimeCall) -> Weight {
-        unimplemented!()
+        Weight::zero()
     }
 
     fn validate(
