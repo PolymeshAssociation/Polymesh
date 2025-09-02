@@ -39,7 +39,7 @@ pub mod benchmarking;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced};
+use frame_support::traits::{Currency, ExistenceRequirement, OnUnbalanced};
 use frame_support::weights::Weight;
 use frame_system::ensure_root;
 use sp_runtime::traits::{AccountIdConversion, Saturating};
