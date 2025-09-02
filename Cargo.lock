@@ -856,6 +856,7 @@ checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
 [[package]]
 name = "binary-merkle-tree"
 version = "16.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "hash-db",
  "log",
@@ -1829,6 +1830,7 @@ dependencies = [
 [[package]]
 name = "cumulus-client-parachain-inherent"
 version = "0.17.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -1837,7 +1839,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
  "sc-client-api",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
@@ -1848,6 +1850,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-core"
 version = "0.18.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -1863,6 +1866,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-parachain-inherent"
 version = "0.18.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -1876,6 +1880,7 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-proof-size-hostfunction"
 version = "0.12.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "sp-externalities",
  "sp-runtime-interface",
@@ -1885,6 +1890,7 @@ dependencies = [
 [[package]]
 name = "cumulus-relay-chain-interface"
 version = "0.23.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -1903,6 +1909,7 @@ dependencies = [
 [[package]]
 name = "cumulus-test-relay-sproof-builder"
 version = "0.19.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "cumulus-primitives-core",
  "parity-scale-codec",
@@ -2745,6 +2752,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 [[package]]
 name = "fork-tree"
 version = "13.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
 ]
@@ -2777,6 +2785,7 @@ checksum = "28dd6caf6059519a65843af8fe2a3ae298b14b80179855aeb4adc2c1934ee619"
 [[package]]
 name = "frame-benchmarking"
 version = "40.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support",
  "frame-support-procedural",
@@ -2800,6 +2809,7 @@ dependencies = [
 [[package]]
 name = "frame-benchmarking-cli"
 version = "48.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -2873,6 +2883,7 @@ dependencies = [
 [[package]]
 name = "frame-election-provider-solution-type"
 version = "16.1.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -2883,6 +2894,7 @@ dependencies = [
 [[package]]
 name = "frame-election-provider-support"
 version = "40.1.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
@@ -2898,6 +2910,7 @@ dependencies = [
 [[package]]
 name = "frame-executive"
 version = "40.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "aquamarine",
  "frame-support",
@@ -2939,6 +2952,7 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "40.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -2979,6 +2993,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural"
 version = "33.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -2991,13 +3006,14 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "syn 2.0.106",
 ]
 
 [[package]]
 name = "frame-support-procedural-tools"
 version = "13.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support-procedural-tools-derive",
  "proc-macro-crate 3.3.0",
@@ -3009,6 +3025,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools-derive"
 version = "12.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3018,6 +3035,7 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "40.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "cfg-if",
  "docify",
@@ -3036,6 +3054,7 @@ dependencies = [
 [[package]]
 name = "frame-system-benchmarking"
 version = "40.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3049,6 +3068,7 @@ dependencies = [
 [[package]]
 name = "frame-system-rpc-runtime-api"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "parity-scale-codec",
@@ -3058,6 +3078,7 @@ dependencies = [
 [[package]]
 name = "frame-try-runtime"
 version = "0.46.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -6074,6 +6095,7 @@ dependencies = [
 [[package]]
 name = "pallet-asset-conversion"
 version = "22.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6091,6 +6113,7 @@ dependencies = [
 [[package]]
 name = "pallet-authority-discovery"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6105,6 +6128,7 @@ dependencies = [
 [[package]]
 name = "pallet-authorship"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6117,6 +6141,7 @@ dependencies = [
 [[package]]
 name = "pallet-babe"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6139,6 +6164,7 @@ dependencies = [
 [[package]]
 name = "pallet-balances"
 version = "41.1.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -6224,6 +6250,7 @@ dependencies = [
 [[package]]
 name = "pallet-contracts"
 version = "40.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -6254,6 +6281,7 @@ dependencies = [
 [[package]]
 name = "pallet-contracts-proc-macro"
 version = "23.0.3"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6263,6 +6291,7 @@ dependencies = [
 [[package]]
 name = "pallet-contracts-uapi"
 version = "14.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bitflags 1.3.2",
  "parity-scale-codec",
@@ -6304,6 +6333,7 @@ dependencies = [
 [[package]]
 name = "pallet-election-provider-multi-phase"
 version = "39.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -6325,6 +6355,7 @@ dependencies = [
 [[package]]
 name = "pallet-election-provider-support-benchmarking"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -6358,6 +6389,7 @@ dependencies = [
 [[package]]
 name = "pallet-grandpa"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6463,6 +6495,7 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "39.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6481,6 +6514,7 @@ dependencies = [
 [[package]]
 name = "pallet-indices"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6495,6 +6529,7 @@ dependencies = [
 [[package]]
 name = "pallet-insecure-randomness-collective-flip"
 version = "28.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
@@ -6546,6 +6581,7 @@ dependencies = [
 [[package]]
 name = "pallet-offences"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6629,6 +6665,7 @@ dependencies = [
 [[package]]
 name = "pallet-preimage"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6712,6 +6749,7 @@ dependencies = [
 [[package]]
 name = "pallet-scheduler"
 version = "41.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -6728,6 +6766,7 @@ dependencies = [
 [[package]]
 name = "pallet-session"
 version = "40.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6781,6 +6820,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "40.1.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -6802,6 +6842,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "12.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -6812,6 +6853,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking-runtime-api"
 version = "26.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -6892,6 +6934,7 @@ dependencies = [
 [[package]]
 name = "pallet-timestamp"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -6928,6 +6971,7 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment"
 version = "40.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9054,6 +9098,7 @@ dependencies = [
 [[package]]
 name = "sc-allocator"
 version = "31.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "log",
  "sp-core",
@@ -9064,6 +9109,7 @@ dependencies = [
 [[package]]
 name = "sc-authority-discovery"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "futures",
@@ -9091,6 +9137,7 @@ dependencies = [
 [[package]]
 name = "sc-basic-authorship"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "futures",
  "log",
@@ -9111,6 +9158,7 @@ dependencies = [
 [[package]]
 name = "sc-block-builder"
 version = "0.44.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -9125,6 +9173,7 @@ dependencies = [
 [[package]]
 name = "sc-chain-spec"
 version = "43.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "docify",
@@ -9139,7 +9188,7 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-genesis-builder",
  "sp-io",
  "sp-runtime",
@@ -9150,6 +9199,7 @@ dependencies = [
 [[package]]
 name = "sc-chain-spec-derive"
 version = "12.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -9160,6 +9210,7 @@ dependencies = [
 [[package]]
 name = "sc-cli"
 version = "0.52.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -9201,6 +9252,7 @@ dependencies = [
 [[package]]
 name = "sc-client-api"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "fnv",
  "futures",
@@ -9226,6 +9278,7 @@ dependencies = [
 [[package]]
 name = "sc-client-db"
 version = "0.46.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "hash-db",
  "kvdb",
@@ -9251,6 +9304,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "futures",
@@ -9273,6 +9327,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-babe"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -9297,7 +9352,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-inherents",
  "sp-keystore",
  "sp-runtime",
@@ -9308,6 +9363,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-babe-rpc"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -9329,6 +9385,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-epochs"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "fork-tree",
  "parity-scale-codec",
@@ -9341,6 +9398,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-grandpa"
 version = "0.35.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "ahash",
  "array-bytes",
@@ -9374,7 +9432,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-grandpa",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-keystore",
  "sp-runtime",
  "substrate-prometheus-endpoint",
@@ -9384,6 +9442,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-grandpa-rpc"
 version = "0.35.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "finality-grandpa",
  "futures",
@@ -9403,6 +9462,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-slots"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "futures",
@@ -9425,6 +9485,7 @@ dependencies = [
 [[package]]
 name = "sc-executor"
 version = "0.42.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.4",
@@ -9447,6 +9508,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-common"
 version = "0.38.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "polkavm",
  "sc-allocator",
@@ -9459,6 +9521,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-polkavm"
 version = "0.35.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "log",
  "polkavm",
@@ -9469,6 +9532,7 @@ dependencies = [
 [[package]]
 name = "sc-executor-wasmtime"
 version = "0.38.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "anyhow",
  "log",
@@ -9484,6 +9548,7 @@ dependencies = [
 [[package]]
 name = "sc-informant"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "console",
  "futures",
@@ -9499,6 +9564,7 @@ dependencies = [
 [[package]]
 name = "sc-keystore"
 version = "35.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "parking_lot 0.12.4",
@@ -9512,6 +9578,7 @@ dependencies = [
 [[package]]
 name = "sc-mixnet"
 version = "0.20.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "arrayvec 0.7.6",
@@ -9539,6 +9606,7 @@ dependencies = [
 [[package]]
 name = "sc-network"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -9588,6 +9656,7 @@ dependencies = [
 [[package]]
 name = "sc-network-common"
 version = "0.48.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bitflags 1.3.2",
  "parity-scale-codec",
@@ -9597,6 +9666,7 @@ dependencies = [
 [[package]]
 name = "sc-network-gossip"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "ahash",
  "futures",
@@ -9615,6 +9685,7 @@ dependencies = [
 [[package]]
 name = "sc-network-light"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -9635,6 +9706,7 @@ dependencies = [
 [[package]]
 name = "sc-network-sync"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -9669,6 +9741,7 @@ dependencies = [
 [[package]]
 name = "sc-network-transactions"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "futures",
@@ -9687,6 +9760,7 @@ dependencies = [
 [[package]]
 name = "sc-network-types"
 version = "0.16.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bs58",
  "bytes",
@@ -9705,6 +9779,7 @@ dependencies = [
 [[package]]
 name = "sc-offchain"
 version = "45.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bytes",
  "fnv",
@@ -9738,6 +9813,7 @@ dependencies = [
 [[package]]
 name = "sc-proposer-metrics"
 version = "0.20.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "log",
  "substrate-prometheus-endpoint",
@@ -9746,6 +9822,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc"
 version = "45.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -9777,6 +9854,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-api"
 version = "0.49.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -9796,6 +9874,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-server"
 version = "22.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "dyn-clone",
  "forwarded-header-value",
@@ -9819,6 +9898,7 @@ dependencies = [
 [[package]]
 name = "sc-rpc-spec-v2"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "futures",
@@ -9851,12 +9931,13 @@ dependencies = [
 [[package]]
 name = "sc-runtime-utilities"
 version = "0.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "sc-executor",
  "sc-executor-common",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-state-machine",
  "sp-wasm-interface",
  "thiserror 1.0.69",
@@ -9865,6 +9946,7 @@ dependencies = [
 [[package]]
 name = "sc-service"
 version = "0.51.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "directories",
@@ -9928,6 +10010,7 @@ dependencies = [
 [[package]]
 name = "sc-state-db"
 version = "0.38.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -9938,6 +10021,7 @@ dependencies = [
 [[package]]
 name = "sc-sync-state-rpc"
 version = "0.50.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -9956,6 +10040,7 @@ dependencies = [
 [[package]]
 name = "sc-sysinfo"
 version = "42.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "derive_more 0.99.20",
  "futures",
@@ -9968,13 +10053,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-io",
 ]
 
 [[package]]
 name = "sc-telemetry"
 version = "28.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "chrono",
  "futures",
@@ -9993,6 +10079,7 @@ dependencies = [
 [[package]]
 name = "sc-tracing"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "chrono",
  "console",
@@ -10020,6 +10107,7 @@ dependencies = [
 [[package]]
 name = "sc-tracing-proc-macro"
 version = "11.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro-crate 3.3.0",
  "proc-macro2",
@@ -10030,6 +10118,7 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "futures",
@@ -10047,7 +10136,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-runtime",
  "sp-tracing",
  "sp-transaction-pool",
@@ -10061,6 +10150,7 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool-api"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "futures",
@@ -10077,6 +10167,7 @@ dependencies = [
 [[package]]
 name = "sc-utils"
 version = "18.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-channel 1.9.0",
  "futures",
@@ -10796,6 +10887,7 @@ dependencies = [
 [[package]]
 name = "sp-api"
 version = "36.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "hash-db",
@@ -10817,6 +10909,7 @@ dependencies = [
 [[package]]
 name = "sp-api-proc-macro"
 version = "22.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "Inflector",
  "blake2 0.10.6",
@@ -10830,6 +10923,7 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "40.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -10841,6 +10935,7 @@ dependencies = [
 [[package]]
 name = "sp-arithmetic"
 version = "26.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "integer-sqrt",
@@ -10854,6 +10949,7 @@ dependencies = [
 [[package]]
 name = "sp-authority-discovery"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -10865,6 +10961,7 @@ dependencies = [
 [[package]]
 name = "sp-block-builder"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "sp-api",
  "sp-inherents",
@@ -10874,6 +10971,7 @@ dependencies = [
 [[package]]
 name = "sp-blockchain"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "futures",
  "parity-scale-codec",
@@ -10892,6 +10990,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus"
 version = "0.42.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "futures",
@@ -10905,6 +11004,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-aura"
 version = "0.42.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -10920,6 +11020,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-babe"
 version = "0.42.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -10937,6 +11038,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-grandpa"
 version = "23.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "finality-grandpa",
  "log",
@@ -10953,6 +11055,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-slots"
 version = "0.42.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -10963,6 +11066,7 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "36.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "ark-vrf",
  "array-bytes",
@@ -10992,7 +11096,7 @@ dependencies = [
  "secp256k1 0.28.2",
  "secrecy 0.8.0",
  "serde",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-debug-derive",
  "sp-externalities",
  "sp-runtime-interface",
@@ -11004,18 +11108,6 @@ dependencies = [
  "tracing",
  "w3f-bls",
  "zeroize",
-]
-
-[[package]]
-name = "sp-crypto-hashing"
-version = "0.1.0"
-dependencies = [
- "blake2b_simd",
- "byteorder",
- "digest 0.10.7",
- "sha2 0.10.9",
- "sha3",
- "twox-hash",
 ]
 
 [[package]]
@@ -11033,17 +11125,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-crypto-hashing"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
+dependencies = [
+ "blake2b_simd",
+ "byteorder",
+ "digest 0.10.7",
+ "sha2 0.10.9",
+ "sha3",
+ "twox-hash",
+]
+
+[[package]]
 name = "sp-crypto-hashing-proc-macro"
 version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "quote",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "syn 2.0.106",
 ]
 
 [[package]]
 name = "sp-database"
 version = "10.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.4",
@@ -11052,6 +11159,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -11061,6 +11169,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.30.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -11070,6 +11179,7 @@ dependencies = [
 [[package]]
 name = "sp-genesis-builder"
 version = "0.17.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -11081,6 +11191,7 @@ dependencies = [
 [[package]]
 name = "sp-inherents"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "impl-trait-for-tuples",
@@ -11093,6 +11204,7 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "40.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bytes",
  "docify",
@@ -11104,7 +11216,7 @@ dependencies = [
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-externalities",
  "sp-keystore",
  "sp-runtime-interface",
@@ -11118,6 +11230,7 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "41.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "sp-core",
  "sp-runtime",
@@ -11127,6 +11240,7 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.42.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.4",
@@ -11137,6 +11251,7 @@ dependencies = [
 [[package]]
 name = "sp-maybe-compressed-blob"
 version = "11.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "thiserror 1.0.69",
  "zstd 0.12.4",
@@ -11145,6 +11260,7 @@ dependencies = [
 [[package]]
 name = "sp-metadata-ir"
 version = "0.10.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "frame-metadata 20.0.0",
  "parity-scale-codec",
@@ -11154,6 +11270,7 @@ dependencies = [
 [[package]]
 name = "sp-mixnet"
 version = "0.14.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -11164,6 +11281,7 @@ dependencies = [
 [[package]]
 name = "sp-npos-elections"
 version = "36.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -11176,6 +11294,7 @@ dependencies = [
 [[package]]
 name = "sp-offchain"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "sp-api",
  "sp-core",
@@ -11185,6 +11304,7 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "13.0.2"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "backtrace",
  "regex",
@@ -11193,6 +11313,7 @@ dependencies = [
 [[package]]
 name = "sp-rpc"
 version = "34.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "rustc-hash 1.1.0",
  "serde",
@@ -11202,6 +11323,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime"
 version = "41.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "binary-merkle-tree",
  "docify",
@@ -11230,6 +11352,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "29.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -11248,6 +11371,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "18.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "Inflector",
  "expander",
@@ -11260,6 +11384,7 @@ dependencies = [
 [[package]]
 name = "sp-session"
 version = "38.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -11273,6 +11398,7 @@ dependencies = [
 [[package]]
 name = "sp-staking"
 version = "38.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -11285,6 +11411,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.45.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "hash-db",
  "log",
@@ -11304,6 +11431,7 @@ dependencies = [
 [[package]]
 name = "sp-statement-store"
 version = "20.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "aes-gcm",
  "curve25519-dalek",
@@ -11316,7 +11444,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-core",
- "sp-crypto-hashing 0.1.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7)",
  "sp-externalities",
  "sp-runtime",
  "sp-runtime-interface",
@@ -11327,10 +11455,12 @@ dependencies = [
 [[package]]
 name = "sp-std"
 version = "14.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 
 [[package]]
 name = "sp-storage"
 version = "22.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -11342,6 +11472,7 @@ dependencies = [
 [[package]]
 name = "sp-timestamp"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -11353,6 +11484,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "17.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -11363,6 +11495,7 @@ dependencies = [
 [[package]]
 name = "sp-transaction-pool"
 version = "36.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "sp-api",
  "sp-runtime",
@@ -11371,6 +11504,7 @@ dependencies = [
 [[package]]
 name = "sp-transaction-storage-proof"
 version = "36.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -11384,6 +11518,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "39.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "ahash",
  "hash-db",
@@ -11405,6 +11540,7 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "39.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -11421,6 +11557,7 @@ dependencies = [
 [[package]]
 name = "sp-version-proc-macro"
 version = "15.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "parity-scale-codec",
  "proc-macro-warning",
@@ -11432,6 +11569,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "21.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -11443,6 +11581,7 @@ dependencies = [
 [[package]]
 name = "sp-weights"
 version = "31.1.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "bounded-collections",
  "parity-scale-codec",
@@ -11508,6 +11647,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "staging-xcm"
 version = "16.2.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -11528,6 +11668,7 @@ dependencies = [
 [[package]]
 name = "staging-xcm-builder"
 version = "20.1.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "environmental",
  "frame-support",
@@ -11551,6 +11692,7 @@ dependencies = [
 [[package]]
 name = "staging-xcm-executor"
 version = "19.1.2"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -11651,6 +11793,7 @@ dependencies = [
 [[package]]
 name = "substrate-bip39"
 version = "0.6.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "hmac 0.12.1",
  "pbkdf2",
@@ -11662,10 +11805,12 @@ dependencies = [
 [[package]]
 name = "substrate-build-script-utils"
 version = "11.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 
 [[package]]
 name = "substrate-frame-rpc-system"
 version = "44.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "docify",
  "frame-system-rpc-runtime-api",
@@ -11685,6 +11830,7 @@ dependencies = [
 [[package]]
 name = "substrate-prometheus-endpoint"
 version = "0.17.2"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "http-body-util",
  "hyper 1.7.0",
@@ -11698,10 +11844,12 @@ dependencies = [
 [[package]]
 name = "substrate-test-utils"
 version = "3.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 
 [[package]]
 name = "substrate-wasm-builder"
 version = "26.0.1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "build-helper",
  "cargo_metadata",
@@ -12393,6 +12541,7 @@ dependencies = [
 [[package]]
 name = "tracing-gum"
 version = "19.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "coarsetime",
  "polkadot-primitives",
@@ -12403,6 +12552,7 @@ dependencies = [
 [[package]]
 name = "tracing-gum-proc-macro"
 version = "5.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "expander",
  "proc-macro-crate 3.3.0",
@@ -13854,6 +14004,7 @@ dependencies = [
 [[package]]
 name = "xcm-procedural"
 version = "11.0.2"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2503-7#a5cffdd5fa1b53ae7e795c9c158395c25f80e25f"
 dependencies = [
  "Inflector",
  "proc-macro2",
