@@ -51,23 +51,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::dispatch::{
-    DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
-};
+use frame_support::dispatch::{DispatchClass, DispatchInfo, DispatchResult};
+use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::pallet_prelude::*;
 use frame_support::traits::Get;
 use frame_support::weights::{Weight, WeightToFee};
 use frame_support::RuntimeDebugNoBound;
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use scale_info::TypeInfo;
-use sp_runtime::traits::{
-    Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating, TransactionExtension,
-    Zero,
-};
+use sp_runtime::traits::SaturatedConversion;
+use sp_runtime::traits::{AsSystemOriginSigner, Saturating, TransactionExtension, Zero};
+use sp_runtime::traits::{Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf};
 use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
-use sp_runtime::{
-    FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Perquintill, RuntimeDebug,
-};
+use sp_runtime::{FixedPointNumber, FixedPointOperand, FixedU128};
+use sp_runtime::{Perbill, Perquintill, RuntimeDebug};
 
 use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::traits::{CddAndFeeDetails, IdentityFnTrait, SubsidiserTrait};
@@ -786,12 +783,12 @@ where
         self.0
     }
 
-    fn withdraw_fee(
+    pub(crate) fn can_withdraw_fee(
         &self,
         who: &T::AccountId,
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
-        fee: BalanceOf<T>,
+        len: usize,
     ) -> Result<
         (
             BalanceOf<T>,
@@ -801,6 +798,7 @@ where
         TransactionValidityError,
     > {
         let tip = self.0;
+        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
         // Polymesh change
         // -----------------------------------------------------------------
@@ -830,43 +828,6 @@ where
         // -----------------------------------------------------------------
     }
 
-    fn can_withdraw_fee(
-        &self,
-        who: &T::AccountId,
-        call: &T::RuntimeCall,
-        info: &DispatchInfoOf<T::RuntimeCall>,
-        len: usize,
-    ) -> Result<BalanceOf<T>, TransactionValidityError> {
-        let tip = self.0;
-        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
-
-        // Polymesh change
-        // -----------------------------------------------------------------
-
-        if fee.is_zero() {
-            return Ok(fee);
-        }
-
-        // Get the payer for this transaction.
-        let payers_key =
-            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
-
-        // Check if the payer is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&payers_key, fee.into(), Some(call))?;
-
-        // key to pay the fee.
-        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
-
-        <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-            fee_key, call, info, fee, tip,
-        )?;
-
-        T::CddHandler::set_payer_context(Some(payers_key));
-        Ok(fee)
-
-        // -----------------------------------------------------------------
-    }
-
     // Polymesh change: Used to allow GC/CDD member to include a `tip`.
     // -----------------------------------------------------------------
 
@@ -881,7 +842,7 @@ where
     ///
     /// Tipping is allowed for `DispatchClass::Operational` created by a Governance or CDD Provider member.
     /// Mandatory transactions are going to be included in the block, so adding a tip does not matter.
-    fn ensure_valid_tip(
+    pub(crate) fn ensure_valid_tip(
         &self,
         who: &T::AccountId,
         info: &DispatchInfoOf<T::RuntimeCall>,
@@ -948,6 +909,8 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
+    BalanceOf<T>: Send + Sync + Into<u128>,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
     type Implicit = ();
@@ -955,15 +918,15 @@ where
     type Pre = Pre<T>;
 
     fn weight(&self, _: &T::RuntimeCall) -> Weight {
-        unimplemented!()
+        Weight::zero()
     }
 
     fn validate(
         &self,
-        _origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-        _call: &T::RuntimeCall,
-        _info: &DispatchInfoOf<T::RuntimeCall>,
-        _len: usize,
+        origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
         _: (),
         _implication: &impl Encode,
         _source: TransactionSource,
@@ -975,28 +938,89 @@ where
         ),
         TransactionValidityError,
     > {
-        unimplemented!()
+        let caller_acc = origin
+            .as_system_origin_signer()
+            .ok_or(InvalidTransaction::BadSigner)?;
+
+        let tip = self.ensure_valid_tip(caller_acc, info)?;
+
+        let (fee, _, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
+
+        let valid_transaction = ValidTransaction {
+            priority: tip.saturated_into::<TransactionPriority>(),
+            ..Default::default()
+        };
+
+        let val = Val::Charge {
+            tip,
+            who: subsidiser.unwrap_or(caller_acc.clone()),
+            fee,
+        };
+
+        Ok((valid_transaction, val, origin))
     }
 
     fn prepare(
         self,
         _val: Self::Val,
-        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-        _call: &T::RuntimeCall,
-        _info: &DispatchInfoOf<T::RuntimeCall>,
-        _len: usize,
+        origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        unimplemented!()
+        let caller_acc = origin
+            .as_system_origin_signer()
+            .ok_or(InvalidTransaction::BadSigner)?;
+
+        let tip = self.ensure_valid_tip(caller_acc, info)?;
+
+        let (_, imbalance, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
+
+        let pre = Pre::Charge {
+            tip,
+            who: subsidiser.unwrap_or(caller_acc.clone()),
+            imbalance,
+        };
+
+        Ok(pre)
     }
 
     fn post_dispatch(
-        _pre: Self::Pre,
-        _info: &DispatchInfoOf<T::RuntimeCall>,
-        _post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
-        _len: usize,
+        pre: Self::Pre,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+        len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        unimplemented!()
+        let (tip, who, imbalance) = {
+            match pre {
+                Pre::Charge {
+                    tip,
+                    who,
+                    imbalance,
+                } => (tip, who, imbalance),
+                Pre::NoCharge { .. } => return Ok(()),
+            }
+        };
+
+        let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
+
+        // Fee returned to original payer.
+        let payer_key = T::CddHandler::get_payer_from_context().unwrap_or(who.clone());
+
+        T::OnChargeTransaction::correct_and_deposit_fee(
+            &payer_key, info, post_info, actual_fee, tip, imbalance,
+        )?;
+
+        Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid {
+            who: payer_key,
+            actual_fee,
+            tip,
+        });
+
+        // It clears the identity and payer in the context after transaction.
+        T::CddHandler::clear_context();
+        Ok(())
     }
 }
 
