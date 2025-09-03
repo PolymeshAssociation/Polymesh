@@ -1,4 +1,3 @@
-//mod ci_runtime;
 pub(crate) mod common;
 pub(crate) mod develop_runtime;
 pub(crate) mod mainnet_runtime;

@@ -128,9 +128,9 @@ pub(crate) fn asset_genesis_config() -> serde_json::Value {
     };
 
     serde_json::json!({
-        "ticker_registration_config": ticker_reg_config,
-        "reserved_country_currency_codes": currency_codes(),
-        "asset_metadata": asset_metadata(),
+        "tickerRegistrationConfig": ticker_reg_config,
+        "reservedCountryCurrencyCodes": currency_codes(),
+        "assetMetadata": asset_metadata(),
     })
 }
 
@@ -141,16 +141,41 @@ pub(crate) fn checkpoint_genesis_config() -> serde_json::Value {
     };
 
     serde_json::json!({
-        "schedules_max_complexity": period.complexity(),
+        "schedulesMaxComplexity": period.complexity(),
+    })
+}
+
+pub(crate) fn validators_genesis_config(
+    initial_stakers: &[StakersData],
+    validator_commission_cap: Perbill,
+) -> serde_json::Value {
+    serde_json::json!({
+        "validators": initial_stakers.iter().filter_map(|x| {
+            if let StakerStatus::Validator = x.status {
+                Some(x.identity_id)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>(),
+        "validatorCommissionCap": validator_commission_cap,
     })
 }
 
 pub(crate) fn staking_genesis_config(initial_stakers: &[StakersData]) -> serde_json::Value {
     serde_json::json!({
-        "validator_count": 40,
-        "minimum_validator_count": 1,
-        "stakers": initial_stakers,
-        "slash_reward_fraction": Perbill::from_percent(10),
+        "validatorCount": 40,
+        "minimumValidatorCount": 1,
+        "stakers": initial_stakers.iter().map(|x| {
+            (
+                x.stash_id.clone(),
+                x.controller_id.clone(),
+                x.bonded_amount,
+                x.status.clone(),
+            )
+        })
+        .collect::<Vec<_>>(),
+        "slashRewardFraction": Perbill::from_percent(10),
     })
 }
 
@@ -160,19 +185,19 @@ pub(crate) fn pips_genesis_config(
     active_pip_limit: u32,
 ) -> serde_json::Value {
     serde_json::json!({
-        "prune_historical_pips": false,
-        "min_proposal_deposit": 2_000_000_000,
-        "default_enactment_period": enactment_period,
-        "pending_pip_expiry": pending_pip_expiry,
-        "max_pip_skip_count": 2,
-        "active_pip_limit": active_pip_limit,
+        "pruneHistoricalPips": false,
+        "minProposalDeposit": 2_000_000_000,
+        "defaultEnactmentPeriod": enactment_period,
+        "pendingPipExpiry": pending_pip_expiry,
+        "maxPipSkipCount": 2,
+        "activePipLimit": active_pip_limit,
     })
 }
 
 pub(crate) fn group_genesis_config(active_members_ids: Vec<IdentityId>) -> serde_json::Value {
     serde_json::json!({
-       "active_members_limit": 20,
-       "active_members": active_members_ids,
+       "activeMembersLimit": 20,
+       "activeMembers": active_members_ids,
     })
 }
 
@@ -181,8 +206,8 @@ pub(crate) fn committee_genesis_config(
     release_coordinator: IdentityId,
 ) -> serde_json::Value {
     serde_json::json!({
-        "vote_threshold": vote_threshold,
-        "release_coordinator": release_coordinator,
+        "voteThreshold": vote_threshold,
+        "releaseCoordinator": release_coordinator,
     })
 }
 
@@ -193,14 +218,14 @@ pub(crate) fn protocol_fee_genesis_config() -> serde_json::Value {
     ];
 
     serde_json::json!({
-        "base_fees": protocol_fee,
+        "baseFees": protocol_fee,
         "coefficient": PosRatio(1, 1)
     })
 }
 
 pub(crate) fn corporate_actions_genesis_config() -> serde_json::Value {
     serde_json::json!({
-        "max_details_length": 1_024,
+        "maxDetailsLength": 1_024,
     })
 }
 
@@ -208,11 +233,11 @@ pub(crate) fn polymesh_contracts_genesis_config(upgradable_owner: AccountId) -> 
     let upgradable_description: [u8; 4] = "POLY".as_bytes().try_into().unwrap();
 
     serde_json::json!({
-        "call_whitelist": contracts_call_whitelist(),
-        "upgradable_code": upgradable_code(),
-        "upgradable_description": upgradable_description,
-        "upgradable_major": 7,
-        "upgradable_owner": upgradable_owner,
+        "callWhitelist": contracts_call_whitelist(),
+        "upgradableCode": upgradable_code(),
+        "upgradableDescription": upgradable_description,
+        "upgradableMajor": 7,
+        "upgradableOwner": upgradable_owner,
     })
 }
 

@@ -1,5 +1,6 @@
 use sc_chain_spec::ChainType;
 use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::PerThing;
 
 use pallet_staking::StakerStatus;
 use polymesh_primitives::constants::TREASURY_PALLET_ID;
@@ -8,12 +9,13 @@ use polymesh_primitives::{AccountId, Balance, IdentityId, MaybeBlock, SecondaryK
 use polymesh_runtime_develop::constants::time::MINUTES;
 use polymesh_runtime_develop::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
-use crate::chain_spec::common::{asset_genesis_config, protocol_fee_genesis_config};
+use crate::chain_spec::common::asset_genesis_config;
 use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
 use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
 use crate::chain_spec::common::{get_authority_keys_from_seed, pips_genesis_config};
 use crate::chain_spec::common::{group_genesis_config, polymesh_properties};
 use crate::chain_spec::common::{polymesh_contracts_genesis_config, seeded_acc_id};
+use crate::chain_spec::common::{protocol_fee_genesis_config, validators_genesis_config};
 use crate::chain_spec::common::{ChainSpec, DEV_KEYS, DEV_TREASURY, INITIAL_BOND};
 use crate::chain_spec::common::{ChainSpecMode, GenesisData, InitialAuth, StakersData};
 
@@ -105,21 +107,22 @@ fn develop_genesis_config(
         "session": {
             "keys": session_keys,
         },
+        "validators": validators_genesis_config(&genesis_data.stakers_data, PerThing::from_rational(1u64, 4u64)),
         "staking": staking_genesis_config(&genesis_data.stakers_data),
         "pips": pips_genesis_config(MINUTES, MaybeBlock::None, 25),
         "babe": {
-            "epoch_config": Some(BABE_GENESIS_EPOCH_CONFIG),
+            "epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
         },
-        "committee_membership": group_genesis_config,
-        "polymesh_committee": committee_genesis_config,
-        "cdd_service_providers": group_genesis_config,
-        "technical_committee_membership": group_genesis_config,
-        "technical_committee": committee_genesis_config,
-        "upgrade_committee_membership": group_genesis_config,
-        "upgrade_committee": committee_genesis_config,
-        "protocol_fee": protocol_fee_genesis_config(),
-        "corporate_action": corporate_actions_genesis_config(),
-        "polymesh_contracts": polymesh_contracts_genesis_config(root_key),
+        "committeeMembership": group_genesis_config,
+        "polymeshCommittee": committee_genesis_config,
+        "cddServiceProviders": group_genesis_config,
+        "technicalCommitteeMembership": group_genesis_config,
+        "technicalCommittee": committee_genesis_config,
+        "upgradeCommitteeMembership": group_genesis_config,
+        "upgradeCommittee": committee_genesis_config,
+        "protocolFee": protocol_fee_genesis_config(),
+        "corporateAction": corporate_actions_genesis_config(),
+        "polymeshContracts": polymesh_contracts_genesis_config(root_key),
     })
 }
 

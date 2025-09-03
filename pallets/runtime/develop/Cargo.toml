@@ -66,6 +66,7 @@ sp-authority-discovery = { workspace = true, default-features = false }
 sp-transaction-pool = { workspace = true, default-features = false }
 sp-block-builder = { workspace = true, default-features = false }
 sp-arithmetic = { workspace = true, default-features = false }
+sp-genesis-builder = { workspace = true, default-features = false }
 #
 pallet-authorship = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
@@ -194,6 +195,7 @@ std = [
     "sp-transaction-pool/std",
     "sp-version/std",
     "polymesh-contracts/std",
+    "sp-genesis-builder/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
