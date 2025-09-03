@@ -63,6 +63,7 @@ sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 sp-version = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
+sp-genesis-builder = { workspace = true, default-features = false }
 sp-inherents = { workspace = true, default-features = false }
 sp-offchain = { workspace = true, default-features = false }
 sp-staking = { workspace = true, default-features = false }
@@ -76,7 +77,6 @@ sp-arithmetic = { workspace = true, default-features = false }
 
 pallet-authorship = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
-#pallet-contracts-primitives = { workspace = true, default-features = false}
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
@@ -186,6 +186,7 @@ std = [
     "sp-transaction-pool/std",
     "sp-version/std",
     "polymesh-contracts/std",
+    "sp-genesis-builder/std",
 ]
 
 runtime-benchmarks = [

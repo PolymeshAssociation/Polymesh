@@ -28,6 +28,7 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
+sp-genesis-builder = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
@@ -53,7 +54,8 @@ std = [
     "sp-std/std",
     "frame-election-provider-support/std",
     "pallet-election-provider-multi-phase/std",
-    "sp-io/std"
+    "sp-io/std",
+    "sp-genesis-builder/std",
 ]
 runtime-benchmarks = [
     "pallet-balances/runtime-benchmarks",

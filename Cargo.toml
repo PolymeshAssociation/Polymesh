@@ -78,6 +78,7 @@ sp-core = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch 
 sp-debug-derive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
 sp-externalities = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
 sp-consensus-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
+sp-genesis-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
 sp-inherents = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
 sp-io = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
 sp-keystore = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2503-7" }
@@ -246,6 +247,7 @@ sp-consensus-grandpa = { version = "23.1.0", default-features = false }
 sp-consensus-slots = { version = "0.42.1", default-features = false }
 sp-core = { version = "36.1.0", default-features = false }
 sp-debug-derive = { version = "14.0.0", default-features = false }
+sp-genesis-builder = { version = "0.17.0", default-features = false }
 sp-inherents = { version = "36.0.0", default-features = false }
 sp-io = { version = "40.0.1", default-features = false }
 sp-keyring = { version = "41.0.0", default-features = false }
@@ -388,6 +390,7 @@ sp-consensus-babe = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-keyring = { workspace = true }
 sp-core = { workspace = true }
+sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }

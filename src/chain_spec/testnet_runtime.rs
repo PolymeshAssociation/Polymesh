@@ -1,17 +1,18 @@
 use sc_chain_spec::ChainType;
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
+use sp_runtime::PerThing;
 
 use polymesh_primitives::{AccountId, IdentityId, MaybeBlock};
 use polymesh_runtime_testnet::constants::time::DAYS;
 use polymesh_runtime_testnet::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
-use crate::chain_spec::common::group_genesis_config;
-use crate::chain_spec::common::{asset_genesis_config, protocol_fee_genesis_config};
+use crate::chain_spec::common::{asset_genesis_config, group_genesis_config};
 use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
 use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
 use crate::chain_spec::common::{get_authority_keys_from_seed, polymesh_properties, seeded_acc_id};
 use crate::chain_spec::common::{pips_genesis_config, polymesh_contracts_genesis_config};
+use crate::chain_spec::common::{protocol_fee_genesis_config, validators_genesis_config};
 use crate::chain_spec::common::{ChainSpec, ChainSpecMode, InitialAuth, STAGING_TELEMETRY_URL};
 
 pub fn testnet_chain_spec(chain_spec_mode: ChainSpecMode) -> ChainSpec {
@@ -110,25 +111,26 @@ fn testnet_genesis_config(
         "session": {
             "keys": session_keys,
         },
+        "validators": validators_genesis_config(&genesis_data.stakers_data, PerThing::from_rational(1u64, 4u64)),
         "staking": staking_genesis_config(&genesis_data.stakers_data),
         "pips": pips_genesis_config(DAYS * 30, MaybeBlock::None, 1_000),
         "babe": {
             "epoch_config": Some(BABE_GENESIS_EPOCH_CONFIG),
         },
         // Governing council
-        "committee_membership": group_genesis_config(vec![identity_1, identity_2, identity_3]),  // three GC members
-        "polymesh_committee": committee_genesis_config((2, 3), identity_1), // RC = 1, 2/3 votes required
+        "committeeMembership": group_genesis_config(vec![identity_1, identity_2, identity_3]),  // three GC members
+        "polymeshCommittee": committee_genesis_config((2, 3), identity_1), // RC = 1, 2/3 votes required
         // CDD providers
-        "cdd_service_providers": group_genesis_config(vec![identity_1]),
+        "cddServiceProviders": group_genesis_config(vec![identity_1]),
         // Technical Committee
-        "technical_committee_membership": group_genesis_config(vec![identity_3, identity_4, identity_5]), // One GC member + genesis operator + Bridge Multisig
-        "technical_committee": committee_genesis_config((1, 2), identity_3), // RC = 3, 1/2 votes required
+        "technicalCommitteeMembership": group_genesis_config(vec![identity_3, identity_4, identity_5]), // One GC member + genesis operator + Bridge Multisig
+        "technicalCommittee": committee_genesis_config((1, 2), identity_3), // RC = 3, 1/2 votes required
         // Upgrade Committee
-        "upgrade_committee_membership": group_genesis_config(vec![identity_1]), // One GC member
-        "upgrade_committee": committee_genesis_config((1, 2), identity_1), // 1/2 votes required
-        "protocol_fee": protocol_fee_genesis_config(),
-        "corporate_action": corporate_actions_genesis_config(),
-        "polymesh_contracts": polymesh_contracts_genesis_config(root_key),
+        "upgradeCommitteeMembership": group_genesis_config(vec![identity_1]), // One GC member
+        "upgradeCommittee": committee_genesis_config((1, 2), identity_1), // 1/2 votes required
+        "protocolFee": protocol_fee_genesis_config(),
+        "corporateAction": corporate_actions_genesis_config(),
+        "polymeshContracts": polymesh_contracts_genesis_config(root_key),
     })
 }
 
