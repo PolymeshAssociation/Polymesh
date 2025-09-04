@@ -186,7 +186,9 @@ fn add_secondary_key(
 }
 
 /// Returns the initial list of validator at genesis representing by their `(AccountId, ValidatorId, Keys)`.
-fn session_keys(init_authorities: &[InitialAuth]) -> Vec<(AccountId, AccountId, SessionKeys)> {
+pub(crate) fn session_keys(
+    init_authorities: &[InitialAuth],
+) -> Vec<(AccountId, AccountId, SessionKeys)> {
     let mut initial_session_keys = Vec::new();
 
     for initial_auth in init_authorities {

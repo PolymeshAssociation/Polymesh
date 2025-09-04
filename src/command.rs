@@ -29,6 +29,7 @@ use sp_runtime::traits::HashingFor;
 use polymesh_primitives::Block;
 
 use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
+use crate::chain_spec::ci_runtime::ci_chain_spec;
 use crate::chain_spec::common::{ChainSpec as GenericChainSpec, ChainSpecMode};
 use crate::chain_spec::develop_runtime::develop_chain_spec;
 use crate::chain_spec::mainnet_runtime::mainnet_chain_spec;
@@ -69,8 +70,20 @@ impl SubstrateCli for Cli {
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
-            "dev" => Box::new(develop_chain_spec(ChainSpecMode::Development)),
-            "local" => Box::new(develop_chain_spec(ChainSpecMode::Local)),
+            "dev" => {
+                if cfg!(feature = "ci-runtime") {
+                    Box::new(ci_chain_spec(ChainSpecMode::Development))
+                } else {
+                    Box::new(develop_chain_spec(ChainSpecMode::Development))
+                }
+            }
+            "local" => {
+                if cfg!(feature = "ci-runtime") {
+                    Box::new(ci_chain_spec(ChainSpecMode::Local))
+                } else {
+                    Box::new(develop_chain_spec(ChainSpecMode::Local))
+                }
+            }
             "testnet-dev" => Box::new(testnet_chain_spec(ChainSpecMode::Development)),
             "testnet-local" => Box::new(testnet_chain_spec(ChainSpecMode::Local)),
             "testnet-bootstrap" => Box::new(testnet_chain_spec(ChainSpecMode::Bootstrap)),
