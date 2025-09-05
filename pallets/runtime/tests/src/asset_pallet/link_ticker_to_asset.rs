@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::{AssetIdTicker, TickerAssetId};
 use polymesh_primitives::Ticker;
@@ -15,7 +15,7 @@ type ExternalAgentsError = pallet_external_agents::Error<TestStorage>;
 #[test]
 fn link_ticker_to_asset_id_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -44,8 +44,8 @@ fn link_ticker_to_asset_id_successfully() {
 #[test]
 fn link_ticker_to_asset_id_ticker_not_registered_to_caller() {
     ExtBuilder::default().build().execute_with(|| {
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(dave.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -70,8 +70,8 @@ fn link_ticker_to_asset_id_ticker_not_registered_to_caller() {
 #[test]
 fn link_ticker_to_asset_id_ticker_unauthorized_agent() {
     ExtBuilder::default().build().execute_with(|| {
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(dave.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -96,7 +96,7 @@ fn link_ticker_to_asset_id_ticker_unauthorized_agent() {
 #[test]
 fn link_ticker_to_asset_id_expired_ticker() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -122,7 +122,7 @@ fn link_ticker_to_asset_id_expired_ticker() {
 #[test]
 fn link_ticker_to_asset_id_ticker_already_linked() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
@@ -163,7 +163,7 @@ fn link_ticker_to_asset_id_ticker_already_linked() {
 #[test]
 fn link_ticker_to_asset_asset_already_linked() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let ticker_1: Ticker = Ticker::from_slice_truncated(b"TICKER1");
@@ -196,7 +196,7 @@ fn link_ticker_to_asset_asset_already_linked() {
 #[test]
 fn link_ticker_to_asset_id_after_unlink() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let ticker_1: Ticker = Ticker::from_slice_truncated(b"TICKER1");

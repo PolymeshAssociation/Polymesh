@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
@@ -33,9 +33,9 @@ type NFTError = pallet_nft::Error<TestStorage>;
 fn invalid_caller() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -70,9 +70,9 @@ fn invalid_caller() {
 fn mediator_has_not_affirmed() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -107,9 +107,9 @@ fn mediator_has_not_affirmed() {
 fn invalid_type() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -146,9 +146,9 @@ fn invalid_type() {
 fn missing_affirmation() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -184,9 +184,9 @@ fn missing_affirmation() {
 #[test]
 fn invalid_inst_status() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -203,9 +203,9 @@ fn invalid_inst_status() {
 #[test]
 fn expired_mediator_affirmation() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -221,9 +221,9 @@ fn expired_mediator_affirmation() {
 #[test]
 fn unauthorized_venue() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -240,9 +240,9 @@ fn unauthorized_venue() {
 #[test]
 fn frozen_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -258,17 +258,17 @@ fn frozen_asset() {
 #[test]
 fn sender_missing_cdd_claim() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let bob = User::new(AccountKeyring::Bob);
-            let dave = User::new(AccountKeyring::Dave);
-            let alice = User::new(AccountKeyring::Alice);
+            let bob = User::new(Sr25519Keyring::Bob);
+            let dave = User::new(Sr25519Keyring::Dave);
+            let alice = User::new(Sr25519Keyring::Alice);
 
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
             Identity::revoke_claim(
-                RuntimeOrigin::signed(AccountKeyring::Eve.to_account_id()),
+                RuntimeOrigin::signed(Sr25519Keyring::Eve.to_account_id()),
                 alice.did,
                 Claim::CustomerDueDiligence(Default::default()),
             )
@@ -284,17 +284,17 @@ fn sender_missing_cdd_claim() {
 #[test]
 fn rcv_missing_cdd_claim() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let bob = User::new(AccountKeyring::Bob);
-            let dave = User::new(AccountKeyring::Dave);
-            let alice = User::new(AccountKeyring::Alice);
+            let bob = User::new(Sr25519Keyring::Bob);
+            let dave = User::new(Sr25519Keyring::Dave);
+            let alice = User::new(Sr25519Keyring::Alice);
 
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
             Identity::revoke_claim(
-                RuntimeOrigin::signed(AccountKeyring::Eve.to_account_id()),
+                RuntimeOrigin::signed(Sr25519Keyring::Eve.to_account_id()),
                 bob.did,
                 Claim::CustomerDueDiligence(Default::default()),
             )
@@ -311,9 +311,9 @@ fn rcv_missing_cdd_claim() {
 fn receivers_missing_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_portfolio = PortfolioId::new(bob.did, PortfolioKind::User(PortfolioNumber(1)));
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -369,9 +369,9 @@ fn receivers_missing_portfolio() {
 #[test]
 fn receivers_not_compliant() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -403,9 +403,9 @@ fn receivers_not_compliant() {
 #[test]
 fn sender_tokens_are_locked() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -422,9 +422,9 @@ fn sender_tokens_are_locked() {
 #[test]
 fn sender_invalid_portfolio_balance() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -445,9 +445,9 @@ fn sender_invalid_portfolio_balance() {
 #[test]
 fn sender_invalid_balance() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -464,9 +464,9 @@ fn sender_invalid_balance() {
 #[test]
 fn senders_not_compliant() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -500,9 +500,9 @@ fn invalid_weight() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -522,9 +522,9 @@ fn success() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 

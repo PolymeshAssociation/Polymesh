@@ -34,7 +34,7 @@ use polymesh_primitives::{
     Moment, PortfolioId, PortfolioNumber, Scope, Signatory, TrustedFor, TrustedIssuer,
 };
 use sp_arithmetic::Permill;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use std::convert::TryInto;
 
 type System = frame_system::Pallet<TestStorage>;
@@ -63,7 +63,7 @@ type Details = pallet_corporate_actions::Details<TestStorage>;
 type CAIdSequence = pallet_corporate_actions::CAIdSequence<TestStorage>;
 type CorporateActions = pallet_corporate_actions::CorporateActions<TestStorage>;
 
-const CDDP: AccountKeyring = AccountKeyring::Eve;
+const CDDP: Sr25519Keyring = Sr25519Keyring::Eve;
 
 const P0: Permill = Permill::zero();
 const P25: Permill = Permill::from_percent(25);
@@ -79,9 +79,9 @@ fn test(logic: impl FnOnce(AssetId, [User; 3])) {
             System::set_block_number(1);
 
             // Create some users.
-            let alice = User::new(AccountKeyring::Alice);
-            let bob = User::new(AccountKeyring::Bob);
-            let charlie = User::new(AccountKeyring::Charlie);
+            let alice = User::new(Sr25519Keyring::Alice);
+            let bob = User::new(Sr25519Keyring::Bob);
+            let charlie = User::new(Sr25519Keyring::Charlie);
 
             // Create the asset.
             let asset_id = create_and_issue_sample_asset(&alice);
@@ -476,7 +476,7 @@ fn set_did_withholding_tax_works() {
 #[test]
 fn set_max_details_length_only_root() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice).origin();
+        let alice = User::new(Sr25519Keyring::Alice).origin();
         assert_noop!(
             CA::set_max_details_length(alice, 5),
             DispatchError::BadOrigin,
@@ -2029,7 +2029,7 @@ fn dist_claim_misc_bad() {
             owner.origin(),
             asset_id2
         ));
-        let dave = User::new(AccountKeyring::Dave);
+        let dave = User::new(Sr25519Keyring::Dave);
         assert_ok!(ComplianceManager::add_compliance_requirement(
             owner.origin(),
             asset_id2,
@@ -2084,7 +2084,7 @@ fn dist_claim_not_targeted() {
 #[test]
 fn dist_claim_works() {
     currency_test(|asset_id, currency, [owner, foo, bar]| {
-        let baz = User::new(AccountKeyring::Dave);
+        let baz = User::new(Sr25519Keyring::Dave);
 
         // Transfer 500 to `foo`, 1000 to `bar`, and `500` to `baz`.
         transfer(&asset_id, owner, foo);
@@ -2172,7 +2172,7 @@ fn dist_claim_works() {
 #[test]
 fn dist_claim_rounding_indivisible() {
     currency_test(|asset_id, currency, [owner, foo, bar]| {
-        let baz = User::new(AccountKeyring::Dave);
+        let baz = User::new(Sr25519Keyring::Dave);
 
         // Make `currency` indivisible.
         // This the crucial aspect different about this test.

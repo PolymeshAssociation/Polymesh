@@ -14,7 +14,7 @@ use polymesh_primitives::{
     CountryCode, IdentityId, PortfolioId, Scope, Signatory, TargetIdentity, TrustedFor,
     WeightMeter,
 };
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use crate::asset_pallet::setup::ISSUE_AMOUNT;
 
@@ -88,9 +88,9 @@ fn should_add_and_verify_compliance_requirement() {
 fn should_add_and_verify_compliance_requirement_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let owner = User::new(AccountKeyring::Alice);
-    let token_rec = User::new(AccountKeyring::Charlie);
-    let cdd = User::new(AccountKeyring::Eve);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let token_rec = User::new(Sr25519Keyring::Charlie);
+    let cdd = User::new(Sr25519Keyring::Eve);
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd.did]));
     // Create & mint token
@@ -98,9 +98,9 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    let claim_issuer = User::new(AccountKeyring::Bob);
+    let claim_issuer = User::new(Sr25519Keyring::Bob);
     Balances::make_free_balance_be(&claim_issuer.acc(), 1_000_000);
-    let ferdie = User::new(AccountKeyring::Ferdie);
+    let ferdie = User::new(Sr25519Keyring::Ferdie);
 
     let claim = Claim::Blocked(asset_id.into());
     assert_ok!(Identity::add_claim(
@@ -432,7 +432,7 @@ fn should_replace_asset_compliance() {
 }
 
 fn should_replace_asset_compliance_we() {
-    let owner = User::new(AccountKeyring::Alice);
+    let owner = User::new(Sr25519Keyring::Alice);
 
     // Create & mint token
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -475,7 +475,7 @@ fn test_dedup_replace_asset_compliance() {
 }
 
 fn test_dedup_replace_asset_compliance_we() {
-    let owner = User::new(AccountKeyring::Alice);
+    let owner = User::new(Sr25519Keyring::Alice);
 
     // Create & mint token
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -523,7 +523,7 @@ fn should_reset_asset_compliance() {
 }
 
 fn should_reset_asset_compliance_we() {
-    let owner = User::new(AccountKeyring::Alice);
+    let owner = User::new(Sr25519Keyring::Alice);
 
     // Create & mint token
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -548,15 +548,15 @@ fn should_reset_asset_compliance_we() {
 #[test]
 fn pause_resume_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(pause_resume_asset_compliance_we);
 }
 
 fn pause_resume_asset_compliance_we() {
     // 0. Create accounts
-    let owner = User::new(AccountKeyring::Alice);
-    let receiver = User::new(AccountKeyring::Charlie);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let receiver = User::new(Sr25519Keyring::Charlie);
 
     // 1. Create & mint token
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -616,11 +616,11 @@ fn should_successfully_add_and_use_default_issuers() {
 fn should_successfully_add_and_use_default_issuers_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let owner = User::new(AccountKeyring::Alice);
-    let trusted_issuer = User::new(AccountKeyring::Charlie);
-    let receiver = User::new(AccountKeyring::Dave);
-    let eve = User::new(AccountKeyring::Eve);
-    let ferdie = User::new(AccountKeyring::Ferdie);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let trusted_issuer = User::new(Sr25519Keyring::Charlie);
+    let receiver = User::new(Sr25519Keyring::Dave);
+    let eve = User::new(Sr25519Keyring::Eve);
+    let ferdie = User::new(Sr25519Keyring::Ferdie);
 
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer.did]));
 
@@ -734,10 +734,10 @@ fn should_modify_vector_of_trusted_issuer() {
 fn should_modify_vector_of_trusted_issuer_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let owner = User::new(AccountKeyring::Alice);
-    let trusted_issuer_1 = User::new(AccountKeyring::Charlie);
-    let trusted_issuer_2 = User::new(AccountKeyring::Ferdie);
-    let receiver = User::new(AccountKeyring::Dave);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let trusted_issuer_1 = User::new(Sr25519Keyring::Charlie);
+    let trusted_issuer_2 = User::new(Sr25519Keyring::Ferdie);
+    let receiver = User::new(Sr25519Keyring::Dave);
 
     // Providing a random DID to root but in real world Root should posses a DID
     assert_ok!(CDDGroup::reset_members(
@@ -895,15 +895,15 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
 }
 fn jurisdiction_asset_compliance_we() {
     // 0. Create accounts
-    let owner = User::new(AccountKeyring::Alice);
-    let cdd = User::new(AccountKeyring::Bob);
-    let user = User::new(AccountKeyring::Charlie);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let cdd = User::new(Sr25519Keyring::Bob);
+    let user = User::new(Sr25519Keyring::Charlie);
 
     // 1. Create & mint token
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -953,15 +953,15 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(scope_asset_compliance_we);
 }
 fn scope_asset_compliance_we() {
     // 0. Create accounts
-    let owner = User::new(AccountKeyring::Alice);
-    let cdd = User::new(AccountKeyring::Bob);
-    let user = User::new(AccountKeyring::Charlie);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let cdd = User::new(Sr25519Keyring::Bob);
+    let user = User::new(Sr25519Keyring::Charlie);
 
     // 1. Create a token.
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -994,7 +994,7 @@ fn scope_asset_compliance_we() {
 #[test]
 fn ensure_custom_scopes_limited() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&owner);
 
         let fill = Condition::from_dids(
@@ -1063,15 +1063,15 @@ fn ensure_custom_scopes_limited() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::One.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::One.to_account_id()])
         .build()
         .execute_with(cm_test_case_9_we);
 }
 /// Is any of: KYC’d, Affiliate, Accredited, Exempted
 fn cm_test_case_9_we() {
     // 0. Create accounts
-    let owner = User::new(AccountKeyring::Alice);
-    let issuer = User::new(AccountKeyring::Bob);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let issuer = User::new(Sr25519Keyring::Bob);
 
     // 1. Create a token.
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -1094,10 +1094,10 @@ fn cm_test_case_9_we() {
     ));
 
     // 3. Validate behaviour.
-    let charlie = User::new(AccountKeyring::Charlie);
-    let dave = User::new(AccountKeyring::Dave);
-    let eve = User::new(AccountKeyring::Eve);
-    let ferdie = User::new(AccountKeyring::Ferdie);
+    let charlie = User::new(Sr25519Keyring::Charlie);
+    let dave = User::new(Sr25519Keyring::Dave);
+    let eve = User::new(Sr25519Keyring::Eve);
+    let ferdie = User::new(Sr25519Keyring::Ferdie);
 
     let get_compliance_report = |user: User, claim| {
         assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
@@ -1174,7 +1174,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_11_we);
 }
@@ -1182,8 +1182,8 @@ fn cm_test_case_11() {
 // Is any of: KYC’d, Affiliate, Accredited, Exempted, is none of: Jurisdiction=x, y, z,
 fn cm_test_case_11_we() {
     // 0. Create accounts
-    let owner = User::new(AccountKeyring::Alice);
-    let issuer = User::new(AccountKeyring::Bob);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let issuer = User::new(Sr25519Keyring::Bob);
 
     // 1. Create a token.
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -1215,9 +1215,9 @@ fn cm_test_case_11_we() {
     ));
 
     // 3. Validate behaviour.
-    let charlie = User::new(AccountKeyring::Charlie);
-    let dave = User::new(AccountKeyring::Dave);
-    let eve = User::new(AccountKeyring::Eve);
+    let charlie = User::new(Sr25519Keyring::Charlie);
+    let dave = User::new(Sr25519Keyring::Dave);
+    let eve = User::new(Sr25519Keyring::Eve);
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
@@ -1297,7 +1297,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_13_we);
 }
@@ -1305,8 +1305,8 @@ fn cm_test_case_13() {
 // Must be KYC’d, is any of: Affiliate, Exempted, Accredited, is none of: Jurisdiction=x, y, z, etc.
 fn cm_test_case_13_we() {
     // 0. Create accounts
-    let owner = User::new(AccountKeyring::Alice);
-    let issuer = User::new(AccountKeyring::Bob);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let issuer = User::new(Sr25519Keyring::Bob);
 
     // 1. Create a token.
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -1341,9 +1341,9 @@ fn cm_test_case_13_we() {
     ));
 
     // 3. Validate behaviour.
-    let charlie = User::new(AccountKeyring::Charlie);
-    let dave = User::new(AccountKeyring::Dave);
-    let eve = User::new(AccountKeyring::Eve);
+    let charlie = User::new(Sr25519Keyring::Charlie);
+    let dave = User::new(Sr25519Keyring::Dave);
+    let eve = User::new(Sr25519Keyring::Eve);
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
     //   'Accredited', 'Exempted'}.
@@ -1441,15 +1441,15 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
 
 fn can_verify_restriction_with_primary_issuance_agent_we() {
-    let owner = User::new(AccountKeyring::Alice);
-    let issuer = User::new(AccountKeyring::Bob);
-    let other = User::new(AccountKeyring::Charlie);
+    let owner = User::new(Sr25519Keyring::Alice);
+    let issuer = User::new(Sr25519Keyring::Bob);
+    let other = User::new(Sr25519Keyring::Charlie);
 
     // 1. Create a token.
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -1511,7 +1511,7 @@ fn should_limit_compliance_requirement_complexity() {
 }
 
 fn should_limit_compliance_requirements_complexity_we() {
-    let owner = User::new(AccountKeyring::Alice);
+    let owner = User::new(Sr25519Keyring::Alice);
 
     // 1. Create & mint token
     let asset_id = create_and_issue_sample_asset(&owner);
@@ -1551,7 +1551,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     ));
 
     // Complexity = 30*1 + 15*2 = 60
-    let other = User::new(AccountKeyring::Bob);
+    let other = User::new(Sr25519Keyring::Bob);
     assert_noop!(
         ComplianceManager::add_default_trusted_claim_issuer(
             owner.origin(),
@@ -1569,8 +1569,8 @@ fn should_limit_compliance_requirements_complexity_we() {
 fn check_new_return_type_of_rpc() {
     ExtBuilder::default().build().execute_with(|| {
         // 0. Create accounts
-        let owner = User::new(AccountKeyring::Alice);
-        let receiver = User::new(AccountKeyring::Charlie);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let receiver = User::new(Sr25519Keyring::Charlie);
 
         // 1. Create & mint token
         let asset_id = create_and_issue_sample_asset(&owner);

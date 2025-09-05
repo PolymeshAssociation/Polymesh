@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::{Assets, BalanceOf};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets};
@@ -23,7 +23,7 @@ type Settlement = pallet_settlement::Pallet<TestStorage>;
 #[test]
 fn issue_tokens_default_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -56,7 +56,7 @@ fn issue_tokens_default_portfolio() {
 #[test]
 fn issue_tokens_user_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_user_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),
@@ -105,7 +105,7 @@ fn issue_tokens_user_portfolio() {
 #[test]
 fn issue_tokens_invalid_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
@@ -128,8 +128,8 @@ fn issue_tokens_invalid_portfolio() {
 #[test]
 fn issue_tokens_assigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
         let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
 
@@ -180,7 +180,7 @@ fn issue_tokens_assigned_custody() {
 #[test]
 fn issue_tokens_no_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         assert_noop!(
             Asset::issue(
                 alice.origin(),
@@ -196,8 +196,8 @@ fn issue_tokens_no_asset() {
 #[test]
 fn issue_tokens_no_auth() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
@@ -218,7 +218,7 @@ fn issue_tokens_no_auth() {
 #[test]
 fn issue_tokens_not_granular() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
@@ -239,7 +239,7 @@ fn issue_tokens_not_granular() {
 #[test]
 fn issue_tokens_invalid_token_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(

@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use polymesh_primitives::settlement::{InstructionId, SettlementType};
 use polymesh_primitives::PortfolioId;
@@ -18,9 +18,9 @@ fn withdraw_after_locking() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 

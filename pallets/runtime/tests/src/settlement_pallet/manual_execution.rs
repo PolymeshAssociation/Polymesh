@@ -1,5 +1,5 @@
 use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::BalanceOf;
 use pallet_nft::{NFTOwner, NumberOfNFTs};
@@ -27,10 +27,10 @@ type PortfolioError = pallet_portfolio::Error<TestStorage>;
 #[test]
 fn invalid_caller() {
     ExtBuilder::default().build().execute_with(|| {
-        let eve = User::new(AccountKeyring::Eve);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let eve = User::new(Sr25519Keyring::Eve);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -80,10 +80,10 @@ fn invalid_caller() {
 #[test]
 fn execute_settle_after_lock_before_lock() {
     ExtBuilder::default().build().execute_with(|| {
-        let eve = User::new(AccountKeyring::Eve);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let eve = User::new(Sr25519Keyring::Eve);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -131,9 +131,9 @@ fn execute_settle_after_lock_before_lock() {
 #[test]
 fn exceeded_maximum_locking_period() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -159,9 +159,9 @@ fn exceeded_maximum_locking_period() {
 #[test]
 fn controller_transfer_nft_is_locked() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (_, asset_id) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -183,9 +183,9 @@ fn controller_transfer_nft_is_locked() {
 #[test]
 fn controller_transfer_insufficient_balance() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -207,9 +207,9 @@ fn controller_transfer_insufficient_balance() {
 #[test]
 fn unexpected_settle_on_affirmation() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleOnAffirmation);
 
@@ -231,9 +231,9 @@ fn unexpected_settle_on_affirmation() {
 #[test]
 fn unexpected_settle_on_block() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(
             alice,
@@ -260,9 +260,9 @@ fn unexpected_settle_on_block() {
 #[test]
 fn execute_before_lock() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
@@ -284,9 +284,9 @@ fn execute_before_lock() {
 #[test]
 fn successfully_execute_after_locking() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, nft_asset_id) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);

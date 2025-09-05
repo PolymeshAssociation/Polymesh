@@ -14,7 +14,7 @@ use polymesh_primitives::{
     TransactionError,
 };
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
     traits::{Dispatchable, SignedExtension},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -37,7 +37,7 @@ type IdentityError = pallet_identity::Error<TestStorage>;
 
 fn call_balance_transfer(val: Balance) -> RuntimeCall {
     RuntimeCall::Balances(pallet_balances::Call::transfer {
-        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        dest: MultiAddress::Id(Sr25519Keyring::Alice.to_account_id()),
         value: val,
     })
 }
@@ -146,9 +146,9 @@ fn basic_relayer_paying_key_test() {
         .execute_with(&do_basic_relayer_paying_key_test);
 }
 fn do_basic_relayer_paying_key_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
-    let dave = User::new(AccountKeyring::Dave);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let dave = User::new(Sr25519Keyring::Dave);
 
     // Add authorization for using Alice as the paying key for Bob.
     assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(), 10u128));
@@ -237,8 +237,8 @@ fn update_polyx_limit_test() {
         .execute_with(&do_update_polyx_limit_test);
 }
 fn do_update_polyx_limit_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     enum Action {
         Set,
@@ -293,9 +293,9 @@ fn accept_new_paying_key_test() {
         .execute_with(&do_accept_new_paying_key_test);
 }
 fn do_accept_new_paying_key_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
-    let dave = User::new(AccountKeyring::Dave);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let dave = User::new(Sr25519Keyring::Dave);
 
     let assert_usages = |bob_cnt, alice_cnt, dave_cnt| {
         assert_key_usage(bob, bob_cnt);
@@ -335,8 +335,8 @@ fn user_remove_paying_key_test() {
         .execute_with(&do_user_remove_paying_key_test);
 }
 fn do_user_remove_paying_key_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     setup_subsidy(bob, alice, 2000);
 
@@ -364,8 +364,8 @@ fn relayer_user_key_missing_cdd_test() {
         .execute_with(&do_relayer_user_key_missing_cdd_test);
 }
 fn do_relayer_user_key_missing_cdd_test() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob_acc = AccountKeyring::Bob.to_account_id();
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob_acc = Sr25519Keyring::Bob.to_account_id();
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Alice as the paying key for Bob.
@@ -391,8 +391,8 @@ fn relayer_paying_key_missing_cdd_test() {
         .execute_with(&do_relayer_paying_key_missing_cdd_test);
 }
 fn do_relayer_paying_key_missing_cdd_test() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob_acc = AccountKeyring::Bob.to_account_id();
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob_acc = Sr25519Keyring::Bob.to_account_id();
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Bob as the paying key for Alice.
@@ -416,8 +416,8 @@ fn user_remove_paying_key_transaction_fee_test() {
         .execute_with(&do_user_remove_paying_key_transaction_fee_test);
 }
 fn do_user_remove_paying_key_transaction_fee_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     let prev_alice_balance = Balances::free_balance(&alice.acc());
     let prev_bob_balance = Balances::free_balance(&bob.acc());
@@ -474,8 +474,8 @@ fn relayer_transaction_and_protocol_fees_test() {
         .execute_with(&do_relayer_transaction_and_protocol_fees_test);
 }
 fn do_relayer_transaction_and_protocol_fees_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     let prev_balance = Balances::free_balance(&alice.acc());
     let remaining = 2_000 * POLY;
@@ -565,8 +565,8 @@ fn relayer_batched_subsidy_calls_test() {
         .execute_with(&do_relayer_batched_subsidy_calls_test);
 }
 fn do_relayer_batched_subsidy_calls_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     let prev_balance = Balances::free_balance(&alice.acc());
     let remaining = 2_000 * POLY;
@@ -669,8 +669,8 @@ fn relayer_accept_cdd_and_fees_test() {
         .execute_with(&do_relayer_accept_cdd_and_fees_test);
 }
 fn do_relayer_accept_cdd_and_fees_test() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
     let bob_sign = Signatory::Account(bob.acc());
 
     // Alice creates authoration to subsidise for Bob.

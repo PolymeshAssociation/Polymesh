@@ -5,7 +5,7 @@ use super::{
 };
 
 use polymesh_primitives::{Beneficiary, IdentityId};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::DispatchError;
 
 use pallet_balances::TotalIssuance;
@@ -29,9 +29,9 @@ fn reimbursement_and_disbursement() {
 }
 
 fn reimbursement_and_disbursement_we() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob = User::new(AccountKeyring::Bob);
-    let charlie_acc = AccountKeyring::Charlie.to_account_id();
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let charlie_acc = Sr25519Keyring::Charlie.to_account_id();
     let (_, charlie_did) = make_account_without_cdd(charlie_acc.clone()).unwrap();
 
     let total_issuance = TotalIssuance::<TestStorage>::get();
@@ -100,8 +100,8 @@ fn bad_disbursement_did() {
 }
 
 fn bad_disbursement_did_we() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
     let default_key = pallet_identity::types::zero_account_id();
 
     let total_issuance = TotalIssuance::<TestStorage>::get();

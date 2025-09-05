@@ -5,7 +5,7 @@ use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
 use crate::ext_builder::ExtBuilder;
@@ -59,7 +59,7 @@ fn add_become_agent(
 #[test]
 fn create_group_set_perms_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Alice);
 
         assert_noop!(
             ExternalAgents::create_group(owner.origin(), [0; 16].into(), <_>::default()),
@@ -88,7 +88,7 @@ fn create_group_set_perms_works() {
         });
 
         // Still, `other` doesn't have agent permissions.
-        let other = User::new(AccountKeyring::Bob);
+        let other = User::new(Sr25519Keyring::Bob);
         let other_create = |perms| ExternalAgents::create_group(other.origin(), asset_id, perms);
         let other_set =
             |id, perms| ExternalAgents::set_group_permissions(other.origin(), asset_id, id, perms);
@@ -141,8 +141,8 @@ fn create_group_set_perms_works() {
 #[test]
 fn remove_abdicate_change_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let other = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let other = User::new(Sr25519Keyring::Bob);
 
         // No asset made, so cannot remove non-agent.
         assert_noop!(
@@ -249,10 +249,10 @@ fn remove_abdicate_change_works() {
 #[test]
 fn add_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
-        let dave = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let dave = User::new(Sr25519Keyring::Dave);
         let asset_id = create_and_issue_sample_asset(&owner);
 
         let check_num = |n| assert_eq!(NumFullAgents::get(asset_id), n);
@@ -315,10 +315,10 @@ fn add_works() {
 #[test]
 fn agent_of_mapping_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
-        let dave = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let dave = User::new(Sr25519Keyring::Dave);
         let mut assets = (b'A'..b'Z')
             .map(|_| create_and_issue_sample_asset(&owner))
             .collect::<Vec<_>>();
@@ -381,8 +381,8 @@ fn agent_of_mapping_works() {
 #[test]
 fn atredis_multi_group_perms() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let other = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let other = User::new(Sr25519Keyring::Bob);
         let asset_id = create_and_issue_sample_asset(&owner);
 
         // Helpers for creating and setting permissions.

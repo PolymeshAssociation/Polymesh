@@ -6,7 +6,7 @@ use super::{
 use frame_support::{assert_noop, assert_ok};
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::traits::CddAndFeeDetails;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 type Error = pallet_protocol_fee::Error<TestStorage>;
 type ProtocolFee = pallet_protocol_fee::Pallet<TestStorage>;
@@ -25,12 +25,12 @@ fn can_compute_fee() {
 fn can_charge_fee_batch() {
     ExtBuilder::default().build().execute_with(|| {
         let _ =
-            register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
+            register_keyring_account_with_balance(Sr25519Keyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();
-        TestStorage::set_payer_context(Some(AccountKeyring::Alice.to_account_id()));
+        TestStorage::set_payer_context(Some(Sr25519Keyring::Alice.to_account_id()));
         assert_eq!(
             TestStorage::get_payer_from_context(),
-            Some(AccountKeyring::Alice.to_account_id())
+            Some(Sr25519Keyring::Alice.to_account_id())
         );
         assert_ok!(ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7));
         assert_noop!(

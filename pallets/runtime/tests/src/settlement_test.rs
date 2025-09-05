@@ -42,7 +42,7 @@ use polymesh_primitives::{
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, Ticker,
     TrustedFor, TrustedIssuer, WeightMeter,
 };
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
@@ -188,7 +188,7 @@ pub fn set_current_block_number(block: u32) {
 #[test]
 fn venue_details_length_limited() {
     ExtBuilder::default().build().execute_with(|| {
-        let actor = User::new(AccountKeyring::Alice);
+        let actor = User::new(Sr25519Keyring::Alice);
         let id = VenueCounter::<TestStorage>::get();
         let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
         let update = |d| Settlement::update_venue_details(actor.origin(), id, d);
@@ -216,14 +216,14 @@ fn user_venues(did: IdentityId) -> Vec<VenueId> {
 #[test]
 fn venue_registration() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let venue_counter = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
             vec![
-                AccountKeyring::Alice.to_account_id(),
-                AccountKeyring::Bob.to_account_id()
+                Sr25519Keyring::Alice.to_account_id(),
+                Sr25519Keyring::Bob.to_account_id()
             ],
             VenueType::Exchange
         ));
@@ -245,13 +245,13 @@ fn venue_registration() {
             true
         );
         assert_eq!(
-            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Bob.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, Sr25519Keyring::Bob.to_account_id()),
             true
         );
         assert_eq!(
             VenueSigners::<TestStorage>::get(
                 venue_counter,
-                AccountKeyring::Charlie.to_account_id()
+                Sr25519Keyring::Charlie.to_account_id()
             ),
             false
         );
@@ -260,7 +260,7 @@ fn venue_registration() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc(), AccountKeyring::Bob.to_account_id()],
+            vec![alice.acc(), Sr25519Keyring::Bob.to_account_id()],
             VenueType::Exchange
         ));
         assert_eq!(
@@ -283,7 +283,7 @@ fn venue_registration() {
 }
 
 fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
-    let cdd = AccountKeyring::Eve.to_account_id();
+    let cdd = Sr25519Keyring::Eve.to_account_id();
     ExtBuilder::default()
         .cdd_providers(vec![cdd.clone()])
         .build()
@@ -293,8 +293,8 @@ fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
 #[test]
 fn basic_settlement() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -340,8 +340,8 @@ fn basic_settlement() {
 #[test]
 fn create_and_affirm_instruction() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -397,8 +397,8 @@ fn create_and_affirm_instruction() {
 #[test]
 fn overdraft_failure() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -440,8 +440,8 @@ fn overdraft_failure() {
 #[test]
 fn token_swap() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let asset_id2 = create_and_issue_sample_asset(&bob);
 
@@ -567,8 +567,8 @@ fn token_swap() {
 #[test]
 fn settle_on_block() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let asset_id2 = create_and_issue_sample_asset(&bob);
 
@@ -683,9 +683,9 @@ fn settle_on_block() {
 #[test]
 fn failed_execution() {
     ExtBuilder::default().build().execute_with(|| {
-        let dave: User = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let dave: User = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let asset_id2 = create_and_issue_sample_asset(&bob);
 
@@ -694,7 +694,7 @@ fn failed_execution() {
 
         let instruction_id = InstructionCounter::<TestStorage>::get();
         assert_ok!(ComplianceManager::reset_asset_compliance(
-            Origin::signed(AccountKeyring::Bob.to_account_id()),
+            Origin::signed(Sr25519Keyring::Bob.to_account_id()),
             asset_id2,
         ));
         assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -848,8 +848,8 @@ fn failed_execution() {
 #[test]
 fn venue_filtering() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let block_number = System::block_number() + 1;
         let instruction_id = InstructionCounter::<TestStorage>::get();
@@ -922,15 +922,15 @@ fn venue_filtering() {
 #[test]
 fn basic_fuzzing() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
-        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let dave = User::new(Sr25519Keyring::Dave);
         let venue_counter = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
-            Origin::signed(AccountKeyring::Alice.to_account_id()),
+            Origin::signed(Sr25519Keyring::Alice.to_account_id()),
             VenueDetails::default(),
-            vec![AccountKeyring::Alice.to_account_id()],
+            vec![Sr25519Keyring::Alice.to_account_id()],
             VenueType::Other
         ));
         let mut assets = Vec::with_capacity(40);
@@ -1166,8 +1166,8 @@ fn basic_fuzzing() {
 #[test]
 fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let ticker2 = Ticker::from_slice_truncated(b"TICKER2".as_ref());
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -1219,16 +1219,16 @@ fn claim_multiple_receipts_during_authorization() {
                         0,
                         id,
                         LegId(0),
-                        AccountKeyring::Alice.to_account_id(),
-                        AccountKeyring::Alice.sign(&msg1.encode()).into(),
+                        Sr25519Keyring::Alice.to_account_id(),
+                        Sr25519Keyring::Alice.sign(&msg1.encode()).into(),
                         None
                     ),
                     ReceiptDetails::new(
                         0,
                         id,
                         LegId(0),
-                        AccountKeyring::Alice.to_account_id(),
-                        AccountKeyring::Alice.sign(&msg2.encode()).into(),
+                        Sr25519Keyring::Alice.to_account_id(),
+                        Sr25519Keyring::Alice.sign(&msg2.encode()).into(),
                         None
                     ),
                 ],
@@ -1245,16 +1245,16 @@ fn claim_multiple_receipts_during_authorization() {
                     0,
                     id,
                     LegId(0),
-                    AccountKeyring::Alice.to_account_id(),
-                    AccountKeyring::Alice.sign(&msg1.encode()).into(),
+                    Sr25519Keyring::Alice.to_account_id(),
+                    Sr25519Keyring::Alice.sign(&msg1.encode()).into(),
                     None
                 ),
                 ReceiptDetails::new(
                     1,
                     id,
                     LegId(1),
-                    AccountKeyring::Alice.to_account_id(),
-                    AccountKeyring::Alice.sign(&msg3.encode()).into(),
+                    Sr25519Keyring::Alice.to_account_id(),
+                    Sr25519Keyring::Alice.sign(&msg3.encode()).into(),
                     None
                 ),
             ],
@@ -1273,12 +1273,12 @@ fn claim_multiple_receipts_during_authorization() {
         assert_leg_status(
             id,
             LegId(0),
-            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
+            LegStatus::ExecutionToBeSkipped(Sr25519Keyring::Alice.to_account_id(), 0),
         );
         assert_leg_status(
             id,
             LegId(1),
-            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 1),
+            LegStatus::ExecutionToBeSkipped(Sr25519Keyring::Alice.to_account_id(), 1),
         );
         assert_locked_assets(&asset_id, &alice, 0);
 
@@ -1299,8 +1299,8 @@ fn claim_multiple_receipts_during_authorization() {
 #[test]
 fn overload_instruction() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let leg_limit =
             <TestStorage as pallet_settlement::Config>::MaxNumberOfFungibleAssets::get() as usize;
@@ -1357,23 +1357,23 @@ fn encode_receipt() {
             Ticker::from_slice_truncated(b"TICKER".as_ref()),
             100,
         );
-        println!("{:?}", AccountKeyring::Alice.sign(&msg1.encode()));
+        println!("{:?}", Sr25519Keyring::Alice.sign(&msg1.encode()));
     });
 }
 
 #[test]
 fn test_weights_for_settlement_transaction() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice = User::new(AccountKeyring::Alice);
+            let alice = User::new(Sr25519Keyring::Alice);
             let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
-            let bob = AccountKeyring::Bob.to_account_id();
+            let bob = Sr25519Keyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_with_balance(bob, 10_000).unwrap();
 
-            let dave = AccountKeyring::Dave.to_account_id();
+            let dave = Sr25519Keyring::Dave.to_account_id();
             let (dave_signed, dave_did) = make_account_with_balance(dave, 10_000).unwrap();
 
             let instruction_id = InstructionCounter::<TestStorage>::get();
@@ -1463,8 +1463,8 @@ fn test_weights_for_settlement_transaction() {
 #[test]
 fn cross_portfolio_settlement() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1541,8 +1541,8 @@ fn cross_portfolio_settlement() {
 #[test]
 fn multiple_portfolio_settlement() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1683,8 +1683,8 @@ fn multiple_portfolio_settlement() {
 #[test]
 fn multiple_custodian_settlement() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1852,9 +1852,9 @@ fn multiple_custodian_settlement() {
 #[test]
 fn reject_instruction() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 100u128;
@@ -1923,8 +1923,8 @@ fn reject_instruction() {
 #[test]
 fn dirty_storage_with_tx() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1985,9 +1985,9 @@ fn dirty_storage_with_tx() {
 #[test]
 fn reject_failed_instruction() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 100u128;
@@ -2049,16 +2049,16 @@ fn reject_failed_instruction() {
 #[test]
 fn modify_venue_signers() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let venue_counter = VenueCounter::<TestStorage>::get();
 
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
             vec![
-                AccountKeyring::Alice.to_account_id(),
-                AccountKeyring::Bob.to_account_id()
+                Sr25519Keyring::Alice.to_account_id(),
+                Sr25519Keyring::Bob.to_account_id()
             ],
             VenueType::Exchange
         ));
@@ -2068,7 +2068,7 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 charlie.origin(),
                 venue_counter,
-                vec![AccountKeyring::Dave.to_account_id(),],
+                vec![Sr25519Keyring::Dave.to_account_id(),],
                 true
             ),
             Error::Unauthorized
@@ -2078,7 +2078,7 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
-            vec![AccountKeyring::Charlie.to_account_id(),],
+            vec![Sr25519Keyring::Charlie.to_account_id(),],
             true
         ));
 
@@ -2087,7 +2087,7 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
-                vec![AccountKeyring::Dave.to_account_id(),],
+                vec![Sr25519Keyring::Dave.to_account_id(),],
                 false
             ),
             Error::SignerDoesNotExist
@@ -2098,7 +2098,7 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
-                vec![AccountKeyring::Charlie.to_account_id(),],
+                vec![Sr25519Keyring::Charlie.to_account_id(),],
                 true
             ),
             Error::SignerAlreadyExists
@@ -2108,7 +2108,7 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
-            vec![AccountKeyring::Charlie.to_account_id(),],
+            vec![Sr25519Keyring::Charlie.to_account_id(),],
             false
         ));
 
@@ -2118,13 +2118,13 @@ fn modify_venue_signers() {
             true
         );
         assert_eq!(
-            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Bob.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, Sr25519Keyring::Bob.to_account_id()),
             true
         );
         assert_eq!(
             VenueSigners::<TestStorage>::get(
                 venue_counter,
-                AccountKeyring::Charlie.to_account_id()
+                Sr25519Keyring::Charlie.to_account_id()
             ),
             false
         );
@@ -2134,9 +2134,9 @@ fn modify_venue_signers() {
             alice.origin(),
             venue_counter,
             vec![
-                AccountKeyring::Charlie.to_account_id(),
-                AccountKeyring::Dave.to_account_id(),
-                AccountKeyring::Eve.to_account_id(),
+                Sr25519Keyring::Charlie.to_account_id(),
+                Sr25519Keyring::Dave.to_account_id(),
+                Sr25519Keyring::Eve.to_account_id(),
             ],
             true
         ));
@@ -2146,9 +2146,9 @@ fn modify_venue_signers() {
             alice.origin(),
             venue_counter,
             vec![
-                AccountKeyring::Charlie.to_account_id(),
-                AccountKeyring::Dave.to_account_id(),
-                AccountKeyring::Eve.to_account_id(),
+                Sr25519Keyring::Charlie.to_account_id(),
+                Sr25519Keyring::Dave.to_account_id(),
+                Sr25519Keyring::Eve.to_account_id(),
             ],
             false
         ));
@@ -2159,10 +2159,10 @@ fn modify_venue_signers() {
                 alice.origin(),
                 venue_counter,
                 vec![
-                    AccountKeyring::Charlie.to_account_id(),
-                    AccountKeyring::Dave.to_account_id(),
-                    AccountKeyring::Eve.to_account_id(),
-                    AccountKeyring::Bob.to_account_id()
+                    Sr25519Keyring::Charlie.to_account_id(),
+                    Sr25519Keyring::Dave.to_account_id(),
+                    Sr25519Keyring::Eve.to_account_id(),
+                    Sr25519Keyring::Bob.to_account_id()
                 ],
                 true
             ),
@@ -2174,22 +2174,22 @@ fn modify_venue_signers() {
             true
         );
         assert_eq!(
-            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Bob.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, Sr25519Keyring::Bob.to_account_id()),
             true
         );
         assert_eq!(
             VenueSigners::<TestStorage>::get(
                 venue_counter,
-                AccountKeyring::Charlie.to_account_id()
+                Sr25519Keyring::Charlie.to_account_id()
             ),
             false
         );
         assert_eq!(
-            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Dave.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, Sr25519Keyring::Dave.to_account_id()),
             false
         );
         assert_eq!(
-            VenueSigners::<TestStorage>::get(venue_counter, AccountKeyring::Eve.to_account_id()),
+            VenueSigners::<TestStorage>::get(venue_counter, Sr25519Keyring::Eve.to_account_id()),
             false
         );
     });
@@ -2201,7 +2201,7 @@ fn assert_number_of_venue_signers() {
         let max_signers =
             <TestStorage as pallet_settlement::Config>::MaxNumberOfVenueSigners::get();
         let venue_id = VenueId(0);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let initial_signers: Vec<AccountId32> = (0..max_signers as u8)
             .map(|i| AccountId32::from([i; 32]))
             .collect();
@@ -2266,8 +2266,8 @@ fn assert_number_of_venue_signers() {
 #[test]
 fn reject_instruction_with_zero_amount() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -2302,8 +2302,8 @@ fn reject_instruction_with_zero_amount() {
 #[test]
 fn basic_settlement_with_memo() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -2381,8 +2381,8 @@ fn create_instruction(
 #[test]
 fn settle_manual_instruction() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -2485,9 +2485,9 @@ fn settle_manual_instruction() {
 #[test]
 fn settle_manual_instruction_with_portfolio() {
     test_with_cdd_provider(|_eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -2611,8 +2611,8 @@ fn settle_manual_instruction_with_portfolio() {
 #[test]
 fn add_nft_instruction_with_duplicated_nfts() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1), NFTId(1)]);
@@ -2640,8 +2640,8 @@ fn add_nft_instruction_with_duplicated_nfts() {
 #[test]
 fn add_nft_instruction_exceeding_nfts() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let nfts = NFTs::new_unverified(
@@ -2684,8 +2684,8 @@ fn add_nft_instruction_exceeding_nfts() {
 #[test]
 fn add_nft_instruction() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
@@ -2711,8 +2711,8 @@ fn add_nft_instruction() {
 fn add_and_affirm_nft_instruction() {
     test_with_cdd_provider(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -2821,8 +2821,8 @@ fn add_and_affirm_nft_instruction() {
 fn add_and_affirm_nft_not_owned() {
     test_with_cdd_provider(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -2877,8 +2877,8 @@ fn add_and_affirm_nft_not_owned() {
 fn add_same_nft_different_legs() {
     test_with_cdd_provider(|_eve| {
         // First we need to create a collection, mint two NFTs, and create a venue
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -2947,8 +2947,8 @@ fn add_and_affirm_with_receipts_nfts() {
         // First we need to create a collection, mint one NFT, and create a venue
         let id = InstructionId(0);
         let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -2998,8 +2998,8 @@ fn add_and_affirm_with_receipts_nfts() {
                     0,
                     id,
                     LegId(0),
-                    AccountKeyring::Alice.to_account_id(),
-                    AccountKeyring::Alice
+                    Sr25519Keyring::Alice.to_account_id(),
+                    Sr25519Keyring::Alice
                         .sign(
                             &Receipt::new(0, id, LegId(0), alice.did, bob.did, ticker, 1).encode()
                         )
@@ -3017,8 +3017,8 @@ fn add_and_affirm_with_receipts_nfts() {
 #[test]
 fn add_instruction_unexpected_offchain_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let venue_counter = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
@@ -3071,10 +3071,10 @@ fn add_instruction_unexpected_offchain_asset() {
 #[test]
 fn add_and_execute_offchain_instruction() {
     ExtBuilder::default().build().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie);
-        let alice = User::new(AccountKeyring::Alice);
-        let dave = User::new(AccountKeyring::Dave);
-        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let bob = User::new(Sr25519Keyring::Bob);
         let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let (_, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 1;
@@ -3091,8 +3091,8 @@ fn add_and_execute_offchain_instruction() {
             0,
             id,
             LegId(0),
-            AccountKeyring::Alice.to_account_id(),
-            AccountKeyring::Alice.sign(&receipt.encode()).into(),
+            Sr25519Keyring::Alice.to_account_id(),
+            Sr25519Keyring::Alice.sign(&receipt.encode()).into(),
             None,
         )];
 
@@ -3144,8 +3144,8 @@ fn add_and_execute_offchain_instruction() {
 #[test]
 fn affirm_offchain_asset_without_receipt() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let venue = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
             alice.origin(),
@@ -3185,9 +3185,9 @@ fn affirm_offchain_asset_without_receipt() {
 fn add_instruction_with_offchain_assets() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let asset_id2 = AssetId::new([0; 16]);
@@ -3252,9 +3252,9 @@ fn add_instruction_with_offchain_assets() {
 fn add_instruction_with_pre_affirmed_tickers() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
@@ -3311,9 +3311,9 @@ fn add_instruction_with_pre_affirmed_tickers() {
 fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
@@ -3381,10 +3381,10 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
 fn add_instruction_with_pre_affirmed_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
@@ -3446,9 +3446,9 @@ fn add_instruction_with_pre_affirmed_portfolio() {
 fn add_instruction_with_single_pre_affirmed() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
@@ -3504,9 +3504,9 @@ fn add_instruction_with_single_pre_affirmed() {
 fn manually_execute_failed_instruction() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
@@ -3584,9 +3584,9 @@ fn manually_execute_failed_instruction() {
 #[test]
 fn affirm_with_receipts_cost() {
     ExtBuilder::default().build().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie);
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let ticker = Ticker::from_slice_truncated(b"TICKER2".as_ref());
         let (_, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let amount = 1;
@@ -3603,8 +3603,8 @@ fn affirm_with_receipts_cost() {
             0,
             id,
             LegId(0),
-            AccountKeyring::Alice.to_account_id(),
-            AccountKeyring::Alice.sign(&receipt.encode()).into(),
+            Sr25519Keyring::Alice.to_account_id(),
+            Sr25519Keyring::Alice.sign(&receipt.encode()).into(),
             None,
         )];
         assert_ok!(Settlement::add_instruction(
@@ -3636,10 +3636,10 @@ fn affirm_with_receipts_cost() {
 fn affirm_instruction_cost() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
@@ -3700,9 +3700,9 @@ fn affirm_instruction_cost() {
 fn withdraw_affirmation_cost() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
@@ -3749,9 +3749,9 @@ fn withdraw_affirmation_cost() {
 fn reject_instruction_cost() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
@@ -3812,10 +3812,10 @@ fn reject_instruction_cost() {
 #[test]
 fn add_instruction_with_mediators() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -3866,10 +3866,10 @@ fn add_instruction_with_mediators() {
 #[test]
 fn affirm_as_mediator_invalid_mediator() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -3900,9 +3900,9 @@ fn affirm_as_mediator_invalid_mediator() {
 #[test]
 fn affirm_as_mediator() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -3950,10 +3950,10 @@ fn affirm_as_mediator() {
 #[test]
 fn withdraw_as_mediator_invalid_mediator() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -3984,9 +3984,9 @@ fn withdraw_as_mediator_invalid_mediator() {
 #[test]
 fn withdraw_as_mediator_invalid_status() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -4017,9 +4017,9 @@ fn withdraw_as_mediator_invalid_status() {
 #[test]
 fn withdraw_affirmation_as_mediator() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -4071,9 +4071,9 @@ fn withdraw_affirmation_as_mediator() {
 #[test]
 fn expired_affirmation_execution() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
@@ -4140,10 +4140,10 @@ fn expired_affirmation_execution() {
 #[test]
 fn reject_instruction_as_mediator() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -4183,8 +4183,8 @@ fn reject_instruction_as_mediator() {
 #[test]
 fn missing_venue_for_offchain_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) = create_and_issue_sample_asset_with_venue(&alice);
 

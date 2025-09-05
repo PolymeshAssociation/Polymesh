@@ -11,7 +11,7 @@ use frame_system::{
     CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion, CheckWeight,
 };
 use sp_io::TestExternalities;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{generic, traits::SignedExtension, BuildStorage};
 use sp_std::convert::From;
 
@@ -48,9 +48,9 @@ fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -
 ///     - Those accounts are added as CDD providers, so auto-generated CDD claims are valid.
 fn make_min_storage() -> Result<TestExternalities, String> {
     let accounts = [
-        AccountKeyring::Alice.to_account_id(),
-        AccountKeyring::Bob.to_account_id(),
-        AccountKeyring::Charlie.to_account_id(),
+        Sr25519Keyring::Alice.to_account_id(),
+        Sr25519Keyring::Bob.to_account_id(),
+        Sr25519Keyring::Charlie.to_account_id(),
     ];
     let identities = accounts
         .iter()
@@ -117,7 +117,7 @@ fn normal_tx_ext() -> Result<(), String> {
 ///   - Normal transactions can not have a tip.
 ///   - Priority of any transaction is its own tip.
 fn normal_tx() -> Result<(), String> {
-    let user = AccountKeyring::Alice.to_account_id();
+    let user = Sr25519Keyring::Alice.to_account_id();
     let (call, len) = make_call();
     let info = DispatchInfo {
         weight: Weight::from_parts(100, 0),
@@ -147,7 +147,7 @@ fn operational_tx_ext() -> Result<(), String> {
 ///     - Operational transactions can have tip != 0.
 ///     - Priority of any transaction is its own tip.
 fn operational_tx() -> Result<(), String> {
-    let user: AccountId = AccountKeyring::Alice.public().into();
+    let user: AccountId = Sr25519Keyring::Alice.public().into();
     let (call, len) = make_call();
     let info = DispatchInfo {
         weight: Weight::from_parts(100, 0),

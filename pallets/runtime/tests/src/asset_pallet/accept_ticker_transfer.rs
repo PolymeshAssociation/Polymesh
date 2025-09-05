@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::{
     TickerConfig, TickerRegistration, TickersOwnedByUser, UniqueTickerRegistration,
@@ -19,8 +19,8 @@ type IdentityError = pallet_identity::Error<TestStorage>;
 #[test]
 fn accept_ticker_transfer() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
@@ -55,8 +55,8 @@ fn accept_ticker_transfer() {
 #[test]
 fn accept_ticker_transfer_missing_auth() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
@@ -70,8 +70,8 @@ fn accept_ticker_transfer_missing_auth() {
 #[test]
 fn accept_ticker_transfer_asset_exists() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         create_and_issue_sample_asset_linked_to_ticker(&alice, ticker);
@@ -94,8 +94,8 @@ fn accept_ticker_transfer_asset_exists() {
 fn accept_ticker_transfer_auth_expired() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(now());
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
@@ -117,8 +117,8 @@ fn accept_ticker_transfer_auth_expired() {
 //fn accept_ticker_transfer_registration_expired() {
 //    ExtBuilder::default().build().execute_with(|| {
 //        set_time_to_now();
-//        let bob = User::new(AccountKeyring::Bob);
-//        let alice = User::new(AccountKeyring::Alice);
+//        let bob = User::new(Sr25519Keyring::Bob);
+//        let alice = User::new(Sr25519Keyring::Alice);
 //        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 //
 //        assert_ok!(Asset::register_ticker(alice.origin(), ticker,));
@@ -139,9 +139,9 @@ fn accept_ticker_transfer_auth_expired() {
 #[test]
 fn accept_ticker_transfer_illegal_auth() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
@@ -170,8 +170,8 @@ fn accept_ticker_transfer_illegal_auth() {
 #[test]
 fn accept_ticker_transfer_bad_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
