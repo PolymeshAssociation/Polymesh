@@ -1,5 +1,5 @@
 use frame_support::assert_ok;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::{
     AssetMetadataGlobalKeyToName, AssetMetadataGlobalNameToKey, AssetMetadataGlobalSpecs,
@@ -63,7 +63,7 @@ fn register_multiple_global_metadata() {
 #[test]
 fn register_multiple_local_metadata() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_and_issue_sample_asset(&alice);
 

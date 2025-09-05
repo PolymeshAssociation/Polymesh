@@ -14,7 +14,7 @@ use polymesh_primitives::{
     Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, WeightMeter,
 };
 use sp_arithmetic::Permill;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use std::collections::{HashMap, HashSet};
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
@@ -26,7 +26,7 @@ type Error = pallet_statistics::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
-const CDD_PROVIDER: AccountKeyring = AccountKeyring::Eve;
+const CDD_PROVIDER: Sr25519Keyring = Sr25519Keyring::Eve;
 
 #[derive(Clone)]
 struct InvestorState {
@@ -664,7 +664,7 @@ fn multiple_stats_with_ext() {
             claim_issuer: None,
         },
     ];
-    let issuers = vec![User::new(AccountKeyring::Dave)];
+    let issuers = vec![User::new(Sr25519Keyring::Dave)];
     let claim_types = vec![
         ClaimType::Accredited,
         ClaimType::Affiliate,
@@ -824,7 +824,7 @@ fn claim_count_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
 
-    let issuer = User::new(AccountKeyring::Dave);
+    let issuer = User::new(Sr25519Keyring::Dave);
     let claim_types = vec![ClaimType::Accredited];
     // Add issuer.
     tracker.add_issuer(&issuer, &claim_types[..]);
@@ -912,7 +912,7 @@ fn jurisdiction_count_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
 
-    let issuer = User::new(AccountKeyring::Dave);
+    let issuer = User::new(Sr25519Keyring::Dave);
     let claim_type = ClaimType::Jurisdiction;
     // Add issuer.
     tracker.add_issuer(&issuer, &[claim_type]);
@@ -998,7 +998,7 @@ fn jurisdiction_ownership_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
 
-    let issuer = User::new(AccountKeyring::Dave);
+    let issuer = User::new(Sr25519Keyring::Dave);
     let claim_type = ClaimType::Jurisdiction;
     // Add issuer.
     tracker.add_issuer(&issuer, &[claim_type]);

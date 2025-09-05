@@ -5,34 +5,45 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
-use frame_support::dispatch::{DispatchResult, Weight};
-use frame_support::traits::{
-    Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, TryCollect,
-};
-use frame_support::weights::{
-    RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-};
+use frame_support::traits::{Currency, Imbalance, KeyOwnerProofSystem};
+use frame_support::traits::{OnInitialize, OnUnbalanced, TryCollect};
+use frame_support::weights::Weight;
+use frame_support::weights::{RuntimeDbWeight, WeightToFeeCoefficient};
+use frame_support::weights::{WeightToFeeCoefficients, WeightToFeePolynomial};
 use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
 use smallvec::smallvec;
 use sp_core::crypto::{key_types, Pair as PairTrait};
 use sp_core::sr25519::Pair;
 use sp_core::Get;
 use sp_core::H256;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::generic::Era;
 use sp_runtime::testing::UintAuthorityId;
-use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup, NumberFor, OpaqueKeys, StaticLookup,
-    Verify,
-};
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup};
+use sp_runtime::traits::{NumberFor, OpaqueKeys, StaticLookup, Verify};
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
-use sp_runtime::{create_runtime_str, AnySignature, KeyTypeId, Perbill, Permill};
+use sp_runtime::{AnySignature, Cow, KeyTypeId, Perbill, Permill};
 use sp_staking::{EraIndex, SessionIndex};
 use sp_version::RuntimeVersion;
 
 use frame_system::{EnsureRoot, RawOrigin};
 use lazy_static::lazy_static;
+use pallet_identity::Context;
+use pallet_transaction_payment::RuntimeDispatchInfo;
+use pallet_utility;
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::constants::currency::{DOLLARS, POLY};
+use polymesh_primitives::settlement::Leg;
+use polymesh_primitives::traits::{group::GroupTrait, CddAndFeeDetails};
+use polymesh_primitives::{AccountId, Authorization, AuthorizationData, BlockNumber};
+use polymesh_primitives::{Claim, Moment, Permissions as AuthPermissions};
+use polymesh_primitives::{PortfolioNumber, Scope, SecondaryKey, TrustedFor, TrustedIssuer};
+use polymesh_runtime_common::merge_active_and_inactive;
+use polymesh_runtime_common::runtime::{BENCHMARK_MAX_INCREASE, VMO};
+use polymesh_runtime_common::{AvailableBlockRatio, MaximumBlockWeight};
+use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
+
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -40,27 +51,14 @@ use pallet_corporate_actions as corporate_actions;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_group as group;
-use pallet_identity::{self as identity, Context};
+use pallet_identity as identity;
 use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_session::historical as pallet_session_historical;
-use pallet_transaction_payment::RuntimeDispatchInfo;
-use pallet_utility;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_primitives::constants::currency::{DOLLARS, POLY};
-use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::{
-    traits::{group::GroupTrait, CddAndFeeDetails},
-    AccountId, Authorization, AuthorizationData, BlockNumber, Claim, Moment,
-    Permissions as AuthPermissions, PortfolioNumber, Scope, SecondaryKey, TrustedFor,
-    TrustedIssuer,
-};
-use polymesh_runtime_common::merge_active_and_inactive;
-use polymesh_runtime_common::runtime::{BENCHMARK_MAX_INCREASE, VMO};
-use polymesh_runtime_common::{AvailableBlockRatio, MaximumBlockWeight};
-use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 
 use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+
+type Runtime = TestStorage;
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
@@ -98,8 +96,8 @@ macro_rules! exec_noop {
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("test-storage"),
-    impl_name: create_runtime_str!("test-storage"),
+    spec_name: Cow::Borrowed("test-storage"),
+    impl_name: Cow::Borrowed("test-storage"),
     authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -109,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
-    state_version: 1,
+    system_version: 1,
 };
 
 impl_opaque_keys! {
@@ -123,8 +121,6 @@ impl From<UintAuthorityId> for MockSessionKeys {
         Self { dummy }
     }
 }
-
-type Runtime = TestStorage;
 
 // example module to test behaviors.
 #[frame_support::pallet(dev_mode)]
@@ -243,98 +239,172 @@ parameter_types! {
     pub const MaxRefundsAndVotesPruned: u32 = 2;
 }
 
-frame_support::construct_runtime!(
-    pub struct TestStorage {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 1,
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-        Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
-        // Authorship: pallet_authorship = 4,
+#[frame_support::runtime]
+mod runtime {
+    use super::*;
 
-        // Balance: Genesis config dependencies: System.
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
+    #[runtime::runtime]
+    #[runtime::derive(
+        RuntimeCall,
+        RuntimeEvent,
+        RuntimeError,
+        RuntimeOrigin,
+        RuntimeFreezeReason,
+        RuntimeHoldReason,
+        RuntimeSlashReason
+    )]
+    pub struct TestStorage;
 
-        // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage} = 6,
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system::Pallet<Runtime>;
 
-        // Identity: Genesis config deps: Timestamp.
-        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,
+    #[runtime::pallet_index(1)]
+    pub type Babe = pallet_babe::Pallet<Runtime>;
 
-        // Polymesh Committees
+    #[runtime::pallet_index(2)]
+    pub type Timestamp = pallet_timestamp::Pallet<Runtime>;
 
-        // CddServiceProviders: Genesis config deps: Identity
-        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 8,
+    #[runtime::pallet_index(3)]
+    pub type Indices = pallet_indices::Pallet<Runtime>;
 
-        // Governance Council (committee)
-        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 9,
-        // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
-        CommitteeMembership: pallet_group::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
+    #[runtime::pallet_index(5)]
+    pub type Balances = pallet_balances::Pallet<Runtime>;
 
-        // Technical Committee
-        TechnicalCommittee: pallet_committee::<Instance3>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 11,
-        // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
-        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 12,
+    #[runtime::pallet_index(6)]
+    pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
-        // Upgrade Committee
-        UpgradeCommittee: pallet_committee::<Instance4>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 13,
-        // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
-        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
+    #[runtime::pallet_index(7)]
+    pub type Identity = pallet_identity::Pallet<Runtime>;
 
-        MultiSig: pallet_multisig::{Pallet, Call, Config<T>, Storage, Event<T>} = 15,
+    #[runtime::pallet_index(8)]
+    pub type CddServiceProviders = pallet_group::Pallet<Runtime, Instance2>;
 
-        Validators: pallet_validators = 16,
-        Staking: pallet_staking = 17,
+    #[runtime::pallet_index(9)]
+    pub type PolymeshCommittee = pallet_committee::Pallet<Runtime, Instance1>;
 
-        Offences: pallet_offences::{Pallet, Storage, Event} = 18,
+    #[runtime::pallet_index(10)]
+    pub type CommitteeMembership = pallet_group::Pallet<Runtime, Instance1>;
 
-        // Session: Genesis config deps: System.
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 19,
-        AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>} = 20,
-        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event} = 21,
-        Historical: pallet_session_historical::{Pallet} = 22,
-        ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 23,
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage} = 24,
+    #[runtime::pallet_index(11)]
+    pub type TechnicalCommittee = pallet_committee::Pallet<Runtime, Instance3>;
 
-        // Sudo. Usable initially.
-        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,
+    #[runtime::pallet_index(12)]
+    pub type TechnicalCommitteeMembership = pallet_group::Pallet<Runtime, Instance3>;
 
-        // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 26,
-        CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event<T>, Config<T>} = 27,
-        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event<T>, Config<T>} = 28,
-        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event<T>} = 29,
-        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event<T>, Config<T>} = 30,
-        CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config<T>} = 31,
-        Permissions: pallet_permissions::{Pallet, Storage} = 32,
-        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 33,
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event<T>, Config<T>} = 34,
-        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config<T>} = 35,
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 36,
-        Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config<T>} = 37,
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event<T>, Config<T>} = 38,
-        Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
-        Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,
-        Base: pallet_base::{Pallet, Call, Event} = 42,
-        ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event<T>} = 43,
-        Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 44,
-        // Removed pallet_rewards = 45,
+    #[runtime::pallet_index(13)]
+    pub type UpgradeCommittee = pallet_committee::Pallet<Runtime, Instance4>;
 
-        // Contracts
-        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 46,
-        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>, Config<T>} = 47,
+    #[runtime::pallet_index(14)]
+    pub type UpgradeCommitteeMembership = pallet_group::Pallet<Runtime, Instance4>;
 
-        // Preimage register.  Used by `pallet_scheduler`.
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
+    #[runtime::pallet_index(15)]
+    pub type MultiSig = pallet_multisig::Pallet<Runtime>;
 
-        Nft: pallet_nft::{Pallet, Call, Storage, Event<T>} = 49,
+    #[runtime::pallet_index(16)]
+    pub type Validators = pallet_validators::Pallet<Runtime>;
 
-        // Testing only.
-        Example: example::{Pallet, Call} = 201,
+    #[runtime::pallet_index(17)]
+    pub type Staking = pallet_staking::Pallet<Runtime>;
 
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
-    }
-);
+    #[runtime::pallet_index(18)]
+    pub type Offences = pallet_offences::Pallet<Runtime>;
+
+    #[runtime::pallet_index(19)]
+    pub type Session = pallet_session::Pallet<Runtime>;
+
+    #[runtime::pallet_index(20)]
+    pub type AuthorityDiscovery = pallet_authority_discovery::Pallet<Runtime>;
+
+    #[runtime::pallet_index(21)]
+    pub type Grandpa = pallet_grandpa::Pallet<Runtime>;
+
+    #[runtime::pallet_index(22)]
+    pub type Historical = pallet_session_historical::Pallet<Runtime>;
+
+    #[runtime::pallet_index(23)]
+    pub type ImOnline = pallet_im_online::Pallet<Runtime>;
+
+    #[runtime::pallet_index(24)]
+    pub type RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip::Pallet<Runtime>;
+
+    #[runtime::pallet_index(25)]
+    pub type Sudo = pallet_sudo::Pallet<Runtime>;
+
+    #[runtime::pallet_index(26)]
+    pub type Asset = pallet_asset::Pallet<Runtime>;
+
+    #[runtime::pallet_index(27)]
+    pub type CapitalDistribution = pallet_capital_distribution::Pallet<Runtime>;
+
+    #[runtime::pallet_index(28)]
+    pub type Checkpoint = pallet_checkpoint::Pallet<Runtime>;
+
+    #[runtime::pallet_index(29)]
+    pub type ComplianceManager = pallet_compliance_manager::Pallet<Runtime>;
+
+    #[runtime::pallet_index(30)]
+    pub type CorporateAction = pallet_corporate_actions::Pallet<Runtime>;
+
+    #[runtime::pallet_index(31)]
+    pub type CorporateBallot = pallet_corporate_ballot::Pallet<Runtime>;
+
+    #[runtime::pallet_index(32)]
+    pub type Permissions = pallet_permissions::Pallet<Runtime>;
+
+    #[runtime::pallet_index(33)]
+    pub type Pips = pallet_pips::Pallet<Runtime>;
+
+    #[runtime::pallet_index(34)]
+    pub type Portfolio = pallet_portfolio::Pallet<Runtime>;
+
+    #[runtime::pallet_index(35)]
+    pub type ProtocolFee = pallet_protocol_fee::Pallet<Runtime>;
+
+    #[runtime::pallet_index(36)]
+    pub type Scheduler = pallet_scheduler::Pallet<Runtime>;
+
+    #[runtime::pallet_index(37)]
+    pub type Settlement = pallet_settlement::Pallet<Runtime>;
+
+    #[runtime::pallet_index(38)]
+    pub type Statistics = pallet_statistics::Pallet<Runtime>;
+
+    #[runtime::pallet_index(39)]
+    pub type Sto = pallet_sto::Pallet<Runtime>;
+
+    #[runtime::pallet_index(40)]
+    pub type Treasury = pallet_treasury::Pallet<Runtime>;
+
+    #[runtime::pallet_index(41)]
+    pub type Utility = pallet_utility::Pallet<Runtime>;
+
+    #[runtime::pallet_index(42)]
+    pub type Base = pallet_base::Pallet<Runtime>;
+
+    #[runtime::pallet_index(43)]
+    pub type ExternalAgents = pallet_external_agents::Pallet<Runtime>;
+
+    #[runtime::pallet_index(44)]
+    pub type Relayer = pallet_relayer::Pallet<Runtime>;
+
+    #[runtime::pallet_index(46)]
+    pub type Contracts = pallet_contracts::Pallet<Runtime>;
+
+    #[runtime::pallet_index(47)]
+    pub type PolymeshContracts = polymesh_contracts::Pallet<Runtime>;
+
+    #[runtime::pallet_index(48)]
+    pub type Preimage = pallet_preimage::Pallet<Runtime>;
+
+    #[runtime::pallet_index(49)]
+    pub type Nft = pallet_nft::Pallet<Runtime>;
+
+    #[runtime::pallet_index(50)]
+    pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet<Runtime>;
+
+    #[runtime::pallet_index(200)]
+    pub type Example = example::Pallet<Runtime>;
+}
 
 polymesh_runtime_common::runtime_apis! {}
 
@@ -342,7 +412,7 @@ polymesh_runtime_common::runtime_apis! {}
 pub struct User {
     /// The `ring` of the `User` used to derive account related data,
     /// e.g., origins, keys, and balances.
-    pub ring: AccountKeyring,
+    pub ring: Sr25519Keyring,
     /// The DID of the `User`.
     /// The `ring` need not be the primary key of this DID.
     pub did: IdentityId,
@@ -353,17 +423,17 @@ impl User {
     ///
     /// The function is useful when `ring` refers to a secondary key.
     /// At the time of calling, nothing is asserted about `did`'s registration.
-    pub const fn new_with(did: IdentityId, ring: AccountKeyring) -> Self {
+    pub const fn new_with(did: IdentityId, ring: Sr25519Keyring) -> Self {
         User { ring, did }
     }
 
     /// Creates and registers a `User` for the given `ring` which will act as the primary key.
-    pub fn new(ring: AccountKeyring) -> Self {
+    pub fn new(ring: Sr25519Keyring) -> Self {
         Self::new_with(register_keyring_account(ring).unwrap(), ring)
     }
 
     /// Creates a `User` for an already registered DID with `ring` as its primary key.
-    pub fn existing(ring: AccountKeyring) -> Self {
+    pub fn existing(ring: Sr25519Keyring) -> Self {
         Self::new_with(get_identity_id(ring).unwrap(), ring)
     }
 
@@ -678,17 +748,18 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
     }
 }
 
-impl pips::Config for TestStorage {
-    type Currency = balances::Pallet<Self>;
-    type VotingMajorityOrigin = VMO<committee::Instance1>;
+impl pallet_pips::Config for Runtime {
+    type Currency = Balances;
+    type VotingMajorityOrigin = VMO<pallet_committee::Instance1>;
     type GovernanceCommittee = Committee;
-    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
-    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
+    type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
     type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
+    type SchedulerPreimage = Preimage;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -716,7 +787,7 @@ pub fn make_account(
     make_account_with_balance(id, 1_000_000)
 }
 
-pub fn make_account_with_portfolio(ring: AccountKeyring) -> (User, PortfolioId) {
+pub fn make_account_with_portfolio(ring: Sr25519Keyring) -> (User, PortfolioId) {
     let user = User::new(ring);
     let portfolio = PortfolioId::default_portfolio(user.did);
     (user, portfolio)
@@ -780,12 +851,12 @@ pub fn make_account_without_cdd(
     Ok((signed_id, did))
 }
 
-pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'static str> {
+pub fn register_keyring_account(acc: Sr25519Keyring) -> Result<IdentityId, &'static str> {
     register_keyring_account_with_balance(acc, 10_000_000)
 }
 
 pub fn register_keyring_account_with_balance(
-    acc: AccountKeyring,
+    acc: Sr25519Keyring,
     balance: Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_id = acc.to_account_id();
@@ -830,7 +901,7 @@ pub fn account_from(id: u64) -> AccountId {
     pk.into()
 }
 
-pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
+pub fn get_identity_id(acc: Sr25519Keyring) -> Option<IdentityId> {
     Identity::get_identity(&acc.to_account_id())
 }
 
@@ -978,50 +1049,55 @@ macro_rules! assert_event_doesnt_exist {
 
 pub fn exec<C: Into<RuntimeCall>>(origin: RuntimeOrigin, call: C) -> DispatchResult {
     let origin: Result<RawOrigin<AccountId>, RuntimeOrigin> = origin.into();
-    let signed = match origin.unwrap() {
-        RawOrigin::Signed(acc) => {
-            let info = frame_system::Account::<TestStorage>::get(&acc);
-            Some((acc, signed_extra(info.nonce)))
+
+    let format = {
+        match origin.unwrap() {
+            RawOrigin::Signed(acc) => {
+                let info = frame_system::Account::<TestStorage>::get(&acc);
+                generic::ExtrinsicFormat::Signed(acc, signed_extra(info.nonce))
+            }
+            _ => generic::ExtrinsicFormat::Bare,
         }
-        _ => None,
     };
+
     Executive::apply_extrinsic(sign(CheckedExtrinsic {
-        signed,
+        format,
         function: call.into(),
     }))
     .unwrap()
 }
 
-/// Sign given `CheckedExtrinsic` returning an `UncheckedExtrinsic`
-/// usable for execution.
-fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-    let CheckedExtrinsic {
-        signed, function, ..
-    } = xt;
-    UncheckedExtrinsic {
-        signature: signed.map(|(signed, extra)| {
-            let payload = (
-                &function,
-                extra.clone(),
-                VERSION.spec_version,
-                VERSION.transaction_version,
-                GENESIS_HASH,
-                GENESIS_HASH,
-            );
-            let key = AccountKeyring::from_account_id(&signed).unwrap();
-            let signature = payload
-                .using_encoded(|b| {
-                    if b.len() > 256 {
-                        key.sign(&sp_io::hashing::blake2_256(b))
-                    } else {
-                        key.sign(b)
-                    }
-                })
-                .into();
-            (Address::Id(signed), signature, extra)
-        }),
-        function,
-    }
+/// Sign given `CheckedExtrinsic` returning an `UncheckedExtrinsic` usable for execution.
+fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
+    let preamble = {
+        match checked_extrinsic.format {
+            generic::ExtrinsicFormat::Signed(acc, ext) => {
+                let payload = (
+                    &checked_extrinsic.function,
+                    ext.clone(),
+                    VERSION.spec_version,
+                    VERSION.transaction_version,
+                    GENESIS_HASH,
+                    GENESIS_HASH,
+                );
+                let key = Sr25519Keyring::from_account_id(&acc).unwrap();
+                let signature = payload
+                    .using_encoded(|b| {
+                        if b.len() > 256 {
+                            key.sign(&sp_io::hashing::blake2_256(b))
+                        } else {
+                            key.sign(b)
+                        }
+                    })
+                    .into();
+                generic::Preamble::Signed(Address::Id(acc), signature, ext)
+            }
+            _ => generic::Preamble::Bare(0),
+        }
+    };
+
+    let function = checked_extrinsic.function;
+    UncheckedExtrinsic { preamble, function }
 }
 
 /// Returns transaction extra.
@@ -1049,6 +1125,5 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
     type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
     type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
-    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
-    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
+    type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
 }

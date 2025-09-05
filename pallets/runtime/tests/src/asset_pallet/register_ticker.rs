@@ -1,6 +1,6 @@
 use frame_support::{assert_noop, assert_ok};
 use rand::Rng;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::{
@@ -73,7 +73,7 @@ fn verify_ticker_characters() {
 fn register_ticker() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
 
@@ -98,7 +98,7 @@ fn register_ticker() {
 fn register_ticker_invalid_ticker_character() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER+");
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_noop!(
             Asset::register_unique_ticker(alice.origin(), ticker,),
@@ -111,7 +111,7 @@ fn register_ticker_invalid_ticker_character() {
 fn register_ticker_already_linked() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
@@ -144,7 +144,7 @@ fn register_ticker_too_long() {
         let max_ticker_len = TickerConfig::<TestStorage>::get().max_ticker_length;
         let ticker_bytes: Vec<u8> = (65..65 + max_ticker_len + 1).collect();
         let ticker: Ticker = Ticker::from_slice_truncated(&ticker_bytes);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_noop!(
             Asset::register_unique_ticker(alice.origin(), ticker,),
@@ -157,8 +157,8 @@ fn register_ticker_too_long() {
 fn register_ticker_already_registered() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER00");
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         assert_noop!(
@@ -172,8 +172,8 @@ fn register_ticker_already_registered() {
 fn register_already_expired_ticker() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER00");
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         set_timestamp(now() + 10001);
@@ -200,7 +200,7 @@ fn register_already_expired_ticker() {
 fn register_ticker_renewal() {
     ExtBuilder::default().build().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER00");
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_ok!(Asset::register_unique_ticker(alice.origin(), ticker,));
         let ticker_registration = UniqueTickerRegistration::<TestStorage>::get(&ticker).unwrap();

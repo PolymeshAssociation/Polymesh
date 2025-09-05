@@ -13,7 +13,7 @@ use pallet_transaction_payment::{
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
 use sp_arithmetic::traits::One;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
@@ -23,7 +23,7 @@ use sp_runtime::{
 
 fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
     RuntimeCall::Balances(BalancesCall::transfer {
-        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        dest: MultiAddress::Id(Sr25519Keyring::Alice.to_account_id()),
         value: 69,
     })
 }
@@ -74,8 +74,8 @@ fn signed_extension_transaction_payment_work() {
         .transaction_fees(5, 1, 1)
         .build()
         .execute_with(|| {
-            let bob = AccountKeyring::Bob.to_account_id();
-            let alice = AccountKeyring::Alice.to_account_id();
+            let bob = Sr25519Keyring::Bob.to_account_id();
+            let alice = Sr25519Keyring::Alice.to_account_id();
 
             let len = 10;
             let pre = ChargeTransactionPayment::<TestStorage>::from(0)
@@ -117,7 +117,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
         .transaction_fees(5, 1, 1)
         .build()
         .execute_with(|| {
-            let user = AccountKeyring::Alice.to_account_id();
+            let user = Sr25519Keyring::Alice.to_account_id();
             let len = 10;
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
@@ -148,7 +148,7 @@ fn signed_extension_transaction_payment_is_bounded() {
         .transaction_fees(0, 0, 1)
         .build()
         .execute_with(|| {
-            let user = AccountKeyring::Bob.to_account_id();
+            let user = Sr25519Keyring::Bob.to_account_id();
             let free_user = Balances::free_balance(&user);
 
             // Get the current weight settings.
@@ -178,7 +178,7 @@ fn signed_extension_allows_free_transactions() {
         .balance_factor(0)
         .build()
         .execute_with(|| {
-            let user = AccountKeyring::Bob.to_account_id();
+            let user = Sr25519Keyring::Bob.to_account_id();
             // I ain't have a penny.
             assert_eq!(Balances::free_balance(&user), 0);
 
@@ -217,7 +217,7 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
             // all fees should be x1.5
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
             let len = 10;
-            let user = AccountKeyring::Bob.to_account_id();
+            let user = Sr25519Keyring::Bob.to_account_id();
             assert!(ChargeTransactionPayment::<TestStorage>::from(0) // tipped
                 .pre_dispatch(&user, &call(), &info_from_weight(3), len)
                 .is_ok());
@@ -391,7 +391,7 @@ fn actual_weight_higher_than_max_refunds_nothing() {
         .build()
         .execute_with(|| {
             let len = 10;
-            let user = AccountKeyring::Alice.to_account_id();
+            let user = Sr25519Keyring::Alice.to_account_id();
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
                 .pre_dispatch(&user, &call(), &info_from_weight(100), len)
                 .unwrap();
@@ -424,7 +424,7 @@ fn zero_transfer_on_free_transaction() {
                 pays_fee: Pays::No,
                 class: DispatchClass::Normal,
             };
-            let user = AccountKeyring::Alice.to_account_id();
+            let user = Sr25519Keyring::Alice.to_account_id();
             let bal_init = Balances::total_balance(&user);
             let pre = ChargeTransactionPayment::<TestStorage>::from(0)
                 .pre_dispatch(&user, &call(), &dispatch_info, len)
@@ -453,7 +453,7 @@ fn refund_consistent_with_actual_weight() {
         .execute_with(|| {
             let info = info_from_weight(100);
             let post_info = post_info_from_weight(33);
-            let alice = AccountKeyring::Alice.to_account_id();
+            let alice = Sr25519Keyring::Alice.to_account_id();
             let prev_balance = Balances::free_balance(&alice);
             let len = 10;
             let tip = 0;
@@ -494,7 +494,7 @@ fn normal_tx_with_tip() {
 fn normal_tx_with_tip_ext() {
     let len = 10;
     let tip = 42;
-    let user = AccountKeyring::Alice.to_account_id();
+    let user = Sr25519Keyring::Alice.to_account_id();
     let call = call();
     let normal_info = info_from_weight(100);
 
@@ -516,8 +516,8 @@ fn normal_tx_with_tip_ext() {
 
 #[test]
 fn operational_tx_with_tip() {
-    let cdd_provider = AccountKeyring::Bob.to_account_id();
-    let gc_member = AccountKeyring::Charlie.to_account_id();
+    let cdd_provider = Sr25519Keyring::Bob.to_account_id();
+    let gc_member = Sr25519Keyring::Charlie.to_account_id();
 
     ExtBuilder::default()
         .monied(true)
@@ -530,7 +530,7 @@ fn operational_tx_with_tip() {
 fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
     let len = 10;
     let tip = 42;
-    let user = AccountKeyring::Alice.to_account_id();
+    let user = Sr25519Keyring::Alice.to_account_id();
     let call = call();
     let operational_info = operational_info_from_weight(100);
 

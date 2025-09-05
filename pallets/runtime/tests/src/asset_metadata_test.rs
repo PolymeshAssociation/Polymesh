@@ -12,7 +12,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue, AssetMetadataValueDetail,
 };
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
@@ -109,8 +109,8 @@ fn register_metadata_type(owner: User, asset_id: Option<AssetId>, name: &str) ->
 #[test]
 fn set_asset_metadata_local_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let other = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let other = User::new(Sr25519Keyring::Alice);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -307,8 +307,8 @@ fn set_asset_metadata_local_type() {
 #[test]
 fn register_and_set_local_asset_metadata() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let other = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let other = User::new(Sr25519Keyring::Alice);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -358,8 +358,8 @@ fn register_and_set_local_asset_metadata() {
 #[test]
 fn register_asset_metadata_local_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let other = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let other = User::new(Sr25519Keyring::Alice);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -396,7 +396,7 @@ fn register_asset_metadata_local_type() {
 #[test]
 fn register_asset_metadata_global_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let root = Origin::from(frame_system::RawOrigin::Root);
 
         let (name, spec) = make_metadata_type("TEST");
@@ -425,7 +425,7 @@ fn register_asset_metadata_global_type() {
 #[test]
 fn register_asset_metadata_local_type_limits() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -508,7 +508,7 @@ fn register_asset_metadata_global_type_limits() {
 #[test]
 fn check_locked_until() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);

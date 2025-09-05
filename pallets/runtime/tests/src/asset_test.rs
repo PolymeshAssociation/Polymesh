@@ -47,7 +47,7 @@ use polymesh_primitives::{
     FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use crate::asset_pallet::setup::{
     create_and_issue_sample_asset, create_and_issue_sample_asset_linked_to_ticker, create_asset,
@@ -206,7 +206,7 @@ pub fn check_schedules(asset_id: AssetId, schedules: &[(ScheduleId, ScheduleChec
 #[test]
 fn issuers_can_create_and_rename_tokens() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
         let asset_id = Asset::generate_asset_id(owner.acc(), false);
         let funding_round_name: FundingRoundName = b"MyFundingRound".into();
         let sample_security_token = sample_security_token(owner.did);
@@ -243,7 +243,7 @@ fn issuers_can_create_and_rename_tokens() {
         );
 
         // Unauthorized agents cannot rename the token.
-        let eve = User::new(AccountKeyring::Eve);
+        let eve = User::new(Sr25519Keyring::Eve);
         assert_noop!(
             Asset::rename_asset(eve.origin(), asset_id, vec![0xde, 0xad, 0xbe, 0xef].into()),
             EAError::UnauthorizedAgent
@@ -261,8 +261,8 @@ fn issuers_can_create_and_rename_tokens() {
 #[test]
 fn valid_transfers_pass() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -286,8 +286,8 @@ fn valid_transfers_pass() {
 #[test]
 fn issuers_can_redeem_tokens() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let bob = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let bob = User::new(Sr25519Keyring::Bob);
         let owner_portfolio_id = PortfolioId {
             did: owner.did,
             kind: PortfolioKind::Default,
@@ -342,8 +342,8 @@ fn checkpoints_fuzz_test() {
         // When fuzzing in local, feel free to bump this number to add more fuzz runs.
         ExtBuilder::default().build().execute_with(|| {
             set_timestamp(now());
-            let owner = User::new(AccountKeyring::Dave);
-            let bob = User::new(AccountKeyring::Bob);
+            let owner = User::new(Sr25519Keyring::Dave);
+            let bob = User::new(Sr25519Keyring::Bob);
 
             let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -385,8 +385,8 @@ fn checkpoints_fuzz_test() {
 #[test]
 fn controller_transfer() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -420,9 +420,9 @@ fn transfer_token_ownership() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(now());
 
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         let ticker = Ticker::from_slice_truncated(b"MYTICKER");
 
         let asset_id = create_and_issue_sample_asset_linked_to_ticker(&owner, ticker);
@@ -539,7 +539,7 @@ fn transfer_token_ownership() {
 #[test]
 fn update_identifiers() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         // Create: A correct entry was added.
         let asset_ident = Some(vec![cusip()]);
@@ -581,7 +581,7 @@ fn update_identifiers() {
 #[test]
 fn adding_removing_documents() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -631,8 +631,8 @@ fn adding_removing_documents() {
 #[test]
 fn freeze_unfreeze_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -686,9 +686,9 @@ fn freeze_unfreeze_asset() {
 fn frozen_secondary_keys_create_asset_we() {
     ExtBuilder::default().build().execute_with(|| {
         // 0. Create identities.
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new_with(alice.did, AccountKeyring::Bob);
-        let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new_with(alice.did, Sr25519Keyring::Bob);
+        let _charlie_id = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
 
         // 1. Add Bob as signatory to Alice ID.
         add_secondary_key(alice.did, bob.acc());
@@ -731,8 +731,8 @@ fn next_checkpoint_is_updated_we() {
         set_timestamp(start);
         assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
 
-        let owner = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -800,8 +800,8 @@ fn non_recurring_schedule_works_we() {
         set_timestamp(start);
         assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
 
-        let owner = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -850,8 +850,8 @@ fn schedule_remaining_works() {
         let start = 1_000;
         set_timestamp(start);
 
-        let owner = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
@@ -943,7 +943,7 @@ fn schedule_remaining_works() {
 fn mesh_1531_ts_collission_regression_test() {
     ExtBuilder::default().build().execute_with(|| {
         // Create the assets.
-        let owner = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_and_issue_sample_asset(&owner);
         let asset_id2 = create_and_issue_sample_asset(&owner);
@@ -965,14 +965,14 @@ fn mesh_1531_ts_collission_regression_test() {
 
 #[test]
 fn secondary_key_not_authorized_for_asset_test() {
-    let charlie = vec![AccountKeyring::Charlie.to_account_id()];
+    let charlie = vec![Sr25519Keyring::Charlie.to_account_id()];
     ExtBuilder::default()
         .cdd_providers(charlie)
         .build()
         .execute_with(|| {
-            let alice = User::new(AccountKeyring::Alice);
-            let bob = User::new_with(alice.did, AccountKeyring::Bob);
-            let eve = User::new_with(alice.did, AccountKeyring::Eve);
+            let alice = User::new(Sr25519Keyring::Alice);
+            let bob = User::new_with(alice.did, Sr25519Keyring::Bob);
+            let eve = User::new_with(alice.did, Sr25519Keyring::Eve);
             let asset_id = create_and_issue_sample_asset(&alice);
             let eve_permissions = Permissions {
                 asset: AssetPermissions::elems(vec![AssetId::new([0; 16])]),
@@ -1020,7 +1020,7 @@ fn bytes_of_len<R: From<Vec<u8>>>(e: u8, len: usize) -> R {
 #[test]
 fn create_asset_errors() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let create = |name, is_divisible, funding_name| {
             Asset::create_asset(
@@ -1071,7 +1071,7 @@ fn create_asset_errors() {
 #[test]
 fn asset_type_custom_too_long() {
     ExtBuilder::default().build().execute_with(|| {
-        let user = User::new(AccountKeyring::Alice);
+        let user = User::new(Sr25519Keyring::Alice);
         let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
         assert_too_long!(case(1));
         assert_ok!(case(0));
@@ -1081,7 +1081,7 @@ fn asset_type_custom_too_long() {
 #[test]
 fn asset_type_custom_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let user = User::new(AccountKeyring::Alice);
+        let user = User::new(Sr25519Keyring::Alice);
         let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
         let seq_is = |num| {
             assert_eq!(CustomTypeIdSequence::<TestStorage>::get().0, num);
@@ -1126,7 +1126,7 @@ fn asset_type_custom_works() {
 #[test]
 fn invalid_custom_asset_type_check() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         assert_noop!(
             Asset::create_asset(
@@ -1145,7 +1145,7 @@ fn invalid_custom_asset_type_check() {
 #[test]
 fn asset_doc_field_too_long() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&owner);
         let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], asset_id);
         assert_too_long!(add_doc(Document {
@@ -1171,10 +1171,10 @@ fn asset_doc_field_too_long() {
 
 #[track_caller]
 fn test_with_owner(test: impl FnOnce(User)) {
-    let owner = AccountKeyring::Alice;
+    let owner = Sr25519Keyring::Alice;
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner.to_account_id()])
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| test(User::existing(owner)));
 }
@@ -1224,15 +1224,15 @@ fn update_identifiers_errors_test() {
 
 #[test]
 fn issuers_can_redeem_tokens_from_portfolio() {
-    let alice = AccountKeyring::Alice.to_account_id();
+    let alice = Sr25519Keyring::Alice.to_account_id();
     ExtBuilder::default()
         .cdd_providers(vec![alice.clone()])
         .build()
         .execute_with(|| {
             set_timestamp(now());
 
-            let owner = User::new(AccountKeyring::Dave);
-            let bob = User::new(AccountKeyring::Bob);
+            let owner = User::new(Sr25519Keyring::Dave);
+            let bob = User::new(Sr25519Keyring::Bob);
 
             // Create asset.
             let asset_id = create_and_issue_sample_asset(&owner);
@@ -1370,8 +1370,8 @@ fn issuers_can_redeem_tokens_from_portfolio() {
 #[test]
 fn issuers_can_change_asset_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         // Create an asset
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -1407,7 +1407,7 @@ fn issuers_can_change_asset_type() {
 #[test]
 fn prevent_locking_an_empty_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec {
@@ -1442,7 +1442,7 @@ fn prevent_locking_an_empty_key() {
 #[test]
 fn remove_local_metadata_key_missing_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         let local_key = AssetMetadataLocalKey(1);
         assert_noop!(
@@ -1456,7 +1456,7 @@ fn remove_local_metadata_key_missing_key() {
 #[test]
 fn remove_local_metadata_key_locked_value() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec {
@@ -1499,7 +1499,7 @@ fn remove_local_metadata_key_locked_value() {
 #[test]
 fn remove_nft_collection_metada_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
         let asset_id = create_nft_collection(
@@ -1525,7 +1525,7 @@ fn remove_nft_collection_metada_key() {
 #[test]
 fn remove_local_metadata_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec {
@@ -1575,7 +1575,7 @@ fn remove_local_metadata_key() {
 #[test]
 fn remove_local_metadata_value_missing_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         assert_noop!(
             Asset::remove_metadata_value(
@@ -1592,7 +1592,7 @@ fn remove_local_metadata_value_missing_key() {
 #[test]
 fn remove_local_metadata_value_locked_value() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec {
@@ -1635,7 +1635,7 @@ fn remove_local_metadata_value_locked_value() {
 #[test]
 fn remove_metadata_value() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
         let asset_metadata_spec = AssetMetadataSpec {
@@ -1685,7 +1685,7 @@ fn remove_metadata_value() {
 fn issue_token_unassigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let issued_amount = ONE_UNIT;
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
 
         assert_ok!(Portfolio::create_portfolio(
@@ -1718,7 +1718,7 @@ fn issue_token_unassigned_custody() {
 #[test]
 fn redeem_token_unassigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_sample_asset(&alice);
         assert_ok!(Asset::redeem(
             alice.origin(),
@@ -1733,8 +1733,8 @@ fn redeem_token_unassigned_custody() {
 #[test]
 fn redeem_token_assigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
         let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
 
@@ -1768,7 +1768,7 @@ fn redeem_token_assigned_custody() {
 fn pre_approve_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let asset_id = AssetId::new([0; 16]);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
 
         assert!(PreApprovedAsset::<TestStorage>::get(alice.did, asset_id));
@@ -1781,7 +1781,7 @@ fn pre_approve_asset() {
 fn remove_asset_pre_approval() {
     ExtBuilder::default().build().execute_with(|| {
         let asset_id = AssetId::new([0; 16]);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         Asset::pre_approve_asset(alice.origin(), asset_id).unwrap();
         Asset::remove_asset_pre_approval(alice.origin(), asset_id).unwrap();
 
@@ -1795,7 +1795,7 @@ fn remove_asset_pre_approval() {
 fn unauthorized_custodian_ticker_exemption() {
     ExtBuilder::default().build().execute_with(|| {
         let asset_id = AssetId::new([0; 16]);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_noop!(
             Asset::exempt_asset_affirmation(alice.origin(), asset_id),
@@ -1822,8 +1822,8 @@ fn unauthorized_custodian_ticker_exemption() {
 #[test]
 fn unauthorized_add_mandatory_mediators() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
         let mediators: BTreeSet<IdentityId> = (0..max_mediators)
             .map(|i| IdentityId::from(i as u128))
@@ -1840,7 +1840,7 @@ fn unauthorized_add_mandatory_mediators() {
 #[test]
 fn successfully_add_mandatory_mediators() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
         let mediators: BTreeSet<IdentityId> = (0..max_mediators)
             .map(|i| IdentityId::from(i as u128))
@@ -1866,7 +1866,7 @@ fn successfully_add_mandatory_mediators() {
 #[test]
 fn add_mandatory_mediators_exceed_limit() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
         let mediators: BTreeSet<IdentityId> = (0..max_mediators)
             .map(|i| IdentityId::from(i as u128))
@@ -1894,8 +1894,8 @@ fn add_mandatory_mediators_exceed_limit() {
 #[test]
 fn unauthorized_remove_mediators() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
         let mediators: BTreeSet<IdentityId> = (0..max_mediators)
             .map(|i| IdentityId::from(i as u128))
@@ -1916,7 +1916,7 @@ fn unauthorized_remove_mediators() {
 #[test]
 fn successfully_remove_mediators() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let max_mediators = <TestStorage as pallet_asset::Config>::MaxAssetMediators::get();
         let mediators: BTreeSet<IdentityId> = (0..max_mediators)
             .map(|i| IdentityId::from(i as u128))
@@ -1948,8 +1948,8 @@ fn successfully_remove_mediators() {
 #[test]
 fn controller_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -2009,7 +2009,7 @@ fn controller_transfer_locked_asset() {
 #[test]
 fn issue_tokens_user_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_user_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),

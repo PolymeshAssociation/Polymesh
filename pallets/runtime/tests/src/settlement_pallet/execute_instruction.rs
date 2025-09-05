@@ -1,5 +1,5 @@
 use frame_support::assert_ok;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioLockedAssets;
@@ -27,9 +27,9 @@ type PortfolioError = pallet_portfolio::Error<TestStorage>;
 fn storage_pruning() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let _ = add_and_affirm_simple_instruction(
             alice,
@@ -80,8 +80,8 @@ fn storage_rollback() {
         System::set_block_number(1);
 
         let instruction_id = InstructionId(0);
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 

@@ -4,7 +4,7 @@ use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_s
 use polymesh_contracts::{
     Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
 };
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::Hash;
 
 use pallet_asset::TickersOwnedByUser;
@@ -60,7 +60,7 @@ fn update_call_runtime_whitelist(extrinsics: Vec<(ExtrinsicId, bool)>) {
 #[test]
 fn deploy_as_secondary_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
         let permissions = Permissions {
@@ -107,8 +107,8 @@ fn deploy_as_secondary_key() {
 #[test]
 fn chain_extension_calls() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker = Ticker::from_slice_truncated(b"A" as &[u8]);
         Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
@@ -204,7 +204,7 @@ fn deploy_as_child_identity() {
         let salt = vec![0xFF];
         let (code, _) = chain_extension();
         let hash = Hashing::hash(&code);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
         assert_ok!(Contracts::instantiate_with_code_as_primary_key(
@@ -226,7 +226,7 @@ fn deploy_as_child_identity() {
 #[test]
 fn upgrade_api_unauthorized_caller() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let api = Api::new(*b"POLY", 6);
         let chain_version = ChainVersion::new(6, 0);
         let api_code_hash = ApiCodeHash {
