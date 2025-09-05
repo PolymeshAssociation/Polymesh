@@ -19,7 +19,7 @@ use polymesh_primitives::{
     PortfolioKind, PortfolioName, PortfolioNumber, PortfolioUpdateReason, Scope, Signatory,
     TrustedFor, TrustedIssuer, WeightMeter,
 };
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use super::asset_test::{get_asset_details, set_timestamp};
 use crate::asset_pallet::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft};
@@ -43,7 +43,7 @@ fn create_collection_unregistered_ticker() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
@@ -68,7 +68,7 @@ fn create_collection_invalid_asset_type() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let collection_keys: NFTCollectionKeys = vec![].into();
 
         let asset_id = create_and_issue_sample_asset(&alice);
@@ -85,7 +85,7 @@ fn create_collection_already_registered() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
@@ -108,7 +108,7 @@ fn create_collection_max_keys_exceeded() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: Vec<AssetMetadataKey> = (0..256)
             .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
@@ -131,7 +131,7 @@ fn create_collection_duplicate_key() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
@@ -157,7 +157,7 @@ fn create_collection_unregistered_key() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys =
@@ -225,7 +225,7 @@ fn mint_nft_collection_not_found() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         assert_noop!(
             NFT::issue_nft(
                 alice.origin(),
@@ -247,7 +247,7 @@ fn mint_nft_duplicate_key() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
@@ -286,7 +286,7 @@ fn mint_nft_wrong_number_of_keys() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -327,7 +327,7 @@ fn mint_nft_wrong_key() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -358,7 +358,7 @@ fn mint_nft_portfolio_not_found() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -388,7 +388,7 @@ fn mint_nft_successfully() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let alice_default_portfolio = PortfolioId::new(alice.did, PortfolioKind::Default);
         let collection_keys: NFTCollectionKeys =
@@ -455,7 +455,7 @@ fn burn_nft_collection_not_found() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         assert_noop!(
             NFT::redeem_nft(
                 alice.origin(),
@@ -475,7 +475,7 @@ fn burn_nft_not_found() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -504,8 +504,8 @@ fn burn_nft_no_custody() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let bob: User = User::new(AccountKeyring::Bob);
-        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
         let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
 
@@ -560,7 +560,7 @@ fn burn_nft() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -615,8 +615,8 @@ fn transfer_nft_without_collection() {
     ExtBuilder::default().build().execute_with(|| {
         set_timestamp(Utc::now().timestamp() as _);
 
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let sender_portfolio = PortfolioId {
@@ -653,7 +653,7 @@ fn transfer_nft_same_portfolio() {
         set_timestamp(Utc::now().timestamp() as _);
 
         // Creates a collection
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -698,8 +698,8 @@ fn transfer_nft_invalid_count() {
         set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
@@ -754,8 +754,8 @@ fn transfer_nft_not_owned() {
         set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
@@ -810,9 +810,9 @@ fn transfer_nft_failing_compliance() {
         set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
-        let bob: User = User::new(AccountKeyring::Bob);
-        let dave: User = User::new(AccountKeyring::Dave);
-        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+        let dave: User = User::new(Sr25519Keyring::Dave);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
@@ -884,8 +884,8 @@ fn transfer_nft() {
         System::set_block_number(1);
 
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
@@ -972,8 +972,8 @@ fn controller_transfer() {
         // First we need to create a collection and mint one NFT
         set_timestamp(Utc::now().timestamp() as _);
         System::set_block_number(1);
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
@@ -1072,8 +1072,8 @@ fn controller_transfer() {
 fn controller_transfer_unauthorized_agent() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let asset_id = create_nft_collection(
             alice.clone(),
@@ -1108,8 +1108,8 @@ fn controller_transfer_unauthorized_agent() {
 fn controller_transfer_nft_not_owned() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob: User = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
 
         let asset_id = create_nft_collection(
             alice.clone(),
@@ -1143,7 +1143,7 @@ fn controller_transfer_nft_not_owned() {
 #[test]
 fn redeem_wrong_number_of_keys() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
@@ -1188,8 +1188,8 @@ fn redeem_wrong_number_of_keys() {
 #[test]
 fn redeem_locked_nft() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob: User = User::new(AccountKeyring::Bob);
-        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_nft_collection(
             alice.clone(),
@@ -1230,8 +1230,8 @@ fn redeem_locked_nft() {
 #[test]
 fn reject_instruction_with_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob: User = User::new(AccountKeyring::Bob);
-        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_nft_collection(
             alice.clone(),

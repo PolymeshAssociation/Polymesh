@@ -1,5 +1,11 @@
-use crate::TestStorage;
-use frame_support::dispatch::Weight;
+use sp_std::prelude::Vec;
+use sp_std::{cell::RefCell, convert::From, iter};
+
+use frame_support::weights::Weight;
+use sp_io::TestExternalities;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::{BuildStorage, Storage};
+
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -7,15 +13,11 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{constants::currency::POLY, SystematicIssuers, GC_DID};
-use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio, SecondaryKey,
-};
-use sp_io::TestExternalities;
-use sp_keyring::AccountKeyring;
-use sp_runtime::{BuildStorage, Storage};
-use sp_std::prelude::Vec;
-use sp_std::{cell::RefCell, convert::From, iter};
+use polymesh_primitives::{AccountId, IdentityId, PosRatio, SecondaryKey};
+
+use crate::TestStorage;
 
 /// Identity information.
 #[derive(Clone, PartialEq, Debug)]
@@ -239,24 +241,24 @@ impl ExtBuilder {
         if self.monied {
             vec![
                 (
-                    AccountKeyring::Alice.to_account_id(),
+                    Sr25519Keyring::Alice.to_account_id(),
                     1_000 * POLY * self.balance_factor,
                 ),
                 (
-                    AccountKeyring::Bob.to_account_id(),
+                    Sr25519Keyring::Bob.to_account_id(),
                     2_000 * POLY * self.balance_factor,
                 ),
                 (
-                    AccountKeyring::Charlie.to_account_id(),
+                    Sr25519Keyring::Charlie.to_account_id(),
                     3_000 * POLY * self.balance_factor,
                 ),
                 (
-                    AccountKeyring::Dave.to_account_id(),
+                    Sr25519Keyring::Dave.to_account_id(),
                     4_000 * POLY * self.balance_factor,
                 ),
                 // CDD Accounts
-                (AccountKeyring::Eve.to_account_id(), 1_000_000),
-                (AccountKeyring::Ferdie.to_account_id(), 1_000_000),
+                (Sr25519Keyring::Eve.to_account_id(), 1_000_000),
+                (Sr25519Keyring::Ferdie.to_account_id(), 1_000_000),
             ]
         } else {
             vec![]
@@ -315,6 +317,7 @@ impl ExtBuilder {
     fn build_balances_genesis(&self, storage: &mut Storage) {
         balances::GenesisConfig::<TestStorage> {
             balances: self.make_balances(),
+            dev_accounts: None,
         }
         .assimilate_storage(storage)
         .unwrap();

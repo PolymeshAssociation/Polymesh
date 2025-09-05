@@ -43,15 +43,15 @@ polymesh-weights = { workspace = true, default-features = false }
 polymesh-exec-macro = { path = "exec_macro" }
 
 # General
-serde = { version = "1.0.104", default-features = false }
-rand = { version = "0.7.3", default-features = false }
+serde = { version = "1.0", default-features = false }
+rand = { version = "0.8", default-features = false }
 chrono = { version = "0.4", default-features = false }
-smallvec = "1.4.1"
-lazy_static = "1.4.0"
-parking_lot = "0.12.0"
+smallvec = "1.4"
+lazy_static = "1.4"
+parking_lot = "0.12"
 env_logger = "0.7"
-serde_json = { version = "1.0.48", default-features = false }
-log = "0.4.8"
+serde_json = { version = "1.0", default-features = false }
+log = "0.4"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -85,6 +85,7 @@ sp-block-builder = { workspace = true, default-features = false }
 sp-consensus-babe = { workspace = true, default-features = false }
 sp-consensus-grandpa = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
+sp-genesis-builder = { workspace = true, default-features = false }
 sp-inherents = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-npos-elections = { workspace = true, default-features = false }
@@ -111,9 +112,7 @@ only-staking = []
 # Backends
 u64_backend = ["polymesh-primitives/u64_backend"]
 
-no_std = [
-    "u64_backend"
-]
+no_std = ["u64_backend"]
 
 std = [
     "u64_backend",
@@ -167,8 +166,10 @@ std = [
     "sp-runtime/std",
     "sp-staking/std",
     "sp-std/std",
+    "sp-genesis-builder/std",
+    "rand/std",
 ]
-runtime-benchmarks = [
-    "frame-benchmarking/runtime-benchmarks",
-]
+
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
+
 try-runtime = []

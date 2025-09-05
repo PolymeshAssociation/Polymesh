@@ -24,7 +24,7 @@ use polymesh_primitives::{
     Permissions, PortfolioName, PortfolioNumber, SubsetRestriction, Ticker,
 };
 use sp_core::sr25519::Signature;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use super::committee_test::set_members;
 use super::pips_test::{assert_balance, assert_state, committee_proposal, community_proposal};
@@ -72,13 +72,13 @@ fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let alice = AccountKeyring::Alice.to_account_id();
+        let alice = Sr25519Keyring::Alice.to_account_id();
         TestStorage::set_payer_context(Some(alice.clone()));
-        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
 
-        let bob = AccountKeyring::Bob.to_account_id();
+        let bob = Sr25519Keyring::Bob.to_account_id();
         TestStorage::set_payer_context(Some(bob.clone()));
-        let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
         assert_balance(alice.clone(), 1000, 0);
         assert_balance(bob.clone(), 1000, 0);
@@ -217,14 +217,14 @@ fn relay_happy_case() {
 }
 
 fn _relay_happy_case() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
-    let charlie = AccountKeyring::Charlie.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Charlie, 1_000).unwrap();
 
     // 41 Extra for registering a DID
     assert_balance(bob.clone(), 1041, 0);
@@ -242,7 +242,7 @@ fn _relay_happy_case() {
     assert_ok!(Utility::relay_tx(
         origin,
         bob.clone(),
-        AccountKeyring::Bob.sign(&transaction.encode()).into(),
+        Sr25519Keyring::Bob.sign(&transaction.encode()).into(),
         transaction
     ));
 
@@ -258,12 +258,12 @@ fn relay_unhappy_cases() {
 }
 
 fn _relay_unhappy_cases() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.to_account_id();
+    let bob = Sr25519Keyring::Bob.to_account_id();
 
-    let charlie = AccountKeyring::Charlie.to_account_id();
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
 
     let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
@@ -284,7 +284,7 @@ fn _relay_unhappy_cases() {
         Error::InvalidSignature
     );
 
-    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
     let transaction = UniqueCall::new(
         Nonces::<TestStorage>::get(bob.clone()) + 1,
@@ -309,8 +309,8 @@ fn batch_secondary_with_permissions_works() {
 
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
-    let alice = User::new(AccountKeyring::Alice).balance(1_000);
-    let bob = User::new_with(alice.did, AccountKeyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice).balance(1_000);
+    let bob = User::new_with(alice.did, Sr25519Keyring::Bob);
     let check_name = |name| {
         assert_eq!(
             Portfolios::<TestStorage>::get(&alice.did, &PortfolioNumber(1)),
@@ -417,8 +417,8 @@ fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> R
 #[test]
 fn sub_batch_with_root_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         let k = b"a".to_vec();
         let call = RuntimeCall::System(frame_system::Call::set_storage {
             items: vec![(k.clone(), k.clone())],
@@ -451,8 +451,8 @@ fn sub_batch_with_root_works() {
 #[test]
 fn sub_batch_with_signed_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
         assert_eq!(Balances::free_balance(ferdie.acc()), 10);
         assert_ok!(Utility::batch(
@@ -467,7 +467,7 @@ fn sub_batch_with_signed_works() {
 #[test]
 fn sub_batch_with_signed_filters() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         assert_ok!(Utility::batch(
             charlie.origin(),
             vec![RuntimeCall::Example(ExampleCall::noop2 {})]
@@ -485,7 +485,7 @@ fn sub_batch_with_signed_filters() {
 #[test]
 fn sub_batch_handles_weight_refund() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let start_weight = Weight::from_parts(100, 0);
         let end_weight = Weight::from_parts(75, 0);
         let diff = start_weight - end_weight;
@@ -578,8 +578,8 @@ fn sub_batch_handles_weight_refund() {
 #[test]
 fn sub_batch_all_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
         assert_eq!(Balances::free_balance(ferdie.acc()), 10);
         assert_ok!(Utility::batch_all(
@@ -594,8 +594,8 @@ fn sub_batch_all_works() {
 #[test]
 fn sub_batch_all_revert() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         let call = transfer(ferdie.acc(), 5);
         let info = call.get_dispatch_info();
 
@@ -628,7 +628,7 @@ fn sub_batch_all_revert() {
 #[test]
 fn sub_batch_all_handles_weight_refund() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         let start_weight = Weight::from_parts(100, 0);
         let end_weight = Weight::from_parts(75, 0);
         let diff = start_weight - end_weight;
@@ -700,8 +700,8 @@ fn sub_batch_all_handles_weight_refund() {
 #[test]
 fn sub_batch_all_does_not_nest() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         let batch_all = RuntimeCall::Utility(UtilityCall::batch_all {
             calls: vec![
                 transfer(ferdie.acc(), 1),
@@ -752,7 +752,7 @@ fn sub_batch_all_does_not_nest() {
 #[test]
 fn sub_batch_limit() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         let calls = vec![RuntimeCall::System(SystemCall::remark { remark: vec![] }); 40_000];
         assert_noop!(
             Utility::batch(charlie.origin(), calls.clone()),
@@ -768,8 +768,8 @@ fn sub_batch_limit() {
 #[test]
 fn sub_force_batch_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
         assert_eq!(Balances::free_balance(ferdie.acc()), 10);
         assert_ok!(Utility::force_batch(
@@ -820,7 +820,7 @@ fn sub_none_origin_does_not_work() {
 #[test]
 fn sub_batch_doesnt_work_with_inherents() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         // fails because inherents expect the origin to be none.
         assert_ok!(Utility::batch(
             charlie.origin(),
@@ -851,7 +851,7 @@ fn sub_force_batch_doesnt_work_with_inherents() {
 #[test]
 fn sub_batch_all_doesnt_work_with_inherents() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         let batch_all = RuntimeCall::Utility(UtilityCall::batch_all {
             calls: vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 })],
         });
@@ -874,10 +874,10 @@ fn sub_batch_all_doesnt_work_with_inherents() {
 #[test]
 fn batch_works_with_committee_origin() {
     new_test_ext().execute_with(|| {
-        let proposer = User::new(AccountKeyring::Dave);
+        let proposer = User::new(Sr25519Keyring::Dave);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         set_members(vec![bob.did, charlie.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
@@ -908,10 +908,10 @@ fn batch_works_with_committee_origin() {
 #[test]
 fn force_batch_works_with_committee_origin() {
     new_test_ext().execute_with(|| {
-        let proposer = User::new(AccountKeyring::Dave);
+        let proposer = User::new(Sr25519Keyring::Dave);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         set_members(vec![bob.did, charlie.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
@@ -942,10 +942,10 @@ fn force_batch_works_with_committee_origin() {
 #[test]
 fn batch_all_works_with_committee_origin() {
     new_test_ext().execute_with(|| {
-        let proposer = User::new(AccountKeyring::Dave);
+        let proposer = User::new(Sr25519Keyring::Dave);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         set_members(vec![bob.did, charlie.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
@@ -1004,7 +1004,7 @@ fn sub_with_weight_works() {
 fn as_derivative() {
     new_test_ext().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let alice = User::new(AccountKeyring::Alice).balance(1_000_000);
+        let alice = User::new(Sr25519Keyring::Alice).balance(1_000_000);
         let derivative_alice_account = Utility::derivative_account_id(alice.acc(), 1).unwrap();
         Identity::unsafe_join_identity(
             alice.did,

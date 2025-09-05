@@ -10,7 +10,7 @@ use frame_support::{
 };
 use pallet_transaction_payment::ChargeTransactionPayment;
 use polymesh_primitives::Memo;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::SignedExtension;
 
 pub type Balances = balances::Pallet<TestStorage>;
@@ -37,7 +37,7 @@ fn signed_extension_charge_transaction_payment_work() {
         .build()
         .execute_with(|| {
             let len = 10;
-            let alice_id = AccountKeyring::Alice.to_account_id();
+            let alice_id = Sr25519Keyring::Alice.to_account_id();
 
             let call = runtime::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 
@@ -74,7 +74,7 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let alice_id = AccountKeyring::Alice.to_account_id();
+            let alice_id = Sr25519Keyring::Alice.to_account_id();
             let call = runtime::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
             let len = 10;
             assert!(
@@ -95,14 +95,14 @@ fn transfer_with_memo() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Ferdie.to_account_id()])
         .build()
         .execute_with(transfer_with_memo_we);
 }
 
 fn transfer_with_memo_we() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let bob = AccountKeyring::Bob.to_account_id();
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let bob = Sr25519Keyring::Bob.to_account_id();
 
     let memo_1 = Some(Memo([7u8; 32]));
     assert_ok!(Balances::transfer_with_memo(
@@ -139,8 +139,8 @@ fn transfer_with_memo_we() {
     assert_eq!(
         system_events.pop().unwrap().event,
         crate::storage::RuntimeEvent::Balances(BalancesRawEvent::TransferMemo {
-            from: AccountKeyring::Alice.to_account_id(),
-            to: AccountKeyring::Bob.to_account_id(),
+            from: Sr25519Keyring::Alice.to_account_id(),
+            to: Sr25519Keyring::Bob.to_account_id(),
             amount: 300,
             memo: None
         })
@@ -148,16 +148,16 @@ fn transfer_with_memo_we() {
     assert_eq!(
         system_events.pop().unwrap().event,
         crate::storage::RuntimeEvent::Balances(BalancesRawEvent::Transfer {
-            from: AccountKeyring::Alice.to_account_id(),
-            to: AccountKeyring::Bob.to_account_id(),
+            from: Sr25519Keyring::Alice.to_account_id(),
+            to: Sr25519Keyring::Bob.to_account_id(),
             amount: 300,
         })
     );
     assert_eq!(
         system_events.pop().unwrap().event,
         crate::storage::RuntimeEvent::Balances(BalancesRawEvent::TransferMemo {
-            from: AccountKeyring::Alice.to_account_id(),
-            to: AccountKeyring::Bob.to_account_id(),
+            from: Sr25519Keyring::Alice.to_account_id(),
+            to: Sr25519Keyring::Bob.to_account_id(),
             amount: 200,
             memo: memo_2
         })
@@ -165,8 +165,8 @@ fn transfer_with_memo_we() {
     assert_eq!(
         system_events.pop().unwrap().event,
         crate::storage::RuntimeEvent::Balances(BalancesRawEvent::Transfer {
-            from: AccountKeyring::Alice.to_account_id(),
-            to: AccountKeyring::Bob.to_account_id(),
+            from: Sr25519Keyring::Alice.to_account_id(),
+            to: Sr25519Keyring::Bob.to_account_id(),
             amount: 200,
         })
     );

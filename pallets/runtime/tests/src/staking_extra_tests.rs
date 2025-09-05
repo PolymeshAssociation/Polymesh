@@ -1,5 +1,5 @@
 use frame_support::assert_ok;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use polymesh_primitives::{AuthorizationData, Permissions};
 
@@ -10,13 +10,13 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
 fn updating_controller() {
-    let charlie = vec![AccountKeyring::Charlie.to_account_id()];
+    let charlie = vec![Sr25519Keyring::Charlie.to_account_id()];
     ExtBuilder::default()
         .cdd_providers(charlie)
         .build()
         .execute_with(|| {
-            let alice: User = User::new(AccountKeyring::Alice);
-            let eve: User = User::new_with(alice.did, AccountKeyring::Eve);
+            let alice: User = User::new(Sr25519Keyring::Alice);
+            let eve: User = User::new_with(alice.did, Sr25519Keyring::Eve);
 
             add_secondary_key(alice.did, eve.acc());
 
@@ -48,7 +48,7 @@ fn updating_controller() {
             ));
 
             assert_ok!(pallet_identity::Pallet::<TestStorage>::revoke_claim(
-                Origin::signed(AccountKeyring::Charlie.to_account_id()),
+                Origin::signed(Sr25519Keyring::Charlie.to_account_id()),
                 alice.did,
                 polymesh_primitives::Claim::CustomerDueDiligence(Default::default())
             ));
