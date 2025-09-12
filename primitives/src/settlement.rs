@@ -134,9 +134,16 @@ impl_checked_inc!(InstructionId);
 impl InstructionId {
     /// Converts an instruction id into [`TaskName`].
     pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
-        (SETTLEMENT_INSTRUCTION_EXECUTION, self.0)
-            .encode()
-            .try_into()
+        let mut task_name: TaskName = [0; 32];
+
+        let encoded_task = (SETTLEMENT_INSTRUCTION_EXECUTION, self.0).encode();
+
+        if encoded_task.len() >= task_name.len() {
+            return Err(b"Task name too long".to_vec());
+        }
+
+        task_name[..encoded_task.len()].copy_from_slice(&encoded_task[..]);
+        Ok(task_name)
     }
 }
 
