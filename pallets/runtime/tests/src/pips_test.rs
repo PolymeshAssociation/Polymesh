@@ -9,7 +9,8 @@ use super::{
 };
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::DispatchResult,
+    pallet_prelude::DispatchError,
     traits::{LockableCurrency, WithdrawReasons},
 };
 use frame_system::{self, EventRecord};

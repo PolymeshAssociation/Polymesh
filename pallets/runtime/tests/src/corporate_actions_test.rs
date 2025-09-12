@@ -1,41 +1,39 @@
-use super::{
-    asset_test::max_len_bytes,
-    storage::{root, Balance, Checkpoint, MaxDidWhts, MaxTargetIds, TestStorage, User},
-    ExtBuilder,
-};
-use crate::asset_pallet::setup::create_and_issue_sample_asset;
-use crate::asset_test::{check_schedules, next_schedule_id, set_timestamp};
+use std::convert::TryInto;
+
 use core::iter;
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
-};
-use pallet_asset::checkpoint::{
-    CheckpointIdSequence, ScheduleIdSequence, SchedulePoints, ScheduleRefCount, Timestamps,
-};
-use pallet_asset::{Assets, BalanceOf};
-use pallet_corporate_actions::{
-    ballot::{
-        BallotMeta, BallotTimeRange, BallotVote, Metas, Motion, MotionNumChoices, Results,
-        TimeRanges, Votes, RCV,
-    },
-    distribution::{self, Distribution, Distributions, PER_SHARE_PRECISION},
-    CACheckpoint, CADetails, CADocLink, CAId, CAKind, CorporateAction, DefaultTargetIdentities,
-    DefaultWithholdingTax, DidWithholdingTax, LocalCAId, MaxDetailsLength, RecordDate,
-    RecordDateSpec, TargetIdentities, TargetTreatment,
-    TargetTreatment::{Exclude, Include},
-    Tax,
-};
-use polymesh_common_utilities::checkpoint::{ScheduleCheckpoints, ScheduleId};
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{
-    agent::AgentGroup, asset::CheckpointId, constants::currency::ONE_UNIT, AuthorizationData,
-    Claim, ClaimType, Condition, ConditionType, CountryCode, Document, DocumentId, IdentityId,
-    Moment, PortfolioId, PortfolioNumber, Scope, Signatory, TrustedFor, TrustedIssuer,
-};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
 use sp_arithmetic::Permill;
 use sp_keyring::Sr25519Keyring;
-use std::convert::TryInto;
+
+use pallet_asset::checkpoint::{CheckpointIdSequence, ScheduleIdSequence};
+use pallet_asset::checkpoint::{SchedulePoints, ScheduleRefCount, Timestamps};
+use pallet_asset::{Assets, BalanceOf};
+use pallet_corporate_actions::ballot::{BallotMeta, BallotTimeRange, BallotVote};
+use pallet_corporate_actions::ballot::{Metas, Motion, MotionNumChoices, Results};
+use pallet_corporate_actions::ballot::{TimeRanges, Votes, RCV};
+use pallet_corporate_actions::distribution::{self, Distribution};
+use pallet_corporate_actions::distribution::{Distributions, PER_SHARE_PRECISION};
+use pallet_corporate_actions::TargetTreatment::{Exclude, Include};
+use pallet_corporate_actions::{CACheckpoint, CADetails, DefaultWithholdingTax};
+use pallet_corporate_actions::{CADocLink, CAId, CAKind, CorporateAction, DefaultTargetIdentities};
+use pallet_corporate_actions::{DidWithholdingTax, LocalCAId, MaxDetailsLength, RecordDate};
+use pallet_corporate_actions::{RecordDateSpec, TargetIdentities, TargetTreatment, Tax};
+use polymesh_common_utilities::checkpoint::{ScheduleCheckpoints, ScheduleId};
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::CheckpointId;
+use polymesh_primitives::constants::currency::ONE_UNIT;
+use polymesh_primitives::{AuthorizationData, Claim, ClaimType, Condition};
+use polymesh_primitives::{ConditionType, CountryCode, Document};
+use polymesh_primitives::{DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber};
+use polymesh_primitives::{Scope, Signatory, TrustedFor, TrustedIssuer};
+
+use super::asset_test::max_len_bytes;
+use super::storage::{root, Balance, Checkpoint, MaxDidWhts, MaxTargetIds, TestStorage, User};
+use super::ExtBuilder;
+use crate::asset_pallet::setup::create_and_issue_sample_asset;
+use crate::asset_test::{check_schedules, next_schedule_id, set_timestamp};
 
 type System = frame_system::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;

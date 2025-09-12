@@ -45,7 +45,7 @@ polymesh-exec-macro = { path = "exec_macro" }
 # General
 serde = { version = "1.0", default-features = false }
 rand = { version = "0.8", default-features = false }
-chrono = { version = "0.4", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["now"]}
 smallvec = "1.4"
 lazy_static = "1.4"
 parking_lot = "0.12"
@@ -84,7 +84,7 @@ sp-authority-discovery = { workspace = true, default-features = false }
 sp-block-builder = { workspace = true, default-features = false }
 sp-consensus-babe = { workspace = true, default-features = false }
 sp-consensus-grandpa = { workspace = true, default-features = false }
-sp-core = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false, features = ["full_crypto"] }
 sp-genesis-builder = { workspace = true, default-features = false }
 sp-inherents = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }

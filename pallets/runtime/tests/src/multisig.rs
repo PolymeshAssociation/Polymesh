@@ -509,7 +509,7 @@ fn rotate_multisig_primary_key_with_balance() {
         assert_eq!(get_primary_key(alice.did), ms_address);
 
         // Fund the MultiSig.
-        assert_ok!(Balances::transfer(
+        assert_ok!(Balances::transfer_allow_death(
             bob.origin(),
             ms_address.clone().into(),
             2 * POLY

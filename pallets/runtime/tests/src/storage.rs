@@ -20,7 +20,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::generic::Era;
 use sp_runtime::testing::UintAuthorityId;
-use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Extrinsic, IdentityLookup};
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT, IdentityLookup};
 use sp_runtime::traits::{NumberFor, OpaqueKeys, StaticLookup, Verify};
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
 use sp_runtime::{AnySignature, Cow, KeyTypeId, Perbill, Permill};
@@ -52,7 +52,6 @@ use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_session::historical as pallet_session_historical;
 
@@ -488,7 +487,7 @@ pub type EventTest = RuntimeEvent;
 type Hash = H256;
 type Hashing = BlakeTwo256;
 type Lookup = IdentityLookup<AccountId>;
-type OffChainSignature = AnySignature;
+pub(crate) type OffChainSignature = AnySignature;
 type AuthorityId = <AnySignature as Verify>::Signer;
 pub(crate) type Balance = u128;
 

@@ -1,5 +1,7 @@
 use chrono::prelude::Utc;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::UnixTime;
 use frame_support::{assert_noop, assert_ok};
 use rand::Rng;
 use sp_consensus_babe::Slot;
@@ -351,7 +353,7 @@ fn checkpoints_fuzz_test() {
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
             for j in 1..100 {
-                let transfers = rng.gen_range(0, 10);
+                let transfers = rng.gen_range(0..10);
                 owner_balance[j] = owner_balance[j - 1];
                 bob_balance[j] = bob_balance[j - 1];
                 for _k in 0..transfers {
@@ -729,7 +731,10 @@ fn next_checkpoint_is_updated_we() {
         };
         let period_ms = period_secs * 1000;
         set_timestamp(start);
-        assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
+        assert_eq!(
+            start as u128,
+            <TestStorage as AssetConfig>::UnixTime::now().as_millis()
+        );
 
         let owner = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
@@ -798,7 +803,10 @@ fn non_recurring_schedule_works_we() {
         // Non-recuring schedule.
         let period = CalendarPeriod::default();
         set_timestamp(start);
-        assert_eq!(start, <TestStorage as AssetConfig>::UnixTime::now());
+        assert_eq!(
+            start as u128,
+            <TestStorage as AssetConfig>::UnixTime::now().as_millis()
+        );
 
         let owner = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
