@@ -1,16 +1,17 @@
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
 use frame_system::{EventRecord, Phase};
+use sp_core::H256;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::Hash;
+use std::convert::TryFrom;
+
 use pallet_committee::{self as committee, Event as CommitteeRawEvent, Members};
 use pallet_committee::{PolymeshVotes, Proposals, ReleaseCoordinator, VoteThreshold, Voting};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{PipId, ProposalState, ProposalStates, SnapshotResult};
 use polymesh_primitives::{IdentityId, MaybeBlock};
-use sp_core::H256;
-use sp_keyring::Sr25519Keyring;
-use sp_runtime::traits::Hash;
-use std::convert::TryFrom;
 
 use super::ext_builder::{ExtBuilder, COOL_OFF_PERIOD};
 use super::storage::{fast_forward_blocks, get_identity_id, register_keyring_account};
