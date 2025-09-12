@@ -1,18 +1,17 @@
 use codec::Encode;
-use frame_support::dispatch::{DispatchError, Weight};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::weights::Weight;
 use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
-use polymesh_contracts::{
-    Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
-};
+use polymesh_contracts::{Api, ApiCodeHash, ApiNextUpgrade};
+use polymesh_contracts::{ChainVersion, ExtrinsicId, NextUpgrade};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::Hash;
 
 use pallet_asset::TickersOwnedByUser;
 use pallet_identity::ParentDid;
-use polymesh_primitives::{
-    constants::currency::POLY, ExtrinsicPermissions, Gas, Permissions, PortfolioPermissions,
-    SubsetRestriction, Ticker,
-};
+use polymesh_primitives::constants::currency::POLY;
+use polymesh_primitives::{ExtrinsicPermissions, SubsetRestriction, Ticker};
+use polymesh_primitives::{Gas, Permissions, PortfolioPermissions};
 use polymesh_runtime_common::Currency;
 
 use crate::ext_builder::ExtBuilder;

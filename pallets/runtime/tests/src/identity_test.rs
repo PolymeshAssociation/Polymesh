@@ -704,7 +704,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     add_secondary_key(alice.did, bob.acc());
 
     // Fund the multisig
-    assert_ok!(Balances::transfer(
+    assert_ok!(Balances::transfer_allow_death(
         alice.origin(),
         ms_address.clone().into(),
         2 * POLY
@@ -749,7 +749,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     );
 
     // Transfer funds back to Alice
-    assert_ok!(Balances::transfer(
+    assert_ok!(Balances::transfer_allow_death(
         Origin::signed(ms_address.clone()),
         alice.acc().into(),
         2 * POLY
@@ -814,7 +814,7 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
 
     // send funds to multisig
-    assert_ok!(Balances::transfer(
+    assert_ok!(Balances::transfer_allow_death(
         alice.origin(),
         ms_address.clone().into(),
         2 * POLY
@@ -831,7 +831,7 @@ fn leave_identity_test_with_externalities() {
     );
 
     // send funds back to alice from multisig
-    assert_ok!(Balances::transfer(
+    assert_ok!(Balances::transfer_allow_death(
         Origin::signed(ms_address.clone()),
         alice.acc().into(),
         2 * POLY

@@ -1,14 +1,14 @@
-use super::{
-    storage::{get_identity_id, register_keyring_account, TestStorage},
-    ExtBuilder,
-};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::{assert_noop, assert_ok};
+use sp_keyring::Sr25519Keyring;
+
 use pallet_group::{self as group};
 use pallet_identity as identity;
 use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::IdentityId;
 
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
-use sp_keyring::Sr25519Keyring;
+use super::storage::{get_identity_id, register_keyring_account, TestStorage};
+use super::ExtBuilder;
 
 type CommitteeGroup = group::Pallet<TestStorage, group::Instance1>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;

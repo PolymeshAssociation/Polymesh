@@ -1,18 +1,18 @@
-use super::{
-    asset_pallet::setup::create_and_issue_sample_asset,
-    asset_test::set_timestamp,
-    exec_noop, exec_ok,
-    storage::{TestStorage, User},
-    ExtBuilder,
-};
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::UnixTime;
+use frame_support::{assert_noop, assert_ok};
+use sp_keyring::Sr25519Keyring;
+
 use pallet_asset::{AssetMetadataGlobalNameToKey, AssetMetadataLocalNameToKey};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::asset_metadata::{
-    AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
-    AssetMetadataValue, AssetMetadataValueDetail,
-};
-use sp_keyring::Sr25519Keyring;
+use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataLockStatus};
+use polymesh_primitives::asset_metadata::{AssetMetadataName, AssetMetadataValueDetail};
+use polymesh_primitives::asset_metadata::{AssetMetadataSpec, AssetMetadataValue};
+
+use super::asset_pallet::setup::create_and_issue_sample_asset;
+use super::asset_test::set_timestamp;
+use super::storage::{TestStorage, User};
+use super::{exec_noop, exec_ok, ExtBuilder};
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
@@ -537,7 +537,7 @@ fn check_locked_until() {
             details.clone()
         ));
 
-        let unlock_timestamp = Timestamp::now() + 1_000_000_000;
+        let unlock_timestamp = Timestamp::now().as_millis() as u64 + 1_000_000_000;
         let details_locked_until = AssetMetadataValueDetail {
             expire: None,
             lock_status: AssetMetadataLockStatus::LockedUntil(unlock_timestamp),

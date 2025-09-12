@@ -32,7 +32,7 @@ fn verify_ticker_characters() {
     // Generates 10 random valid tickers
     for _ in 0..10 {
         let valid_ticker: Vec<u8> = (0..TICKER_LEN + 1)
-            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
+            .map(|_| all_valid_characters[rng.gen_range(0..all_valid_characters.len())])
             .collect();
         assert_ok!(Asset::verify_ticker_characters(
             &Ticker::from_slice_truncated(&valid_ticker)
@@ -46,10 +46,9 @@ fn verify_ticker_characters() {
     // Generates 10 random invalid tickers
     for _ in 0..10 {
         let mut invalid_ticker: Vec<u8> = (0..TICKER_LEN - 1)
-            .map(|_| all_valid_characters[rng.gen_range(0, all_valid_characters.len())])
+            .map(|_| all_valid_characters[rng.gen_range(0..all_valid_characters.len())])
             .collect();
-        invalid_ticker.push(all_invalid_characters[rng.gen_range(0, all_invalid_characters.len())]);
-
+        invalid_ticker.push(all_invalid_characters[rng.gen_range(0..all_invalid_characters.len())]);
         assert_eq!(
             Asset::verify_ticker_characters(&Ticker::from_slice_truncated(&invalid_ticker))
                 .unwrap_err(),
