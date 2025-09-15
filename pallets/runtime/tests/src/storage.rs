@@ -7,11 +7,9 @@ use std::convert::From;
 use codec::Encode;
 use frame_support::traits::{Currency, Imbalance, KeyOwnerProofSystem};
 use frame_support::traits::{OnInitialize, OnUnbalanced, TryCollect};
+use frame_support::weights::RuntimeDbWeight;
 use frame_support::weights::Weight;
-use frame_support::weights::{RuntimeDbWeight, WeightToFeeCoefficient};
-use frame_support::weights::{WeightToFeeCoefficients, WeightToFeePolynomial};
 use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
-use smallvec::smallvec;
 use sp_core::crypto::{key_types, Pair as PairTrait};
 use sp_core::sr25519::Pair;
 use sp_core::Get;
@@ -55,7 +53,7 @@ use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_session::historical as pallet_session_historical;
 
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE};
 
 type Runtime = TestStorage;
 
@@ -581,20 +579,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     }
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
-    }
-}
-
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        smallvec![WeightToFeeCoefficient {
-            degree: 1,
-            coeff_frac: Perbill::zero(),
-            coeff_integer: WEIGHT_TO_FEE.with(|v| *v.borrow()),
-            negative: false,
-        }]
     }
 }
 

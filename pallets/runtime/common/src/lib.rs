@@ -35,7 +35,7 @@ pub use frame_support::weights::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 pub use sp_runtime::transaction_validity::TransactionPriority;
-pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion};
+pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion, Saturating};
 
 pub use impls::Author;
 use polymesh_primitives::constants::currency::*;
@@ -198,9 +198,10 @@ impl frame_support::weights::WeightToFee for WeightToFee {
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
         let weight_ref_time = weight.ref_time();
 
-        Self::Balance::saturated_from(weight_ref_time)
-            .saturating_mul(PolyXBaseFee::get())
-            .max(PolyXBaseFee::get())
+        let fee = Perbill::from_rational(weight_ref_time, ExtrinsicBaseWeight::get().ref_time())
+            * PolyXBaseFee::get();
+
+        Self::Balance::saturated_from(fee)
     }
 }
 
