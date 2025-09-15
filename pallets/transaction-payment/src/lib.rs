@@ -871,10 +871,12 @@ where
 pub enum Val<T: Config> {
     Charge {
         tip: BalanceOf<T>,
-        // who paid the fee
+        // who called the transaction
         who: T::AccountId,
         // transaction fee
         fee: BalanceOf<T>,
+        // Polymesh Subsidiser account (who paid the fee)
+        subsidiser: Option<T::AccountId>,
     },
     NoCharge,
 }
@@ -888,6 +890,8 @@ pub enum Pre<T: Config> {
         who: T::AccountId,
         // imbalance resulting from withdrawing the fee
         imbalance: <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+        // Polymesh Subsidiser account (who paid the fee)
+        subsidiser: Option<T::AccountId>,
     },
     NoCharge {
         // weight initially estimated by the extension, to be refunded
@@ -953,8 +957,9 @@ where
 
         let val = Val::Charge {
             tip,
-            who: subsidiser.unwrap_or(caller_acc.clone()),
+            who: caller_acc.clone(),
             fee,
+            subsidiser,
         };
 
         Ok((valid_transaction, val, origin))
@@ -978,8 +983,9 @@ where
 
         let pre = Pre::Charge {
             tip,
-            who: subsidiser.unwrap_or(caller_acc.clone()),
+            who: caller_acc.clone(),
             imbalance,
+            subsidiser,
         };
 
         Ok(pre)
@@ -992,13 +998,14 @@ where
         len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance) = {
+        let (tip, who, imbalance, subsidiser) = {
             match pre {
                 Pre::Charge {
                     tip,
                     who,
                     imbalance,
-                } => (tip, who, imbalance),
+                    subsidiser,
+                } => (tip, who, imbalance, subsidiser),
                 Pre::NoCharge { .. } => return Ok(()),
             }
         };
@@ -1006,14 +1013,23 @@ where
         let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.
-        let payer_key = T::CddHandler::get_payer_from_context().unwrap_or(who.clone());
+        let payers_key = T::CddHandler::get_payer_from_context().unwrap_or(who.clone());
+
+        let fee_key = {
+            if let Some(subsidiser_acc) = subsidiser {
+                T::Subsidiser::debit_subsidy(&payers_key, actual_fee.into())?;
+                subsidiser_acc
+            } else {
+                payers_key
+            }
+        };
 
         T::OnChargeTransaction::correct_and_deposit_fee(
-            &payer_key, info, post_info, actual_fee, tip, imbalance,
+            &fee_key, info, post_info, actual_fee, tip, imbalance,
         )?;
 
         Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid {
-            who: payer_key,
+            who: fee_key,
             actual_fee,
             tip,
         });
