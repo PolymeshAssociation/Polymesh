@@ -39,11 +39,14 @@ macro_rules! misc_pallet_impls {
             ApplyExtrinsicResult, MultiSignature,
         };
 
+        #[cfg(not(feature = "testing"))]
+        type RuntimeBaseCallFilter = frame_support::traits::Everything;
+
         impl frame_system::Config for Runtime {
             /// The ubiquitous event type.
             type RuntimeEvent = RuntimeEvent;
             /// The basic call filter to use in dispatchable.
-            type BaseCallFilter = frame_support::traits::Everything;
+            type BaseCallFilter = RuntimeBaseCallFilter;
             /// Block & extrinsics weights: base values and limits.
             type BlockWeights = polymesh_runtime_common::RuntimeBlockWeights;
             /// The maximum length of a block (in bytes).
@@ -101,11 +104,11 @@ macro_rules! misc_pallet_impls {
             /// The maximum number of consumers allowed on a single account.
             type MaxConsumers = frame_support::traits::ConstU32<16>;
             /// The set code logic, just the default since we're not a parachain.
-			type SingleBlockMigrations = ();
-			type MultiBlockMigrator = ();
-			type PreInherents = ();
-			type PostInherents = ();
-			type PostTransactions = ();
+            type SingleBlockMigrations = ();
+            type MultiBlockMigrator = ();
+            type PreInherents = ();
+            type PostInherents = ();
+            type PostTransactions = ();
         }
 
         impl pallet_base::Config for Runtime {

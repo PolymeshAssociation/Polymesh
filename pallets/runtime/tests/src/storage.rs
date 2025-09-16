@@ -134,8 +134,9 @@ pub mod example {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(*_weight)]
-        pub fn noop(_origin: OriginFor<T>, _weight: Weight) -> DispatchResult {
+        #[pallet::weight(*weight)]
+        pub fn noop(_origin: OriginFor<T>, weight: Weight) -> DispatchResult {
+            let _ = weight;
             Ok(())
         }
 
@@ -680,6 +681,7 @@ impl pallet_identity::Config for TestStorage {
 impl example::Config for TestStorage {}
 
 pub struct TestBaseCallFilter;
+
 impl frame_support::traits::Contains<RuntimeCall> for TestBaseCallFilter {
     fn contains(c: &RuntimeCall) -> bool {
         match *c {
@@ -690,6 +692,7 @@ impl frame_support::traits::Contains<RuntimeCall> for TestBaseCallFilter {
         }
     }
 }
+
 type RuntimeBaseCallFilter = TestBaseCallFilter;
 
 pub struct TestSessionHandler;

@@ -38,4 +38,4 @@ pub(crate) mod storage;
 mod transaction_payment_test;
 mod transfer_compliance_test;
 mod treasury_test;
-//mod utility_test;
+mod utility_test;
