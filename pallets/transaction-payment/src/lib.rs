@@ -853,7 +853,7 @@ where
                     return Ok(self.0);
                 }
 
-                if Self::is_gc_or_cdd_member(who) {
+                if info.class == DispatchClass::Operational && Self::is_gc_or_cdd_member(who) {
                     return Ok(self.0);
                 }
 
