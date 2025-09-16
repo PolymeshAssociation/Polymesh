@@ -102,6 +102,7 @@ polymesh-build-tool = { workspace = true, default-features = false }
 default = ["std", "equalize"]
 disable_fees = ["pallet-transaction-payment/disable_fees"]
 equalize = []
+testing = []
 
 # Backends
 u64_backend = ["polymesh-primitives/u64_backend"]

@@ -70,7 +70,6 @@ sp-genesis-builder = { workspace = true, default-features = false }
 #
 pallet-authorship = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
-#pallet-contracts-primitives = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
@@ -106,6 +105,7 @@ polymesh-build-tool = { workspace = true, default-features = false }
 
 [features]
 default = ["std", "equalize"]
+testing = []
 disable_fees = ["pallet-transaction-payment/disable_fees"]
 equalize = []
 
