@@ -65,7 +65,6 @@ pallet-authority-discovery = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
-#pallet-contracts-primitives = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
@@ -104,7 +103,9 @@ wat = "1.0"
 sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 
 [features]
-default = ["std", "equalize"]
+default = ["std", "equalize", "testing"]
+
+testing = ["polymesh-runtime-common/testing"]
 
 equalize = []
 only-staking = []
