@@ -35,7 +35,7 @@ mod signed_extra;
 mod staking_extra_tests;
 mod sto_test;
 pub(crate) mod storage;
-//mod transaction_payment_test;
+mod transaction_payment_test;
 mod transfer_compliance_test;
 mod treasury_test;
 //mod utility_test;

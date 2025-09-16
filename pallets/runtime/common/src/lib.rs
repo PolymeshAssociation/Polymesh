@@ -198,8 +198,10 @@ impl frame_support::weights::WeightToFee for WeightToFee {
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
         let weight_ref_time = weight.ref_time();
 
-        let fee = Perbill::from_rational(weight_ref_time, ExtrinsicBaseWeight::get().ref_time())
-            * PolyXBaseFee::get();
+        let fees_per_base =
+            weight_ref_time.saturating_div(ExtrinsicBaseWeight::get().ref_time()) as Balance;
+
+        let fee = fees_per_base.saturating_mul(PolyXBaseFee::get());
 
         Self::Balance::saturated_from(fee)
     }
@@ -213,9 +215,7 @@ impl frame_support::weights::WeightToFee for LengthToFee {
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
         let weight_ref_time = weight.ref_time();
 
-        Self::Balance::saturated_from(weight_ref_time)
-            .saturating_mul(TransactionByteFee::get())
-            .max(TransactionByteFee::get())
+        Self::Balance::saturated_from(weight_ref_time).saturating_mul(TransactionByteFee::get())
     }
 }
 
