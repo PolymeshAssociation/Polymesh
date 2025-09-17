@@ -31,7 +31,7 @@ mod relayer_test;
 mod settlement_pallet;
 mod settlement_test;
 mod signed_extra;
-//mod staking;
+mod staking;
 mod staking_extra_tests;
 mod sto_test;
 pub(crate) mod storage;
