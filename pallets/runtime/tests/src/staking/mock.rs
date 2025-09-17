@@ -19,15 +19,19 @@
 
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 use frame_election_provider_support::{onchain, SequentialPhragmen, VoteWeight};
-
 use frame_support::traits::{ConstU64, EitherOfDiverse, FindAuthor, Get};
-use frame_support::traits::{Imbalance, OnUnbalanced, OneSessionHandler};
+use frame_support::traits::{Contains, Imbalance, OnUnbalanced, OneSessionHandler};
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{assert_ok, derive_impl, ord_parameter_types, parameter_types};
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
-use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::traits::Zero;
+use sp_runtime::{BuildStorage, Perbill};
 use sp_staking::offence::{OffenceDetails, OnOffenceHandler};
-use sp_staking::OnStakingUpdate;
+use sp_staking::{EraIndex, OnStakingUpdate, SessionIndex, StakingAccount};
+use sp_std::collections::btree_map::BTreeMap;
 
 use pallet_staking::{self as pallet_staking, *};
 
@@ -136,7 +140,7 @@ impl pallet_session::Config for Test {
     type SessionHandler = (OtherSessionHandler,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
-    type ValidatorIdOf = crate::StashOf<Test>;
+    type ValidatorIdOf = pallet_staking::StashOf<Test>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type DisablingStrategy =
         pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
@@ -203,16 +207,6 @@ parameter_types! {
     pub static AbsoluteMaxNominations: u32 = 16;
 }
 
-type VoterBagsListInstance = pallet_bags_list::Instance1;
-impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
-    // Staking is the source of truth for voter bags list, since they are not kept up to date.
-    type ScoreProvider = Staking;
-    type BagThresholds = BagThresholds;
-    type Score = VoteWeight;
-}
-
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
     type System = Test;
@@ -268,7 +262,7 @@ impl Contains<AccountId> for MockedRestrictList {
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl crate::pallet::pallet::Config for Test {
+impl Config for Test {
     type OldCurrency = Balances;
     type Currency = Balances;
     type UnixTime = Timestamp;
@@ -284,8 +278,8 @@ impl crate::pallet::pallet::Config for Test {
     type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
     type GenesisElectionProvider = Self::ElectionProvider;
     // NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
-    type VoterList = VoterBagsList;
-    type TargetList = UseValidatorsMap<Self>;
+    type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+    type TargetList = pallet_staking::UseValidatorsMap<Self>;
     type NominationsQuota = WeightedNominationsQuota<16>;
     type MaxUnlockingChunks = MaxUnlockingChunks;
     type HistoryDepth = HistoryDepth;
@@ -313,7 +307,7 @@ where
     }
 }
 
-pub(crate) type StakingCall = crate::Call<Test>;
+pub(crate) type StakingCall = Call<Test>;
 pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
 
 parameter_types! {
@@ -774,7 +768,7 @@ pub(crate) fn on_offence_in_era(
     slash_fraction: &[Perbill],
     era: EraIndex,
 ) {
-    let bonded_eras = crate::BondedEras::<Test>::get();
+    let bonded_eras = pallet_staking::BondedEras::<Test>::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
             let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
@@ -979,7 +973,7 @@ macro_rules! assert_session_era {
     };
 }
 
-pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
+pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Test>> {
     System::events()
         .into_iter()
         .map(|r| r.event)
@@ -1016,7 +1010,7 @@ ord_parameter_types! {
 
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 
-pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
+pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Test>> {
     let all: Vec<_> = System::events()
         .into_iter()
         .filter_map(|r| {

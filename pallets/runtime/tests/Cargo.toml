@@ -105,7 +105,7 @@ sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 [features]
 default = ["std", "equalize", "testing"]
 
-testing = ["polymesh-runtime-common/testing"]
+testing = ["polymesh-runtime-common/testing", "pallet-staking/testing"]
 
 equalize = []
 only-staking = []
