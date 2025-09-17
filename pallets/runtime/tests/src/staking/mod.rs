@@ -26,14 +26,18 @@ use frame_support::pallet_prelude::*;
 use frame_support::traits::{fungible::Inspect, Currency, Get, InspectLockableCurrency};
 use frame_support::traits::{LockableCurrency, ReservableCurrency, WithdrawReasons};
 use frame_support::{assert_noop, assert_ok, assert_storage_noop, hypothetically};
-use pallet_balances::Error as BalancesError;
+use pallet_staking::*;
+use pallet_staking::ledger::StakingLedgerInspect;
 use pallet_session::{disabling::UpToLimitWithReEnablingDisablingStrategy, Event as SessionEvent};
 use sp_runtime::traits::{BadOrigin, Dispatchable};
-use sp_runtime::{assert_eq_error_rate, bounded_vec, Perbill, Percent};
+use sp_runtime::{assert_eq_error_rate, bounded_vec, Percent, Perbill};
 use sp_runtime::{Perquintill, Rounding, TokenError};
 use sp_staking::offence::{OffenceDetails, OnOffenceHandler};
-use sp_staking::SessionIndex;
+use sp_staking::{SessionIndex, StakingAccount, PagedExposureMetadata, ExposurePage, EraIndex};
 use substrate_test_utils::assert_eq_uvec;
+use sp_std::collections::btree_map::BTreeMap;
+
+use pallet_balances::Error as BalancesError;
 
 use mock::*;
 
@@ -7500,7 +7504,7 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
             let actual_exposure_paged = EraInfo::<Test>::get_paged_exposure(1, &11, 0).unwrap();
             assert_eq!(actual_exposure_paged.others(), &clipped_exposure);
             assert_eq!(actual_exposure_paged.own(), 1000);
-            assert_eq!(actual_exposure_paged.exposure_metadata.page_count, 1);
+            assert_eq!(actual_exposure_paged.page_count(), 1);
 
             let actual_exposure_full = EraInfo::<Test>::get_full_exposure(1, &11);
             assert_eq!(actual_exposure_full.others, expected_individual_exposures);
@@ -9674,6 +9678,7 @@ mod getters {
     use crate::staking::mock::*;
     use pallet_staking::*;
     use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
+    use sp_runtime::Perbill;
 
     #[test]
     fn get_validator_count_returns_value_from_storage() {
@@ -9709,7 +9714,7 @@ mod getters {
     fn get_invulnerables_returns_value_from_storage() {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
-            let v: Vec<mock::AccountId> = vec![1, 2, 3];
+            let v: Vec<AccountId> = vec![1, 2, 3];
             Invulnerables::<Test>::put(v.clone());
 
             // when
@@ -9724,7 +9729,7 @@ mod getters {
     fn get_validators_returns_value_from_storage() {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
-            let account_id: mock::AccountId = 1;
+            let account_id: AccountId = 1;
             let validator_prefs = ValidatorPrefs::default();
 
             Validators::<Test>::insert(account_id, validator_prefs.clone());
@@ -9741,7 +9746,7 @@ mod getters {
     fn get_nominators_returns_value_from_storage() {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
-            let account_id: mock::AccountId = 1;
+            let account_id: AccountId = 1;
             let nominations: Nominations<Test> = Nominations {
                 targets: Default::default(),
                 submitted_in: Default::default(),
@@ -9817,8 +9822,8 @@ mod getters {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
             let era: EraIndex = 12;
-            let account_id: mock::AccountId = 1;
-            let exposure: Exposure<mock::AccountId, BalanceOf<Test>> = Exposure {
+            let account_id: AccountId = 1;
+            let exposure: Exposure<AccountId, BalanceOf<Test>> = Exposure {
                 total: 1125,
                 own: 1000,
                 others: vec![IndividualExposure {
@@ -9841,7 +9846,7 @@ mod getters {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
             let era: EraIndex = 12;
-            let account_id: mock::AccountId = 1;
+            let account_id: AccountId = 1;
             let rewards = Vec::<Page>::new();
             ClaimedRewards::<Test>::insert(era, account_id, rewards.clone());
 
@@ -9858,7 +9863,7 @@ mod getters {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
             let era: EraIndex = 12;
-            let account_id: mock::AccountId = 1;
+            let account_id: AccountId = 1;
             let validator_prefs = ValidatorPrefs::default();
 
             ErasValidatorPrefs::<Test>::insert(era, account_id, validator_prefs.clone());
@@ -9893,7 +9898,7 @@ mod getters {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
             let era: EraIndex = 12;
-            let reward_points = EraRewardPoints::<mock::AccountId> {
+            let reward_points = EraRewardPoints::<AccountId> {
                 total: 1,
                 individual: vec![(11, 1)].into_iter().collect(),
             };
@@ -9973,7 +9978,7 @@ mod getters {
     fn get_slashing_spans_returns_value_from_storage() {
         sp_io::TestExternalities::default().execute_with(|| {
             // given
-            let account_id: mock::AccountId = 1;
+            let account_id: AccountId = 1;
             let spans = slashing::SlashingSpans::new(2);
             SlashingSpans::<Test>::insert(account_id, spans);
 
