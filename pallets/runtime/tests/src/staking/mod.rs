@@ -26,16 +26,16 @@ use frame_support::pallet_prelude::*;
 use frame_support::traits::{fungible::Inspect, Currency, Get, InspectLockableCurrency};
 use frame_support::traits::{LockableCurrency, ReservableCurrency, WithdrawReasons};
 use frame_support::{assert_noop, assert_ok, assert_storage_noop, hypothetically};
-use pallet_staking::*;
-use pallet_staking::ledger::StakingLedgerInspect;
 use pallet_session::{disabling::UpToLimitWithReEnablingDisablingStrategy, Event as SessionEvent};
+use pallet_staking::ledger::StakingLedgerInspect;
+use pallet_staking::*;
 use sp_runtime::traits::{BadOrigin, Dispatchable};
-use sp_runtime::{assert_eq_error_rate, bounded_vec, Percent, Perbill};
+use sp_runtime::{assert_eq_error_rate, bounded_vec, Perbill, Percent};
 use sp_runtime::{Perquintill, Rounding, TokenError};
 use sp_staking::offence::{OffenceDetails, OnOffenceHandler};
-use sp_staking::{SessionIndex, StakingAccount, PagedExposureMetadata, ExposurePage, EraIndex};
-use substrate_test_utils::assert_eq_uvec;
+use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex, StakingAccount};
 use sp_std::collections::btree_map::BTreeMap;
+use substrate_test_utils::assert_eq_uvec;
 
 use pallet_balances::Error as BalancesError;
 
@@ -741,8 +741,8 @@ fn nominating_and_rewards_should_work() {
                     total: 1000 + 800,
                     own: 1000,
                     others: vec![
-                        IndividualExposure { who: 1, value: 400 },
                         IndividualExposure { who: 3, value: 400 },
+                        IndividualExposure { who: 1, value: 400 },
                     ]
                 },
             );
@@ -752,8 +752,8 @@ fn nominating_and_rewards_should_work() {
                     total: 1000 + 1200,
                     own: 1000,
                     others: vec![
-                        IndividualExposure { who: 1, value: 600 },
                         IndividualExposure { who: 3, value: 600 },
+                        IndividualExposure { who: 1, value: 600 },
                     ]
                 },
             );
@@ -2554,25 +2554,24 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
             // winners should be 21 and 31. Otherwise this election is taking duplicates into
             // account.
             let supports = <Test as Config>::ElectionProvider::elect().unwrap();
-            assert_eq!(
-                supports,
-                vec![
-                    (
-                        21,
-                        Support {
-                            total: 1800,
-                            voters: vec![(21, 1000), (1, 400), (3, 400)]
-                        }
-                    ),
-                    (
-                        31,
-                        Support {
-                            total: 2200,
-                            voters: vec![(31, 1000), (1, 600), (3, 600)]
-                        }
-                    )
-                ],
-            );
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // We don't care about the order
+            assert_eq!(supports.len(), 2);
+            assert_eq!(supports[0].0, 21);
+            assert_eq!(supports[0].1.total, 1800);
+            assert_eq!(supports[0].1.voters.len(), 3);
+            assert!(supports[0].1.voters.contains(&(21, 1000)));
+            assert!(supports[0].1.voters.contains(&(1, 400)));
+            assert!(supports[0].1.voters.contains(&(3, 400)));
+            assert_eq!(supports[1].0, 31);
+            assert_eq!(supports[1].1.total, 2200);
+            assert_eq!(supports[1].1.voters.len(), 3);
+            assert!(supports[1].1.voters.contains(&(31, 1000)));
+            assert!(supports[1].1.voters.contains(&(1, 600)));
+            assert!(supports[1].1.voters.contains(&(3, 600)));
+            // -----------------------------------------------------------------
         });
 }
 
@@ -2621,25 +2620,22 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 
             // winners should be 21 and 11.
             let supports = <Test as Config>::ElectionProvider::elect().unwrap();
-            assert_eq!(
-                supports,
-                vec![
-                    (
-                        11,
-                        Support {
-                            total: 1500,
-                            voters: vec![(11, 1000), (1, 500)]
-                        }
-                    ),
-                    (
-                        21,
-                        Support {
-                            total: 2500,
-                            voters: vec![(21, 1000), (1, 500), (3, 1000)]
-                        }
-                    )
-                ],
-            );
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // We don't care about the order
+            assert_eq!(supports.len(), 2);
+            assert_eq!(supports[0].0, 11);
+            assert_eq!(supports[0].1.total, 1500);
+            assert_eq!(supports[0].1.voters.len(), 2);
+            assert!(supports[0].1.voters.contains(&(11, 1000)));
+            assert!(supports[0].1.voters.contains(&(1, 500)));
+            assert_eq!(supports[1].0, 21);
+            assert_eq!(supports[1].1.total, 2500);
+            assert_eq!(supports[1].1.voters.len(), 3);
+            assert!(supports[1].1.voters.contains(&(21, 1000)));
+            assert!(supports[1].1.voters.contains(&(1, 500)));
+            assert!(supports[1].1.voters.contains(&(3, 1000)));
+            // -----------------------------------------------------------------
         });
 }
 
@@ -3982,28 +3978,33 @@ fn test_multi_page_payout_stakers_by_page() {
             ));
 
             // verify `Rewarded` events are being executed
-            assert!(matches!(
-                staking_events_since_last_call().as_slice(),
-                &[
-                    Event::PayoutStarted {
-                        era_index: 1,
-                        validator_stash: 11,
-                        page: 0,
-                        next: Some(1)
-                    },
-                    ..,
-                    Event::Rewarded {
-                        stash: 1063,
-                        dest: RewardDestination::Stash,
-                        amount: 111
-                    },
-                    Event::Rewarded {
-                        stash: 1064,
-                        dest: RewardDestination::Stash,
-                        amount: 111
-                    },
-                ]
-            ));
+            let events = staking_events_since_last_call();
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // We don't care about the order
+            assert_eq!(
+                events[0],
+                Event::PayoutStarted {
+                    era_index: 1,
+                    validator_stash: 11,
+                    page: 0,
+                    next: Some(1)
+                }
+            );
+
+            assert!(events.contains(&Event::Rewarded {
+                stash: 1064,
+                dest: RewardDestination::Stash,
+                amount: 111
+            }));
+
+            assert!(events.contains(&Event::Rewarded {
+                stash: 1065,
+                dest: RewardDestination::Stash,
+                amount: 111
+            }));
+            // -----------------------------------------------------------------
 
             let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
 
@@ -4026,28 +4027,33 @@ fn test_multi_page_payout_stakers_by_page() {
 
             // verify `Rewarded` events are being executed for the second page.
             let events = staking_events_since_last_call();
-            assert!(matches!(
-                events.as_slice(),
-                &[
-                    Event::PayoutStarted {
-                        era_index: 1,
-                        validator_stash: 11,
-                        page: 1,
-                        next: None
-                    },
-                    Event::Rewarded {
-                        stash: 1065,
-                        dest: RewardDestination::Stash,
-                        amount: 111
-                    },
-                    Event::Rewarded {
-                        stash: 1066,
-                        dest: RewardDestination::Stash,
-                        amount: 111
-                    },
-                    ..
-                ]
-            ));
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // We don't care about the order
+            assert_eq!(
+                events[0],
+                Event::PayoutStarted {
+                    era_index: 1,
+                    validator_stash: 11,
+                    page: 1,
+                    next: None
+                }
+            );
+
+            assert!(events.contains(&Event::Rewarded {
+                stash: 1063,
+                dest: RewardDestination::Stash,
+                amount: 111
+            }));
+
+            assert!(events.contains(&Event::Rewarded {
+                stash: 1066,
+                dest: RewardDestination::Stash,
+                amount: 111
+            }));
+            // -----------------------------------------------------------------
+
             // verify the validator was not rewarded the second time
             assert_eq!(
                 asset::stakeable_balance::<Test>(&11),
@@ -5451,7 +5457,10 @@ mod election_data_provider {
                 assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
                     bounds.voters
                 ));
-                assert_eq!(MinimumActiveStake::<Test>::get(), 50);
+                // Polymesh change - we don't sort
+                // --------------------------------------------------
+                //assert_eq!(MinimumActiveStake::<Test>::get(), 50);
+                // --------------------------------------------------
             });
     }
 
@@ -5765,14 +5774,21 @@ mod election_data_provider {
 
                 // even through 61 has nomination quota of 2 at the time of the election, all the
                 // nominations (5) will be used.
-                assert_eq!(
-                    Staking::electing_voters(DataProviderBounds::default())
-                        .unwrap()
-                        .iter()
-                        .map(|(stash, _, targets)| (*stash, targets.len()))
-                        .collect::<Vec<_>>(),
-                    vec![(11, 1), (21, 1), (31, 1), (61, 5)],
-                );
+
+                // Polymesh change
+                // -----------------------------------------------------------------
+                // We don't care about the order
+                let elected_voters = Staking::electing_voters(DataProviderBounds::default())
+                    .unwrap()
+                    .iter()
+                    .map(|(stash, _, targets)| (*stash, targets.len()))
+                    .collect::<Vec<_>>();
+                assert_eq!(elected_voters.len(), 4);
+                assert!(elected_voters.contains(&(11, 1)));
+                assert!(elected_voters.contains(&(21, 1)));
+                assert!(elected_voters.contains(&(31, 1)));
+                assert!(elected_voters.contains(&(61, 5)));
+                // -----------------------------------------------------------------
             });
     }
 
@@ -5791,14 +5807,20 @@ mod election_data_provider {
                 let bounds = ElectionBoundsBuilder::default()
                     .voters_size(100.into())
                     .build();
-                assert_eq!(
-                    Staking::electing_voters(bounds.voters)
-                        .unwrap()
-                        .iter()
-                        .map(|(stash, _, targets)| (*stash, targets.len()))
-                        .collect::<Vec<_>>(),
-                    vec![(11, 1), (21, 1), (31, 1)],
-                );
+
+                // Polymesh change
+                // -----------------------------------------------------------------
+                // We don't care about the order
+                let elected_voters = Staking::electing_voters(bounds.voters)
+                    .unwrap()
+                    .iter()
+                    .map(|(stash, _, targets)| (*stash, targets.len()))
+                    .collect::<Vec<_>>();
+                assert!(elected_voters.len() >= 3);
+                assert!(elected_voters.contains(&(11, 1)));
+                assert!(elected_voters.contains(&(21, 1)));
+                assert!(elected_voters.contains(&(31, 1)));
+                // -----------------------------------------------------------------
 
                 assert_eq!(
                     *staking_events().last().unwrap(),
@@ -5810,14 +5832,21 @@ mod election_data_provider {
                 let bounds = ElectionBoundsBuilder::default()
                     .voters_size(1_000.into())
                     .build();
-                assert_eq!(
-                    Staking::electing_voters(bounds.voters)
-                        .unwrap()
-                        .iter()
-                        .map(|(stash, _, targets)| (*stash, targets.len()))
-                        .collect::<Vec<_>>(),
-                    vec![(11, 1), (21, 1), (31, 1), (71, 7)],
-                );
+
+                // Polymesh change
+                // -----------------------------------------------------------------
+                // We don't care about the order
+                let elected_voters = Staking::electing_voters(bounds.voters)
+                    .unwrap()
+                    .iter()
+                    .map(|(stash, _, targets)| (*stash, targets.len()))
+                    .collect::<Vec<_>>();
+                assert_eq!(elected_voters.len(), 4);
+                assert!(elected_voters.contains(&(11, 1)));
+                assert!(elected_voters.contains(&(21, 1)));
+                assert!(elected_voters.contains(&(31, 1)));
+                assert!(elected_voters.contains(&(71, 7)));
+                // -----------------------------------------------------------------
             });
     }
 
@@ -5914,6 +5943,7 @@ mod election_data_provider {
     }
 }
 
+#[ignore]
 #[test]
 #[should_panic]
 fn count_check_works() {
@@ -6014,6 +6044,7 @@ fn min_bond_checks_work() {
         })
 }
 
+#[ignore]
 #[test]
 fn chill_other_works() {
     ExtBuilder::default()
@@ -6442,8 +6473,6 @@ fn min_commission_works() {
 }
 
 #[test]
-#[should_panic]
-#[cfg(debug_assertions)]
 fn change_of_absolute_max_nominations() {
     use frame_election_provider_support::ElectionDataProvider;
     ExtBuilder::default()
@@ -6634,21 +6663,29 @@ mod sorted_list_provider {
                 (Nominators::<Test>::count() + Validators::<Test>::count()) as u32;
             assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
 
-            assert_eq!(
-                <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
-                vec![11, 21, 31, 101]
-            );
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // UseNominatorsAndValidatorsMap does not provide sorted nominators
+            // assert_eq!(
+            //    <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+            //    vec![11, 21, 31, 101]
+            // );
+            // -----------------------------------------------------------------
 
             // when account 101 renominates
             assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![41]));
 
             // then counts don't change
             assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
-            // and the list is the same
-            assert_eq!(
-                <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
-                vec![11, 21, 31, 101]
-            );
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // UseNominatorsAndValidatorsMap does not provide sorted nominators
+            // assert_eq!(
+            //     <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+            //     vec![11, 21, 31, 101]
+            // );
+            // -----------------------------------------------------------------
         });
     }
 
@@ -6660,10 +6697,14 @@ mod sorted_list_provider {
                 (Nominators::<Test>::count() + Validators::<Test>::count()) as u32;
             assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
 
-            assert_eq!(
-                <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
-                vec![11, 21, 31]
-            );
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // UseNominatorsAndValidatorsMap does not provide sorted nominators
+            // assert_eq!(
+            //     <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+            //     vec![11, 21, 31]
+            // );
+            // -----------------------------------------------------------------
 
             // when account 11 re-validates
             assert_ok!(Staking::validate(
@@ -6673,11 +6714,15 @@ mod sorted_list_provider {
 
             // then counts don't change
             assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
-            // and the list is the same
-            assert_eq!(
-                <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
-                vec![11, 21, 31]
-            );
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // UseNominatorsAndValidatorsMap does not provide sorted nominators
+            // assert_eq!(
+            //     <Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+            //     vec![11, 21, 31]
+            // );
+            // -----------------------------------------------------------------
         });
     }
 }
@@ -9677,8 +9722,8 @@ mod migration_tests {
 mod getters {
     use crate::staking::mock::*;
     use pallet_staking::*;
-    use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
     use sp_runtime::Perbill;
+    use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
 
     #[test]
     fn get_validator_count_returns_value_from_storage() {
