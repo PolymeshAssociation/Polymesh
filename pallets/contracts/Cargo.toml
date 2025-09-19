@@ -45,8 +45,13 @@ std = [
     "wasm-instrument?/std",
 ]
 runtime-benchmarks = [
-    "wasm-instrument",
-    "frame-benchmarking",
+    "frame-benchmarking/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
     "pallet-contracts/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
+    "wasm-instrument",
 ]
 try-runtime = ["frame-support/try-runtime"]

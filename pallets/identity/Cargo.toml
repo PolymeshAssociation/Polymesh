@@ -23,9 +23,7 @@ schnorrkel = { version = "0.11", default-features = false, optional = true }
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { workspace = true, default-features = false }
-scale-info = { workspace = true, default-features = false, features = [
-    "derive",
-] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 frame-system = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
@@ -37,9 +35,7 @@ sp-version = { workspace = true, default-features = false }
 
 # Only Benchmarking
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
-hex = { version = "^0.4.0", default-features = false, features = [
-    "alloc",
-], optional = true }
+hex = { version = "^0.4.0", default-features = false, features = ["alloc"], optional = true }
 
 [features]
 equalize = []
@@ -66,5 +62,13 @@ std = [
     "sp-std/std",
     "sp-version/std",
 ]
-runtime-benchmarks = ["frame-benchmarking", "schnorrkel", "hex"]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
+    "schnorrkel",
+    "hex",
+]
 try-runtime = ["frame-support/try-runtime"]

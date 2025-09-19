@@ -153,9 +153,9 @@ pub mod pallet {
 #[derive(Decode, DecodeWithMemTracking, Encode)]
 #[derive(Clone, Default, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct StoreCallMetadata<T: Config + Send + Sync>(PhantomData<T>);
+pub struct StoreCallMetadata<T: Config>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> fmt::Debug for StoreCallMetadata<T> {
+impl<T: Config> fmt::Debug for StoreCallMetadata<T> {
     #[cfg(feature = "std")]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StoreCallMetadata<{:?}>", self.0)
@@ -167,7 +167,7 @@ impl<T: Config + Send + Sync> fmt::Debug for StoreCallMetadata<T> {
     }
 }
 
-impl<T: Config + Send + Sync> StoreCallMetadata<T> {
+impl<T: Config> StoreCallMetadata<T> {
     /// Constructs a new store for call metadata.
     pub fn new() -> Self {
         Self(Default::default())
