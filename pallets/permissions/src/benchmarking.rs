@@ -2,9 +2,11 @@ use crate::*;
 
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
+
 use frame_benchmarking::benchmarks;
-use polymesh_primitives::{ExtrinsicName, PalletName};
 use sp_std::{iter, prelude::*};
+
+use polymesh_primitives::{ExtrinsicName, PalletName};
 
 const MAX_PALLET_NAME_LENGTH: u32 = 512;
 const MAX_DISPATCHABLE_NAME_LENGTH: u32 = 1024;

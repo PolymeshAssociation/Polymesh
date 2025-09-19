@@ -32,6 +32,8 @@ std = [
     "polymesh-primitives/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+    "frame-benchmarking/std",
+    "pallet-identity/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime"]
