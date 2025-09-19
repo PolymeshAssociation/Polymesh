@@ -75,7 +75,10 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "pallet-committee/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
     "rand",
     "rand_chacha",
-    "pallet-committee",
 ]
