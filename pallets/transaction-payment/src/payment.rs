@@ -52,12 +52,6 @@ pub trait OnChargeTransaction<T: Config> {
         already_withdrawn: Self::LiquidityInfo,
     ) -> Result<(), TransactionValidityError>;
 
-    #[cfg(feature = "runtime-benchmarks")]
-    fn endow_account(who: &T::AccountId, amount: Self::Balance);
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn minimum_balance() -> Self::Balance;
-
     // Polymesh change
     // -----------------------------------------------------------------
     fn charge_fee(who: &T::AccountId, fee: Self::Balance) -> Result<(), TransactionValidityError>;
