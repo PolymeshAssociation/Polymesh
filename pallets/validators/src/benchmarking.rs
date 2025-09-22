@@ -16,28 +16,22 @@
 use super::*;
 use testing_utils::*;
 
-use frame_support::traits::Currency;
-use sp_runtime::{
-    traits::{One, StaticLookup},
-    Perbill, Saturating,
-};
+pub use frame_benchmarking::v1::{account, benchmarks, impl_benchmark_test_suite};
+pub use frame_benchmarking::v1::{whitelist_account, whitelisted_caller};
+use frame_support::traits::fungible::Balanced;
+use frame_system::RawOrigin;
+use sp_runtime::traits::{One, StaticLookup};
+use sp_runtime::{Perbill, Saturating};
 use sp_staking::SessionIndex;
 use sp_std::prelude::*;
 
-pub use frame_benchmarking::v1::{
-    account, benchmarks, impl_benchmark_test_suite, whitelist_account, whitelisted_caller,
-};
-use frame_system::RawOrigin;
-
-use pallet_staking::{
-    CurrentEra, EraRewardPoints, ErasRewardPoints, ErasValidatorReward, Nominators,
-    RewardDestination,
-};
-
-use crate::types::SlashingSwitch;
 use pallet_identity::benchmarking::UserBuilder;
+use pallet_staking::{CurrentEra, EraRewardPoints, ErasRewardPoints};
+use pallet_staking::{ErasValidatorReward, Nominators, RewardDestination};
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::Permissions;
+
+use crate::types::SlashingSwitch;
 
 pub fn get_did<T: Config>(who: &T::AccountId) -> IdentityId {
     pallet_identity::Pallet::<T>::get_identity(who).expect("Failed to get identity id")
