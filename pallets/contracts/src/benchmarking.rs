@@ -236,7 +236,7 @@ where
                     Instruction::I32Const(input.len() as i32),
                     Instruction::Call(0),
                     Instruction::Drop,
-                ]
+                ],
             )),
             ..Default::default()
         });
