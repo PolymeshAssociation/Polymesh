@@ -23,21 +23,21 @@
 
 use codec::Decode;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::{Currency, Get, OnInitialize};
+use frame_support::traits::OnInitialize;
 use frame_system::pallet_prelude::BlockNumberFor;
 use frame_system::RawOrigin;
-use pallet_session::{Call, Pallet as Session};
-use pallet_staking::benchmarking::create_validator_with_nominators;
-use pallet_staking::RewardDestination;
+use sp_core::Get;
 use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
 use sp_std::vec;
 
+use pallet_session::historical::Config as HistoricalConfig;
+use pallet_session::{Call, Config as SessionConfig, Pallet as Session};
+use pallet_staking::benchmarking::create_validator_with_nominators;
+use pallet_staking::{Config as StakingConfig, MaxNominationsOf, RewardDestination};
+
 pub struct Pallet<T: Config>(Session<T>);
-pub trait Config:
-    pallet_session::Config + pallet_session::historical::Config + pallet_staking::Config
-{
-}
+pub trait Config: SessionConfig + HistoricalConfig + StakingConfig {}
 
 impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
     fn on_initialize(n: BlockNumberFor<T>) -> frame_support::weights::Weight {
@@ -52,15 +52,10 @@ struct ValidatorInfo<T: Config> {
 }
 
 impl<T: Config> ValidatorInfo<T> {
-    pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str>
-    where
-        <<T as pallet_staking::Config>::Currency as Currency<
-            <T as frame_system::Config>::AccountId,
-        >>::Balance: From<u128>,
-    {
+    pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str> {
         let stash = create_validator_with_nominators::<T>(
             nominators,
-            <T as pallet_staking::Config>::MaxNominations::get(),
+            MaxNominationsOf::<T>::get(),
             false,
             false,
             RewardDestination::Staked,
@@ -85,13 +80,8 @@ impl<T: Config> ValidatorInfo<T> {
 }
 
 benchmarks! {
-    where_clause {
-        where
-            <<T as pallet_staking::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance: From<u128>,
-    }
-
     set_keys {
-        let n = <T as pallet_staking::Config>::MaxNominations::get() as u32;
+        let n = MaxNominationsOf::<T>::get();
         let validator = ValidatorInfo::<T>::build(n).unwrap();
         let proof = validator.proof.clone();
         let keys = validator.keys.clone();
@@ -99,7 +89,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(validator.controller), keys, proof)
 
     purge_keys {
-        let n = <T as pallet_staking::Config>::MaxNominations::get() as u32;
+        let n = MaxNominationsOf::<T>::get();
         let validator = ValidatorInfo::<T>::build(n).unwrap();
         let controller = RawOrigin::Signed(validator.controller.clone());
 
