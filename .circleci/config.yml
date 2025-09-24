@@ -425,7 +425,6 @@ jobs:
             --package pallet-pips
             --package polymesh-primitives
             --package node-rpc-runtime-api
-            --package pallet-transaction-payment
             --package polymesh-runtime-tests
             --package asset-metadata
           no_output_timeout: 30m
