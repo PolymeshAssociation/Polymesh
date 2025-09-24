@@ -8236,7 +8236,6 @@ dependencies = [
  "pallet-utility",
  "pallet-validators",
  "parity-scale-codec",
- "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
@@ -8261,6 +8260,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
