@@ -54,7 +54,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: Cow::Borrowed("polymesh_dev"),
     impl_name: Cow::Borrowed("polymesh_dev"),
     authoring_version: 1,
-    spec_version: 8_000_000, // `spec_version: aaa_bbb_ccd` should match node version `aaa.bbb.cc`
+    // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
+    spec_version: 8_000_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -510,7 +511,7 @@ mod benches {
         [pallet_validators, Validators]
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
-        [pallet_contracts, Contracts]
+        //[pallet_contracts, Contracts]
     );
 }
 
