@@ -52,7 +52,7 @@ std = [
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = [
-	"frame-benchmarking/std",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
