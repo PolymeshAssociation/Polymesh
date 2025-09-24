@@ -517,10 +517,10 @@ mod benches {
 polymesh_runtime_common::runtime_apis! {
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
-        #[allow(non_local_definitions)]
+        #[allow(non_local_definitions, deprecated)]
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
-        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{baseline, BenchmarkBatch};
             use frame_support::traits::TrackedStorageKey;
 
