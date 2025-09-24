@@ -267,7 +267,7 @@ sp-transaction-pool = { version = "36.0.0", default-features = false }
 sp-weights = { version = "31.1.0", default-features = false }
 sp-version = { version = "39.0.0", default-features = false }
 substrate-test-utils = { version = "3.0.0", default-features = false }
-substrate-wasm-builder = { version = "26.0.1", default-features = false }
+substrate-wasm-builder = { version = "26.0.1", default-features = true }
 substrate-frame-rpc-system = { version = "44.0.0", default-features = false }
 
 # Substrate client deps.

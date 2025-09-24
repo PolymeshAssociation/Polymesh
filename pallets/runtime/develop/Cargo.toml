@@ -45,7 +45,7 @@ polymesh-contracts = { workspace = true, default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
-log = "0.4.8"
+log = { version = "0.4.8", default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -98,13 +98,13 @@ node-rpc-runtime-api = { workspace = true, default-features = false }
 # Used for runtime benchmarking
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
 frame-system-benchmarking = { workspace = true, default-features = false, optional = true }
-hex-literal = { version = "0.3.1", optional = true }
+hex-literal = { version = "0.3.1", default-features = false, optional = true }
 
 # Import 'getrandom' here to enable feature `getrandom/js` for wasm builds.
 getrandom = { version = "0.2.6", default-features = false, optional = true }
 
 [build-dependencies]
-polymesh-build-tool = { workspace = true, default-features = false }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std", "equalize"]
@@ -155,7 +155,7 @@ std = [
     "pallet-transaction-payment/std",
     "pallet-utility/std",
     "pallet-validators/std",
-    "polymesh-build-tool/std",
+    "substrate-wasm-builder",
     "polymesh-contracts/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",

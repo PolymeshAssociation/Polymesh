@@ -44,7 +44,6 @@ pub use pallet_timestamp::Call as TimestampCall;
 /// 100% goes to the block author.
 pub type DealWithFees = Author<Runtime>;
 pub type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
-
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
