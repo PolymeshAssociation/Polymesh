@@ -8160,7 +8160,6 @@ dependencies = [
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
- "getrandom 0.2.16",
  "hex-literal 0.3.4",
  "log",
  "node-rpc-runtime-api",

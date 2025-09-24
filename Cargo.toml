@@ -426,6 +426,4 @@ runtime-benchmarks = [
 # Only build a "ci" runtime.
 ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
 
-std = [
-    "serde/std"
-]
+std = ["serde/std"]

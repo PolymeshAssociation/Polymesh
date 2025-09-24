@@ -100,9 +100,6 @@ frame-benchmarking = { workspace = true, default-features = false, optional = tr
 frame-system-benchmarking = { workspace = true, default-features = false, optional = true }
 hex-literal = { version = "0.3.1", default-features = false, optional = true }
 
-# Import 'getrandom' here to enable feature `getrandom/js` for wasm builds.
-getrandom = { version = "0.2.6", default-features = false, optional = true }
-
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
@@ -173,7 +170,6 @@ runtime-benchmarks = [
     "frame-election-provider-support/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
-    "getrandom/js",
     "hex-literal",
     "pallet-asset/runtime-benchmarks",
     "pallet-babe/runtime-benchmarks",

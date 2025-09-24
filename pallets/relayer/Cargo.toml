@@ -32,7 +32,7 @@ std = [
     "polymesh-primitives/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking/std",
+    "frame-benchmarking/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
 ]
