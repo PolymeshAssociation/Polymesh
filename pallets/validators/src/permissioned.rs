@@ -82,6 +82,17 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         .expect("Failed to join identity as key");
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_who_to_slash(who_to_slash: Option<WhoToSlash>) {
+        match who_to_slash {
+            Some(WhoToSlash::ValidatorAndNominator) => {
+                SlashingAllowedFor::<T>::put(SlashingSwitch::ValidatorAndNominator)
+            }
+            Some(WhoToSlash::Validator) => SlashingAllowedFor::<T>::put(SlashingSwitch::Validator),
+            None => SlashingAllowedFor::<T>::put(SlashingSwitch::None),
+        }
+    }
+
     /// Check if amount is under the existential deposit.
     fn reapable(amount: BalanceOf<T>) -> bool {
         amount <= T::Currency::minimum_balance()

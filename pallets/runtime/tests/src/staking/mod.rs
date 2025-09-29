@@ -20,7 +20,7 @@
 mod mock;
 
 use frame_election_provider_support::bounds::{DataProviderBounds, ElectionBoundsBuilder};
-use frame_election_provider_support::{ElectionProvider, SortedListProvider, Support};
+use frame_election_provider_support::{ElectionProvider, SortedListProvider};
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
 use frame_support::pallet_prelude::*;
 use frame_support::traits::{fungible::Inspect, Currency, Get, InspectLockableCurrency};

@@ -18,7 +18,7 @@
 //! Test utilities
 
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
-use frame_election_provider_support::{onchain, SequentialPhragmen, VoteWeight};
+use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::traits::{ConstU64, EitherOfDiverse, FindAuthor, Get};
 use frame_support::traits::{Contains, Imbalance, OnUnbalanced, OneSessionHandler};
 use frame_support::weights::constants::RocksDbWeight;
