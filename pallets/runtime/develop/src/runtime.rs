@@ -511,7 +511,7 @@ mod benches {
         [pallet_validators, Validators]
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
-        //[pallet_contracts, Contracts]
+        [pallet_contracts, Contracts]
     );
 }
 
