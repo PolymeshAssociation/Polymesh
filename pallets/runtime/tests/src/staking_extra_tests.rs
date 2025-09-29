@@ -39,7 +39,7 @@ fn updating_controller() {
             assert_ok!(pallet_staking::Pallet::<TestStorage>::bond(
                 alice.origin(),
                 10_000_000,
-                pallet_staking::RewardDestination::Controller
+                pallet_staking::RewardDestination::Account(alice.acc())
             ));
 
             assert_ok!(pallet_staking::Pallet::<TestStorage>::validate(
