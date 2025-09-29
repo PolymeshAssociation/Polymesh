@@ -803,6 +803,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - update-substrate-stable2503-7
       - build-docker-amd64-distroless:
           requires:
             - build
@@ -830,6 +831,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - update-substrate-stable2503-7
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -851,6 +853,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - update-substrate-stable2503-7
       - build-docker-distroless:
           requires:
             - build-docker-amd64-distroless
