@@ -16,6 +16,15 @@ RUN ls -a && \
 
 FROM debian:stable-slim
 
+# install tools and dependencies
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+       apt-get upgrade -y && \
+       apt-get install -y \
+               ca-certificates \
+       apt-get autoremove -y && \
+       apt-get clean && \
+       find /var/lib/apt/lists/ -type f -not -name lock -delete
+
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
 COPY --chown=4001:4001 ./polymesh /usr/local/bin/polymesh
