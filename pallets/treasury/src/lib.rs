@@ -240,7 +240,5 @@ where
     <T as pallet::Config>::Currency:
         frame_support::traits::fungible::Balanced<<T as frame_system::Config>::AccountId>,
 {
-    fn on_nonzero_unbalanced(_amount: NegativeImbalanceOf<T>) {
-        unimplemented!()
-    }
+    fn on_nonzero_unbalanced(_amount: NegativeImbalanceOf<T>) {}
 }
