@@ -107,6 +107,9 @@ parameter_types! {
     pub const RelockCooldown: Moment = 600_000; // 10 min
     pub const MaxRelockCount: u32 = 3;
 
+    // Confidential asset parameters
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
 
@@ -180,6 +183,28 @@ parameter_types! {
     // Election Provider Multi Phase
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
+
+/// Confidential assets parameters
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+
+#[cfg(feature = "ci-runtime")]
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<4>;
+#[cfg(not(feature = "ci-runtime"))]
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<16>;
+
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<100>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+
+#[cfg(feature = "ci-runtime")]
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<4>;
+#[cfg(not(feature = "ci-runtime"))]
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<50>;
+
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -490,8 +515,43 @@ mod runtime {
     #[runtime::pallet_index(55)]
     pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
 
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
+
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
+}
+
+impl pallet_confidential_assets::Config for Runtime {
+    type Currency = Balances;
+
+    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
+
+    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+    type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
+
+    // These are for publishing as constants in the pallet metadata.
+    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
+    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
+    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
+    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
+    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
+    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
+    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
+    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
+    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+}
+
+impl polymesh_dart::DartLimits for Runtime {
+    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
+    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
+    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
+    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
+    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
+    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
+    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
+    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
+    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -516,6 +576,7 @@ mod benches {
         [pallet_corporate_actions, CorporateAction]
         [pallet_corporate_ballot, CorporateBallot]
         [pallet_capital_distribution, CapitalDistribution]
+        [pallet_confidential_assets, ConfidentialAssets]
         [pallet_external_agents, ExternalAgents]
         [pallet_relayer, Relayer]
         [pallet_committee, PolymeshCommittee]

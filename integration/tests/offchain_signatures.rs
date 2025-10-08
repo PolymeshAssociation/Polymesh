@@ -18,6 +18,7 @@ mod offchain_tests {
 
     /// Test add secondary key using offchain signatures.
     #[tokio::test]
+    #[test_log::test]
     async fn add_secondary_key_with_authorization() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut user = tester.user("User1").await?;
@@ -87,6 +88,7 @@ mod offchain_tests {
 
     /// Test creating child identities from secondary keys using offchain signatures.
     #[tokio::test]
+    #[test_log::test]
     async fn create_child_identities_with_authorizations() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut parent = tester.user("ParentDID1").await?;
@@ -151,6 +153,7 @@ mod offchain_tests {
 
     /// Test `Utility::relay_tx` using offchain signatures.
     #[tokio::test]
+    #[test_log::test]
     async fn relay_tx() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester.users(&["RelayerUser1", "RelayedUser2"]).await?;
@@ -213,6 +216,7 @@ mod offchain_tests {
 
     /// Test add secondary key using offchain signatures.
     #[tokio::test]
+    #[test_log::test]
     async fn add_secondary_key_with_authorization() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut user = tester.user("User1").await?;
@@ -282,6 +286,7 @@ mod offchain_tests {
 
     /// Test `Relayer::relay_tx` using offchain signatures.
     #[tokio::test]
+    #[test_log::test]
     async fn relay_tx() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester.users(&["RelayerUser1", "RelayedUser2"]).await?;

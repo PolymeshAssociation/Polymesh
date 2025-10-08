@@ -245,6 +245,9 @@ pub mod crypto;
 pub mod asset;
 pub use asset::{AssetHolder, AssetHolderKind, HoldingsUpdateReason};
 
+/// ERC-20 type definitions.
+pub mod erc20;
+
 /// Asset Metadata type definitions.
 pub mod asset_metadata;
 

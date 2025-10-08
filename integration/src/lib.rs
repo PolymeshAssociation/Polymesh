@@ -17,10 +17,27 @@ use anyhow::{anyhow, Result};
 mod asset_helper;
 pub use asset_helper::*;
 
+#[cfg(feature = "current_release")]
+pub mod confidential_assets_helper;
+
 #[cfg(any(feature = "previous_release", feature = "current_release"))]
 mod sto;
 #[cfg(any(feature = "previous_release", feature = "current_release"))]
 pub use sto::*;
+
+pub async fn wait_for_results(tx_res: &mut TransactionResults) -> Result<()> {
+    let finalize = option_env!("WAIT_FOR_FINALIZE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    // Wait for transaction to execute.
+    if finalize {
+        tx_res.wait_finalized().await?;
+    } else {
+        tx_res.wait_in_block().await?;
+    }
+
+    Ok(())
+}
 
 pub async fn get_batch_results(res: &mut TransactionResults) -> Result<Vec<bool>> {
     let events = res

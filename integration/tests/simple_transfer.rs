@@ -3,6 +3,7 @@ use anyhow::Result;
 use integration::*;
 
 #[tokio::test]
+#[test_log::test]
 async fn simple_polyx_transfer() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester.users(&["User1", "User2"]).await?;
