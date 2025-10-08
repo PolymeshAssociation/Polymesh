@@ -1,0 +1,659 @@
+use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use sp_io::hashing::blake2_256;
+use sp_std::vec::Vec;
+
+use rand_chacha::ChaCha20Rng as Rng;
+use rand_core::SeedableRng;
+
+use polymesh_dart::{
+    ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M, AccountAssetRegistrationProof,
+    AccountAssetState, AccountKeyPair, AccountKeys, AccountRegistrationProof, AssetId,
+    AssetMintingProof, Balance, BatchedAccountAssetRegistrationProof,
+    BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, EncryptionKeyPair,
+    EncryptionKeyRegistrationProof, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountAssetState,
+    FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountTopupProof,
+    InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
+    MediatorAffirmationProof, PolymeshPrivateLimits, ProofHash, ReceiverAffirmationProof,
+    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof,
+    SettlementBuilder, SettlementProof,
+    curve_tree::{
+        AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig, LeafPathAndRoot,
+        MultiLeafPathAndRoot,
+    },
+};
+use polymesh_dart::{LegRole, curve_tree::get_account_curve_tree_parameters};
+use polymesh_primitives::IdentityId;
+
+use crate::{BatchId, BatchSeed, Error, WorkRequest, WorkRequestExecution, WorkRequestKind};
+
+pub type AccountLeafPathAndRoot =
+    LeafPathAndRoot<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>;
+pub type AssetLeafPathAndRoot = LeafPathAndRoot<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>;
+pub type FeeAccountLeafPathAndRoot =
+    LeafPathAndRoot<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>;
+
+#[derive(Encode, Decode, Clone)]
+pub enum GenerateDartProofRequest {
+    AccountRegistration {
+        accounts: Vec<AccountKeys>,
+        did: IdentityId,
+    },
+    EncryptionKeyRegistration {
+        keys: Vec<EncryptionKeyPair>,
+        did: IdentityId,
+    },
+    AccountAssetRegistration {
+        key: AccountKeyPair,
+        did: IdentityId,
+        asset_id: AssetId,
+        counter: u16,
+    },
+    BatchedAccountAssetRegistration {
+        did: IdentityId,
+        account_assets: Vec<(AccountKeyPair, AssetId, u16)>,
+    },
+    MintAsset {
+        key: AccountKeyPair,
+        amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    CreateSettlement {
+        paths: MultiLeafPathAndRoot<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>,
+        settlement: SettlementBuilder<PolymeshPrivateLimits>,
+    },
+    SenderAffirmation {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    ReceiverAffirmation {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    MediatorAffirmation {
+        key: EncryptionKeyPair,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        key_index: u8,
+        asset_id: AssetId,
+        accept: bool,
+    },
+    ReceiverClaim {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    SenderCounterUpdate {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    SenderRevert {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    FeeAccountRegistration {
+        did: IdentityId,
+        account: AccountKeyPair,
+        asset_id: AssetId,
+        amount: Balance,
+    },
+    BatchedFeeAccountRegistration {
+        did: IdentityId,
+        accounts: Vec<(AccountKeyPair, AssetId, Balance)>,
+    },
+    FeeAccountTopup {
+        did: IdentityId,
+        account: AccountKeyPair,
+        amount: Balance,
+        path: FeeAccountLeafPathAndRoot,
+        account_state: FeeAccountAssetState,
+    },
+    BatchedFeeAccountTopup {
+        did: IdentityId,
+        paths: MultiLeafPathAndRoot<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>,
+        topups: Vec<(AccountKeyPair, Balance, FeeAccountAssetState)>,
+    },
+    FeeAccountPayment {
+        ctx: ProofHash,
+        account: AccountKeyPair,
+        amount: Balance,
+        path: FeeAccountLeafPathAndRoot,
+        account_state: FeeAccountAssetState,
+    },
+    InstantSenderAffirmation {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    InstantReceiverAffirmation {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
+        amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+}
+
+impl GenerateDartProofRequest {
+    pub fn generate_with_seed(self, seed: BatchSeed) -> Result<GenerateDartProofResponse, Error> {
+        let mut rng = Rng::from_seed(seed);
+        match self {
+            Self::AccountRegistration { accounts, did } => {
+                let proof =
+                    AccountRegistrationProof::new(&mut rng, accounts.as_slice(), &did.0[..])
+                        .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::AccountRegistration { proof })
+            }
+            Self::EncryptionKeyRegistration { keys, did } => {
+                let proof =
+                    EncryptionKeyRegistrationProof::new(&mut rng, keys.as_slice(), &did.0[..])
+                        .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::EncryptionKeyRegistration { proof })
+            }
+            Self::AccountAssetRegistration {
+                key,
+                did,
+                asset_id,
+                counter,
+            } => {
+                let params = get_account_curve_tree_parameters();
+                let (proof, account_state) = AccountAssetRegistrationProof::new(
+                    &mut rng,
+                    &key,
+                    asset_id,
+                    counter,
+                    &did.0[..],
+                    params,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::AccountAssetRegistration {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::BatchedAccountAssetRegistration {
+                did,
+                account_assets,
+            } => {
+                let params = get_account_curve_tree_parameters();
+                let (proof, account_states) = BatchedAccountAssetRegistrationProof::new(
+                    &mut rng,
+                    &account_assets,
+                    &did.0[..],
+                    params,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::BatchedAccountAssetRegistration {
+                    proof,
+                    account_states,
+                })
+            }
+            Self::MintAsset {
+                key,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                let proof =
+                    AssetMintingProof::new(&mut rng, &key, &mut account_state, path, amount)
+                        .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::MintAsset {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::CreateSettlement {
+                paths,
+                settlement: builder,
+            } => {
+                let proof = builder
+                    .encrypt_and_prove(&mut rng, paths)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::CreateSettlement { proof })
+            }
+            Self::SenderAffirmation {
+                keys,
+                leg_ref,
+                leg_enc,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::sender(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = SenderAffirmationProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    amount,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    &path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+
+                Ok(GenerateDartProofResponse::SenderAffirmation {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::ReceiverAffirmation {
+                keys,
+                leg_ref,
+                leg_enc,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::receiver(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = ReceiverAffirmationProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+
+                Ok(GenerateDartProofResponse::ReceiverAffirmation {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::InstantSenderAffirmation {
+                keys,
+                leg_ref,
+                leg_enc,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::sender(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = InstantSenderAffirmationProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    amount,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+
+                Ok(GenerateDartProofResponse::InstantSenderAffirmation {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::InstantReceiverAffirmation {
+                keys,
+                leg_ref,
+                leg_enc,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::receiver(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = InstantReceiverAffirmationProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    amount,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    &path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+
+                Ok(GenerateDartProofResponse::InstantReceiverAffirmation {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::MediatorAffirmation {
+                key,
+                leg_ref,
+                leg_enc,
+                key_index,
+                asset_id,
+                accept,
+            } => {
+                let proof = MediatorAffirmationProof::new(
+                    &mut rng, &leg_ref, asset_id, &leg_enc, &key, key_index, accept,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::MediatorAffirmation { proof })
+            }
+            Self::ReceiverClaim {
+                keys,
+                leg_ref,
+                leg_enc,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::receiver(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = ReceiverClaimProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    amount,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::ReceiverClaim {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::SenderCounterUpdate {
+                keys,
+                leg_ref,
+                leg_enc,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::sender(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = SenderCounterUpdateProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::SenderCounterUpdate {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::SenderRevert {
+                keys,
+                leg_ref,
+                leg_enc,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                // Decrypt leg.
+                let leg_enc_rand = leg_enc
+                    .get_encryption_randomness(LegRole::sender(), &keys.enc)
+                    .map_err(|_| Error::GenerateProofFailed)?;
+
+                let proof = SenderReversalProof::new(
+                    &mut rng,
+                    &keys.acct,
+                    &leg_ref,
+                    amount,
+                    &leg_enc,
+                    &leg_enc_rand,
+                    &mut account_state,
+                    path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::SenderRevert {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::FeeAccountRegistration {
+                did,
+                account,
+                asset_id,
+                amount,
+            } => {
+                let (proof, account_state) = FeeAccountRegistrationProof::new(
+                    &mut rng,
+                    &account,
+                    asset_id,
+                    amount,
+                    &did.0[..],
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::FeeAccountRegistration {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::BatchedFeeAccountRegistration { did, accounts } => {
+                let registrations = accounts
+                    .iter()
+                    .map(|(acct, asset_id, amount)| (acct, *asset_id, *amount))
+                    .collect::<Vec<_>>();
+                let (proof, account_states) = BatchedFeeAccountRegistrationProof::new(
+                    &mut rng,
+                    registrations.as_slice(),
+                    &did.0[..],
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::BatchedFeeAccountRegistration {
+                    proof,
+                    account_states,
+                })
+            }
+            Self::FeeAccountTopup {
+                did,
+                account,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                let proof = FeeAccountTopupProof::new(
+                    &mut rng,
+                    &account,
+                    &mut account_state,
+                    amount,
+                    &did.0[..],
+                    &path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::FeeAccountTopup {
+                    proof,
+                    account_state,
+                })
+            }
+            Self::BatchedFeeAccountTopup { did, paths, topups } => {
+                let mut topups = topups
+                    .iter()
+                    .map(|(acct, amount, state)| (acct, *amount, state.clone()))
+                    .collect::<Vec<_>>();
+                let proof = BatchedFeeAccountTopupProof::new(
+                    &mut rng,
+                    topups.as_mut_slice(),
+                    &did.0[..],
+                    &paths,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::BatchedFeeAccountTopup {
+                    proof,
+                    account_states: topups.into_iter().map(|(_, _, s)| s).collect(),
+                })
+            }
+            Self::FeeAccountPayment {
+                ctx,
+                account,
+                amount,
+                path,
+                mut account_state,
+            } => {
+                let proof = FeeAccountPaymentProof::new(
+                    &mut rng,
+                    &account,
+                    &ctx.0,
+                    &mut account_state,
+                    amount,
+                    &path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::FeeAccountPayment {
+                    proof,
+                    account_state,
+                })
+            }
+        }
+    }
+
+    pub fn submit(&self, batch_id: BatchId) -> Result<WorkRequestExecution, Error> {
+        let req = WorkRequest::new_generate(self);
+        req.submit(batch_id)
+    }
+
+    pub fn submit_and_wait(&self, batch_id: BatchId) -> Result<GenerateDartProofResponse, Error> {
+        let req = WorkRequest::new_generate(self);
+        let res = req.submit(batch_id)?;
+        let resp = res.wait_for_results(batch_id)?;
+        match resp.kind {
+            WorkRequestKind::GenerateProof(_) => {
+                let resp =
+                    Decode::decode(&mut &resp.resp[..]).map_err(|_| Error::InvalidWorkResult)?;
+                Ok(resp)
+            }
+            _ => Err(Error::InvalidWorkResult),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl GenerateDartProofRequest {
+    pub fn generate(self) -> Result<GenerateDartProofResponse, Error> {
+        let seed = self.using_encoded(blake2_256);
+        self.generate_with_seed(seed)
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl GenerateDartProofRequest {
+    pub fn generate(self) -> Result<GenerateDartProofResponse, Error> {
+        crate::native_dart_assets::generate_proof(self)
+    }
+}
+
+#[derive(Encode, Decode, Clone)]
+pub enum GenerateDartProofResponse {
+    AccountRegistration {
+        proof: AccountRegistrationProof<PolymeshPrivateLimits>,
+    },
+    EncryptionKeyRegistration {
+        proof: EncryptionKeyRegistrationProof<PolymeshPrivateLimits>,
+    },
+    AccountAssetRegistration {
+        proof: AccountAssetRegistrationProof,
+        account_state: AccountAssetState,
+    },
+    BatchedAccountAssetRegistration {
+        proof: BatchedAccountAssetRegistrationProof<PolymeshPrivateLimits>,
+        account_states: Vec<AccountAssetState>,
+    },
+    MintAsset {
+        proof: AssetMintingProof,
+        account_state: AccountAssetState,
+    },
+    CreateSettlement {
+        proof: SettlementProof<PolymeshPrivateLimits>,
+    },
+    SenderAffirmation {
+        proof: SenderAffirmationProof,
+        account_state: AccountAssetState,
+    },
+    ReceiverAffirmation {
+        proof: ReceiverAffirmationProof,
+        account_state: AccountAssetState,
+    },
+    MediatorAffirmation {
+        proof: MediatorAffirmationProof,
+    },
+    ReceiverClaim {
+        proof: ReceiverClaimProof,
+        account_state: AccountAssetState,
+    },
+    SenderCounterUpdate {
+        proof: SenderCounterUpdateProof,
+        account_state: AccountAssetState,
+    },
+    SenderRevert {
+        proof: SenderReversalProof,
+        account_state: AccountAssetState,
+    },
+    FeeAccountRegistration {
+        proof: FeeAccountRegistrationProof,
+        account_state: FeeAccountAssetState,
+    },
+    BatchedFeeAccountRegistration {
+        proof: BatchedFeeAccountRegistrationProof<PolymeshPrivateLimits>,
+        account_states: Vec<FeeAccountAssetState>,
+    },
+    FeeAccountTopup {
+        proof: FeeAccountTopupProof,
+        account_state: FeeAccountAssetState,
+    },
+    BatchedFeeAccountTopup {
+        proof: BatchedFeeAccountTopupProof<PolymeshPrivateLimits>,
+        account_states: Vec<FeeAccountAssetState>,
+    },
+    FeeAccountPayment {
+        proof: FeeAccountPaymentProof,
+        account_state: FeeAccountAssetState,
+    },
+    InstantSenderAffirmation {
+        proof: InstantSenderAffirmationProof,
+        account_state: AccountAssetState,
+    },
+    InstantReceiverAffirmation {
+        proof: InstantReceiverAffirmationProof,
+        account_state: AccountAssetState,
+    },
+}

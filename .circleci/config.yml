@@ -414,7 +414,7 @@ jobs:
   benchmark:
     docker:
       - image: debian:stable
-    resource_class: small
+    resource_class: large
     environment:
       - VERBOSE: "1"
     steps:
@@ -492,6 +492,7 @@ jobs:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
       - RUST_BACKTRACE: "1"
+      - WAIT_FOR_FINALIZE: "1"
     steps:
       - checkout
       - attach_workspace:
@@ -512,7 +513,7 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests against the previous version.
-          command: cargo nextest run --features previous_release --locked
+          command: cargo nextest run --release --features previous_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
@@ -522,11 +523,11 @@ jobs:
           no_output_timeout: 30m
       - run:
           name: Clear polymesh-api to force re-compile (chain metadata might have changed).
-          command: cargo clean -p polymesh-api
+          command: cargo clean -p polymesh-api && cargo clean --release -p polymesh-api
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests against the upgraded chain.
-          command: cargo nextest run --features current_release --locked
+          command: cargo nextest run --release --features current_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
   integration-test:

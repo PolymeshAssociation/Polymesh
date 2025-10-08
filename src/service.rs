@@ -124,7 +124,10 @@ impl<Api> RuntimeApiCollection for Api where
 
 /// Host functions available to the runtime.
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = (sp_io::SubstrateHostFunctions,);
+pub type HostFunctions = (
+    sp_io::SubstrateHostFunctions,
+    polymesh_dart_host_functions::native_dart_assets::HostFunctions,
+);
 
 /// Host functions available to the runtime.
 #[cfg(feature = "runtime-benchmarks")]
@@ -132,6 +135,7 @@ pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
     polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
+    polymesh_dart_host_functions::native_dart_assets::HostFunctions,
 );
 
 /// A specialized `WasmExecutor` intended to use across substrate node. It provides all required HostFunctions.

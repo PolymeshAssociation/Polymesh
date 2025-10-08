@@ -12,6 +12,7 @@ use polymesh_api::types::polymesh_primitives::asset::{AssetHolder, AssetHolderKi
 
 /// Test the asset helper.
 #[tokio::test]
+#[test_log::test]
 async fn asset_helper() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -41,7 +42,7 @@ async fn asset_helper() -> Result<()> {
 
 /// Test for a simple settlement.
 #[tokio::test]
-#[allow(unused_mut)]
+#[test_log::test]
 async fn simple_settlement() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -50,7 +51,7 @@ async fn simple_settlement() -> Result<()> {
         .into_iter();
     let mut venue = users.next().expect("Venue user");
     let mut asset_issuer = users.next().expect("Asset issuer");
-    let mut investor = users.next().expect("Investor");
+    let investor = users.next().expect("Investor");
 
     // Get the DIDs of the users.
     let issuer_did = asset_issuer.did.expect("Asset issuer DID");
@@ -178,6 +179,7 @@ async fn simple_settlement() -> Result<()> {
     // On the previous release, the investor needs to affirm the settlement.
     #[cfg(feature = "previous_release")]
     {
+        let mut investor = investor;
         let mut affirm_res2 = tester
             .api
             .call()
@@ -205,6 +207,7 @@ async fn simple_settlement() -> Result<()> {
 
 /// Test a settlement with offchain leg and onchain fungible leg.
 #[tokio::test]
+#[test_log::test]
 async fn offchain_settlement() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester

@@ -9,6 +9,7 @@ use polymesh_api::types::polymesh_primitives::{
 
 /// Test a STO with onchain asset funding.
 #[tokio::test]
+#[test_log::test]
 async fn sto_onchain_funding() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -158,6 +159,7 @@ mod sto_v7_tests {
 
     /// Test STO with offchain asset funding.
     #[tokio::test]
+    #[test_log::test]
     async fn sto_offchain_funding() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester
@@ -362,6 +364,7 @@ mod sto_v8_tests {
 
     /// Test STO with offchain asset funding.
     #[tokio::test]
+    #[test_log::test]
     async fn sto_offchain_funding() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester

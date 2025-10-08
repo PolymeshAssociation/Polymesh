@@ -105,6 +105,10 @@ impl SubstrateCli for Cli {
             "STAGING" | "staging" => Box::new(GenericChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/staging_raw.json")[..],
             )?),
+            // DEVNET network for testing P-DART Confidential assets.
+            "DEVNET" | "devnet" => Box::new(GenericChainSpec::from_json_bytes(
+                &include_bytes!("./chain_specs/devnet_raw.json")[..],
+            )?),
             path => Box::new(GenericChainSpec::from_json_file(PathBuf::from(path))?),
         })
     }

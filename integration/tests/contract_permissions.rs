@@ -14,6 +14,7 @@ use sp_weights::Weight;
 use integration::*;
 
 #[tokio::test]
+#[test_log::test]
 async fn contract_as_secondary_key_change_identity() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
