@@ -1843,7 +1843,7 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::WeightLimitExceeded)?;
         }
 
-        Self::validate_execute_instruction_pre_conditions(&inst_id, &inst_legs)?;
+        Self::validate_execute_instruction_pre_conditions(&inst_id, &inst_legs, false)?;
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
 
         let mut failed_leg_id = None;
@@ -1884,8 +1884,9 @@ impl<T: Config> Pallet<T> {
     fn validate_execute_instruction_pre_conditions(
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
+        allow_locked_inst: bool,
     ) -> DispatchResult {
-        Self::ensure_instruction_is_pending_or_failed(inst_id)?;
+        Self::ensure_instruction_is_pending_or_failed(inst_id, allow_locked_inst)?;
 
         ensure!(
             InstructionAffirmsPending::<T>::get(inst_id) == 0,
@@ -1902,14 +1903,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if the instruction status is `Pending` or `Failed`.
-    fn ensure_instruction_is_pending_or_failed(inst_id: &InstructionId) -> DispatchResult {
+    /// Returns `Ok` if the instruction status is `Pending` or `Failed`. If `allow_locked_inst`
+    /// `LockedForExecution` is also allowed.
+    fn ensure_instruction_is_pending_or_failed(
+        inst_id: &InstructionId,
+        allow_locked_inst: bool,
+    ) -> DispatchResult {
         let inst_status = InstructionStatuses::<T>::get(inst_id);
 
-        ensure!(
-            inst_status == InstructionStatus::Pending || inst_status == InstructionStatus::Failed,
-            Error::<T>::InvalidInstructionStatusForExecution
-        );
+        if allow_locked_inst {
+            ensure!(
+                inst_status == InstructionStatus::Pending
+                    || inst_status == InstructionStatus::Failed
+                    || inst_status == InstructionStatus::LockedForExecution,
+                Error::<T>::InvalidInstructionStatusForExecution
+            );
+        } else {
+            ensure!(
+                inst_status == InstructionStatus::Pending
+                    || inst_status == InstructionStatus::Failed,
+                Error::<T>::InvalidInstructionStatusForExecution
+            );
+        }
 
         Ok(())
     }
@@ -3231,7 +3246,7 @@ impl<T: Config> Pallet<T> {
             ),
         )?;
 
-        Self::validate_execute_instruction_pre_conditions(&inst_id, &inst_legs)?;
+        Self::validate_execute_instruction_pre_conditions(&inst_id, &inst_legs, true)?;
 
         let inst_memo = InstructionMemos::<T>::get(&inst_id);
         frame_support_with_transaction(|| {
@@ -3489,7 +3504,7 @@ impl<T: Config> Pallet<T> {
             execution_errors.push(Error::<T>::NotAllAffirmationsHaveBeenReceived.into());
         }
 
-        if let Err(e) = Self::ensure_instruction_is_pending_or_failed(inst_id) {
+        if let Err(e) = Self::ensure_instruction_is_pending_or_failed(inst_id, false) {
             execution_errors.push(e);
         }
 

@@ -330,8 +330,11 @@ macro_rules! misc_pallet_impls {
             fn allowed(call: &RuntimeCall, nested: bool) -> bool {
                 match call {
                     RuntimeCall::Asset(_) => true,
+                    RuntimeCall::CapitalDistribution(_) => true,
+                    RuntimeCall::Checkpoint(_) => true,
                     RuntimeCall::ComplianceManager(_) => true,
                     RuntimeCall::CorporateAction(_) => true,
+                    RuntimeCall::CorporateBallot(_) => true,
                     RuntimeCall::ExternalAgents(_) => true,
                     RuntimeCall::Portfolio(_) => true,
                     RuntimeCall::Settlement(_) => true,
