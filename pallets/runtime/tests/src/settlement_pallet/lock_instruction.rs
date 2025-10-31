@@ -554,9 +554,9 @@ fn lock_twice_success() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
