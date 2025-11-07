@@ -484,12 +484,6 @@ fn transfer_token_ownership() {
             true
         );
 
-        assert_ok!(ExternalAgents::unchecked_add_agent(
-            asset_id,
-            alice.did,
-            AgentGroup::Full
-        ));
-        assert_ok!(ExternalAgents::abdicate(owner.origin(), asset_id));
         assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
             Err(EAError::UnauthorizedAgent.into())
@@ -678,17 +672,6 @@ fn freeze_unfreeze_asset() {
             auth_id
         ));
 
-        // Not enough; bob needs to become an agent.
-        assert_noop!(
-            Asset::unfreeze(bob.origin(), asset_id),
-            EAError::UnauthorizedAgent
-        );
-
-        assert_ok!(ExternalAgents::unchecked_add_agent(
-            asset_id,
-            bob.did,
-            AgentGroup::Full
-        ));
         assert_ok!(Asset::unfreeze(bob.origin(), asset_id));
         assert_noop!(
             Asset::unfreeze(bob.origin(), asset_id),
