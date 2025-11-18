@@ -515,7 +515,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensure that `agent` is an agent of `asset_id` and set the group to `group`.
-    fn try_mutate_agents_group(
+    pub fn try_mutate_agents_group(
         asset_id: AssetId,
         agent: IdentityId,
         group: Option<AgentGroup>,

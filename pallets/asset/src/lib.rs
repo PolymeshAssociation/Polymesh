@@ -1784,6 +1784,10 @@ impl<T: AssetConfig> Pallet<T> {
             SecurityTokensOwnedByUser::<T>::remove(previous_owner, asset_id);
             SecurityTokensOwnedByUser::<T>::insert(caller_did, asset_id, true);
 
+            // Removes the old owner from the external agents list and adds the new owner as a full agent
+            ExternalAgents::<T>::unchecked_add_agent(asset_id, caller_did, AgentGroup::Full)?;
+            ExternalAgents::<T>::try_mutate_agents_group(asset_id, previous_owner, None)?;
+
             // Updates asset details.
             asset_details.owner_did = caller_did;
             Assets::<T>::insert(asset_id, asset_details);
