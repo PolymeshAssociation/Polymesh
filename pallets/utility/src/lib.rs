@@ -88,7 +88,7 @@ use pallet_balances::Config as BalancesConfig;
 use pallet_identity::{Config as IdentityConfig, Context};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::identity::AuthorizationNonce;
-use polymesh_primitives::{crypto::verify_signature, traits::CheckCdd, IdentityId};
+use polymesh_primitives::{crypto::verify_signature, IdentityId};
 
 type Identity<T> = pallet_identity::Pallet<T>;
 
@@ -360,11 +360,6 @@ pub mod pallet {
             ensure!(
                 verify_signature::<T, _, _>(&target, &signature, &call, false),
                 Error::<T>::InvalidSignature
-            );
-
-            ensure!(
-                T::CddChecker::check_key_cdd(&target),
-                Error::<T>::TargetCddMissing
             );
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);

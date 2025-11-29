@@ -357,13 +357,13 @@ fn do_user_remove_paying_key_test() {
 }
 
 #[test]
-fn relayer_user_key_missing_cdd_test() {
+fn relayer_user_key_without_cdd_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&do_relayer_user_key_missing_cdd_test);
+        .execute_with(&do_relayer_user_key_without_cdd_test);
 }
-fn do_relayer_user_key_missing_cdd_test() {
+fn do_relayer_user_key_without_cdd_test() {
     let alice = User::new(AccountKeyring::Alice);
     let bob_acc = AccountKeyring::Bob.to_account_id();
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
@@ -377,20 +377,17 @@ fn do_relayer_user_key_missing_cdd_test() {
 
     // Bob tries to accept the paying key, without having a CDD.
     let auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
-    assert_eq!(
-        Relayer::accept_paying_key(bob_sign, auth_id),
-        Err(Error::UserKeyCddMissing.into()),
-    );
+    assert_ok!(Relayer::accept_paying_key(bob_sign, auth_id),);
 }
 
 #[test]
-fn relayer_paying_key_missing_cdd_test() {
+fn relayer_paying_key_without_cdd_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&do_relayer_paying_key_missing_cdd_test);
+        .execute_with(&do_relayer_paying_key_without_cdd_test);
 }
-fn do_relayer_paying_key_missing_cdd_test() {
+fn do_relayer_paying_key_without_cdd_test() {
     let alice = User::new(AccountKeyring::Alice);
     let bob_acc = AccountKeyring::Bob.to_account_id();
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
@@ -401,10 +398,7 @@ fn do_relayer_paying_key_missing_cdd_test() {
     // Alice tries to accept the paying key, but the paying key
     // is without a CDD.
     let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
-    assert_eq!(
-        Relayer::accept_paying_key(alice.origin(), auth_id),
-        Err(Error::PayingKeyCddMissing.into()),
-    );
+    assert_ok!(Relayer::accept_paying_key(alice.origin(), auth_id),);
 }
 
 #[test]

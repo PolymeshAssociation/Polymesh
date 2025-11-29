@@ -457,15 +457,6 @@ impl<T: Config> Pallet<T> {
         Ok(auth_id)
     }
 
-    /// Check if the `key` has a valid CDD.
-    fn key_has_valid_cdd(key: &T::AccountId) -> bool {
-        if let Some(did) = <Identity<T>>::get_identity(key) {
-            <Identity<T>>::has_valid_cdd(did)
-        } else {
-            false
-        }
-    }
-
     /// Ensure that `paying_key` is the paying key for `user_key`.
     fn ensure_is_paying_key(
         user_key: &T::AccountId,
@@ -493,16 +484,6 @@ impl<T: Config> Pallet<T> {
         ensure!(
             <Identity<T>>::get_identity(&paying_key) == Some(from),
             Error::<T>::NotAuthorizedForPayingKey
-        );
-
-        // Ensure both user_key and paying_key have valid CDD.
-        ensure!(
-            <Identity<T>>::has_valid_cdd(user_did),
-            Error::<T>::UserKeyCddMissing
-        );
-        ensure!(
-            Self::key_has_valid_cdd(&paying_key),
-            Error::<T>::PayingKeyCddMissing
         );
 
         // Remove existing subsidy for the user_key, if it exists.
