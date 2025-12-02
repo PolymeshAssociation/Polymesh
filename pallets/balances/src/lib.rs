@@ -898,7 +898,7 @@ impl<T: Config> Pallet<T> {
             dest_id,
             dest.clone(),
             value,
-            memo.clone(),
+            memo,
         ));
 
         Ok(())
