@@ -128,7 +128,7 @@ fn mainnet_genesis_config(
         },
         // Governing council
         "committeeMembership": group_genesis_config(vec![identity_1, identity_2, identity_3]),  // three GC members
-        "polymesh_committee": committee_genesis_config((2, 3), identity_1), // RC = 1, 2/3 votes required
+        "polymeshCommittee": committee_genesis_config((2, 3), identity_1), // RC = 1, 2/3 votes required
         // CDD providers
         "cddServiceProviders": group_genesis_config(vec![identity_1]), // GC_1 is also a CDD provider
         // Technical Committee

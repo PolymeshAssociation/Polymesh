@@ -460,7 +460,7 @@ jobs:
           command: >-
             ./assets/ci-runtime/polymesh --bob \
               --chain .ci-chain-specs/v7.0.0.json \
-							--unsafe-force-node-key-generation \
+              --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
