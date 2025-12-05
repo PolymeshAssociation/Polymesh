@@ -115,7 +115,7 @@ fn testnet_genesis_config(
         "staking": staking_genesis_config(&genesis_data.stakers_data),
         "pips": pips_genesis_config(DAYS * 30, MaybeBlock::None, 1_000),
         "babe": {
-            "epoch_config": Some(BABE_GENESIS_EPOCH_CONFIG),
+            "epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
         },
         // Governing council
         "committeeMembership": group_genesis_config(vec![identity_1, identity_2, identity_3]),  // three GC members

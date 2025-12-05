@@ -301,7 +301,7 @@ jobs:
       - run:
           name: Start Polymesh dev chain
           command: >-
-            ./assets/polymesh --chain dev \
+            ./assets/polymesh --dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
@@ -459,7 +459,8 @@ jobs:
           name: Start a Polymesh ci-runtime dev chain using the previous chain version.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
-              --chain dev:.ci-chain-specs/v7.0.0.json \
+              --chain .ci-chain-specs/v7.0.0.json \
+							--unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
@@ -500,7 +501,7 @@ jobs:
       - run:
           name: run Polymesh ci-runtime dev chain node for integration tests
           command: >-
-            ./assets/ci-runtime/polymesh --bob --chain dev \
+            ./assets/ci-runtime/polymesh --bob --dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
