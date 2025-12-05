@@ -819,9 +819,14 @@ macro_rules! runtime_apis {
             Runtime,
             AllPalletsWithSystem,
             (
-              pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
-              pallet_contracts::Migration<Runtime>,
-              polymesh_runtime_common::migration::RemovePallet<BridgePalletName, <Runtime as frame_system::Config>::DbWeight>,
+                pallet_contracts::Migration<Runtime>,
+                pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+                pallet_im_online::migration::v1::Migration<Runtime>,
+                pallet_offences::migration::v1::MigrateToV1<Runtime>,
+                pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
+                pallet_staking::migrations::v14::MigrateToV14<Runtime>,
+                pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+                pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
             )
         >;
 
