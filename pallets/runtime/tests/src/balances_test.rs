@@ -138,7 +138,7 @@ fn transfer_with_memo_we() {
     let mut system_events = System::events();
     assert_eq!(
         system_events.pop().unwrap().event,
-        crate::storage::RuntimeEvent::Balances(BalancesRawEvent::TransferMemo {
+        crate::storage::RuntimeEvent::Balances(BalancesRawEvent::TransferWithMemo {
             from: Sr25519Keyring::Alice.to_account_id(),
             to: Sr25519Keyring::Bob.to_account_id(),
             amount: 300,
@@ -155,7 +155,7 @@ fn transfer_with_memo_we() {
     );
     assert_eq!(
         system_events.pop().unwrap().event,
-        crate::storage::RuntimeEvent::Balances(BalancesRawEvent::TransferMemo {
+        crate::storage::RuntimeEvent::Balances(BalancesRawEvent::TransferWithMemo {
             from: Sr25519Keyring::Alice.to_account_id(),
             to: Sr25519Keyring::Bob.to_account_id(),
             amount: 200,
