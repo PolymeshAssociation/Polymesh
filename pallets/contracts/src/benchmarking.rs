@@ -15,13 +15,11 @@
 
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
-use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
+use frame_support::storage::unhashed;
+use frame_support::traits::tokens::currency::Currency;
 use frame_system::{Pallet as System, RawOrigin};
-use pallet_contracts::benchmarking::code::body::DynInstr::{Counter, Regular};
-use pallet_contracts::benchmarking::code::{
-    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
-    WasmModule,
-};
+use pallet_contracts::benchmarking::code::{body, ImportedMemory, ModuleDefinition, WasmModule};
+use pallet_contracts::benchmarking::code::{max_pages, DataSegment, ImportedFunction, Location};
 use pallet_contracts::Pallet as FrameContracts;
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::Perbill;
@@ -32,14 +30,13 @@ use pallet_identity::benchmarking::{cdd_provider, user, User, UserBuilder};
 use pallet_identity::ParentDid;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
-use polymesh_primitives::identity::limits::{
-    MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
-};
+use polymesh_primitives::identity::limits::{MAX_ASSETS, MAX_EXTRINSICS};
+use polymesh_primitives::identity::limits::{MAX_PALLETS, MAX_PORTFOLIOS};
 use polymesh_primitives::secondary_key::ExtrinsicNames;
-use polymesh_primitives::{
-    traits::group::GroupTrait, AssetPermissions, Balance, ExtrinsicName, ExtrinsicPermissions,
-    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
-};
+use polymesh_primitives::traits::group::GroupTrait;
+use polymesh_primitives::{AssetPermissions, Balance, ExtrinsicName, ExtrinsicPermissions};
+use polymesh_primitives::{PalletName, PalletPermissions, Permissions, PortfolioId};
+use polymesh_primitives::{PortfolioNumber, PortfolioPermissions};
 
 use crate::chain_extension::*;
 use crate::*;
@@ -229,16 +226,16 @@ where
                     value: output_len.to_le_bytes().into(),
                 },
             ],
-            call_body: Some(body::repeated_dyn(
+            call_body: Some(body::repeated(
                 repetitions,
-                vec![
-                    Regular(Instruction::I32Const(FuncId::GetKeyDid.into())),
-                    Counter(0, key_len),
-                    Regular(Instruction::I32Const(key_len as i32)),
-                    Regular(Instruction::I32Const(input.len() as i32 + 4)),
-                    Regular(Instruction::I32Const(input.len() as i32)),
-                    Regular(Instruction::Call(0)),
-                    Regular(Instruction::Drop),
+                &[
+                    Instruction::I32Const(FuncId::GetKeyDid.into()),
+                    Instruction::I32Const(0),
+                    Instruction::I32Const(key_len as i32),
+                    Instruction::I32Const(input.len() as i32 + 4),
+                    Instruction::I32Const(input.len() as i32),
+                    Instruction::Call(0),
+                    Instruction::Drop,
                 ],
             )),
             ..Default::default()
@@ -492,7 +489,7 @@ benchmarks! {
             let salt = vec![42u8; s as usize];
 
         // Create a dummy contract.
-        let wasm = WasmModule::<T>::sized(c, Location::Deploy);
+        let wasm = WasmModule::<T>::sized(c, Location::Deploy, false);
         let code = Code::Upload(wasm.code.clone());
 
         let user = funded_user::<T>(SEED);

@@ -1,14 +1,18 @@
 #[cfg(feature = "runtime-benchmarks")]
+use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
+
+use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
+
+#[cfg(feature = "runtime-benchmarks")]
 use crate::{
     asset::{AssetName, AssetType, FundingRoundName},
     asset_metadata::{AssetMetadataName, AssetMetadataSpec},
     AssetIdentifier, PortfolioKind, Ticker,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
 
-use crate::{asset::AssetId, Balance, IdentityId};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use crate::asset::AssetId;
+use crate::{Balance, IdentityId};
 
 pub trait AssetFnConfig: frame_system::Config {
     type AssetFn: AssetFnTrait<Self::AccountId>;

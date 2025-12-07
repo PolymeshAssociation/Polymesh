@@ -25,15 +25,15 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::Add;
 use frame_support::parameter_types;
 use frame_support::traits::Get;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+use sp_debug_derive::RuntimeDebug;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// An index to a block.
@@ -59,8 +59,8 @@ pub type ChainId = u32;
 /// A hash of some data used by the relay chain.
 pub type Hash = sp_core::H256;
 
-/// Index of a transaction in the relay chain. 32-bit should be plenty.
-pub type Index = u32;
+/// Nonce of a transaction. 32-bit should be plenty.
+pub type Nonce = u32;
 
 /// Alias for Gas.
 pub type Gas = Weight;
@@ -84,29 +84,14 @@ impl<const T: u32> Get<u32> for ConstSize<T> {
 impl<const T: u32> GetExtra<u32> for ConstSize<T> {}
 
 /// Either a block number, or nothing.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Debug
-)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, Default, Deserialize, MaxEncodedLen, Serialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
 pub enum MaybeBlock<BlockNumber> {
     /// Has a block number.
     Some(BlockNumber),
     /// No block number.
+    #[default]
     None,
-}
-
-impl<T> Default for MaybeBlock<T> {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
@@ -120,9 +105,9 @@ impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
 }
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize)]
 pub struct PosRatio(pub u32, pub u32);
 
 impl Default for PosRatio {
@@ -327,7 +312,8 @@ pub enum TransactionError {
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Beneficiary<Balance> {
     /// Beneficiary identity.
     pub id: IdentityId,
@@ -336,20 +322,21 @@ pub struct Beneficiary<Balance> {
 }
 
 /// A short on-chain memo for POLYX transfer, asset transfer and portfolio moves.
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo, SliceU8StrongTyped)]
-#[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped)]
+#[derive(Clone, Default)]
 pub struct Memo(pub [u8; 32]);
 
 /// Url for linking to off-chain resources.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Url(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
+#[derive(Serialize, Deserialize)]
+pub struct Url(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// The name of a pallet.
-#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct PalletName(pub String);
 
 impl PalletName {
@@ -360,9 +347,9 @@ impl PalletName {
 }
 
 /// The name of an extrinsic within a pallet.
-#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct ExtrinsicName(pub String);
 
 impl ExtrinsicName {
@@ -372,11 +359,32 @@ impl ExtrinsicName {
     }
 }
 
+/// The old weight type.
+///
+/// NOTE: This type exists purely for compatibility purposes! Use [`weight_v2::Weight`] in all other
+/// cases.
+#[derive(
+    Decode,
+    Encode,
+    CompactAs,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    RuntimeDebug,
+    Default,
+    MaxEncodedLen,
+    TypeInfo
+)]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct OldWeight(pub u64);
+
 /// Execute the supplied function in a new storage transaction,
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
 ///
 /// Transactions can be arbitrarily nested with commits happening to the parent.
-pub fn with_transaction<T, E: From<frame_support::dispatch::DispatchError>>(
+pub fn with_transaction<T, E: From<frame_support::pallet_prelude::DispatchError>>(
     tx: impl FnOnce() -> Result<T, E>,
 ) -> Result<T, E> {
     use frame_support::storage::{with_transaction, TransactionOutcome};

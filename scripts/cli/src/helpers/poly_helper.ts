@@ -7,7 +7,7 @@ import { sendTx, ApiSingleton } from "../util/init";
 export async function distributePoly(signer: KeyringPair, receiver: KeyringPair, amount: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	// Perform the transfers
-	const transaction = api.tx.balances.transfer(receiver.address, amount);
+	const transaction = api.tx.balances.transferWithMemo(receiver.address, amount, null);
 	await sendTx(signer, transaction);
 }
 

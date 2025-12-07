@@ -13,45 +13,42 @@ pallet-staking = { workspace = true, default-features = false }
 
 # General
 static_assertions = "1.1.0"
-serde = { version = "1.0.104", optional = true }
+serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
 log = "0.4.8"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.0", default-features = false, features = [
-	"derive",
-] }
-sp-core = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-arithmetic = { version = "6.0.0", default-features = false }
-sp-staking = { version = "4.0.0-dev", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-frame-system = { version = "4.0.0-dev", default-features = false }
-frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
-sp-npos-elections = { version = "4.0.0-dev", default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-core = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false}
+sp-runtime = { workspace = true, default-features = false }
+sp-arithmetic = { workspace = true, default-features = false }
+sp-staking = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+frame-election-provider-support = { workspace = true, default-features = false }
+sp-npos-elections = { workspace = true, default-features = false}
 
-pallet-session = { features = [
-	"historical",
-], version = "4.0.0-dev", default-features = false }
-pallet-authorship = { version = "4.0.0-dev", default-features = false }
-pallet-babe = { version = "4.0.0-dev", default-features = false }
+pallet-session = { features = ["historical"], workspace = true, default-features = false }
+pallet-authorship = { workspace = true, default-features = false }
+pallet-babe = { workspace = true, default-features = false }
 
 # Optional imports for benchmarking
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
-sp-tracing = "6.0.0"
+pallet-staking-reward-curve = { workspace = true, default-features = false }
+sp-tracing = { workspace = true }
 
 [features]
 default = ["std"]
 no_std = []
 std = [
+	"frame-benchmarking?/std",
 	"polymesh-primitives/std",
-	"serde",
+	"serde/std",
 	"codec/std",
 	"sp-std/std",
 	"sp-npos-elections/std",
@@ -70,9 +67,12 @@ std = [
 	"rand_chacha",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"pallet-staking/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"polymesh-primitives/runtime-benchmarks",
 	"rand_chacha",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = []

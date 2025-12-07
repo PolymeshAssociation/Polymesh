@@ -94,12 +94,13 @@ pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData,
 use codec::{Decode, Encode};
 use core::convert::From;
 use frame_support::dispatch::DispatchClass::{Normal, Operational};
-use frame_support::dispatch::{
-    DispatchError, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
-};
+use frame_support::dispatch::{DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::tokens::fungible::{Inspect, Mutate, MutateHold};
 use frame_support::traits::{
     ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers,
 };
+use frame_support::weights::Weight;
 use frame_support::Parameter;
 use frame_system::ensure_root;
 use polymesh_common_utilities::{
@@ -239,7 +240,10 @@ pub mod pallet {
         /// Group module
         type CddServiceProviders: GroupTrait<Self::Moment>;
         /// Balances module
-        type Balances: Currency<Self::AccountId, Balance = Balance>;
+        type Balances: Currency<Self::AccountId, Balance = Balance>
+            + Inspect<Self::AccountId, Balance = Balance>
+            + Mutate<Self::AccountId>
+            + MutateHold<Self::AccountId>;
         /// Used to check and update CDD
         type CddHandler: CddAndFeeDetails<
             Self::AccountId,
@@ -548,7 +552,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             MultiPurposeNonce::<T>::put(1);
             StorageVersion::<T>::put(Version::new(7));

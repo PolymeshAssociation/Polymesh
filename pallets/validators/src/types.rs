@@ -1,9 +1,7 @@
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
-use codec::{Decode, Encode, MaxEncodedLen};
-use pallet_staking::WhoToSlash;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use pallet_staking::permissioned_staking::WhoToSlash;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 
 /// Preference of an identity regarding validation.
@@ -41,9 +39,9 @@ impl PermissionedIdentityPrefs {
 
 /// Switch used to change the "victim" for slashing. Victims can be
 /// validators, both validators and nominators, or no-one.
-#[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, RuntimeDebug)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, TypeInfo)]
+#[derive(Serialize, Deserialize)]
 pub enum SlashingSwitch {
     /// Allow validators but not nominators to get slashed.
     Validator,

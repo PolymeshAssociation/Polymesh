@@ -15,7 +15,7 @@
 
 //! Runtime API definition for the Statistics module.
 
-use frame_support::dispatch::DispatchError;
+use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::asset::AssetId;

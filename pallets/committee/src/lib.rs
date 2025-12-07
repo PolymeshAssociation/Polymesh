@@ -58,27 +58,23 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use core::mem;
-use frame_support::{
-    codec::{Decode, Encode, MaxEncodedLen},
-    dispatch::{
-        DispatchClass, DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter,
-        PostDispatchInfo, Weight,
-    },
-    ensure,
-    traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
+use frame_support::dispatch::{
+    DispatchClass, DispatchResult, GetDispatchInfo, Parameter, PostDispatchInfo,
 };
-use polymesh_primitives::{
-    traits::{
-        group::{GroupTrait, InactiveMember, MemberCount},
-        GovernanceGroupTrait,
-    },
-    IdentityId, MaybeBlock, SystematicIssuers, GC_DID,
-};
+use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::{ChangeMembers, EnsureOrigin, InitializeMembers};
+use frame_support::weights::Weight;
 use scale_info::TypeInfo;
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{prelude::*, vec};
+
+use polymesh_primitives::traits::group::{GroupTrait, InactiveMember, MemberCount};
+use polymesh_primitives::traits::GovernanceGroupTrait;
+use polymesh_primitives::{IdentityId, MaybeBlock, SystematicIssuers, GC_DID};
 
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
 
@@ -138,7 +134,8 @@ pub mod pallet {
     }
 
     /// Origin for the committee module.
-    #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+    #[derive(Debug, Decode, DecodeWithMemTracking, Encode)]
+    #[derive(Clone, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
     #[scale_info(skip_type_params(I))]
     pub enum RawOrigin<AccountId, I> {
         /// It has been condoned by M of N members of this committee
@@ -184,7 +181,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::unbounded]
     pub type Voting<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Identity, T::Hash, PolymeshVotes<T::BlockNumber>, OptionQuery>;
+        StorageMap<_, Identity, T::Hash, PolymeshVotes<BlockNumberFor<T>>, OptionQuery>;
 
     /// Proposals so far.
     #[pallet::storage]
@@ -207,7 +204,7 @@ pub mod pallet {
     /// Time after which a proposal will expire.
     #[pallet::storage]
     pub type ExpiresAfter<T: Config<I>, I: 'static = ()> =
-        StorageValue<_, MaybeBlock<T::BlockNumber>, ValueQuery>;
+        StorageValue<_, MaybeBlock<BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -215,13 +212,13 @@ pub mod pallet {
         pub members: Vec<IdentityId>,
         pub vote_threshold: (u32, u32),
         pub release_coordinator: IdentityId,
-        pub expires_after: MaybeBlock<T::BlockNumber>,
+        pub expires_after: MaybeBlock<BlockNumberFor<T>>,
         #[serde(skip)]
         pub phantom: PhantomData<(T, I)>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+    impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             Members::<T, I>::put(self.members.clone());
             VoteThreshold::<T, I>::put(self.vote_threshold);
@@ -307,10 +304,7 @@ pub mod pallet {
         ReleaseCoordinatorUpdated(Option<IdentityId>),
         /// Proposal expiry time has been updated.
         /// Parameters: caller DID, new expiry time (if any).
-        ExpiresAfterUpdated(
-            IdentityId,
-            MaybeBlock<<T as frame_system::Config>::BlockNumber>,
-        ),
+        ExpiresAfterUpdated(IdentityId, MaybeBlock<BlockNumberFor<T>>),
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
@@ -385,7 +379,7 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn set_expires_after(
             origin: OriginFor<T>,
-            expiry: MaybeBlock<T::BlockNumber>,
+            expiry: MaybeBlock<BlockNumberFor<T>>,
         ) -> DispatchResult {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
@@ -410,7 +404,10 @@ pub mod pallet {
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
-        #[pallet::weight((<T as Config<I>>::WeightInfo::vote_or_propose_new_proposal().saturating_add(call.get_dispatch_info().weight), DispatchClass::Operational))]
+        #[pallet::weight((<T as Config<I>>::WeightInfo::vote_or_propose_new_proposal()
+            .saturating_add(call.get_dispatch_info().total_weight()),
+            DispatchClass::Operational
+        ))]
         #[pallet::call_index(3)]
         pub fn vote_or_propose(
             origin: OriginFor<T>,
@@ -489,7 +486,7 @@ pub mod pallet {
         fn ensure_proposal(
             hash: &T::Hash,
             idx: ProposalIndex,
-        ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
+        ) -> Result<PolymeshVotes<BlockNumberFor<T>>, DispatchError> {
             let voting = Voting::<T, I>::get(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
             ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
             Ok(voting)
@@ -623,7 +620,7 @@ pub mod pallet {
         /// As a side-effect, on error, any existing proposal data is pruned.
         fn ensure_not_expired(
             proposal: &T::Hash,
-            expiry: MaybeBlock<T::BlockNumber>,
+            expiry: MaybeBlock<BlockNumberFor<T>>,
         ) -> Result<(), Error<T, I>> {
             match expiry {
                 MaybeBlock::Some(e) if e <= frame_system::Pallet::<T>::block_number() => {

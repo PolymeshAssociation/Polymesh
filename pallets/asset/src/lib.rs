@@ -89,12 +89,14 @@ mod types;
 use codec::{Decode, Encode};
 use core::mem;
 use currency::*;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_system::ensure_root;
+use frame_system::pallet_prelude::*;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -149,7 +151,6 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:
@@ -571,15 +572,17 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
-    pub struct GenesisConfig {
+    pub struct GenesisConfig<T> {
         // TODO: Why is serde required here?
         pub ticker_registration_config: TickerRegistrationConfig<polymesh_primitives::Moment>,
         pub reserved_country_currency_codes: Vec<Ticker>,
         pub asset_metadata: Vec<(AssetMetadataName, AssetMetadataSpec)>,
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
     where
         T: AssetConfig,
     {
@@ -3101,7 +3104,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     pub fn generate_asset_id(caller_acc: T::AccountId, update: bool) -> AssetId {
-        let genesis_hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
         let nonce = Self::get_nonce(&caller_acc, update);
         blake2_128(&(b"modlpy/pallet_asset", genesis_hash, caller_acc, nonce).encode()).into()
     }

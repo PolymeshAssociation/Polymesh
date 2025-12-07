@@ -77,11 +77,14 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::result::Result;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
+use sp_std::{convert::From, prelude::*};
+
 use pallet_base::ensure_length_ok;
 use pallet_external_agents::{Config as EAConfig, GroupOfAgent};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
@@ -96,7 +99,6 @@ use polymesh_primitives::{
     proposition, storage_migration_ver, Claim, ConditionType, Context, IdentityId, TargetIdentity,
     TrustedFor, TrustedIssuer, WeightMeter,
 };
-use sp_std::{convert::From, prelude::*};
 
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 type Identity<T> = pallet_identity::Pallet<T>;
@@ -233,11 +235,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(1));
         }

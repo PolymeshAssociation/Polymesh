@@ -13,9 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
@@ -26,8 +25,8 @@ use crate::secondary_key::Permissions;
 use crate::{Balance, PortfolioId, Ticker};
 
 /// Authorization data for two step processes.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
@@ -77,8 +76,9 @@ impl<AccountId> AuthorizationData<AccountId> {
 }
 
 /// Type of authorization.
-#[derive(Eq, PartialEq, Encode, Decode, Clone)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Encode, Decode, TypeInfo, Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 pub enum AuthorizationType {
     /// CDD Authorization to rotate primary key.
     AttestPrimaryKeyRotation,
@@ -104,7 +104,7 @@ pub enum AuthorizationType {
 
 /// Authorization struct
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
     pub authorization_data: AuthorizationData<AccountId>,

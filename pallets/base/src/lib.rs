@@ -25,9 +25,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::mem;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
+
 use polymesh_primitives::checked_inc::CheckedInc;
 
 pub use pallet::*;

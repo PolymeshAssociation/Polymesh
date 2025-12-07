@@ -13,19 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::ops::Sub;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{
-    collections::btree_set::BTreeSet,
-    iter::{self, FromIterator},
-};
+use serde::{Deserialize, Serialize};
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::iter::{self, FromIterator};
 
 /// Ordering in a lattice, for example, the lattice of subsets of a set.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum LatticeOrdering {
     /// Inclusion of the first subset `A` into the second subset `B`.
     /// That is, `A ⊂ B`.
@@ -49,8 +46,9 @@ pub trait LatticeOrd {
 /// The type of subsets of an open set of elements of type `A` where the whole set is always
 /// considered to be bigger than any finite set of its elements. This is true for infinite
 /// sets. When talking about finite sets, we have to add that they are _open_.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, TypeInfo)]
+#[derive(Serialize, Deserialize)]
 pub enum SubsetRestriction<A: Ord> {
     /// No restrictions, the whole set.
     Whole,

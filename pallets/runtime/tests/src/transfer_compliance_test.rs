@@ -1,21 +1,22 @@
-use super::{
-    storage::{account_from, make_account, TestStorage, User},
-    ExtBuilder,
-};
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
-};
+use std::collections::{HashMap, HashSet};
+
+use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::{assert_noop, assert_ok};
+use sp_arithmetic::Permill;
+use sp_keyring::Sr25519Keyring;
+
 use pallet_external_agents::Event;
 use pallet_statistics::AssetStats;
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{
-    asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
-    Balance, Claim, ClaimType, IdentityId, PortfolioId, PortfolioKind, Scope, WeightMeter,
-};
-use sp_arithmetic::Permill;
-use sp_keyring::AccountKeyring;
-use std::collections::{HashMap, HashSet};
+use polymesh_primitives::asset::{AssetId, AssetType};
+use polymesh_primitives::jurisdiction::CountryCode;
+use polymesh_primitives::statistics::*;
+use polymesh_primitives::transfer_compliance::*;
+use polymesh_primitives::{AccountId, PortfolioKind, Scope, WeightMeter};
+use polymesh_primitives::{Balance, Claim, ClaimType, IdentityId, PortfolioId};
+
+use super::storage::{account_from, make_account, TestStorage, User};
+use super::ExtBuilder;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Identity = pallet_identity::Pallet<TestStorage>;
@@ -26,7 +27,7 @@ type Error = pallet_statistics::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
-const CDD_PROVIDER: AccountKeyring = AccountKeyring::Eve;
+const CDD_PROVIDER: Sr25519Keyring = Sr25519Keyring::Eve;
 
 #[derive(Clone)]
 struct InvestorState {
@@ -664,7 +665,7 @@ fn multiple_stats_with_ext() {
             claim_issuer: None,
         },
     ];
-    let issuers = vec![User::new(AccountKeyring::Dave)];
+    let issuers = vec![User::new(Sr25519Keyring::Dave)];
     let claim_types = vec![
         ClaimType::Accredited,
         ClaimType::Affiliate,
@@ -824,7 +825,7 @@ fn claim_count_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
 
-    let issuer = User::new(AccountKeyring::Dave);
+    let issuer = User::new(Sr25519Keyring::Dave);
     let claim_types = vec![ClaimType::Accredited];
     // Add issuer.
     tracker.add_issuer(&issuer, &claim_types[..]);
@@ -912,7 +913,7 @@ fn jurisdiction_count_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
 
-    let issuer = User::new(AccountKeyring::Dave);
+    let issuer = User::new(Sr25519Keyring::Dave);
     let claim_type = ClaimType::Jurisdiction;
     // Add issuer.
     tracker.add_issuer(&issuer, &[claim_type]);
@@ -998,7 +999,7 @@ fn jurisdiction_ownership_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
 
-    let issuer = User::new(AccountKeyring::Dave);
+    let issuer = User::new(Sr25519Keyring::Dave);
     let claim_type = ClaimType::Jurisdiction;
     // Add issuer.
     tracker.add_issuer(&issuer, &[claim_type]);

@@ -15,10 +15,9 @@
 
 use crate::asset::AssetId;
 use crate::{ExtrinsicName, IdentityId, PalletName, PortfolioId, SubsetRestriction};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     collections::btree_map::BTreeMap,
@@ -54,9 +53,9 @@ pub type ExtrinsicNames = SubsetRestriction<ExtrinsicName>;
 
 /// A permission to call a set of functions, as described by `extrinsics`,
 /// within a given pallet `pallet_name`.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct PalletPermissions {
     /// A subset of function names within the pallet.
     pub extrinsics: ExtrinsicNames,
@@ -102,9 +101,9 @@ impl PalletPermissions {
 }
 
 /// Extrinsic permissions.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum ExtrinsicPermissions {
     /// Allow the whole pallet.
     #[default]
@@ -212,9 +211,9 @@ pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 /// Common cases of permissions:
 /// - `Permissions::empty()`: no permissions,
 /// - `Permissions::default()`: full permissions.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Permissions {
     /// The subset of assets under management.
     pub asset: AssetPermissions,
@@ -284,7 +283,7 @@ impl Permissions {
 /// Account key record.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub enum KeyRecord<AccountId> {
     /// Key is the primary key and has full permissions.
     ///
@@ -339,22 +338,12 @@ impl<AccountId> KeyRecord<AccountId> {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    TypeInfo
-)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Deserialize, Serialize, TypeInfo)]
 pub enum Signatory<AccountId> {
-    #[cfg_attr(feature = "std", serde(alias = "identity"))]
+    #[serde(alias = "identity")]
     Identity(IdentityId),
-    #[cfg_attr(feature = "std", serde(alias = "account"))]
+    #[serde(alias = "account")]
     Account(AccountId),
 }
 
@@ -437,9 +426,9 @@ where
 }
 
 /// A secondary key and its permissions.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Serialize)]
 pub struct SecondaryKey<AccountId> {
     /// The account key.
     pub key: AccountId,

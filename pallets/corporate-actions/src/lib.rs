@@ -91,9 +91,10 @@ pub mod benchmarking;
 pub mod ballot;
 pub mod distribution;
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::ensure_root;
@@ -125,17 +126,8 @@ impl<T: Config + distribution::Config + ballot::Config> CAConfig for T {}
 pub type Tax = Permill;
 
 /// How should `identities` in `TargetIdentities` be used?
-#[derive(
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Debug
-)]
+#[derive(Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Copy, Clone, Debug, DecodeWithMemTracking)]
 pub enum TargetTreatment {
     /// Only those identities should be included.
     Include,
@@ -161,7 +153,8 @@ impl TargetTreatment {
 }
 
 /// A description of which identities that a CA will apply to.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
+#[derive(Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, DecodeWithMemTracking)]
 pub struct TargetIdentities {
     /// The specified identities either relevant or irrelevant, depending on `treatment`, for CAs.
     pub identities: Vec<IdentityId>,
@@ -186,17 +179,8 @@ impl TargetIdentities {
 }
 
 /// The kind of a `CorporateAction`.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Debug
-)]
+#[derive(Copy, Debug, Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq)]
 pub enum CAKind {
     /// A predictable benefit.
     /// These are known at the time the asset is created.
@@ -227,22 +211,13 @@ impl CAKind {
     }
 }
 
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, PartialEq, Eq, Default, Debug)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Debug
-)]
+#[derive(Copy, Debug, Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq)]
 pub enum CACheckpoint {
     /// CA uses a record date scheduled to occur in the future.
     /// Checkpoint ID will be taken after the record date.
@@ -257,17 +232,8 @@ pub enum CACheckpoint {
 
 /// Defines the record date, at which impact should be calculated,
 /// along with checkpoint info to assess the impact at the date.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Debug
-)]
+#[derive(Copy, Debug, Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq)]
 pub struct RecordDate {
     /// When the impact should be calculated, or already has.
     pub date: Moment,
@@ -276,17 +242,8 @@ pub struct RecordDate {
 }
 
 /// Input specification of the record date used to derive impact for a CA.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Debug
-)]
+#[derive(Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug, DecodeWithMemTracking)]
 pub enum RecordDateSpec {
     /// Record date is in the future.
     /// A checkpoint should be created.
@@ -299,7 +256,8 @@ pub enum RecordDateSpec {
 
 /// Details of a generic CA.
 /// The `(AssetId, ID)` denoting a unique identifier for the CA is stored as a key outside.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(Debug, Decode, Encode, TypeInfo)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
@@ -330,33 +288,14 @@ impl CorporateAction {
 /// A `AssetId`-local CA ID.
 /// By *local*, we mean that the same number might be used for a different `AssetId`
 /// to uniquely identify a different CA.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Default,
-    Debug
-)]
+#[derive(Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug, Default, DecodeWithMemTracking)]
 pub struct LocalCAId(pub u32);
 impl_checked_inc!(LocalCAId);
 
 /// A unique global identifier for a CA.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    Debug
-)]
+#[derive(Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug, DecodeWithMemTracking)]
 pub struct CAId {
     /// The `[`AssetId`]` component used to disambiguate the `local` one.
     pub asset_id: AssetId,
@@ -364,7 +303,8 @@ pub struct CAId {
     pub local_id: LocalCAId,
 }
 
-#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+#[derive(Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, DecodeWithMemTracking)]
 pub struct InitiateCorporateActionArgs {
     asset_id: AssetId,
     kind: CAKind,
@@ -517,13 +457,15 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig {
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
         pub max_details_length: u32,
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(1));
             MaxDetailsLength::<T>::put(self.max_details_length);

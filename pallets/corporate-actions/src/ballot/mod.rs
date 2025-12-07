@@ -77,52 +77,52 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use crate as ca;
-use ca::{CAId, CAKind, CorporateAction};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use core::mem;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+use sp_runtime::traits::Zero;
+use sp_std::prelude::*;
+
 use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{storage_migration_ver, Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use scale_info::TypeInfo;
-use sp_runtime::traits::Zero;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::*;
+
+use crate as ca;
+use ca::{CAId, CAKind, CorporateAction};
 
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type CA<T> = ca::Pallet<T>;
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 
 /// A wrapper for a motion title.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize, DecodeWithMemTracking)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize, DecodeWithMemTracking)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize, DecodeWithMemTracking)]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Deserialize, DecodeWithMemTracking, Serialize)]
 #[derive(Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct Motion {
     /// Title of the motion
@@ -136,10 +136,10 @@ pub struct Motion {
     pub choices: Vec<ChoiceTitle>,
 }
 
-/// A wrapper for a ballot's title.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+/// A wrapper for a ballot's title.]
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(PartialEq, Eq, Hash, Debug, DecodeWithMemTracking)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct BallotTitle(pub Vec<u8>);
 
 /// Metadata about a ballot.
@@ -149,8 +149,8 @@ pub struct BallotTitle(pub Vec<u8>);
 /// When the metadata has been committed to chain,
 /// the needed numbers aforementioned are cached away,
 /// and the metadata is not read on-chain again.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Debug, Encode, TypeInfo, Decode, Default)]
+#[derive(Debug, Decode, DecodeWithMemTracking, Eq, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct BallotMeta {
     /// The ballot's title.
     pub title: BallotTitle,
@@ -168,19 +168,9 @@ impl BallotMeta {
 }
 
 /// Timestamp range details about vote start / end.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Default,
-    Debug,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, TypeInfo)]
+#[derive(Deserialize, Serialize)]
 pub struct BallotTimeRange {
     /// Timestamp at which voting starts.
     pub start: Moment,
@@ -190,19 +180,9 @@ pub struct BallotTimeRange {
 }
 
 /// A vote cast on some choice in some motion in a ballot.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Default,
-    Debug,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, TypeInfo)]
+#[derive(Deserialize, Serialize)]
 pub struct BallotVote {
     /// The weight / voting power assigned to this vote.
     pub power: Balance,
@@ -352,11 +332,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(1));
         }

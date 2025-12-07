@@ -34,25 +34,20 @@
 //! Auxillary struct/enums
 
 use frame_election_provider_support::BalancingConfig;
-use frame_support::traits::{Currency, OnUnbalanced};
-use frame_system as system;
-
-use pallet_authorship as authorship;
-use pallet_balances as balances;
+use frame_support::traits::tokens::imbalance::OnUnbalanced;
+use frame_support::traits::Currency;
 
 use crate::NegativeImbalance;
 
-pub struct Author<R>(sp_std::marker::PhantomData<R>);
+pub struct Author<T>(sp_std::marker::PhantomData<T>);
 
-impl<R> OnUnbalanced<NegativeImbalance<R>> for Author<R>
+impl<T> OnUnbalanced<NegativeImbalance<T>> for Author<T>
 where
-    R: balances::Config + authorship::Config,
-    <R as system::Config>::AccountId: From<polymesh_primitives::AccountId>,
-    <R as system::Config>::AccountId: Into<polymesh_primitives::AccountId>,
+    T: pallet_authorship::Config + pallet_balances::Config,
 {
-    fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
-        if let Some(author) = authorship::Pallet::<R>::author() {
-            <balances::Pallet<R>>::resolve_creating(&author, amount);
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<T>) {
+        if let Some(author) = pallet_authorship::Pallet::<T>::author() {
+            pallet_balances::Pallet::<T>::resolve_creating(&author, amount);
         }
     }
 }

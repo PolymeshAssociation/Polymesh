@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 use crate::asset::{AssetId, FundingRoundName};
@@ -21,7 +21,8 @@ use crate::settlement::InstructionId;
 use crate::{Balance, Memo, NFTs};
 
 /// Describes what should be moved between portfolios. It can be either fungible or non-fungible tokens.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
 pub struct Fund {
     /// The type of token being moved.
     pub description: FundDescription,
@@ -30,7 +31,8 @@ pub struct Fund {
 }
 
 /// Defines the types of tokens that can be moved.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
 pub enum FundDescription {
     /// Fungible token.
     Fungible {
@@ -44,7 +46,8 @@ pub enum FundDescription {
 }
 
 /// Reason for the portfolio update.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
 pub enum PortfolioUpdateReason {
     /// Tokens were issued.
     Issued {
