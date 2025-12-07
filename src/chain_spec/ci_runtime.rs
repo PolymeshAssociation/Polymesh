@@ -69,7 +69,7 @@ fn ci_genesis_config(
     root_key: AccountId,
 ) -> serde_json::Value {
     let genesis_data =
-        crate::chain_spec::mainnet_runtime::genesis_data(&initial_authorities, root_key.clone());
+        crate::chain_spec::develop_runtime::genesis_data(&initial_authorities, &[root_key.clone()]);
 
     let session_keys = crate::chain_spec::develop_runtime::session_keys(&initial_authorities);
 

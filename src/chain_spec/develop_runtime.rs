@@ -127,7 +127,7 @@ fn develop_genesis_config(
 }
 
 /// Returns [`GenesisData`] given the initial authorities and other funded accounts.
-fn genesis_data(
+pub fn genesis_data(
     initial_authorities: &[InitialAuth],
     other_funded_accounts: &[AccountId],
 ) -> GenesisData {
