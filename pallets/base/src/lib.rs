@@ -41,9 +41,6 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The maximum length governing `TooLong`.
         ///
         /// How lengths are computed to compare against this value is situation based.

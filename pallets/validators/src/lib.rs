@@ -135,8 +135,6 @@ pub mod pallet {
         + pallet_staking::Config
         + pallet_babe::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// pallet weights.
         type WeightInfo: WeightInfo;
 

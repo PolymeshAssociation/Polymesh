@@ -352,9 +352,6 @@ pub mod pallet {
         + pallet_asset::Config
         + pallet_asset::checkpoint::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Max number of DID specified in `TargetIdentities`.
         #[pallet::constant]
         type MaxTargetIds: Get<u32>;

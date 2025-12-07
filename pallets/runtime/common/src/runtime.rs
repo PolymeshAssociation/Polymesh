@@ -121,7 +121,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_base::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type MaxLen = MaxLen;
         }
 
@@ -173,7 +172,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_transaction_payment::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type OnChargeTransaction =
                 pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
@@ -210,7 +208,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_protocol_fee::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
             type WeightInfo = polymesh_weights::pallet_protocol_fee::SubstrateWeight;
@@ -299,7 +296,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_validators::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_validators::SubstrateWeight;
             type MaxValidatorPerIdentity = polymesh_runtime_common::MaxValidatorPerIdentity;
             type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
@@ -315,14 +311,12 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_multisig::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type Proposal = RuntimeCall;
             type WeightInfo = polymesh_weights::pallet_multisig::SubstrateWeight;
             type MaxSigners = MaxMultiSigSigners;
         }
 
         impl pallet_portfolio::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
             type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
             type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
@@ -330,7 +324,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_external_agents::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_external_agents::SubstrateWeight;
         }
 
@@ -395,7 +388,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_relayer::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight;
             type SubsidyCallFilter = SubsidyFilter;
         }
@@ -405,12 +397,10 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_asset::checkpoint::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
         }
 
         impl pallet_asset::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
             type ComplianceManager = pallet_compliance_manager::Pallet<Runtime>;
             type UnixTime = pallet_timestamp::Pallet<Runtime>;
@@ -425,7 +415,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl polymesh_contracts::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type MaxInLen = MaxInLen;
             type MaxOutLen = MaxOutLen;
             type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
@@ -485,21 +474,17 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_compliance_manager::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
         }
 
         impl pallet_capital_distribution::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
         }
 
         impl pallet_corporate_ballot::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
         }
 
         impl pallet_corporate_actions::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type MaxTargetIds = MaxTargetIds;
             type MaxDidWhts = MaxDidWhts;
             type WeightInfo = polymesh_weights::pallet_corporate_actions::SubstrateWeight;
@@ -508,14 +493,12 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_statistics::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type MaxStatsPerAsset = MaxStatsPerAsset;
             type MaxTransferConditionsPerAsset = MaxTransferConditionsPerAsset;
             type WeightInfo = polymesh_weights::pallet_statistics::SubstrateWeight;
         }
 
         impl pallet_utility::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type RuntimeCall = RuntimeCall;
             type PalletsOrigin = OriginCaller;
             type WeightInfo = polymesh_weights::pallet_utility::SubstrateWeight;
@@ -589,13 +572,11 @@ macro_rules! misc_pallet_impls {
         impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
         impl pallet_treasury::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
             type WeightInfo = polymesh_weights::pallet_treasury::SubstrateWeight;
         }
 
         impl pallet_settlement::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type SchedulerCall = RuntimeCall;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::SubstrateWeight;
@@ -612,7 +593,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_sto::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_sto::SubstrateWeight;
         }
 
@@ -689,7 +669,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_nft::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_nft::SubstrateWeight;
             type Compliance = pallet_compliance_manager::Pallet<Runtime>;
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;

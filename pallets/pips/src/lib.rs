@@ -375,8 +375,6 @@ pub mod pallet {
         type TechnicalCommitteeVMO: EnsureOrigin<Self::RuntimeOrigin>;
         /// Voting majority origin for Upgrade Committee.
         type UpgradeCommitteeVMO: EnsureOrigin<Self::RuntimeOrigin>;
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Weight calculation for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
         /// Scheduler for executed or expired proposals. The scheduler module does not have instances,

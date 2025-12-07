@@ -160,9 +160,6 @@ pub mod pallet {
         + pallet_portfolio::Config
         + AssetFnConfig
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         type Currency: Currency<Self::AccountId>;
 
         type ComplianceManager: ComplianceFnConfig;

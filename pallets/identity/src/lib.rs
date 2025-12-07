@@ -227,8 +227,6 @@ pub mod pallet {
         + pallet_base::Config
         + pallet_permissions::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// An extrinsic call.
         type Proposal: Parameter
             + Dispatchable<

@@ -121,9 +121,6 @@ pub mod pallet {
         + EAConfig
         + AssetFnConfig
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Weight details of all extrinsic
         type WeightInfo: WeightInfo;
 

@@ -59,7 +59,6 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]
@@ -69,8 +68,6 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + pallet_identity::Config + pallet_balances::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The native currency.
         type Currency: Currency<Self::AccountId>;
         /// Weight information for extrinsics in the identity pallet.

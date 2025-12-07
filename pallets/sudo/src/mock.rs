@@ -31,9 +31,7 @@ pub mod logger {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-    }
+    pub trait Config: frame_system::Config {}
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -123,13 +121,10 @@ impl frame_system::Config for Test {
 }
 
 // Implement the logger module's `Config` on the Test runtime.
-impl logger::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-}
+impl logger::Config for Test {}
 
 // Implement the sudo module's `Config` on the Test runtime.
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
 }
 
