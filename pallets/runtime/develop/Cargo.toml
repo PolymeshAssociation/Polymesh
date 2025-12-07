@@ -101,7 +101,7 @@ frame-system-benchmarking = { workspace = true, default-features = false, option
 hex-literal = { version = "0.3.1", default-features = false, optional = true }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+polymesh-build-tool = { workspace = true, default-features = false }
 
 [features]
 default = ["std", "equalize"]
@@ -117,6 +117,7 @@ u64_backend = ["polymesh-primitives/u64_backend"]
 no_std = ["polymesh-primitives/no_std", "u64_backend"]
 
 std = [
+	  "polymesh-build-tool/std",
     "frame-election-provider-support/std",
     "frame-executive/std",
     "frame-support/std",
@@ -152,7 +153,6 @@ std = [
     "pallet-transaction-payment/std",
     "pallet-utility/std",
     "pallet-validators/std",
-    "substrate-wasm-builder",
     "polymesh-contracts/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
