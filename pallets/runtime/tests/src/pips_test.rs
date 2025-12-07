@@ -497,7 +497,7 @@ fn proposal_details_are_correct() {
             created_at: 42,
             url: Some(proposal_url),
             description: Some(proposal_desc),
-            transaction_version: 7,
+            transaction_version: 8,
             expiry: <_>::default(),
         };
         assert_eq!(
