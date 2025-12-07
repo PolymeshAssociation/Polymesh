@@ -22,7 +22,7 @@ polymesh-runtime-common = { workspace = true, default-features = false }
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
-serde_json = "1.0.48"
+serde_json = { version = "1.0.48", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 hex-literal = "0.2.1"
 arrayvec = { version = "0.7.1", default-features = false }
@@ -30,20 +30,20 @@ log = "0.4"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-arithmetic = { version = "6.0.0", default-features = false }
-sp-core = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-version = { version = "5.0.0", default-features = false }
-sp-api = { version = "4.0.0-dev", default-features = false }
-frame-system = { version = "4.0.0-dev", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
-pallet-timestamp = { version = "4.0.0-dev", default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-arithmetic = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
+sp-api = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
 
 # Only in STD
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -57,6 +57,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-timestamp/std",
     "pallet-external-agents/std",
+    "pallet-statistics/std",
     "polymesh-primitives/std",
     "polymesh-common-utilities/std",
     "polymesh-runtime-common/std",
@@ -74,5 +75,11 @@ std = [
 runtime-benchmarks = [
     "frame-benchmarking",
     "pallet-identity/runtime-benchmarks",
+    "pallet-external-agents/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
+    "pallet-portfolio/runtime-benchmarks",
+    "pallet-statistics/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
+    "polymesh-runtime-common/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime"]

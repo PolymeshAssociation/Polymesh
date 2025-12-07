@@ -1,43 +1,38 @@
 use codec::Encode;
-use frame_support::dispatch::{
-    extract_actual_weight, DispatchError, DispatchErrorWithPostInfo, Dispatchable, GetDispatchInfo,
-    Pays, PostDispatchInfo, Weight,
-};
+use frame_support::dispatch::{extract_actual_weight, DispatchErrorWithPostInfo};
+use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::error::BadOrigin;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Contains;
-use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, storage,
-};
+use frame_support::weights::Weight;
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok};
+use frame_support::{assert_storage_noop, storage};
 use frame_system::{Call as SystemCall, EventRecord};
-use pallet_timestamp::Call as TimestampCall;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::Dispatchable;
+use sp_runtime::MultiSignature;
 
 use pallet_asset::UniqueTickerRegistration;
 use pallet_balances::Call as BalancesCall;
 use pallet_pips::{PipIdSequence, ProposalState, SnapshotResult};
 use pallet_portfolio::{Call as PortfolioCall, Portfolios};
-use pallet_utility::{
-    self as utility, Call as UtilityCall, Config as UtilityConfig, Event, Nonces, UniqueCall,
-    WeightInfo,
-};
-use polymesh_primitives::{
-    traits::CddAndFeeDetails, AccountId, Balance, ExtrinsicPermissions, PalletPermissions,
-    Permissions, PortfolioName, PortfolioNumber, SubsetRestriction, Ticker,
-};
-use sp_core::sr25519::Signature;
-use sp_keyring::AccountKeyring;
+use pallet_timestamp::Call as TimestampCall;
+use pallet_utility::{self as utility, Call as UtilityCall, Config as UtilityConfig};
+use pallet_utility::{Event, Nonces, UniqueCall, WeightInfo};
+use polymesh_primitives::traits::CddAndFeeDetails;
+use polymesh_primitives::{AccountId, Balance, ExtrinsicPermissions};
+use polymesh_primitives::{PalletPermissions, Permissions, PortfolioName};
+use polymesh_primitives::{PortfolioNumber, SubsetRestriction, Ticker};
 
 use super::committee_test::set_members;
 use super::pips_test::{assert_balance, assert_state, committee_proposal, community_proposal};
 use super::storage::example::Call as ExampleCall;
-use super::storage::{
-    add_secondary_key, get_secondary_keys, next_block, register_keyring_account_with_balance,
-    EventTest, Identity, Portfolio, RuntimeCall, RuntimeOrigin, System, TestBaseCallFilter,
-    TestStorage, User, Utility,
-};
+use super::storage::{add_secondary_key, get_secondary_keys, next_block, TestStorage, Utility};
+use super::storage::{register_keyring_account_with_balance, EventTest, Identity, User};
+use super::storage::{Portfolio, RuntimeCall, RuntimeOrigin, System, TestBaseCallFilter};
 use super::{assert_event_doesnt_exist, assert_event_exists, assert_last_event, ExtBuilder};
 
 type Error = utility::Error<TestStorage>;
-
 type Balances = pallet_balances::Pallet<TestStorage>;
 type Pips = pallet_pips::Pallet<TestStorage>;
 type Committee = pallet_committee::Pallet<TestStorage, pallet_committee::Instance1>;
@@ -54,17 +49,11 @@ fn consensus_call(call: RuntimeCall, signers: &[User]) {
 }
 
 fn transfer(to: AccountId, amount: Balance) -> RuntimeCall {
-    RuntimeCall::Balances(BalancesCall::transfer {
+    RuntimeCall::Balances(BalancesCall::transfer_allow_death {
         dest: to.into(),
         value: amount,
     })
 }
-
-const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
-    index: 5,
-    error: [2, 0, 0, 0],
-    message: None,
-});
 
 #[track_caller]
 fn assert_event(event: Event<TestStorage>) {
@@ -78,13 +67,13 @@ fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let alice = AccountKeyring::Alice.to_account_id();
+        let alice = Sr25519Keyring::Alice.to_account_id();
         TestStorage::set_payer_context(Some(alice.clone()));
-        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
 
-        let bob = AccountKeyring::Bob.to_account_id();
+        let bob = Sr25519Keyring::Bob.to_account_id();
         TestStorage::set_payer_context(Some(bob.clone()));
-        let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
         assert_balance(alice.clone(), 1000, 0);
         assert_balance(bob.clone(), 1000, 0);
@@ -117,7 +106,7 @@ fn batch_early_exit_works() {
         assert_balance(bob, 1000 + 400, 0);
         assert_event(Event::BatchInterrupted {
             index: 1,
-            error: ERROR,
+            error: sp_runtime::TokenError::FundsUnavailable.into(),
         });
     })
 }
@@ -156,7 +145,9 @@ fn batch_optimistic_failures_listed() {
         );
         assert_eq!(
             events.pop().unwrap().event,
-            EventTest::Utility(Event::ItemFailed { error: ERROR })
+            EventTest::Utility(Event::ItemFailed {
+                error: sp_runtime::TokenError::FundsUnavailable.into()
+            })
         );
         assert_eq!(
             events.pop().unwrap().event,
@@ -167,11 +158,15 @@ fn batch_optimistic_failures_listed() {
 
         assert_eq!(
             events.pop().unwrap().event,
-            EventTest::Utility(Event::ItemFailed { error: ERROR })
+            EventTest::Utility(Event::ItemFailed {
+                error: sp_runtime::TokenError::FundsUnavailable.into()
+            })
         );
         assert_eq!(
             events.pop().unwrap().event,
-            EventTest::Utility(Event::ItemFailed { error: ERROR })
+            EventTest::Utility(Event::ItemFailed {
+                error: sp_runtime::TokenError::FundsUnavailable.into()
+            })
         );
         assert_eq!(
             events.pop().unwrap().event,
@@ -203,7 +198,7 @@ fn batch_atomic_early_exit_works() {
         let calls = vec![trans(400), trans(900), trans(400)];
         assert_storage_noop!(assert_err_ignore_postinfo!(
             Utility::batch_all(RuntimeOrigin::signed(alice.clone()), calls),
-            pallet_balances::Error::<TestStorage>::InsufficientBalance
+            sp_runtime::TokenError::FundsUnavailable
         ));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
@@ -218,14 +213,14 @@ fn relay_happy_case() {
 }
 
 fn _relay_happy_case() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
-    let charlie = AccountKeyring::Charlie.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Charlie, 1_000).unwrap();
 
     // 41 Extra for registering a DID
     assert_balance(bob.clone(), 1041, 0);
@@ -234,7 +229,7 @@ fn _relay_happy_case() {
     let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
         Nonces::<TestStorage>::get(bob.clone()),
-        RuntimeCall::Balances(BalancesCall::transfer {
+        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
             dest: charlie.clone().into(),
             value: 50,
         }),
@@ -243,7 +238,7 @@ fn _relay_happy_case() {
     assert_ok!(Utility::relay_tx(
         origin,
         bob.clone(),
-        AccountKeyring::Bob.sign(&transaction.encode()).into(),
+        Sr25519Keyring::Bob.sign(&transaction.encode()).into(),
         transaction
     ));
 
@@ -259,44 +254,45 @@ fn relay_unhappy_cases() {
 }
 
 fn _relay_unhappy_cases() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.to_account_id();
+    let bob = Sr25519Keyring::Bob.to_account_id();
 
-    let charlie = AccountKeyring::Charlie.to_account_id();
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
 
     let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
         Nonces::<TestStorage>::get(bob.clone()),
-        RuntimeCall::Balances(BalancesCall::transfer {
+        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
             dest: charlie.clone().into(),
             value: 59,
         }),
     );
 
+    let signature = MultiSignature::Sr25519(Default::default());
     assert_noop!(
         Utility::relay_tx(
             origin.clone(),
             bob.clone(),
-            Signature([0; 64]).into(),
+            signature.clone(),
             transaction.clone()
         ),
         Error::InvalidSignature
     );
 
-    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
     let transaction = UniqueCall::new(
         Nonces::<TestStorage>::get(bob.clone()) + 1,
-        RuntimeCall::Balances(BalancesCall::transfer {
+        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
             dest: charlie.into(),
             value: 59,
         }),
     );
 
     assert_noop!(
-        Utility::relay_tx(origin.clone(), bob, Signature([0; 64]).into(), transaction),
+        Utility::relay_tx(origin.clone(), bob, signature, transaction),
         Error::InvalidNonce
     );
 }
@@ -310,8 +306,8 @@ fn batch_secondary_with_permissions_works() {
 
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
-    let alice = User::new(AccountKeyring::Alice).balance(1_000);
-    let bob = User::new_with(alice.did, AccountKeyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice).balance(1_000);
+    let bob = User::new_with(alice.did, Sr25519Keyring::Bob);
     let check_name = |name| {
         assert_eq!(
             Portfolios::<TestStorage>::get(&alice.did, &PortfolioNumber(1)),
@@ -418,8 +414,8 @@ fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> R
 #[test]
 fn sub_batch_with_root_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         let k = b"a".to_vec();
         let call = RuntimeCall::System(frame_system::Call::set_storage {
             items: vec![(k.clone(), k.clone())],
@@ -452,8 +448,8 @@ fn sub_batch_with_root_works() {
 #[test]
 fn sub_batch_with_signed_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
         assert_eq!(Balances::free_balance(ferdie.acc()), 10);
         assert_ok!(Utility::batch(
@@ -468,7 +464,7 @@ fn sub_batch_with_signed_works() {
 #[test]
 fn sub_batch_with_signed_filters() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         assert_ok!(Utility::batch(
             charlie.origin(),
             vec![RuntimeCall::Example(ExampleCall::noop2 {})]
@@ -486,9 +482,9 @@ fn sub_batch_with_signed_filters() {
 #[test]
 fn sub_batch_handles_weight_refund() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie);
-        let start_weight = Weight::from_ref_time(100);
-        let end_weight = Weight::from_ref_time(75);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let start_weight = Weight::from_parts(100, 0);
+        let end_weight = Weight::from_parts(75, 0);
         let diff = start_weight - end_weight;
         let batch_len = 4;
 
@@ -499,7 +495,7 @@ fn sub_batch_handles_weight_refund() {
         let info = call.get_dispatch_info();
         let result = call.dispatch(charlie.origin());
         assert_ok!(result);
-        assert_eq!(extract_actual_weight(&result, &info), info.weight);
+        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
 
         // Refund weight when ok
         let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -511,7 +507,7 @@ fn sub_batch_handles_weight_refund() {
         // Diff is refunded
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.weight - diff * batch_len
+            info.total_weight() - diff * batch_len
         );
 
         // Full weight when err
@@ -530,7 +526,7 @@ fn sub_batch_handles_weight_refund() {
             .into(),
         );
         // No weight is refunded
-        assert_eq!(extract_actual_weight(&result, &info), info.weight);
+        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
 
         // Refund weight when err
         let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -550,7 +546,7 @@ fn sub_batch_handles_weight_refund() {
         );
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.weight - diff * batch_len
+            info.total_weight() - diff * batch_len
         );
 
         // Partial batch completion
@@ -579,8 +575,8 @@ fn sub_batch_handles_weight_refund() {
 #[test]
 fn sub_batch_all_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
         assert_eq!(Balances::free_balance(ferdie.acc()), 10);
         assert_ok!(Utility::batch_all(
@@ -595,8 +591,8 @@ fn sub_batch_all_works() {
 #[test]
 fn sub_batch_all_revert() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         let call = transfer(ferdie.acc(), 5);
         let info = call.get_dispatch_info();
 
@@ -614,11 +610,12 @@ fn sub_batch_all_revert() {
             DispatchErrorWithPostInfo {
                 post_info: PostDispatchInfo {
                     actual_weight: Some(
-                        <TestStorage as UtilityConfig>::WeightInfo::batch_all(2) + info.weight * 2
+                        <TestStorage as UtilityConfig>::WeightInfo::batch_all(2)
+                            + info.total_weight() * 2
                     ),
                     pays_fee: Pays::Yes
                 },
-                error: pallet_balances::Error::<TestStorage>::InsufficientBalance.into()
+                error: sp_runtime::TokenError::FundsUnavailable.into(),
             }
         );
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
@@ -629,9 +626,9 @@ fn sub_batch_all_revert() {
 #[test]
 fn sub_batch_all_handles_weight_refund() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let start_weight = Weight::from_ref_time(100);
-        let end_weight = Weight::from_ref_time(75);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let start_weight = Weight::from_parts(100, 0);
+        let end_weight = Weight::from_parts(75, 0);
         let diff = start_weight - end_weight;
         let batch_len = 4;
 
@@ -642,7 +639,7 @@ fn sub_batch_all_handles_weight_refund() {
         let info = call.get_dispatch_info();
         let result = call.dispatch(charlie.origin());
         assert_ok!(result);
-        assert_eq!(extract_actual_weight(&result, &info), info.weight);
+        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
 
         // Refund weight when ok
         let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -654,7 +651,7 @@ fn sub_batch_all_handles_weight_refund() {
         // Diff is refunded
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.weight - diff * batch_len
+            info.total_weight() - diff * batch_len
         );
 
         // Full weight when err
@@ -666,7 +663,7 @@ fn sub_batch_all_handles_weight_refund() {
         let result = call.dispatch(charlie.origin());
         assert_err_ignore_postinfo!(result, "The cake is a lie.");
         // No weight is refunded
-        assert_eq!(extract_actual_weight(&result, &info), info.weight);
+        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
 
         // Refund weight when err
         let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -679,7 +676,7 @@ fn sub_batch_all_handles_weight_refund() {
         assert_err_ignore_postinfo!(result, "The cake is a lie.");
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.weight - diff * batch_len
+            info.total_weight() - diff * batch_len
         );
 
         // Partial batch completion
@@ -701,8 +698,8 @@ fn sub_batch_all_handles_weight_refund() {
 #[test]
 fn sub_batch_all_does_not_nest() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         let batch_all = RuntimeCall::Utility(UtilityCall::batch_all {
             calls: vec![
                 transfer(ferdie.acc(), 1),
@@ -721,7 +718,8 @@ fn sub_batch_all_does_not_nest() {
             DispatchErrorWithPostInfo {
                 post_info: PostDispatchInfo {
                     actual_weight: Some(
-                        <TestStorage as UtilityConfig>::WeightInfo::batch_all(1) + info.weight
+                        <TestStorage as UtilityConfig>::WeightInfo::batch_all(1)
+                            + info.total_weight()
                     ),
                     pays_fee: Pays::Yes
                 },
@@ -753,7 +751,7 @@ fn sub_batch_all_does_not_nest() {
 #[test]
 fn sub_batch_limit() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         let calls = vec![RuntimeCall::System(SystemCall::remark { remark: vec![] }); 40_000];
         assert_noop!(
             Utility::batch(charlie.origin(), calls.clone()),
@@ -769,15 +767,15 @@ fn sub_batch_limit() {
 #[test]
 fn sub_force_batch_works() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
-        let ferdie = User::new(AccountKeyring::Ferdie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
+        let ferdie = User::new(Sr25519Keyring::Ferdie).balance(10);
         assert_eq!(Balances::free_balance(charlie.acc()), 10);
         assert_eq!(Balances::free_balance(ferdie.acc()), 10);
         assert_ok!(Utility::force_batch(
             charlie.origin(),
             vec![
                 transfer(ferdie.acc(), 5),
-                call_foobar(true, Weight::from_ref_time(75), None),
+                call_foobar(true, Weight::from_parts(75, 0), None),
                 transfer(ferdie.acc(), 10),
                 transfer(ferdie.acc(), 5),
             ]
@@ -821,7 +819,7 @@ fn sub_none_origin_does_not_work() {
 #[test]
 fn sub_batch_doesnt_work_with_inherents() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         // fails because inherents expect the origin to be none.
         assert_ok!(Utility::batch(
             charlie.origin(),
@@ -852,7 +850,7 @@ fn sub_force_batch_doesnt_work_with_inherents() {
 #[test]
 fn sub_batch_all_doesnt_work_with_inherents() {
     new_test_ext().execute_with(|| {
-        let charlie = User::new(AccountKeyring::Charlie).balance(10);
+        let charlie = User::new(Sr25519Keyring::Charlie).balance(10);
         let batch_all = RuntimeCall::Utility(UtilityCall::batch_all {
             calls: vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 })],
         });
@@ -863,7 +861,7 @@ fn sub_batch_all_doesnt_work_with_inherents() {
             batch_all.dispatch(charlie.origin()),
             DispatchErrorWithPostInfo {
                 post_info: PostDispatchInfo {
-                    actual_weight: Some(info.weight),
+                    actual_weight: Some(info.total_weight()),
                     pays_fee: Pays::Yes
                 },
                 error: BadOrigin.into(),
@@ -875,10 +873,10 @@ fn sub_batch_all_doesnt_work_with_inherents() {
 #[test]
 fn batch_works_with_committee_origin() {
     new_test_ext().execute_with(|| {
-        let proposer = User::new(AccountKeyring::Dave);
+        let proposer = User::new(Sr25519Keyring::Dave);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         set_members(vec![bob.did, charlie.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
@@ -909,10 +907,10 @@ fn batch_works_with_committee_origin() {
 #[test]
 fn force_batch_works_with_committee_origin() {
     new_test_ext().execute_with(|| {
-        let proposer = User::new(AccountKeyring::Dave);
+        let proposer = User::new(Sr25519Keyring::Dave);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         set_members(vec![bob.did, charlie.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
@@ -943,10 +941,10 @@ fn force_batch_works_with_committee_origin() {
 #[test]
 fn batch_all_works_with_committee_origin() {
     new_test_ext().execute_with(|| {
-        let proposer = User::new(AccountKeyring::Dave);
+        let proposer = User::new(Sr25519Keyring::Dave);
 
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         set_members(vec![bob.did, charlie.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(RuntimeOrigin::root(), 10));
@@ -977,15 +975,9 @@ fn batch_all_works_with_committee_origin() {
 #[test]
 fn sub_with_weight_works() {
     new_test_ext().execute_with(|| {
-        let weights = <TestStorage as frame_system::Config>::BlockWeights::get();
         let upgrade_code_call = Box::new(RuntimeCall::System(
             frame_system::Call::set_code_without_checks { code: vec![] },
         ));
-        // Weight before is max.
-        assert_eq!(
-            upgrade_code_call.get_dispatch_info().weight,
-            weights.max_block
-        );
         assert_eq!(
             upgrade_code_call.get_dispatch_info().class,
             frame_support::dispatch::DispatchClass::Operational
@@ -997,7 +989,7 @@ fn sub_with_weight_works() {
         };
         // Weight after is set by Root.
         assert_eq!(
-            with_weight_call.get_dispatch_info().weight,
+            with_weight_call.get_dispatch_info().total_weight(),
             Weight::from_parts(123, 456)
         );
         assert_eq!(
@@ -1011,7 +1003,7 @@ fn sub_with_weight_works() {
 fn as_derivative() {
     new_test_ext().execute_with(|| {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let alice = User::new(AccountKeyring::Alice).balance(1_000_000);
+        let alice = User::new(Sr25519Keyring::Alice).balance(1_000_000);
         let derivative_alice_account = Utility::derivative_account_id(alice.acc(), 1).unwrap();
         Identity::unsafe_join_identity(
             alice.did,
@@ -1019,7 +1011,8 @@ fn as_derivative() {
             derivative_alice_account.clone(),
         );
         let derivative_alice_id = Identity::get_identity(&derivative_alice_account).unwrap();
-        Balances::transfer(alice.origin(), derivative_alice_account.into(), 1_000_000).unwrap();
+        Balances::transfer_allow_death(alice.origin(), derivative_alice_account.into(), 1_000_000)
+            .unwrap();
 
         let call = RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker });
         assert_ok!(Utility::as_derivative(alice.origin(), 1, Box::new(call)));

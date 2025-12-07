@@ -38,24 +38,21 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons},
-    weights::Weight,
-};
-use frame_system::ensure_root;
+use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons};
+use frame_support::weights::Weight;
+use sp_runtime::{traits::Zero, Perbill};
+use sp_std::vec::Vec;
+
+use frame_system::{ensure_root, Config as SystemConfig};
 use pallet_identity::Config as IdentityConfig;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::{
-    traits::{CddAndFeeDetails, SubsidiserTrait},
-    Balance, IdentityId, PosRatio, GC_DID,
-};
-use sp_runtime::{traits::Zero, Perbill};
-use sp_std::vec;
+use polymesh_primitives::traits::{CddAndFeeDetails, SubsidiserTrait};
+use polymesh_primitives::{Balance, IdentityId, PosRatio, GC_DID};
 
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type NegativeImbalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::NegativeImbalance;
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 
@@ -108,14 +105,16 @@ pub mod pallet {
     pub type Coefficient<T: Config> = StorageValue<_, PosRatio, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig {
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
         pub base_fees: Vec<(ProtocolOp, Balance)>,
         pub coefficient: PosRatio,
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             // Set initial base fees
             for (op, fee) in &self.base_fees {

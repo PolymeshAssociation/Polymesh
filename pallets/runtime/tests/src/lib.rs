@@ -1,15 +1,11 @@
 #![allow(dead_code)]
 #![cfg(test)]
+// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
+#![recursion_limit = "1024"]
 
-pub mod storage;
-pub use storage::{
-    account_from, add_secondary_key, fast_forward_blocks, fast_forward_to_block, get_identity_id,
-    make_account, make_account_with_balance, make_account_without_cdd, next_block,
-    register_keyring_account_with_balance, TestStorage,
-};
+pub(crate) use storage::{next_block, TestStorage};
 
-pub mod ext_builder;
-pub use ext_builder::ExtBuilder;
+pub(crate) use ext_builder::ExtBuilder;
 
 mod asset_pallet;
 #[macro_use]
@@ -22,6 +18,7 @@ mod contracts_test;
 mod corporate_actions_test;
 #[macro_use]
 mod external_agents_test;
+pub(crate) mod ext_builder;
 mod fee_details;
 mod group_test;
 mod identity_test;
@@ -37,6 +34,7 @@ mod signed_extra;
 mod staking;
 mod staking_extra_tests;
 mod sto_test;
+pub(crate) mod storage;
 mod transaction_payment_test;
 mod transfer_compliance_test;
 mod treasury_test;

@@ -1,3 +1,7 @@
+#[cfg(feature = "std")]
 fn main() {
-    polymesh_build_tool::build()
+    substrate_wasm_builder::WasmBuilder::build_using_defaults()
 }
+
+#[cfg(not(feature = "std"))]
+fn main() {}

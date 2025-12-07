@@ -9,7 +9,7 @@ import type { ApiTypes, AugmentedSubmittable, SubmittableExtrinsic, SubmittableE
 import type { BTreeSet, Bytes, Compact, Option, U8aFixed, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, IMethod, ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, Call, H256, MultiAddress, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
-import type { PalletContractsWasmDeterminism, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletElectionProviderMultiPhaseRawSolution, PalletElectionProviderMultiPhaseSolutionOrSnapshotSize, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletStakingPalletConfigOpPerbill, PalletStakingPalletConfigOpPercent, PalletStakingPalletConfigOpU128, PalletStakingPalletConfigOpU32, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesIdentityCreateChildIdentityWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsNextUpgrade, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAssetNonFungibleType, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioKind, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesNftNftCollectionKeys, PolymeshPrimitivesNftNftMetadataAttribute, PolymeshPrimitivesPortfolioFund, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyExtrinsicPermissions, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationCount, PolymeshPrimitivesSettlementAssetCount, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptDetails, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeOriginCaller, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusGrandpaEquivocationProof, SpConsensusSlotsEquivocationProof, SpNposElectionsElectionScore, SpNposElectionsSupport, SpRuntimeMultiSignature, SpSessionMembershipProof, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
+import type { PalletBalancesAdjustmentDirection, PalletContractsWasmDeterminism, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletElectionProviderMultiPhaseRawSolution, PalletElectionProviderMultiPhaseSolutionOrSnapshotSize, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletStakingPalletConfigOpPerbill, PalletStakingPalletConfigOpPercent, PalletStakingPalletConfigOpU128, PalletStakingPalletConfigOpU32, PalletStakingRewardDestination, PalletStakingUnlockChunk, PalletStakingValidatorPrefs, PalletStoFundingMethod, PalletStoPriceTier, PalletUtilityUniqueCall, PalletValidatorsSlashingSwitch, PolymeshCommonUtilitiesCheckpointScheduleCheckpoints, PolymeshCommonUtilitiesIdentityCreateChildIdentityWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsApi, PolymeshContractsChainExtensionExtrinsicId, PolymeshContractsNextUpgrade, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAssetNonFungibleType, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioKind, PolymeshPrimitivesMaybeBlock, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesNftNftCollectionKeys, PolymeshPrimitivesNftNftMetadataAttribute, PolymeshPrimitivesPortfolioFund, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyExtrinsicPermissions, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationCount, PolymeshPrimitivesSettlementAssetCount, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptDetails, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeOriginCaller, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusGrandpaEquivocationProof, SpConsensusSlotsEquivocationProof, SpNposElectionsElectionScore, SpNposElectionsSupport, SpRuntimeMultiSignature, SpSessionMembershipProof, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
 
 export type __AugmentedSubmittable = AugmentedSubmittable<() => unknown>;
 export type __SubmittableExtrinsic<ApiType extends ApiTypes> = SubmittableExtrinsic<ApiType>;
@@ -19,12 +19,21 @@ declare module '@polkadot/api-base/types/submittable' {
   interface AugmentedSubmittables<ApiType extends ApiTypes> {
     asset: {
       /**
-       * This function is used to accept a token ownership transfer.
+       * Accepts an asset ownership transfer.
+       * 
+       * Consumes the authorization `auth_id` (see `pallet_identity::consume_auth`).
        * NB: To reject the transfer, call remove auth function in identity module.
        * 
        * # Arguments
-       * * `origin`: it contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-       * * `auth_id`: authorization ID of the token ownership transfer authorization.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `auth_id` - Authorization ID of the asset ownership transfer authorization.
+       * 
+       * # Events
+       * * `AssetOwnershipTransferred` - When a asset ownership is successfully transferred.
+       * 
+       * # Errors
+       * * `TickerRegistrationNotFound` - If the ticker registration is not found.
+       * * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
        **/
       acceptAssetOwnershipTransfer: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
@@ -34,384 +43,661 @@ declare module '@polkadot/api-base/types/submittable' {
        * NB: To reject the transfer, call remove auth function in identity module.
        * 
        * # Arguments
-       * * `origin`: it contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-       * * `auth_id`: authorization ID of ticker transfer authorization.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `auth_id` - Authorization ID of ticker transfer authorization.
+       * 
+       * # Events
+       * * `TickerTransferred` - When a ticker is successfully transferred.
+       * 
+       * # Errors
+       * * `TickerRegistrationNotFound` - If the ticker registration is not found.
+       * * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
        **/
       acceptTickerTransfer: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
-       * Add documents for a given token.
+       * Add documents for a given asset.
+       * 
+       * This function allows the asset issuer or an external agent to add documents to an asset.
        * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `docs`: documents to be attached to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `docs` - Documents to be attached to the asset.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `DocumentAdded` - When a document is successfully added to an asset.
+       * 
+       * # Errors
+       * * `CounterOverflow` - If the document ID counter overflows.
        **/
       addDocuments: AugmentedSubmittable<(docs: Vec<PolymeshPrimitivesDocument> | (PolymeshPrimitivesDocument | { uri?: any; contentHash?: any; name?: any; docType?: any; filingDate?: any } | string | Uint8Array)[], assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<PolymeshPrimitivesDocument>, PolymeshPrimitivesAssetAssetId]>;
       /**
-       * Sets all identities in the `mediators` set as mandatory mediators for any instruction transfering `asset_id`.
+       * Sets all identities in the `mediators` set as mandatory mediators for any instruction transferring `asset_id`.
+       * 
+       * This function allows the asset issuer or an external agent to add mandatory mediators for an asset.
        * 
        * # Arguments
-       * * `origin`: The secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] of the asset that will require the mediators.
-       * * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the given ticker.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] of the asset that will require the mediators.
+       * * `mediators` - A set of [`IdentityId`] of all the mandatory mediators for the given ticker.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `AssetMediatorsAdded` - When the mandatory mediators are successfully added.
+       * 
+       * # Errors
+       * * `NumberOfAssetMediatorsExceeded` - If the number of mandatory mediators exceeds the maximum allowed limit.
        **/
       addMandatoryMediators: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, mediators: BTreeSet<PolymeshPrimitivesIdentityId>) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, BTreeSet<PolymeshPrimitivesIdentityId>]>;
       /**
-       * Forces a transfer of token from `from_portfolio` to the caller's default portfolio.
+       * Forces a transfer of tokens from `from_portfolio` to the caller's default portfolio.
+       * 
+       * This function allows the asset issuer or an external agent to force a transfer of tokens from one portfolio to another.
        * 
        * # Arguments
-       * * `origin`: a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `value`:  the [`Balance`] of tokens that will be transferred.
-       * * `from_portfolio`: the [`PortfolioId`] that will have its balance reduced.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `value` - The [`Balance`] of tokens that will be transferred.
+       * * `from_portfolio` - The [`PortfolioId`] that will have its balance reduced.
        * 
        * # Permissions
        * * Asset
        * * Portfolio
+       * 
+       * # Events
+       * * `ControllerTransfer` - When tokens are successfully transferred.
+       * 
+       * # Errors
+       * * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+       * * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
+       * * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
        **/
       controllerTransfer: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, value: u128 | AnyNumber | Uint8Array, fromPortfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u128, PolymeshPrimitivesIdentityIdPortfolioId]>;
       /**
-       * Initializes a new [`AssetDetails`], with the initiating account as its owner.
-       * The total supply will initially be zero. To mint tokens, use [`Module::issue`].
+       * Creates a new asset.
+       * 
+       * The total supply will initially be zero. To mint tokens, use [`Pallet::issue`].
        * 
        * # Arguments
-       * * `origin`: contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-       * * `asset_name`: the [`AssetName`] associated to the security token.
-       * * `divisible`: sets [`AssetDetails::divisible`], where `true` means the token is divisible.
-       * * `asset_type`: the [`AssetType`] that represents the security type of the [`AssetDetails`].
-       * * `asset_identifiers`: a vector of [`AssetIdentifier`].
-       * * `funding_round_name`: the name of the funding round ([`FundingRoundName`]).
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_name` - The [`AssetName`] of the new asset.
+       * * `divisible` - Sets [`AssetDetails::divisible`], where `true` means the asset is divisible.
+       * * `asset_type` - The [`AssetType`] of the new asset.
+       * * `asset_identifiers` - A vector of [`AssetIdentifier`].
+       * * `funding_round_name` - The name of the funding round ([`FundingRoundName`]).
        * 
-       * ## Permissions
-       * * Portfolio
+       * # Events
+       * * `AssetCreated` - When a new asset is successfully created.
+       * 
+       * # Errors
+       * * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
+       * * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
+       * * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
        **/
       createAsset: AugmentedSubmittable<(assetName: Bytes | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array, assetIdentifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRoundName: Option<Bytes> | null | Uint8Array | Bytes | string) => SubmittableExtrinsic<ApiType>, [Bytes, bool, PolymeshPrimitivesAssetAssetType, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
       /**
-       * Initializes a new [`AssetDetails`], with the initiating account as its owner.
-       * The total supply will initially be zero. To mint tokens, use [`Module::issue`].
-       * Note: Utility extrinsic to batch [`Module::create_asset`] and [`Module::register_custom_asset_type`].
+       * Creates a new asset with a new custom asset type.
+       * 
+       * The total supply will initially be zero. To mint tokens, use [`Pallet::issue`].
        * 
        * # Arguments
-       * * `origin`: contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-       * * `asset_name`: the [`AssetName`] associated to the security token.
-       * * `divisible`: sets [`AssetDetails::divisible`], where `true` means the token is divisible.
-       * * `custom_asset_type`: the custom asset type of the token.
-       * * `asset_identifiers`: a vector of [`AssetIdentifier`].
-       * * `funding_round_name`: the name of the funding round ([`FundingRoundName`]).
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_name` - The [`AssetName`] of the new asset.
+       * * `divisible` - Sets [`AssetDetails::divisible`], where `true` means the asset is divisible.
+       * * `custom_asset_type` - The custom asset type of the asset.
+       * * `asset_identifiers` - A vector of [`AssetIdentifier`].
+       * * `funding_round_name` - The name of the funding round ([`FundingRoundName`]).
        * 
-       * ## Permissions
-       * * Portfolio
+       * # Events
+       * * `AssetCreated` - When a new asset is successfully created.
+       * * `CustomAssetTypeRegistered` - When a new custom asset type is successfully registered.
+       * * `CustomAssetTypeAlreadyRegistered` - When the custom asset type is already registered.
+       * 
+       * # Errors
+       * * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
+       * * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
+       * * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
+       * * `TooLong` - If the custom asset type length exceeds the maximum allowed length.
        **/
       createAssetWithCustomType: AugmentedSubmittable<(assetName: Bytes | string | Uint8Array, divisible: bool | boolean | Uint8Array, customAssetType: Bytes | string | Uint8Array, assetIdentifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[], fundingRoundName: Option<Bytes> | null | Uint8Array | Bytes | string) => SubmittableExtrinsic<ApiType>, [Bytes, bool, Bytes, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>]>;
       /**
        * Pre-approves the receivement of the asset for all identities.
        * 
-       * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] that will be exempt from affirmation.
+       * This function allows the root origin to pre-approve the receivement of an asset for all identities.
        * 
-       * # Permissions
-       * * Root
+       * # Arguments
+       * * `origin` - The root origin.
+       * * `asset_id` - The [`AssetId`] that will be exempt from affirmation.
+       * 
+       * # Events
+       * * `AssetAffirmationExemption` - When the asset is successfully exempted from affirmation.
        **/
       exemptAssetAffirmation: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
-       * Freezes transfers of a given token.
+       * Freezes transfers of a given asset.
+       * 
+       * This function allows the asset issuer or an external agent to freeze transfers of a given asset.
        * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] associated to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The asset to freeze.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `AssetFrozen` - When an asset is successfully frozen.
+       * 
+       * # Errors
+       * * `NoSuchAsset` - If the asset does not exist.
+       * * `AlreadyFrozen` - If the asset is already frozen.
        **/
       freeze: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
        * Issue (i.e mint) new tokens to the caller, which must be an authorized external agent.
        * 
+       * This function allows the asset issuer or an external agent to mint new tokens for a given asset.
+       * 
        * # Arguments
        * * `origin`: A signer that has permissions to act as an agent of `ticker`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
+       * * `asset_id`: the [`AssetId`] associated to the asset.
        * * `amount`: The amount of tokens that will be issued.
        * * `portfolio_kind`: The [`PortfolioKind`] of the portfolio that will receive the minted tokens.
        * 
        * # Permissions
        * * Asset
        * * Portfolio
+       * 
+       * # Events
+       * * `AssetBalanceUpdated` - When the asset balance is successfully updated.
+       * 
+       * # Errors
+       * * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+       * * `InvalidGranularity` - If the amount to issue does not meet the granularity requirements.
+       * * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
        **/
       issue: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, amount: u128 | AnyNumber | Uint8Array, portfolioKind: PolymeshPrimitivesIdentityIdPortfolioKind | { Default: any } | { User: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u128, PolymeshPrimitivesIdentityIdPortfolioKind]>;
       /**
        * Establishes a connection between a ticker and an AssetId.
        * 
+       * This function allows the asset issuer or an external agent to link a ticker to an asset.
+       * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `ticker`: the [`Ticker`] that will be linked to the given `asset_id`.
-       * * `asset_id`: the [`AssetId`] that will be connected to `ticker`.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `ticker` - The [`Ticker`] that will be linked to the given `asset_id`.
+       * * `asset_id` - The [`AssetId`] that will be connected to `ticker`.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `TickerLinkedToAsset` - When the ticker is successfully linked to the asset.
+       * 
+       * # Errors
+       * * `TickerNotRegisteredToCaller` - If the ticker is not registered to the caller.
+       * * `TickerRegistrationExpired` - If the ticker registration has expired.
+       * * `TickerRegistrationNotFound` - If the ticker registration is not found.
+       * * `TickerIsAlreadyLinkedToAnAsset` - If the ticker is already linked to an asset.
+       * * `AssetIsAlreadyLinkedToATicker` - If the asset is already linked to a ticker.
        **/
       linkTickerToAssetId: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesAssetAssetId]>;
       /**
-       * If the token associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
+       * If the asset associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
+       * 
+       * This function allows the asset issuer or an external agent to make an indivisible asset divisible.
        * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `ticker`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `DivisibilityChanged` - When the divisibility of an asset is successfully changed.
+       * 
+       * # Errors
+       * * `NoSuchAsset` - If the asset does not exist.
+       * * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+       * * `AssetAlreadyDivisible` - If the asset is already divisible.
        **/
       makeDivisible: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
        * Pre-approves the receivement of an asset.
        * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] that will be exempt from affirmation.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] that will be exempt from affirmation.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `PreApprovedAsset` - When the asset is successfully pre-approved for receivement.
        **/
       preApproveAsset: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
-       * Redeems (i.e burns) existing tokens by reducing the balance of the caller's portfolio and the total supply of the token.
+       * Redeems (i.e burns) existing tokens by reducing the balance of the caller's portfolio and the total supply of the asset.
+       * 
+       * This function allows the asset issuer or an external agent to redeem tokens from a given asset.
        * 
        * # Arguments
        * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
+       * * `asset_id`: the [`AssetId`] associated to the asset.
        * * `value`: amount of tokens to redeem.
        * * `portfolio_kind`: the [`PortfolioKind`] that will have its balance reduced.
        * 
        * # Permissions
        * * Asset
        * * Portfolio
+       * 
+       * # Events
+       * * `AssetBalanceUpdated` - When the asset balance is successfully updated.
+       * 
+       * # Errors
+       * * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+       * * `InvalidGranularity` - If the value to redeem does not meet the granularity requirements.
+       * * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
        **/
       redeem: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, value: u128 | AnyNumber | Uint8Array, portfolioKind: PolymeshPrimitivesIdentityIdPortfolioKind | { Default: any } | { User: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u128, PolymeshPrimitivesIdentityIdPortfolioKind]>;
       /**
        * Registers and set local asset metadata.
        * 
+       * This function allows the asset issuer or an external agent to register and set local metadata for an asset.
+       * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `name`: the [`AssetMetadataName`].
-       * * `spec`: the asset metadata specifications ([`AssetMetadataSpec`]).
-       * * `value`: the [`AssetMetadataValue`] of the given metadata key.
-       * * `details`: optional [`AssetMetadataValueDetail`] (expire, lock status).
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `name` - The [`AssetMetadataName`].
+       * * `spec` - The asset metadata specifications ([`AssetMetadataSpec`]).
+       * * `value` - The [`AssetMetadataValue`] of the given metadata key.
+       * * `details` - Optional [`AssetMetadataValueDetail`] (expire, lock status).
        * 
        * # Permissions
-       * * Agent
        * * Asset
+       * 
+       * # Events
+       * * `RegisterAssetMetadataLocalType` - When the local asset metadata type is successfully registered.
+       * * `SetAssetMetadataValue` - When the asset metadata value is successfully set.
+       * 
+       * # Errors
+       * * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
+       * * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+       * * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
        **/
       registerAndSetLocalAssetMetadata: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, name: Bytes | string | Uint8Array, spec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array, value: Bytes | string | Uint8Array, detail: Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail> | null | Uint8Array | PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail | { expire?: any; lockStatus?: any } | string) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, Bytes, Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail>]>;
       /**
        * Registers asset metadata global type.
        * 
+       * This function allows the root origin to register a global metadata type.
+       * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `name`: the [`AssetMetadataName`].
-       * * `spec`: the asset metadata specifications ([`AssetMetadataSpec`]).
+       * * `origin` - The root origin.
+       * * `name` - The [`AssetMetadataName`].
+       * * `spec` - The asset metadata specifications ([`AssetMetadataSpec`]).
+       * 
+       * # Events
+       * * `RegisterAssetMetadataGlobalType` - When the global asset metadata type is successfully registered.
+       * 
+       * # Errors
+       * * `AssetMetadataGlobalKeyAlreadyExists` - If the global metadata key already exists.
+       * * `AssetMetadataNameMaxLengthExceeded` - If the metadata name length exceeds the maximum allowed length.
+       * * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
        **/
       registerAssetMetadataGlobalType: AugmentedSubmittable<(name: Bytes | string | Uint8Array, spec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
       /**
        * Registers asset metadata local type.
        * 
+       * This function allows the asset issuer or an external agent to register a local metadata type for an asset.
+       * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `name`: the [`AssetMetadataName`].
-       * * `spec`: the asset metadata specifications ([`AssetMetadataSpec`]).
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `name` - The [`AssetMetadataName`].
+       * * `spec` - The asset metadata specifications ([`AssetMetadataSpec`]).
        * 
        * # Permissions
-       * * Agent
        * * Asset
+       * 
+       * # Events
+       * * `RegisterAssetMetadataLocalType` - When the local asset metadata type is successfully registered.
+       * 
+       * # Errors
+       * * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
+       * * `AssetMetadataNameMaxLengthExceeded` - If the metadata name length exceeds the maximum allowed length.
+       * * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
        **/
       registerAssetMetadataLocalType: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, name: Bytes | string | Uint8Array, spec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
       /**
        * Registers a custom asset type.
        * 
-       * The provided `ty` will be bound to an ID in storage.
-       * The ID can then be used in `AssetType::Custom`.
-       * Should the `ty` already exist in storage, no second ID is assigned to it.
-       * 
        * # Arguments
-       * * `origin`: who called the extrinsic.
-       * * `ty`: contains the string representation of the asset type.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `ty` - Contains the string representation of the asset type.
+       * 
+       * # Events
+       * * `CustomAssetTypeRegistered` - When a new custom asset type is successfully registered.
+       * * `CustomAssetTypeAlreadyRegistered` - When the custom asset type is already registered.
+       * 
+       * # Errors
+       * * `TooLong` - If the custom asset type length exceeds the maximum allowed length.
        **/
       registerCustomAssetType: AugmentedSubmittable<(ty: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
-       * Registers a unique ticker or extends validity of an existing ticker.
-       * NB: Ticker validity does not get carry forward when renewing ticker.
+       * Registers a unique ticker or extends the validity of an existing ticker.
+       * 
+       * This function allows the caller to register a new ticker or extend the registration
+       * of an existing ticker. The ticker validity does not carry forward when renewing.
        * 
        * # Arguments
-       * * `origin`: it contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
-       * * `ticker`: [`Ticker`] to register.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `ticker` - The ticker to register.
        * 
-       * # Permissions
-       * * Asset
+       * # Events
+       * * `TickerRegistered` - When a ticker is successfully registered.
+       * 
+       * # Errors
+       * * `TickerAlreadyRegistered` - If the ticker is already registered.
+       * * `TickerTooLong` - If the ticker length exceeds the maximum allowed length.
+       * * `InvalidTickerCharacter` - If the ticker contains invalid characters.
        **/
       registerUniqueTicker: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker]>;
       /**
        * Removes the pre-approval of the asset for all identities.
        * 
-       * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] that will have its exemption removed.
+       * This function allows the root origin to remove the pre-approval of an asset for all identities.
        * 
-       * # Permissions
-       * * Root
+       * # Arguments
+       * * `origin` - The root origin.
+       * * `asset_id` - The [`AssetId`] that will have its exemption removed.
+       * 
+       * # Events
+       * * `RemoveAssetAffirmationExemption` - When the asset's affirmation exemption is successfully removed.
        **/
       removeAssetAffirmationExemption: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
-       * Removes the pre approval of an asset.
+       * Removes the pre-approval of an asset.
        * 
        * # Arguments
-       * * `origin` - the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] that will have its exemption removed.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] that will have its exemption removed.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `RemovePreApprovedAsset` - When the asset's pre-approval is successfully removed.
        **/
       removeAssetPreApproval: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
-       * Remove documents for a given token.
+       * Remove documents for a given asset.
+       * 
+       * This function allows the asset issuer or an external agent to remove documents from an asset.
        * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `docs_id`: a vector of all [`DocumentId`] that will be removed from the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `docs_id` - A vector of all [`DocumentId`] that will be removed from the asset.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `DocumentRemoved` - When a document is successfully removed from an asset.
        **/
       removeDocuments: AugmentedSubmittable<(docsId: Vec<u32> | (u32 | AnyNumber | Uint8Array)[], assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<u32>, PolymeshPrimitivesAssetAssetId]>;
       /**
        * Removes the asset metadata key and value of a local key.
        * 
+       * This function allows the asset issuer or an external agent to remove a local metadata key and its value for an asset.
+       * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] associated to the local metadata key.
-       * * `local_key`: the [`AssetMetadataLocalKey`] that will be removed.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the local metadata key.
+       * * `local_key` - The [`AssetMetadataLocalKey`] that will be removed.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `LocalMetadataKeyDeleted` - When the local metadata key is successfully deleted.
+       * 
+       * # Errors
+       * * `AssetMetadataKeyIsMissing` - If the local metadata key is missing.
+       * * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+       * * `AssetMetadataKeyBelongsToNFTCollection` - If the metadata key belongs to an NFT collection.
        **/
       removeLocalMetadataKey: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, localKey: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
       /**
        * Removes all identities in the `mediators` set from the mandatory mediators list for the given `asset_id`.
        * 
+       * This function allows the asset issuer or an external agent to remove mandatory mediators for an asset.
+       * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] of the asset that will have mediators removed.
-       * * `mediators`: A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] of the asset that will have mediators removed.
+       * * `mediators` - A set of [`IdentityId`] of all the mediators that will be removed from the mandatory mediators list.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `AssetMediatorsRemoved` - When the mandatory mediators are successfully removed.
        **/
       removeMandatoryMediators: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, mediators: BTreeSet<PolymeshPrimitivesIdentityId>) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, BTreeSet<PolymeshPrimitivesIdentityId>]>;
       /**
        * Removes the asset metadata value of a metadata key.
        * 
+       * This function allows the asset issuer or an external agent to remove a metadata value for an asset.
+       * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] associated to the metadata key.
-       * * `metadata_key`: the [`AssetMetadataKey`] that will have its value deleted.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the metadata key.
+       * * `metadata_key` - The [`AssetMetadataKey`] that will have its value deleted.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `MetadataValueDeleted` - When the metadata value is successfully deleted.
+       * 
+       * # Errors
+       * * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
+       * * `AssetMetadataValueIsLocked` - If the metadata value is locked.
        **/
       removeMetadataValue: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, metadataKey: PolymeshPrimitivesAssetMetadataAssetMetadataKey | { Global: any } | { Local: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesAssetMetadataAssetMetadataKey]>;
       /**
-       * Updates the [`AssetName`] associated to a security token.
+       * Updates the [`AssetName`] associated to an asset.
+       * 
+       * This function allows the asset issuer or an external agent to update the name of an asset.
        * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `asset_name`: the [`AssetName`] that will be associated to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `asset_name` - The new [`AssetName`] that will be associated to the asset.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `AssetRenamed` - When an asset is successfully renamed.
+       * 
+       * # Errors
+       * * `MaxLengthOfAssetNameExceeded` - If the asset name length exceeds the maximum allowed length.
+       * * `NoSuchAsset` - If the asset does not exist.
        **/
       renameAsset: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, assetName: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Bytes]>;
       /**
        * Set asset metadata value.
        * 
+       * This function allows the asset issuer or an external agent to set metadata for an asset.
+       * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `key`: the [`AssetMetadataKey`] associated to the token.
-       * * `value`: the [`AssetMetadataValue`] of the given metadata key.
-       * * `details`: optional [`AssetMetadataValueDetail`] (expire, lock status).
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `key` - The [`AssetMetadataKey`] associated to the asset.
+       * * `value` - The [`AssetMetadataValue`] of the given metadata key.
+       * * `details` - Optional [`AssetMetadataValueDetail`] (expire, lock status).
        * 
        * # Permissions
-       * * Agent
        * * Asset
+       * 
+       * # Events
+       * * `SetAssetMetadataValue` - When the asset metadata value is successfully set.
+       * 
+       * # Errors
+       * * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
+       * * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+       * * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
        **/
       setAssetMetadata: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, key: PolymeshPrimitivesAssetMetadataAssetMetadataKey | { Global: any } | { Local: any } | string | Uint8Array, value: Bytes | string | Uint8Array, detail: Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail> | null | Uint8Array | PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail | { expire?: any; lockStatus?: any } | string) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesAssetMetadataAssetMetadataKey, Bytes, Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail>]>;
       /**
        * Set asset metadata value details (expire, lock status).
        * 
+       * This function allows the asset issuer or an external agent to set metadata details for an asset.
+       * 
        * # Arguments
-       * * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `key`: the [`AssetMetadataKey`] associated to the token.
-       * * `details`: the [`AssetMetadataValueDetail`] (expire, lock status) that will be associated to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `key` - The [`AssetMetadataKey`] associated to the asset.
+       * * `details` - The [`AssetMetadataValueDetail`] (expire, lock status) that will be associated to the asset.
        * 
        * # Permissions
-       * * Agent
        * * Asset
+       * 
+       * # Events
+       * * `SetAssetMetadataValueDetails` - When the asset metadata value details are successfully set.
+       * 
+       * # Errors
+       * * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
+       * * `AssetMetadataValueIsLocked` - If the metadata value is locked.
+       * * `AssetMetadataValueIsEmpty` - If the metadata value is empty.
        **/
       setAssetMetadataDetails: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, key: PolymeshPrimitivesAssetMetadataAssetMetadataKey | { Global: any } | { Local: any } | string | Uint8Array, detail: PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail | { expire?: any; lockStatus?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail]>;
       /**
        * Sets the name of the current funding round.
        * 
+       * This function allows the asset issuer or an external agent to set the name of the current funding round for an asset.
+       * 
        * # Arguments
-       * * `origin`:  a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `founding_round_name`: the [`FoundingRoundName`] of the current funding round.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `funding_round_name` - The [`FundingRoundName`] of the current funding round.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `FundingRoundSet` - When the funding round name is successfully set.
+       * 
+       * # Errors
+       * * `FundingRoundNameMaxLengthExceeded` - If the funding round name length exceeds the maximum allowed length.
        **/
-      setFundingRound: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, foundingRoundName: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Bytes]>;
+      setFundingRound: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundingRoundName: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Bytes]>;
       /**
-       * Unfreezes transfers of a given token.
+       * Unfreezes transfers of a given asset.
+       * 
+       * This function allows the asset issuer or an external agent to unfreeze transfers of a given asset.
        * 
        * # Arguments
-       * * `origin`: the secondary key of the sender.
-       * * `asset_id`: the [`AssetId`] associated to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The asset to unfreeze.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `AssetUnfrozen` - When an asset is successfully unfrozen.
+       * 
+       * # Errors
+       * * `NoSuchAsset` - If the asset does not exist.
+       * * `NotFrozen` - If the asset is not frozen.
        **/
       unfreeze: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId]>;
       /**
-       * Updates the type of an asset.
+       * Removes the link between a ticker and an asset.
+       * 
+       * This function allows the asset issuer or an external agent to unlink a ticker from an asset.
        * 
        * # Arguments
-       * * `origin`: it contains the secondary key of the sender
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `asset_type`: the new [`AssetType`] of the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `ticker` - The [`Ticker`] that will be unlinked from the given `asset_id`.
+       * * `asset_id` - The [`AssetId`] that will be unlinked from `ticker`.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `TickerUnlinkedFromAsset` - When the ticker is successfully unlinked from the asset.
+       * 
+       * # Errors
+       * * `TickerNotRegisteredToCaller` - If the ticker is not registered to the caller.
+       * * `TickerRegistrationNotFound` - If the ticker registration is not found.
+       * * `TickerIsNotLinkedToTheAsset` - If the ticker is not linked to the asset.
+       **/
+      unlinkTickerFromAssetId: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesAssetAssetId]>;
+      /**
+       * Updates the type of an asset.
+       * 
+       * This function allows the asset issuer or an external agent to update the type of an asset.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `asset_type` - The new [`AssetType`] of the asset.
+       * 
+       * # Permissions
+       * * Asset
+       * 
+       * # Events
+       * * `AssetTypeChanged` - When the asset type is successfully changed.
+       * 
+       * # Errors
+       * * `NoSuchAsset` - If the asset does not exist.
+       * * `InvalidCustomAssetTypeId` - If the custom asset type ID is invalid.
+       * * `IncompatibleAssetTypeUpdate` - If the new asset type is incompatible with the existing asset type.
        **/
       updateAssetType: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesAssetAssetType]>;
       /**
-       * Updates the asset identifiers associated to the token.
+       * Updates the global metadata specification.
        * 
        * # Arguments
-       * * `origin`: a signer that has permissions to act as an agent of `asset_id`.
-       * * `asset_id`: the [`AssetId`] associated to the token.
-       * * `asset_identifiers`: a vector of [`AssetIdentifier`] that will be associated to the token.
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_metadata_name` - The [`AssetMetadataName`] associated with the global metadata.
+       * * `asset_metadata_spec` - The new [`AssetMetadataSpec`] that will be associated with the global metadata.
+       * 
+       * # Events
+       * * `GlobalMetadataSpecUpdated` - When the global metadata specification is successfully updated.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the origin is not authorized.
+       * * `TooLong` - If the metadata url or description length exceeds the maximum allowed length.
+       * * `AssetMetadataTypeDefMaxLengthExceeded` - If the metadata type definition length exceeds the maximum allowed length.
+       **/
+      updateGlobalMetadataSpec: AugmentedSubmittable<(assetMetadataName: Bytes | string | Uint8Array, assetMetadataSpec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
+      /**
+       * Updates the asset identifiers associated to the asset.
+       * 
+       * This function allows the asset issuer or an external agent to update the asset identifiers for an asset.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `asset_id` - The [`AssetId`] associated to the asset.
+       * * `asset_identifiers` - A vector of [`AssetIdentifier`] that will be associated to the asset.
        * 
        * # Permissions
        * * Asset
+       * 
+       * # Events
+       * * `IdentifiersUpdated` - When the asset identifiers are successfully updated.
+       * 
+       * # Errors
+       * * `InvalidAssetIdentifier` - If any of the asset identifiers are invalid.
        **/
       updateIdentifiers: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, assetIdentifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | { FIGI: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Vec<PolymeshPrimitivesAssetIdentifier>]>;
       /**
@@ -452,68 +738,113 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     balances: {
       /**
-       * Burns the given amount of tokens from the caller's free, unlocked balance.
-       **/
-      burnAccountBalance: AugmentedSubmittable<(amount: u128 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u128]>;
-      /**
-       * Move some POLYX from balance of self to balance of BRR.
-       **/
-      depositBlockRewardReserveBalance: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>]>;
-      /**
-       * Exactly as `transfer`, except the origin must be root and the source account may be
-       * specified.
+       * Burn the specified liquid free balance from the origin account.
        * 
-       * # <weight>
-       * - Same as transfer, but additional read and write because the source account is
-       * not assumed to be in the overlay.
-       * # </weight>
-       **/
-      forceTransfer: AugmentedSubmittable<(source: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, MultiAddress, Compact<u128>]>;
-      /**
-       * Set the balances of a given account.
+       * If the origin's account ends up below the existential deposit as a result
+       * of the burn and `keep_alive` is false, the account will be reaped.
        * 
-       * This will alter `FreeBalance` and `ReservedBalance` in storage. it will
-       * also decrease the total issuance of the system (`TotalIssuance`).
+       * Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
+       * this `burn` operation will reduce total issuance by the amount _burned_.
+       **/
+      burn: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array, keepAlive: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>, bool]>;
+      /**
+       * Adjust the total issuance in a saturating way.
+       * 
+       * Can only be called by root and always needs a positive `delta`.
+       * 
+       * # Example
+       **/
+      forceAdjustTotalIssuance: AugmentedSubmittable<(direction: PalletBalancesAdjustmentDirection | 'Increase' | 'Decrease' | number | Uint8Array, delta: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletBalancesAdjustmentDirection, Compact<u128>]>;
+      /**
+       * Set the regular balance of a given account.
        * 
        * The dispatch origin for this call is `root`.
        **/
-      setBalance: AugmentedSubmittable<(who: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, newFree: Compact<u128> | AnyNumber | Uint8Array, newReserved: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>, Compact<u128>]>;
+      forceSetBalance: AugmentedSubmittable<(who: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, newFree: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>]>;
+      /**
+       * Exactly as `transfer_allow_death`, except the origin must be root and the source account
+       * may be specified.
+       **/
+      forceTransfer: AugmentedSubmittable<(source: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, MultiAddress, Compact<u128>]>;
+      /**
+       * Unreserve some balance from a user by force.
+       * 
+       * Can only be called by ROOT.
+       **/
+      forceUnreserve: AugmentedSubmittable<(who: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, amount: u128 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, u128]>;
+      /**
+       * Transfer the entire transferable balance from the caller account.
+       * 
+       * NOTE: This function only attempts to transfer _transferable_ balances. This means that
+       * any locked, reserved, or existential deposits (when `keep_alive` is `true`), will not be
+       * transferred by this function. To ensure that this function results in a killed account,
+       * you might need to prepare the account by removing any reference counters, storage
+       * deposits, etc...
+       * 
+       * The dispatch origin of this call must be Signed.
+       * 
+       * - `dest`: The recipient of the transfer.
+       * - `keep_alive`: A boolean to determine if the `transfer_all` operation should send all
+       * of the funds the account has, causing the sender account to be killed (false), or
+       * transfer everything except at least the existential deposit, which will guarantee to
+       * keep the sender account alive (true).
+       **/
+      transferAll: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, keepAlive: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, bool]>;
+      /**
+       * Transfer some liquid free balance to another account.
+       * 
+       * `transfer_allow_death` will set the `FreeBalance` of the sender and receiver.
+       * If the sender's account is below the existential deposit as a result
+       * of the transfer, the account will be reaped.
+       * 
+       * The dispatch origin for this call must be `Signed` by the transactor.
+       **/
+      transferAllowDeath: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>]>;
+      /**
+       * Same as the [`transfer_allow_death`] call, but with a check that the transfer will not
+       * kill the origin account.
+       * 
+       * 99% of the time you want [`transfer_allow_death`] instead.
+       * 
+       * [`transfer_allow_death`]: struct.Pallet.html#method.transfer
+       **/
+      transferKeepAlive: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>]>;
       /**
        * Transfer some liquid free balance to another account.
        * 
        * `transfer` will set the `FreeBalance` of the sender and receiver.
-       * It will decrease the total issuance of the system by the `TransferFee`.
+       * If the sender's account is below the existential deposit as a result
+       * of the transfer, the account will be reaped.
        * 
        * The dispatch origin for this call must be `Signed` by the transactor.
        * 
-       * # <weight>
-       * - Dependent on arguments but not critical, given proper implementations for
-       * input config types. See related functions below.
-       * - It contains a limited number of reads and writes internally and no complex computation.
+       * ## Complexity
+       * - Dependent on arguments but not critical, given proper implementations for input config
+       * types. See related functions below.
+       * - It contains a limited number of reads and writes internally and no complex
+       * computation.
        * 
        * Related functions:
        * 
        * - `ensure_can_withdraw` is always called internally but has a bounded complexity.
        * - Transferring balances to accounts that did not exist before will cause
        * `T::OnNewAccount::on_new_account` to be called.
-       * ---------------------------------
-       * - Base Weight: 73.64 µs, worst case scenario (account created, account removed)
-       * - DB Weight: 1 Read and 1 Write to destination account.
-       * - Origin account is already in memory, so no DB operations for them.
-       * # </weight>
-       **/
-      transfer: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>]>;
-      /**
-       * Transfer the native currency with the help of identifier string
-       * this functionality can help to differentiate the transfers.
-       * 
-       * # <weight>
-       * - Base Weight: 73.64 µs, worst case scenario (account created, account removed)
-       * - DB Weight: 1 Read and 1 Write to destination account.
-       * - Origin account is already in memory, so no DB operations for them.
-       * # </weight>
+       * - Removing enough funds from an account will trigger `T::DustRemoval::on_unbalanced`.
+       * - `transfer_keep_alive` works the same way as `transfer`, but has an additional check
+       * that the transfer will not kill the origin account.
        **/
       transferWithMemo: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array, memo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>, Option<PolymeshPrimitivesMemo>]>;
+      /**
+       * Upgrade a specified account.
+       * 
+       * - `origin`: Must be `Signed`.
+       * - `who`: The account to be upgraded.
+       * 
+       * This will waive the transaction fee if at least all but 10% of the accounts needed to
+       * be upgraded. (We let some not have to be upgraded just in order to allow for the
+       * possibility of churn).
+       **/
+      upgradeAccounts: AugmentedSubmittable<(who: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>]>;
       /**
        * Generic tx
        **/
@@ -1072,8 +1403,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * Instantiation is executed as follows:
        * 
-       * - The supplied `code` is instrumented, deployed, and a `code_hash` is created for that
-       * code.
+       * - The supplied `code` is deployed, and a `code_hash` is created for that code.
        * - If the `code_hash` already exists on the chain the underlying `code` will be shared.
        * - The destination address is computed based on the sender, code_hash and the salt.
        * - The smart-contract account is created at the computed address.
@@ -1085,6 +1415,13 @@ declare module '@polkadot/api-base/types/submittable' {
        * Deprecated version if [`Self::instantiate_with_code`] for use in an in-storage `Call`.
        **/
       instantiateWithCodeOldWeight: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array, gasLimit: Compact<u64> | AnyNumber | Uint8Array, storageDepositLimit: Option<Compact<u128>> | null | Uint8Array | Compact<u128> | AnyNumber, code: Bytes | string | Uint8Array, data: Bytes | string | Uint8Array, salt: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>, Compact<u64>, Option<Compact<u128>>, Bytes, Bytes, Bytes]>;
+      /**
+       * When a migration is in progress, this dispatchable can be used to run migration steps.
+       * Calls that contribute to advancing the migration have their fees waived, as it's helpful
+       * for the chain. Note that while the migration is in progress, the pallet will also
+       * leverage the `on_idle` hooks to run migration steps.
+       **/
+      migrate: AugmentedSubmittable<(weightLimit: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [SpWeightsWeightV2Weight]>;
       /**
        * Remove the code stored under `code_hash` and refund the deposit to its owner.
        * 
@@ -1110,15 +1447,15 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * If the code does not already exist a deposit is reserved from the caller
        * and unreserved only when [`Self::remove_code`] is called. The size of the reserve
-       * depends on the instrumented size of the the supplied `code`.
+       * depends on the size of the supplied `code`.
        * 
        * If the code already exists in storage it will still return `Ok` and upgrades
        * the in storage version to the current
        * [`InstructionWeights::version`](InstructionWeights).
        * 
-       * - `determinism`: If this is set to any other value but [`Determinism::Deterministic`]
-       * then the only way to use this code is to delegate call into it from an offchain
-       * execution. Set to [`Determinism::Deterministic`] if in doubt.
+       * - `determinism`: If this is set to any other value but [`Determinism::Enforced`] then
+       * the only way to use this code is to delegate call into it from an offchain execution.
+       * Set to [`Determinism::Enforced`] if in doubt.
        * 
        * # Note
        * 
@@ -1126,8 +1463,12 @@ declare module '@polkadot/api-base/types/submittable' {
        * To avoid this situation a constructor could employ access control so that it can
        * only be instantiated by permissioned entities. The same is true when uploading
        * through [`Self::instantiate_with_code`].
+       * 
+       * Use [`Determinism::Relaxed`] exclusively for non-deterministic code. If the uploaded
+       * code is deterministic, specifying [`Determinism::Relaxed`] will be disregarded and
+       * result in higher gas costs.
        **/
-      uploadCode: AugmentedSubmittable<(code: Bytes | string | Uint8Array, storageDepositLimit: Option<Compact<u128>> | null | Uint8Array | Compact<u128> | AnyNumber, determinism: PalletContractsWasmDeterminism | 'Deterministic' | 'AllowIndeterminism' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, Option<Compact<u128>>, PalletContractsWasmDeterminism]>;
+      uploadCode: AugmentedSubmittable<(code: Bytes | string | Uint8Array, storageDepositLimit: Option<Compact<u128>> | null | Uint8Array | Compact<u128> | AnyNumber, determinism: PalletContractsWasmDeterminism | 'Enforced' | 'Relaxed' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, Option<Compact<u128>>, PalletContractsWasmDeterminism]>;
       /**
        * Generic tx
        **/
@@ -1185,6 +1526,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Asset
        **/
       initiateCorporateAction: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, kind: PalletCorporateActionsCaKind | 'PredictableBenefit' | 'UnpredictableBenefit' | 'IssuerNotice' | 'Reorganization' | 'Other' | number | Uint8Array, declDate: u64 | AnyNumber | Uint8Array, recordDate: Option<PalletCorporateActionsRecordDateSpec> | null | Uint8Array | PalletCorporateActionsRecordDateSpec | { Scheduled: any } | { ExistingSchedule: any } | { Existing: any } | string, details: Bytes | string | Uint8Array, targets: Option<PalletCorporateActionsTargetIdentities> | null | Uint8Array | PalletCorporateActionsTargetIdentities | { identities?: any; treatment?: any } | string, defaultWithholdingTax: Option<Permill> | null | Uint8Array | Permill | AnyNumber, withholdingTax: Option<Vec<ITuple<[PolymeshPrimitivesIdentityId, Permill]>>> | null | Uint8Array | Vec<ITuple<[PolymeshPrimitivesIdentityId, Permill]>> | ([PolymeshPrimitivesIdentityId | string | Uint8Array, Permill | AnyNumber | Uint8Array])[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, PalletCorporateActionsCaKind, u64, Option<PalletCorporateActionsRecordDateSpec>, Bytes, Option<PalletCorporateActionsTargetIdentities>, Option<Permill>, Option<Vec<ITuple<[PolymeshPrimitivesIdentityId, Permill]>>>]>;
+      initiateCorporateActionAndBallot: AugmentedSubmittable<(caArgs: PalletCorporateActionsInitiateCorporateActionArgs | { assetId?: any; kind?: any; declDate?: any; recordDate?: any; details?: any; targets?: any; defaultWithholdingTax?: any; withholdingTax?: any } | string | Uint8Array, ballotTimeRange: PalletCorporateActionsBallotBallotTimeRange | { start?: any; end?: any } | string | Uint8Array, ballotMeta: PalletCorporateActionsBallotBallotMeta | { title?: any; motions?: any } | string | Uint8Array, rcv: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotMeta, bool]>;
       /**
        * Utility extrinsic to batch `initiate_corporate_action` and `distribute`
        **/
@@ -1488,9 +1830,9 @@ declare module '@polkadot/api-base/types/submittable' {
        * - `auth_id` identifying the authorization to accept.
        * 
        * # Errors
-       * - `AuthorizationError::Invalid` if `auth_id` does not exist for the given caller.
-       * - `AuthorizationError::Expired` if `auth_id` is for an auth that has expired.
-       * - `AuthorizationError::BadType` if `auth_id` was not for a `BecomeAgent` auth type.
+       * - `Error::InvalidAuthorization` if `auth_id` does not exist for the given caller.
+       * - `Error::AuthorizationExpired` if `auth_id` is for an auth that has expired.
+       * - `Error::BadAuthorizationType` if `auth_id` was not for a `BecomeAgent` auth type.
        * - `UnauthorizedAgent` if "Alice" is not permissioned to provide the auth.
        * - `NoSuchAG` if the group referred to a custom that does not exist.
        * - `AlreadyAnAgent` if the caller is already an agent of the asset.
@@ -1782,7 +2124,7 @@ declare module '@polkadot/api-base/types/submittable' {
       registerCustomClaimType: AugmentedSubmittable<(ty: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
        * Removes an authorization.
-       * _auth_issuer_pays determines whether the issuer of the authorisation pays the transaction fee
+       * `_auth_issuer_pays` determines whether the issuer of the authorisation pays the transaction fee
        **/
       removeAuthorization: AugmentedSubmittable<(target: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array, authId: u64 | AnyNumber | Uint8Array, authIssuerPays: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesSecondaryKeySignatory, u64, bool]>;
       /**
@@ -1853,12 +2195,10 @@ declare module '@polkadot/api-base/types/submittable' {
     imOnline: {
       /**
        * ## Complexity:
-       * - `O(K + E)` where K is length of `Keys` (heartbeat.validators_len) and E is length of
-       * `heartbeat.network_state.external_address`
+       * - `O(K)` where K is length of `Keys` (heartbeat.validators_len)
        * - `O(K)`: decoding of length `K`
-       * - `O(E)`: decoding/encoding of length `E`
        **/
-      heartbeat: AugmentedSubmittable<(heartbeat: PalletImOnlineHeartbeat | { blockNumber?: any; networkState?: any; sessionIndex?: any; authorityIndex?: any; validatorsLen?: any } | string | Uint8Array, signature: PalletImOnlineSr25519AppSr25519Signature | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature]>;
+      heartbeat: AugmentedSubmittable<(heartbeat: PalletImOnlineHeartbeat | { blockNumber?: any; sessionIndex?: any; authorityIndex?: any; validatorsLen?: any } | string | Uint8Array, signature: PalletImOnlineSr25519AppSr25519Signature | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature]>;
       /**
        * Generic tx
        **/
@@ -1927,6 +2267,19 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       freeze: AugmentedSubmittable<(index: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
+       * Poke the deposit reserved for an index.
+       * 
+       * The dispatch origin for this call must be _Signed_ and the signing account must have a
+       * non-frozen account `index`.
+       * 
+       * The transaction fees is waived if the deposit is changed after poking/reconsideration.
+       * 
+       * - `index`: the index whose deposit is to be poked/reconsidered.
+       * 
+       * Emits `DepositPoked` if successful.
+       **/
+      pokeDeposit: AugmentedSubmittable<(index: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
+      /**
        * Assign an index already owned by the sender to another account. The balance reservation
        * is effectively transferred to the new account.
        * 
@@ -1985,7 +2338,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * If quorum is reached, the proposal will be immediately executed.
        **/
-      approve: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array, maxWeight: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64, SpWeightsWeightV2Weight]>;
+      approve: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array, maxWeight: Option<SpWeightsWeightV2Weight> | null | Uint8Array | SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string) => SubmittableExtrinsic<ApiType>, [AccountId32, u64, Option<SpWeightsWeightV2Weight>]>;
       /**
        * Approves a multisig join identity proposal.
        * 
@@ -2045,6 +2398,10 @@ declare module '@polkadot/api-base/types/submittable' {
        * If quorum is reached, the proposal will be immediately executed.
        **/
       reject: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, proposalId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u64]>;
+      /**
+       * Removes the admin identity from the `multisig`.  This must be called by the multisig itself.
+       **/
+      removeAdmin: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
        * Removes the admin identity from the `multisig`.  This must be called by the admin of the multisig.
        **/
@@ -2151,7 +2508,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Asset
        * * Portfolio
        **/
-      redeemNft: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, nftId: u64 | AnyNumber | Uint8Array, portfolioKind: PolymeshPrimitivesIdentityIdPortfolioKind | { Default: any } | { User: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64, PolymeshPrimitivesIdentityIdPortfolioKind]>;
+      redeemNft: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, nftId: u64 | AnyNumber | Uint8Array, portfolioKind: PolymeshPrimitivesIdentityIdPortfolioKind | { Default: any } | { User: any } | string | Uint8Array, numberOfKeys: Option<u8> | null | Uint8Array | u8 | AnyNumber) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64, PolymeshPrimitivesIdentityIdPortfolioKind, Option<u8>]>;
       /**
        * Generic tx
        **/
@@ -2161,155 +2518,276 @@ declare module '@polkadot/api-base/types/submittable' {
       /**
        * Approves the pending committee PIP given by the `id`.
        * 
+       * This function can only be called by a Governance Committee (GC) voting majority.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be a GC voting majority.
+       * * `id` - The proposal ID of the PIP to be approved.
+       * 
        * # Errors
-       * * `BadOrigin` unless a GC voting majority executes this function.
-       * * `NoSuchProposal` if the PIP with `id` doesn't exist.
-       * * `IncorrectProposalState` if the proposal isn't pending.
-       * * `NotByCommittee` if the proposal isn't by a committee.
+       * * `BadOrigin` - If the call is not made by a GC voting majority.
+       * * `NoSuchProposal` - If the PIP with the given `id` does not exist.
+       * * `IncorrectProposalState` - If the proposal is not in a pending state.
+       * * `NotByCommittee` - If the proposal was not made by a committee.
+       * 
+       * # Notes
+       * This function schedules the PIP for execution if all checks pass.
        **/
       approveCommitteeProposal: AugmentedSubmittable<(id: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
        * Clears the snapshot and emits the event `SnapshotCleared`.
        * 
+       * This function can only be called by a Governance Committee (GC) member.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be a GC member.
+       * 
+       * # Events
+       * * `SnapshotCleared` - Emitted when the snapshot is successfully cleared, containing the ID of the cleared snapshot.
+       * 
        * # Errors
-       * * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+       * * `NotACommitteeMember` - If the call is not made by a GC member.
        **/
       clearSnapshot: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
-       * Enacts `results` for the PIPs in the snapshot queue.
+       * Enacts the results for the PIPs in the snapshot queue.
+       * 
        * The snapshot will be available for further enactments until it is cleared.
        * 
-       * The `results` are encoded a list of `(id, result)` where `result` is applied to `id`.
+       * The `results` parameter is a list of `(id, result)` tuples where `result` is applied to the PIP with the given `id`.
        * Note that the snapshot priority queue is encoded with the *lowest priority first*.
-       * so `results = [(id, Approve)]` will approve `SnapshotQueue[SnapshotQueue.len() - 1]`.
+       * For example, `results = [(id, Approve)]` will approve `SnapshotQueue[SnapshotQueue.len() - 1]`.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be a GC voting majority.
+       * * `results` - A vector of tuples where each tuple contains a PIP ID and a `SnapshotResult` (either `Approve`, `Reject`, or `Skip`).
+       * 
+       * # Events
+       * * `SnapshotResultsEnacted` - Emitted when the snapshot results are successfully enacted, containing the ID of the snapshot and the actions taken.
        * 
        * # Errors
-       * * `BadOrigin` - unless a GC voting majority executes this function.
-       * * `CannotSkipPip` - a given PIP has already been skipped too many times.
-       * * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
-       * * `SnapshotIdMismatch` - if:
-       * ```text
-       * ∃ (i ∈ 0..SnapshotQueue.len()).
-       * results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
-       * ```
-       * This is protects against clearing queue while GC is voting.
+       * * `BadOrigin` - If the call is not made by a GC voting majority.
+       * * `CannotSkipPip` - If a given PIP has already been skipped too many times.
+       * * `SnapshotResultTooLarge` - If the length of `results` is greater than the length of the snapshot queue.
+       * * `SnapshotIdMismatch` - If there is a mismatch between the PIP IDs in `results` and the snapshot queue.
+       * 
+       * # Notes
+       * This function will:
+       * - Update the skip counts for PIPs that are skipped.
+       * - Reject PIPs that are marked for rejection and refund any bonded funds.
+       * - Approve PIPs that are marked for approval and schedule them for execution.
        **/
       enactSnapshotResults: AugmentedSubmittable<(results: Vec<ITuple<[u32, PalletPipsSnapshotResult]>> | ([u32 | AnyNumber | Uint8Array, PalletPipsSnapshotResult | 'Approve' | 'Reject' | 'Skip' | number | Uint8Array])[]) => SubmittableExtrinsic<ApiType>, [Vec<ITuple<[u32, PalletPipsSnapshotResult]>>]>;
       /**
-       * Internal dispatchable that handles execution of a PIP.
+       * Executes a scheduled PIP (Polymesh Improvement Proposal).
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be the root.
+       * * `id` - The unique identifier of the PIP to be executed.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
+       * 
+       * # Notes
+       * This function will:
+       * - Remove the PIP from the scheduling queue.
+       * - Execute the proposal associated with the PIP.
        **/
       executeScheduledPip: AugmentedSubmittable<(id: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
-       * Internal dispatchable that handles expiration of a PIP.
+       * Expires a scheduled PIP (Polymesh Improvement Proposal).
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be the root.
+       * * `did` - The identity ID of the entity initiating the expiration.
+       * * `id` - The unique identifier of the PIP to be expired.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
+       * 
+       * # Notes
+       * This function will:
+       * - Check if the PIP is in a pending state.
+       * - Unsnapshot the PIP if it was part of a snapshot.
+       * - Prune the PIP data if it is in an expired state.
        **/
       expireScheduledPip: AugmentedSubmittable<(did: PolymeshPrimitivesIdentityId | string | Uint8Array, id: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, u32]>;
       /**
-       * A network member creates a PIP by submitting a dispatchable which
-       * changes the network in someway. A minimum deposit is required to open a new proposal.
+       * Proposes a new PIP by submitting a dispatchable which changes the network.
        * 
        * # Arguments
-       * * `proposer` is either a signing key or committee.
-       * Used to understand whether this is a committee proposal and verified against `origin`.
-       * * `proposal` a dispatchable call
-       * * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
-       * * `url` a link to a website for proposal discussion
+       * * `origin` - The origin of the call.
+       * * `proposal` - The dispatchable call.
+       * * `deposit` - The deposit amount for the proposal.
+       * * `url` - A link to a website for proposal discussion.
+       * * `description` - A short description of the proposal.
+       * 
+       * # Events
+       * * `ProposalCreated`.
+       * 
+       * # Errors
+       * * `IncorrectDeposit` - If the deposit amount is less than the required minimum.
+       * * `TooManyActivePips` - If the number of active PIPs exceeds the maximum.
        **/
       propose: AugmentedSubmittable<(proposal: Call | IMethod | string | Uint8Array, deposit: u128 | AnyNumber | Uint8Array, url: Option<Bytes> | null | Uint8Array | Bytes | string, description: Option<Bytes> | null | Uint8Array | Bytes | string) => SubmittableExtrinsic<ApiType>, [Call, u128, Option<Bytes>, Option<Bytes>]>;
       /**
-       * Prune the PIP given by the `id`, refunding any funds not already refunded.
-       * The PIP may not be active
+       * Prunes the PIP given by the `id`. The PIP must not be active.
        * 
-       * This function is intended for storage garbage collection purposes.
+       * This function is intended for storage garbage collection purposes and can only be called by a Governance Committee (GC) voting majority.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be a GC voting majority.
+       * * `id` - The proposal ID of the PIP to be pruned.
        * 
        * # Errors
-       * * `BadOrigin` unless a GC voting majority executes this function.
-       * * `NoSuchProposal` if the PIP with `id` doesn't exist.
-       * * `IncorrectProposalState` if the proposal is active.
+       * * `BadOrigin` - If the call is not made by a GC voting majority.
+       * * `NoSuchProposal` - If the PIP with the given `id` does not exist.
+       * * `IncorrectProposalState` - If the proposal is active.
+       * 
+       * # Notes
+       * This function will remove the PIP from storage and refund any remaining bonded funds.
        **/
       pruneProposal: AugmentedSubmittable<(id: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
-       * Rejects the PIP given by the `id`, refunding any bonded funds,
-       * assuming it hasn't been cancelled or executed.
-       * Note that proposals scheduled-for-execution can also be rejected.
+       * Rejects the PIP given by the `id`. Bonded funds will be refunded, assuming it hasn't
+       * been cancelled or executed.
+       * 
+       * This function can only be called by a Governance Committee (GC) voting majority.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be a GC voting majority.
+       * * `id` - The proposal ID of the PIP to be rejected.
        * 
        * # Errors
-       * * `BadOrigin` unless a GC voting majority executes this function.
-       * * `NoSuchProposal` if the PIP with `id` doesn't exist.
-       * * `IncorrectProposalState` if the proposal was cancelled or executed.
+       * * `BadOrigin` - If the call is not made by a GC voting majority.
+       * * `NoSuchProposal` - If the PIP with the given `id` does not exist.
+       * * `IncorrectProposalState` - If the proposal was cancelled or executed.
+       * 
+       * # Notes
+       * This function will unschedule the PIP if it was scheduled for execution and will
+       * unsnapshot the PIP if it was part of a snapshot. It will also handle the rejection
+       * of the proposal and refund any bonded funds.
        **/
       rejectProposal: AugmentedSubmittable<(id: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
        * Updates the execution schedule of the PIP given by `id`.
+       * This function can only be called by the release coordinator.
        * 
        * # Arguments
-       * * `until` defines the future block where the enactment period will finished.
-       * `None` value means that enactment period is going to finish in the next block.
+       * * `origin` - The origin of the call, which must be the release coordinator.
+       * * `id` - The proposal ID of the PIP to be rescheduled.
+       * * `until` - An optional future block number where the enactment period will finish.
+       * If `None`, the enactment period will finish in the next block.
        * 
        * # Errors
-       * * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
-       * * `IncorrectProposalState` unless the proposal was in a scheduled state.
+       * * `RescheduleNotByReleaseCoordinator` - If the call is not made by the release coordinator.
+       * * `IncorrectProposalState` - If the proposal is not in a scheduled state.
+       * * `InvalidFutureBlockNumber` - If the provided block number is not a valid future block number.
        **/
       rescheduleExecution: AugmentedSubmittable<(id: u32 | AnyNumber | Uint8Array, until: Option<u32> | null | Uint8Array | u32 | AnyNumber) => SubmittableExtrinsic<ApiType>, [u32, Option<u32>]>;
       /**
-       * Change the maximum number of active PIPs before community members cannot propose anything.
-       * Can only be called by root.
+       * Sets the limit on the number of active PIPs. This function can only be called by the root origin.
        * 
        * # Arguments
-       * * `limit` of concurrent active PIPs.
+       * * `origin` - The origin of the call, which must be the root.
+       * * `limit` - The new limit on the number of active PIPs.
+       * 
+       * # Events
+       * * `ActivePipLimitChanged` - Emitted when the active PIP limit is changed, containing the old and new values.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
        **/
       setActivePipLimit: AugmentedSubmittable<(limit: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
-       * Change the default enactment period.
-       * Can only be called by root.
+       * Changes the default enactment period. This function can only be called by the root origin.
        * 
        * # Arguments
-       * * `duration` the new default enactment period it takes for a scheduled PIP to be executed.
+       * * `origin` - The origin of the call, which must be the root.
+       * * `period` - The new default enactment period.
+       * 
+       * # Events
+       * * `DefaultEnactmentPeriodChanged` - Emitted when the default enactment period is changed, containing the old and new values.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
        **/
       setDefaultEnactmentPeriod: AugmentedSubmittable<(duration: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32]>;
       /**
-       * Change the maximum skip count (`max_pip_skip_count`).
-       * Can only be called by root.
+       * Sets the maximum number of times a PIP can be skipped. This function can only be called by the root origin.
        * 
        * # Arguments
-       * * `max` skips before a PIP cannot be skipped by GC anymore.
+       * * `origin` - The origin of the call, which must be the root.
+       * * `max` - The new maximum skip count for PIPs.
+       * 
+       * # Events
+       * * `MaxPipSkipCountChanged` - Emitted when the maximum PIP skip count is changed, containing the old and new values.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
        **/
       setMaxPipSkipCount: AugmentedSubmittable<(max: u8 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u8]>;
       /**
-       * Change the minimum proposal deposit amount required to start a proposal.
-       * Can only be called by root.
+       * Changes the minimum proposal deposit amount required to start a proposal. This function can only be called by the root origin.
        * 
        * # Arguments
-       * * `deposit` the new min deposit required to start a proposal
+       * * `origin` - The origin of the call, which must be the root.
+       * * `deposit` - The new minimum deposit required to start a proposal.
+       * 
+       * # Events
+       * * `MinimumProposalDepositChanged` - Emitted when the minimum proposal deposit is changed, containing the old and new values.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
        **/
       setMinProposalDeposit: AugmentedSubmittable<(deposit: u128 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u128]>;
       /**
-       * Change the amount of blocks after which a pending PIP is expired.
-       * If `expiry` is `None` then PIPs never expire.
-       * Can only be called by root.
+       * Sets the expiry duration (in blocks) for pending PIPs. This function can only be called by the root origin.
        * 
        * # Arguments
-       * * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
+       * * `origin` - The origin of the call, which must be the root.
+       * * `expiry` - The new expiry duration for pending PIPs. If `None`, PIPs never expire.
+       * 
+       * # Events
+       * * `PendingPipExpiryChanged` - Emitted when the pending PIP expiry duration is changed, containing the old and new values.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
        **/
-      setPendingPipExpiry: AugmentedSubmittable<(expiry: PolymeshCommonUtilitiesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshCommonUtilitiesMaybeBlock]>;
+      setPendingPipExpiry: AugmentedSubmittable<(expiry: PolymeshPrimitivesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesMaybeBlock]>;
       /**
-       * Change whether completed PIPs are pruned.
-       * Can only be called by root.
+       * Sets the pruning setting for historical PIPs. This function can only be called by the root origin.
        * 
        * # Arguments
-       * * `prune` specifies whether completed PIPs should be pruned.
+       * * `origin` - The origin of the call, which must be the root.
+       * * `prune` - A boolean flag indicating whether completed PIPs should be pruned (`true`) or retained (`false`).
+       * 
+       * # Events
+       * * `HistoricalPipsPruned` - Emitted when the pruning setting is changed, containing the old and new values.
+       * 
+       * # Errors
+       * * `BadOrigin` - If the call is not made by the root origin.
        **/
       setPruneHistoricalPips: AugmentedSubmittable<(prune: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [bool]>;
       /**
-       * Takes a new snapshot of the current list of active && pending PIPs.
+       * Takes a new snapshot of the current list of active and pending PIPs.
        * The PIPs are then sorted into a priority queue based on each PIP's weight.
        * 
+       * This function can only be called by a Governance Committee (GC) member.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which must be a GC member.
+       * 
+       * # Events
+       * * `SnapshotTaken` - Emitted when a snapshot is successfully taken, containing the ID of the snapshot and the queue of PIPs.
+       * 
        * # Errors
-       * * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+       * * `NotACommitteeMember` - If the call is not made by a GC member.
        **/
       snapshot: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
-       * Vote either in favor (`aye_or_nay` == true) or against a PIP with `id`.
-       * The "convinction" or strength of the vote is given by `deposit`, which is reserved.
+       * Casts a vote either in favor or against a PIP with `id`.
+       * The "conviction" or strength of the vote is given by `deposit`, which is reserved.
        * 
        * Note that `vote` is *not* additive.
        * That is, `vote(id, true, 50)` followed by `vote(id, true, 40)`
@@ -2317,15 +2795,20 @@ declare module '@polkadot/api-base/types/submittable' {
        * To add atop of existing votes, you'll need `existing_deposit + addition`.
        * 
        * # Arguments
-       * * `id`, proposal id
-       * * `aye_or_nay`, a bool representing for or against vote
-       * * `deposit`, the "conviction" with which the vote is made.
+       * * `origin` - The origin of the call.
+       * * `id` - The proposal ID to vote on.
+       * * `aye_or_nay` - A boolean representing a vote in favor (`true`) or against (`false`).
+       * * `deposit` - The "conviction" or strength of the vote, represented by the amount of deposit.
+       * 
+       * # Events
+       * * `Voted` - Emitted when a vote is successfully cast.
        * 
        * # Errors
-       * * `NoSuchProposal` if `id` doesn't reference a valid PIP.
-       * * `NotFromCommunity` if proposal was made by a committee.
-       * * `IncorrectProposalState` if PIP isn't pending.
-       * * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
+       * * `NoSuchProposal` - If the `id` does not reference a valid PIP.
+       * * `NotFromCommunity` - If the proposal was made by a committee.
+       * * `IncorrectProposalState` - If the PIP is not in a pending state.
+       * * `InsufficientDeposit` - If the `origin` cannot reserve the required deposit.
+       * * `IncorrectDeposit` - If the deposit amount is less than the required minimum.
        **/
       vote: AugmentedSubmittable<(id: u32 | AnyNumber | Uint8Array, ayeOrNay: bool | boolean | Uint8Array, deposit: u128 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32, bool, u128]>;
       /**
@@ -2340,7 +2823,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * `expiry` - The new expiry time.
        **/
-      setExpiresAfter: AugmentedSubmittable<(expiry: PolymeshCommonUtilitiesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshCommonUtilitiesMaybeBlock]>;
+      setExpiresAfter: AugmentedSubmittable<(expiry: PolymeshPrimitivesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesMaybeBlock]>;
       /**
        * Changes the release coordinator.
        * 
@@ -2617,6 +3100,12 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     preimage: {
       /**
+       * Ensure that the bulk of pre-images is upgraded.
+       * 
+       * The caller pays no fee if at least 90% of pre-images were successfully updated.
+       **/
+      ensureUpdated: AugmentedSubmittable<(hashes: Vec<H256> | (H256 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<H256>]>;
+      /**
        * Register a preimage on-chain.
        * 
        * If the preimage was previously requested, no fees or deposits are taken for providing
@@ -2678,9 +3167,9 @@ declare module '@polkadot/api-base/types/submittable' {
        * - `auth_id` the authorization id to accept a `paying_key`.
        * 
        * # Errors
-       * - `AuthorizationError::Invalid` if `auth_id` does not exist for the given caller.
-       * - `AuthorizationError::Expired` if `auth_id` the authorization has expired.
-       * - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
+       * - `Error::InvalidAuthorization` if `auth_id` does not exist for the given caller.
+       * - `Error::AuthorizationExpired` if `auth_id` the authorization has expired.
+       * - `Error::BadAuthorizationType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
        * - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
        * - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
        * - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
@@ -2769,6 +3258,14 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       cancelNamed: AugmentedSubmittable<(id: U8aFixed | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [U8aFixed]>;
       /**
+       * Removes the retry configuration of a task.
+       **/
+      cancelRetry: AugmentedSubmittable<(task: ITuple<[u32, u32]> | [u32 | AnyNumber | Uint8Array, u32 | AnyNumber | Uint8Array]) => SubmittableExtrinsic<ApiType>, [ITuple<[u32, u32]>]>;
+      /**
+       * Cancel the retry configuration of a named task.
+       **/
+      cancelRetryNamed: AugmentedSubmittable<(id: U8aFixed | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [U8aFixed]>;
+      /**
        * Anonymously schedule a task.
        **/
       schedule: AugmentedSubmittable<(when: u32 | AnyNumber | Uint8Array, maybePeriodic: Option<ITuple<[u32, u32]>> | null | Uint8Array | ITuple<[u32, u32]> | [u32 | AnyNumber | Uint8Array, u32 | AnyNumber | Uint8Array], priority: u8 | AnyNumber | Uint8Array, call: Call | IMethod | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u32, Option<ITuple<[u32, u32]>>, u8, Call]>;
@@ -2784,6 +3281,36 @@ declare module '@polkadot/api-base/types/submittable' {
        * Schedule a named task after a delay.
        **/
       scheduleNamedAfter: AugmentedSubmittable<(id: U8aFixed | string | Uint8Array, after: u32 | AnyNumber | Uint8Array, maybePeriodic: Option<ITuple<[u32, u32]>> | null | Uint8Array | ITuple<[u32, u32]> | [u32 | AnyNumber | Uint8Array, u32 | AnyNumber | Uint8Array], priority: u8 | AnyNumber | Uint8Array, call: Call | IMethod | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [U8aFixed, u32, Option<ITuple<[u32, u32]>>, u8, Call]>;
+      /**
+       * Set a retry configuration for a task so that, in case its scheduled run fails, it will
+       * be retried after `period` blocks, for a total amount of `retries` retries or until it
+       * succeeds.
+       * 
+       * Tasks which need to be scheduled for a retry are still subject to weight metering and
+       * agenda space, same as a regular task. If a periodic task fails, it will be scheduled
+       * normally while the task is retrying.
+       * 
+       * Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
+       * clones of the original task. Their retry configuration will be derived from the
+       * original task's configuration, but will have a lower value for `remaining` than the
+       * original `total_retries`.
+       **/
+      setRetry: AugmentedSubmittable<(task: ITuple<[u32, u32]> | [u32 | AnyNumber | Uint8Array, u32 | AnyNumber | Uint8Array], retries: u8 | AnyNumber | Uint8Array, period: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [ITuple<[u32, u32]>, u8, u32]>;
+      /**
+       * Set a retry configuration for a named task so that, in case its scheduled run fails, it
+       * will be retried after `period` blocks, for a total amount of `retries` retries or until
+       * it succeeds.
+       * 
+       * Tasks which need to be scheduled for a retry are still subject to weight metering and
+       * agenda space, same as a regular task. If a periodic task fails, it will be scheduled
+       * normally while the task is retrying.
+       * 
+       * Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
+       * clones of the original task. Their retry configuration will be derived from the
+       * original task's configuration, but will have a lower value for `remaining` than the
+       * original `total_retries`.
+       **/
+      setRetryNamed: AugmentedSubmittable<(id: U8aFixed | string | Uint8Array, retries: u8 | AnyNumber | Uint8Array, period: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [U8aFixed, u8, u32]>;
       /**
        * Generic tx
        **/
@@ -2838,7 +3365,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      addAndAffirmInstruction: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesMemo>]>;
+      addAndAffirmInstruction: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | { SettleAfterLock: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Adds and affirms a new instruction with mediators.
        * 
@@ -2855,7 +3382,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      addAndAffirmWithMediators: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string, mediators: BTreeSet<PolymeshPrimitivesIdentityId>) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesMemo>, BTreeSet<PolymeshPrimitivesIdentityId>]>;
+      addAndAffirmWithMediators: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | { SettleAfterLock: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string, mediators: BTreeSet<PolymeshPrimitivesIdentityId>) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesMemo>, BTreeSet<PolymeshPrimitivesIdentityId>]>;
       /**
        * Adds a new instruction.
        * 
@@ -2867,7 +3394,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `legs`: A vector of all [`Leg`] included in this instruction.
        * * `memo`: An optional [`Memo`] field for this instruction.
        **/
-      addInstruction: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>]>;
+      addInstruction: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | { SettleAfterLock: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Adds a new instruction with mediators.
        * 
@@ -2880,7 +3407,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `instruction_memo`: An optional [`Memo`] field for this instruction.
        * * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
        **/
-      addInstructionWithMediators: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string, mediators: BTreeSet<PolymeshPrimitivesIdentityId>) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>, BTreeSet<PolymeshPrimitivesIdentityId>]>;
+      addInstructionWithMediators: AugmentedSubmittable<(venueId: Option<u64> | null | Uint8Array | u64 | AnyNumber, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | { SettleAfterLock: any } | string | Uint8Array, tradeDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, valueDate: Option<u64> | null | Uint8Array | u64 | AnyNumber, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { Fungible: any } | { NonFungible: any } | { OffChain: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | Uint8Array | PolymeshPrimitivesMemo | string, mediators: BTreeSet<PolymeshPrimitivesIdentityId>) => SubmittableExtrinsic<ApiType>, [Option<u64>, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>, BTreeSet<PolymeshPrimitivesIdentityId>]>;
       /**
        * Provide affirmation to an existing instruction.
        * 
@@ -2891,7 +3418,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      affirmInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>]>;
+      affirmInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>) => SubmittableExtrinsic<ApiType>, [u64, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>]>;
       /**
        * Affirms the instruction as a mediator - should only be called by mediators, otherwise it will fail.
        * 
@@ -2914,7 +3441,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      affirmInstructionWithCount: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], numberOfAssets: Option<PolymeshPrimitivesSettlementAffirmationCount> | null | Uint8Array | PolymeshPrimitivesSettlementAffirmationCount | { senderAssetCount?: any; receiverAssetCount?: any; offchainCount?: any } | string) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementAffirmationCount>]>;
+      affirmInstructionWithCount: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, numberOfAssets: Option<PolymeshPrimitivesSettlementAffirmationCount> | null | Uint8Array | PolymeshPrimitivesSettlementAffirmationCount | { senderAssetCount?: any; receiverAssetCount?: any; offchainCount?: any } | string) => SubmittableExtrinsic<ApiType>, [u64, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementAffirmationCount>]>;
       /**
        * Affirms an instruction using receipts for offchain transfers.
        * 
@@ -2926,7 +3453,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      affirmWithReceipts: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails> | (PolymeshPrimitivesSettlementReceiptDetails | { uid?: any; instructionId?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesSettlementReceiptDetails>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>]>;
+      affirmWithReceipts: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails> | (PolymeshPrimitivesSettlementReceiptDetails | { uid?: any; instructionId?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string | Uint8Array)[], portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesSettlementReceiptDetails>, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>]>;
       /**
        * Affirms an instruction using receipts for offchain transfers.
        * 
@@ -2941,7 +3468,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      affirmWithReceiptsWithCount: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails> | (PolymeshPrimitivesSettlementReceiptDetails | { uid?: any; instructionId?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], numberOfAssets: Option<PolymeshPrimitivesSettlementAffirmationCount> | null | Uint8Array | PolymeshPrimitivesSettlementAffirmationCount | { senderAssetCount?: any; receiverAssetCount?: any; offchainCount?: any } | string) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesSettlementReceiptDetails>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementAffirmationCount>]>;
+      affirmWithReceiptsWithCount: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails> | (PolymeshPrimitivesSettlementReceiptDetails | { uid?: any; instructionId?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string | Uint8Array)[], portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, numberOfAssets: Option<PolymeshPrimitivesSettlementAffirmationCount> | null | Uint8Array | PolymeshPrimitivesSettlementAffirmationCount | { senderAssetCount?: any; receiverAssetCount?: any; offchainCount?: any } | string) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesSettlementReceiptDetails>, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementAffirmationCount>]>;
       /**
        * Allows additional venues to create instructions involving an asset.
        * 
@@ -2990,6 +3517,24 @@ declare module '@polkadot/api-base/types/submittable' {
        * Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
        **/
       executeScheduledInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, weightLimit: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, SpWeightsWeightV2Weight]>;
+      /**
+       * Moves the instruction status to `LockedForExecution`. This function must be called by a
+       * mediator of the instruction and will only suceed if the following conditions are met:
+       * - All affirmations have been received.
+       * - Instruction is pending or has failed at least one time.
+       * - All mediator's affirmations are still valid.
+       * - All assets are in the allowed venue list.
+       * - All senders have the right amount of assets being transferred.
+       * - All senders and receivers are compliant and have valid CDD claims.
+       * - All assets' statistics are still valid.
+       * - There are no frozen assets.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, specifying the caller.
+       * * `inst_id` - The [`InstructionId`] of the instruction to be locked.
+       * * `weight_limit` - A maximum [`Weight`] value to be charged for locking the instruction.
+       **/
+      lockInstruction: AugmentedSubmittable<(instId: u64 | AnyNumber | Uint8Array, weightLimit: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, SpWeightsWeightV2Weight]>;
       /**
        * Rejects an existing instruction.
        * 
@@ -3067,7 +3612,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      withdrawAffirmation: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>]>;
+      withdrawAffirmation: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>) => SubmittableExtrinsic<ApiType>, [u64, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>]>;
       /**
        * Removes the mediator's affirmation for the instruction - should only be called by mediators, otherwise it will fail.
        * 
@@ -3089,19 +3634,13 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      withdrawAffirmationWithCount: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], numberOfAssets: Option<PolymeshPrimitivesSettlementAffirmationCount> | null | Uint8Array | PolymeshPrimitivesSettlementAffirmationCount | { senderAssetCount?: any; receiverAssetCount?: any; offchainCount?: any } | string) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementAffirmationCount>]>;
+      withdrawAffirmationWithCount: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, numberOfAssets: Option<PolymeshPrimitivesSettlementAffirmationCount> | null | Uint8Array | PolymeshPrimitivesSettlementAffirmationCount | { senderAssetCount?: any; receiverAssetCount?: any; offchainCount?: any } | string) => SubmittableExtrinsic<ApiType>, [u64, BTreeSet<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementAffirmationCount>]>;
       /**
        * Generic tx
        **/
       [key: string]: SubmittableExtrinsicFunction<ApiType>;
     };
     staking: {
-      /**
-       * Adds a permissioned identity and sets its preferences.
-       * 
-       * The dispatch origin must be Root.
-       **/
-      addPermissionedValidator: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, intendedCount: Option<u32> | null | Uint8Array | u32 | AnyNumber) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, Option<u32>]>;
       /**
        * Take the origin account as a stash and lock up `value` of its balance. `controller` will
        * be the account that controls it.
@@ -3117,9 +3656,10 @@ declare module '@polkadot/api-base/types/submittable' {
        * - Three extra DB entries.
        * 
        * NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
-       * unless the `origin` falls below _existential deposit_ and gets removed as dust.
+       * unless the `origin` falls below _existential deposit_ (or equal to 0) and gets removed
+       * as dust.
        **/
-      bond: AugmentedSubmittable<(controller: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array, payee: PalletStakingRewardDestination | { Staked: any } | { Stash: any } | { Controller: any } | { Account: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>, PalletStakingRewardDestination]>;
+      bond: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array, payee: PalletStakingRewardDestination | { Staked: any } | { Stash: any } | { Controller: any } | { Account: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>, PalletStakingRewardDestination]>;
       /**
        * Add some extra amount that have appeared in the stash `free_balance` into the balance up
        * for staking.
@@ -3146,10 +3686,6 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       cancelDeferredSlash: AugmentedSubmittable<(era: u32 | AnyNumber | Uint8Array, slashIndices: Vec<u32> | (u32 | AnyNumber | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u32, Vec<u32>]>;
       /**
-       * Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
-       **/
-      changeSlashingAllowedFor: AugmentedSubmittable<(slashingSwitch: PalletStakingSlashingSwitch | 'Validator' | 'ValidatorAndNominator' | 'None' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingSlashingSwitch]>;
-      /**
        * Declare no desire to either validate or nominate.
        * 
        * Effects will be felt at the beginning of the next era.
@@ -3162,10 +3698,6 @@ declare module '@polkadot/api-base/types/submittable' {
        * - Writes are limited to the `origin` account key.
        **/
       chill: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
-       **/
-      chillFromGovernance: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, stashKeys: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, Vec<AccountId32>]>;
       /**
        * Declare a `controller` to stop participating as either a validator or nominator.
        * 
@@ -3194,7 +3726,17 @@ declare module '@polkadot/api-base/types/submittable' {
        * This can be helpful if bond requirements are updated, and we need to remove old users
        * who do not satisfy these requirements.
        **/
-      chillOther: AugmentedSubmittable<(controller: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
+      chillOther: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
+      /**
+       * Updates a batch of controller accounts to their corresponding stash account if they are
+       * not the same. Ignores any controller accounts that do not exist, and does not operate if
+       * the stash and controller are already the same.
+       * 
+       * Effects will be felt instantly (as soon as this function is completed successfully).
+       * 
+       * The dispatch origin must be `T::AdminOrigin`.
+       **/
+      deprecateControllerBatch: AugmentedSubmittable<(controllers: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>]>;
       /**
        * Force a validator to have at least the minimum commission. This will not affect a
        * validator who already has a commission greater than or equal to the minimum. Any account
@@ -3250,10 +3792,15 @@ declare module '@polkadot/api-base/types/submittable' {
        * Force a current staker to become completely unstaked, immediately.
        * 
        * The dispatch origin must be Root.
+       * 
+       * ## Parameters
+       * 
+       * - `num_slashing_spans`: Refer to comments on [`Call::withdraw_unbonded`] for more
+       * details.
        **/
       forceUnstake: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array, numSlashingSpans: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
       /**
-       * Increments the ideal number of validators upto maximum of
+       * Increments the ideal number of validators up to maximum of
        * `ElectionProviderBase::MaxWinners`.
        * 
        * The dispatch origin must be Root.
@@ -3277,6 +3824,40 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       kick: AugmentedSubmittable<(who: Vec<MultiAddress> | (MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<MultiAddress>]>;
       /**
+       * This function allows governance to manually slash a validator and is a
+       * **fallback mechanism**.
+       * 
+       * The dispatch origin must be `T::AdminOrigin`.
+       * 
+       * ## Parameters
+       * - `validator_stash` - The stash account of the validator to slash.
+       * - `era` - The era in which the validator was in the active set.
+       * - `slash_fraction` - The percentage of the stake to slash, expressed as a Perbill.
+       * 
+       * ## Behavior
+       * 
+       * The slash will be applied using the standard slashing mechanics, respecting the
+       * configured `SlashDeferDuration`.
+       * 
+       * This means:
+       * - If the validator was already slashed by a higher percentage for the same era, this
+       * slash will have no additional effect.
+       * - If the validator was previously slashed by a lower percentage, only the difference
+       * will be applied.
+       * - The slash will be deferred by `SlashDeferDuration` eras before being enacted.
+       **/
+      manualSlash: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array, slashFraction: Perbill | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32, Perbill]>;
+      /**
+       * Removes the legacy Staking locks if they exist.
+       * 
+       * This removes the legacy lock on the stake with [`Config::OldCurrency`] and creates a
+       * hold on it if needed. If all stake cannot be held, the best effort is made to hold as
+       * much as possible. The remaining stake is forced withdrawn from the ledger.
+       * 
+       * The fee is waived if the migration is successful.
+       **/
+      migrateCurrency: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
+      /**
        * Declare the desire to nominate `targets` for the origin controller.
        * 
        * Effects will be felt at the beginning of the next era.
@@ -3290,26 +3871,48 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       nominate: AugmentedSubmittable<(targets: Vec<MultiAddress> | (MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<MultiAddress>]>;
       /**
-       * Pay out all the stakers behind a single validator for a single era.
+       * Pay out next page of the stakers behind a validator for the given era.
        * 
-       * - `validator_stash` is the stash account of the validator. Their nominators, up to
-       * `T::MaxNominatorRewardedPerValidator`, will also receive their rewards.
+       * - `validator_stash` is the stash account of the validator.
        * - `era` may be any era between `[current_era - history_depth; current_era]`.
        * 
        * The origin of this call must be _Signed_. Any account can call this function, even if
        * it is not one of the stakers.
        * 
-       * ## Complexity
-       * - At most O(MaxNominatorRewardedPerValidator).
+       * The reward payout could be paged in case there are too many nominators backing the
+       * `validator_stash`. This call will payout unpaid pages in an ascending order. To claim a
+       * specific page, use `payout_stakers_by_page`.`
+       * 
+       * If all pages are claimed, it returns an error `InvalidPage`.
        **/
       payoutStakers: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
-      payoutStakersBySystem: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
+      /**
+       * Pay out a page of the stakers behind a validator for the given era and page.
+       * 
+       * - `validator_stash` is the stash account of the validator.
+       * - `era` may be any era between `[current_era - history_depth; current_era]`.
+       * - `page` is the page index of nominators to pay out with value between 0 and
+       * `num_nominators / T::MaxExposurePageSize`.
+       * 
+       * The origin of this call must be _Signed_. Any account can call this function, even if
+       * it is not one of the stakers.
+       * 
+       * If a validator has more than [`Config::MaxExposurePageSize`] nominators backing
+       * them, then the list of nominators is paged, with each page being capped at
+       * [`Config::MaxExposurePageSize`.] If a validator has more than one page of nominators,
+       * the call needs to be made for each page separately in order for all the nominators
+       * backing a validator to receive the reward. The nominators are not sorted across pages
+       * and so it should not be assumed the highest staker would be on the topmost page and vice
+       * versa. If rewards are not claimed in [`Config::HistoryDepth`] eras, they are lost.
+       **/
+      payoutStakersByPage: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array, page: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32, u32]>;
       /**
        * Remove all data structures concerning a staker/stash once it is at a state where it can
        * be considered `dust` in the staking system. The requirements are:
        * 
        * 1. the `total_balance` of the stash is below existential deposit.
        * 2. or, the `ledger.total` of the stash is below existential deposit.
+       * 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
        * 
        * The former can happen in cases like a slash; the latter when a fully unbonded account
        * is still receiving staking rewards in `RewardDestination::Staked`.
@@ -3317,6 +3920,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * It can be called by anyone, as long as `stash` meets the above requirements.
        * 
        * Refunds the transaction fees upon successful execution.
+       * 
+       * ## Parameters
+       * 
+       * - `num_slashing_spans`: Refer to comments on [`Call::withdraw_unbonded`] for more
+       * details.
        **/
       reapStash: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array, numSlashingSpans: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
       /**
@@ -3330,17 +3938,21 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       rebond: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>]>;
       /**
-       * Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
+       * Restores the state of a ledger which is in an inconsistent state.
        * 
-       * The dispatch origin must be Root.
+       * The requirements to restore a ledger are the following:
+       * * The stash is bonded; or
+       * * The stash is not bonded but it has a staking lock left behind; or
+       * * If the stash has an associated ledger and its state is inconsistent; or
+       * * If the ledger is not corrupted *but* its staking lock is out of sync.
        * 
-       * # Arguments
-       * * origin Required origin for removing a potential validator.
-       * * identity Validator's IdentityId.
+       * The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
+       * ledger associated with the stash. If the input parameters are not set, the ledger will
+       * be reset values from on-chain state.
        **/
-      removePermissionedValidator: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId]>;
+      restoreLedger: AugmentedSubmittable<(stash: AccountId32 | string | Uint8Array, maybeController: Option<AccountId32> | null | Uint8Array | AccountId32 | string, maybeTotal: Option<u128> | null | Uint8Array | u128 | AnyNumber, maybeUnlocking: Option<Vec<PalletStakingUnlockChunk>> | null | Uint8Array | Vec<PalletStakingUnlockChunk> | (PalletStakingUnlockChunk | { value?: any; era?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [AccountId32, Option<AccountId32>, Option<u128>, Option<Vec<PalletStakingUnlockChunk>>]>;
       /**
-       * Scale up the ideal number of validators by a factor upto maximum of
+       * Scale up the ideal number of validators by a factor up to maximum of
        * `ElectionProviderBase::MaxWinners`.
        * 
        * The dispatch origin must be Root.
@@ -3350,15 +3962,10 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       scaleValidatorCount: AugmentedSubmittable<(factor: Percent | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Percent]>;
       /**
-       * Changes commission rate which applies to all validators. Only Governance
-       * committee is allowed to change this value.
-       * 
-       * # Arguments
-       * * `new_cap` the new commission cap.
-       **/
-      setCommissionCap: AugmentedSubmittable<(newCap: Perbill | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Perbill]>;
-      /**
-       * (Re-)set the controller of a stash.
+       * (Re-)sets the controller of a stash to the stash itself. This function previously
+       * accepted a `controller` argument to set the controller to an account other than the
+       * stash itself. This functionality has now been removed, now only setting the controller
+       * to the stash, if it is not already.
        * 
        * Effects will be felt instantly (as soon as this function is completed successfully).
        * 
@@ -3370,7 +3977,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * - Contains a limited number of reads.
        * - Writes are limited to the `origin` account key.
        **/
-      setController: AugmentedSubmittable<(controller: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress]>;
+      setController: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
       /**
        * Set the validators who cannot be slashed (if any).
        * 
@@ -3418,7 +4025,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * NOTE: Existing nominators and validators will not be affected by this update.
        * to kick people under the new limits, `chill_other` should be called.
        **/
-      setStakingConfigs: AugmentedSubmittable<(minNominatorBond: PalletStakingPalletConfigOpU128 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, minValidatorBond: PalletStakingPalletConfigOpU128 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, maxNominatorCount: PalletStakingPalletConfigOpU32 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, maxValidatorCount: PalletStakingPalletConfigOpU32 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, chillThreshold: PalletStakingPalletConfigOpPercent | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, minCommission: PalletStakingPalletConfigOpPerbill | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingPalletConfigOpU128, PalletStakingPalletConfigOpU128, PalletStakingPalletConfigOpU32, PalletStakingPalletConfigOpU32, PalletStakingPalletConfigOpPercent, PalletStakingPalletConfigOpPerbill]>;
+      setStakingConfigs: AugmentedSubmittable<(minNominatorBond: PalletStakingPalletConfigOpU128 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, minValidatorBond: PalletStakingPalletConfigOpU128 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, maxNominatorCount: PalletStakingPalletConfigOpU32 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, maxValidatorCount: PalletStakingPalletConfigOpU32 | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, chillThreshold: PalletStakingPalletConfigOpPercent | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, minCommission: PalletStakingPalletConfigOpPerbill | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array, maxStakedRewards: PalletStakingPalletConfigOpPercent | { Noop: any } | { Set: any } | { Remove: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingPalletConfigOpU128, PalletStakingPalletConfigOpU128, PalletStakingPalletConfigOpU32, PalletStakingPalletConfigOpU32, PalletStakingPalletConfigOpPercent, PalletStakingPalletConfigOpPerbill, PalletStakingPalletConfigOpPercent]>;
       /**
        * Sets the ideal number of validators.
        * 
@@ -3431,7 +4038,7 @@ declare module '@polkadot/api-base/types/submittable' {
       /**
        * Schedule a portion of the stash to be unlocked ready for transfer out after the bond
        * period ends. If this leaves an amount actively bonded less than
-       * T::Currency::minimum_balance(), then it is increased to the full amount.
+       * [`asset::existential_deposit`], then it is increased to the full amount.
        * 
        * The dispatch origin for this call must be _Signed_ by the controller, not the stash.
        * 
@@ -3451,9 +4058,14 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       unbond: AugmentedSubmittable<(value: Compact<u128> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u128>]>;
       /**
-       * Sets the intended count to `new_intended_count` for the given `identity`.
+       * Migrates an account's `RewardDestination::Controller` to
+       * `RewardDestination::Account(controller)`.
+       * 
+       * Effects will be felt instantly (as soon as this function is completed successfully).
+       * 
+       * This will waive the transaction fee if the `payee` is successfully migrated.
        **/
-      updatePermissionedValidatorIntendedCount: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, newIntendedCount: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, u32]>;
+      updatePayee: AugmentedSubmittable<(controller: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Declare the desire to validate for the origin controller.
        * 
@@ -3463,24 +4075,25 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       validate: AugmentedSubmittable<(prefs: PalletStakingValidatorPrefs | { commission?: any; blocked?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletStakingValidatorPrefs]>;
       /**
-       * Validate the nominators CDD expiry time.
-       * 
-       * If an account from a given set of address is nominating then check the CDD expiry time
-       * of it and if it is expired then the account should be unbonded and removed from the
-       * nominating process.
-       **/
-      validateCddExpiryNominators: AugmentedSubmittable<(targets: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<AccountId32>]>;
-      /**
        * Remove any unlocked chunks from the `unlocking` queue from our management.
        * 
-       * This essentially frees up that balance to be used by the stash account to do
-       * whatever it wants.
+       * This essentially frees up that balance to be used by the stash account to do whatever
+       * it wants.
        * 
        * The dispatch origin for this call must be _Signed_ by the controller.
        * 
        * Emits `Withdrawn`.
        * 
        * See also [`Call::unbond`].
+       * 
+       * ## Parameters
+       * 
+       * - `num_slashing_spans` indicates the number of metadata slashing spans to clear when
+       * this call results in a complete removal of all the data related to the stash account.
+       * In this case, the `num_slashing_spans` must be larger or equal to the number of
+       * slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
+       * otherwise the call will fail. The call weight is directly proportional to
+       * `num_slashing_spans`.
        * 
        * ## Complexity
        * O(S) where S is the number of slashing spans to remove
@@ -3571,81 +4184,181 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     sto: {
       /**
-       * Create a new fundraiser.
+       * Create a new fundraiser for a security token offering.
        * 
-       * * `offering_portfolio` - Portfolio containing the `offering_asset`.
-       * * `offering_asset` - Asset being offered.
-       * * `raising_portfolio` - Portfolio containing the `raising_asset`.
-       * * `raising_asset` - Asset being exchanged for `offering_asset` on investment.
-       * * `tiers` - Price tiers to charge investors on investment.
-       * * `venue_id` - Venue to handle settlement.
-       * * `start` - Fundraiser start time, if `None` the fundraiser will start immediately.
-       * * `end` - Fundraiser end time, if `None` the fundraiser will never expire.
-       * * `minimum_investment` - Minimum amount of `raising_asset` that an investor needs to spend to invest in this raise.
-       * * `fundraiser_name` - Fundraiser name, only used in the UIs.
+       * This function creates a tiered pricing fundraiser where investors can purchase
+       * tokens at different price points. The fundraiser uses Polymesh's settlement
+       * infrastructure to ensure compliant and secure token transfers.
        * 
-       * # Permissions
-       * * Asset
-       * * Portfolio
+       * # Parameters
+       * * `offering_portfolio` - Portfolio containing the tokens being offered for sale
+       * * `offering_asset` - Asset ID of the security token being sold
+       * * `raising_portfolio` - Portfolio that will receive the raised funds
+       * * `raising_asset` - Asset ID of the payment token (e.g., POLYX, stablecoin)
+       * * `tiers` - Vector of price tiers (1-10 tiers), each with total amount and price per unit
+       * * `venue_id` - STO venue ID for handling settlements (must be owned by caller)
+       * * `start` - Optional start time; if `None`, fundraiser begins immediately
+       * * `end` - Optional end time; if `None`, fundraiser runs indefinitely
+       * * `minimum_investment` - Minimum amount of `raising_asset` required per investment
+       * * `fundraiser_name` - Human-readable name for UI display (length limited)
+       * 
+       * # Permissions Required
+       * * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+       * * **Portfolio Custody**: Caller must have custody of both `offering_portfolio` and `raising_portfolio`
+       * * **Venue Ownership**: The specified `venue_id` must be an STO venue owned by the caller
+       * 
+       * # Errors
+       * * `InvalidVenue` - Venue doesn't exist, wrong type, or not owned by caller
+       * * `InvalidPriceTiers` - Invalid tier configuration (0 tiers, >10 tiers, zero amounts)
+       * * `InvalidOfferingWindow` - Start time is after end time
+       * * `Overflow` - Total offering amount calculation overflowed
        **/
       createFundraiser: AugmentedSubmittable<(offeringPortfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, raisingPortfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, raisingAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, tiers: Vec<PalletStoPriceTier> | (PalletStoPriceTier | { total?: any; price?: any } | string | Uint8Array)[], venueId: u64 | AnyNumber | Uint8Array, start: Option<u64> | null | Uint8Array | u64 | AnyNumber, end: Option<u64> | null | Uint8Array | u64 | AnyNumber, minimumInvestment: u128 | AnyNumber | Uint8Array, fundraiserName: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesAssetAssetId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesAssetAssetId, Vec<PalletStoPriceTier>, u64, Option<u64>, Option<u64>, u128, Bytes]>;
       /**
-       * Freeze a fundraiser.
+       * Enable off-chain funding support for a fundraiser.
        * 
-       * * `offering_asset` - Asset to freeze.
-       * * `id` - ID of the fundraiser to freeze.
+       * This function allows a fundraiser to accept off-chain payments through
+       * cryptographically signed receipts. Once enabled, investors can use the
+       * `invest` function with `FundingMethod::OffChain` to provide payment
+       * receipts instead of on-chain portfolio transfers.
        * 
-       * # Permissions
-       * * Asset
+       * # Parameters
+       * * `offering_asset` - Asset ID associated with the fundraiser
+       * * `fundraiser_id` - Unique identifier of the fundraiser to enable off-chain funding for
+       * * `ticker` - Ticker symbol of the off-chain asset that will be accepted as payment
+       * 
+       * # Permissions Required
+       * * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+       * OR be the original creator of the fundraiser
+       * 
+       * # Errors
+       * * `FundraiserNotFound` - Specified fundraiser doesn't exist
+       * * `FundraiserClosed` - Fundraiser has been permanently closed
+       * * `Unauthorized` - Caller lacks required permissions
        **/
-      freezeFundraiser: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, id: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
+      enableOffchainFunding: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundraiserId: u64 | AnyNumber | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64, PolymeshPrimitivesTicker]>;
       /**
-       * Invest in a fundraiser.
+       * Temporarily freeze a fundraiser to prevent new investments.
        * 
-       * * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
-       * * `funding_portfolio` - Portfolio that will fund the investment.
-       * * `offering_asset` - Asset to invest in.
-       * * `id` - ID of the fundraiser to invest in.
-       * * `purchase_amount` - Amount of `offering_asset` to purchase.
-       * * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
-       * * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
+       * When a fundraiser is frozen, it cannot accept new investments but remains
+       * otherwise intact. This is useful for pausing activity while resolving
+       * issues or during maintenance periods. The fundraiser can be unfrozen
+       * later to resume normal operations.
        * 
-       * # Permissions
-       * * Portfolio
+       * # Parameters
+       * * `offering_asset` - Asset ID associated with the fundraiser to freeze
+       * * `fundraiser_id` - Unique identifier of the fundraiser to freeze
+       * 
+       * # Permissions Required
+       * * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+       * 
+       * # Errors
+       * * `FundraiserNotFound` - Specified fundraiser doesn't exist
+       * * `FundraiserClosed` - Fundraiser has already been permanently closed
+       * * `Unauthorized` - Caller lacks required asset agent permissions
        **/
-      invest: AugmentedSubmittable<(investmentPortfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, fundingPortfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, id: u64 | AnyNumber | Uint8Array, purchaseAmount: u128 | AnyNumber | Uint8Array, maxPrice: Option<u128> | null | Uint8Array | u128 | AnyNumber, receipt: Option<PolymeshPrimitivesSettlementReceiptDetails> | null | Uint8Array | PolymeshPrimitivesSettlementReceiptDetails | { uid?: any; instructionId?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesAssetAssetId, u64, u128, Option<u128>, Option<PolymeshPrimitivesSettlementReceiptDetails>]>;
+      freezeFundraiser: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundraiserId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
       /**
-       * Modify the time window a fundraiser is active
+       * Invest in a fundraiser using on-chain or off-chain funding.
        * 
-       * * `offering_asset` - Asset to modify.
-       * * `id` - ID of the fundraiser to modify.
-       * * `start` - New start of the fundraiser.
-       * * `end` - New end of the fundraiser to modify.
+       * This function allows investors to purchase tokens from an active fundraiser.
+       * The investment is processed through multiple price tiers in order, starting
+       * with the lowest-priced tier. The purchase creates a settlement instruction
+       * that transfers tokens and payment between the appropriate portfolios.
        * 
-       * # Permissions
-       * * Asset
+       * # Parameters
+       * * `offering_asset` - Asset ID of the security token being purchased
+       * * `fundraiser_id` - Unique identifier of the fundraiser to invest in
+       * * `investment_portfolio` - Portfolio where purchased tokens will be deposited
+       * * `funding` - Payment method: either `OnChain(portfolio_id)` for on-chain assets
+       * or `OffChain(receipt_details)` for off-chain receipts with signature verification
+       * * `purchase_amount` - Number of `offering_asset` tokens to purchase
+       * * `max_price` - Optional maximum price per token; if specified, investment fails
+       * if the blended price across tiers exceeds this limit
+       * 
+       * # Permissions Required
+       * * **Portfolio Custody**: Caller must have custody of `investment_portfolio`
+       * * **Funding Portfolio**: If using on-chain funding, caller must have custody
+       * of the funding portfolio specified in the `FundingMethod`
+       * 
+       * # Errors
+       * * `FundraiserNotFound` - Specified fundraiser doesn't exist
+       * * `FundraiserNotLive` - Fundraiser is frozen or closed
+       * * `FundraiserExpired` - Current time is outside fundraiser's active window
+       * * `InsufficientTokensRemaining` - Not enough tokens available across all tiers
+       * * `InvestmentAmountTooLow` - Total cost is below minimum investment threshold
+       * * `MaxPriceExceeded` - Blended price exceeds investor's maximum price limit
+       * * `OffchainFundingNotAllowed` - Off-chain funding not enabled for this fundraiser
+       * * `InvalidSignature` - Off-chain receipt signature verification failed
        **/
-      modifyFundraiserWindow: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, id: u64 | AnyNumber | Uint8Array, start: u64 | AnyNumber | Uint8Array, end: Option<u64> | null | Uint8Array | u64 | AnyNumber) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64, u64, Option<u64>]>;
+      invest: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundraiserId: u64 | AnyNumber | Uint8Array, investmentPortfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, funding: PalletStoFundingMethod | { OnChain: any } | { OffChain: any } | string | Uint8Array, purchaseAmount: u128 | AnyNumber | Uint8Array, maxPrice: Option<u128> | null | Uint8Array | u128 | AnyNumber) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64, PolymeshPrimitivesIdentityIdPortfolioId, PalletStoFundingMethod, u128, Option<u128>]>;
       /**
-       * Stop a fundraiser.
+       * Modify the time window when a fundraiser is active for investments.
        * 
-       * * `offering_asset` - Asset to stop.
-       * * `id` - ID of the fundraiser to stop.
+       * This function allows authorized agents to update the start and end times
+       * of an active fundraiser. This can be useful for extending fundraising
+       * periods, adjusting launch timing, or responding to market conditions.
+       * The fundraiser must not be permanently closed to modify its window.
        * 
-       * # Permissions
-       * * Asset
+       * # Parameters
+       * * `offering_asset` - Asset ID associated with the fundraiser to modify
+       * * `fundraiser_id` - Unique identifier of the fundraiser to modify
+       * * `start` - New start time for the fundraiser (can be in the past or future)
+       * * `end` - New optional end time; if `None`, the fundraiser runs indefinitely
+       * 
+       * # Permissions Required
+       * * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+       * 
+       * # Errors
+       * * `FundraiserNotFound` - Specified fundraiser doesn't exist
+       * * `FundraiserClosed` - Fundraiser has been permanently closed
+       * * `FundraiserExpired` - Fundraiser has already expired (past its original end time)
+       * * `InvalidOfferingWindow` - New start time is after new end time
+       * * `Unauthorized` - Caller lacks required asset agent permissions
        **/
-      stop: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, id: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
+      modifyFundraiserWindow: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundraiserId: u64 | AnyNumber | Uint8Array, start: u64 | AnyNumber | Uint8Array, end: Option<u64> | null | Uint8Array | u64 | AnyNumber) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64, u64, Option<u64>]>;
       /**
-       * Unfreeze a fundraiser.
+       * Permanently stop a fundraiser and unlock remaining tokens.
        * 
-       * * `offering_asset` - Asset to unfreeze.
-       * * `id` - ID of the fundraiser to unfreeze.
+       * This function permanently closes a fundraiser, preventing any further
+       * investments. Any remaining tokens that haven't been sold are unlocked
+       * and returned to the offering portfolio. Once stopped, a fundraiser
+       * cannot be restarted.
        * 
-       * # Permissions
-       * * Asset
+       * # Parameters
+       * * `offering_asset` - Asset ID associated with the fundraiser to stop
+       * * `fundraiser_id` - Unique identifier of the fundraiser to stop
+       * 
+       * # Permissions Required
+       * * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+       * OR be the original creator of the fundraiser
+       * 
+       * # Errors
+       * * `FundraiserNotFound` - Specified fundraiser doesn't exist
+       * * `FundraiserClosed` - Fundraiser has already been permanently closed
+       * * `Unauthorized` - Caller lacks required permissions
        **/
-      unfreezeFundraiser: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, id: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
+      stop: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundraiserId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
+      /**
+       * Resume a frozen fundraiser to allow new investments.
+       * 
+       * This function unfreezes a previously frozen fundraiser, returning it to
+       * the Live status where it can accept new investments. The fundraiser
+       * must not be permanently closed for this operation to succeed.
+       * 
+       * # Parameters
+       * * `offering_asset` - Asset ID associated with the fundraiser to unfreeze
+       * * `fundraiser_id` - Unique identifier of the fundraiser to unfreeze
+       * 
+       * # Permissions Required
+       * * **Asset Agent**: Caller must be an authorized external agent for `offering_asset`
+       * 
+       * # Errors
+       * * `FundraiserNotFound` - Specified fundraiser doesn't exist
+       * * `FundraiserClosed` - Fundraiser has been permanently closed and cannot be unfrozen
+       * * `Unauthorized` - Caller lacks required asset agent permissions
+       **/
+      unfreezeFundraiser: AugmentedSubmittable<(offeringAsset: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundraiserId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, u64]>;
       /**
        * Generic tx
        **/
@@ -3653,15 +4366,13 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     sudo: {
       /**
-       * Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo key.
+       * Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo
+       * key.
        * 
        * The dispatch origin for this call must be _Signed_.
        * 
-       * # <weight>
+       * ## Complexity
        * - O(1).
-       * - Limited storage reads.
-       * - One DB change.
-       * # </weight>
        **/
       setKey: AugmentedSubmittable<(updated: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress]>;
       /**
@@ -3669,12 +4380,8 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin for this call must be _Signed_.
        * 
-       * # <weight>
+       * ## Complexity
        * - O(1).
-       * - Limited storage reads.
-       * - One DB write (event).
-       * - Weight of derivative `call` execution + 10,000.
-       * # </weight>
        **/
       sudo: AugmentedSubmittable<(call: Call | IMethod | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Call]>;
       /**
@@ -3683,12 +4390,8 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin for this call must be _Signed_.
        * 
-       * # <weight>
+       * ## Complexity
        * - O(1).
-       * - Limited storage reads.
-       * - One DB write (event).
-       * - Weight of derivative `call` execution + 10,000.
-       * # </weight>
        **/
       sudoAs: AugmentedSubmittable<(who: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, call: Call | IMethod | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Call]>;
       /**
@@ -3698,10 +4401,8 @@ declare module '@polkadot/api-base/types/submittable' {
        * 
        * The dispatch origin for this call must be _Signed_.
        * 
-       * # <weight>
+       * ## Complexity
        * - O(1).
-       * - The weight of this call is defined by the caller.
-       * # </weight>
        **/
       sudoUncheckedWeight: AugmentedSubmittable<(call: Call | IMethod | string | Uint8Array, weight: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Call, SpWeightsWeightV2Weight]>;
       /**
@@ -3710,6 +4411,36 @@ declare module '@polkadot/api-base/types/submittable' {
       [key: string]: SubmittableExtrinsicFunction<ApiType>;
     };
     system: {
+      /**
+       * Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
+       * 
+       * If the authorization required a version check, this call will ensure the spec name
+       * remains unchanged and that the spec version has increased.
+       * 
+       * Depending on the runtime's `OnSetCode` configuration, this function may directly apply
+       * the new `code` in the same block or attempt to schedule the upgrade.
+       * 
+       * All origins are allowed.
+       **/
+      applyAuthorizedUpgrade: AugmentedSubmittable<(code: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
+      /**
+       * Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
+       * later.
+       * 
+       * This call requires Root origin.
+       **/
+      authorizeUpgrade: AugmentedSubmittable<(codeHash: H256 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [H256]>;
+      /**
+       * Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
+       * later.
+       * 
+       * WARNING: This authorizes an upgrade that will take place without any safety checks, for
+       * example that the spec name remains the same and that the version number increases. Not
+       * recommended for normal use. Use `authorize_upgrade` instead.
+       * 
+       * This call requires Root origin.
+       **/
+      authorizeUpgradeWithoutChecks: AugmentedSubmittable<(codeHash: H256 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [H256]>;
       /**
        * Kill all storage items with a key that starts with the given prefix.
        * 
@@ -3724,8 +4455,7 @@ declare module '@polkadot/api-base/types/submittable' {
       /**
        * Make some on-chain remark.
        * 
-       * ## Complexity
-       * - `O(1)`
+       * Can be executed by every `origin`.
        **/
       remark: AugmentedSubmittable<(remark: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
@@ -3734,16 +4464,13 @@ declare module '@polkadot/api-base/types/submittable' {
       remarkWithEvent: AugmentedSubmittable<(remark: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
        * Set the new runtime code.
-       * 
-       * ## Complexity
-       * - `O(C + S)` where `C` length of `code` and `S` complexity of `can_set_code`
        **/
       setCode: AugmentedSubmittable<(code: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
        * Set the new runtime code without doing any checks of the given `code`.
        * 
-       * ## Complexity
-       * - `O(C)` where `C` length of `code`
+       * Note that runtime upgrades will not run if this is called with a not-increasing spec
+       * version!
        **/
       setCodeWithoutChecks: AugmentedSubmittable<(code: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
@@ -3766,7 +4493,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * `expiry` - The new expiry time.
        **/
-      setExpiresAfter: AugmentedSubmittable<(expiry: PolymeshCommonUtilitiesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshCommonUtilitiesMaybeBlock]>;
+      setExpiresAfter: AugmentedSubmittable<(expiry: PolymeshPrimitivesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesMaybeBlock]>;
       /**
        * Changes the release coordinator.
        * 
@@ -3910,43 +4637,6 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       [key: string]: SubmittableExtrinsicFunction<ApiType>;
     };
-    testUtils: {
-      /**
-       * Emits an event with caller's identity and CDD status.
-       **/
-      getCddOf: AugmentedSubmittable<(of: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
-      /**
-       * Emits an event with caller's identity.
-       **/
-      getMyDid: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
-      /**
-       * Registers a new Identity for the `target_account` and issues a CDD claim to it.
-       * 
-       * # Failure
-       * - `origin` has to be an active CDD provider. Inactive CDD providers cannot add new
-       * claims.
-       * - `target_account` (primary key of the new Identity) can be linked to just one and only
-       * one identity.
-       **/
-      mockCddRegisterDid: AugmentedSubmittable<(targetAccount: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
-      /**
-       * Generates a new `IdentityID` for the caller, and issues a self-generated CDD claim.
-       * 
-       * The caller account will be the primary key of that identity.
-       * For each account of `secondary_keys`, a new `JoinIdentity` authorization is created, so
-       * each of them will need to accept it before become part of this new `IdentityID`.
-       * 
-       * # Errors
-       * - `AlreadyLinked` if the caller account or if any of the given `secondary_keys` has already linked to an `IdentityID`
-       * - `SecondaryKeysContainPrimaryKey` if `secondary_keys` contains the caller account.
-       * - `DidAlreadyExists` if auto-generated DID already exists.
-       **/
-      registerDid: AugmentedSubmittable<(secondaryKeys: Vec<PolymeshPrimitivesSecondaryKey> | (PolymeshPrimitivesSecondaryKey | { key?: any; permissions?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<PolymeshPrimitivesSecondaryKey>]>;
-      /**
-       * Generic tx
-       **/
-      [key: string]: SubmittableExtrinsicFunction<ApiType>;
-    };
     timestamp: {
       /**
        * Set the current time.
@@ -3955,17 +4645,28 @@ declare module '@polkadot/api-base/types/submittable' {
        * phase, if this call hasn't been invoked by that time.
        * 
        * The timestamp should be greater than the previous one by the amount specified by
-       * `MinimumPeriod`.
+       * [`Config::MinimumPeriod`].
        * 
-       * The dispatch origin for this call must be `Inherent`.
+       * The dispatch origin for this call must be _None_.
+       * 
+       * This dispatch class is _Mandatory_ to ensure it gets executed in the block. Be aware
+       * that changing the complexity of this call could result exhausting the resources in a
+       * block to execute any other calls.
        * 
        * ## Complexity
        * - `O(1)` (Note that implementations of `OnTimestampSet` must also be `O(1)`)
-       * - 1 storage read and 1 storage mutation (codec `O(1)`). (because of `DidUpdate::take` in
+       * - 1 storage read and 1 storage mutation (codec `O(1)` because of `DidUpdate::take` in
        * `on_finalize`)
        * - 1 event handler `on_timestamp_set`. Must be `O(1)`.
        **/
       set: AugmentedSubmittable<(now: Compact<u64> | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Compact<u64>]>;
+      /**
+       * Generic tx
+       **/
+      [key: string]: SubmittableExtrinsicFunction<ApiType>;
+    };
+    transactionPayment: {
+      setDisableFees: AugmentedSubmittable<(value: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [bool]>;
       /**
        * Generic tx
        **/
@@ -4000,7 +4701,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * `expiry` - The new expiry time.
        **/
-      setExpiresAfter: AugmentedSubmittable<(expiry: PolymeshCommonUtilitiesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshCommonUtilitiesMaybeBlock]>;
+      setExpiresAfter: AugmentedSubmittable<(expiry: PolymeshPrimitivesMaybeBlock | { Some: any } | { None: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesMaybeBlock]>;
       /**
        * Changes the release coordinator.
        * 
@@ -4192,79 +4893,6 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       batchAll: AugmentedSubmittable<(calls: Vec<Call> | (Call | IMethod | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<Call>]>;
       /**
-       * Dispatch multiple calls from the sender's origin.
-       * 
-       * This will execute all calls, in order, stopping at the first failure,
-       * in which case the state changes are rolled back.
-       * On failure, an event `BatchInterruptedOld(failure_idx, error)` is deposited.
-       * 
-       * May be called from root or a signed origin.
-       * 
-       * # Parameters
-       * - `calls`: The calls to be dispatched from the same origin.
-       * 
-       * # Weight
-       * - The sum of the weights of the `calls`.
-       * - One event.
-       * 
-       * This will return `Ok` in all circumstances except an unsigned origin.
-       * To determine the success of the batch, an event is deposited.
-       * If any call failed, then `BatchInterruptedOld` is deposited.
-       * If all were successful, then the `BatchCompletedOld` event is deposited.
-       * 
-       * POLYMESH: deprecated.
-       **/
-      batchAtomic: AugmentedSubmittable<(calls: Vec<Call> | (Call | IMethod | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<Call>]>;
-      /**
-       * Dispatch multiple calls from the sender's origin.
-       * 
-       * This will execute until the first one fails and then stop.
-       * 
-       * May be called from root or a signed origin.
-       * 
-       * # Parameters
-       * - `calls`: The calls to be dispatched from the same origin.
-       * 
-       * # Weight
-       * - The sum of the weights of the `calls`.
-       * - One event.
-       * 
-       * This will return `Ok` in all circumstances except an unsigned origin. To determine the success of the batch, an
-       * event is deposited. If a call failed and the batch was interrupted, then the
-       * `BatchInterruptedOld` event is deposited, along with the number of successful calls made
-       * and the error of the failed call. If all were successful, then the `BatchCompletedOld`
-       * event is deposited.
-       * 
-       * POLYMESH: Renamed from `batch` and deprecated.
-       **/
-      batchOld: AugmentedSubmittable<(calls: Vec<Call> | (Call | IMethod | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<Call>]>;
-      /**
-       * Dispatch multiple calls from the sender's origin.
-       * 
-       * This will execute all calls, in order, irrespective of failures.
-       * Any failures will be available in a `BatchOptimisticFailed` event.
-       * 
-       * May be called from root or a signed origin.
-       * 
-       * # Parameters
-       * - `calls`: The calls to be dispatched from the same origin.
-       * 
-       * 
-       * # Weight
-       * - The sum of the weights of the `calls`.
-       * - One event.
-       * 
-       * This will return `Ok` in all circumstances except an unsigned origin.
-       * To determine the success of the batch, an event is deposited.
-       * If any call failed, then `BatchOptimisticFailed` is deposited,
-       * with a vector of event counts for each call as well as a vector
-       * of errors.
-       * If all were successful, then the `BatchCompletedOld` event is deposited.
-       * 
-       * POLYMESH: deprecated.
-       **/
-      batchOptimistic: AugmentedSubmittable<(calls: Vec<Call> | (Call | IMethod | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<Call>]>;
-      /**
        * Dispatches a function call with a provided origin.
        * 
        * The dispatch origin for this call must be _Root_.
@@ -4272,7 +4900,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * ## Complexity
        * - O(1).
        **/
-      dispatchAs: AugmentedSubmittable<(asOrigin: PolymeshRuntimeDevelopRuntimeOriginCaller | { system: any } | { Void: any } | { PolymeshCommittee: any } | { TechnicalCommittee: any } | { UpgradeCommittee: any } | string | Uint8Array, call: Call | IMethod | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshRuntimeDevelopRuntimeOriginCaller, Call]>;
+      dispatchAs: AugmentedSubmittable<(asOrigin: PolymeshRuntimeDevelopRuntimeOriginCaller | { system: any } | { PolymeshCommittee: any } | { TechnicalCommittee: any } | { UpgradeCommittee: any } | string | Uint8Array, call: Call | IMethod | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshRuntimeDevelopRuntimeOriginCaller, Call]>;
       /**
        * Send a batch of dispatch calls.
        * Unlike `batch`, it allows errors and won't interrupt.
@@ -4314,6 +4942,49 @@ declare module '@polkadot/api-base/types/submittable' {
        * The dispatch origin for this call must be _Root_.
        **/
       withWeight: AugmentedSubmittable<(call: Call | IMethod | string | Uint8Array, weight: SpWeightsWeightV2Weight | { refTime?: any; proofSize?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Call, SpWeightsWeightV2Weight]>;
+      /**
+       * Generic tx
+       **/
+      [key: string]: SubmittableExtrinsicFunction<ApiType>;
+    };
+    validators: {
+      /**
+       * Adds a permissioned identity and sets its preferences.
+       * 
+       * The dispatch origin must be Root.
+       **/
+      addPermissionedValidator: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, intendedCount: Option<u32> | null | Uint8Array | u32 | AnyNumber) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, Option<u32>]>;
+      /**
+       * Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
+       **/
+      changeSlashingAllowedFor: AugmentedSubmittable<(slashingSwitch: PalletValidatorsSlashingSwitch | 'Validator' | 'ValidatorAndNominator' | 'None' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletValidatorsSlashingSwitch]>;
+      /**
+       * Governance council forcefully chills a validator. Effects will be felt at the beginning of the next era.
+       **/
+      chillFromGovernance: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, stashKeys: Vec<AccountId32> | (AccountId32 | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, Vec<AccountId32>]>;
+      payoutStakersBySystem: AugmentedSubmittable<(validatorStash: AccountId32 | string | Uint8Array, era: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, u32]>;
+      /**
+       * Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
+       * 
+       * The dispatch origin must be Root.
+       * 
+       * # Arguments
+       * * origin Required origin for removing a potential validator.
+       * * identity Validator's IdentityId.
+       **/
+      removePermissionedValidator: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId]>;
+      /**
+       * Changes commission rate which applies to all validators. Only Governance
+       * committee is allowed to change this value.
+       * 
+       * # Arguments
+       * * `new_cap` the new commission cap.
+       **/
+      setCommissionCap: AugmentedSubmittable<(newCap: Perbill | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Perbill]>;
+      /**
+       * Sets the intended count to `new_intended_count` for the given `identity`.
+       **/
+      updatePermissionedValidatorIntendedCount: AugmentedSubmittable<(identity: PolymeshPrimitivesIdentityId | string | Uint8Array, newIntendedCount: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, u32]>;
       /**
        * Generic tx
        **/

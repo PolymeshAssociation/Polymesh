@@ -59,7 +59,7 @@
 //! 	use frame_system::pallet_prelude::*;
 //!
 //! 	#[pallet::pallet]
-//! 	pub struct Pallet<T>(PhantomData<T>);
+//! 	pub struct Pallet<T>(_);
 //!
 //! 	#[pallet::config]
 //! 	pub trait Config: frame_system::Config {}
@@ -124,7 +124,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
-    pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000);
+    pub const MIN_WEIGHT: Weight = Weight::from_parts(1_000, 0);
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -138,7 +138,7 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    pub struct Pallet<T>(PhantomData<T>);
+    pub struct Pallet<T>(_);
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -151,7 +151,7 @@ pub mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
-			(dispatch_info.weight.max(MIN_WEIGHT), dispatch_info.class)
+			(dispatch_info.total_weight().max(MIN_WEIGHT), dispatch_info.class)
 		})]
         pub fn sudo(
             origin: OriginFor<T>,
@@ -176,13 +176,15 @@ pub mod pallet {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(1)]
-        #[pallet::weight((_weight.max(MIN_WEIGHT), call.get_dispatch_info().class))]
+        #[pallet::weight((weight.max(MIN_WEIGHT), call.get_dispatch_info().class))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
-            _weight: Weight,
+            weight: Weight,
         ) -> DispatchResultWithPostInfo {
             Self::ensure_sudo(origin)?;
+
+            let _ = weight; // We don't check the weight witness since it is a root call.
 
             let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
             Self::deposit_event(Event::Sudid {
@@ -227,7 +229,7 @@ pub mod pallet {
         #[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				dispatch_info.weight.max(MIN_WEIGHT)
+				dispatch_info.total_weight().max(MIN_WEIGHT)
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
 				dispatch_info.class,
@@ -292,20 +294,14 @@ pub mod pallet {
     pub type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         /// The `AccountId` of the sudo key.
         pub key: Option<T::AccountId>,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self { key: None }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             if let Some(ref key) = self.key {
                 Key::<T>::put(key);

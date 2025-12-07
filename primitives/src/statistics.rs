@@ -13,20 +13,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
+use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
+
 use crate::asset::AssetId;
 use crate::{Claim, ClaimType, CountryCode, IdentityId, Scope};
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
 
 /// Transfer manager percentage
 pub type Percentage = sp_arithmetic::Permill;
 
 /// Stats Operation type.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatOpType {
     /// Count - Investor count stats.
@@ -36,8 +36,8 @@ pub enum StatOpType {
 }
 
 /// The statistic type.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatType {
     /// The [`StatOpType`] of the statistic.
@@ -66,7 +66,7 @@ impl StatType {
 }
 
 /// First stats key in double map.
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Stat1stKey {
     /// The [`AssetId`] of the token.
@@ -92,7 +92,7 @@ impl Stat1stKey {
 }
 
 /// Second stats key in double map.
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stat2ndKey {
     /// For `MaxInvestorCount` and `MaxInvestorOwnership` transfer rules.
@@ -157,10 +157,9 @@ impl From<&StatClaim> for Stat2ndKey {
 }
 
 /// Stats supported claims.
-///
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize)]
 pub enum StatClaim {
     /// User is Accredited or non-Accredited.
     Accredited(bool),
@@ -193,7 +192,7 @@ impl StatClaim {
 }
 
 /// Stats update.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatUpdate {
     /// Stat key to update.  (Claim or NoClaim)
@@ -212,7 +211,7 @@ pub mod v1 {
     pub type Percentage = HashablePermill;
 
     /// Wrapper around `sp_arithmetic::Permill`
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Decode, Encode, TypeInfo)]
     #[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, Default)]
     pub struct HashablePermill(pub sp_arithmetic::Permill);
@@ -245,7 +244,7 @@ pub mod v1 {
     }
 
     /// Transfer managers that can be attached to a Token for compliance.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Decode, Encode, TypeInfo)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub enum TransferManager {
@@ -256,7 +255,7 @@ pub mod v1 {
     }
 
     /// Result of a transfer manager check.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize)]
     #[derive(Decode, Encode, TypeInfo)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct TransferManagerResult {

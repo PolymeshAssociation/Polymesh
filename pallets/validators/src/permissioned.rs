@@ -1,22 +1,18 @@
+use frame_support::traits::fungible::Inspect;
+use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
+use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
 use frame_support::{pallet_prelude::*, traits::Get};
 use frame_system::RawOrigin;
 use frame_system::{ensure_root, pallet_prelude::*};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::prelude::*;
 
-use frame_support::traits::schedule::Anon;
-use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
-use frame_support::traits::Currency;
-
-use polymesh_primitives::constants::GC_PALLET_ID;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
 
-use sp_runtime::traits::AccountIdConversion;
-
-use pallet_staking::{PermissionedStaking, WhoToSlash};
+use pallet_staking::permissioned_staking::{PermissionedStaking, WhoToSlash};
 
 use crate::types::{PermissionedIdentityPrefs, SlashingSwitch};
 use crate::*;
@@ -86,6 +82,17 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         .expect("Failed to join identity as key");
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_who_to_slash(who_to_slash: Option<WhoToSlash>) {
+        match who_to_slash {
+            Some(WhoToSlash::ValidatorAndNominator) => {
+                SlashingAllowedFor::<T>::put(SlashingSwitch::ValidatorAndNominator)
+            }
+            Some(WhoToSlash::Validator) => SlashingAllowedFor::<T>::put(SlashingSwitch::Validator),
+            None => SlashingAllowedFor::<T>::put(SlashingSwitch::None),
+        }
+    }
+
     /// Check if amount is under the existential deposit.
     fn reapable(amount: BalanceOf<T>) -> bool {
         amount <= T::Currency::minimum_balance()
@@ -141,44 +148,52 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     }
 
     /// Schedule reward payouts.
-    fn schedule_payouts(active_era: &ActiveEraInfo) {
+    fn schedule_payouts(active_era: &ActiveEraInfo) -> DispatchResult {
         let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
         for (index, validator_id) in <T as StakingConfig>::SessionInterface::validators()
             .into_iter()
             .enumerate()
         {
             let schedule_block_number =
-                next_block_number + index.saturated_into::<T::BlockNumber>();
+                next_block_number + index.saturated_into::<BlockNumberFor<T>>();
+
+            let scheduler_call =
+                <T as pallet::Config>::SchedulerCall::from(Call::<T>::payout_stakers_by_system {
+                    validator_stash: validator_id.clone(),
+                    era: active_era.index,
+                });
+
+            let payout_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
+
             match T::RewardScheduler::schedule(
-                    DispatchTime::At(schedule_block_number),
-                    None,
-                    HIGHEST_PRIORITY,
-                    RawOrigin::Root.into(),
-                    Call::<T>::payout_stakers_by_system {
-                        validator_stash: validator_id.clone(),
+                DispatchTime::At(schedule_block_number),
+                None,
+                HIGHEST_PRIORITY,
+                RawOrigin::Root.into(),
+                payout_call
+            ) {
+                Ok(_) => log!(
+                    info,
+                    "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                    &validator_id,
+                    schedule_block_number,
+                ),
+                Err(error) => {
+                    log!(
+                        error,
+                        "⛔ Detected error in scheduling the reward payment: {:?}",
+                        error
+                    );
+                    Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
+                        account_id: validator_id,
                         era: active_era.index,
-                    }.into()
-                ) {
-                    Ok(_) => log!(
-                        info,
-                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
-                        &validator_id,
-                        schedule_block_number,
-                    ),
-                    Err(error) => {
-                        log!(
-                            error,
-                            "⛔ Detected error in scheduling the reward payment: {:?}",
-                            error
-                        );
-                        Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
-                            account_id: validator_id,
-                            era: active_era.index,
-                            error
-                        });
-                    }
+                        error
+                    });
                 }
+            }
         }
+
+        Ok(())
     }
 
     /// Who should be slashed?
@@ -278,56 +293,6 @@ impl<T: Config> Pallet<T> {
         Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityRemoved {
             governance_councill_did: GC_DID,
             validators_identity: identity,
-        });
-        Ok(())
-    }
-
-    pub(crate) fn base_validate_cdd_expiry_nominators(
-        origin: OriginFor<T>,
-        targets: Vec<T::AccountId>,
-    ) -> DispatchResult {
-        ensure_root(origin.clone())?;
-
-        ensure!(!targets.is_empty(), StakingError::<T>::EmptyTargets);
-
-        let mut expired_nominators = Vec::new();
-        // Iterate provided list of accountIds (These accountIds should be stash type account).
-        for target in targets
-            .iter()
-            // Nominator must be vouching for someone.
-            .filter(|target| Nominators::<T>::get(target).is_some())
-            // Access the DIDs of the nominators whose CDDs have expired.
-            .filter(|target| {
-                // Fetch all the claim values provided by the trusted service providers
-                // There is a possibility that nominator will have more than one claim for the same key,
-                // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
-                // valid CDD otherwise it will be removed from the pool of the nominators.
-                // If the target has no DID, it's also removed.
-                pallet_identity::Pallet::<T>::get_identity(&target)
-                    .filter(|did| pallet_identity::Pallet::<T>::has_valid_cdd(*did))
-                    .is_none()
-            })
-        {
-            // Un-bonding the balance that bonded with the controller account of a Stash account
-            // This unbonded amount only be accessible after completion of the BondingDuration
-            // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
-
-            let controller = Bonded::<T>::get(target).ok_or(StakingError::<T>::NotStash)?;
-            let mut ledger =
-                Ledger::<T>::get(&controller).ok_or(StakingError::<T>::NotController)?;
-            let active_balance = ledger.active;
-            if ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize {
-                StakingPallet::<T>::unbond_balance(controller, &mut ledger, active_balance)?;
-
-                expired_nominators.push(target.clone());
-                // Free the nominator from the valid nominator list
-                <Nominators<T>>::remove(target);
-            }
-        }
-        Pallet::<T>::deposit_event(Event::<T>::InvalidatedNominators {
-            governance_councill_did: GC_DID,
-            governance_councill_account: GC_PALLET_ID.into_account_truncating(),
-            expired_nominators: expired_nominators,
         });
         Ok(())
     }

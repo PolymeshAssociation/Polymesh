@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -22,7 +22,8 @@ use sp_std::{
 };
 
 /// A wrapper for a document hash.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
+#[derive(Copy, DecodeWithMemTracking, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug)]
 pub enum DocumentHash {
     /// No hash
     None,
@@ -127,10 +128,8 @@ impl AsRef<[u8]> for DocumentHash {
 // Serde support
 // ======================
 
-#[cfg(feature = "std")]
 use serde::{de::Error as SerdeError, Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(feature = "std")]
 impl Serialize for DocumentHash {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -141,7 +140,6 @@ impl Serialize for DocumentHash {
     }
 }
 
-#[cfg(feature = "std")]
 impl<'de> Deserialize<'de> for DocumentHash {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

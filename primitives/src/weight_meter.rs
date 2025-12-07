@@ -38,19 +38,19 @@ impl WeightMeter {
 
         Self {
             minimum_charge,
-            meter: FrameWeightMeter::from_limit(limit),
+            meter: FrameWeightMeter::with_limit(limit),
         }
     }
 
     /// Creates [`Self`] from a limit for the maximal consumable weight and a minimum charge of `minimum_charge`.
-    pub fn from_limit(minimum_charge: Weight, limit: Weight) -> Option<Self> {
+    pub fn with_limit(minimum_charge: Weight, limit: Weight) -> Option<Self> {
         if limit.checked_sub(&minimum_charge).is_none() {
             return None;
         }
 
         Some(Self {
             minimum_charge,
-            meter: FrameWeightMeter::from_limit(limit),
+            meter: FrameWeightMeter::with_limit(limit),
         })
     }
 
@@ -58,7 +58,7 @@ impl WeightMeter {
     pub fn max_limit(minimum_charge: Weight) -> Self {
         Self {
             minimum_charge,
-            meter: FrameWeightMeter::max_limit(),
+            meter: FrameWeightMeter::new(),
         }
     }
 
@@ -66,36 +66,36 @@ impl WeightMeter {
     pub fn max_limit_no_minimum() -> Self {
         Self {
             minimum_charge: Weight::zero(),
-            meter: FrameWeightMeter::max_limit(),
+            meter: FrameWeightMeter::new(),
         }
     }
 
     /// Returns the minimum charge if the consumed weight is less than the minimum, otherwise returns the consumed weight.
     pub fn consumed(&self) -> Weight {
-        if self.meter.consumed.ref_time() < self.minimum_charge.ref_time() {
+        if self.meter.consumed().ref_time() < self.minimum_charge.ref_time() {
             return self.minimum_charge;
         }
-        self.meter.consumed
+        self.meter.consumed()
     }
 
     /// Returns the maximum weight limit.
     pub fn limit(&self) -> Weight {
-        self.meter.limit
+        self.meter.limit()
     }
 
     /// Consumes the given weight after checking that it can be consumed. Returns an error otherwise.
     pub fn check_accrue(&mut self, weight: Weight) -> Result<(), String> {
-        if !self.meter.check_accrue(weight) {
-            return Err(String::from("Maximum weight limit exceeded"));
-        }
+        self.meter
+            .try_consume(weight)
+            .map_err(|_| "Maximum weight limit exceeded")?;
         Ok(())
     }
 
     /// Consumes the given `weight`.
     /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
     pub fn consume_weight_until_limit(&mut self, weight: Weight) -> Result<(), String> {
-        if !self.meter.check_accrue(weight) {
-            self.meter.consumed = self.meter.limit;
+        if self.check_accrue(weight).is_err() {
+            self.meter.consume(self.meter.remaining());
             return Err(String::from("Maximum weight limit exceeded"));
         }
         Ok(())

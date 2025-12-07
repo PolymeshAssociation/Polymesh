@@ -1,18 +1,17 @@
 use codec::Encode;
-use frame_support::dispatch::{DispatchError, Weight};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::weights::Weight;
 use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
-use polymesh_contracts::{
-    Api, ApiCodeHash, ApiNextUpgrade, ChainVersion, ExtrinsicId, NextUpgrade,
-};
-use sp_keyring::AccountKeyring;
+use polymesh_contracts::{Api, ApiCodeHash, ApiNextUpgrade};
+use polymesh_contracts::{ChainVersion, ExtrinsicId, NextUpgrade};
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::Hash;
 
 use pallet_asset::TickersOwnedByUser;
 use pallet_identity::ParentDid;
-use polymesh_primitives::{
-    constants::currency::POLY, ExtrinsicPermissions, Gas, Permissions, PortfolioPermissions,
-    SubsetRestriction, Ticker,
-};
+use polymesh_primitives::constants::currency::POLY;
+use polymesh_primitives::{ExtrinsicPermissions, SubsetRestriction, Ticker};
+use polymesh_primitives::{Gas, Permissions, PortfolioPermissions};
 use polymesh_runtime_common::Currency;
 
 use crate::ext_builder::ExtBuilder;
@@ -23,7 +22,7 @@ use crate::storage::{root, TestStorage, User};
 // and instead focus on the particulars of our contracts pallet.
 // This includes testing CDD, permissions, and what the chain extension does.
 
-const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(3 * 1024 * 1024);
+const GAS_LIMIT: Gas = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
 
 type Asset = pallet_asset::Pallet<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;
@@ -60,7 +59,7 @@ fn update_call_runtime_whitelist(extrinsics: Vec<(ExtrinsicId, bool)>) {
 #[test]
 fn deploy_as_secondary_key() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
         let permissions = Permissions {
@@ -107,8 +106,8 @@ fn deploy_as_secondary_key() {
 #[test]
 fn chain_extension_calls() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let ticker = Ticker::from_slice_truncated(b"A" as &[u8]);
         Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
@@ -204,7 +203,7 @@ fn deploy_as_child_identity() {
         let salt = vec![0xFF];
         let (code, _) = chain_extension();
         let hash = Hashing::hash(&code);
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
 
         assert_ok!(Contracts::instantiate_with_code_as_primary_key(
@@ -226,7 +225,7 @@ fn deploy_as_child_identity() {
 #[test]
 fn upgrade_api_unauthorized_caller() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let api = Api::new(*b"POLY", 6);
         let chain_version = ChainVersion::new(6, 0);
         let api_code_hash = ApiCodeHash {

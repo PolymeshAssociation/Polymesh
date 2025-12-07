@@ -15,23 +15,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
-use crate::chain_spec;
-use crate::cli::{Cli, Subcommand};
-use crate::service::{
-    self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops, FullClient,
-    FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps,
-    TestnetExecutor,
-};
-use frame_benchmarking_cli::*;
-use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
-use sc_service::{Configuration, TaskManager};
-use sp_keyring::Sr25519Keyring;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use core::future::Future;
+use frame_benchmarking_cli::*;
 use log::info;
+use sc_cli::{Result, SubstrateCli};
+use sc_service::{Configuration, TaskManager};
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::HashingFor;
+
 use polymesh_primitives::Block;
-use std::sync::Arc;
+
+use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferBuilder};
+use crate::chain_spec::ci_runtime::ci_chain_spec;
+use crate::chain_spec::common::{ChainSpec as GenericChainSpec, ChainSpecMode};
+use crate::chain_spec::develop_runtime::develop_chain_spec;
+use crate::chain_spec::mainnet_runtime::mainnet_chain_spec;
+use crate::chain_spec::testnet_runtime::testnet_chain_spec;
+use crate::cli::{Cli, Subcommand};
+use crate::service::{general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops};
+use crate::service::{general_new_full, mainnet_new_full, testnet_new_full};
+use crate::service::{FullClient, HostFunctions, IsNetwork, Network, NewChainOps};
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -64,67 +70,54 @@ impl SubstrateCli for Cli {
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
-            "dev" => Box::new(chain_spec::general::develop_config()),
-            "local" => Box::new(chain_spec::general::local_config()),
-            "testnet-dev" => Box::new(chain_spec::testnet::develop_config()),
-            "testnet-local" => Box::new(chain_spec::testnet::local_config()),
-            "testnet-bootstrap" => Box::new(chain_spec::testnet::bootstrap_config()),
-            "mainnet-dev" => Box::new(chain_spec::mainnet::develop_config()),
-            "mainnet-local" => Box::new(chain_spec::mainnet::local_config()),
-            "mainnet-bootstrap" => Box::new(chain_spec::mainnet::bootstrap_config()),
-            "MAINNET" | "mainnet" => Box::new(chain_spec::mainnet::ChainSpec::from_json_bytes(
+            "dev" => {
+                if cfg!(feature = "ci-runtime") {
+                    Box::new(ci_chain_spec(ChainSpecMode::Development))
+                } else {
+                    Box::new(develop_chain_spec(ChainSpecMode::Development))
+                }
+            }
+            "local" => {
+                if cfg!(feature = "ci-runtime") {
+                    Box::new(ci_chain_spec(ChainSpecMode::Local))
+                } else {
+                    Box::new(develop_chain_spec(ChainSpecMode::Local))
+                }
+            }
+            "testnet-dev" => Box::new(testnet_chain_spec(ChainSpecMode::Development)),
+            "testnet-local" => Box::new(testnet_chain_spec(ChainSpecMode::Local)),
+            "testnet-bootstrap" => Box::new(testnet_chain_spec(ChainSpecMode::Bootstrap)),
+            "mainnet-dev" => Box::new(mainnet_chain_spec(ChainSpecMode::Development)),
+            "mainnet-local" => Box::new(mainnet_chain_spec(ChainSpecMode::Local)),
+            "mainnet-bootstrap" => Box::new(mainnet_chain_spec(ChainSpecMode::Bootstrap)),
+            "MAINNET" | "mainnet" => Box::new(GenericChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/mainnet_raw.json")[..],
             )?),
-            "TESTNET" | "testnet" => Box::new(chain_spec::testnet::ChainSpec::from_json_bytes(
+            "TESTNET" | "testnet" => Box::new(GenericChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/testnet_raw.json")[..],
             )?),
             // STAGING network should be considered unstable and may be replaced at any time.
-            "STAGING" | "staging" => Box::new(chain_spec::testnet::ChainSpec::from_json_bytes(
+            "STAGING" | "staging" => Box::new(GenericChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/staging_raw.json")[..],
             )?),
-            path => {
-                if let Some(path) = path.strip_prefix("dev:") {
-                    Box::new(chain_spec::general::ChainSpec::from_json_file(
-                        std::path::PathBuf::from(path),
-                    )?)
-                } else if let Some(path) = path.strip_prefix("testnet:") {
-                    Box::new(chain_spec::testnet::ChainSpec::from_json_file(
-                        std::path::PathBuf::from(path),
-                    )?)
-                } else if let Some(path) = path.strip_prefix("mainnet:") {
-                    Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
-                        std::path::PathBuf::from(path),
-                    )?)
-                } else {
-                    Box::new(chain_spec::mainnet::ChainSpec::from_json_file(
-                        std::path::PathBuf::from(path),
-                    )?)
-                }
-            }
+            path => Box::new(GenericChainSpec::from_json_file(PathBuf::from(path))?),
         })
-    }
-
-    fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        match chain_spec.network() {
-            Network::Testnet => &polymesh_runtime_testnet::runtime::VERSION,
-            Network::Mainnet => &polymesh_runtime_mainnet::runtime::VERSION,
-            Network::Other => &polymesh_runtime_develop::runtime::VERSION,
-        }
     }
 }
 
 /// Parses Polymesh specific CLI arguments and run the service.
 pub fn run() -> Result<()> {
     let mut cli = Cli::from_args();
+
     if cli.run.operator {
         cli.run.base.validator = true;
     }
+
     match &cli.subcommand {
         None => {
             let runner = cli.create_runner(&cli.run.base)?;
             let network = runner.config().chain_spec.network();
 
-            //let authority_discovery_enabled = cli.run.authority_discovery_enabled;
             info!(
                 "Reserved nodes: {:?}",
                 cli.run.base.network_params.reserved_nodes
@@ -132,9 +125,9 @@ pub fn run() -> Result<()> {
 
             runner.run_node_until_exit(|config| async move {
                 match network {
-                    Network::Testnet => service::testnet_new_full(config),
-                    Network::Mainnet => service::mainnet_new_full(config),
-                    Network::Other => service::general_new_full(config),
+                    Network::Testnet => testnet_new_full(config),
+                    Network::Mainnet => mainnet_new_full(config),
+                    Network::Other => general_new_full(config),
                 }
                 .map_err(sc_cli::Error::Service)
             })
@@ -179,7 +172,7 @@ pub fn run() -> Result<()> {
             &cli,
             cmd,
             |(c, b, _, tm), _| {
-                let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
                     grandpa::revert(client, blocks)?;
                     Ok(())
@@ -187,7 +180,7 @@ pub fn run() -> Result<()> {
                 Ok((cmd.run(c, b, Some(aux_revert)), tm))
             },
             |(c, b, _, tm), _| {
-                let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
                     grandpa::revert(client, blocks)?;
                     Ok(())
@@ -195,7 +188,7 @@ pub fn run() -> Result<()> {
                 Ok((cmd.run(c, b, Some(aux_revert)), tm))
             },
             |(c, b, _, tm), _| {
-                let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
                     grandpa::revert(client, blocks)?;
                     Ok(())
@@ -216,28 +209,24 @@ pub fn run() -> Result<()> {
                                 .into());
                         }
 
-                        cmd.run::<Block, service::GeneralExecutor>(config)
+                        cmd.run_with_spec::<HashingFor<Block>, HostFunctions>(Some(
+                            config.chain_spec,
+                        ))
                     }
                     (BenchmarkCmd::Block(cmd), Network::Other) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
-                        cmd.run(client)
+                        let partial_components =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi>(&mut config)?;
+                        cmd.run(partial_components.client)
                     }
                     (BenchmarkCmd::Block(cmd), Network::Testnet) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
-                        cmd.run(client)
+                        let partial_components =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi>(&mut config)?;
+                        cmd.run(partial_components.client)
                     }
                     (BenchmarkCmd::Block(cmd), Network::Mainnet) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
-                        cmd.run(client)
+                        let partial_components =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi>(&mut config)?;
+                        cmd.run(partial_components.client)
                     }
                     #[cfg(not(feature = "runtime-benchmarks"))]
                     (BenchmarkCmd::Storage(_), Network::Other) => Err(
@@ -246,153 +235,150 @@ pub fn run() -> Result<()> {
                     ),
                     #[cfg(feature = "runtime-benchmarks")]
                     (BenchmarkCmd::Storage(cmd), Network::Other) => {
-                        let FullServiceComponents {
-                            client, backend, ..
-                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                            &mut config,
-                        )?;
-                        let db = backend.expose_db();
-                        let storage = backend.expose_storage();
+                        let partial_components =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi>(&mut config)?;
+                        let db = partial_components.backend.expose_db();
+                        let storage = partial_components.backend.expose_storage();
 
-                        cmd.run(config, client, db, storage)
+                        cmd.run(config, partial_components.client, db, storage)
                     }
                     #[cfg(feature = "runtime-benchmarks")]
                     (BenchmarkCmd::Storage(cmd), Network::Testnet) => {
-                        let FullServiceComponents {
-                            client, backend, ..
-                        } = new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
-                            &mut config,
-                        )?;
-                        let db = backend.expose_db();
-                        let storage = backend.expose_storage();
+                        let partial_components =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi>(&mut config)?;
+                        let db = partial_components.backend.expose_db();
+                        let storage = partial_components.backend.expose_storage();
 
-                        cmd.run(config, client, db, storage)
+                        cmd.run(config, partial_components.client, db, storage)
                     }
                     #[cfg(feature = "runtime-benchmarks")]
                     (BenchmarkCmd::Storage(cmd), Network::Mainnet) => {
-                        let FullServiceComponents {
-                            client, backend, ..
-                        } = new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
-                            &mut config,
-                        )?;
-                        let db = backend.expose_db();
-                        let storage = backend.expose_storage();
+                        let partial_components =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi>(&mut config)?;
+                        let db = partial_components.backend.expose_db();
+                        let storage = partial_components.backend.expose_storage();
 
-                        cmd.run(config, client, db, storage)
+                        cmd.run(config, partial_components.client, db, storage)
                     }
                     (BenchmarkCmd::Overhead(cmd), Network::Other) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
-                        let ext_builder = RemarkBuilder::<
-                            polymesh_runtime_develop::RuntimeApi,
-                            GeneralExecutor,
-                        >::new(client.clone());
+                        let partial_components =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi>(&mut config)?;
+                        let ext_builder =
+                            RemarkBuilder::<polymesh_runtime_develop::RuntimeApi>::new(
+                                partial_components.client.clone(),
+                            );
                         cmd.run(
-                            config,
-                            client,
+                            config.chain_spec.name().into(),
+                            partial_components.client,
                             inherent_benchmark_data()?,
                             Vec::new(),
                             &ext_builder,
+                            false,
                         )
                     }
                     (BenchmarkCmd::Overhead(cmd), Network::Testnet) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
-                        let ext_builder = RemarkBuilder::<
-                            polymesh_runtime_testnet::RuntimeApi,
-                            GeneralExecutor,
-                        >::new(client.clone());
+                        let partial_components =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi>(&mut config)?;
+                        let ext_builder =
+                            RemarkBuilder::<polymesh_runtime_testnet::RuntimeApi>::new(
+                                partial_components.client.clone(),
+                            );
                         cmd.run(
-                            config,
-                            client,
+                            config.chain_spec.name().into(),
+                            partial_components.client,
                             inherent_benchmark_data()?,
                             Vec::new(),
                             &ext_builder,
+                            false,
                         )
                     }
                     (BenchmarkCmd::Overhead(cmd), Network::Mainnet) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
-                        let ext_builder = RemarkBuilder::<
-                            polymesh_runtime_mainnet::RuntimeApi,
-                            GeneralExecutor,
-                        >::new(client.clone());
+                        let partial_components =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi>(&mut config)?;
+                        let ext_builder =
+                            RemarkBuilder::<polymesh_runtime_mainnet::RuntimeApi>::new(
+                                partial_components.client.clone(),
+                            );
                         cmd.run(
-                            config,
-                            client,
+                            config.chain_spec.name().into(),
+                            partial_components.client,
                             inherent_benchmark_data()?,
                             Vec::new(),
                             &ext_builder,
+                            false,
                         )
                     }
                     (BenchmarkCmd::Extrinsic(cmd), Network::Other) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
+                        let partial_components =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi>(&mut config)?;
                         // Register the *Remark* and *TKA* builders.
                         let ext_factory = ExtrinsicFactory(vec![
-                            Box::new(RemarkBuilder::<
-                                polymesh_runtime_develop::RuntimeApi,
-                                GeneralExecutor,
-                            >::new(client.clone())),
-                            Box::new(TransferBuilder::<
-                                polymesh_runtime_develop::RuntimeApi,
-                                GeneralExecutor,
-                            >::new(
-                                client.clone(), Sr25519Keyring::Alice.to_account_id(), 1
+                            Box::new(RemarkBuilder::<polymesh_runtime_develop::RuntimeApi>::new(
+                                partial_components.client.clone(),
                             )),
+                            Box::new(
+                                TransferBuilder::<polymesh_runtime_develop::RuntimeApi>::new(
+                                    partial_components.client.clone(),
+                                    Sr25519Keyring::Alice.to_account_id(),
+                                    1,
+                                ),
+                            ),
                         ]);
 
-                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+                        cmd.run(
+                            partial_components.client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_factory,
+                        )
                     }
                     (BenchmarkCmd::Extrinsic(cmd), Network::Testnet) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_testnet::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
+                        let partial_components =
+                            new_partial::<polymesh_runtime_testnet::RuntimeApi>(&mut config)?;
                         // Register the *Remark* and *TKA* builders.
                         let ext_factory = ExtrinsicFactory(vec![
-                            Box::new(RemarkBuilder::<
-                                polymesh_runtime_testnet::RuntimeApi,
-                                GeneralExecutor,
-                            >::new(client.clone())),
-                            Box::new(TransferBuilder::<
-                                polymesh_runtime_testnet::RuntimeApi,
-                                GeneralExecutor,
-                            >::new(
-                                client.clone(), Sr25519Keyring::Alice.to_account_id(), 1
+                            Box::new(RemarkBuilder::<polymesh_runtime_testnet::RuntimeApi>::new(
+                                partial_components.client.clone(),
                             )),
+                            Box::new(
+                                TransferBuilder::<polymesh_runtime_testnet::RuntimeApi>::new(
+                                    partial_components.client.clone(),
+                                    Sr25519Keyring::Alice.to_account_id(),
+                                    1,
+                                ),
+                            ),
                         ]);
 
-                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+                        cmd.run(
+                            partial_components.client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_factory,
+                        )
                     }
                     (BenchmarkCmd::Extrinsic(cmd), Network::Mainnet) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_mainnet::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
+                        let partial_components =
+                            new_partial::<polymesh_runtime_mainnet::RuntimeApi>(&mut config)?;
                         // Register the *Remark* and *TKA* builders.
                         let ext_factory = ExtrinsicFactory(vec![
-                            Box::new(RemarkBuilder::<
-                                polymesh_runtime_mainnet::RuntimeApi,
-                                GeneralExecutor,
-                            >::new(client.clone())),
-                            Box::new(TransferBuilder::<
-                                polymesh_runtime_mainnet::RuntimeApi,
-                                GeneralExecutor,
-                            >::new(
-                                client.clone(), Sr25519Keyring::Alice.to_account_id(), 1
+                            Box::new(RemarkBuilder::<polymesh_runtime_mainnet::RuntimeApi>::new(
+                                partial_components.client.clone(),
                             )),
+                            Box::new(
+                                TransferBuilder::<polymesh_runtime_mainnet::RuntimeApi>::new(
+                                    partial_components.client.clone(),
+                                    Sr25519Keyring::Alice.to_account_id(),
+                                    1,
+                                ),
+                            ),
                         ]);
 
-                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
+                        cmd.run(
+                            partial_components.client,
+                            inherent_benchmark_data()?,
+                            Vec::new(),
+                            &ext_factory,
+                        )
                     }
                     (BenchmarkCmd::Machine(cmd), Network::Other) => {
                         cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
@@ -408,15 +394,15 @@ fn async_run<F, G, H>(
     cli: &impl sc_cli::SubstrateCli,
     cmd: &impl sc_cli::CliConfiguration,
     testnet: impl FnOnce(
-        NewChainOps<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor>,
+        NewChainOps<polymesh_runtime_testnet::RuntimeApi>,
         Configuration,
     ) -> sc_cli::Result<(F, TaskManager)>,
     general: impl FnOnce(
-        NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>,
+        NewChainOps<polymesh_runtime_develop::RuntimeApi>,
         Configuration,
     ) -> sc_cli::Result<(G, TaskManager)>,
     mainnet: impl FnOnce(
-        NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>,
+        NewChainOps<polymesh_runtime_mainnet::RuntimeApi>,
         Configuration,
     ) -> sc_cli::Result<(H, TaskManager)>,
 ) -> sc_service::Result<(), sc_cli::Error>

@@ -13,14 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use crate::settlement::ReceiptMetadata;
 use crate::{impl_checked_inc, IdentityId, Ticker};
 
 /// The per-AssetId ID of a fundraiser.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct FundraiserId(pub u64);
 impl_checked_inc!(FundraiserId);
@@ -74,18 +74,8 @@ impl<Balance> FundraiserReceipt<Balance> {
 }
 
 /// Details about an offchain transaction receipt.
-#[derive(
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    PartialOrd,
-    Ord
-)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
 pub struct FundraiserReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
     pub uid: u64,

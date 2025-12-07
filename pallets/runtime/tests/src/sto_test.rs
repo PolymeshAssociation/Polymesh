@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::DispatchError;
 
 use pallet_asset::BalanceOf;
@@ -34,7 +34,7 @@ type System = frame_system::Pallet<TestStorage>;
 #[track_caller]
 fn test(logic: impl FnOnce()) {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(logic);
 }
@@ -83,8 +83,8 @@ struct RaiseContext {
 }
 
 fn init_raise_context() -> RaiseContext {
-    let (alice, alice_portfolio) = make_account_with_portfolio(AccountKeyring::Alice);
-    let (bob, bob_portfolio) = make_account_with_portfolio(AccountKeyring::Bob);
+    let (alice, alice_portfolio) = make_account_with_portfolio(Sr25519Keyring::Alice);
+    let (bob, bob_portfolio) = make_account_with_portfolio(Sr25519Keyring::Bob);
 
     // Register tokens
     let offering_asset = create_and_issue_sample_asset(&alice);
@@ -131,7 +131,7 @@ fn raise_happy_path() {
     exec_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
-        vec![AccountKeyring::Alice.to_account_id()],
+        vec![Sr25519Keyring::Alice.to_account_id()],
         VenueType::Sto
     ));
 
@@ -269,8 +269,8 @@ fn raise_happy_path() {
 }
 
 fn raise_unhappy_path() {
-    let (alice, alice_portfolio) = make_account_with_portfolio(AccountKeyring::Alice);
-    let (bob, bob_portfolio) = make_account_with_portfolio(AccountKeyring::Bob);
+    let (alice, alice_portfolio) = make_account_with_portfolio(Sr25519Keyring::Alice);
+    let (bob, bob_portfolio) = make_account_with_portfolio(Sr25519Keyring::Bob);
 
     // Offering asset not created
     assert_noop!(
@@ -424,7 +424,7 @@ fn invalid_fundraiser() {
     assert_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
-        vec![AccountKeyring::Alice.to_account_id()],
+        vec![Sr25519Keyring::Alice.to_account_id()],
         VenueType::Sto
     ));
 
@@ -487,7 +487,7 @@ fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     assert_ok!(Settlement::create_venue(
         context.alice.origin(),
         VenueDetails::default(),
-        vec![AccountKeyring::Alice.to_account_id()],
+        vec![Sr25519Keyring::Alice.to_account_id()],
         VenueType::Sto
     ));
     let fundraiser_id = FundraiserCount::<TestStorage>::get(context.offering_asset);

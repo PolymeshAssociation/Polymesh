@@ -9,8 +9,8 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false }
-serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
-serde_bytes = { version = "0.11.14", optional = true, default-features = false }
+serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
+serde_bytes = { version = "0.11.14", default-features = false, features = ["alloc"] }
 rand_core = { version = "0.6", default-features = false }
 rand = { version = "0.8", default-features = false, optional = true }
 rustc-hex = { version = "2.1.0", default-features = false }
@@ -25,17 +25,18 @@ schnorrkel = { version = "0.11", default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-frame-support = { version = "4.0.0-dev", default-features = false }
-frame-system = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "2.0", default-features = false, features = ["derive", "decode"] }
-sp-application-crypto = { version = "7.0.0", default-features = false, optional = true }
-sp-arithmetic = { version = "6.0.0", default-features = false }
-sp-core = { version = "7.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-runtime-interface = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-version = { version = "5.0.0", default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive", "decode"] }
+sp-application-crypto = { workspace = true, default-features = false, optional = true }
+sp-arithmetic = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-debug-derive = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-runtime-interface = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["hmac", "static-context"] }
 
 [dev-dependencies]
@@ -56,8 +57,8 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "serde",
-    "serde_bytes",
+    "serde/std",
+    "serde_bytes/std",
     "sp-core/std",
     "sp-io/std",
     "sp-runtime-interface/std",

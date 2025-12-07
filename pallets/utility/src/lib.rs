@@ -68,13 +68,13 @@
 
 mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::DispatchClass;
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
-use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Weight};
+use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
 use frame_support::ensure;
-use frame_support::traits::GetCallMetadata;
-use frame_support::traits::{IsSubType, OriginTrait, UnfilteredDispatchable};
+use frame_support::traits::{GetCallMetadata, IsSubType, OriginTrait, UnfilteredDispatchable};
+use frame_support::weights::Weight;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -105,7 +105,7 @@ pub trait WeightInfo {
 }
 
 // POLYMESH:
-pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000_000);
+pub const MIN_WEIGHT: Weight = Weight::from_parts(1_000_000, 0);
 
 // POLYMESH: Used for permission checks.
 type CallPermissions<T> = pallet_permissions::Pallet<T>;
@@ -117,7 +117,8 @@ pub type ErrorAt = (u32, DispatchError);
 
 /// Wraps a `Call` and provides uniqueness through a nonce
 /// POLYMESH: used for `relay_tx`
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
 pub struct UniqueCall<C> {
     nonce: AuthorizationNonce,
     call: Box<C>,
@@ -340,7 +341,7 @@ pub mod pallet {
                 let dispatch_info = call.call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::relay_tx()
-                        .saturating_add(dispatch_info.weight),
+                        .saturating_add(dispatch_info.total_weight()),
                     dispatch_info.class,
                 )
             })]
@@ -463,7 +464,7 @@ pub mod pallet {
                 let dispatch_info = call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::dispatch_as()
-                        .saturating_add(dispatch_info.weight),
+                        .saturating_add(dispatch_info.total_weight()),
                     dispatch_info.class,
                 )
             })]
@@ -543,13 +544,16 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Root_.
         #[pallet::call_index(5)]
-        #[pallet::weight((*_weight, call.get_dispatch_info().class))]
+        #[pallet::weight((*weight, call.get_dispatch_info().class))]
         pub fn with_weight(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
-            _weight: Weight,
+            weight: Weight,
         ) -> DispatchResultWithPostInfo {
             Self::ensure_root(origin)?;
+
+            let _ = weight; // We don't check the weight witness since it is a root call.
+
             call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into())
                 .map_err(|e| e.error)?;
             Ok(().into())
@@ -567,7 +571,7 @@ pub mod pallet {
 			(
 				<T as Config>::WeightInfo::as_derivative()
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.total_weight()),
 				dispatch_info.class,
 			)
         })]
@@ -589,7 +593,7 @@ impl<T: Config> Pallet<T> {
             (Weight::zero(), DispatchClass::Operational),
             |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
                 (
-                    total_weight.saturating_add(di.weight),
+                    total_weight.saturating_add(di.total_weight()),
                     // If not all are `Operational`, we want to use `DispatchClass::Normal`.
                     if di.class == DispatchClass::Normal {
                         di.class
