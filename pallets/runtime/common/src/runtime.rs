@@ -94,17 +94,26 @@ macro_rules! misc_pallet_impls {
             /// an identifier of the chain.
             type SS58Prefix = SS58Prefix;
             /// What to do if the runtime wants to change the code to something new.
-		    ///
-		    /// The default (`()`) implementation is responsible for setting the correct storage
-		    /// entry and emitting corresponding event and log item. (see
-		    /// [`Pallet::update_code_in_storage`]).
-		    /// It's unlikely that this needs to be customized, unless you are writing a parachain using
-		    /// `Cumulus`, where the actual code change is deferred.
+            ///
+            /// The default (`()`) implementation is responsible for setting the correct storage
+            /// entry and emitting corresponding event and log item. (see
+            /// [`Pallet::update_code_in_storage`]).
+            /// It's unlikely that this needs to be customized, unless you are writing a parachain using
+            /// `Cumulus`, where the actual code change is deferred.
             type OnSetCode = ();
             /// The maximum number of consumers allowed on a single account.
             type MaxConsumers = frame_support::traits::ConstU32<16>;
             /// The set code logic, just the default since we're not a parachain.
-            type SingleBlockMigrations = ();
+            type SingleBlockMigrations = (
+                pallet_contracts::Migration<Runtime>,
+                pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+                pallet_im_online::migration::v1::Migration<Runtime>,
+                pallet_offences::migration::v1::MigrateToV1<Runtime>,
+                pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
+                pallet_staking::migrations::v14::MigrateToV14<Runtime>,
+                pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+                pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
+            );
             type MultiBlockMigrator = ();
             type PreInherents = ();
             type PostInherents = ();
@@ -232,7 +241,7 @@ macro_rules! misc_pallet_impls {
         impl pallet_session::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type ValidatorId = polymesh_primitives::AccountId;
-            type ValidatorIdOf = pallet_staking::StashOf<Self>;
+            type ValidatorIdOf = sp_runtime::traits::ConvertInto;
             type ShouldEndSession = Babe;
             type NextSessionRotation = Babe;
             type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -241,14 +250,17 @@ macro_rules! misc_pallet_impls {
             type Keys = SessionKeys;
             type DisablingStrategy = ();
             type WeightInfo = polymesh_weights::pallet_session::SubstrateWeight;
+            type Currency = Balances;
+            type KeyDeposit = ();
         }
 
         impl pallet_session::historical::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
             type FullIdentification = pallet_staking::Exposure<
                 polymesh_primitives::AccountId,
                 polymesh_primitives::Balance,
             >;
-            type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+            type FullIdentificationOf = pallet_staking::DefaultExposureOf<Runtime>;
         }
 
         impl pallet_staking::Config for Runtime {
@@ -283,6 +295,7 @@ macro_rules! misc_pallet_impls {
             type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
             type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
             type Permissioned = Validators;
+            type MaxValidatorSet = frame_support::traits::ConstU32<1000>;
         }
 
         impl pallet_validators::Config for Runtime {
@@ -536,11 +549,11 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type ManagerOrigin = polymesh_primitives::EnsureRoot;
             type Consideration = frame_support::traits::tokens::fungible::HoldConsideration<
-		        polymesh_primitives::AccountId,
-		        Balances,
-		        PreimageHoldReason,
-		        frame_support::traits::LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
-	        >;
+                polymesh_primitives::AccountId,
+                Balances,
+                PreimageHoldReason,
+                frame_support::traits::LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+            >;
         }
 
         impl pallet_offences::Config for Runtime {
@@ -670,9 +683,9 @@ macro_rules! misc_pallet_impls {
             where
                 RuntimeCall: From<LocalCall>,
         {
-            fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
-		        UncheckedExtrinsic::new_bare(call)
-	        }
+            fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
+                UncheckedExtrinsic::new_bare(call)
+            }
         }
 
         impl pallet_nft::Config for Runtime {
@@ -747,6 +760,7 @@ macro_rules! misc_pallet_impls {
                 polymesh_runtime_common::impls::ElectionProviderBenchmarkConfig;
             // The weight of the pallet.
             type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
+            type MaxBackersPerWinner = polymesh_runtime_common::MaxElectingVotersSolution;
         }
 
         impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -754,19 +768,20 @@ macro_rules! misc_pallet_impls {
             type MaxLength = polymesh_runtime_common::MinerMaxLength;
             type MaxWeight = polymesh_runtime_common::MinerMaxWeight;
             type Solution = polymesh_runtime_common::NposSolution16;
-	        type MaxVotesPerVoter =
-	            <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
+              type MaxVotesPerVoter =
+                <<Self as pallet_election_provider_multi_phase::Config>::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter;
             type MaxWinners = polymesh_runtime_common::MaxActiveValidators;
+            type MaxBackersPerWinner = polymesh_runtime_common::MaxElectingVotersSolution;
 
-	          // The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
-	          // weight estimate function is wired to this call's weight.
-	          fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
-	          	<
-	          		<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
-	          		as
-	          		pallet_election_provider_multi_phase::WeightInfo
-	          	>::submit_unsigned(v, t, a, d)
-	          }
+              // The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
+              // weight estimate function is wired to this call's weight.
+              fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
+                  <
+                      <Self as pallet_election_provider_multi_phase::Config>::WeightInfo
+                      as
+                      pallet_election_provider_multi_phase::WeightInfo
+                  >::submit_unsigned(v, t, a, d)
+              }
         }
     };
 }
@@ -826,17 +841,7 @@ macro_rules! runtime_apis {
             Block,
             frame_system::ChainContext<Runtime>,
             Runtime,
-            AllPalletsWithSystem,
-            (
-                pallet_contracts::Migration<Runtime>,
-                pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-                pallet_im_online::migration::v1::Migration<Runtime>,
-                pallet_offences::migration::v1::MigrateToV1<Runtime>,
-                pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
-                pallet_staking::migrations::v14::MigrateToV14<Runtime>,
-                pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
-                pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
-            )
+            AllPalletsWithSystem
         >;
 
         type EventRecord = frame_system::EventRecord<
@@ -850,7 +855,7 @@ macro_rules! runtime_apis {
                     VERSION
                 }
 
-                fn execute_block(block: Block) {
+                fn execute_block(block: <Block as BlockT>::LazyBlock) {
                     Executive::execute_block(block)
                 }
 
@@ -886,7 +891,7 @@ macro_rules! runtime_apis {
                     data.create_extrinsics()
                 }
 
-                fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+                fn check_inherents(block: <Block as BlockT>::LazyBlock, data: InherentData) -> CheckInherentsResult {
                     data.check_extrinsics(&block)
                 }
             }
@@ -1322,19 +1327,19 @@ macro_rules! runtime_apis {
             }
 
             impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		        fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
-			        frame_support::genesis_builder_helper::build_state::<RuntimeGenesisConfig>(config)
-		        }
+                fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+                    frame_support::genesis_builder_helper::build_state::<RuntimeGenesisConfig>(config)
+                }
 
-		        fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			        frame_support::genesis_builder_helper::get_preset::<RuntimeGenesisConfig>(id, |_| None)
-		        }
+                fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+                    frame_support::genesis_builder_helper::get_preset::<RuntimeGenesisConfig>(id, |_| None)
+                }
 
 
-		        fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			        vec![]
-		        }
-	        }
+                fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+                    vec![]
+                }
+            }
 
             $($extra)*
         }

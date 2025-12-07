@@ -8,7 +8,7 @@ pub use sp_runtime::BuildStorage;
 
 use codec::Encode;
 use frame_support::parameter_types;
-use frame_support::traits::KeyOwnerProofSystem;
+use frame_support::traits::{ConstBool, KeyOwnerProofSystem};
 use frame_support::weights::Weight;
 pub use frame_support::StorageValue;
 pub use frame_system::Call as SystemCall;
@@ -286,6 +286,7 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
 pub struct OnChainSeqPhragmen;
 
 impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type Sort = ConstBool<true>;
     type System = Runtime;
     type Solver = frame_election_provider_support::SequentialPhragmen<
         polymesh_primitives::AccountId,
@@ -293,8 +294,9 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     >;
     type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
     type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
     type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
+    type MaxBackersPerWinner = polymesh_runtime_common::MaxElectingVotersSolution;
+    type MaxWinnersPerPage = polymesh_runtime_common::MaxActiveValidators;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();

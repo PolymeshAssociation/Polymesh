@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
-use frame_support::traits::{Currency, Imbalance, KeyOwnerProofSystem};
+use frame_support::traits::{Currency, ConstBool, Imbalance, KeyOwnerProofSystem};
 use frame_support::traits::{OnInitialize, OnUnbalanced, TryCollect};
 use frame_support::weights::RuntimeDbWeight;
 use frame_support::weights::Weight;
@@ -1103,6 +1103,7 @@ fn signed_extra(nonce: Nonce) -> SignedExtra {
 pub struct OnChainSeqPhragmen;
 
 impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type Sort = ConstBool<true>;
     type System = Runtime;
     type Solver = frame_election_provider_support::SequentialPhragmen<
         polymesh_primitives::AccountId,
@@ -1110,6 +1111,7 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     >;
     type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
     type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
     type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
+    type MaxBackersPerWinner = polymesh_runtime_common::MaxElectingVotersSolution;
+    type MaxWinnersPerPage = polymesh_runtime_common::MaxActiveValidators;
 }
