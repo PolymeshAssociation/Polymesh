@@ -6,10 +6,10 @@
 import '@polkadot/api-base/types/consts';
 
 import type { ApiTypes, AugmentedConst } from '@polkadot/api-base/types';
-import type { Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
+import type { bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { Codec } from '@polkadot/types-codec/types';
 import type { Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSystemLimitsBlockLength, FrameSystemLimitsBlockWeights, PalletContractsSchedule, SpVersionRuntimeVersion, SpWeightsRuntimeDbWeight, SpWeightsWeightToFeeCoefficient, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
+import type { FrameSystemLimitsBlockLength, FrameSystemLimitsBlockWeights, PalletContractsEnvironment, PalletContractsSchedule, SpVersionRuntimeVersion, SpWeightsRuntimeDbWeight, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
 
 export type __AugmentedConst<ApiType extends ApiTypes> = AugmentedConst<ApiType>;
 
@@ -75,10 +75,33 @@ declare module '@polkadot/api-base/types/consts' {
     };
     balances: {
       /**
-       * This type is no longer needed but kept for compatibility reasons.
-       * The minimum amount required to keep an account open.
+       * The minimum amount required to keep an account open. MUST BE GREATER THAN ZERO!
+       * 
+       * If you *really* need it to be zero, you can enable the feature `insecure_zero_ed` for
+       * this pallet. However, you do so at your own risk: this will open up a major DoS vector.
+       * In case you have multiple sources of provider references, you may also get unexpected
+       * behaviour if you set this to zero.
+       * 
+       * Bottom line: Do yourself a favour and make it at least one!
        **/
       existentialDeposit: u128 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of individual freeze locks that can exist on an account at any time.
+       **/
+      maxFreezes: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of locks that should exist on an account.
+       * Not strictly enforced, but used for weight estimation.
+       * 
+       * Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
+       **/
+      maxLocks: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of named reserves that can exist on an account.
+       * 
+       * Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
+       **/
+      maxReserves: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
@@ -109,8 +132,14 @@ declare module '@polkadot/api-base/types/consts' {
     };
     contracts: {
       /**
+       * The version of the HostFn APIs that are available in the runtime.
+       * 
+       * Only valid value is `()`.
+       **/
+      apiVersion: u16 & AugmentedConst<ApiType>;
+      /**
        * The percentage of the storage deposit that should be held for using a code hash.
-       * Instantiating a contract, or calling [`chain_extension::Ext::add_delegate_dependency`]
+       * Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
        * protects the code from being removed. In order to prevent abuse these actions are
        * protected with a percentage of the code deposit.
        **/
@@ -136,6 +165,13 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       depositPerItem: u128 & AugmentedConst<ApiType>;
       /**
+       * Type that bundles together all the runtime configurable interface types.
+       * 
+       * This is not a real config. We just mention the type here as constant so that
+       * its type appears in the metadata. Only valid value is `()`.
+       **/
+      environment: PalletContractsEnvironment & AugmentedConst<ApiType>;
+      /**
        * The maximum length of a contract code in bytes.
        * 
        * The value should be chosen carefully taking into the account the overall memory limit
@@ -149,13 +185,18 @@ declare module '@polkadot/api-base/types/consts' {
       maxDebugBufferLen: u32 & AugmentedConst<ApiType>;
       /**
        * The maximum number of delegate_dependencies that a contract can lock with
-       * [`chain_extension::Ext::add_delegate_dependency`].
+       * [`chain_extension::Ext::lock_delegate_dependency`].
        **/
       maxDelegateDependencies: u32 & AugmentedConst<ApiType>;
       /**
        * The maximum allowable length in bytes for storage keys.
        **/
       maxStorageKeyLen: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum size of the transient storage in bytes.
+       * This includes keys, values, and previous entries used for storage rollback.
+       **/
+      maxTransientStorageSize: u32 & AugmentedConst<ApiType>;
       /**
        * Cost schedule and limits.
        **/
@@ -198,21 +239,6 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       betterSignedThreshold: Perbill & AugmentedConst<ApiType>;
       /**
-       * The minimum amount of improvement to the solution score that defines a solution as
-       * "better" in the Unsigned phase.
-       **/
-      betterUnsignedThreshold: Perbill & AugmentedConst<ApiType>;
-      /**
-       * The maximum number of electable targets to put in the snapshot.
-       **/
-      maxElectableTargets: u16 & AugmentedConst<ApiType>;
-      /**
-       * The maximum number of electing voters to put in the snapshot. At the moment, snapshots
-       * are only over a single block, but once multi-block elections are introduced they will
-       * take place over multiple blocks.
-       **/
-      maxElectingVoters: u32 & AugmentedConst<ApiType>;
-      /**
        * The maximum number of winners that can be elected by this `ElectionProvider`
        * implementation.
        * 
@@ -234,10 +260,6 @@ declare module '@polkadot/api-base/types/consts' {
        * to submit the worker's solution.
        **/
       offchainRepeat: u32 & AugmentedConst<ApiType>;
-      /**
-       * Base deposit for a signed solution.
-       **/
-      signedDepositBase: u128 & AugmentedConst<ApiType>;
       /**
        * Per-byte deposit for a signed solution.
        **/
@@ -269,17 +291,9 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       signedMaxWeight: SpWeightsWeightV2Weight & AugmentedConst<ApiType>;
       /**
-       * Duration of the signed phase.
-       **/
-      signedPhase: u32 & AugmentedConst<ApiType>;
-      /**
        * Base reward for a signed solution
        **/
       signedRewardBase: u128 & AugmentedConst<ApiType>;
-      /**
-       * Duration of the unsigned phase.
-       **/
-      unsignedPhase: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
@@ -454,8 +468,8 @@ declare module '@polkadot/api-base/types/consts' {
        * Following information is kept for eras in `[current_era -
        * HistoryDepth, current_era]`: `ErasStakers`, `ErasStakersClipped`,
        * `ErasValidatorPrefs`, `ErasValidatorReward`, `ErasRewardPoints`,
-       * `ErasTotalStake`, `ErasStartSessionIndex`,
-       * `StakingLedger.claimed_rewards`.
+       * `ErasTotalStake`, `ErasStartSessionIndex`, `ClaimedRewards`, `ErasStakersPaged`,
+       * `ErasStakersOverview`.
        * 
        * Must be more than the number of eras delayed by session.
        * I.e. active era must always be in history. I.e. `active_era >
@@ -465,23 +479,26 @@ declare module '@polkadot/api-base/types/consts' {
        * this should be set to same value or greater as in storage.
        * 
        * Note: `HistoryDepth` is used as the upper bound for the `BoundedVec`
-       * item `StakingLedger.claimed_rewards`. Setting this value lower than
+       * item `StakingLedger.legacy_claimed_rewards`. Setting this value lower than
        * the existing value can lead to inconsistencies in the
        * `StakingLedger` and will need to be handled properly in a migration.
        * The test `reducing_history_depth_abrupt` shows this effect.
        **/
       historyDepth: u32 & AugmentedConst<ApiType>;
       /**
-       * Maximum number of nominations per nominator.
-       **/
-      maxNominations: u32 & AugmentedConst<ApiType>;
-      /**
-       * The maximum number of nominators rewarded for each validator.
+       * The maximum size of each `T::ExposurePage`.
        * 
-       * For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can
-       * claim their reward. This used to limit the i/o cost for the nominator payout.
+       * An `ExposurePage` is weakly bounded to a maximum of `MaxExposurePageSize`
+       * nominators.
+       * 
+       * For older non-paged exposure, a reward payout was restricted to the top
+       * `MaxExposurePageSize` nominators. This is to limit the i/o cost for the
+       * nominator payout.
+       * 
+       * Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to reduce
+       * without handling it in a migration.
        **/
-      maxNominatorRewardedPerValidator: u32 & AugmentedConst<ApiType>;
+      maxExposurePageSize: u32 & AugmentedConst<ApiType>;
       /**
        * The maximum number of `unlocking` chunks a [`StakingLedger`] can
        * have. Effectively determines how many unique eras a staker may be
@@ -551,7 +568,7 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       ss58Prefix: u16 & AugmentedConst<ApiType>;
       /**
-       * Get the chain's current version.
+       * Get the chain's in-code version.
        **/
       version: SpVersionRuntimeVersion & AugmentedConst<ApiType>;
       /**
@@ -561,10 +578,12 @@ declare module '@polkadot/api-base/types/consts' {
     };
     timestamp: {
       /**
-       * The minimum period between blocks. Beware that this is different to the *expected*
-       * period that the block production apparatus provides. Your chosen consensus system will
-       * generally work with this to determine a sensible block time. e.g. For Aura, it will be
-       * double this period on default settings.
+       * The minimum period between blocks.
+       * 
+       * Be aware that this is different to the *expected* period that the block production
+       * apparatus provides. Your chosen consensus system will generally work with this to
+       * determine a sensible block time. For example, in the Aura pallet it will be double this
+       * period on default settings.
        **/
       minimumPeriod: u64 & AugmentedConst<ApiType>;
       /**
@@ -574,13 +593,29 @@ declare module '@polkadot/api-base/types/consts' {
     };
     transactionPayment: {
       /**
-       * The fee to be paid for making a transaction; the per-byte portion.
+       * A fee multiplier for `Operational` extrinsics to compute "virtual tip" to boost their
+       * `priority`
+       * 
+       * This value is multiplied by the `final_fee` to obtain a "virtual tip" that is later
+       * added to a tip component in regular `priority` calculations.
+       * It means that a `Normal` transaction can front-run a similarly-sized `Operational`
+       * extrinsic (with no tip), by including a tip value greater than the virtual tip.
+       * 
+       * ```rust,ignore
+       * // For `Normal`
+       * let priority = priority_calc(tip);
+       * 
+       * // For `Operational`
+       * let virtual_tip = (inclusion_fee + tip) * OperationalFeeMultiplier;
+       * let priority = priority_calc(tip + virtual_tip);
+       * ```
+       * 
+       * Note that since we use `final_fee` the multiplier applies also to the regular `tip`
+       * sent with the transaction. So, not only does the transaction get a priority bump based
+       * on the `inclusion_fee`, but we also amplify the impact of tips applied to `Operational`
+       * transactions.
        **/
-      transactionByteFee: u128 & AugmentedConst<ApiType>;
-      /**
-       * The polynomial that is applied in order to derive fee from weight.
-       **/
-      weightToFeeConst: Vec<SpWeightsWeightToFeeCoefficient> & AugmentedConst<ApiType>;
+      operationalFeeMultiplier: u8 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/

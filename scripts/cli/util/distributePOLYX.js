@@ -37,7 +37,7 @@ async function batchAtomic(api, sender, receivers, amount) {
     for (i = 0; i < receivers.length; i++) {
         if (receivers[i] != senderDid.toString()) {
             console.log("Prepping for DID: ", receivers[i].toString());
-            let tx = await api.tx.balances.transfer(receivers[i].address, amount);
+            let tx = await api.tx.balances.transferWithMemo(receivers[i].address, amount, null);
             txArray.push(tx);
         } else {
             console.log("Skipping Sender");

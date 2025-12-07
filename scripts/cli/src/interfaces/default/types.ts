@@ -93,6 +93,9 @@ export interface AuthorizationData extends Enum {
   readonly type: 'AttestPrimaryKeyRotation' | 'RotatePrimaryKey' | 'TransferTicker' | 'AddMultiSigSigner' | 'TransferAssetOwnership' | 'JoinIdentity' | 'PortfolioCustody' | 'BecomeAgent' | 'AddRelayerPayingKey' | 'RotatePrimaryKeyToSecondary';
 }
 
+/** @name AuthorizationNonce */
+export interface AuthorizationNonce extends u64 {}
+
 /** @name AuthorizationType */
 export interface AuthorizationType extends Enum {
   readonly isAttestPrimaryKeyRotation: boolean;
@@ -519,6 +522,20 @@ export interface ExtrinsicPermissions extends Enum {
   readonly type: 'Whole' | 'These' | 'Except';
 }
 
+/** @name FundraiserId */
+export interface FundraiserId extends u64 {}
+
+/** @name FundraiserReceipt */
+export interface FundraiserReceipt extends Struct {
+  readonly uid: u64;
+  readonly fundraiserId: FundraiserId;
+  readonly legId: LegId;
+  readonly senderIdentity: IdentityId;
+  readonly receiverIdentity: IdentityId;
+  readonly ticker: Ticker;
+  readonly amount: Balance;
+}
+
 /** @name FungibleLeg */
 export interface FungibleLeg extends Struct {
   readonly sender: PortfolioId;
@@ -575,6 +592,9 @@ export interface Leg extends Enum {
   readonly asOffChain: OffChainLeg;
   readonly type: 'Fungible' | 'NonFungible' | 'OffChain';
 }
+
+/** @name LegId */
+export interface LegId extends u64 {}
 
 /** @name Member */
 export interface Member extends Struct {
@@ -691,6 +711,17 @@ export interface ProtocolOp extends Enum {
   readonly type: 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocuments' | 'AssetCreateAsset' | 'CheckpointCreateSchedule' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'ContractsPutCode' | 'CorporateBallotAttachBallot' | 'CapitalDistributionDistribute' | 'NftCreateCollection' | 'NftMint' | 'IdentityCreateChildIdentity';
 }
 
+/** @name Receipt */
+export interface Receipt extends Struct {
+  readonly uid: u64;
+  readonly instructionId: InstructionId;
+  readonly legId: LegId;
+  readonly senderIdentity: IdentityId;
+  readonly receiverIdentity: IdentityId;
+  readonly ticker: Ticker;
+  readonly amount: Balance;
+}
+
 /** @name RequirementReport */
 export interface RequirementReport extends Struct {
   readonly requirementSatisfied: bool;
@@ -749,6 +780,13 @@ export interface StatClaim extends Enum {
   readonly isJurisdiction: boolean;
   readonly asJurisdiction: Option<CountryCode>;
   readonly type: 'Accredited' | 'Affiliate' | 'Jurisdiction';
+}
+
+/** @name TargetIdAuthorization */
+export interface TargetIdAuthorization extends Struct {
+  readonly targetId: IdentityId;
+  readonly nonce: AuthorizationNonce;
+  readonly expiresAt: PolymeshMoment;
 }
 
 /** @name TargetIdentity */
