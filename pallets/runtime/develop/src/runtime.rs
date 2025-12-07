@@ -277,7 +277,9 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
 }
 
 impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+    type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 pub struct OnChainSeqPhragmen;

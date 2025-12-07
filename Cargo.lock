@@ -7147,16 +7147,17 @@ dependencies = [
 
 [[package]]
 name = "pallet-sudo"
-version = "2.0.0"
+version = "28.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2512-0#ce4188eafdcdac7730f87656f1176278b0c54048"
 dependencies = [
+ "docify",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
 ]
 
 [[package]]

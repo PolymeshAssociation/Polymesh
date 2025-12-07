@@ -740,7 +740,9 @@ impl pallet_pips::Config for Runtime {
 }
 
 impl pallet_sudo::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+    type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();

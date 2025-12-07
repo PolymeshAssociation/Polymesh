@@ -36,6 +36,7 @@ pallet-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", 
 pallet-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 pallet-staking-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
+pallet-sudo = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 pallet-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
@@ -179,7 +180,6 @@ pallet-statistics = { path = "pallets/statistics", default-features = false }
 pallet-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
-pallet-sudo = { path = "pallets/sudo", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
 
 # Common
@@ -233,6 +233,7 @@ pallet-session = { version = "28.0.0", default-features = false }
 pallet-staking = { version = "28.0.0", default-features = false }
 pallet-staking-runtime-api = { version = "14.0.0", default-features = false }
 pallet-staking-reward-curve = { version = "11.0.0", default-features = false }
+pallet-sudo = { version = "28.0.0", default-features = false }
 pallet-timestamp = { version = "27.0.0", default-features = false }
 scale-info = { version = "2.11.6", default-features = false, features = ["derive"] }
 sp-api = { version = "26.0.0", default-features = false }
