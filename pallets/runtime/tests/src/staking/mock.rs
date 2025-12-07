@@ -18,12 +18,16 @@
 //! Test utilities
 
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
-use frame_election_provider_support::{onchain, SequentialPhragmen};
+use frame_election_provider_support::{
+    onchain, BoundedSupports, ElectionProvider, SequentialPhragmen, Support,
+};
+use frame_support::traits::RewardsReporter;
 use frame_support::traits::{ConstU64, EitherOfDiverse, FindAuthor, Get};
 use frame_support::traits::{Contains, Imbalance, OnUnbalanced, OneSessionHandler};
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{assert_ok, derive_impl, ord_parameter_types, parameter_types};
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use sp_core::ConstBool;
 use sp_io;
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::UintAuthorityId;
@@ -37,6 +41,7 @@ use pallet_staking::{self as pallet_staking, *};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
+pub(crate) const SINGLE_PAGE: u32 = 0;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
@@ -140,16 +145,19 @@ impl pallet_session::Config for Test {
     type SessionHandler = (OtherSessionHandler,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
-    type ValidatorIdOf = pallet_staking::StashOf<Test>;
+    type ValidatorIdOf = sp_runtime::traits::ConvertInto;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type DisablingStrategy =
         pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
     type WeightInfo = ();
+    type Currency = Balances;
+    type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = ();
-    type FullIdentificationOf = NullIdentity;
+    type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
@@ -202,19 +210,25 @@ parameter_types! {
     pub static MaxExposurePageSize: u32 = 64;
     pub static MaxUnlockingChunks: u32 = 32;
     pub static RewardOnUnbalanceWasCalled: bool = false;
-    pub static MaxWinners: u32 = 100;
+    pub static MaxValidatorSet: u32 = 100;
     pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
     pub static AbsoluteMaxNominations: u32 = 16;
 }
 
+parameter_types! {
+    pub static MaxBackersPerWinner: u32 = 256;
+    pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+}
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
     type System = Test;
     type Solver = SequentialPhragmen<AccountId, Perbill>;
     type DataProvider = Staking;
     type WeightInfo = ();
-    type MaxWinners = MaxWinners;
+    type MaxBackersPerWinner = MaxBackersPerWinner;
+    type MaxWinnersPerPage = MaxWinnersPerPage;
     type Bounds = ElectionsBounds;
+    type Sort = ConstBool<true>;
 }
 
 pub struct MockReward {}
@@ -1041,4 +1055,14 @@ pub(crate) fn restrict(who: &AccountId) {
 
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
     RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
+pub(crate) fn to_bounded_supports(
+    supports: Vec<(AccountId, Support<AccountId>)>,
+) -> BoundedSupports<
+    AccountId,
+    <<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+    <<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
+> {
+    supports.try_into().unwrap()
 }
