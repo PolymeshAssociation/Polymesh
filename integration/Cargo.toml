@@ -5,18 +5,26 @@ edition = "2021"
 
 # Use these for testing new versions of `polymesh-api`.
 #[patch.crates-io]
+# Git paths
 #polymesh-api = { git = "https://github.com/PolymeshAssociation/polymesh-api" }
 #polymesh-api-client = { git = "https://github.com/PolymeshAssociation/polymesh-api" }
 #polymesh-api-client-extras = { git = "https://github.com/PolymeshAssociation/polymesh-api" }
 #polymesh-api-tester = { git = "https://github.com/PolymeshAssociation/polymesh-api" }
 #polymesh-api-codegen = { git = "https://github.com/PolymeshAssociation/polymesh-api" }
 #polymesh-api-codegen-macro = { git = "https://github.com/PolymeshAssociation/polymesh-api" }
+# local paths
+#polymesh-api = { path = "../../polymesh-api/" }
+#polymesh-api-client = { path = "../../polymesh-api/crates/polymesh-api-client/" }
+#polymesh-api-client-extras = { path = "../../polymesh-api/crates/polymesh-api-client-extras/" }
+#polymesh-api-tester = { path = "../../polymesh-api/crates/polymesh-api-tester/" }
+#polymesh-api-codegen = { path = "../../polymesh-api/crates/polymesh-api-codegen/" }
+#polymesh-api-codegen-macro = { path = "../../polymesh-api/crates/polymesh-api-codegen-macro/" }
 
 [features]
 default = []
 
 previous_release = []
-current_release = ["polymesh-api/polymesh_v8", "polymesh-api-client-extras/polymesh_v8"]
+current_release = ["polymesh-api/polymesh_v8", "polymesh-api-tester/polymesh_v8"]
 
 [dependencies]
 anyhow = "1"
@@ -33,5 +41,5 @@ sp-weights = "31.1"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "max-encoded-len"] }
 
 polymesh-api = { version = "3.12.1", features = ["download_metadata"] }
-polymesh-api-client-extras = { version = "3.6.1" }
-polymesh-api-tester = { version = "0.10.0", features = ["download_metadata"] }
+polymesh-api-client-extras = { version = "3.6.2" }
+polymesh-api-tester = { version = "0.10.1", features = ["download_metadata"] }

@@ -437,7 +437,7 @@ async fn secondary_key_ms_make_primary() -> Result<()> {
         .api
         .call()
         .balances()
-        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .transfer_with_memo(ms.account.into(), 10 * ONE_POLYX, None)?
         .execute(&mut did1)
         .await?;
 
@@ -657,7 +657,7 @@ async fn ms_remove_payer() -> Result<()> {
         .api
         .call()
         .balances()
-        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .transfer_with_memo(ms.account.into(), 10 * ONE_POLYX, None)?
         .execute(&mut did)
         .await?;
     // Wait for transfer.
@@ -704,7 +704,7 @@ async fn ms_remove_payer_via_payer() -> Result<()> {
         .api
         .call()
         .balances()
-        .transfer(ms.account.into(), 10 * ONE_POLYX)?
+        .transfer_with_memo(ms.account.into(), 10 * ONE_POLYX, None)?
         .execute(&mut did)
         .await?;
     // Wait for transfer.

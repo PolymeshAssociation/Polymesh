@@ -11,7 +11,7 @@ async fn simple_polyx_transfer() -> Result<()> {
         .api
         .call()
         .balances()
-        .transfer(users[1].account().into(), 13 * ONE_POLYX)?
+        .transfer_with_memo(users[1].account().into(), 13 * ONE_POLYX, None)?
         .execute(&mut users[0])
         .await?;
     let events = res.events().await?;

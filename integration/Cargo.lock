@@ -3129,9 +3129,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client-extras"
-version = "3.6.1"
+version = "3.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee21ff8b4a63bb379125335ff2c4ac0d32f159d118703c62f87545e0a2a36c13"
+checksum = "119c0c5de4178af4927568b5400b7ace606fdee126339f368022073d3c95a712"
 dependencies = [
  "parity-scale-codec",
  "polymesh-api",
@@ -3193,9 +3193,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-tester"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "998e2026b62c49a2bfe25b95f64815947eafd1ae8410a80d959780e02d3d8a99"
+checksum = "e5baf6433b8ebd0cfae673d173746081f97ce9b3dd5f5f9b847472187208e917"
 dependencies = [
  "async-trait",
  "env_logger 0.11.8",
