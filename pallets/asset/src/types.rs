@@ -1,8 +1,6 @@
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::{Balance, IdentityId};
@@ -64,7 +62,7 @@ pub struct TickerRegistration<T> {
 }
 
 /// struct to store the ticker registration config.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(
     Clone,
     Debug,

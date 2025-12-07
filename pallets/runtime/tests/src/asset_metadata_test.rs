@@ -1,18 +1,18 @@
-use super::{
-    asset_pallet::setup::create_and_issue_sample_asset,
-    asset_test::set_timestamp,
-    exec_noop, exec_ok,
-    storage::{TestStorage, User},
-    ExtBuilder,
-};
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::traits::UnixTime;
+use frame_support::{assert_noop, assert_ok};
+use sp_keyring::Sr25519Keyring;
+
 use pallet_asset::{AssetMetadataGlobalNameToKey, AssetMetadataLocalNameToKey};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::asset_metadata::{
-    AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
-    AssetMetadataValue, AssetMetadataValueDetail,
-};
-use sp_keyring::AccountKeyring;
+use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataLockStatus};
+use polymesh_primitives::asset_metadata::{AssetMetadataName, AssetMetadataValueDetail};
+use polymesh_primitives::asset_metadata::{AssetMetadataSpec, AssetMetadataValue};
+
+use super::asset_pallet::setup::create_and_issue_sample_asset;
+use super::asset_test::set_timestamp;
+use super::storage::{TestStorage, User};
+use super::{exec_noop, exec_ok, ExtBuilder};
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
@@ -109,8 +109,8 @@ fn register_metadata_type(owner: User, asset_id: Option<AssetId>, name: &str) ->
 #[test]
 fn set_asset_metadata_local_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let other = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let other = User::new(Sr25519Keyring::Alice);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -307,8 +307,8 @@ fn set_asset_metadata_local_type() {
 #[test]
 fn register_and_set_local_asset_metadata() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let other = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let other = User::new(Sr25519Keyring::Alice);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -358,8 +358,8 @@ fn register_and_set_local_asset_metadata() {
 #[test]
 fn register_asset_metadata_local_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
-        let other = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Dave);
+        let other = User::new(Sr25519Keyring::Alice);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -396,7 +396,7 @@ fn register_asset_metadata_local_type() {
 #[test]
 fn register_asset_metadata_global_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let root = Origin::from(frame_system::RawOrigin::Root);
 
         let (name, spec) = make_metadata_type("TEST");
@@ -425,7 +425,7 @@ fn register_asset_metadata_global_type() {
 #[test]
 fn register_asset_metadata_local_type_limits() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -508,7 +508,7 @@ fn register_asset_metadata_global_type_limits() {
 #[test]
 fn check_locked_until() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+        let owner = User::new(Sr25519Keyring::Dave);
 
         // Create asset.
         let asset_id = create_and_issue_sample_asset(&owner);
@@ -537,7 +537,7 @@ fn check_locked_until() {
             details.clone()
         ));
 
-        let unlock_timestamp = Timestamp::now() + 1_000_000_000;
+        let unlock_timestamp = Timestamp::now().as_millis() as u64 + 1_000_000_000;
         let details_locked_until = AssetMetadataValueDetail {
             expire: None,
             lock_status: AssetMetadataLockStatus::LockedUntil(unlock_timestamp),

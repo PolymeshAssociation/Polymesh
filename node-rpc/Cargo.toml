@@ -10,30 +10,43 @@ repository = "https://github.com/PolymeshAssociation/substrate"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.24.8", features = ["server"] }
 
-polymesh-primitives = { path = "../primitives", default-features = false }
-pallet-group-rpc = { path = "../pallets/group/rpc" }
-pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
-node-rpc = { path = "../rpc" }
+polymesh-primitives = { workspace = true, default-features = false }
+pallet-group-rpc = { workspace = true, default-features = false }
+pallet-protocol-fee-rpc = {  workspace = true, default-features = false }
+node-rpc = { workspace = true, default-features = false }
 
-sc-chain-spec = { version = "4.0.0-dev" }
-sc-client-api = { version = "4.0.0-dev" }
-sc-consensus-babe = { version = "0.10.0-dev" }
-sc-consensus-babe-rpc = { version = "0.10.0-dev" }
-sc-consensus-epochs = { version = "0.10.0-dev" }
-sc-consensus-grandpa = { version = "0.10.0-dev" }
-sc-consensus-grandpa-rpc = { version = "0.10.0-dev" }
-sc-rpc = { version = "4.0.0-dev" }
-sc-rpc-api = { version = "0.10.0-dev" }
-sc-rpc-spec-v2 = { version = "0.10.0-dev" }
-sc-sync-state-rpc = { version = "0.10.0-dev" }
-sc-transaction-pool-api = { version = "4.0.0-dev" }
-sp-api = { version = "4.0.0-dev" }
-sp-block-builder = { version = "4.0.0-dev" }
-sp-blockchain = { version = "4.0.0-dev" }
-sp-consensus = { version = "0.10.0-dev" }
-sp-consensus-babe = { version = "0.10.0-dev" }
-sp-keystore = { version = "0.13.0" }
-sp-runtime = { version = "7.0.0" }
-substrate-frame-rpc-system = { version = "4.0.0-dev" }
+sc-chain-spec = { workspace = true }
+sc-client-api = { workspace = true }
+sc-consensus-babe = { workspace = true }
+sc-consensus-babe-rpc = { workspace = true }
+sc-consensus-grandpa = { workspace = true }
+sc-consensus-grandpa-rpc = { workspace = true }
+sc-rpc = { workspace = true }
+sc-rpc-api = { workspace = true }
+sc-rpc-spec-v2 = { workspace = true }
+sc-sync-state-rpc = { workspace = true }
+sc-transaction-pool-api = { workspace = true }
+sp-api = { workspace = true, default-features = false }
+sp-block-builder = { workspace = true, default-features = false }
+sp-blockchain = { workspace = true, default-features = false }
+sp-consensus = { workspace = true, default-features = false }
+sp-consensus-babe = { workspace = true, default-features = false }
+sp-keystore = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+substrate-frame-rpc-system = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "polymesh-primitives/std",
+    "pallet-group-rpc/std",
+    "pallet-protocol-fee-rpc/std",
+    "node-rpc/std",
+    "sp-api/std",
+    "sp-block-builder/std",
+    "sp-consensus-babe/std",
+    "sp-keystore/std",
+    "sp-runtime/std",
+]

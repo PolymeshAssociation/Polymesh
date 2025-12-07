@@ -1,8 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
-};
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo};
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::{ensure, require_transactional};
@@ -175,18 +174,21 @@ pub mod pallet {
     >;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {}
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::current_storage_version() {
+            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::in_code_storage_version() {
                 log::info!("Running Migration for initializing Owner storage.");
                 let mut n = 0;
                 for (asset_id, nft_id, owner_portfolio) in NFTOwner::<T>::iter() {

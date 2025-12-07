@@ -13,36 +13,36 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::impl_checked_inc;
-use crate::Url;
 use codec::MaxEncodedLen;
-use codec::{Decode, DecodeAll, Encode};
-use polymesh_primitives_derive::VecU8StrongTyped;
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode};
 use scale_info::{PortableRegistry, TypeInfo};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
+use polymesh_primitives_derive::VecU8StrongTyped;
+
+use crate::{impl_checked_inc, Url};
+
 /// Asset Metadata Name.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct AssetMetadataName(#[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>);
+#[derive(Serialize, Deserialize)]
+pub struct AssetMetadataName(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// Asset Metadata Global Key.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataGlobalKey(pub u64);
 impl_checked_inc!(AssetMetadataGlobalKey);
 
 /// Asset Metadata Local Key.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataLocalKey(pub u64);
 impl_checked_inc!(AssetMetadataLocalKey);
 
 /// Asset Metadata Key.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub enum AssetMetadataKey {
     /// Global Metadata Key.
@@ -64,13 +64,13 @@ impl From<AssetMetadataGlobalKey> for AssetMetadataKey {
 }
 
 /// Asset Metadata Value.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AssetMetadataValue(pub Vec<u8>);
 
 /// Asset Metadata Value details.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AssetMetadataValueDetail<Moment> {
     /// Optional expire date for the value.
     pub expire: Option<Moment>,
@@ -94,7 +94,7 @@ impl<Moment: PartialOrd> AssetMetadataValueDetail<Moment> {
 }
 
 /// Asset Metadata Lock Status
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssetMetadataLockStatus<Moment> {
     /// Can be changed by asset issuer.
@@ -123,26 +123,24 @@ impl<Moment> Default for AssetMetadataLockStatus<Moment> {
 }
 
 /// Asset Metadata description.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct AssetMetadataDescription(
-    #[cfg_attr(feature = "std", serde(with = "serde_bytes"))] pub Vec<u8>,
-);
+#[derive(Serialize, Deserialize)]
+pub struct AssetMetadataDescription(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 /// Asset Metadata Specs.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct AssetMetadataSpec {
     /// Off-chain specs or documentation.
-    #[cfg_attr(feature = "std", serde(default))]
+    #[serde(default)]
     pub url: Option<Url>,
     /// Description of metadata type.
-    #[cfg_attr(feature = "std", serde(default))]
+    #[serde(default)]
     pub description: Option<AssetMetadataDescription>,
     /// Optional SCALE encoded `AssetMetadataTypeDef`.
-    #[cfg_attr(feature = "std", serde(with = "serde_bytes", default))]
+    #[serde(with = "serde_bytes", default)]
     pub type_def: Option<Vec<u8>>,
 }
 

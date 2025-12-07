@@ -1,11 +1,12 @@
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::convert::{TryFrom, TryInto};
 use scale_info::TypeInfo;
 use sp_std::prelude::Vec;
 
 /// Implementation of common asset identifiers.
 /// https://www.cusip.com/identifiers.html.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum AssetIdentifier {
     /// Universally recognized identifier for financial instruments.
     /// Example: Amazon.com Inc - Common Stock

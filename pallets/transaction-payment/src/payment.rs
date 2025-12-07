@@ -1,34 +1,18 @@
-/// ! Traits and default implementation for paying transaction fees.
+use core::marker::PhantomData;
+use frame_support::pallet_prelude::CheckedSub;
+use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{ExistenceRequirement, WithdrawReasons};
+use frame_support::unsigned::TransactionValidityError;
+use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero};
+use sp_runtime::transaction_validity::InvalidTransaction;
+
 use crate::pallet::Config;
-
-use codec::FullCodec;
-use sp_runtime::{
-    traits::{
-        AtLeast32BitUnsigned, DispatchInfoOf, MaybeSerializeDeserialize, PostDispatchInfoOf,
-        Saturating, Zero,
-    },
-    transaction_validity::InvalidTransaction,
-};
-use sp_std::{fmt::Debug, marker::PhantomData};
-
-use frame_support::{
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
-    unsigned::TransactionValidityError,
-};
-
-type NegativeImbalanceOf<C, T> =
-    <C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// Handle withdrawing, refunding and depositing of transaction fees.
 pub trait OnChargeTransaction<T: Config> {
     /// The underlying integer type in which fees are calculated.
-    type Balance: AtLeast32BitUnsigned
-        + FullCodec
-        + Copy
-        + MaybeSerializeDeserialize
-        + Debug
-        + Default
-        + scale_info::TypeInfo;
+    type Balance: frame_support::traits::tokens::Balance;
+
     type LiquidityInfo: Default;
 
     /// Before the transaction is executed the payment of the transaction fees
@@ -42,6 +26,17 @@ pub trait OnChargeTransaction<T: Config> {
         fee: Self::Balance,
         tip: Self::Balance,
     ) -> Result<Self::LiquidityInfo, TransactionValidityError>;
+
+    /// Check if the predicted fee from the transaction origin can be withdrawn.
+    ///
+    /// Note: The `fee` already includes the `tip`.
+    fn can_withdraw_fee(
+        who: &T::AccountId,
+        call: &T::RuntimeCall,
+        dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+        fee: Self::Balance,
+        tip: Self::Balance,
+    ) -> Result<(), TransactionValidityError>;
 
     /// After the transaction was executed the actual fee can be calculated.
     /// This function should refund any overpaid fees and optionally deposit
@@ -57,22 +52,27 @@ pub trait OnChargeTransaction<T: Config> {
         already_withdrawn: Self::LiquidityInfo,
     ) -> Result<(), TransactionValidityError>;
 
-    /// Polymesh: Used to charge protocal fees.
+    // Polymesh change
+    // -----------------------------------------------------------------
     fn charge_fee(who: &T::AccountId, fee: Self::Balance) -> Result<(), TransactionValidityError>;
+    // -----------------------------------------------------------------
 }
 
-/// Implements the transaction payment for a pallet implementing the `Currency`
+type NegativeImbalanceOf<C, T> =
+    <C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
+/// Implements the transaction payment for a pallet implementing the [`Currency`]
 /// trait (eg. the pallet_balances) using an unbalance handler (implementing
-/// `OnUnbalanced`).
+/// [`OnUnbalanced`]).
 ///
-/// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: fee and
-/// then tip.
+/// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
+/// then `tip`.
 pub struct CurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
 
 /// Default implementation for a Currency and an OnUnbalanced handler.
 ///
-/// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: fee and
-/// then tip.
+/// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: `fee` and
+/// then `tip`.
 impl<T, C, OU> OnChargeTransaction<T> for CurrencyAdapter<C, OU>
 where
     T: Config,
@@ -116,6 +116,34 @@ where
         }
     }
 
+    /// Check if the predicted fee from the transaction origin can be withdrawn.
+    ///
+    /// Note: The `fee` already includes the `tip`.
+    fn can_withdraw_fee(
+        who: &T::AccountId,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        fee: Self::Balance,
+        tip: Self::Balance,
+    ) -> Result<(), TransactionValidityError> {
+        if fee.is_zero() {
+            return Ok(());
+        }
+
+        let withdraw_reason = if tip.is_zero() {
+            WithdrawReasons::TRANSACTION_PAYMENT
+        } else {
+            WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+        };
+
+        let new_balance = C::free_balance(who)
+            .checked_sub(&fee)
+            .ok_or(InvalidTransaction::Payment)?;
+        C::ensure_can_withdraw(who, fee, withdraw_reason, new_balance)
+            .map(|_| ())
+            .map_err(|_| InvalidTransaction::Payment.into())
+    }
+
     /// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
     /// Since the predicted fee might have been too high, parts of the fee may
     /// be refunded.
@@ -149,7 +177,8 @@ where
         Ok(())
     }
 
-    /// Polymesh: Used to charge protocal fees.
+    // Polymesh change
+    // -----------------------------------------------------------------
     fn charge_fee(who: &T::AccountId, fee: Self::Balance) -> Result<(), TransactionValidityError> {
         if fee.is_zero() {
             return Ok(());
@@ -168,4 +197,5 @@ where
             Err(_) => Err(InvalidTransaction::Payment.into()),
         }
     }
+    // -----------------------------------------------------------------
 }

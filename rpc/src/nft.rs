@@ -15,18 +15,16 @@
 
 use std::sync::Arc;
 
-use frame_support::dispatch::DispatchError;
+use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
-use sp_api::ProvideRuntimeApi;
+use jsonrpsee::types::error::ErrorObject;
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
 use polymesh_primitives::{NFTs, PortfolioId};
-
-use crate::Error;
 
 #[rpc(client, server)]
 pub trait NFTApi<BlockHash> {
@@ -71,24 +69,17 @@ where
         skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<DispatchError>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.transfer_report(
-            at_hash,
-            sender_portfolio,
-            receiver_portfolio,
-            nfts,
-            skip_locked_check,
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.transfer_report(
+                at,
+                sender_portfolio,
+                receiver_portfolio,
+                nfts,
+                skip_locked_check,
+            ),
+            "Unable to query `transfer_report`."
         )
-        .map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to call validate_nft_transfer runtime",
-                Some(e.to_string()),
-            ))
-            .into()
-        })
     }
 }

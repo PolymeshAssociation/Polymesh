@@ -5,13 +5,14 @@ use polymesh_primitives::traits::group::InactiveMember;
 use polymesh_primitives::{IdentityId, Moment};
 
 use codec::{Decode, Encode};
-#[cfg(feature = "std")]
+use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
 
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Member {
     pub id: IdentityId,
     pub expiry_at: Option<Moment>,

@@ -13,13 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use alloc::string::ToString;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt::{Display, Formatter};
 use core::str;
 use scale_info::prelude::string::String;
@@ -38,7 +36,8 @@ const UUID_LEN: usize = 32usize;
 
 /// The record to initialize an identity in the chain spec.
 #[derive(Clone)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 pub struct GenesisIdentityRecord<AccountId> {
     /// Identity primary key.
     pub primary_key: Option<AccountId>,
@@ -88,12 +87,9 @@ impl GenesisIdentityRecord<AccountId> {
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
-#[cfg_attr(
-    feature = "std",
-    derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
-)]
+#[derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)]
 pub struct IdentityId(pub [u8; UUID_LEN]);
 
 /// Alias for `EventOnly<IdentityId>`.
@@ -229,15 +225,15 @@ impl Printable for IdentityId {
 
 /// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
 /// default ones are nameless.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct PortfolioNumber(pub u64);
 
 impl Default for PortfolioNumber {
@@ -253,16 +249,23 @@ impl From<u64> for PortfolioNumber {
 }
 
 /// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
-#[derive(Decode, Default, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(
+    Decode,
+    Default,
+    DecodeWithMemTracking,
+    Encode,
+    TypeInfo,
+    MaxEncodedLen
+)]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
+#[derive(Serialize, Deserialize)]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
     #[default]
-    #[cfg_attr(feature = "std", serde(alias = "default"))]
+    #[serde(alias = "default")]
     Default,
     /// A user-defined portfolio of a DID.
-    #[cfg_attr(feature = "std", serde(alias = "user"))]
+    #[serde(alias = "user")]
     User(PortfolioNumber),
     /// A key-based portfolio owned by an account.
     #[cfg_attr(feature = "std", serde(alias = "account"))]
@@ -276,9 +279,9 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
 }
 
 /// The identification of a portfolio. Contains the [`IdentityId`] of the portfolio owner and the [`PortfolioKind`].
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
+#[derive(Serialize, Deserialize)]
 pub struct PortfolioId {
     /// The DID of the portfolio owner.
     pub did: IdentityId,
@@ -341,7 +344,7 @@ impl PortfolioId {
 }
 
 /// Result of a portfolio validity check.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PortfolioValidityResult {
     /// Receiver portfolio is the same portfolio as the sender.

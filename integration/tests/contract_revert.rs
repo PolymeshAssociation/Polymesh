@@ -18,7 +18,7 @@ async fn contract_constructor_reverted() -> Result<()> {
         .polymesh_contracts()
         .instantiate_with_code_perms(
             0,
-            Weight::from_parts(10_000_000_000, 0),
+            Weight::from_parts(10_000_000_000, 300_000),
             None,
             contract_revert_bytes.to_vec(),
             vec![0x9b, 0xae, 0x9d, 0x5e, 0x01], // Selector for `new(true)` constructor.

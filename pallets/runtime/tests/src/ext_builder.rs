@@ -1,6 +1,11 @@
-use crate::TestStorage;
-use frame_support::dispatch::Weight;
-use frame_support::pallet_prelude::GenesisBuild;
+use sp_std::prelude::Vec;
+use sp_std::{cell::RefCell, convert::From, iter};
+
+use frame_support::weights::Weight;
+use sp_io::TestExternalities;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::{BuildStorage, Storage};
+
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -8,15 +13,11 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{constants::currency::POLY, SystematicIssuers, GC_DID};
-use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio, SecondaryKey,
-};
-use sp_io::TestExternalities;
-use sp_keyring::AccountKeyring;
-use sp_runtime::Storage;
-use sp_std::prelude::Vec;
-use sp_std::{cell::RefCell, convert::From, iter};
+use polymesh_primitives::{AccountId, IdentityId, PosRatio, SecondaryKey};
+
+use crate::TestStorage;
 
 /// Identity information.
 #[derive(Clone, PartialEq, Debug)]
@@ -124,7 +125,7 @@ thread_local! {
 impl ExtBuilder {
     /// Sets the minimum weight for the extrinsic (see also `weight_fee`).
     pub fn base_weight(mut self, extrinsic_base_weight: u64) -> Self {
-        self.extrinsic_base_weight = Weight::from_ref_time(extrinsic_base_weight);
+        self.extrinsic_base_weight = Weight::from_parts(extrinsic_base_weight, 0);
         self
     }
 
@@ -240,24 +241,24 @@ impl ExtBuilder {
         if self.monied {
             vec![
                 (
-                    AccountKeyring::Alice.to_account_id(),
+                    Sr25519Keyring::Alice.to_account_id(),
                     1_000 * POLY * self.balance_factor,
                 ),
                 (
-                    AccountKeyring::Bob.to_account_id(),
+                    Sr25519Keyring::Bob.to_account_id(),
                     2_000 * POLY * self.balance_factor,
                 ),
                 (
-                    AccountKeyring::Charlie.to_account_id(),
+                    Sr25519Keyring::Charlie.to_account_id(),
                     3_000 * POLY * self.balance_factor,
                 ),
                 (
-                    AccountKeyring::Dave.to_account_id(),
+                    Sr25519Keyring::Dave.to_account_id(),
                     4_000 * POLY * self.balance_factor,
                 ),
                 // CDD Accounts
-                (AccountKeyring::Eve.to_account_id(), 1_000_000),
-                (AccountKeyring::Ferdie.to_account_id(), 1_000_000),
+                (Sr25519Keyring::Eve.to_account_id(), 1_000_000),
+                (Sr25519Keyring::Ferdie.to_account_id(), 1_000_000),
             ]
         } else {
             vec![]
@@ -316,6 +317,7 @@ impl ExtBuilder {
     fn build_balances_genesis(&self, storage: &mut Storage) {
         balances::GenesisConfig::<TestStorage> {
             balances: self.make_balances(),
+            dev_accounts: None,
         }
         .assimilate_storage(storage)
         .unwrap();
@@ -326,12 +328,14 @@ impl ExtBuilder {
             max_ticker_length: 8,
             registration_length: Some(10000),
         };
-        let genesis = asset::GenesisConfig {
+        asset::GenesisConfig::<TestStorage> {
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
             asset_metadata: vec![],
-        };
-        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap();
     }
 
     /// For each `cdd_providers`:
@@ -392,11 +396,13 @@ impl ExtBuilder {
     }
 
     fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
-        let genesis = pallet_protocol_fee::GenesisConfig {
+        pallet_protocol_fee::GenesisConfig::<TestStorage> {
             base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
-        };
-        GenesisBuild::<TestStorage>::assimilate_storage(&genesis, storage).unwrap();
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap();
     }
 
     fn build_pips_genesis(&self, storage: &mut Storage) {
@@ -476,8 +482,8 @@ impl ExtBuilder {
             .collect();
 
         // Create storage and assimilate each genesis.
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<TestStorage>()
+        let mut storage = frame_system::GenesisConfig::<TestStorage>::default()
+            .build_storage()
             .expect("TestStorage cannot build its own storage");
 
         self.build_identity_genesis(&mut storage, identities);

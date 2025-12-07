@@ -2,25 +2,13 @@
 #[cfg(feature = "previous_release")]
 mod sto_tests {
     use anyhow::Result;
-    use codec::{Decode, Encode};
 
     use integration::*;
-    use polymesh_api::types::pallet_sto::{FundraiserId, FundraiserName, PriceTier};
+    use polymesh_api::types::pallet_sto::{FundraiserName, PriceTier};
     use polymesh_api::types::polymesh_primitives::{
         identity_id::{PortfolioId, PortfolioKind},
         settlement::{VenueDetails, VenueType},
     };
-
-    /// An offchain fundraiser receipt.
-    #[derive(Encode, Decode, Clone, Debug)]
-    pub struct FundraiserReceipt {
-        uid: u64,
-        fundraiser_id: FundraiserId,
-        sender_identity: IdentityId,
-        receiver_identity: IdentityId,
-        ticker: Ticker,
-        amount: u128,
-    }
 
     /// Test a STO with onchain asset funding.
     #[tokio::test]

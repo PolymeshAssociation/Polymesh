@@ -16,11 +16,11 @@
 use sp_std::vec::Vec;
 use std::sync::Arc;
 
-use frame_support::dispatch::DispatchError;
+use frame_support::pallet_prelude::DispatchError;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorObject};
-use sp_api::ProvideRuntimeApi;
+use jsonrpsee::types::error::ErrorObject;
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
@@ -28,8 +28,6 @@ pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
 use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo};
 use polymesh_primitives::settlement::{InstructionId, Leg};
 use polymesh_primitives::PortfolioId;
-
-use crate::Error;
 
 #[rpc(client, server)]
 pub trait SettlementApi<BlockHash> {
@@ -91,19 +89,13 @@ where
         instruction_id: InstructionId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Option<ExecuteInstructionInfo>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.get_execute_instruction_info(at_hash, instruction_id)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call get_execute_instruction_info runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api
+                .get_execute_instruction_info(at, instruction_id,),
+            "Unable to query `get_execute_instruction_info`."
+        )
     }
 
     fn get_affirmation_count(
@@ -112,19 +104,16 @@ where
         portfolios: Vec<PortfolioId>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<AffirmationCount> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.get_affirmation_count(at_hash, instruction_id, portfolios)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call get_affirmation_count runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.get_affirmation_count(
+                at,
+                instruction_id,
+                portfolios,
+            ),
+            "Unable to query `get_affirmation_count`."
+        )
     }
 
     fn get_transfer_report(
@@ -133,19 +122,16 @@ where
         skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<DispatchError>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.get_transfer_report(at_hash, leg, skip_locked_check)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call get_transfer_report runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.get_transfer_report(
+                at,
+                leg,
+                skip_locked_check,
+            ),
+            "Unable to query `get_transfer_report`."
+        )
     }
 
     fn get_execute_instruction_report(
@@ -153,18 +139,12 @@ where
         instruction_id: InstructionId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<DispatchError>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.get_execute_instruction_report(at_hash, instruction_id)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call get_execute_instruction_report runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api
+                .get_execute_instruction_report(at, instruction_id,),
+            "Unable to query `get_execute_instruction_report`."
+        )
     }
 }

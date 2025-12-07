@@ -55,57 +55,94 @@ pub struct SubstrateWeight;
 impl frame_system::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[0, 7864320]`.
     fn remark(b: u32) -> Weight {
-        // Minimum execution time: 2_364 nanoseconds.
-        Weight::from_ref_time(11_506_317)
+        // Minimum execution time: 2_213 nanoseconds.
+        Weight::from_parts(12_794_737, 0)
             // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(351).saturating_mul(b.into()))
+            .saturating_add(Weight::from_parts(346, 0).saturating_mul(b.into()))
     }
     /// The range of component `b` is `[0, 7864320]`.
     fn remark_with_event(b: u32) -> Weight {
-        // Minimum execution time: 8_493 nanoseconds.
-        Weight::from_ref_time(8_101_034)
-            // Standard Error: 1
-            .saturating_add(Weight::from_ref_time(1_291).saturating_mul(b.into()))
+        // Minimum execution time: 7_861 nanoseconds.
+        Weight::from_parts(7_881_000, 0)
+            // Standard Error: 0
+            .saturating_add(Weight::from_parts(1_288, 0).saturating_mul(b.into()))
     }
     // Storage: System Digest (r:1 w:1)
     // Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: unknown `0x3a686561707061676573` (r:0 w:1)
     // Proof Skipped: unknown `0x3a686561707061676573` (r:0 w:1)
     fn set_heap_pages() -> Weight {
-        // Minimum execution time: 4_457 nanoseconds.
-        Weight::from_ref_time(4_837_000)
+        // Minimum execution time: 4_276 nanoseconds.
+        Weight::from_parts(5_388_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
+    }
+    /// Storage: System Digest (r:1 w:1)
+    /// Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)
+    /// Storage: unknown `0x3a636f6465` (r:0 w:1)
+    /// Proof Skipped: unknown `0x3a636f6465` (r:0 w:1)
+    fn set_code() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `1485`
+        // Minimum execution time: 84_000_503_000 picoseconds.
+        Weight::from_parts(87_586_619_000, 1485)
+            .saturating_add(DbWeight::get().reads(1_u64))
+            .saturating_add(DbWeight::get().writes(2_u64))
     }
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 1000]`.
     fn set_storage(i: u32) -> Weight {
-        // Minimum execution time: 2_644 nanoseconds.
-        Weight::from_ref_time(2_794_000)
-            // Standard Error: 1_415
-            .saturating_add(Weight::from_ref_time(925_092).saturating_mul(i.into()))
+        // Minimum execution time: 2_403 nanoseconds.
+        Weight::from_parts(2_494_000, 0)
+            // Standard Error: 1_536
+            .saturating_add(Weight::from_parts(919_406, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(i.into())))
     }
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `i` is `[0, 1000]`.
     fn kill_storage(i: u32) -> Weight {
-        // Minimum execution time: 2_544 nanoseconds.
-        Weight::from_ref_time(2_734_000)
-            // Standard Error: 1_265
-            .saturating_add(Weight::from_ref_time(664_644).saturating_mul(i.into()))
+        // Minimum execution time: 2_384 nanoseconds.
+        Weight::from_parts(2_644_000, 0)
+            // Standard Error: 1_357
+            .saturating_add(Weight::from_parts(664_809, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(i.into())))
     }
     // Storage: Skipped Metadata (r:0 w:0)
     // Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
     /// The range of component `p` is `[0, 1000]`.
     fn kill_prefix(p: u32) -> Weight {
-        // Minimum execution time: 4_837 nanoseconds.
-        Weight::from_ref_time(6_450_000)
-            // Standard Error: 2_080
-            .saturating_add(Weight::from_ref_time(1_224_428).saturating_mul(p.into()))
+        // Minimum execution time: 4_476 nanoseconds.
+        Weight::from_parts(4_787_000, 0)
+            // Standard Error: 1_811
+            .saturating_add(Weight::from_parts(1_200_907, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(p.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(p.into())))
+    }
+    /// Storage: `System::AuthorizedUpgrade` (r:0 w:1)
+    /// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+    fn authorize_upgrade() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `0`
+        //  Estimated: `0`
+        // Minimum execution time: 12_466_000 picoseconds.
+        Weight::from_parts(15_570_000, 0).saturating_add(DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `System::AuthorizedUpgrade` (r:1 w:1)
+    /// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+    /// Storage: `MultiBlockMigrations::Cursor` (r:1 w:0)
+    /// Proof: `MultiBlockMigrations::Cursor` (`max_values`: Some(1), `max_size`: Some(65550), added: 66045, mode: `MaxEncodedLen`)
+    /// Storage: UNKNOWN KEY `0x3a636f6465` (r:0 w:1)
+    /// Proof: UNKNOWN KEY `0x3a636f6465` (r:0 w:1)
+    fn apply_authorized_upgrade() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `21`
+        //  Estimated: `67035`
+        // Minimum execution time: 163_673_542_000 picoseconds.
+        Weight::from_parts(166_858_158_000, 67035)
+            .saturating_add(DbWeight::get().reads(2_u64))
+            .saturating_add(DbWeight::get().writes(2_u64))
     }
 }

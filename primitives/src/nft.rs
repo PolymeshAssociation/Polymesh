@@ -1,5 +1,4 @@
-use codec::MaxEncodedLen;
-#[cfg(feature = "std")]
+use codec::{DecodeWithMemTracking, MaxEncodedLen};
 use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
@@ -16,51 +15,21 @@ use crate::impl_checked_inc;
 pub type NFTCount = u64;
 
 /// Controls the next available id for an NFT collection.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Decode,
-    MaxEncodedLen,
-    Default,
-    Eq,
-    Encode,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Decode, DecodeWithMemTracking, Default, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Eq, MaxEncodedLen, PartialEq)]
 pub struct NFTCollectionId(pub u64);
 impl_checked_inc!(NFTCollectionId);
 
 /// Controls the next available id for an NFT within a collection.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    Eq,
-    Ord,
-    PartialOrd,
-    PartialEq,
-    TypeInfo
-)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Default, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, MaxEncodedLen, Eq, Ord, PartialOrd, PartialEq)]
+#[derive(Serialize, Deserialize)]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 
 /// Defines an NFT collection.
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    Encode,
-    MaxEncodedLen,
-    PartialEq,
-    TypeInfo
-)]
+#[derive(Decode, Default, Encode, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
 pub struct NFTCollection {
     id: NFTCollectionId,
     asset_id: AssetId,
@@ -84,8 +53,8 @@ impl NFTCollection {
 }
 
 /// Represent all NFT being transferred for a given [`AssetId`].
-#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct NFTs {
     asset_id: AssetId,
     ids: Vec<NFTId>,
@@ -123,7 +92,8 @@ impl NFTs {
 }
 
 /// The metadata keys for the NFT collection.
-#[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Default)]
 pub struct NFTCollectionKeys(Vec<AssetMetadataKey>);
 
 impl NFTCollectionKeys {
@@ -150,7 +120,8 @@ impl From<Vec<AssetMetadataKey>> for NFTCollectionKeys {
 }
 
 /// Defines a metadata attribute which is a composed of a key and a value.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
 pub struct NFTMetadataAttribute {
     /// The metadata key.
     pub key: AssetMetadataKey,

@@ -47,9 +47,9 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::mem;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
-use frame_support::pallet_prelude::Get;
+use frame_support::pallet_prelude::{DispatchError, Get};
 use frame_support::weights::Weight;
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -327,11 +327,14 @@ pub mod pallet {
     storage_migration_ver!(3);
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(3));
         }

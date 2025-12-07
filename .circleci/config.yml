@@ -39,7 +39,7 @@ commands:
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -53,7 +53,7 @@ jobs:
           command: ./scripts/check_spec_and_cargo_version.sh
   check-storage-version:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -64,7 +64,7 @@ jobs:
           command: ./scripts/check_storage_versions.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -95,7 +95,7 @@ jobs:
       - save-sccache-cache
   build-ci:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -124,7 +124,7 @@ jobs:
             - .
   build-arm64:
     docker:
-      - image: polymeshassociation/rust-arm64:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust-arm64:debian-nightly-2025-09-01
     resource_class: arm.xlarge
     environment:
       - VERBOSE: "1"
@@ -151,7 +151,7 @@ jobs:
       - save-sccache-cache
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -273,7 +273,7 @@ jobs:
 
   metadata-tools-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: small
     steps:
       - checkout
@@ -301,7 +301,7 @@ jobs:
       - run:
           name: Start Polymesh dev chain
           command: >-
-            ./assets/polymesh --chain dev \
+            ./assets/polymesh --dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
@@ -386,7 +386,7 @@ jobs:
           no_output_timeout: 30m
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -403,7 +403,7 @@ jobs:
       - save-sccache-cache
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -425,14 +425,13 @@ jobs:
             --package pallet-pips
             --package polymesh-primitives
             --package node-rpc-runtime-api
-            --package pallet-transaction-payment
             --package polymesh-runtime-tests
             --package asset-metadata
           no_output_timeout: 30m
       - save-sccache-cache
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -447,7 +446,7 @@ jobs:
       - save-sccache-cache
   rust-integration-test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -460,7 +459,8 @@ jobs:
           name: Start a Polymesh ci-runtime dev chain using the previous chain version.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
-              --chain dev:.ci-chain-specs/v7.0.0.json \
+              --chain .ci-chain-specs/v7.0.0.json \
+              --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
@@ -501,7 +501,7 @@ jobs:
       - run:
           name: run Polymesh ci-runtime dev chain node for integration tests
           command: >-
-            ./assets/ci-runtime/polymesh --bob --chain dev \
+            ./assets/ci-runtime/polymesh --bob --dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
@@ -518,7 +518,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2024-11-14
+      - image: polymeshassociation/rust:debian-nightly-2025-09-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -804,6 +804,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - update-substrate-stable2503-7
       - build-docker-amd64-distroless:
           requires:
             - build
@@ -831,6 +832,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - update-substrate-stable2503-7
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -852,6 +854,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - update-substrate-stable2503-7
       - build-docker-distroless:
           requires:
             - build-docker-amd64-distroless
