@@ -27,12 +27,12 @@ pub mod capped {
     use codec::{Decode, Encode};
     use sp_runtime::traits::SaturatedConversion;
 
-    #[cfg(feature = "std")]
     use serde::{Deserialize, Serialize};
 
-    #[derive(Eq, PartialEq, Encode, Decode)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    #[derive(Clone, Decode, Encode, Eq, PartialEq)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub enum VoteCount {
         /// Proposal was found and has the following votes.
         ProposalFound {
@@ -58,8 +58,9 @@ pub mod capped {
     }
 
     #[derive(Eq, PartialEq)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub enum Vote {
         Yes(u64),
         No(u64),

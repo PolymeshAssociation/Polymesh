@@ -13,25 +13,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::ensure;
+use frame_support::pallet_prelude::{DispatchError, DispatchResult};
+use frame_system::ensure_root;
+use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Zero};
+use sp_std::prelude::*;
+
+use pallet_base::{ensure_string_limited, try_next_pre};
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::identity_claim::CustomClaimTypeId;
+use polymesh_primitives::traits::group::{GroupTrait, InactiveMember};
+use polymesh_primitives::{
+    CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey, SystematicIssuers,
+};
+
 use crate::{
     Claim1stKey, Claim2ndKey, Claims, Config, CustomClaimIdSequence, CustomClaims,
     CustomClaimsInverse, DidRecords, Error, Event, Pallet, ParentDid,
 };
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-};
-use frame_system::ensure_root;
-use pallet_base::{ensure_string_limited, try_next_pre};
-
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_primitives::identity_claim::CustomClaimTypeId;
-use polymesh_primitives::{
-    traits::group::{GroupTrait, InactiveMember},
-    CddId, Claim, ClaimType, IdentityClaim, IdentityId, Scope, SecondaryKey, SystematicIssuers,
-};
-use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Zero};
-use sp_std::prelude::*;
 
 struct CddClaimChecker<T: Config> {
     filter_cdd_id: Option<CddId>,

@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_nft::NFTOwner;
 use pallet_portfolio::{
@@ -34,7 +34,7 @@ type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 
 fn create_portfolio() -> (User, PortfolioNumber) {
-    let owner = User::new(AccountKeyring::Alice);
+    let owner = User::new(Sr25519Keyring::Alice);
     let name = PortfolioName::from([42u8].to_vec());
     let num = NextPortfolioNumber::<TestStorage>::get(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
@@ -70,7 +70,7 @@ macro_rules! assert_owner_is_custodian {
 #[test]
 fn portfolio_name_too_long() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Alice);
         let id = NextPortfolioNumber::<TestStorage>::get(owner.did);
         let create = |name| Portfolio::create_portfolio(owner.origin(), name);
         let rename = |name| Portfolio::rename_portfolio(owner.origin(), id, name);
@@ -85,7 +85,7 @@ fn portfolio_name_too_long() {
 #[test]
 fn portfolio_name_taken() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
+        let owner = User::new(Sr25519Keyring::Alice);
         let id = NextPortfolioNumber::<TestStorage>::get(owner.did);
         let create = |name: &str| Portfolio::create_portfolio(owner.origin(), name.into());
         let rename = |name: &str| Portfolio::rename_portfolio(owner.origin(), id, name.into());
@@ -235,7 +235,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     System::set_block_number(1); // This is needed to enable events.
 
     let (owner, num) = create_portfolio();
-    let bob = User::new(AccountKeyring::Bob);
+    let bob = User::new(Sr25519Keyring::Bob);
     let asset_id = create_and_issue_sample_asset(&owner);
 
     assert_eq!(
@@ -535,7 +535,7 @@ fn can_lock_unlock_assets() {
 fn can_take_custody_of_portfolios() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
 
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
@@ -624,7 +624,7 @@ fn can_take_custody_of_portfolios() {
 fn quit_portfolio_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let (alice, num) = create_portfolio();
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new(Sr25519Keyring::Bob);
         let user_portfolio = PortfolioId::user_portfolio(alice.did, num);
 
         assert_noop!(
@@ -646,7 +646,7 @@ fn quit_portfolio_custody() {
 fn delete_portfolio_with_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection and mint one NFT
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         Portfolio::create_portfolio(
             alice.clone().origin(),
             PortfolioName(b"MyPortfolio".to_vec()),
@@ -682,8 +682,8 @@ fn delete_portfolio_with_nfts() {
 fn delete_portfolio_with_locked_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection, mint one NFT and lock it
-        let alice: User = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
         Portfolio::create_portfolio(
             alice.clone().origin(),
             PortfolioName(b"MyPortfolio".to_vec()),
@@ -743,7 +743,7 @@ fn delete_portfolio_with_locked_nfts() {
 fn move_nft_not_in_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection, mint one NFT, and create one portfolio
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -794,7 +794,7 @@ fn move_nft_not_in_portfolio() {
 fn move_portfolio_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection, mint two NFTs, and create one portfolio
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -879,7 +879,7 @@ fn move_portfolio_nfts() {
 #[test]
 fn move_more_funds() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -929,7 +929,7 @@ fn move_more_funds() {
 #[test]
 fn empty_fungible_move() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -966,7 +966,7 @@ fn empty_fungible_move() {
 #[test]
 fn empty_nft_move() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -1000,7 +1000,7 @@ fn empty_nft_move() {
 #[test]
 fn pre_approve_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
@@ -1031,7 +1031,7 @@ fn pre_approve_portfolio() {
 #[test]
 fn remove_portfolio_pre_approval() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
@@ -1068,9 +1068,9 @@ fn remove_portfolio_pre_approval() {
 #[test]
 fn unauthorized_custodian_pre_approval() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let eve = User::new(AccountKeyring::Eve);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let eve = User::new(Sr25519Keyring::Eve);
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
@@ -1098,8 +1098,8 @@ fn unauthorized_custodian_pre_approval() {
 #[test]
 fn create_custody_portfolio_missing_owners_permission() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
 
         assert_noop!(
@@ -1116,8 +1116,8 @@ fn create_custody_portfolio_missing_owners_permission() {
 #[test]
 fn create_custody_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_number = PortfolioNumber(1);
         let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
         let portfolio_id = PortfolioId {
@@ -1155,8 +1155,8 @@ fn create_custody_portfolio() {
 #[test]
 fn create_custody_portfolio_revoke_permission() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_name = PortfolioName("AliceOwnsBobControls".as_bytes().to_vec());
 
         assert_ok!(Portfolio::allow_identity_to_create_portfolios(
@@ -1188,7 +1188,7 @@ fn create_custody_portfolio_revoke_permission() {
 #[test]
 fn allow_identity_to_create_portfolios_not_allowed() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         assert_noop!(
             Portfolio::allow_identity_to_create_portfolios(alice.origin(), alice.did),
@@ -1200,8 +1200,8 @@ fn allow_identity_to_create_portfolios_not_allowed() {
 #[test]
 fn assign_custody_of_default_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::Default);
 
         let auth_id = Identity::add_auth(

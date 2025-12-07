@@ -54,12 +54,11 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
-use polymesh_primitives::crypto::verify_signature;
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_set::BTreeSet;
@@ -69,6 +68,7 @@ use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::crypto::verify_signature;
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
 use polymesh_primitives::traits::PortfolioSubTrait;
@@ -88,8 +88,8 @@ type Settlement<T> = pallet_settlement::Pallet<T>;
 type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 /// Status of a Fundraiser.
-#[derive(Encode, Decode, Default, TypeInfo)]
-#[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, PartialOrd, Ord)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, MaxEncodedLen, PartialEq, PartialOrd, Ord)]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
@@ -103,7 +103,7 @@ pub enum FundraiserStatus {
 }
 
 /// Funding method.  On-chain asset or off-chain receipt.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum FundingMethod<AccountId, OffChainSignature> {
@@ -120,9 +120,8 @@ impl<AccountId, OffChainSignature> FundingMethod<AccountId, OffChainSignature> {
 }
 
 /// Which funding asset was used to invest in the fundraiser.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FundingAsset {
     /// On-chain asset.
     OnChain(AssetId),
@@ -131,9 +130,8 @@ pub enum FundingAsset {
 }
 
 /// Details about the Fundraiser.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Moment> {
     /// The permissioned agent that created the `Fundraiser`.
     pub creator: IdentityId,
@@ -168,8 +166,8 @@ impl<Moment> Fundraiser<Moment> {
 }
 
 /// Single tier of a tiered pricing model.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier {
     /// Total amount available.
     pub total: Balance,
@@ -179,9 +177,8 @@ pub struct PriceTier {
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier {
     /// Total amount available.
     pub total: Balance,
@@ -202,7 +199,7 @@ impl Into<FundraiserTier> for PriceTier {
 }
 
 /// Wrapper type for Fundraiser name.
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserName(Vec<u8>);
 
@@ -435,11 +432,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(1));
         }

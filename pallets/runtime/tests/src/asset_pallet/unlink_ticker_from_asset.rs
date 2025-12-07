@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::{AssetIdTicker, TickerAssetId, TickersOwnedByUser, UniqueTickerRegistration};
 use polymesh_primitives::agent::AgentGroup;
@@ -17,7 +17,7 @@ type Identity = pallet_identity::Pallet<TestStorage>;
 #[test]
 fn unlink_ticker_from_asset_id_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -57,8 +57,8 @@ fn unlink_ticker_from_asset_id_successfully() {
 #[test]
 fn unlink_ticker_from_asset_id_unauthorized_agent() {
     ExtBuilder::default().build().execute_with(|| {
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -89,7 +89,7 @@ fn unlink_ticker_from_asset_id_unauthorized_agent() {
 #[test]
 fn unlink_ticker_from_asset_id_ticker_registration_not_found() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let ticker_1: Ticker = Ticker::from_slice_truncated(b"TICKER1");
@@ -121,8 +121,8 @@ fn unlink_ticker_from_asset_id_ticker_registration_not_found() {
 #[test]
 fn unlink_ticker_from_asset_id_ticker_not_registered_to_caller() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
 
@@ -162,7 +162,7 @@ fn unlink_ticker_from_asset_id_ticker_not_registered_to_caller() {
 #[test]
 fn unlink_ticker_from_asset_id_ticker_not_linked() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER");
         let ticker_1: Ticker = Ticker::from_slice_truncated(b"TICKER1");

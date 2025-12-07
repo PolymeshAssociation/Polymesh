@@ -13,19 +13,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, ClaimType, IdentityId};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::iter;
 use either::Either;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
+use crate::{Claim, ClaimType, IdentityId};
+
 /// Defines a static / dynamic identity.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Deserialize, Serialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, TypeInfo)]
 pub enum TargetIdentity {
     /// Matches any of the external agents of an asset. Resolved dynamically.
     ExternalAgent,
@@ -35,8 +36,8 @@ pub enum TargetIdentity {
 
 /// It defines the type of condition supported, and the filter information we will use to evaluate as a
 /// predicate.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum ConditionType {
     /// Condition to ensure that claim filter produces one claim.
     IsPresent(Claim),
@@ -63,8 +64,8 @@ impl ConditionType {
 }
 
 /// Denotes the set of `ClaimType`s for which an issuer is trusted.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum TrustedFor {
     /// Issuer is trusted for any `ClaimType`.
     Any,
@@ -73,8 +74,8 @@ pub enum TrustedFor {
 }
 
 /// A trusted issuer for a certain compliance `Condition` and what `ClaimType`s is trusted for.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TrustedIssuer {
     /// The issuer trusted for the `Condition` or for the `Ticker`,
     /// depending on where `TrustedClaimIssuer` is included.
@@ -125,8 +126,8 @@ impl From<IdentityId> for TrustedIssuer {
 }
 
 /// Type of claim requirements that a condition can have
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Condition {
     /// Type of condition.
     pub condition_type: ConditionType,

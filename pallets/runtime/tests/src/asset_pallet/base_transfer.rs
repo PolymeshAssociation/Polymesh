@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::{AssetBalance, BalanceOf};
 use pallet_portfolio::PortfolioAssetBalances;
@@ -27,8 +27,8 @@ type System = frame_system::Pallet<TestStorage>;
 #[test]
 fn base_transfer() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId::new(alice.did, PortfolioKind::Default);
         let bob_user_portfolio = PortfolioId::new(bob.did, PortfolioKind::User(PortfolioNumber(1)));
 
@@ -75,8 +75,8 @@ fn base_transfer() {
 #[test]
 fn base_transfer_invalid_token_type() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -107,8 +107,8 @@ fn base_transfer_invalid_token_type() {
 #[test]
 fn base_transfer_invalid_granularity() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -155,8 +155,8 @@ fn base_transfer_invalid_granularity() {
 #[test]
 fn base_transfer_insufficient_balance() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -195,8 +195,8 @@ fn base_transfer_insufficient_balance() {
 #[test]
 fn base_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
@@ -249,8 +249,8 @@ fn base_transfer_locked_asset() {
 #[test]
 fn base_transfer_invalid_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -281,9 +281,9 @@ fn base_transfer_invalid_portfolio() {
 #[test]
 fn base_transfer_invalid_compliance() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
-        let dave: User = User::new(AccountKeyring::Dave);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let dave: User = User::new(Sr25519Keyring::Dave);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -333,8 +333,8 @@ fn base_transfer_invalid_compliance() {
 #[test]
 fn base_transfer_frozen_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -370,8 +370,8 @@ fn base_transfer_frozen_asset() {
 #[test]
 fn base_acc_transfer() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let alice_acc_portfolio =
             PortfolioId::new(alice.did, PortfolioKind::AccountId(alice.acc()));
         let bob_acc_portfolio = PortfolioId::new(bob.did, PortfolioKind::AccountId(bob.acc()));

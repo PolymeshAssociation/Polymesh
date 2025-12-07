@@ -25,21 +25,19 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::mem;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::{CallMetadata, GetCallMetadata},
-};
-use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
-use scale_info::TypeInfo;
-use sp_runtime::{
-    traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-    transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
-};
-use sp_std::{fmt, marker::PhantomData, result::Result, vec};
-
+use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::*;
+use frame_support::traits::{CallMetadata, GetCallMetadata};
+use scale_info::TypeInfo;
+use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension};
+use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
+use sp_std::marker::PhantomData;
+use sp_std::result::Result;
+use sp_std::{fmt, vec};
+
+use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 
 pub use pallet::*;
 
@@ -152,7 +150,8 @@ pub mod pallet {
 }
 
 /// A signed extension used in checking call permissions.
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, Default)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
+#[derive(Clone, Default, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct StoreCallMetadata<T: Config>(PhantomData<T>);
 
@@ -187,37 +186,46 @@ impl<T: Config> StoreCallMetadata<T> {
     }
 }
 
-impl<T> SignedExtension for StoreCallMetadata<T>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StoreCallMetadata<T>
 where
-    T: Config + Send + Sync,
-    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+    T::RuntimeCall: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
-    type AccountId = T::AccountId;
-    type Call = <T as frame_system::Config>::RuntimeCall;
-    type AdditionalSigned = ();
+    type Implicit = ();
+    type Val = ();
     type Pre = ();
 
-    fn additional_signed(&self) -> Result<(), TransactionValidityError> {
-        Ok(())
+    fn weight(&self, _: &T::RuntimeCall) -> Weight {
+        Weight::zero()
     }
 
     fn validate(
         &self,
-        _: &Self::AccountId,
-        _: &Self::Call,
-        _: &DispatchInfoOf<Self::Call>,
-        _: usize,
-    ) -> TransactionValidity {
-        Ok(ValidTransaction::default())
+        origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+        _: (),
+        _implication: &impl Encode,
+        _source: TransactionSource,
+    ) -> Result<
+        (
+            ValidTransaction,
+            Self::Val,
+            <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        Ok((ValidTransaction::default(), (), origin))
     }
 
-    fn pre_dispatch(
+    fn prepare(
         self,
-        _: &Self::AccountId,
-        call: &Self::Call,
-        _: &DispatchInfoOf<Self::Call>,
-        _: usize,
+        _val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let metadata = call.get_call_metadata();
         Self::set_call_metadata(metadata.pallet_name.into(), metadata.function_name.into());
@@ -225,11 +233,11 @@ where
     }
 
     fn post_dispatch(
-        _: Option<Self::Pre>,
-        _: &DispatchInfoOf<Self::Call>,
-        _: &PostDispatchInfoOf<Self::Call>,
-        _: usize,
-        _: &DispatchResult,
+        _pre: Self::Pre,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+        _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         Self::clear_call_metadata();
         Ok(())

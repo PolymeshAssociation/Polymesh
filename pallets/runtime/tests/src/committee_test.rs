@@ -1,27 +1,21 @@
-use super::{
-    ext_builder::{ExtBuilder, COOL_OFF_PERIOD},
-    storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, root, EventTest,
-        RuntimeCall, TestStorage,
-    },
-};
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
-};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
 use frame_system::{EventRecord, Phase};
-use pallet_committee::{
-    self as committee, Event as CommitteeRawEvent, Members, PolymeshVotes, Proposals,
-    ReleaseCoordinator, VoteThreshold, Voting,
-};
+use sp_core::H256;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::Hash;
+use std::convert::TryFrom;
+
+use pallet_committee::{self as committee, Event as CommitteeRawEvent, Members};
+use pallet_committee::{PolymeshVotes, Proposals, ReleaseCoordinator, VoteThreshold, Voting};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{PipId, ProposalState, ProposalStates, SnapshotResult};
 use polymesh_primitives::{IdentityId, MaybeBlock};
-use sp_core::H256;
-use sp_keyring::AccountKeyring;
-use sp_runtime::traits::Hash;
-use std::convert::TryFrom;
+
+use super::ext_builder::{ExtBuilder, COOL_OFF_PERIOD};
+use super::storage::{fast_forward_blocks, get_identity_id, register_keyring_account};
+use super::storage::{root, EventTest, RuntimeCall, TestStorage};
 
 type Committee = committee::Pallet<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Pallet<TestStorage, group::Instance1>;
@@ -33,8 +27,8 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 #[test]
 fn motions_basic_environment_works() {
     let committee = [
-        AccountKeyring::Alice.to_account_id(),
-        AccountKeyring::Bob.to_account_id(),
+        Sr25519Keyring::Alice.to_account_id(),
+        Sr25519Keyring::Bob.to_account_id(),
     ]
     .to_vec();
     ExtBuilder::default()
@@ -44,7 +38,7 @@ fn motions_basic_environment_works() {
 }
 
 fn motions_basic_environment_works_we() {
-    let mut committee = [AccountKeyring::Alice, AccountKeyring::Bob]
+    let mut committee = [Sr25519Keyring::Alice, Sr25519Keyring::Bob]
         .iter()
         .map(|key| get_identity_id(*key).unwrap())
         .collect::<Vec<_>>();
@@ -93,7 +87,7 @@ fn abdicate_membership(who: IdentityId, signer: &Origin, n: u32) {
     assert_mem_len(n - 1);
 }
 
-fn prepare_proposal(ring: AccountKeyring) {
+fn prepare_proposal(ring: Sr25519Keyring) {
     let proposal = make_proposal(42);
     let acc = ring.to_account_id();
     assert_ok!(Pips::propose(
@@ -142,7 +136,7 @@ fn single_member_committee_works() {
 fn single_member_committee_works_we() {
     System::set_block_number(1);
 
-    let alice_ring = AccountKeyring::Alice;
+    let alice_ring = Sr25519Keyring::Alice;
     let alice_signer = Origin::signed(alice_ring.to_account_id());
     let alice_did = register_keyring_account(alice_ring).unwrap();
 
@@ -181,7 +175,7 @@ fn preventing_motions_from_non_members_works() {
 fn preventing_motions_from_non_members_works_we() {
     System::set_block_number(1);
 
-    let alice_ring = AccountKeyring::Alice;
+    let alice_ring = Sr25519Keyring::Alice;
     let alice_signer = Origin::signed(alice_ring.to_account_id());
     let _ = register_keyring_account(alice_ring).unwrap();
 
@@ -210,11 +204,11 @@ fn preventing_voting_from_non_members_works() {
 fn preventing_voting_from_non_members_works_we() {
     System::set_block_number(1);
 
-    let alice_ring = AccountKeyring::Alice;
+    let alice_ring = Sr25519Keyring::Alice;
     let alice_signer = Origin::signed(alice_ring.to_account_id());
     let alice_did = register_keyring_account(alice_ring).unwrap();
-    let bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let _ = register_keyring_account(Sr25519Keyring::Bob).unwrap();
 
     set_members(vec![alice_did]);
     prepare_proposal(alice_ring);
@@ -239,13 +233,13 @@ fn motions_revoting_works() {
 fn motions_revoting_works_we() {
     System::set_block_number(1);
 
-    let alice_ring = AccountKeyring::Alice;
+    let alice_ring = Sr25519Keyring::Alice;
     let alice_signer = Origin::signed(alice_ring.to_account_id());
     let alice_did = register_keyring_account(alice_ring).unwrap();
-    let _bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let _charlie_signer = Origin::signed(AccountKeyring::Charlie.to_account_id());
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let _bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+    let _charlie_signer = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+    let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
 
     set_members(vec![alice_did, bob_did, charlie_did]);
     prepare_proposal(alice_ring);
@@ -295,10 +289,10 @@ fn first_vote_cannot_be_reject() {
 fn first_vote_cannot_be_reject_we() {
     System::set_block_number(1);
 
-    let alice_ring = AccountKeyring::Alice;
+    let alice_ring = Sr25519Keyring::Alice;
     let alice_did = register_keyring_account(alice_ring).unwrap();
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+    let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
 
     set_members(vec![alice_did, bob_did, charlie_did]);
     prepare_proposal(alice_ring);
@@ -326,10 +320,10 @@ pub fn gc_vmo() -> Origin {
 }
 
 fn changing_vote_threshold_works_we() {
-    let alice_signer = Origin::signed(AccountKeyring::Alice.to_account_id());
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let alice_signer = Origin::signed(Sr25519Keyring::Alice.to_account_id());
+    let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+    let bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
     set_members(vec![alice_did, bob_did]);
 
     assert_eq!(
@@ -367,16 +361,16 @@ fn rage_quit() {
 
 fn rage_quit_we() {
     // 1. Add members to committee
-    let alice_ring = AccountKeyring::Alice;
+    let alice_ring = Sr25519Keyring::Alice;
     let alice_signer = Origin::signed(alice_ring.to_account_id());
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie_signer = Origin::signed(AccountKeyring::Charlie.to_account_id());
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.to_account_id());
-    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+    let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+    let bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+    let charlie_signer = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+    let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
+    let dave_did = register_keyring_account(Sr25519Keyring::Dave).unwrap();
+    let ferdie_signer = Origin::signed(Sr25519Keyring::Ferdie.to_account_id());
+    let ferdie_did = register_keyring_account(Sr25519Keyring::Ferdie).unwrap();
     set_members(vec![alice_did, bob_did, charlie_did, dave_did]);
     assert_mem_len(4);
 
@@ -487,8 +481,8 @@ fn rage_quit_we() {
 #[test]
 fn release_coordinator() {
     let committee = [
-        AccountKeyring::Alice.to_account_id(),
-        AccountKeyring::Bob.to_account_id(),
+        Sr25519Keyring::Alice.to_account_id(),
+        Sr25519Keyring::Bob.to_account_id(),
     ]
     .to_vec();
     ExtBuilder::default()
@@ -499,11 +493,11 @@ fn release_coordinator() {
 }
 
 fn release_coordinator_we() {
-    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
-    let alice_id = get_identity_id(AccountKeyring::Alice).expect("Alice is part of the committee");
-    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob is part of the committee");
-    let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let alice = Origin::signed(Sr25519Keyring::Alice.to_account_id());
+    let alice_id = get_identity_id(Sr25519Keyring::Alice).expect("Alice is part of the committee");
+    let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_id = get_identity_id(Sr25519Keyring::Bob).expect("Bob is part of the committee");
+    let charlie_id = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
 
     assert_eq!(
         ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
@@ -543,8 +537,8 @@ fn release_coordinator_we() {
 #[test]
 fn release_coordinator_majority() {
     let committee = [
-        AccountKeyring::Alice.to_account_id(),
-        AccountKeyring::Bob.to_account_id(),
+        Sr25519Keyring::Alice.to_account_id(),
+        Sr25519Keyring::Bob.to_account_id(),
     ]
     .to_vec();
     ExtBuilder::default()
@@ -555,9 +549,9 @@ fn release_coordinator_majority() {
 }
 
 fn release_coordinator_majority_we() {
-    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
-    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-    let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob is part of the committee");
+    let alice = Origin::signed(Sr25519Keyring::Alice.to_account_id());
+    let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_id = get_identity_id(Sr25519Keyring::Bob).expect("Bob is part of the committee");
 
     assert_eq!(
         ReleaseCoordinator::<TestStorage, committee::Instance1>::get(),
@@ -594,9 +588,9 @@ fn release_coordinator_majority_we() {
 #[test]
 fn enact() {
     let committee = vec![
-        AccountKeyring::Alice.to_account_id(),
-        AccountKeyring::Bob.to_account_id(),
-        AccountKeyring::Charlie.to_account_id(),
+        Sr25519Keyring::Alice.to_account_id(),
+        Sr25519Keyring::Bob.to_account_id(),
+        Sr25519Keyring::Charlie.to_account_id(),
     ];
     ExtBuilder::default()
         .governance_committee(committee)
@@ -607,13 +601,13 @@ fn enact() {
 fn enact_we() {
     System::set_block_number(1);
 
-    let alice = AccountKeyring::Alice;
+    let alice = Sr25519Keyring::Alice;
     let alice_signer = Origin::signed(alice.to_account_id());
     let _ = register_keyring_account(alice);
-    let bob = AccountKeyring::Bob.to_account_id();
-    let _ = register_keyring_account(AccountKeyring::Bob);
-    let dave = AccountKeyring::Dave.to_account_id();
-    let _ = register_keyring_account(AccountKeyring::Dave);
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let _ = register_keyring_account(Sr25519Keyring::Bob);
+    let dave = Sr25519Keyring::Dave.to_account_id();
+    let _ = register_keyring_account(Sr25519Keyring::Dave);
 
     // 1. Create the PIP.
     prepare_proposal(alice);
@@ -638,10 +632,10 @@ fn mesh_1065_regression_test() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+        let bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+        let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
         set_members(vec![alice_did, bob_did, charlie_did]);
         assert_mem_len(3);
 
@@ -684,13 +678,13 @@ fn expiry_works() {
 
         assert_ok!(Committee::set_expires_after(gc_vmo(), MaybeBlock::Some(13)));
 
-        let alice_ring = AccountKeyring::Alice;
+        let alice_ring = Sr25519Keyring::Alice;
         let alice_signer = Origin::signed(alice_ring.to_account_id());
         let alice_did = register_keyring_account(alice_ring).unwrap();
-        let _bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let _charlie_signer = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let _bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+        let _charlie_signer = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
 
         set_members(vec![alice_did, bob_did, charlie_did]);
         prepare_proposal(alice_ring);

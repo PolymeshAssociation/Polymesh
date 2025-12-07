@@ -13,20 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::iter::{self, FromIterator};
 
 /// The type of subsets of an open set of elements of type `A` where the whole set is always
 /// considered to be bigger than any finite set of its elements. This is true for infinite
 /// sets. When talking about finite sets, we have to add that they are _open_.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, TypeInfo)]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, TypeInfo)]
+#[derive(Serialize, Deserialize)]
 pub enum SubsetRestriction<A: Ord> {
     /// No restrictions, the whole set.
     #[default]

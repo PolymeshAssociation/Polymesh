@@ -51,14 +51,14 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
-    DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
-    PostDispatchInfo,
+    DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
 use frame_support::pallet_prelude::*;
 use frame_support::storage::with_transaction as frame_support_with_transaction;
 use frame_support::storage::TransactionOutcome;
-use frame_support::traits::schedule::{DispatchTime, Named};
-use frame_support::traits::Get;
+use frame_support::traits::schedule::v3::Named as ScheduleNamed;
+use frame_support::traits::schedule::DispatchTime;
+use frame_support::traits::{Get, QueryPreimage, StorePreimage};
 use frame_support::weights::Weight;
 use frame_support::{ensure, BoundedBTreeSet};
 use frame_system::pallet_prelude::*;
@@ -159,7 +159,7 @@ pub mod pallet {
             IdentityId,
             Option<VenueId>,
             InstructionId,
-            SettlementType<T::BlockNumber>,
+            SettlementType<BlockNumberFor<T>>,
             Option<T::Moment>,
             Option<T::Moment>,
             Vec<Leg>,
@@ -422,10 +422,17 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A call type used by the scheduler.
-        type Proposal: From<Call<Self>> + Into<<Self as pallet_identity::Config>::Proposal>;
+        type SchedulerCall: From<Call<Self>>
+            + Into<<Self as pallet_identity::Config>::Proposal>
+            + Encode;
 
         /// Scheduler of settlement instructions.
-        type Scheduler: Named<Self::BlockNumber, <Self as Config>::Proposal, Self::SchedulerOrigin>;
+        type Scheduler: ScheduleNamed<
+            BlockNumberFor<Self>,
+            Self::SchedulerCall,
+            Self::SchedulerOrigin,
+            Hasher = Self::Hashing,
+        >;
 
         /// Portfolio module.
         type Portfolio: PortfolioSubTrait<Self::AccountId>;
@@ -464,6 +471,9 @@ pub mod pallet {
         /// The maximum time period that an instruction can be held in the `LockedForExecution` status.
         #[pallet::constant]
         type MaximumLockPeriod: Get<Self::Moment>;
+
+        /// Preimage provider for the scheduler.
+        type SchedulerPreimage: QueryPreimage<H = Self::Hashing> + StorePreimage;
     }
 
     #[pallet::error]
@@ -572,6 +582,8 @@ pub mod pallet {
         ReceiverIdentityNotFound,
         /// Invalid account id.
         InvalidAccountId,
+        /// TaskName cannot exceed 32 bytes.
+        InvalidTaskName,
     }
 
     storage_migration_ver!(3);
@@ -616,7 +628,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         InstructionId,
-        Instruction<T::Moment, T::BlockNumber>,
+        Instruction<T::Moment, BlockNumberFor<T>>,
         ValueQuery,
     >;
 
@@ -693,8 +705,13 @@ pub mod pallet {
 
     /// Instruction statuses. instruction_id -> InstructionStatus
     #[pallet::storage]
-    pub type InstructionStatuses<T: Config> =
-        StorageMap<_, Twox64Concat, InstructionId, InstructionStatus<T::BlockNumber>, ValueQuery>;
+    pub type InstructionStatuses<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        InstructionId,
+        InstructionStatus<BlockNumberFor<T>>,
+        ValueQuery,
+    >;
 
     /// Legs under an instruction. (instruction_id, leg_id) -> Leg
     #[pallet::storage]
@@ -741,11 +758,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig;
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             VenueCounter::<T>::put(VenueId(1));
             InstructionCounter::<T>::put(InstructionId(1));
@@ -1018,7 +1038,7 @@ pub mod pallet {
         pub fn add_instruction(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1056,7 +1076,7 @@ pub mod pallet {
         pub fn add_and_affirm_instruction(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1306,7 +1326,7 @@ pub mod pallet {
         pub fn add_instruction_with_mediators(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1346,7 +1366,7 @@ pub mod pallet {
         pub fn add_and_affirm_with_mediators(
             origin: OriginFor<T>,
             venue_id: Option<VenueId>,
-            settlement_type: SettlementType<T::BlockNumber>,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
@@ -1512,7 +1532,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         id: InstructionId,
         is_execute: bool,
-    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
+    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, BlockNumberFor<T>> {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         Ok((
             origin_data.primary_did,
@@ -1531,7 +1551,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_add_instruction(
         did: IdentityId,
         venue_id: Option<VenueId>,
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
@@ -1657,7 +1677,7 @@ impl<T: Config> Pallet<T> {
                 instruction_info.nfts_transferred(),
                 instruction_info.off_chain(),
             );
-            Self::schedule_instruction(instruction_id, block_number, weight_limit);
+            Self::schedule_instruction(instruction_id, block_number, weight_limit)?;
         }
 
         Ok(instruction_id)
@@ -1783,7 +1803,7 @@ impl<T: Config> Pallet<T> {
     fn ensure_instruction_validity(
         id: InstructionId,
         is_execute: bool,
-    ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
+    ) -> Result<Instruction<T::Moment, BlockNumberFor<T>>, DispatchError> {
         let details = InstructionDetails::<T>::get(id);
         ensure!(
             InstructionStatuses::<T>::get(id) != InstructionStatus::Unknown,
@@ -2179,15 +2199,20 @@ impl<T: Config> Pallet<T> {
 
     /// Schedule a given instruction to be executed on the next block only if the
     /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
-    fn maybe_schedule_instruction(affirms_pending: u64, id: InstructionId, weight_limit: Weight) {
+    fn maybe_schedule_instruction(
+        affirms_pending: u64,
+        id: InstructionId,
+        weight_limit: Weight,
+    ) -> DispatchResult {
         if affirms_pending == 0
             && InstructionDetails::<T>::get(id).settlement_type
                 == SettlementType::SettleOnAffirmation
         {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            Self::schedule_instruction(id, execution_at, weight_limit);
+            Self::schedule_instruction(id, execution_at, weight_limit)?;
         }
+        Ok(())
     }
 
     /// Schedule execution of given instruction at given block number.
@@ -2197,23 +2222,36 @@ impl<T: Config> Pallet<T> {
     /// for the given block so there are chances where the instruction execution block no. may drift.
     pub(crate) fn schedule_instruction(
         id: InstructionId,
-        execution_at: T::BlockNumber,
+        execution_at: BlockNumberFor<T>,
         weight_limit: Weight,
-    ) {
-        let call = Call::<T>::execute_scheduled_instruction { id, weight_limit }.into();
+    ) -> DispatchResult {
+        let scheduler_call =
+            <T as pallet::Config>::SchedulerCall::from(Call::<T>::execute_scheduled_instruction {
+                id,
+                weight_limit,
+            });
+
+        let execute_inst_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
+
+        let task_name = id
+            .execution_name()
+            .map_err(|_| Error::<T>::InvalidTaskName)?;
+
         if let Err(_) = T::Scheduler::schedule_named(
-            id.execution_name(),
+            task_name,
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
             RawOrigin::Root.into(),
-            call,
+            execute_inst_call,
         ) {
             Self::deposit_event(Event::SchedulingFailed(
                 id,
                 Error::<T>::FailedToSchedule.into(),
             ));
         }
+
+        Ok(())
     }
 
     /// Affirms all legs from the instruction of the given `instruction_id`, where `portfolios` are a counter party.
@@ -2337,7 +2375,11 @@ impl<T: Config> Pallet<T> {
             instruction_asset_count.off_chain(),
         );
         // Schedule instruction to be executed in the next block (expected) if conditions are met.
-        Self::maybe_schedule_instruction(InstructionAffirmsPending::<T>::get(id), id, weight_limit);
+        Self::maybe_schedule_instruction(
+            InstructionAffirmsPending::<T>::get(id),
+            id,
+            weight_limit,
+        )?;
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_with_receipts_actual_weight(
                 filtered_legs.sender_asset_count().clone(),
@@ -2366,7 +2408,11 @@ impl<T: Config> Pallet<T> {
             instruction_asset_count.off_chain(),
         );
         // Schedule the instruction if conditions are met
-        Self::maybe_schedule_instruction(InstructionAffirmsPending::<T>::get(id), id, weight_limit);
+        Self::maybe_schedule_instruction(
+            InstructionAffirmsPending::<T>::get(id),
+            id,
+            weight_limit,
+        )?;
         Ok(PostDispatchInfo::from(Some(
             Self::affirm_instruction_actual_weight(
                 filtered_legs.sender_asset_count().clone(),
@@ -2403,7 +2449,7 @@ impl<T: Config> Pallet<T> {
     fn execute_settle_on_affirmation_instruction(
         id: InstructionId,
         affirms_pending: u64,
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
         caller_did: IdentityId,
     ) -> DispatchResult {
         // We assume `settlement_type == SettleOnAffirmation`,
@@ -2590,7 +2636,10 @@ impl<T: Config> Pallet<T> {
         Self::release_locks(&inst_id, &inst_legs)?;
 
         // Note: ignoring the error here is fine, since the instruction might not be scheduled yet
-        let _ = T::Scheduler::cancel_named(inst_id.execution_name());
+        let task_name = inst_id
+            .execution_name()
+            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let _ = T::Scheduler::cancel_named(task_name);
 
         Self::prune_instruction(&inst_id, &inst_legs)?;
         InstructionStatuses::<T>::insert(
@@ -2883,7 +2932,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Ok` if [`SettlementType::SettleManual`] and the `block_number` is reached.
     fn ensure_manual_settlement_type(
-        settlement_type: SettlementType<T::BlockNumber>,
+        settlement_type: SettlementType<BlockNumberFor<T>>,
     ) -> DispatchResult {
         if let SettlementType::SettleManual(block_number) = settlement_type {
             ensure!(
@@ -3007,7 +3056,7 @@ impl<T: Config> Pallet<T> {
         weight_limit: Weight,
     ) -> Result<WeightMeter, DispatchErrorWithPostInfo> {
         // Check that the provided weight limit is greater than the minimum required weight
-        WeightMeter::from_limit(minimum_weight, weight_limit).ok_or_else(|| {
+        WeightMeter::with_limit(minimum_weight, weight_limit).ok_or_else(|| {
             DispatchErrorWithPostInfo {
                 post_info: Some(minimum_weight).into(),
                 error: Error::<T>::InputWeightIsLessThanMinimum.into(),
@@ -3017,22 +3066,25 @@ impl<T: Config> Pallet<T> {
 
     fn base_withdraw_affirmation(
         origin: OriginFor<T>,
-        id: InstructionId,
+        inst_id: InstructionId,
         portfolios: BTreeSet<PortfolioId>,
         affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
         let (did, secondary_key, details) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
+            Self::ensure_origin_perm_and_instruction_validity(origin, inst_id, false)?;
         let filtered_legs = Self::unsafe_withdraw_instruction_affirmation(
             did,
-            id,
+            inst_id,
             portfolios,
             secondary_key.as_ref(),
             affirmation_count,
         )?;
         if details.settlement_type == SettlementType::SettleOnAffirmation {
             // Cancel the scheduled task for the execution of a given instruction.
-            let _fix_this = T::Scheduler::cancel_named(id.execution_name());
+            let task_name = inst_id
+                .execution_name()
+                .map_err(|_| Error::<T>::InvalidTaskName)?;
+            let _ = T::Scheduler::cancel_named(task_name);
         }
         Ok(PostDispatchInfo::from(Some(
             Self::withdraw_affirmation_actual_weight(
@@ -3111,7 +3163,7 @@ impl<T: Config> Pallet<T> {
                 instruction_asset_count.non_fungible(),
                 instruction_asset_count.off_chain(),
             );
-            Self::maybe_schedule_instruction(n_pending_affirmations, instruction_id, weight_limit);
+            Self::maybe_schedule_instruction(n_pending_affirmations, instruction_id, weight_limit)?;
         }
 
         Self::deposit_event(Event::MediatorAffirmationReceived(
@@ -3159,7 +3211,10 @@ impl<T: Config> Pallet<T> {
             && instruction.settlement_type == SettlementType::SettleOnAffirmation
         {
             // Cancel the scheduled task
-            let _ = T::Scheduler::cancel_named(instruction_id.execution_name());
+            let task_name = instruction_id
+                .execution_name()
+                .map_err(|_| Error::<T>::InvalidTaskName)?;
+            let _ = T::Scheduler::cancel_named(task_name);
         }
         Self::deposit_event(Event::MediatorAffirmationWithdrawn(
             caller_did,

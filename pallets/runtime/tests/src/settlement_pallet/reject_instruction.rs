@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_portfolio::PortfolioLockedAssets;
 use pallet_settlement::{AffirmsReceived, InstructionAffirmsPending, InstructionLegs};
@@ -21,10 +21,10 @@ type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 #[test]
 fn invalid_caller() {
     ExtBuilder::default().build().execute_with(|| {
-        let eve = User::new(AccountKeyring::Eve);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let eve = User::new(Sr25519Keyring::Eve);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let _ =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -48,9 +48,9 @@ fn invalid_caller() {
 #[test]
 fn invalid_caller_locked_for_execution() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let _ =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -81,9 +81,9 @@ fn invalid_caller_locked_for_execution() {
 #[test]
 fn invalid_weight() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let _ =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -102,9 +102,9 @@ fn invalid_weight() {
 #[test]
 fn success() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
@@ -166,9 +166,9 @@ fn success() {
 #[test]
 fn success_expired_lock() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let _ =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);

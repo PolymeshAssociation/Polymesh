@@ -8,16 +8,13 @@ pub use sp_runtime::BuildStorage;
 
 use codec::Encode;
 use core::convert::TryFrom;
+use frame_support::parameter_types;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::weights::Weight;
-use frame_support::{construct_runtime, parameter_types};
-use sp_runtime::create_runtime_str;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify,
-};
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT, NumberFor, StaticLookup, Verify};
 use sp_runtime::transaction_validity::TransactionPriority;
-use sp_runtime::{Perbill, Permill};
+use sp_runtime::{Cow, Perbill, Permill};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
@@ -44,22 +41,27 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 
+/// 100% goes to the block author.
+pub type DealWithFees = Author<Runtime>;
+pub type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
+#[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("polymesh_dev"),
-    impl_name: create_runtime_str!("polymesh_dev"),
+    spec_name: Cow::Borrowed("polymesh_dev"),
+    impl_name: Cow::Borrowed("polymesh_dev"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 7_004_000,
+    spec_version: 8_000_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 7,
-    state_version: 1,
+    transaction_version: 8,
+    system_version: 1,
 };
 
 parameter_types! {
@@ -84,7 +86,8 @@ parameter_types! {
     pub const BenchmarkEd: Balance = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxReserves: u32 = 50;
-
+    pub const MaxHolds: u32 = 32;
+    pub const MaxFreezes: u32 = 32;
 
     // Timestamp:
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
@@ -109,7 +112,6 @@ parameter_types! {
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;
     pub const MaxPeerInHeartbeats: u32 = 10_000;
-    pub const MaxPeerDataEncodingSize: u32 = 1_000;
 
     // Assets:
     pub const AssetNameMaxLength: u32 = 128;
@@ -141,8 +143,6 @@ parameter_types! {
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
-    pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
 
@@ -153,17 +153,28 @@ parameter_types! {
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
 
-    // State trie Migration
-    pub const MigrationSignedDepositPerItem: Balance = 1_000;
-    pub const MigrationSignedDepositBase: Balance = 1_000_000;
-    pub const MaxKeyLen: u32 = 2048;
-
     // PIPs
     pub const MaxRefundsAndVotesPruned: u32 = 128;
-}
 
-/// 100% goes to the block author.
-pub type DealWithFees = Author<Runtime>;
+    // Staking
+    pub const SessionsPerEra: sp_staking::SessionIndex = 3;
+    pub const BondingDuration: sp_staking::EraIndex = 7;
+    pub const SlashDeferDuration: sp_staking::EraIndex = 4;
+    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+
+    // Validators
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
+    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
+    pub const FixedYearlyReward: Balance = 140_000_000 * ONE_POLY;
+
+    // Babe
+    pub const MaxNominatorRewardedPerValidator: u32 = 1_024;
+    pub const ReportLongevity: u64 =
+        BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+
+    // Election Provider Multi Phase
+    pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+}
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -176,31 +187,6 @@ pallet_staking_reward_curve::build! {
         test_precision: 0_005_000,
     );
 }
-parameter_types! {
-    pub const SessionsPerEra: sp_staking::SessionIndex = 3;
-    pub const BondingDuration: sp_staking::EraIndex = 7;
-    pub const SlashDeferDuration: sp_staking::EraIndex = 4;
-    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const MaxNominatorRewardedPerValidator: u32 = 1_024;
-    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
-    pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
-    pub const MaxIterations: u32 = 10;
-    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
-    // 0.05%. The higher the value, the more strict solution acceptance becomes.
-    pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
-    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
-    pub const FixedYearlyReward: Balance = 140_000_000 * ONE_POLY;
-    pub const MinimumBond: Balance = ONE_POLY;
-    /// We prioritize im-online heartbeats over election solution submission.
-    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-
-    pub const ReportLongevity: u64 =
-        BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
-}
-
-polymesh_runtime_common::misc_pallet_impls!();
-
-pub type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
 
 impl pallet_identity::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -253,6 +239,7 @@ macro_rules! committee_config {
             type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
         }
+
         impl pallet_group::Config<pallet_group::$instance> for Runtime {
             type RuntimeEvent = RuntimeEvent;
             // Committee cannot alter its own active membership limit.
@@ -284,13 +271,13 @@ impl pallet_pips::Config for Runtime {
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
     type MaxRefundsAndVotesPruned = MaxRefundsAndVotesPruned;
+    type SchedulerPreimage = Preimage;
 }
 
 /// CddProviders instance of group
 impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    // Cannot alter its own active membership limit.
-    type LimitOrigin = polymesh_primitives::EnsureRoot;
+    type LimitOrigin = polymesh_primitives::EnsureRoot; // Cannot alter its own active membership limit.
     type AddOrigin = polymesh_primitives::EnsureRoot;
     type RemoveOrigin = polymesh_primitives::EnsureRoot;
     type SwapOrigin = polymesh_primitives::EnsureRoot;
@@ -303,6 +290,189 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+}
+
+pub struct OnChainSeqPhragmen;
+
+impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type System = Runtime;
+    type Solver = frame_election_provider_support::SequentialPhragmen<
+        polymesh_primitives::AccountId,
+        pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+    >;
+    type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+    type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
+    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
+    type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
+}
+
+polymesh_runtime_common::misc_pallet_impls!();
+
+#[frame_support::runtime]
+mod runtime {
+    use super::*;
+
+    #[runtime::runtime]
+    #[runtime::derive(
+        RuntimeCall,
+        RuntimeEvent,
+        RuntimeError,
+        RuntimeOrigin,
+        RuntimeFreezeReason,
+        RuntimeHoldReason,
+        RuntimeSlashReason
+    )]
+    pub struct Runtime;
+
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system::Pallet<Runtime>;
+
+    #[runtime::pallet_index(1)]
+    pub type Babe = pallet_babe::Pallet<Runtime>;
+
+    #[runtime::pallet_index(2)]
+    pub type Timestamp = pallet_timestamp::Pallet<Runtime>;
+
+    #[runtime::pallet_index(3)]
+    pub type Indices = pallet_indices::Pallet<Runtime>;
+
+    #[runtime::pallet_index(4)]
+    pub type Authorship = pallet_authorship::Pallet<Runtime>;
+
+    #[runtime::pallet_index(5)]
+    pub type Balances = pallet_balances::Pallet<Runtime>;
+
+    #[runtime::pallet_index(6)]
+    pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
+
+    #[runtime::pallet_index(7)]
+    pub type Identity = pallet_identity::Pallet<Runtime>;
+
+    #[runtime::pallet_index(8)]
+    pub type CddServiceProviders = pallet_group::Pallet<Runtime, Instance2>;
+
+    #[runtime::pallet_index(9)]
+    pub type PolymeshCommittee = pallet_committee::Pallet<Runtime, Instance1>;
+
+    #[runtime::pallet_index(10)]
+    pub type CommitteeMembership = pallet_group::Pallet<Runtime, Instance1>;
+
+    #[runtime::pallet_index(11)]
+    pub type TechnicalCommittee = pallet_committee::Pallet<Runtime, Instance3>;
+
+    #[runtime::pallet_index(12)]
+    pub type TechnicalCommitteeMembership = pallet_group::Pallet<Runtime, Instance3>;
+
+    #[runtime::pallet_index(13)]
+    pub type UpgradeCommittee = pallet_committee::Pallet<Runtime, Instance4>;
+
+    #[runtime::pallet_index(14)]
+    pub type UpgradeCommitteeMembership = pallet_group::Pallet<Runtime, Instance4>;
+
+    #[runtime::pallet_index(15)]
+    pub type MultiSig = pallet_multisig::Pallet<Runtime>;
+
+    #[runtime::pallet_index(16)]
+    pub type Validators = pallet_validators::Pallet<Runtime>;
+
+    #[runtime::pallet_index(17)]
+    pub type Staking = pallet_staking::Pallet<Runtime>;
+
+    #[runtime::pallet_index(18)]
+    pub type Offences = pallet_offences::Pallet<Runtime>;
+
+    #[runtime::pallet_index(19)]
+    pub type Session = pallet_session::Pallet<Runtime>;
+
+    #[runtime::pallet_index(20)]
+    pub type AuthorityDiscovery = pallet_authority_discovery::Pallet<Runtime>;
+
+    #[runtime::pallet_index(21)]
+    pub type Grandpa = pallet_grandpa::Pallet<Runtime>;
+
+    #[runtime::pallet_index(22)]
+    pub type Historical = pallet_session_historical::Pallet<Runtime>;
+
+    #[runtime::pallet_index(23)]
+    pub type ImOnline = pallet_im_online::Pallet<Runtime>;
+
+    #[runtime::pallet_index(24)]
+    pub type RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip::Pallet<Runtime>;
+
+    #[runtime::pallet_index(25)]
+    pub type Sudo = pallet_sudo::Pallet<Runtime>;
+
+    #[runtime::pallet_index(26)]
+    pub type Asset = pallet_asset::Pallet<Runtime>;
+
+    #[runtime::pallet_index(27)]
+    pub type CapitalDistribution = pallet_capital_distribution::Pallet<Runtime>;
+
+    #[runtime::pallet_index(28)]
+    pub type Checkpoint = pallet_checkpoint::Pallet<Runtime>;
+
+    #[runtime::pallet_index(29)]
+    pub type ComplianceManager = pallet_compliance_manager::Pallet<Runtime>;
+
+    #[runtime::pallet_index(30)]
+    pub type CorporateAction = pallet_corporate_actions::Pallet<Runtime>;
+
+    #[runtime::pallet_index(31)]
+    pub type CorporateBallot = pallet_corporate_ballot::Pallet<Runtime>;
+
+    #[runtime::pallet_index(32)]
+    pub type Permissions = pallet_permissions::Pallet<Runtime>;
+
+    #[runtime::pallet_index(33)]
+    pub type Pips = pallet_pips::Pallet<Runtime>;
+
+    #[runtime::pallet_index(34)]
+    pub type Portfolio = pallet_portfolio::Pallet<Runtime>;
+
+    #[runtime::pallet_index(35)]
+    pub type ProtocolFee = pallet_protocol_fee::Pallet<Runtime>;
+
+    #[runtime::pallet_index(36)]
+    pub type Scheduler = pallet_scheduler::Pallet<Runtime>;
+
+    #[runtime::pallet_index(37)]
+    pub type Settlement = pallet_settlement::Pallet<Runtime>;
+
+    #[runtime::pallet_index(38)]
+    pub type Statistics = pallet_statistics::Pallet<Runtime>;
+
+    #[runtime::pallet_index(39)]
+    pub type Sto = pallet_sto::Pallet<Runtime>;
+
+    #[runtime::pallet_index(40)]
+    pub type Treasury = pallet_treasury::Pallet<Runtime>;
+
+    #[runtime::pallet_index(41)]
+    pub type Utility = pallet_utility::Pallet<Runtime>;
+
+    #[runtime::pallet_index(42)]
+    pub type Base = pallet_base::Pallet<Runtime>;
+
+    #[runtime::pallet_index(43)]
+    pub type ExternalAgents = pallet_external_agents::Pallet<Runtime>;
+
+    #[runtime::pallet_index(44)]
+    pub type Relayer = pallet_relayer::Pallet<Runtime>;
+
+    #[runtime::pallet_index(46)]
+    pub type Contracts = pallet_contracts::Pallet<Runtime>;
+
+    #[runtime::pallet_index(47)]
+    pub type PolymeshContracts = polymesh_contracts::Pallet<Runtime>;
+
+    #[runtime::pallet_index(48)]
+    pub type Preimage = pallet_preimage::Pallet<Runtime>;
+
+    #[runtime::pallet_index(49)]
+    pub type Nft = pallet_nft::Pallet<Runtime>;
+
+    #[runtime::pallet_index(50)]
+    pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet<Runtime>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -349,108 +519,15 @@ mod benches {
     );
 }
 
-construct_runtime!(
-    pub enum Runtime where
-        Block = Block,
-        NodeBlock = polymesh_primitives::Block,
-        UncheckedExtrinsic = UncheckedExtrinsic
-    {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-        Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
-        Authorship: pallet_authorship = 4,
-
-        // Balance: Genesis config dependencies: System.
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
-
-        // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Call, Event<T>, Storage} = 6,
-
-        // Identity: Genesis config deps: Timestamp.
-        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,
-
-        // Polymesh Committees
-
-        // CddServiceProviders (group only): Genesis config deps: Identity
-        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 8,
-
-        // Governance Council (committee)
-        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 9,
-        // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
-        CommitteeMembership: pallet_group::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
-
-        // Technical Committee
-        TechnicalCommittee: pallet_committee::<Instance3>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 11,
-        // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
-        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 12,
-
-        // Upgrade Committee
-        UpgradeCommittee: pallet_committee::<Instance4>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 13,
-        // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee, Identity
-        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
-
-        MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 15,
-
-        Validators: pallet_validators = 16,
-        Staking: pallet_staking = 17,
-
-        Offences: pallet_offences::{Pallet, Storage, Event} = 18,
-
-        // Session: Genesis config deps: System.
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 19,
-        AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 20,
-        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 21,
-        Historical: pallet_session_historical::{Pallet} = 22,
-        ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 23,
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage} = 24,
-
-        // Sudo. Usable initially.
-        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 25,
-
-        // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Pallet, Call, Storage, Config, Event<T>} = 26,
-        CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event<T>, Config} = 27,
-        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event<T>, Config} = 28,
-        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event<T>} = 29,
-        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event<T>, Config} = 30,
-        CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event<T>, Config} = 31,
-        Permissions: pallet_permissions::{Pallet} = 32,
-        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 33,
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event<T>, Config} = 34,
-        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config} = 35,
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 36,
-        Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config} = 37,
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event<T>, Config} = 38,
-        Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 39,
-        Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 40,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event<T>} = 41,
-        Base: pallet_base::{Pallet, Call, Event} = 42,
-        ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event<T>} = 43,
-        Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 44,
-        // Removed pallet_rewards = 45,
-
-        // Contracts
-        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 46,
-        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>, Config<T>} = 47,
-
-        // Preimage register.  Used by `pallet_scheduler`.
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
-
-        Nft: pallet_nft::{Pallet, Call, Storage, Event<T>} = 49,
-
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 50,
-    }
-);
-
 polymesh_runtime_common::runtime_apis! {
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
-        #[allow(non_local_definitions)]
+        #[allow(non_local_definitions, deprecated)]
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch,  TrackedStorageKey};
+            use frame_benchmarking::{baseline, BenchmarkBatch};
+            use frame_support::traits::TrackedStorageKey;
 
             use crate::benchmarks::pallet_session::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
@@ -485,7 +562,7 @@ polymesh_runtime_common::runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+            use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
             use crate::benchmarks::pallet_session::Pallet as SessionBench;
@@ -500,19 +577,4 @@ polymesh_runtime_common::runtime_apis! {
             return (list, storage_info)
         }
     }
-}
-
-pub struct OnChainSeqPhragmen;
-
-impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
-    type System = Runtime;
-    type Solver = frame_election_provider_support::SequentialPhragmen<
-        polymesh_primitives::AccountId,
-        pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
-    >;
-    type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
-    type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
-    type VotersBound = polymesh_runtime_common::MaxOnChainElectingVoters;
-    type TargetsBound = polymesh_runtime_common::MaxOnChainElectableTargets;
 }

@@ -1,5 +1,5 @@
 use frame_support::assert_ok;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::SecurityTokensOwnedByUser;
 use pallet_external_agents::GroupOfAgent;
@@ -13,9 +13,9 @@ use crate::storage::{TestStorage, User};
 #[test]
 fn transfer_token_ownership_agents_check() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let dave = User::new(AccountKeyring::Dave);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_and_issue_sample_asset(&alice);
 

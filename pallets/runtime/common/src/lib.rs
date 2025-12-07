@@ -15,39 +15,36 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+#![recursion_limit = "1024"]
 
 pub mod fee_details;
 pub mod impls;
 pub mod migration;
 pub mod runtime;
 
-pub use frame_support::{
-    dispatch::{DispatchClass, GetDispatchInfo, Weight},
-    parameter_types,
-    traits::{Currency, Get},
-    weights::{
-        constants::{
-            WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_MILLIS, WEIGHT_REF_TIME_PER_NANOS,
-            WEIGHT_REF_TIME_PER_SECOND,
-        },
-        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-    },
+use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
+pub use frame_support::dispatch::{DispatchClass, GetDispatchInfo};
+pub use frame_support::parameter_types;
+pub use frame_support::traits::{Currency, Get};
+pub use frame_support::weights::constants::{
+    WEIGHT_REF_TIME_PER_MICROS, WEIGHT_REF_TIME_PER_MILLIS, WEIGHT_REF_TIME_PER_NANOS,
+    WEIGHT_REF_TIME_PER_SECOND,
+};
+pub use frame_support::weights::{
+    RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use smallvec::smallvec;
 pub use sp_runtime::transaction_validity::TransactionPriority;
-pub use sp_runtime::{Perbill, Permill};
+pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion, Saturating};
 
-use pallet_balances as balances;
+pub use impls::Author;
 use polymesh_primitives::constants::currency::*;
 pub use polymesh_primitives::RocksDbWeight;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
 
-pub use impls::Author;
-
-pub type NegativeImbalance<T> =
-    <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     items as Balance * 15 * CENTS + (bytes as Balance) * 6 * CENTS
@@ -61,7 +58,7 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
-    Weight::from_ref_time(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2)).set_proof_size(u64::MAX);
+    Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 /// Maximum number of iterations for balancing that will be executed in the embedded OCW
 /// miner of election provider multi phase.
@@ -81,24 +78,30 @@ parameter_types! {
     /// Blocks can be of upto 10 MB in size.
     pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
     /// 20 ms is needed to create a block.
-    pub const BlockExecutionWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(20));
+    pub const BlockExecutionWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(20), 0);
     /// 0.65 ms is needed to process an empty extrinsic.
-    pub const ExtrinsicBaseWeight: Weight = Weight::from_ref_time(WEIGHT_REF_TIME_PER_MICROS.saturating_mul(650));
+    pub const ExtrinsicBaseWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_MICROS.saturating_mul(650), 0);
     /// This implies a 100 POLYX fee per MB of transaction length
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
+    /// The multiplier for operational fees.
+    pub const OperationalFeeMultiplier: u8 = 5;
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
     pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_mul(75).saturating_div(100);
     /// Number of block delay an extrinsic claim surcharge has.
     pub const SignedClaimHandicap: u32 = 2;
     /// The balance every contract needs to deposit to stay alive indefinitely.
-    pub const DepositPerContract: u128 = 10 * CENTS;
+    pub const DepositPerContract: Balance = 10 * CENTS;
     /// The balance a contract needs to deposit per storage item to stay alive indefinitely.
-    pub const DepositPerItem: u128 = deposit(1, 0);
+    pub const DepositPerItem: Balance = deposit(1, 0);
     /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
-    pub const DepositPerByte: u128 = deposit(0, 1);
+    pub const DepositPerByte: Balance = deposit(0, 1);
+    /// The code hash lookup deposit.
+    pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+    /// The default deposit limit.
+    pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
     /// The maximum nesting level of a call/instantiate stack.
     pub const ContractsMaxDepth: u32 = 32;
     /// The maximum size of a storage value and event payload in bytes.
@@ -134,10 +137,13 @@ parameter_types! {
         .saturating_sub(BlockExecutionWeight::get());
 
     // Staking constants
+    pub MaxExposurePageSize: u32 = 64;
     pub MaxNominations: u32 = 16;
     pub HistoryDepth:u32 = 84;
     pub MaxUnlockingChunks: u32 = 32;
     pub MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
+    pub MaxControllersInDeprecationBatch: u32 = 100;
+    pub MaxTransientStorageSize: u32 = 1_048_576; // 1 MiB
 
     // Multi-phase election parameters
     // Signed phase
@@ -147,18 +153,19 @@ parameter_types! {
     pub const SignedMaxWeight: Weight = Weight::zero();
     pub const SignedMaxRefunds: u32 = 0;
     pub const SignedRewardBase: Balance = 0;
-    pub const SignedDepositBase: Balance = 0;
+    pub const SignedFixedDeposit: Balance = 0;
+    pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(0);
     pub const SignedDepositByte: Balance = 0;
-    // Unsigned phase
-    pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
     pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2 - 1u64;
     // Fallback parameters
     pub MaxOnChainElectingVoters: u32 = 5000;
     pub MaxOnChainElectableTargets: u16 = 1250;
     // Other config parameters
     pub OffChainRepeat: BlockNumber = 5;
-    pub MaxElectingVoters: u32 = 40_000;
-    pub MaxElectableTargets: u16 = 10_000;
+    pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
+        .voters_count(10_000.into()).targets_count(1_500.into()).build();
+    pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
+        .voters_count(5_000.into()).targets_count(1_250.into()).build();
     pub MaxActiveValidators: u32 = 1_000;
     // Miner Config parameters
     pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
@@ -169,6 +176,7 @@ parameter_types! {
         .get(DispatchClass::Normal)
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
         .saturating_sub(BlockExecutionWeight::get());
+    pub MaxElectingVotersSolution: u32 = 40_000;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -177,35 +185,37 @@ frame_election_provider_support::generate_solution_type!(
         VoterIndex = u32,
         TargetIndex = u16,
         Accuracy = sp_runtime::PerU16,
-        MaxVoters = MaxElectingVoters,
+        MaxVoters = MaxElectingVotersSolution,
     >(16)
 );
 
 /// Converts Weight to Fee
 pub struct WeightToFee;
 
-impl WeightToFeePolynomial for WeightToFee {
+impl frame_support::weights::WeightToFee for WeightToFee {
     type Balance = Balance;
-    /// We want a 0.03 POLYX fee per ExtrinsicBaseWeight.
-    /// 650_000_000 weight = 30_000 fee => 21_666 weight = 1 fee.
-    /// Hence, 1 fee = 0 + 1/21_666 weight.
-    /// This implies, coeff_integer = 0 and coeff_frac = 1/21_666.
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        smallvec![WeightToFeeCoefficient {
-            degree: 1,
-            coeff_frac: Perbill::from_rational(
-                PolyXBaseFee::get(),
-                ExtrinsicBaseWeight::get().ref_time() as u128
-            ),
-            coeff_integer: 0u128, // Coefficient is zero.
-            negative: false,
-        }]
+
+    fn weight_to_fee(weight: &Weight) -> Self::Balance {
+        let weight_ref_time = weight.ref_time();
+
+        let fees_per_base =
+            weight_ref_time.saturating_div(ExtrinsicBaseWeight::get().ref_time()) as Balance;
+
+        let fee = fees_per_base.saturating_mul(PolyXBaseFee::get());
+
+        Self::Balance::saturated_from(fee)
     }
 }
 
-impl Get<Vec<WeightToFeeCoefficient<Balance>>> for WeightToFee {
-    fn get() -> Vec<WeightToFeeCoefficient<Balance>> {
-        Self::polynomial().to_vec()
+pub struct LengthToFee;
+
+impl frame_support::weights::WeightToFee for LengthToFee {
+    type Balance = Balance;
+
+    fn weight_to_fee(weight: &Weight) -> Self::Balance {
+        let weight_ref_time = weight.ref_time();
+
+        Self::Balance::saturated_from(weight_ref_time).saturating_mul(TransactionByteFee::get())
     }
 }
 

@@ -13,14 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
+use frame_support::traits::schedule::v3::TaskName;
 use frame_support::traits::schedule::{Priority, HARD_DEADLINE};
 use frame_support::traits::LockIdentifier;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_std::convert::From;
 use sp_std::vec::Vec;
@@ -43,26 +42,42 @@ pub const MAX_NORMAL_PRIORITY: Priority = HARD_DEADLINE + 1;
 pub(crate) const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
 /// A wrapper for a proposal description.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PipDescription(pub Vec<u8>);
 
 /// The global and unique identitifer of a Polymesh Improvement Proposal (PIP).
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
 
 impl PipId {
-    /// Converts a PIP ID into a name of a PIP scheduled for execution.
-    pub fn execution_name(&self) -> Vec<u8> {
-        (PIP_EXECUTION, self.0).encode()
+    /// Converts [`PipId`] into a [`TaskName`] of a PIP scheduled for execution.
+    pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
+        let mut task_name: TaskName = [0; 32];
+        let encoded_task = (PIP_EXECUTION, self.0).encode();
+
+        if encoded_task.len() >= task_name.len() {
+            return Err(b"Task name too long".to_vec());
+        }
+
+        task_name[..encoded_task.len()].copy_from_slice(&encoded_task[..]);
+        Ok(task_name)
     }
 
-    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
-    pub fn expiry_name(&self) -> Vec<u8> {
-        (PIP_EXPIRY, self.0).encode()
+    /// Converts [`PipId`] into a [`TaskName`] of a PIP scheduled for expiry.
+    pub fn expiry_name(&self) -> Result<TaskName, Vec<u8>> {
+        let mut task_name: TaskName = [0; 32];
+        let encoded_task = (PIP_EXPIRY, self.0).encode();
+
+        if encoded_task.len() >= task_name.len() {
+            return Err(b"Task name too long".to_vec());
+        }
+
+        task_name[..encoded_task.len()].copy_from_slice(&encoded_task[..]);
+        Ok(task_name)
     }
 }
 
@@ -81,8 +96,9 @@ pub struct Pip<Proposal, AccountId> {
 
 /// A result of execution of get_votes.
 
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[derive(Decode, Encode, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
+#[derive(Decode, Encode, TypeInfo, MaxEncodedLen, Eq, PartialEq)]
 pub enum VoteCount {
     /// Proposal was found and has the following votes.
     ProposalFound {
@@ -97,7 +113,7 @@ pub enum VoteCount {
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
 /// proposals.
-#[derive(Decode, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ProposalData {
     /// The hash of the proposal.
@@ -107,7 +123,7 @@ pub enum ProposalData {
 }
 
 /// The various sorts of committees that can make a PIP.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Committee {
     /// The technical committee.
@@ -117,7 +133,7 @@ pub enum Committee {
 }
 
 /// The proposer of a certain PIP.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Proposer<AccountId> {
     /// The proposer is of the community.
@@ -167,7 +183,8 @@ pub struct VotingResult {
 }
 
 /// A "vote" or "signal" on a PIP to move it up or down the review queue.
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Serialize, Deserialize)]
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Vote(
@@ -177,15 +194,8 @@ pub struct Vote(
     pub Balance,
 );
 
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[derive(Clone, Decode, Encode, Eq, PartialEq)]
-pub struct VoteByPip<VoteType> {
-    pub pip: PipId,
-    pub vote: VoteType,
-}
-
 /// The state a PIP is in.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ProposalState {
     /// Initial state. Proposal is open to voting.
@@ -215,8 +225,8 @@ pub struct DepositInfo<AccountId> {
 }
 
 /// ID of the taken snapshot in a sequence.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Serialize, Deserialize)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SnapshotId(pub u32);
 impl_checked_inc!(SnapshotId);
@@ -236,9 +246,8 @@ pub struct SnapshotMetadata<BlockNumber, AccountId> {
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SnapshottedPip {
     /// Identifies the PIP this refers to.
     pub id: PipId,
@@ -268,7 +277,8 @@ pub(crate) fn compare_spip(l: &SnapshottedPip, r: &SnapshottedPip) -> Ordering {
 
 /// A result to enact for one or many PIPs in the snapshot queue.
 // This type is only here due to `enact_snapshot_results`.
-#[derive(Clone, Copy, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug)]
 pub enum SnapshotResult {
     /// Approve the PIP and move it to the execution queue.
     Approve,

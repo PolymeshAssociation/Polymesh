@@ -19,6 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use frame_system::pallet_prelude::*;
 use polymesh_primitives::{storage_migration_ver, Balance, IdentityId};
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -29,7 +30,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::{ValueQuery, *};
+    use frame_support::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {}
@@ -109,7 +110,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         u32,
-        BridgeTxDetail<T::BlockNumber>,
+        BridgeTxDetail<BlockNumberFor<T>>,
         ValueQuery,
     >;
 
@@ -129,18 +130,19 @@ pub mod pallet {
     /// The bridge transaction timelock period, in blocks, since the acceptance of the
     /// transaction proposal during which the admin key can freeze the transaction.
     #[pallet::storage]
-    pub(super) type Timelock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub(super) type Timelock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// The maximum number of bridged POLYX per identity within a set interval of
     /// blocks. Fields: POLYX amount and the block interval duration.
     #[pallet::storage]
-    pub(super) type BridgeLimit<T: Config> = StorageValue<_, (Balance, T::BlockNumber), ValueQuery>;
+    pub(super) type BridgeLimit<T: Config> =
+        StorageValue<_, (Balance, BlockNumberFor<T>), ValueQuery>;
 
     /// Amount of POLYX bridged by the identity in last block interval. Fields: the bridged
     /// amount and the last interval number.
     #[pallet::storage]
     pub(super) type PolyxBridged<T: Config> =
-        StorageMap<_, Identity, IdentityId, (Balance, T::BlockNumber), ValueQuery>;
+        StorageMap<_, Identity, IdentityId, (Balance, BlockNumberFor<T>), ValueQuery>;
 
     /// Identities not constrained by the bridge limit.
     #[pallet::storage]
@@ -152,11 +154,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig {}
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(0));
         }

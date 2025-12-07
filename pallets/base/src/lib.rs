@@ -26,9 +26,11 @@
 
 use codec::{Decode, Encode};
 use core::mem;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
+
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::AccountId as AccountId32;
 

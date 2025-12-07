@@ -1,5 +1,5 @@
 use frame_support::assert_noop;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 use pallet_balances as balances;
@@ -21,18 +21,18 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 #[test]
 fn cdd_checks() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Bob.to_account_id()])
+        .cdd_providers(vec![Sr25519Keyring::Bob.to_account_id()])
         .monied(true)
         .build()
         .execute_with(|| {
             // alice does not have cdd
-            make_account_without_cdd(AccountKeyring::Alice.to_account_id()).unwrap();
-            let alice_account = AccountKeyring::Alice.to_account_id();
+            make_account_without_cdd(Sr25519Keyring::Alice.to_account_id()).unwrap();
+            let alice_account = Sr25519Keyring::Alice.to_account_id();
             let alice_signatory = Signatory::Account(alice_account.clone());
 
             // charlie has valid cdd
-            let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
-            let charlie_account = AccountKeyring::Charlie.to_account_id();
+            let _ = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
+            let charlie_account = Sr25519Keyring::Charlie.to_account_id();
             let charlie_signatory = Signatory::Account(charlie_account.clone());
 
             assert_eq!(
@@ -42,7 +42,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
+                Ok(Some(Sr25519Keyring::Alice.to_account_id()))
             );
 
             // call to accept being a multisig signer should fail when invalid auth
@@ -68,7 +68,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Charlie.to_account_id()))
+                Ok(Some(Sr25519Keyring::Charlie.to_account_id()))
             );
 
             assert_eq!(
@@ -80,7 +80,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Charlie.to_account_id()))
+                Ok(Some(Sr25519Keyring::Charlie.to_account_id()))
             );
 
             assert_eq!(
@@ -92,7 +92,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
+                Ok(Some(Sr25519Keyring::Alice.to_account_id()))
             );
 
             // check that authorisation can be removed correctly
@@ -112,7 +112,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
+                Ok(Some(Sr25519Keyring::Alice.to_account_id()))
             );
 
             assert_eq!(
@@ -124,7 +124,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Charlie.to_account_id()))
+                Ok(Some(Sr25519Keyring::Charlie.to_account_id()))
             );
 
             // create an authorisation where the target has a CDD claim and the issuer does not
@@ -144,7 +144,7 @@ fn cdd_checks() {
                     }),
                     charlie_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Alice.to_account_id()))
+                Ok(Some(Sr25519Keyring::Alice.to_account_id()))
             );
 
             // call to remove authorisation with caller paying should succeed as caller has CDD
@@ -157,7 +157,7 @@ fn cdd_checks() {
                     }),
                     charlie_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Charlie.to_account_id()))
+                Ok(Some(Sr25519Keyring::Charlie.to_account_id()))
             );
 
             // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
@@ -176,7 +176,7 @@ fn cdd_checks() {
                     }),
                     alice_account.clone()
                 ),
-                Ok(Some(AccountKeyring::Charlie.to_account_id()))
+                Ok(Some(Sr25519Keyring::Charlie.to_account_id()))
             );
 
             // normal tx with cdd should succeed
@@ -187,7 +187,7 @@ fn cdd_checks() {
                     }),
                     charlie_account
                 ),
-                Ok(Some(AccountKeyring::Charlie.to_account_id()))
+                Ok(Some(Sr25519Keyring::Charlie.to_account_id()))
             );
         });
 }

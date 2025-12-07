@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -57,7 +56,7 @@ pub mod limits {
 /// Asset Identities don't have a primary key.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct DidRecord<AccountId> {
     /// The identity's primary key, if it has one.
     pub primary_key: Option<AccountId>,

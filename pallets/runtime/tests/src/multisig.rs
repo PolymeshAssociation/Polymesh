@@ -11,7 +11,7 @@ use pallet_multisig::{
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use super::asset_test::set_timestamp;
 use super::next_block;
@@ -86,9 +86,9 @@ fn create_multisig_result(
 #[test]
 fn create_multisig_required_signers() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let eve_signer = AccountKeyring::Eve.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let eve_signer = Sr25519Keyring::Eve.to_account_id();
 
         let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
@@ -107,18 +107,18 @@ fn create_multisig_required_signers() {
 #[test]
 fn join_multisig() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
         let ferdie_signer = ferdie_key;
 
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = User::new(AccountKeyring::Charlie);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = User::new(Sr25519Keyring::Charlie);
 
         // Add dave's key as a secondary key of charlie.
-        let dave = User::new_with(charlie.did, AccountKeyring::Dave);
+        let dave = User::new_with(charlie.did, Sr25519Keyring::Dave);
         add_secondary_key(charlie.did, dave.acc());
 
         let ms_address = create_multisig_default_perms(
@@ -202,11 +202,11 @@ fn join_multisig() {
 #[test]
 fn change_multisig_sigs_required() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -260,11 +260,11 @@ fn change_multisig_sigs_required() {
 #[test]
 fn remove_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -300,7 +300,7 @@ fn remove_multisig_signers() {
 
         // No direct identity for Bob as he is only a signer
         assert_eq!(
-            Identity::get_identity(&AccountKeyring::Bob.to_account_id()),
+            Identity::get_identity(&Sr25519Keyring::Bob.to_account_id()),
             None
         );
 
@@ -329,7 +329,7 @@ fn remove_multisig_signers() {
         assert_eq!(MultiSig::ms_signers(ms_address.clone(), bob_signer), false);
 
         assert_eq!(
-            Identity::get_identity(&AccountKeyring::Bob.to_account_id()),
+            Identity::get_identity(&Sr25519Keyring::Bob.to_account_id()),
             None
         );
 
@@ -359,13 +359,13 @@ fn remove_multisig_signers() {
 #[test]
 fn add_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-        let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
-        let dave_signer = AccountKeyring::Dave.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave = Origin::signed(Sr25519Keyring::Dave.to_account_id());
+        let dave_signer = Sr25519Keyring::Dave.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -459,16 +459,16 @@ fn add_multisig_signers() {
 #[test]
 fn multisig_as_primary() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
 
         let ms_address =
             create_multisig_default_perms(alice.acc(), create_signers(vec![ferdie_key]), 1);
 
         assert_eq!(
             get_primary_key(alice.did),
-            AccountKeyring::Alice.to_account_id()
+            Sr25519Keyring::Alice.to_account_id()
         );
 
         assert_err!(
@@ -485,10 +485,10 @@ fn multisig_as_primary() {
 #[test]
 fn rotate_multisig_primary_key_with_balance() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let dave_key = AccountKeyring::Dave.to_account_id();
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave_key = Sr25519Keyring::Dave.to_account_id();
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address =
             create_multisig_default_perms(alice.acc(), create_signers(vec![dave_key]), 1);
@@ -509,7 +509,7 @@ fn rotate_multisig_primary_key_with_balance() {
         assert_eq!(get_primary_key(alice.did), ms_address);
 
         // Fund the MultiSig.
-        assert_ok!(Balances::transfer(
+        assert_ok!(Balances::transfer_allow_death(
             bob.origin(),
             ms_address.clone().into(),
             2 * POLY
@@ -536,8 +536,8 @@ fn rotate_multisig_primary_key_with_balance() {
 #[test]
 fn multisig_as_secondary_key_default_perms() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
 
         let ms_address =
             create_multisig_default_perms(alice.acc(), create_signers(vec![ferdie_key]), 1);
@@ -550,12 +550,12 @@ fn multisig_as_secondary_key_default_perms() {
 #[test]
 fn remove_multisig_signers_via_admin() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave = User::new(Sr25519Keyring::Dave);
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -646,12 +646,12 @@ fn remove_multisig_signers_via_admin() {
 #[test]
 fn add_multisig_signers_via_admin() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-        let dave = User::new(AccountKeyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave = User::new(Sr25519Keyring::Dave);
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -720,12 +720,12 @@ fn add_multisig_signers_via_admin() {
 #[test]
 fn check_for_approval_closure() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-        let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
-        let dave_signer = AccountKeyring::Dave.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave = Origin::signed(Sr25519Keyring::Dave.to_account_id());
+        let dave_signer = Sr25519Keyring::Dave.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -799,21 +799,21 @@ fn check_for_approval_closure() {
 #[test]
 fn reject_proposals() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
-        let bob_key = AccountKeyring::Bob.to_account_id();
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
         let bob = Origin::signed(bob_key.clone());
 
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
         let charlie = Origin::signed(charlie_key.clone());
 
-        let dave_key = AccountKeyring::Dave.to_account_id();
+        let dave_key = Sr25519Keyring::Dave.to_account_id();
         let dave = Origin::signed(dave_key.clone());
 
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
 
-        let eve_key = AccountKeyring::Eve.to_account_id();
+        let eve_key = Sr25519Keyring::Eve.to_account_id();
         let eve = Origin::signed(eve_key.clone());
 
         let ms_address = setup_multisig(
@@ -907,11 +907,11 @@ fn reject_proposals() {
 fn add_signers_via_admin_removed_controls() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -935,11 +935,11 @@ fn add_signers_via_admin_removed_controls() {
 fn remove_signers_via_admin_removed_controls() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -963,13 +963,13 @@ fn remove_signers_via_admin_removed_controls() {
 fn change_sigs_required_via_admin_id_not_creator() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-        let dave = User::new(AccountKeyring::Dave);
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave = User::new(Sr25519Keyring::Dave);
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -993,11 +993,11 @@ fn change_sigs_required_via_admin_id_not_creator() {
 fn change_sigs_required_via_admin_removed_controls() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -1017,12 +1017,12 @@ fn change_sigs_required_via_admin_removed_controls() {
 fn change_sigs_required_via_admin_not_enough_signers() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -1045,12 +1045,12 @@ fn change_sigs_required_via_admin_not_enough_signers() {
 fn change_sigs_required_via_admin_successfully() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -1073,13 +1073,13 @@ fn change_sigs_required_via_admin_successfully() {
 fn remove_admin_via_admin_id_not_creator() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
-        let dave = User::new(AccountKeyring::Dave);
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave = User::new(Sr25519Keyring::Dave);
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -1103,11 +1103,11 @@ fn remove_admin_via_admin_id_not_creator() {
 fn remove_admin_via_admin_successfully() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -1126,17 +1126,17 @@ fn remove_admin_via_admin_successfully() {
 #[test]
 fn proposal_owner_rejection() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
-        let bob_key = AccountKeyring::Bob.to_account_id();
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
         let bob = Origin::signed(bob_key.clone());
 
-        let dave_key = AccountKeyring::Dave.to_account_id();
+        let dave_key = Sr25519Keyring::Dave.to_account_id();
 
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
 
-        let eve_key = AccountKeyring::Eve.to_account_id();
+        let eve_key = Sr25519Keyring::Eve.to_account_id();
 
         // Creates a multi-signature
         let ms_address = setup_multisig(
@@ -1192,17 +1192,17 @@ fn proposal_owner_rejection() {
 #[test]
 fn proposal_owner_rejection_denied() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(AccountKeyring::Alice);
+        let alice: User = User::new(Sr25519Keyring::Alice);
 
-        let bob_key = AccountKeyring::Bob.to_account_id();
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
         let bob = Origin::signed(bob_key.clone());
 
-        let dave_key = AccountKeyring::Dave.to_account_id();
+        let dave_key = Sr25519Keyring::Dave.to_account_id();
 
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
 
-        let eve_key = AccountKeyring::Eve.to_account_id();
+        let eve_key = Sr25519Keyring::Eve.to_account_id();
 
         // Creates a multi-signature
         let ms_address = setup_multisig(
@@ -1261,11 +1261,11 @@ fn proposal_owner_rejection_denied() {
 fn remove_admin_successfully() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),
@@ -1283,11 +1283,11 @@ fn remove_admin_successfully() {
 fn remove_admin_not_multsig() {
     ExtBuilder::default().build().execute_with(|| {
         // Multisig creator
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
         // Multisig signers
-        let ferdie_signer = AccountKeyring::Ferdie.to_account_id();
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let ferdie_signer = Sr25519Keyring::Ferdie.to_account_id();
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         create_multisig_default_perms(
             alice.acc(),
@@ -1304,15 +1304,15 @@ fn remove_admin_not_multsig() {
 
 fn expired_proposals() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
+        let alice = User::new(Sr25519Keyring::Alice);
 
-        let bob_key = AccountKeyring::Bob.to_account_id();
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
         let bob = Origin::signed(bob_key.clone());
 
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
 
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
         let charlie = Origin::signed(charlie_key.clone());
 
         let ms_address = setup_multisig(
@@ -1399,9 +1399,9 @@ fn expired_proposals() {
 #[test]
 fn multisig_nesting_not_allowed() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
-        let dave_signer = AccountKeyring::Dave.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let dave = Origin::signed(Sr25519Keyring::Dave.to_account_id());
+        let dave_signer = Sr25519Keyring::Dave.to_account_id();
 
         // Created the first top-level multisig.
         let ms1_address = create_multisig_default_perms(
@@ -1447,11 +1447,11 @@ fn multisig_nesting_not_allowed() {
 #[test]
 fn create_expired_proposal() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob_key = AccountKeyring::Bob.to_account_id();
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = setup_multisig(
             alice.acc(),
@@ -1478,11 +1478,11 @@ fn create_expired_proposal() {
 #[test]
 fn invalidate_proposals_change_sigs_required() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob_key = AccountKeyring::Bob.to_account_id();
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = setup_multisig(
             alice.acc(),
@@ -1528,12 +1528,12 @@ fn invalidate_proposals_change_sigs_required() {
 #[test]
 fn invalidate_proposals_add_signer() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob_key = AccountKeyring::Bob.to_account_id();
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = setup_multisig(alice.acc(), 2, create_signers(vec![ferdie_key, bob_key]));
 
@@ -1583,11 +1583,11 @@ fn invalidate_proposals_add_signer() {
 #[test]
 fn invalidate_proposals_remove_signer() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob_key = AccountKeyring::Bob.to_account_id();
-        let ferdie_key = AccountKeyring::Ferdie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_key = Sr25519Keyring::Bob.to_account_id();
+        let ferdie_key = Sr25519Keyring::Ferdie.to_account_id();
         let ferdie = Origin::signed(ferdie_key.clone());
-        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let charlie_key = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = setup_multisig(
             alice.acc(),
@@ -1633,11 +1633,11 @@ fn invalidate_proposals_remove_signer() {
 #[test]
 fn invalidate_proposals_via_executed_proposal() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
-        let bob_signer = AccountKeyring::Bob.to_account_id();
-        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
-        let charlie_signer = AccountKeyring::Charlie.to_account_id();
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
 
         let ms_address = create_multisig_default_perms(
             alice.acc(),

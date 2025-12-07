@@ -1,25 +1,23 @@
-use super::{
-    storage::{get_last_auth_id, make_account_without_cdd, RuntimeCall, TestStorage, User},
-    ExtBuilder,
-};
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::{DispatchInfo, Pays, PostDispatchInfo, Weight},
-};
+use frame_support::dispatch::{DispatchInfo, Pays, PostDispatchInfo};
+use frame_support::weights::Weight;
+use frame_support::{assert_noop, assert_ok};
 use frame_system;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::{Dispatchable, TransactionExtension, TxBaseImplication};
+use sp_runtime::transaction_validity::TransactionSource;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
+use sp_runtime::MultiAddress;
+
 use pallet_relayer::Subsidy;
+use pallet_transaction_payment::Val;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_primitives::{
-    constants::currency::POLY, traits::CddAndFeeDetails, AccountId, Balance, Signatory, Ticker,
-    TransactionError,
-};
+use polymesh_primitives::constants::currency::POLY;
+use polymesh_primitives::traits::CddAndFeeDetails;
+use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
-use sp_keyring::AccountKeyring;
-use sp_runtime::{
-    traits::{Dispatchable, SignedExtension},
-    transaction_validity::{InvalidTransaction, TransactionValidityError},
-    MultiAddress,
-};
+
+use super::storage::{get_last_auth_id, make_account_without_cdd, RuntimeCall, TestStorage, User};
+use super::ExtBuilder;
 
 type Relayer = pallet_relayer::Pallet<TestStorage>;
 type Subsidies = pallet_relayer::Subsidies<TestStorage>;
@@ -31,13 +29,14 @@ type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
 type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;
 type Error = pallet_relayer::Error<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
+type RuntimeOrigin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 // Relayer Test Helper functions
 // =======================================
 
 fn call_balance_transfer(val: Balance) -> RuntimeCall {
-    RuntimeCall::Balances(pallet_balances::Call::transfer {
-        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+    RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+        dest: MultiAddress::Id(Sr25519Keyring::Alice.to_account_id()),
         value: val,
     })
 }
@@ -71,14 +70,14 @@ fn call_relayer_remove_paying_key(user_key: AccountId, paying_key: AccountId) ->
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: u64) -> DispatchInfo {
     DispatchInfo {
-        weight: Weight::from_ref_time(w),
+        call_weight: Weight::from_parts(w, 0),
         ..Default::default()
     }
 }
 
 fn post_info_from_weight(w: u64) -> PostDispatchInfo {
     PostDispatchInfo {
-        actual_weight: Some(Weight::from_ref_time(w)),
+        actual_weight: Some(Weight::from_parts(w, 0)),
         pays_fee: Pays::Yes,
     }
 }
@@ -101,21 +100,28 @@ fn assert_subsidy(user: User, subsidy: Option<(User, Balance)>) {
 }
 
 fn assert_invalid_subsidy_call(caller: &AccountId, call: &RuntimeCall) {
-    let len = 10;
+    let origin = RuntimeOrigin::signed(caller.clone());
+
     let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
         TransactionError::PalletNotSubsidised as u8,
     ));
 
-    // test `validate`
     let pre_err = ChargeTransactionPayment::from(0)
-        .validate(caller, call, &info_from_weight(5), len)
+        .validate(
+            origin.clone(),
+            call,
+            &info_from_weight(5),
+            10,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
         .map(|_| ())
         .unwrap_err();
     assert_eq!(pre_err, expected_err);
 
-    // test `pre_dispatch`
     let pre_err = ChargeTransactionPayment::from(0)
-        .pre_dispatch(caller, call, &info_from_weight(5), len)
+        .prepare(Val::NoCharge, &origin, call, &info_from_weight(5), 10)
         .map(|_| ())
         .unwrap_err();
     assert_eq!(pre_err, expected_err);
@@ -146,9 +152,9 @@ fn basic_relayer_paying_key_test() {
         .execute_with(&do_basic_relayer_paying_key_test);
 }
 fn do_basic_relayer_paying_key_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
-    let dave = User::new(AccountKeyring::Dave);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let dave = User::new(Sr25519Keyring::Dave);
 
     // Add authorization for using Alice as the paying key for Bob.
     assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(), 10u128));
@@ -237,8 +243,8 @@ fn update_polyx_limit_test() {
         .execute_with(&do_update_polyx_limit_test);
 }
 fn do_update_polyx_limit_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     enum Action {
         Set,
@@ -293,9 +299,9 @@ fn accept_new_paying_key_test() {
         .execute_with(&do_accept_new_paying_key_test);
 }
 fn do_accept_new_paying_key_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
-    let dave = User::new(AccountKeyring::Dave);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let dave = User::new(Sr25519Keyring::Dave);
 
     let assert_usages = |bob_cnt, alice_cnt, dave_cnt| {
         assert_key_usage(bob, bob_cnt);
@@ -335,8 +341,8 @@ fn user_remove_paying_key_test() {
         .execute_with(&do_user_remove_paying_key_test);
 }
 fn do_user_remove_paying_key_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     setup_subsidy(bob, alice, 2000);
 
@@ -364,8 +370,8 @@ fn relayer_user_key_without_cdd_test() {
         .execute_with(&do_relayer_user_key_without_cdd_test);
 }
 fn do_relayer_user_key_without_cdd_test() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob_acc = AccountKeyring::Bob.to_account_id();
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob_acc = Sr25519Keyring::Bob.to_account_id();
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Alice as the paying key for Bob.
@@ -388,8 +394,8 @@ fn relayer_paying_key_without_cdd_test() {
         .execute_with(&do_relayer_paying_key_without_cdd_test);
 }
 fn do_relayer_paying_key_without_cdd_test() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob_acc = AccountKeyring::Bob.to_account_id();
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob_acc = Sr25519Keyring::Bob.to_account_id();
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Bob as the paying key for Alice.
@@ -410,8 +416,8 @@ fn user_remove_paying_key_transaction_fee_test() {
         .execute_with(&do_user_remove_paying_key_transaction_fee_test);
 }
 fn do_user_remove_paying_key_transaction_fee_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     let prev_alice_balance = Balances::free_balance(&alice.acc());
     let prev_bob_balance = Balances::free_balance(&bob.acc());
@@ -439,7 +445,13 @@ fn do_user_remove_paying_key_transaction_fee_test() {
 
     // 1. Call `pre_dispatch`.
     let pre = ChargeTransactionPayment::from(0)
-        .pre_dispatch(&bob.acc(), &call, &call_info, len)
+        .prepare(
+            Val::NoCharge,
+            &RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+        )
         .unwrap();
 
     // 2. Execute extrinsic.
@@ -447,9 +459,9 @@ fn do_user_remove_paying_key_transaction_fee_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        Some(pre),
+        pre,
         &call_info,
-        &post_info_from_weight(5),
+        &mut post_info_from_weight(5),
         len,
         &Ok(())
     )
@@ -468,8 +480,8 @@ fn relayer_transaction_and_protocol_fees_test() {
         .execute_with(&do_relayer_transaction_and_protocol_fees_test);
 }
 fn do_relayer_transaction_and_protocol_fees_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     let prev_balance = Balances::free_balance(&alice.acc());
     let remaining = 2_000 * POLY;
@@ -491,10 +503,13 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     // test `validate`
     let pre_err = ChargeTransactionPayment::from(0)
         .validate(
-            &bob.acc(),
+            RuntimeOrigin::signed(bob.acc()),
             &call_system_remark(42),
             &info_from_weight(5),
             len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
         )
         .map(|_| ())
         .unwrap_err();
@@ -502,8 +517,9 @@ fn do_relayer_transaction_and_protocol_fees_test() {
 
     // test `pre_dispatch`
     let pre_err = ChargeTransactionPayment::from(0)
-        .pre_dispatch(
-            &bob.acc(),
+        .prepare(
+            Val::NoCharge,
+            &RuntimeOrigin::signed(bob.acc()),
             &call_system_remark(42),
             &info_from_weight(5),
             len,
@@ -529,7 +545,13 @@ fn do_relayer_transaction_and_protocol_fees_test() {
 
     // 1. Call `pre_dispatch`.
     let pre = ChargeTransactionPayment::from(0)
-        .pre_dispatch(&bob.acc(), &call, &call_info, len)
+        .prepare(
+            Val::NoCharge,
+            &RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+        )
         .unwrap();
 
     // 2. Execute extrinsic.
@@ -537,9 +559,9 @@ fn do_relayer_transaction_and_protocol_fees_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        Some(pre),
+        pre,
         &call_info,
-        &post_info_from_weight(50),
+        &mut post_info_from_weight(50),
         len,
         &Ok(())
     )
@@ -559,8 +581,8 @@ fn relayer_batched_subsidy_calls_test() {
         .execute_with(&do_relayer_batched_subsidy_calls_test);
 }
 fn do_relayer_batched_subsidy_calls_test() {
-    let bob = User::new(AccountKeyring::Bob);
-    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
 
     let prev_balance = Balances::free_balance(&alice.acc());
     let remaining = 2_000 * POLY;
@@ -634,7 +656,13 @@ fn do_relayer_batched_subsidy_calls_test() {
 
     // 1. Call `pre_dispatch`.
     let pre = ChargeTransactionPayment::from(0)
-        .pre_dispatch(&bob.acc(), &call, &call_info, len)
+        .prepare(
+            Val::NoCharge,
+            &RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+        )
         .unwrap();
 
     // 2. Execute extrinsic.
@@ -642,9 +670,9 @@ fn do_relayer_batched_subsidy_calls_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        Some(pre),
+        pre,
         &call_info,
-        &post_info_from_weight(50),
+        &mut post_info_from_weight(50),
         len,
         &Ok(())
     )
@@ -663,8 +691,8 @@ fn relayer_accept_cdd_and_fees_test() {
         .execute_with(&do_relayer_accept_cdd_and_fees_test);
 }
 fn do_relayer_accept_cdd_and_fees_test() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
     let bob_sign = Signatory::Account(bob.acc());
 
     // Alice creates authoration to subsidise for Bob.

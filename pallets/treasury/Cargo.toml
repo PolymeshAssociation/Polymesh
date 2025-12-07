@@ -16,19 +16,19 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "7.0.0", default-features = false }
-sp-std = { version = "5.0.0", default-features = false }
-sp-io = { version = "7.0.0", default-features = false }
-sp-runtime = { version = "7.0.0", default-features = false }
-sp-version = { version = "5.0.0", default-features = false }
-sp-api = { version = "4.0.0-dev", default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-core = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
+sp-api = { workspace = true, default-features = false }
 
-frame-system = { version = "4.0.0-dev", default-features = false }
-frame-support = { version = "4.0.0-dev", default-features = false }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
 
 # Benchmarking
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
 [features]
 equalize = []
@@ -54,5 +54,9 @@ std = [
 
 runtime-benchmarks = [
     "frame-benchmarking",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
+	"pallet-permissions/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime"]

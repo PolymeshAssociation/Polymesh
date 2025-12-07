@@ -17,15 +17,12 @@
 
 //! Test utilities
 
+use frame_support::{derive_impl, traits::Contains};
+use sp_io;
+use sp_runtime::BuildStorage;
+
 use super::*;
 use crate as sudo;
-use frame_support::traits::{ConstU32, ConstU64, Contains, GenesisBuild};
-use sp_core::H256;
-use sp_io;
-use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
-};
 
 // Logger module to track execution.
 #[frame_support::pallet]
@@ -39,7 +36,7 @@ pub mod logger {
     }
 
     #[pallet::pallet]
-    pub struct Pallet<T>(PhantomData<T>);
+    pub struct Pallet<T>(_);
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -92,25 +89,23 @@ pub mod logger {
     }
 
     #[pallet::storage]
-    pub type AccountLog<T: Config> =
+    #[pallet::getter(fn account_log)]
+    pub(crate) type AccountLog<T: Config> =
         StorageValue<_, BoundedVec<T::AccountId, ConstU32<1_000>>, ValueQuery>;
 
     #[pallet::storage]
-    pub type I32Log<T> = StorageValue<_, BoundedVec<i32, ConstU32<1_000>>, ValueQuery>;
+    #[pallet::getter(fn i32_log)]
+    pub(crate) type I32Log<T> = StorageValue<_, BoundedVec<i32, ConstU32<1_000>>, ValueQuery>;
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Sudo: sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Logger: logger::{Pallet, Call, Storage, Event<T>},
+        System: frame_system,
+        Sudo: sudo,
+        Logger: logger,
     }
 );
 
@@ -121,31 +116,10 @@ impl Contains<RuntimeCall> for BlockEverything {
     }
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type BaseCallFilter = BlockEverything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = ConstU64<250>;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = ConstU32<16>;
+    type Block = Block;
 }
 
 // Implement the logger module's `Config` on the Test runtime.
@@ -165,13 +139,23 @@ pub type LoggerCall = logger::Call<Test>;
 
 // Build test environment by setting the root `key` for the Genesis.
 pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
-    let mut t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
+    let mut t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
         .unwrap();
     sudo::GenesisConfig::<Test> {
         key: Some(root_key),
     }
     .assimilate_storage(&mut t)
     .unwrap();
-    t.into()
+    let mut ext: sp_io::TestExternalities = t.into();
+    ext.execute_with(|| System::set_block_number(1));
+    ext
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_bench_ext() -> sp_io::TestExternalities {
+    frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap()
+        .into()
 }

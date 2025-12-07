@@ -1,5 +1,5 @@
 use frame_support::{assert_noop, assert_ok};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::settlement::{
@@ -24,8 +24,8 @@ type System = frame_system::Pallet<TestStorage>;
 #[test]
 fn controller_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(AccountKeyring::Bob);
-        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
         let bob_default_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,

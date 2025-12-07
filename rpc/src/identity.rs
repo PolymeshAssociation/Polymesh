@@ -3,8 +3,8 @@ use std::{convert::TryInto, sync::Arc};
 use codec::Codec;
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::error::{CallError, ErrorCode, ErrorObject};
-use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
+use jsonrpsee::types::error::ErrorObject;
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
 
@@ -12,7 +12,7 @@ pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
 pub use pallet_identity::types::{CddStatus, DidStatus, KeyIdentityData, RpcDidRecords};
 use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
 
-use super::Error;
+use crate::Error;
 
 const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
@@ -111,18 +111,16 @@ where
         buffer_time: Option<u64>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<CddStatus> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.is_identity_has_valid_cdd(at_hash, did, buffer_time)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Either cdd claim not exist or Identity.",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.is_identity_has_valid_cdd(
+                at,
+                did,
+                buffer_time,
+            ),
+            "Unable to query `is_identity_has_valid_cdd`."
+        )
     }
 
     fn get_did_records(
@@ -130,39 +128,12 @@ where
         did: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<RpcDidRecords<AccountId>> {
-        let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-        let api_version = api
-            .api_version::<dyn IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>>(
-                at_hash,
-            )
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to fetch DID records",
-                    Some(e.to_string()),
-                ))
-            })?;
-
-        match api_version {
-            Some(version) if version >= 2 => api.get_did_records(at_hash, did),
-            _ => {
-                return Err(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::MethodNotFound.code(),
-                    format!("Cannot find `IdentityApi` for block {:?}", at),
-                    None::<()>,
-                ))
-                .into());
-            }
-        }
-        .map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to fetch DID records",
-                Some(e.to_string()),
-            ))
-            .into()
-        })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_did_records(at, did),
+            "Unable to query `get_did_records`."
+        )
     }
 
     fn get_filtered_authorizations(
@@ -172,18 +143,13 @@ where
         auth_type: Option<AuthorizationType>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<Authorization<AccountId, Moment>>> {
-        let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.get_filtered_authorizations(at_hash, signatory, allow_expired, auth_type)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to fetch authorizations data",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .get_filtered_authorizations(at, signatory, allow_expired, auth_type),
+            "Unable to query `get_filtered_authorizations`."
+        )
     }
 
     fn get_did_status(
@@ -196,27 +162,22 @@ where
                 .try_into()
                 .unwrap_or_else(|_| Zero::zero())
         {
-            return Err(CallError::Custom(ErrorObject::owned(
+            return Err(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to fetch dids status",
                 Some(format!(
                     "Provided vector length is more than the maximum allowed length i.e {:?}",
                     MAX_IDENTITIES_ALLOWED_TO_QUERY
                 )),
-            ))
-            .into());
+            ));
         }
-        let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_did_status(at_hash, dids).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to fetch dids status",
-                Some(e.to_string()),
-            ))
-            .into()
-        })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_did_status(at, dids),
+            "Unable to query `get_did_status`."
+        )
     }
 
     fn get_key_identity_data(
@@ -240,18 +201,15 @@ where
         cdd_checker_leeway: Option<u64>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<IdentityClaim>> {
-        let api = self.client.runtime_api();
-        // If the block hash is not supplied assume the best block.
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.valid_cdd_claims(at_hash, target_identity, cdd_checker_leeway)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to call valid_cdd_claims runtime",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.valid_cdd_claims(
+                at,
+                target_identity,
+                cdd_checker_leeway
+            ),
+            "Unable to query `valid_cdd_claims`."
+        )
     }
 }
