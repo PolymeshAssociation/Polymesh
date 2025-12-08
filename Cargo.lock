@@ -7266,13 +7266,16 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-balances",
  "pallet-identity",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
  "rand_chacha 0.2.2",
+ "rand_chacha 0.3.1",
  "scale-info",
  "serde",
  "sp-arithmetic",
@@ -7284,6 +7287,7 @@ dependencies = [
  "sp-std",
  "sp-tracing",
  "static_assertions",
+ "substrate-test-utils",
 ]
 
 [[package]]
