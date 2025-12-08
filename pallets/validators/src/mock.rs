@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Test utilities
+#![cfg_attr(rustfmt, rustfmt_skip)]
 
 pub use pallet_staking::{self, *};
 pub use pallet_staking::weights::WeightInfo;
