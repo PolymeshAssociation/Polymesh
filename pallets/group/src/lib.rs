@@ -166,9 +166,6 @@ pub mod pallet {
         MembersReset(IdentityId, Vec<IdentityId>),
         /// The limit of how many active members there can be concurrently was changed.
         ActiveLimitChanged(IdentityId, MemberCount, MemberCount),
-        /// Phantom member, never used.  This can be removed now.  FRAME v2 doesn't require this.
-        /// TODO: remove.
-        Dummy(PhantomData<(T::AccountId, <T as frame_system::Config>::RuntimeEvent)>),
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);

@@ -570,7 +570,6 @@ pub mod pallet {
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
-        // TODO: Why is serde required here?
         pub ticker_registration_config: TickerRegistrationConfig<polymesh_primitives::Moment>,
         pub reserved_country_currency_codes: Vec<Ticker>,
         pub asset_metadata: Vec<(AssetMetadataName, AssetMetadataSpec)>,

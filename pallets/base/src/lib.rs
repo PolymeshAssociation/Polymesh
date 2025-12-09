@@ -52,13 +52,6 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    #[pallet::event]
-    pub enum Event {
-        /// An unexpected error happened that should be investigated.
-        /// TODO: Unused, remove it.
-        UnexpectedError(Option<DispatchError>),
-    }
-
     #[pallet::error]
     pub enum Error<T> {
         /// Exceeded a generic length limit.
