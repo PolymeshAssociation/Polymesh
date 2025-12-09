@@ -919,7 +919,6 @@ workflows:
               only:
                 - develop
                 - develop_v8
-                - update-substrate-stable2512-0
           chain: develop
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop
