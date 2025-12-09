@@ -149,9 +149,6 @@ pub mod pallet {
     /// POLYMESH: Add `IdentityConfig` and `BalancesConfig`.
     #[pallet::config]
     pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>

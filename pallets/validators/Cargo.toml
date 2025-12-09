@@ -39,8 +39,18 @@ frame-benchmarking = { workspace = true, default-features = false, optional = tr
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { workspace = true, default-features = false }
-sp-tracing = { workspace = true }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+frame-support = { features = ["experimental"], workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-staking = { features = ["testing"], workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+rand_chacha = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-npos-elections = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -77,3 +87,8 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = []
+testing = [
+  "frame-benchmarking",
+	"pallet-staking/testing",
+  "rand_chacha",
+]

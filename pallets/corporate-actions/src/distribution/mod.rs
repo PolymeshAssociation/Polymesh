@@ -149,10 +149,7 @@ pub mod pallet {
     pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + ca::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-    }
+    pub trait Config: frame_system::Config + ca::Config {}
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);

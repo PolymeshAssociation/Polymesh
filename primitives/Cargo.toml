@@ -7,6 +7,9 @@ repository = "https://github.com/PolymeshAssociation/Polymesh"
 description = "Polymesh Primitives"
 edition = "2021"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+
 [dependencies]
 chrono = { version = "0.4", default-features = false }
 serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }

@@ -317,9 +317,6 @@ pub mod pallet {
         + frame_system::Config
         + AssetFnConfig
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Max value that `in_len` can take, that is,
         /// the length of the data sent from a contract when using the ChainExtension.
         type MaxInLen: Get<u32>;
