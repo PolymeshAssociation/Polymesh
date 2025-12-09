@@ -56,7 +56,6 @@ pub mod pallet {
         + pallet_identity::Config
         + pallet_portfolio::Config
     {
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
         type Compliance: ComplianceFnConfig;
         #[pallet::constant]

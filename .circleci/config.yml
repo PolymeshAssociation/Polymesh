@@ -266,6 +266,10 @@ jobs:
               cp $(echo $JSON | jq -r .runtimes.compressed.wasm) ./assets/polymesh_runtime_<<parameters.chain>>.compact.compressed.wasm
               echo "========================================="
             }
+      - store_artifacts:
+          path: ./assets/<<parameters.chain>>-srtool-digest.json
+      - store_artifacts:
+          path: ./assets/polymesh_runtime_<<parameters.chain>>.compact.compressed.wasm
       - persist_to_workspace:
           root: ./assets
           paths:
@@ -804,7 +808,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - update-substrate-stable2503-7
+                - develop_v8
       - build-docker-amd64-distroless:
           requires:
             - build
@@ -815,6 +819,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - develop_v8
       - build-docker-ci-runtime:
           requires:
             - build-ci
@@ -822,6 +827,7 @@ workflows:
             branches:
               only:
                 - develop
+                - develop_v8
       - build-docker-arm64-debian:
           requires:
             - build-arm64
@@ -832,7 +838,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - update-substrate-stable2503-7
+                - develop_v8
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -843,6 +849,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - develop_v8
       - build-docker-debian:
           requires:
             - build-docker-amd64-debian
@@ -854,7 +861,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - update-substrate-stable2503-7
+                - develop_v8
       - build-docker-distroless:
           requires:
             - build-docker-amd64-distroless
@@ -866,6 +873,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - develop_v8
       - publish-github-release:
           requires:
             - build
@@ -886,6 +894,7 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
+                - develop_v8
           chain: testnet
           package: polymesh-runtime-testnet
           runtime_dir: pallets/runtime/testnet
@@ -898,6 +907,7 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
+                - develop_v8
           chain: mainnet
           package: polymesh-runtime-mainnet
           runtime_dir: pallets/runtime/mainnet
@@ -908,6 +918,7 @@ workflows:
             branches:
               only:
                 - develop
+                - develop_v8
           chain: develop
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop

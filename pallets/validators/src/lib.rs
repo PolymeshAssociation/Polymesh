@@ -18,10 +18,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 #[cfg(feature = "runtime-benchmarks")]
 pub use pallet_staking::testing_utils;
+
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+mod tests;
 
 pub mod inflation;
 
@@ -135,8 +142,6 @@ pub mod pallet {
         + pallet_staking::Config
         + pallet_babe::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// pallet weights.
         type WeightInfo: WeightInfo;
 

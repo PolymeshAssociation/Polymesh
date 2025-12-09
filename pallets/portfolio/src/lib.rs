@@ -109,7 +109,6 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + pallet_permissions::Config + pallet_identity::Config + AssetFnConfig
     {
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
         /// Maximum number of fungible assets that can be moved in a single transfer call.
         #[pallet::constant]

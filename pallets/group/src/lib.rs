@@ -117,10 +117,6 @@ pub mod pallet {
         + pallet_timestamp::Config
         + pallet_identity::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self, I>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Required origin for changing the active limit.
         /// It's recommended that e.g., in case of a committee,
         /// this be an origin that cannot be formed through a committee majority.
@@ -170,9 +166,6 @@ pub mod pallet {
         MembersReset(IdentityId, Vec<IdentityId>),
         /// The limit of how many active members there can be concurrently was changed.
         ActiveLimitChanged(IdentityId, MemberCount, MemberCount),
-        /// Phantom member, never used.  This can be removed now.  FRAME v2 doesn't require this.
-        /// TODO: remove.
-        Dummy(PhantomData<(T::AccountId, <T as Config<I>>::RuntimeEvent)>),
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);

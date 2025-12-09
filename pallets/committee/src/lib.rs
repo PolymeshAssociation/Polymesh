@@ -125,10 +125,6 @@ pub mod pallet {
         /// Required origin for changing the voting threshold.
         type VoteThresholdOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
-        /// The outer event type.
-        type RuntimeEvent: From<Event<Self, I>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Weight computation.
         type WeightInfo: WeightInfo;
     }
