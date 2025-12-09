@@ -804,7 +804,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - update-substrate-stable2503-7
+                - develop_v8
       - build-docker-amd64-distroless:
           requires:
             - build
@@ -815,6 +815,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - develop_v8
       - build-docker-ci-runtime:
           requires:
             - build-ci
@@ -822,6 +823,7 @@ workflows:
             branches:
               only:
                 - develop
+                - develop_v8
       - build-docker-arm64-debian:
           requires:
             - build-arm64
@@ -832,7 +834,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - update-substrate-stable2503-7
+                - develop_v8
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -843,6 +845,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - develop_v8
       - build-docker-debian:
           requires:
             - build-docker-amd64-debian
@@ -854,7 +857,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - update-substrate-stable2503-7
+                - develop_v8
       - build-docker-distroless:
           requires:
             - build-docker-amd64-distroless
@@ -866,6 +869,7 @@ workflows:
                 - testnet
                 - staging
                 - develop
+                - develop_v8
       - publish-github-release:
           requires:
             - build
@@ -908,6 +912,7 @@ workflows:
             branches:
               only:
                 - develop
+                - develop_v8
           chain: develop
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop
