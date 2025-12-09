@@ -21,18 +21,24 @@ use sp_core::{
 };
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::AnySignature;
-use sp_runtime_interface::runtime_interface;
+use sp_runtime_interface::{
+    pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+    runtime_interface,
+};
 
 /// Native interface for runtime module to use some Schnorrkel functionality.
 #[runtime_interface]
 pub trait NativeSchnorrkel {
     /// Sign the message `message`, using the given secret key.
     /// It returns `None` if the secret key cannot be created from the input raw bytes.
-    fn sign(raw_sk: [u8; 64], message: &[u8]) -> Option<Signature> {
+    fn sign(
+        raw_sk: PassFatPointerAndRead<&[u8]>,
+        message: PassFatPointerAndRead<&[u8]>,
+    ) -> AllocateAndReturnByCodec<Option<Signature>> {
         use schnorrkel::{keys::SecretKey, signing_context, Keypair};
         const SIGNING_CTX: &[u8] = b"substrate";
 
-        SecretKey::from_bytes(&raw_sk[..])
+        SecretKey::from_bytes(raw_sk)
             .map(|sk| {
                 let pair = Keypair::from(sk);
                 let context = signing_context(SIGNING_CTX);

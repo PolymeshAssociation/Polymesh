@@ -16,7 +16,6 @@ type Identity = identity::Pallet<TestStorage>;
 
 #[test]
 fn query_membership_works() {
-    // TODO(Centril): This `let` is duplicated across the file. Let's dedup.
     let committee = [
         Sr25519Keyring::Alice.to_account_id(),
         Sr25519Keyring::Bob.to_account_id(),

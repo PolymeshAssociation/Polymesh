@@ -25,6 +25,7 @@ use sc_service::{RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ConstructRuntimeApi;
+use sp_consensus_babe::inherents::BabeCreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 
 /// Known networks based on name.
@@ -148,7 +149,13 @@ pub fn new_partial<R>(
         (
             impl Fn(sc_rpc::SubscriptionTaskExecutor) -> Result<RpcModule<()>, ServiceError>,
             (
-                sc_consensus_babe::BabeBlockImport<Block, FullClient<R>, FullGrandpaBlockImport<R>>,
+                sc_consensus_babe::BabeBlockImport<
+                    Block,
+                    FullClient<R>,
+                    FullGrandpaBlockImport<R>,
+                    BabeCreateInherentDataProviders<Block>,
+                    FullSelectChain,
+                >,
                 grandpa::LinkHalf<Block, FullClient<R>, FullSelectChain>,
                 sc_consensus_babe::BabeLink<Block>,
             ),
@@ -214,37 +221,36 @@ where
     )?;
     let justification_import = grandpa_block_import.clone();
 
+    let babe_config = sc_consensus_babe::configuration(&*client)?;
+    let slot_duration = babe_config.slot_duration();
     let (block_import, babe_link) = sc_consensus_babe::block_import(
-        sc_consensus_babe::configuration(&*client)?,
+        babe_config,
         grandpa_block_import,
         client.clone(),
+        Arc::new(move |_, _| async move {
+            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+            let slot =
+          sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+            *timestamp,
+            slot_duration,
+          );
+            Ok((slot, timestamp))
+        }) as BabeCreateInherentDataProviders<Block>,
+        select_chain.clone(),
+        OffchainTransactionPoolFactory::new(transaction_pool.clone()),
     )?;
 
-    let slot_duration = babe_link.config().slot_duration();
-    let (import_queue, babe_worker_handle) = sc_consensus_babe::import_queue(
-        sc_consensus_babe::ImportQueueParams {
+    let (import_queue, babe_worker_handle) =
+        sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
             link: babe_link.clone(),
             block_import: block_import.clone(),
             justification_import: Some(Box::new(justification_import)),
             client: client.clone(),
-            select_chain: select_chain.clone(),
-            create_inherent_data_providers: move |_, ()| async move {
-                let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-                let slot =
-                    sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                        *timestamp,
-                        slot_duration,
-                    );
-
-                Ok((slot, timestamp))
-            },
+            slot_duration,
             spawner: &task_manager.spawn_essential_handle(),
             registry: config.prometheus_registry(),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
-            offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-        },
-    )?;
+        })?;
 
     let import_setup = (block_import, grandpa_link, babe_link);
 
@@ -330,7 +336,13 @@ where
 pub fn new_full_base<N, R>(
     mut config: Configuration,
     with_startup_data: impl FnOnce(
-        &sc_consensus_babe::BabeBlockImport<Block, FullClient<R>, FullGrandpaBlockImport<R>>,
+        &sc_consensus_babe::BabeBlockImport<
+            Block,
+            FullClient<R>,
+            FullGrandpaBlockImport<R>,
+            BabeCreateInherentDataProviders<Block>,
+            FullSelectChain,
+        >,
         &sc_consensus_babe::BabeLink<Block>,
     ),
 ) -> Result<NewFullBase<R>, ServiceError>
@@ -407,6 +419,7 @@ where
             metrics,
         })?;
 
+    let net_config_path = config.network.net_config_path.clone();
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
         backend: backend.clone(),
@@ -420,6 +433,7 @@ where
         tx_handler_controller,
         sync_service: sync_service.clone(),
         telemetry: telemetry.as_mut(),
+        tracing_execute_block: None,
     })?;
 
     let (block_import, grandpa_link, babe_link) = import_setup;
@@ -498,6 +512,7 @@ where
             sc_authority_discovery::new_worker_and_service_with_config(
                 sc_authority_discovery::WorkerConfig {
                     publish_non_global_ips: auth_disc_publish_non_global_ips,
+                    persisted_cache_directory: net_config_path,
                     ..Default::default()
                 },
                 client.clone(),
@@ -505,6 +520,7 @@ where
                 Box::pin(dht_event_stream),
                 authority_discovery_role,
                 prometheus_registry.clone(),
+                task_manager.spawn_handle(),
             );
 
         task_manager.spawn_handle().spawn(
