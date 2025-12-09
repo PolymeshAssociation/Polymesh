@@ -160,9 +160,6 @@ pub mod pallet {
         + pallet_portfolio::Config
         + AssetFnConfig
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         type Currency: Currency<Self::AccountId>;
 
         type ComplianceManager: ComplianceFnConfig;
@@ -573,7 +570,6 @@ pub mod pallet {
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
-        // TODO: Why is serde required here?
         pub ticker_registration_config: TickerRegistrationConfig<polymesh_primitives::Moment>,
         pub reserved_country_currency_codes: Vec<Ticker>,
         pub asset_metadata: Vec<(AssetMetadataName, AssetMetadataSpec)>,

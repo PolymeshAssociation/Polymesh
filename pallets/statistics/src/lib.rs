@@ -52,8 +52,6 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + pallet_identity::Config + EAConfig + AssetFnConfig
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Maximum stats that can be enabled for an Asset.
         #[pallet::constant]
         type MaxStatsPerAsset: Get<u32>;

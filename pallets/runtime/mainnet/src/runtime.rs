@@ -8,7 +8,7 @@ pub use sp_runtime::BuildStorage;
 
 use codec::Encode;
 use frame_support::parameter_types;
-use frame_support::traits::KeyOwnerProofSystem;
+use frame_support::traits::{ConstBool, KeyOwnerProofSystem};
 use frame_support::weights::Weight;
 pub use frame_support::StorageValue;
 pub use frame_system::Call as SystemCall;
@@ -187,7 +187,6 @@ pallet_staking_reward_curve::build! {
 }
 
 impl pallet_identity::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProviders;
     type Balances = pallet_balances::Pallet<Runtime>;
@@ -208,13 +207,11 @@ impl pallet_committee::Config<GovernanceCommittee> for Runtime {
     type Proposal = RuntimeCall;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 /// PolymeshCommittee as an instance of group
 impl pallet_group::Config<pallet_group::Instance1> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = Self::LimitOrigin;
     type RemoveOrigin = Self::LimitOrigin;
@@ -233,11 +230,9 @@ macro_rules! committee_config {
             // Can act upon itself.
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
-            type RuntimeEvent = RuntimeEvent;
             type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
         }
         impl pallet_group::Config<pallet_group::$instance> for Runtime {
-            type RuntimeEvent = RuntimeEvent;
             // Committee cannot alter its own active membership limit.
             type LimitOrigin = polymesh_primitives::EnsureRoot;
             // Can manage its own addition, deletion, and swapping of membership...
@@ -262,7 +257,6 @@ impl pallet_pips::Config for Runtime {
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
@@ -272,7 +266,6 @@ impl pallet_pips::Config for Runtime {
 
 /// CddProviders instance of group
 impl pallet_group::Config<pallet_group::Instance2> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = polymesh_primitives::EnsureRoot;
     type RemoveOrigin = polymesh_primitives::EnsureRoot;
@@ -286,6 +279,7 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
 pub struct OnChainSeqPhragmen;
 
 impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type Sort = ConstBool<true>;
     type System = Runtime;
     type Solver = frame_election_provider_support::SequentialPhragmen<
         polymesh_primitives::AccountId,
@@ -293,8 +287,9 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     >;
     type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
     type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
     type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
+    type MaxBackersPerWinner = polymesh_runtime_common::MaxElectingVotersSolution;
+    type MaxWinnersPerPage = polymesh_runtime_common::MaxActiveValidators;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();

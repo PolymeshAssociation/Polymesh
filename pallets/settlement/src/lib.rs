@@ -418,9 +418,6 @@ pub mod pallet {
         + pallet_nft::Config
         + pallet_timestamp::Config
     {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// A call type used by the scheduler.
         type SchedulerCall: From<Call<Self>>
             + Into<<Self as pallet_identity::Config>::Proposal>

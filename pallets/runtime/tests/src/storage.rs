@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
-use frame_support::traits::{Currency, Imbalance, KeyOwnerProofSystem};
+use frame_support::traits::{ConstBool, Currency, Imbalance, KeyOwnerProofSystem};
 use frame_support::traits::{OnInitialize, OnUnbalanced, TryCollect};
 use frame_support::weights::RuntimeDbWeight;
 use frame_support::weights::Weight;
@@ -585,7 +585,6 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
 
 /// PolymeshCommittee as an instance of group
 impl group::Config<group::Instance1> for TestStorage {
-    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -597,7 +596,6 @@ impl group::Config<group::Instance1> for TestStorage {
 }
 
 impl group::Config<group::Instance2> for TestStorage {
-    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -609,7 +607,6 @@ impl group::Config<group::Instance2> for TestStorage {
 }
 
 impl group::Config<group::Instance3> for TestStorage {
-    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -621,7 +618,6 @@ impl group::Config<group::Instance3> for TestStorage {
 }
 
 impl group::Config<group::Instance4> for TestStorage {
-    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -639,7 +635,6 @@ impl committee::Config<committee::Instance1> for TestStorage {
     type Proposal = RuntimeCall;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
@@ -648,7 +643,6 @@ impl committee::Config<committee::Instance3> for TestStorage {
     type Proposal = RuntimeCall;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
@@ -657,12 +651,10 @@ impl committee::Config<committee::Instance4> for TestStorage {
     type Proposal = RuntimeCall;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 impl pallet_identity::Config for TestStorage {
-    type RuntimeEvent = RuntimeEvent;
     type Proposal = RuntimeCall;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Pallet<TestStorage>;
@@ -740,7 +732,6 @@ impl pallet_pips::Config for Runtime {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
-    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
@@ -751,6 +742,7 @@ impl pallet_pips::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+    type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
@@ -1103,6 +1095,7 @@ fn signed_extra(nonce: Nonce) -> SignedExtra {
 pub struct OnChainSeqPhragmen;
 
 impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
+    type Sort = ConstBool<true>;
     type System = Runtime;
     type Solver = frame_election_provider_support::SequentialPhragmen<
         polymesh_primitives::AccountId,
@@ -1110,6 +1103,7 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     >;
     type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
     type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-    type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
     type Bounds = polymesh_runtime_common::ElectionBoundsOnChain;
+    type MaxBackersPerWinner = polymesh_runtime_common::MaxElectingVotersSolution;
+    type MaxWinnersPerPage = polymesh_runtime_common::MaxActiveValidators;
 }

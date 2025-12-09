@@ -41,9 +41,6 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The maximum length governing `TooLong`.
         ///
         /// How lengths are computed to compare against this value is situation based.
@@ -54,13 +51,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
-
-    #[pallet::event]
-    pub enum Event {
-        /// An unexpected error happened that should be investigated.
-        /// TODO: Unused, remove it.
-        UnexpectedError(Option<DispatchError>),
-    }
 
     #[pallet::error]
     pub enum Error<T> {

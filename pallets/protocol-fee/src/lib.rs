@@ -71,7 +71,6 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + IdentityConfig {
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The currency type in which fees will be paid.
         type Currency: Currency<Self::AccountId, Balance = Balance> + Send + Sync;
         /// Handler for the unbalanced reduction when taking protocol fees.

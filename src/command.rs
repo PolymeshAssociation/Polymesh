@@ -239,8 +239,16 @@ pub fn run() -> Result<()> {
                             new_partial::<polymesh_runtime_develop::RuntimeApi>(&mut config)?;
                         let db = partial_components.backend.expose_db();
                         let storage = partial_components.backend.expose_storage();
+                        let shared_trie_cache =
+                            partial_components.backend.expose_shared_trie_cache();
 
-                        cmd.run(config, partial_components.client, db, storage)
+                        cmd.run(
+                            config,
+                            partial_components.client,
+                            db,
+                            storage,
+                            shared_trie_cache,
+                        )
                     }
                     #[cfg(feature = "runtime-benchmarks")]
                     (BenchmarkCmd::Storage(cmd), Network::Testnet) => {
@@ -248,8 +256,16 @@ pub fn run() -> Result<()> {
                             new_partial::<polymesh_runtime_testnet::RuntimeApi>(&mut config)?;
                         let db = partial_components.backend.expose_db();
                         let storage = partial_components.backend.expose_storage();
+                        let shared_trie_cache =
+                            partial_components.backend.expose_shared_trie_cache();
 
-                        cmd.run(config, partial_components.client, db, storage)
+                        cmd.run(
+                            config,
+                            partial_components.client,
+                            db,
+                            storage,
+                            shared_trie_cache,
+                        )
                     }
                     #[cfg(feature = "runtime-benchmarks")]
                     (BenchmarkCmd::Storage(cmd), Network::Mainnet) => {
@@ -257,8 +273,16 @@ pub fn run() -> Result<()> {
                             new_partial::<polymesh_runtime_mainnet::RuntimeApi>(&mut config)?;
                         let db = partial_components.backend.expose_db();
                         let storage = partial_components.backend.expose_storage();
+                        let shared_trie_cache =
+                            partial_components.backend.expose_shared_trie_cache();
 
-                        cmd.run(config, partial_components.client, db, storage)
+                        cmd.run(
+                            config,
+                            partial_components.client,
+                            db,
+                            storage,
+                            shared_trie_cache,
+                        )
                     }
                     (BenchmarkCmd::Overhead(cmd), Network::Other) => {
                         let partial_components =
