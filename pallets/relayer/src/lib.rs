@@ -51,7 +51,6 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_signed;
-use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::{
     extract_auth, traits::SubsidiserTrait, AuthorizationData, Balance, EventDid, IdentityId,
     Signatory, TransactionError,
@@ -305,6 +304,8 @@ pub mod pallet {
         Overflow,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// The caller's identity was not found.
+        IdentityNotFound,
     }
 }
 
@@ -324,7 +325,7 @@ impl<T: Config> Pallet<T> {
     fn base_accept_paying_key(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let caller_key = ensure_signed(origin)?;
         let user_did =
-            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::UserKeyCddMissing)?;
+            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::IdentityNotFound)?;
         let signer = Signatory::Account(caller_key.clone());
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
@@ -357,17 +358,15 @@ impl<T: Config> Pallet<T> {
         user_key: T::AccountId,
         paying_key: T::AccountId,
     ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender,
-            primary_did: sender_did,
-            ..
-        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let caller_key = ensure_signed(origin)?;
+        let caller_did =
+            Identity::<T>::get_identity(&caller_key).ok_or(Error::<T>::IdentityNotFound)?;
 
         // Allow: `origin == user_key` or `origin == paying_key`.
-        if sender != user_key && sender != paying_key {
+        if caller_key != user_key && caller_key != paying_key {
             // Allow: `origin == primary key of user_key's identity`.
             ensure!(
-                <Identity<T>>::get_identity(&user_key) == Some(sender_did),
+                Identity::<T>::get_identity(&user_key) == Some(caller_did),
                 Error::<T>::NotAuthorizedForUserKey
             );
         }
@@ -384,7 +383,7 @@ impl<T: Config> Pallet<T> {
         <Subsidies<T>>::remove(&user_key);
 
         Self::deposit_event(Event::RemovedPayingKey(
-            sender_did.for_event(),
+            caller_did.for_event(),
             user_key,
             paying_key,
         ));
@@ -397,14 +396,12 @@ impl<T: Config> Pallet<T> {
         action: UpdateAction,
         amount: Balance,
     ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender: paying_key,
-            primary_did: paying_did,
-            ..
-        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let caller_key = ensure_signed(origin)?;
+        let caller_did =
+            Identity::<T>::get_identity(&caller_key).ok_or(Error::<T>::IdentityNotFound)?;
 
         // Check if the current paying key matches.
-        let mut subsidy = Self::ensure_is_paying_key(&user_key, &paying_key)?;
+        let mut subsidy = Self::ensure_is_paying_key(&user_key, &caller_key)?;
 
         // Update polyx limit.
         let old_remaining = subsidy.remaining;
@@ -421,9 +418,9 @@ impl<T: Config> Pallet<T> {
         <Subsidies<T>>::insert(&user_key, subsidy);
 
         Self::deposit_event(Event::UpdatedPolyxLimit(
-            paying_did.for_event(),
+            caller_did.for_event(),
             user_key,
-            paying_key,
+            caller_key,
             new_remaining,
             old_remaining,
         ));
