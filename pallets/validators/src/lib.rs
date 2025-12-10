@@ -90,7 +90,7 @@ mod migrations {
         let in_code = Pallet::<T>::in_code_storage_version();
         let on_chain = Pallet::<T>::on_chain_storage_version();
 
-        if on_chain < 1 {
+        if on_chain == 1 && in_code == 1 {
             let old_pallet = b"Staking";
             let new_pallet = Pallet::<T>::name().as_bytes();
             // Move: PermissionedIdentity
