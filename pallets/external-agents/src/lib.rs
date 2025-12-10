@@ -194,6 +194,8 @@ pub mod pallet {
         SecondaryKeyNotAuthorizedForAsset,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// Except `ExtrinsicPermissions` are not allowed for external agents.
+        ExceptPermissionsNotAllowed,
     }
 
     #[pallet::call]
@@ -402,16 +404,45 @@ impl<T: Config> Pallet<T> {
     fn base_create_group(
         origin: OriginFor<T>,
         asset_id: AssetId,
-        perms: ExtrinsicPermissions,
+        extrinsics_permissions: ExtrinsicPermissions,
     ) -> Result<(IdentityId, AGId), DispatchError> {
-        let did = Self::ensure_perms(origin, asset_id)?;
-        <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
         // Fetch the AG id & advance the sequence.
-        let id = AGIdSequence::<T>::try_mutate(asset_id, try_next_pre::<T, _>)?;
-        // Commit & emit.
-        GroupPermissions::<T>::insert(asset_id, id, perms.clone());
-        Self::deposit_event(Event::GroupCreated(did.for_event(), asset_id, id, perms));
-        Ok((did, id))
+        let ag_id = AGIdSequence::<T>::try_mutate(asset_id, try_next_pre::<T, _>)?;
+
+        let caller_did = Self::validate_set_group_permissions(
+            origin,
+            asset_id.clone(),
+            &extrinsics_permissions,
+            &ag_id,
+        )?;
+
+        GroupPermissions::<T>::insert(asset_id, ag_id, extrinsics_permissions.clone());
+        Self::deposit_event(Event::GroupCreated(
+            caller_did.for_event(),
+            asset_id,
+            ag_id,
+            extrinsics_permissions,
+        ));
+        Ok((caller_did, ag_id))
+    }
+
+    fn validate_set_group_permissions(
+        origin: OriginFor<T>,
+        asset_id: AssetId,
+        extrinsics_permissions: &ExtrinsicPermissions,
+        ag_id: &AGId,
+    ) -> Result<IdentityId, DispatchError> {
+        if let ExtrinsicPermissions::Except(_) = extrinsics_permissions {
+            return Err(Error::<T>::ExceptPermissionsNotAllowed.into());
+        }
+
+        let caller_did = Self::ensure_perms(origin, asset_id)?;
+
+        Identity::<T>::ensure_extrinsic_perms_length_limited(extrinsics_permissions)?;
+
+        Self::ensure_custom_agent_group_exists(&asset_id, ag_id)?;
+
+        Ok(caller_did)
     }
 
     fn base_create_group_and_add_auth(
@@ -434,16 +465,23 @@ impl<T: Config> Pallet<T> {
     fn base_set_group_permissions(
         origin: OriginFor<T>,
         asset_id: AssetId,
-        id: AGId,
-        perms: ExtrinsicPermissions,
+        ag_id: AGId,
+        extrinsics_permissions: ExtrinsicPermissions,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, asset_id)?.for_event();
-        <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
-        Self::ensure_custom_agent_group_exists(&asset_id, &id)?;
+        let caller_did = Self::validate_set_group_permissions(
+            origin,
+            asset_id.clone(),
+            &extrinsics_permissions,
+            &ag_id,
+        )?;
 
-        // Commit & emit.
-        GroupPermissions::<T>::insert(asset_id, id, perms.clone());
-        Self::deposit_event(Event::GroupPermissionsUpdated(did, asset_id, id, perms));
+        GroupPermissions::<T>::insert(asset_id, ag_id, extrinsics_permissions.clone());
+        Self::deposit_event(Event::GroupPermissionsUpdated(
+            caller_did.for_event(),
+            asset_id,
+            ag_id,
+            extrinsics_permissions,
+        ));
         Ok(())
     }
 
