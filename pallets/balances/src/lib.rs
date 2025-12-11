@@ -319,6 +319,13 @@ pub mod pallet {
         /// Final argument indicates the destination balance type.
         /// \[from, to, balance, destination_status]
         ReserveRepatriated(T::AccountId, T::AccountId, Balance, Status),
+        /// Transfer with memo succeeded.
+        TransferWithMemo {
+            from: T::AccountId,
+            to: T::AccountId,
+            amount: Balance,
+            memo: Option<Memo>,
+        },
     }
 
     #[pallet::pallet]
@@ -877,6 +884,13 @@ impl<T: Config> Pallet<T> {
 
         let transactor_id = T::IdentityFn::get_identity(transactor);
         let dest_id = T::IdentityFn::get_identity(dest);
+
+        Self::deposit_event(Event::TransferWithMemo {
+            from: transactor.clone(),
+            to: dest.clone(),
+            amount: value,
+            memo: memo.clone(),
+        });
 
         Self::deposit_event(Event::Transfer(
             transactor_id,

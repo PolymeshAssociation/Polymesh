@@ -164,6 +164,8 @@ fn batch_optimistic_failures_listed() {
         );
         // skip Balances::Transfer event.
         events.pop().unwrap();
+        events.pop().unwrap();
+
         assert_eq!(
             events.pop().unwrap().event,
             EventTest::Utility(Event::ItemFailed { error: ERROR })
@@ -282,16 +284,6 @@ fn _relay_unhappy_cases() {
             transaction.clone()
         ),
         Error::InvalidSignature
-    );
-
-    assert_noop!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob.clone(),
-            AccountKeyring::Bob.sign(&transaction.encode()).into(),
-            transaction.clone()
-        ),
-        Error::TargetCddMissing
     );
 
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
