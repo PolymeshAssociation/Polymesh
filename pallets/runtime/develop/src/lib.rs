@@ -23,5 +23,5 @@ pub use sp_runtime::{Perbill, Permill};
 pub use runtime::{
     api, Asset, Authorship, Balances, BalancesCall, CheckedExtrinsic, MinimumPeriod, ProtocolFee,
     Runtime, RuntimeApi, RuntimeCall, SessionKeys, System, SystemCall, TransactionPayment,
-    UncheckedExtrinsic,
+    TxExtension, UncheckedExtrinsic,
 };

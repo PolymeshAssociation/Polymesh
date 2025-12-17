@@ -24,7 +24,6 @@ pallet-compliance-manager = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
-pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
 pallet-multisig = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
@@ -34,7 +33,6 @@ pallet-portfolio = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
-pallet-staking = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
@@ -43,11 +41,6 @@ pallet-utility = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
-
-# RPC
-node-rpc-runtime-api = { workspace = true, default-features = false }
-pallet-staking-runtime-api = { workspace = true, default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 
 # Others
 log = "0.4.8"
@@ -64,39 +57,50 @@ sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 sp-version = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
-sp-genesis-builder = { workspace = true, default-features = false }
 sp-inherents = { workspace = true, default-features = false }
 sp-offchain = { workspace = true, default-features = false }
 sp-staking = { workspace = true, default-features = false }
 sp-consensus-babe = { workspace = true, default-features = false }
+sp-consensus-beefy = { workspace = true, default-features = false }
 sp-consensus-grandpa = { workspace = true, default-features = false }
 sp-session = { workspace = true, default-features = false }
 sp-authority-discovery = { workspace = true, default-features = false }
 sp-transaction-pool = { workspace = true, default-features = false }
 sp-block-builder = { workspace = true, default-features = false }
 sp-arithmetic = { workspace = true, default-features = false }
-
+sp-genesis-builder = { workspace = true, default-features = false }
+#
+pallet-authority-discovery = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
+pallet-babe = { workspace = true, default-features = false }
+pallet-beefy = { workspace = true, default-features = false }
+pallet-beefy-mmr = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
+pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
+pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
-pallet-session = { workspace = true, default-features = false }
-pallet-timestamp = { workspace = true, default-features = false }
-pallet-babe = { workspace = true, default-features = false }
-pallet-authority-discovery = { workspace = true, default-features = false }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
+pallet-session = { workspace = true, default-features = false }
+pallet-staking = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
 
 frame-executive = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
+
+# RPC
 frame-system-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-staking-runtime-api = { workspace = true, default-features = false }
+node-rpc-runtime-api = { workspace = true, default-features = false }
 
 [build-dependencies]
 polymesh-build-tool = { workspace = true, default-features = false }
@@ -130,6 +134,9 @@ std = [
     "pallet-base/std",
     "pallet-babe/std",
     "pallet-balances/std",
+    "pallet-beefy/std",
+    "pallet-beefy-mmr/std",
+    "pallet-mmr/std",
     "pallet-sto/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
@@ -161,7 +168,6 @@ std = [
     "pallet-staking/std",
     "pallet-validators/std",
     "pallet-statistics/std",
-    "pallet-sudo/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "polymesh-transaction-payment/std",
@@ -191,9 +197,39 @@ std = [
     "polymesh-contracts/std",
     "sp-genesis-builder/std",
 ]
-
 runtime-benchmarks = [
     "frame-election-provider-support/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
     "pallet-asset/runtime-benchmarks",
-    "pallet-election-provider-multi-phase/runtime-benchmarks",
+    "pallet-babe/runtime-benchmarks",
+    "pallet-balances/runtime-benchmarks",
+    "pallet-beefy-mmr/runtime-benchmarks",
+    "pallet-mmr/runtime-benchmarks",
+    "pallet-committee/runtime-benchmarks",
+    "pallet-contracts/runtime-benchmarks",
+    "pallet-corporate-actions/runtime-benchmarks",
+    "pallet-grandpa/runtime-benchmarks",
+    "pallet-group/runtime-benchmarks",
+    "pallet-im-online/runtime-benchmarks",
+    "pallet-indices/runtime-benchmarks",
+    "pallet-multisig/runtime-benchmarks",
+    "pallet-nft/runtime-benchmarks",
+    "pallet-pips/runtime-benchmarks",
+    "pallet-portfolio/runtime-benchmarks",
+    "pallet-preimage/runtime-benchmarks",
+    "pallet-protocol-fee/runtime-benchmarks",
+    "pallet-relayer/runtime-benchmarks",
+    "pallet-scheduler/runtime-benchmarks",
+    "pallet-settlement/runtime-benchmarks",
+    "pallet-staking/runtime-benchmarks",
+    "pallet-statistics/runtime-benchmarks",
+    "pallet-sto/runtime-benchmarks",
+    "pallet-transaction-payment/runtime-benchmarks",
+    "polymesh-transaction-payment/runtime-benchmarks",
+    "pallet-treasury/runtime-benchmarks",
+    "pallet-utility/runtime-benchmarks",
+    "pallet-validators/runtime-benchmarks",
+    "polymesh-contracts/runtime-benchmarks",
+    "polymesh-runtime-common/runtime-benchmarks",
 ]
