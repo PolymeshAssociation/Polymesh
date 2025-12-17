@@ -1,31 +1,55 @@
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
     /// Possible subcommand with parameters.
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub subcommand: Option<Subcommand>,
-    #[allow(missing_docs)]
-    #[clap(flatten)]
-    pub run: RunCmd,
-}
 
-#[allow(missing_docs)]
-#[derive(Debug, clap::Parser)]
-pub struct RunCmd {
     #[allow(missing_docs)]
     #[clap(flatten)]
-    pub base: sc_cli::RunCmd,
-    /// Enable validator mode.
+    pub run: sc_cli::RunCmd,
+
+    /// Disable automatic hardware benchmarks.
     ///
-    /// It is an alias of the `--validator` flag. User has the choice to use either `--validator` or `--operator` flag both works same.
-    #[clap(long)]
-    pub operator: bool,
+    /// By default these benchmarks are automatically ran at startup and measure
+    /// the CPU speed, the memory bandwidth and the disk speed.
+    ///
+    /// The results are then printed out in the logs, and also sent as part of
+    /// telemetry, if telemetry is enabled.
+    #[arg(long)]
+    pub no_hardware_benchmarks: bool,
+
+    #[allow(missing_docs)]
+    #[clap(flatten)]
+    pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 }
 
 /// Possible subcommands of the main binary.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
+    /// Sub-commands concerned with benchmarking.
+    ///
+    /// The pallet benchmarking moved to the `pallet` sub-command.
+    #[command(subcommand)]
+    Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+
+    /// Key management cli utilities
+    #[command(subcommand)]
+    Key(sc_cli::KeySubcommand),
+
+    /// Verify a signature for a message, provided on STDIN, with a given (public or secret) key.
+    Verify(sc_cli::VerifyCmd),
+
+    /// Generate a seed that provides a vanity address.
+    Vanity(sc_cli::VanityCmd),
+
+    /// Sign a message, with a given (secret) key.
+    Sign(sc_cli::SignCmd),
+
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
+
+    /// Export the chain specification.
+    ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
     /// Validate blocks.
     CheckBlock(sc_cli::CheckBlockCmd),
@@ -45,8 +69,6 @@ pub enum Subcommand {
     /// Revert the chain to a previous state.
     Revert(sc_cli::RevertCmd),
 
-    /// The custom benchmark subcommmand benchmarking runtime pallets.
-    #[clap(name = "benchmark", about = "Benchmark runtime pallets.")]
-    #[clap(subcommand)]
-    Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+    /// Db meta columns information.
+    ChainInfo(sc_cli::ChainInfoCmd),
 }

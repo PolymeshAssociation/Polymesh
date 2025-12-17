@@ -15,7 +15,7 @@ use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
 
 use polymesh_primitives::{AccountId, Balance, Signature};
 use polymesh_runtime_common::BlockHashCount;
-use polymesh_runtime_develop::runtime::{BalancesCall, SignedExtra, VERSION};
+use polymesh_runtime_develop::runtime::{BalancesCall, TxExtension, VERSION};
 use polymesh_runtime_develop::runtime::{Runtime as DevRuntime, RuntimeCall as DevRuntimeCall};
 use polymesh_runtime_develop::runtime::{SignedPayload, SystemCall, UncheckedExtrinsic};
 
@@ -124,7 +124,7 @@ pub fn create_benchmark_extrinsic<R>(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let extra: SignedExtra = (
+    let extra: TxExtension = (
         frame_system::CheckSpecVersion::<DevRuntime>::new(),
         frame_system::CheckTxVersion::<DevRuntime>::new(),
         frame_system::CheckGenesis::<DevRuntime>::new(),

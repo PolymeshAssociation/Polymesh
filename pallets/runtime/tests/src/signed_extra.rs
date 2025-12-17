@@ -12,7 +12,7 @@ use sp_std::convert::From;
 use pallet_group as group;
 use pallet_identity as identity;
 use polymesh_primitives::{identity_id::GenesisIdentityRecord, AccountId, IdentityId, Nonce};
-use polymesh_runtime_develop::runtime::{RuntimeCall, SignedExtra};
+use polymesh_runtime_develop::runtime::{RuntimeCall, TxExtension};
 use polymesh_runtime_develop::Runtime;
 
 type RuntimeOrigin = <Runtime as frame_system::Config>::RuntimeOrigin;
@@ -24,12 +24,12 @@ pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
     )
 }
 
-/// Generate a `SignedExtra` value as it is defined in `Runtime`.
+/// Generate a `TxExtension` value as it is defined in `Runtime`.
 /// It ensures that `Runtime` is using:
 ///     - Transaction `priority` == `tip`.
 ///     - Only `Operational` transactions could have `tip` != 0.
 ///     - `Normal` transactions have `priority` == 0, as `tip` == 0.
-fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -> SignedExtra {
+fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -> TxExtension {
     (
         CheckSpecVersion::<Runtime>::new(),
         CheckTxVersion::<Runtime>::new(),
@@ -116,7 +116,7 @@ fn normal_tx_ext() -> Result<(), String> {
     make_min_storage()?.execute_with(normal_tx)
 }
 
-/// This test ensures the following rules are true for current `runtime::SignedExtra`:
+/// This test ensures the following rules are true for current `runtime::TxExtension`:
 ///   - Normal transactions can not have a tip.
 ///   - Priority of any transaction is its own tip.
 fn normal_tx() -> Result<(), String> {
