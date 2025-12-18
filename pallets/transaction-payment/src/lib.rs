@@ -549,7 +549,7 @@ where
         let DispatchInfo { class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
-            weight: dispatch_info.total_weight(),
+            weight: dispatch_info.call_weight,
             class,
             partial_fee,
         }
@@ -587,7 +587,7 @@ where
         let DispatchInfo { class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
-            weight: dispatch_info.total_weight(),
+            weight: dispatch_info.call_weight,
             class,
             partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
         }
@@ -625,7 +625,7 @@ where
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
-        Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
+        Self::compute_fee_raw(len, info.call_weight, tip, info.pays_fee, info.class)
     }
 
     /// Compute the actual post dispatch fee for a particular transaction.
@@ -786,14 +786,7 @@ where
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
         len: usize,
-    ) -> Result<
-        (
-            BalanceOf<T>,
-            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-            Option<T::AccountId>,
-        ),
-        TransactionValidityError,
-    > {
+    ) -> Result<(BalanceOf<T>, Option<T::AccountId>), TransactionValidityError> {
         let tip = self.0;
         let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
@@ -801,7 +794,7 @@ where
         // -----------------------------------------------------------------
 
         if fee.is_zero() {
-            return Ok((fee, Default::default(), None));
+            return Ok((fee, None));
         }
 
         // Get the payer for this transaction.
@@ -814,15 +807,59 @@ where
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
 
+        <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+            fee_key, call, info, fee, tip,
+        )?;
+
+        T::CddHandler::set_payer_context(Some(payers_key));
+
+        // -----------------------------------------------------------------
+
+        Ok((fee, subsidiser))
+    }
+
+    pub(crate) fn withdraw_fee(
+        &self,
+        who: &T::AccountId,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        fee_with_tip: BalanceOf<T>,
+        subsidiser: Option<&T::AccountId>,
+    ) -> Result<
+        (
+            BalanceOf<T>,
+            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+        ),
+        TransactionValidityError,
+    > {
+        let tip = self.0;
+
+        // Polymesh change
+        // -----------------------------------------------------------------
+
+        if fee_with_tip.is_zero() {
+            return Ok((fee_with_tip, Default::default()));
+        }
+
+        let payers_key =
+            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
+
+        let fee_key = subsidiser.unwrap_or(&payers_key);
+
         let liq_info =
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-                fee_key, call, info, fee, tip,
+                fee_key,
+                call,
+                info,
+                fee_with_tip,
+                tip,
             )?;
 
         T::CddHandler::set_payer_context(Some(payers_key));
-        Ok((fee, liq_info, subsidiser))
 
         // -----------------------------------------------------------------
+
+        Ok((fee_with_tip, liq_info))
     }
 
     // Polymesh change: Used to allow GC/CDD member to include a `tip`.
@@ -861,6 +898,8 @@ where
             DispatchClass::Mandatory => Ok(self.0),
         }
     }
+
+    // -----------------------------------------------------------------
 }
 
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
@@ -945,7 +984,7 @@ where
 
         let tip = self.ensure_valid_tip(caller_acc, info)?;
 
-        let (fee, _, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
+        let (fee, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
 
         let valid_transaction = ValidTransaction {
             priority: tip.saturated_into::<TransactionPriority>(),
@@ -964,28 +1003,33 @@ where
 
     fn prepare(
         self,
-        _val: Self::Val,
-        origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
-        len: usize,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let caller_acc = origin
-            .as_system_origin_signer()
-            .ok_or(InvalidTransaction::BadSigner)?;
+        match val {
+            Val::NoCharge => Ok(Pre::NoCharge {
+                refund: self.weight(call),
+            }),
+            Val::Charge {
+                tip,
+                who,
+                fee,
+                subsidiser,
+            } => {
+                let (_, imbalance) =
+                    self.withdraw_fee(&who, call, info, fee, subsidiser.as_ref())?;
 
-        let tip = self.ensure_valid_tip(caller_acc, info)?;
-
-        let (_, imbalance, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
-
-        let pre = Pre::Charge {
-            tip,
-            who: caller_acc.clone(),
-            imbalance,
-            subsidiser,
-        };
-
-        Ok(pre)
+                Ok(Pre::Charge {
+                    tip,
+                    who,
+                    imbalance,
+                    subsidiser,
+                })
+            }
+        }
     }
 
     fn post_dispatch(

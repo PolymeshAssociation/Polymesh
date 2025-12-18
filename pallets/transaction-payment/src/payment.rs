@@ -97,10 +97,10 @@ where
         who: &T::AccountId,
         _call: &T::RuntimeCall,
         _info: &DispatchInfoOf<T::RuntimeCall>,
-        fee: Self::Balance,
+        fee_with_tip: Self::Balance,
         tip: Self::Balance,
     ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-        if fee.is_zero() {
+        if fee_with_tip.is_zero() {
             return Ok(None);
         }
 
@@ -110,7 +110,12 @@ where
             WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
         };
 
-        match C::withdraw(who, fee, withdraw_reason, ExistenceRequirement::KeepAlive) {
+        match C::withdraw(
+            who,
+            fee_with_tip,
+            withdraw_reason,
+            ExistenceRequirement::KeepAlive,
+        ) {
             Ok(imbalance) => Ok(Some(imbalance)),
             Err(_) => Err(InvalidTransaction::Payment.into()),
         }
@@ -123,10 +128,10 @@ where
         who: &T::AccountId,
         _call: &T::RuntimeCall,
         _info: &DispatchInfoOf<T::RuntimeCall>,
-        fee: Self::Balance,
+        fee_with_tip: Self::Balance,
         tip: Self::Balance,
     ) -> Result<(), TransactionValidityError> {
-        if fee.is_zero() {
+        if fee_with_tip.is_zero() {
             return Ok(());
         }
 
@@ -137,9 +142,9 @@ where
         };
 
         let new_balance = C::free_balance(who)
-            .checked_sub(&fee)
+            .checked_sub(&fee_with_tip)
             .ok_or(InvalidTransaction::Payment)?;
-        C::ensure_can_withdraw(who, fee, withdraw_reason, new_balance)
+        C::ensure_can_withdraw(who, fee_with_tip, withdraw_reason, new_balance)
             .map(|_| ())
             .map_err(|_| InvalidTransaction::Payment.into())
     }
