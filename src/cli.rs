@@ -8,6 +8,10 @@ pub struct Cli {
     #[clap(flatten)]
     pub run: sc_cli::RunCmd,
 
+    /// Disable the BEEFY gadget
+    #[arg(long)]
+    pub no_beefy: bool,
+
     /// Disable automatic hardware benchmarks.
     ///
     /// By default these benchmarks are automatically ran at startup and measure

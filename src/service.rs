@@ -466,6 +466,7 @@ where
 /// Creates a full service from the configuration.
 pub fn new_full_base<N, R>(
     mut config: Configuration,
+    enable_beefy: bool,
     disable_hardware_benchmarks: bool,
     with_startup_data: impl FnOnce(
         &sc_consensus_babe::BabeBlockImport<
@@ -563,8 +564,10 @@ where
             Arc::clone(&peer_store_handle),
         );
 
-    net_config.add_notification_protocol(beefy_notification_config);
-    net_config.add_request_response_protocol(beefy_req_resp_cfg);
+    if enable_beefy {
+        net_config.add_notification_protocol(beefy_notification_config);
+        net_config.add_request_response_protocol(beefy_req_resp_cfg);
+    }
 
     let warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
@@ -728,46 +731,48 @@ where
         None
     };
 
-    // beefy is enabled if its notification service exists
-    let network_params = beefy::BeefyNetworkParams {
-        network: Arc::new(network.clone()),
-        sync: sync_service.clone(),
-        gossip_protocol_name: beefy_gossip_proto_name,
-        justifications_protocol_name: beefy_on_demand_justifications_handler.protocol_name(),
-        notification_service: beefy_notification_service,
-        _phantom: core::marker::PhantomData::<Block>,
-    };
-    let beefy_params = beefy::BeefyParams {
-        client: client.clone(),
-        backend: backend.clone(),
-        payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
-        runtime: client.clone(),
-        key_store: keystore.clone(),
-        network_params,
-        min_block_delta: 8,
-        prometheus_registry: prometheus_registry.clone(),
-        links: beefy_links,
-        on_demand_justifications_handler: beefy_on_demand_justifications_handler,
-        is_authority: role.is_authority(),
-    };
+    if enable_beefy {
+        // beefy is enabled if its notification service exists
+        let network_params = beefy::BeefyNetworkParams {
+            network: Arc::new(network.clone()),
+            sync: sync_service.clone(),
+            gossip_protocol_name: beefy_gossip_proto_name,
+            justifications_protocol_name: beefy_on_demand_justifications_handler.protocol_name(),
+            notification_service: beefy_notification_service,
+            _phantom: core::marker::PhantomData::<Block>,
+        };
+        let beefy_params = beefy::BeefyParams {
+            client: client.clone(),
+            backend: backend.clone(),
+            payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
+            runtime: client.clone(),
+            key_store: keystore.clone(),
+            network_params,
+            min_block_delta: 8,
+            prometheus_registry: prometheus_registry.clone(),
+            links: beefy_links,
+            on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+            is_authority: role.is_authority(),
+        };
 
-    let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
-    // BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
-    // is noticed.
-    task_manager
-        .spawn_essential_handle()
-        .spawn_blocking("beefy-gadget", None, beefy_gadget);
-    // When offchain indexing is enabled, MMR gadget should also run.
-    if is_offchain_indexing_enabled {
-        task_manager.spawn_essential_handle().spawn_blocking(
-            "mmr-gadget",
-            None,
-            mmr_gadget::MmrGadget::start(
-                client.clone(),
-                backend.clone(),
-                sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-            ),
-        );
+        let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
+        // BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
+        // is noticed.
+        task_manager
+            .spawn_essential_handle()
+            .spawn_blocking("beefy-gadget", None, beefy_gadget);
+        // When offchain indexing is enabled, MMR gadget should also run.
+        if is_offchain_indexing_enabled {
+            task_manager.spawn_essential_handle().spawn_blocking(
+                "mmr-gadget",
+                None,
+                mmr_gadget::MmrGadget::start(
+                    client.clone(),
+                    backend.clone(),
+                    sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
+                ),
+            );
+        }
     }
 
     let grandpa_config = grandpa::Config {
@@ -849,19 +854,24 @@ type TaskResult = Result<TaskManager, ServiceError>;
 
 /// Create a new service for a full node, based on the network specified in the chain spec.
 pub fn new_full(config: Configuration, cli: Cli) -> TaskResult {
+    let enable_beefy = !cli.no_beefy;
     let database_path = config.database.path().map(Path::to_path_buf);
 
     let task_manager = match config.network.network_backend {
-        sc_network::config::NetworkBackendType::Libp2p => network_new_full_base::<
-            sc_network::NetworkWorker<_, _>,
-        >(
-            config, cli.no_hardware_benchmarks
-        )?,
-        sc_network::config::NetworkBackendType::Litep2p => network_new_full_base::<
-            sc_network::Litep2pNetworkBackend,
-        >(
-            config, cli.no_hardware_benchmarks
-        )?,
+        sc_network::config::NetworkBackendType::Libp2p => {
+            network_new_full_base::<sc_network::NetworkWorker<_, _>>(
+                config,
+                enable_beefy,
+                cli.no_hardware_benchmarks,
+            )?
+        }
+        sc_network::config::NetworkBackendType::Litep2p => {
+            network_new_full_base::<sc_network::Litep2pNetworkBackend>(
+                config,
+                enable_beefy,
+                cli.no_hardware_benchmarks,
+            )?
+        }
     };
 
     if let Some(database_path) = database_path {
@@ -877,7 +887,11 @@ pub fn new_full(config: Configuration, cli: Cli) -> TaskResult {
 }
 
 /// Create a new service for a full node, based on the network specified in the chain spec.
-fn network_new_full_base<N>(config: Configuration, disable_hardware_benchmarks: bool) -> TaskResult
+fn network_new_full_base<N>(
+    config: Configuration,
+    enable_beefy: bool,
+    disable_hardware_benchmarks: bool,
+) -> TaskResult
 where
     N: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -886,6 +900,7 @@ where
         // Run full node for Testnet
         Network::Testnet => new_full_base::<N, polymesh_runtime_testnet::RuntimeApi>(
             config,
+            enable_beefy,
             disable_hardware_benchmarks,
             |_, _| (),
         )
@@ -893,6 +908,7 @@ where
         // Run full node for Mainnet
         Network::Mainnet => new_full_base::<N, polymesh_runtime_mainnet::RuntimeApi>(
             config,
+            enable_beefy,
             disable_hardware_benchmarks,
             |_, _| (),
         )
@@ -900,6 +916,7 @@ where
         // Run full node for develop/general networks
         Network::Other => new_full_base::<N, polymesh_runtime_develop::RuntimeApi>(
             config,
+            enable_beefy,
             disable_hardware_benchmarks,
             |_, _| (),
         )
