@@ -27,7 +27,9 @@ use crate::{asset::NonFungibleType, NFTCollectionKeys};
 
 mod asset;
 pub mod group;
+mod settlement;
 pub use asset::*;
+pub use settlement::*;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<AccountId, Call> {

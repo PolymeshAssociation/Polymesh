@@ -1,6 +1,8 @@
 use anyhow::Result;
 use std::collections::BTreeSet;
 
+#[cfg(feature = "current_release")]
+use polymesh_api::types::polymesh_primitives::settlement::InstructionId;
 use polymesh_api::types::polymesh_primitives::{
     asset::{AssetName, AssetType},
     identity_id::{PortfolioId, PortfolioKind},
@@ -9,17 +11,38 @@ use polymesh_api::types::polymesh_primitives::{
 
 use crate::*;
 
+/// Get Pending Transfer ID from the transaction results.
+#[cfg(feature = "current_release")]
+pub async fn get_pending_transfer_id(
+    res: &mut TransactionResults,
+) -> Result<Option<InstructionId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::Asset(AssetEvent::CreatedAssetTransfer {
+                    pending_transfer_id,
+                    ..
+                }) => {
+                    return Ok(pending_transfer_id.clone());
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Asset Helper.
 pub struct AssetHelper {
     pub api: Api,
     pub asset_id: AssetId,
     pub issuer: User,
-    pub issuer_venue_id: VenueId,
+    pub issuer_venue_id: Option<VenueId>,
     pub issuer_did: IdentityId,
 }
 
 impl AssetHelper {
-    /// Create a new asset, mint some tokens, and pause compliance rules.
+    /// Create a new asset and mint some tokens.
     pub async fn new(
         api: &Api,
         issuer: &mut User,
@@ -27,17 +50,34 @@ impl AssetHelper {
         mint: u128,
         signers: Vec<AccountId>,
     ) -> Result<Self> {
+        Self::new_full(api, issuer, name, mint, signers, true).await
+    }
+
+    /// Create a new asset and mint some tokens.
+    pub async fn new_full(
+        api: &Api,
+        issuer: &mut User,
+        name: &str,
+        mint: u128,
+        signers: Vec<AccountId>,
+        need_venue: bool,
+    ) -> Result<Self> {
         // Create a new venue.
-        let mut venue_res = api
-            .call()
-            .settlement()
-            .create_venue(
-                VenueDetails(format!("Venue for {name}").into()),
-                signers,
-                VenueType::Other,
-            )?
-            .submit_and_watch(issuer)
-            .await?;
+        let venue_res = if need_venue {
+            Some(
+                api.call()
+                    .settlement()
+                    .create_venue(
+                        VenueDetails(format!("Venue for {name}").into()),
+                        signers,
+                        VenueType::Other,
+                    )?
+                    .submit_and_watch(issuer)
+                    .await?,
+            )
+        } else {
+            None
+        };
 
         // Create a new asset.
         let mut asset_res = api
@@ -66,22 +106,19 @@ impl AssetHelper {
             .submit_and_watch(issuer)
             .await?;
 
-        // Pause compliance rules to allow transfers.
-        let mut pause_res = api
-            .call()
-            .compliance_manager()
-            .pause_asset_compliance(asset_id)?
-            .submit_and_watch(issuer)
-            .await?;
-
-        // Wait for mint and pause to complete.
+        // Wait for mint to complete.
         mint_res.ok().await?;
-        pause_res.ok().await?;
 
         // Get the venue ID from the response.
-        let issuer_venue_id = get_venue_id(&mut venue_res)
-            .await?
-            .expect("Venue ID not found");
+        let issuer_venue_id = if let Some(mut venue_res) = venue_res {
+            Some(
+                get_venue_id(&mut venue_res)
+                    .await?
+                    .expect("Venue ID not found"),
+            )
+        } else {
+            None
+        };
 
         Ok(Self {
             api: api.clone(),
@@ -155,7 +192,7 @@ impl AssetHelper {
                 .call()
                 .settlement()
                 .add_and_affirm_instruction(
-                    Some(self.issuer_venue_id),
+                    self.issuer_venue_id,
                     SettlementType::SettleManual(0),
                     None,
                     None,

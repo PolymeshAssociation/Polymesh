@@ -81,11 +81,11 @@ use polymesh_primitives::settlement::{
     MediatorAffirmationStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, Venue,
     VenueDetails, VenueId, VenueType,
 };
+use polymesh_primitives::traits::{AssetOrNft, PortfolioSubTrait, SettlementFnTrait};
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    storage_migration_ver, traits::PortfolioSubTrait, Balance, IdentityId, Memo, NFTs, PortfolioId,
-    SecondaryKey, WeightMeter,
+    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, WeightMeter,
 };
 
 type System<T> = frame_system::Pallet<T>;
@@ -568,6 +568,8 @@ pub mod pallet {
         FailedAssetTransferringConditions,
         /// Locked instructions can't have affirmations withdrawn.
         InvalidInstructionStatusForWithdrawal,
+        /// Receiver identity not found.
+        ReceiverIdentityNotFound,
     }
 
     storage_migration_ver!(3);
@@ -1135,7 +1137,14 @@ pub mod pallet {
                 Self::reject_instruction_minimum_weight(),
                 <T as Config>::WeightInfo::reject_instruction(Some(AssetCount::new(10, 100, 10))),
             )?;
-            Self::base_reject_instruction(origin, id, Some(portfolio), None, &mut weight_meter)
+            Self::base_reject_instruction(
+                origin,
+                id,
+                Some(portfolio),
+                None,
+                false,
+                &mut weight_meter,
+            )
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -1248,6 +1257,7 @@ pub mod pallet {
                 id,
                 Some(portfolio),
                 number_of_assets,
+                false,
                 &mut weight_meter,
             )
             .map_err(|e| e.error)?;
@@ -1419,6 +1429,7 @@ pub mod pallet {
                 instruction_id,
                 None,
                 number_of_assets,
+                false,
                 &mut weight_meter,
             )
         }
@@ -2502,10 +2513,17 @@ impl<T: Config> Pallet<T> {
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
         input_asset_count: Option<AssetCount>,
+        use_default_portfolio: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_did = origin_data.primary_did;
+
+        let caller_pid = if use_default_portfolio {
+            Some(PortfolioId::default_portfolio(caller_did))
+        } else {
+            caller_pid
+        };
 
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         let inst_asset_count = AssetCount::from_legs(&inst_legs);
@@ -2979,9 +2997,10 @@ impl<T: Config> Pallet<T> {
         minimum_weight: Weight,
         weight_limit: Weight,
     ) -> Result<WeightMeter, DispatchErrorWithPostInfo> {
-        WeightMeter::from_limit(minimum_weight, weight_limit).map_err(|_| {
+        // Check that the provided weight limit is greater than the minimum required weight
+        WeightMeter::from_limit(minimum_weight, weight_limit).ok_or_else(|| {
             DispatchErrorWithPostInfo {
-                post_info: Some(weight_limit).into(),
+                post_info: Some(minimum_weight).into(),
                 error: Error::<T>::InputWeightIsLessThanMinimum.into(),
             }
         })
@@ -3586,5 +3605,263 @@ impl<T: Config> Pallet<T> {
         )?;
 
         Ok(weight_meter.consumed())
+    }
+
+    fn fungible_asset_count(is_fungible: bool) -> AssetCount {
+        let (fungible, non_fungible) = if is_fungible { (1, 0) } else { (0, 1) };
+        AssetCount::new(fungible, non_fungible, 0)
+    }
+
+    /// Attempts to execute an instruction.
+    fn base_try_execute_instruction(
+        origin: OriginFor<T>,
+        instruction_id: InstructionId,
+        is_fungible: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let asset_count = Self::fungible_asset_count(is_fungible);
+
+        Self::base_manual_execution(
+            origin,
+            instruction_id,
+            None,
+            &asset_count,
+            true,
+            weight_meter,
+        )
+        .map_err(|e| e.error)?;
+        Ok(())
+    }
+
+    /// Initiates a transfer instruction for fungible or non-fungible assets.
+    fn base_transfer_and_try_execute(
+        origin: OriginFor<T>,
+        to: T::AccountId,
+        asset_or_nft: AssetOrNft,
+        memo: Option<Memo>,
+        weight_meter: &mut WeightMeter,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> Result<Option<InstructionId>, DispatchError> {
+        let origin_data =
+            pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
+
+        let from_portfolio = PortfolioId::default_portfolio(origin_data.primary_did);
+        let to_did = pallet_identity::Pallet::<T>::get_identity(&to)
+            .ok_or(Error::<T>::ReceiverIdentityNotFound)?;
+        let to_portfolio = PortfolioId::default_portfolio(to_did);
+
+        // Prepare the leg depending on whether it's a fungible or non-fungible transfer
+        let (leg, is_fungible) = match asset_or_nft {
+            AssetOrNft::Asset { asset_id, amount } => (
+                Leg::Fungible {
+                    sender: from_portfolio,
+                    receiver: to_portfolio,
+                    asset_id,
+                    amount,
+                },
+                true,
+            ),
+            AssetOrNft::Nft { asset_id, nft_id } => (
+                Leg::NonFungible {
+                    sender: from_portfolio,
+                    receiver: to_portfolio,
+                    nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
+                },
+                false,
+            ),
+        };
+
+        // Consume weight for the transfer and affirmation
+        Self::check_accrue(weight_meter, Self::transfer_weight(is_fungible))?;
+
+        #[cfg(feature = "runtime-benchmarks")]
+        {
+            if bench_base_weight {
+                return Ok(Some(InstructionId(0)));
+            }
+        }
+
+        // Create the instruction with the prepared leg
+        let instruction_id = Self::base_add_instruction(
+            origin_data.primary_did,
+            None,
+            SettlementType::SettleManual(System::<T>::block_number()),
+            None,
+            None,
+            vec![leg],
+            memo,
+            None,
+        )?;
+
+        // Affirm the instruction on behalf of the sender.
+        Self::unsafe_affirm_instruction(
+            origin_data.primary_did,
+            instruction_id,
+            [from_portfolio].into(),
+            origin_data.secondary_key.as_ref(),
+            None,
+        )?;
+
+        let instruction_id = if InstructionAffirmsPending::<T>::get(instruction_id) == 0 {
+            // If there are no pending affirmations, execute the instruction immediately.
+            Self::base_try_execute_instruction(origin, instruction_id, is_fungible, weight_meter)?;
+
+            // The instruction was executed immediately, no need for receiver affirmation.
+            None
+        } else {
+            // The receiver's affirmation is still pending.
+            Some(instruction_id)
+        };
+
+        Ok(instruction_id)
+    }
+
+    /// Receiver affirms the transfer of fungible or non-fungible assets.
+    fn base_receiver_affirm_transfer_and_try_execute(
+        origin: OriginFor<T>,
+        instruction_id: InstructionId,
+        is_fungible: bool,
+        weight_meter: &mut WeightMeter,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> DispatchResult {
+        let origin_data =
+            pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
+        let to_portfolio = PortfolioId::default_portfolio(origin_data.primary_did);
+
+        // Consume weight for the receiver affirmation
+        Self::check_accrue(
+            weight_meter,
+            Self::receiver_affirm_transfer_weight(is_fungible),
+        )?;
+
+        // The affirmation count ensures that we are only affirming as the receiver.
+        let affirmation_count = AffirmationCount::new(
+            // No sender assets to affirm
+            AssetCount::default(),
+            // One receiver asset to affirm
+            Self::fungible_asset_count(is_fungible),
+            0,
+        );
+
+        #[cfg(feature = "runtime-benchmarks")]
+        {
+            if bench_base_weight {
+                // Consume weight for trying to execute the instruction
+                Self::check_accrue(weight_meter, Self::try_execute_weight(is_fungible))?;
+                return Ok(());
+            }
+        }
+
+        // Affirm the instruction on behalf of the receiver.
+        Self::base_affirm_instruction(
+            origin.clone(),
+            instruction_id,
+            [to_portfolio].into(),
+            Some(affirmation_count),
+        )?;
+
+        // Try to execute the instruction.
+        Self::base_try_execute_instruction(origin, instruction_id, is_fungible, weight_meter)?;
+
+        Ok(())
+    }
+}
+
+impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
+    /// Initiates a transfer instruction for fungible or non-fungible assets.
+    fn transfer_and_try_execute(
+        origin: OriginFor<T>,
+        to: T::AccountId,
+        asset_or_nft: AssetOrNft,
+        memo: Option<Memo>,
+        weight_meter: &mut WeightMeter,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
+        let instruction_id = Self::base_transfer_and_try_execute(
+            origin,
+            to,
+            asset_or_nft,
+            memo,
+            weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            bench_base_weight,
+        )
+        .map_err(|error| DispatchErrorWithPostInfo {
+            post_info: Some(weight_meter.consumed()).into(),
+            error,
+        })?;
+
+        Ok(instruction_id)
+    }
+
+    /// Receiver affirms the transfer of fungible or non-fungible assets.
+    fn receiver_affirm_transfer_and_try_execute(
+        origin: OriginFor<T>,
+        instruction_id: InstructionId,
+        is_fungible: bool,
+        weight_meter: &mut WeightMeter,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> DispatchResultWithPostInfo {
+        Self::base_receiver_affirm_transfer_and_try_execute(
+            origin,
+            instruction_id,
+            is_fungible,
+            weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            bench_base_weight,
+        )
+        .map_err(|error| DispatchErrorWithPostInfo {
+            post_info: Some(weight_meter.consumed()).into(),
+            error,
+        })?;
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+    }
+
+    /// Get the transfer weight based on the type of asset.
+    fn transfer_weight(is_fungible: bool) -> Weight {
+        let (fungible, non_fungible) = if is_fungible { (1, 0) } else { (0, 1) };
+        <T as Config>::WeightInfo::add_instruction(fungible, non_fungible, 0).saturating_add(
+            <T as Config>::WeightInfo::affirm_instruction(fungible, non_fungible),
+        )
+    }
+
+    /// Get the try execute weight based on the type of asset.
+    fn try_execute_weight(is_fungible: bool) -> Weight {
+        let (fungible, non_fungible) = if is_fungible { (1, 0) } else { (0, 1) };
+        <T as Config>::WeightInfo::execute_manual_instruction(fungible, non_fungible, 0)
+    }
+
+    /// Get the receiver affirm transfer weight based on the type of asset.
+    fn receiver_affirm_transfer_weight(is_fungible: bool) -> Weight {
+        let (fungible, non_fungible) = if is_fungible { (1, 0) } else { (0, 1) };
+        <T as Config>::WeightInfo::affirm_instruction_rcv(fungible, non_fungible)
+    }
+
+    /// Reject a transfer instruction.
+    fn reject_transfer(
+        origin: OriginFor<T>,
+        instruction_id: InstructionId,
+        is_fungible: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResultWithPostInfo {
+        let asset_count = Self::fungible_asset_count(is_fungible);
+        Self::base_reject_instruction(
+            origin,
+            instruction_id,
+            None,
+            Some(asset_count),
+            true,
+            weight_meter,
+        )
+    }
+
+    /// Get the reject transfer weight meter.
+    fn reject_transfer_weight_meter(is_fungible: bool) -> WeightMeter {
+        let asset_count = Self::fungible_asset_count(is_fungible);
+        WeightMeter::from_limit_unchecked(
+            Self::reject_instruction_minimum_weight(),
+            <T as Config>::WeightInfo::reject_instruction(Some(asset_count)),
+        )
     }
 }
