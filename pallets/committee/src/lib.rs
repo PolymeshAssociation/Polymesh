@@ -401,7 +401,7 @@ pub mod pallet {
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
         #[pallet::weight((<T as Config<I>>::WeightInfo::vote_or_propose_new_proposal()
-            .saturating_add(call.get_dispatch_info().total_weight()),
+            .saturating_add(call.get_dispatch_info().call_weight),
             DispatchClass::Operational
         ))]
         #[pallet::call_index(3)]

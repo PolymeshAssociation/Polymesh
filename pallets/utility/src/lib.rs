@@ -338,7 +338,7 @@ pub mod pallet {
                 let dispatch_info = call.call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::relay_tx()
-                        .saturating_add(dispatch_info.total_weight()),
+                        .saturating_add(dispatch_info.call_weight),
                     dispatch_info.class,
                 )
             })]
@@ -461,7 +461,7 @@ pub mod pallet {
                 let dispatch_info = call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::dispatch_as()
-                        .saturating_add(dispatch_info.total_weight()),
+                        .saturating_add(dispatch_info.call_weight),
                     dispatch_info.class,
                 )
             })]
@@ -568,7 +568,7 @@ pub mod pallet {
 			(
 				<T as Config>::WeightInfo::as_derivative()
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.total_weight()),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
         })]
@@ -590,7 +590,7 @@ impl<T: Config> Pallet<T> {
             (Weight::zero(), DispatchClass::Operational),
             |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
                 (
-                    total_weight.saturating_add(di.total_weight()),
+                    total_weight.saturating_add(di.call_weight),
                     // If not all are `Operational`, we want to use `DispatchClass::Normal`.
                     if di.class == DispatchClass::Normal {
                         di.class
