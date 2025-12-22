@@ -80,14 +80,21 @@ fn signed_extension_transaction_payment_work() {
 
             let len = 10;
             let bob_origin = RuntimeOrigin::signed(bob.clone());
-            let pre = ChargeTransactionPayment::<TestStorage>::from(0)
-                .prepare(
-                    Val::NoCharge,
-                    &bob_origin,
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    bob_origin.clone(),
                     &call(),
                     &info_from_weight(5),
                     len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
                 )
+                .unwrap();
+
+            let pre = ChargeTransactionPayment::<TestStorage>::from(0)
+                .prepare(val.1, &bob_origin, &call(), &info_from_weight(5), len)
                 .unwrap();
             assert_eq!(Balances::free_balance(&bob), 1999969000);
 
@@ -102,14 +109,21 @@ fn signed_extension_transaction_payment_work() {
             assert_eq!(Balances::free_balance(&bob), 1999969000);
 
             let alice_origin = RuntimeOrigin::signed(alice.clone());
-            let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
-                .prepare(
-                    Val::NoCharge,
-                    &alice_origin,
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    alice_origin.clone(),
                     &call(),
                     &info_from_weight(100),
                     len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
                 )
+                .unwrap();
+
+            let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
+                .prepare(val.1, &alice_origin, &call(), &info_from_weight(100), len)
                 .unwrap();
             assert_eq!(Balances::free_balance(&alice), 999969000);
 
@@ -137,14 +151,21 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
             let alice_origin = RuntimeOrigin::signed(user.clone());
-            let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
-                .prepare(
-                    Val::NoCharge,
-                    &alice_origin,
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    alice_origin.clone(),
                     &call(),
                     &info_from_weight(100),
                     len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
                 )
+                .unwrap();
+
+            let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
+                .prepare(val.1, &alice_origin, &call(), &info_from_weight(100), len)
                 .unwrap();
             // 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
             assert_eq!(Balances::free_balance(&user), 999969000);
@@ -185,14 +206,21 @@ fn signed_extension_transaction_payment_is_bounded() {
 
             // maximum weight possible
             let bob_origin = RuntimeOrigin::signed(user.clone());
-            ChargeTransactionPayment::<TestStorage>::from(0)
-                .prepare(
-                    Val::NoCharge,
-                    &bob_origin,
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    bob_origin.clone(),
                     &call(),
                     &info_from_weight(u64::MAX),
                     10,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
                 )
+                .unwrap();
+
+            ChargeTransactionPayment::<TestStorage>::from(0)
+                .prepare(val.1, &bob_origin, &call(), &info_from_weight(u64::MAX), 10)
                 .unwrap();
             // fee will be proportional to what is the actual maximum weight in the runtime.
             assert_eq!(Balances::free_balance(&user), (free_user - max_fee));
@@ -266,9 +294,22 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
             let len = 10;
             let user = Sr25519Keyring::Bob.to_account_id();
             let bob_origin = RuntimeOrigin::signed(user.clone());
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    bob_origin.clone(),
+                    &call(),
+                    &info_from_weight(3),
+                    len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
+                )
+                .unwrap();
+
             assert!(ChargeTransactionPayment::<TestStorage>::from(0) // tipped
                 .prepare(
-                    Val::NoCharge,
+                    val.1,
                     &bob_origin,
                     &call(),
                     &info_from_weight(3),
@@ -302,7 +343,7 @@ fn query_info_works() {
                     unchecked_extrinsic.encode().len() as u32
                 ),
                 RuntimeDispatchInfo {
-                    weight: info.total_weight(),
+                    weight: info.call_weight,
                     class: info.class,
                     partial_fee: 43700
                 },
@@ -471,14 +512,21 @@ fn actual_weight_higher_than_max_refunds_nothing() {
             let len = 10;
             let user = Sr25519Keyring::Alice.to_account_id();
             let alice_origin = RuntimeOrigin::signed(user.clone());
-            let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
-                .prepare(
-                    Val::NoCharge,
-                    &alice_origin,
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    alice_origin.clone(),
                     &call(),
-                    &info_from_weight(100),
+                    &info_from_weight(5),
                     len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
                 )
+                .unwrap();
+
+            let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
+                .prepare(val.1, &alice_origin, &call(), &info_from_weight(100), len)
                 .unwrap();
             assert_eq!(Balances::free_balance(&user), 999969000);
 
@@ -513,9 +561,23 @@ fn zero_transfer_on_free_transaction() {
             let user = Sr25519Keyring::Alice.to_account_id();
             let bal_init = Balances::total_balance(&user);
             let alice_origin = RuntimeOrigin::signed(user.clone());
-            let pre = ChargeTransactionPayment::<TestStorage>::from(0)
-                .prepare(Val::NoCharge, &alice_origin, &call(), &dispatch_info, len)
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    alice_origin.clone(),
+                    &call(),
+                    &dispatch_info,
+                    len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
+                )
                 .unwrap();
+
+            let pre = ChargeTransactionPayment::<TestStorage>::from(0)
+                .prepare(val.1, &alice_origin, &call(), &dispatch_info, len)
+                .unwrap();
+
             assert_eq!(Balances::total_balance(&user), bal_init);
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -548,8 +610,21 @@ fn refund_consistent_with_actual_weight() {
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(5, 4));
 
             let alice_origin = RuntimeOrigin::signed(alice.clone());
+
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    alice_origin.clone(),
+                    &call(),
+                    &info_from_weight(100),
+                    len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
+                )
+                .unwrap();
+
             let pre = ChargeTransactionPayment::<TestStorage>::from(tip)
-                .prepare(Val::NoCharge, &alice_origin, &call(), &info, len)
+                .prepare(val.1, &alice_origin, &call(), &info, len)
                 .unwrap();
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
@@ -592,7 +667,18 @@ fn normal_tx_with_tip_ext() {
         TransactionError::ZeroTip as u8,
     ));
     let pre_err = ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(Val::NoCharge, &alice_origin, &call, &normal_info, len)
+        .prepare(
+            Val::Charge {
+                tip: 1,
+                who: user.clone(),
+                fee: 0,
+                subsidiser: None,
+            },
+            &alice_origin,
+            &call,
+            &normal_info,
+            len,
+        )
         .map(|_| ())
         .unwrap_err();
     assert!(pre_err == expected_err);
@@ -631,18 +717,55 @@ fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
 
     // Valid operational tx with tip. Only CDD and Governance members can tip.
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(Val::NoCharge, &alice_origin, &call, &operational_info, len)
+        .prepare(
+            Val::Charge {
+                tip: tip,
+                who: user.clone(),
+                fee: TransactionPayment::compute_fee(len as u32, &operational_info, tip),
+                subsidiser: None,
+            },
+            &alice_origin,
+            &call,
+            &operational_info,
+            len
+        )
         .is_err());
 
     // Governance can tip.
     let gc_origin = RuntimeOrigin::signed(gc.clone());
+
+    let val = ChargeTransactionPayment::<TestStorage>::from(0)
+        .validate(
+            gc_origin.clone(),
+            &call,
+            &operational_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(Val::NoCharge, &gc_origin, &call, &operational_info, len)
+        .prepare(val.1, &gc_origin, &call, &operational_info, len)
         .is_ok());
 
     // CDD can also tip.
     let cdd_origin = RuntimeOrigin::signed(cdd.clone());
+
+    let val = ChargeTransactionPayment::<TestStorage>::from(0)
+        .validate(
+            cdd_origin.clone(),
+            &call,
+            &operational_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(Val::NoCharge, &cdd_origin, &call, &operational_info, len)
+        .prepare(val.1, &cdd_origin, &call, &operational_info, len)
         .is_ok());
 }

@@ -788,34 +788,33 @@ where
         len: usize,
     ) -> Result<(BalanceOf<T>, Option<T::AccountId>), TransactionValidityError> {
         let tip = self.0;
-        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+        let fee_with_tip = Pallet::<T>::compute_fee(len as u32, info, tip);
 
         // Polymesh change
         // -----------------------------------------------------------------
 
-        if fee.is_zero() {
-            return Ok((fee, None));
+        if fee_with_tip.is_zero() {
+            return Ok((fee_with_tip, None));
         }
 
-        // Get the payer for this transaction.
-        let payers_key =
-            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
-
-        // Check if the payer is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&payers_key, fee.into(), Some(call))?;
+        let (payers_key, subsidiser) = Self::check_subsidy_conditions(who, call, fee_with_tip)?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
 
         <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
-            fee_key, call, info, fee, tip,
+            fee_key,
+            call,
+            info,
+            fee_with_tip,
+            tip,
         )?;
 
         T::CddHandler::set_payer_context(Some(payers_key));
 
         // -----------------------------------------------------------------
 
-        Ok((fee, subsidiser))
+        Ok((fee_with_tip, subsidiser))
     }
 
     pub(crate) fn withdraw_fee(
@@ -824,10 +823,10 @@ where
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
         fee_with_tip: BalanceOf<T>,
-        subsidiser: Option<&T::AccountId>,
     ) -> Result<
         (
             BalanceOf<T>,
+            Option<T::AccountId>,
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
         ),
         TransactionValidityError,
@@ -838,13 +837,13 @@ where
         // -----------------------------------------------------------------
 
         if fee_with_tip.is_zero() {
-            return Ok((fee_with_tip, Default::default()));
+            return Ok((fee_with_tip, None, Default::default()));
         }
 
-        let payers_key =
-            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
+        let (payers_key, subsidiser) = Self::check_subsidy_conditions(who, call, fee_with_tip)?;
 
-        let fee_key = subsidiser.unwrap_or(&payers_key);
+        // key to pay the fee.
+        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
 
         let liq_info =
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
@@ -859,7 +858,23 @@ where
 
         // -----------------------------------------------------------------
 
-        Ok((fee_with_tip, liq_info))
+        Ok((fee_with_tip, subsidiser, liq_info))
+    }
+
+    fn check_subsidy_conditions(
+        caller_acc: &T::AccountId,
+        call: &T::RuntimeCall,
+        fee_with_tip: BalanceOf<T>,
+    ) -> Result<(T::AccountId, Option<T::AccountId>), InvalidTransaction> {
+        // Get the payer for this transaction.
+        let payers_key =
+            T::CddHandler::get_valid_payer(call, caller_acc)?.ok_or(InvalidTransaction::Payment)?;
+
+        // Check if the payer is being subsidised.
+        let subsidiser =
+            T::Subsidiser::check_subsidy(&payers_key, fee_with_tip.into(), Some(call))?;
+
+        Ok((payers_key, subsidiser))
     }
 
     // Polymesh change: Used to allow GC/CDD member to include a `tip`.
@@ -1014,13 +1029,14 @@ where
                 refund: self.weight(call),
             }),
             Val::Charge {
-                tip,
+                tip: _,
                 who,
                 fee,
-                subsidiser,
+                subsidiser: _,
             } => {
-                let (_, imbalance) =
-                    self.withdraw_fee(&who, call, info, fee, subsidiser.as_ref())?;
+                let tip = self.ensure_valid_tip(&who, info)?;
+
+                let (_, subsidiser, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
 
                 Ok(Pre::Charge {
                     tip,
