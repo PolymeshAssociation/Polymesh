@@ -549,7 +549,7 @@ where
         let DispatchInfo { class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
-            weight: dispatch_info.call_weight,
+            weight: dispatch_info.total_weight(),
             class,
             partial_fee,
         }
@@ -587,7 +587,7 @@ where
         let DispatchInfo { class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
-            weight: dispatch_info.call_weight,
+            weight: dispatch_info.total_weight(),
             class,
             partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
         }
@@ -1029,13 +1029,11 @@ where
                 refund: self.weight(call),
             }),
             Val::Charge {
-                tip: _,
+                tip,
                 who,
                 fee,
                 subsidiser: _,
             } => {
-                let tip = self.ensure_valid_tip(&who, info)?;
-
                 let (_, subsidiser, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
 
                 Ok(Pre::Charge {

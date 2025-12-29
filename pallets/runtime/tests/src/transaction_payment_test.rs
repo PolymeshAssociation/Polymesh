@@ -667,19 +667,15 @@ fn normal_tx_with_tip_ext() {
         TransactionError::ZeroTip as u8,
     ));
     let pre_err = ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(
-            Val::Charge {
-                tip: 1,
-                who: user.clone(),
-                fee: 0,
-                subsidiser: None,
-            },
-            &alice_origin,
+        .validate(
+            alice_origin.clone(),
             &call,
             &normal_info,
             len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
         )
-        .map(|_| ())
         .unwrap_err();
     assert!(pre_err == expected_err);
 
@@ -717,24 +713,21 @@ fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
 
     // Valid operational tx with tip. Only CDD and Governance members can tip.
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(
-            Val::Charge {
-                tip: tip,
-                who: user.clone(),
-                fee: TransactionPayment::compute_fee(len as u32, &operational_info, tip),
-                subsidiser: None,
-            },
-            &alice_origin,
+        .validate(
+            alice_origin.clone(),
             &call,
             &operational_info,
-            len
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
         )
         .is_err());
 
     // Governance can tip.
     let gc_origin = RuntimeOrigin::signed(gc.clone());
 
-    let val = ChargeTransactionPayment::<TestStorage>::from(0)
+    let val = ChargeTransactionPayment::<TestStorage>::from(tip)
         .validate(
             gc_origin.clone(),
             &call,
@@ -753,7 +746,7 @@ fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
     // CDD can also tip.
     let cdd_origin = RuntimeOrigin::signed(cdd.clone());
 
-    let val = ChargeTransactionPayment::<TestStorage>::from(0)
+    let val = ChargeTransactionPayment::<TestStorage>::from(tip)
         .validate(
             cdd_origin.clone(),
             &call,
