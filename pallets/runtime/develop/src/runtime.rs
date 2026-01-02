@@ -337,6 +337,9 @@ mod runtime {
     #[runtime::pallet_index(6)]
     pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
+    #[runtime::pallet_index(51)]
+    pub type PolymeshTransactionPayment = polymesh_transaction_payment::Pallet<Runtime>;
+
     #[runtime::pallet_index(7)]
     pub type Identity = pallet_identity::Pallet<Runtime>;
 
@@ -505,6 +508,7 @@ mod benches {
         [pallet_scheduler, Scheduler]
         [pallet_staking, Staking]
         [pallet_validators, Validators]
+        [polymesh_transaction_payment, PolymeshTransactionPayment]
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
         [pallet_contracts, Contracts]

@@ -12,10 +12,10 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityEr
 use sp_runtime::{FixedPointNumber, MultiAddress};
 
 use pallet_balances::Call as BalancesCall;
-use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier};
-use pallet_transaction_payment::{NextFeeMultiplier, RuntimeDispatchInfo, Val};
+use pallet_transaction_payment::{Multiplier, NextFeeMultiplier, RuntimeDispatchInfo};
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
+use polymesh_transaction_payment::{ChargeTransactionPayment, Val};
 
 use super::ext_builder::ExtBuilder;
 use super::storage::{Address, RuntimeCall, TestStorage};
@@ -148,7 +148,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
         .execute_with(|| {
             let user = Sr25519Keyring::Alice.to_account_id();
             let len = 10;
-            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
+            NextFeeMultiplier::<TestStorage>::put(Multiplier::saturating_from_rational(3, 2));
 
             let alice_origin = RuntimeOrigin::signed(user.clone());
 
@@ -290,7 +290,7 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
         .build()
         .execute_with(|| {
             // all fees should be x1.5
-            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
+            NextFeeMultiplier::<TestStorage>::put(Multiplier::saturating_from_rational(3, 2));
             let len = 10;
             let user = Sr25519Keyring::Bob.to_account_id();
             let bob_origin = RuntimeOrigin::signed(user.clone());
@@ -335,7 +335,7 @@ fn query_info_works() {
             let info = unchecked_extrinsic.get_dispatch_info();
 
             // all fees should be x1.5
-            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
+            NextFeeMultiplier::<TestStorage>::put(Multiplier::saturating_from_rational(3, 2));
 
             assert_eq!(
                 TransactionPayment::query_info(
@@ -412,7 +412,7 @@ fn compute_fee_works_with_multiplier() {
         .build()
         .execute_with(|| {
             // Add a next fee multiplier. Fees will be x3/2.
-            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
+            NextFeeMultiplier::<TestStorage>::put(Multiplier::saturating_from_rational(3, 2));
             // Base fee is unaffected by multiplier
             let dispatch_info = DispatchInfo {
                 call_weight: Weight::from_parts(0, 0),
@@ -448,7 +448,7 @@ fn compute_fee_works_with_negative_multiplier() {
         .build()
         .execute_with(|| {
             // Add a next fee multiplier. All fees will be x1/2.
-            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(1, 2));
+            NextFeeMultiplier::<TestStorage>::put(Multiplier::saturating_from_rational(1, 2));
 
             // Base fee is unaffected by multiplier.
             let dispatch_info = DispatchInfo {
@@ -607,7 +607,7 @@ fn refund_consistent_with_actual_weight() {
             let len = 10;
             let tip = 0;
 
-            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(5, 4));
+            NextFeeMultiplier::<TestStorage>::put(Multiplier::saturating_from_rational(5, 4));
 
             let alice_origin = RuntimeOrigin::signed(alice.clone());
 

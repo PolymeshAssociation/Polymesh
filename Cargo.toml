@@ -37,6 +37,7 @@ pallet-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", 
 pallet-staking-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 pallet-sudo = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
+pallet-transaction-payment = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 pallet-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
 sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512-0" }
@@ -177,7 +178,7 @@ pallet-sto = { path = "pallets/sto", default-features = false }
 pallet-settlement = { path = "pallets/settlement", default-features = false }
 pallet-validators = { path = "pallets/validators", default-features = false }
 pallet-statistics = { path = "pallets/statistics", default-features = false }
-pallet-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
+polymesh-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
@@ -235,6 +236,7 @@ pallet-staking-runtime-api = { version = "14.0.0", default-features = false }
 pallet-staking-reward-curve = { version = "11.0.0", default-features = false }
 pallet-sudo = { version = "28.0.0", default-features = false }
 pallet-timestamp = { version = "27.0.0", default-features = false }
+pallet-transaction-payment = { version = "28.0.0", default-features = false }
 scale-info = { version = "2.11.6", default-features = false, features = ["derive"] }
 sp-api = { version = "26.0.0", default-features = false }
 sp-application-crypto = { version = "30.0.0", default-features = false }
@@ -306,7 +308,6 @@ rand_chacha = { version = "0.3", default-features = false }
 
 [dependencies]
 pallet-asset = { workspace = true }
-pallet-balances = { workspace = true, default-features = false, features = ["insecure_zero_ed"] }
 pallet-committee = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
@@ -316,11 +317,9 @@ pallet-multisig = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
 pallet-pips = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
-pallet-staking = { workspace = true, default-features = false }
-pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
-pallet-transaction-payment = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
@@ -378,9 +377,13 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-babe = { workspace = true }
+pallet-balances = { workspace = true, default-features = false, features = ["insecure_zero_ed"] }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-session = { workspace = true }
+pallet-staking = { workspace = true, default-features = false }
+pallet-staking-runtime-api = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.17.2" }
 sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
@@ -411,7 +414,7 @@ substrate-build-script-utils = { version = "11.0.0" }
 [features]
 default = ["std"]
 disable_fees = [
-    "pallet-transaction-payment/disable_fees", 
+    "polymesh-transaction-payment/disable_fees", 
     "polymesh-runtime-develop/disable_fees", 
     "polymesh-runtime-mainnet/disable_fees",
     "polymesh-runtime-testnet/disable_fees",

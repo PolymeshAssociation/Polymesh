@@ -37,7 +37,7 @@ fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -
         CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
         CheckNonce::<Runtime>::from(nonce),
         CheckWeight::<Runtime>::new(),
-        pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+        polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
         pallet_permissions::StoreCallMetadata::<Runtime>::new(),
     )
 }

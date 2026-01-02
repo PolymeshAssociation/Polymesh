@@ -32,6 +32,7 @@ pallet-statistics = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
@@ -152,6 +153,7 @@ std = [
     "pallet-statistics/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
+    "polymesh-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-sudo/std",
     "polymesh-primitives/std",

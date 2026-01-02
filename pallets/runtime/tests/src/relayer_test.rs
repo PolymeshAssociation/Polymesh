@@ -9,12 +9,12 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityEr
 use sp_runtime::MultiAddress;
 
 use pallet_relayer::Subsidy;
-use pallet_transaction_payment::Val;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::traits::CddAndFeeDetails;
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
+use polymesh_transaction_payment::Val;
 
 use super::storage::{get_last_auth_id, make_account_without_cdd, RuntimeCall, TestStorage, User};
 use super::ExtBuilder;
@@ -26,7 +26,7 @@ type AccountKeyRefCount = pallet_identity::AccountKeyRefCount<TestStorage>;
 type Balances = pallet_balances::Pallet<TestStorage>;
 type ProtocolFee = pallet_protocol_fee::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Pallet<TestStorage>;
-type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;
+type ChargeTransactionPayment = polymesh_transaction_payment::ChargeTransactionPayment<TestStorage>;
 type Error = pallet_relayer::Error<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
 type RuntimeOrigin = <TestStorage as frame_system::Config>::RuntimeOrigin;

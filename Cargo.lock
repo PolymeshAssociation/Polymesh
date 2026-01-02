@@ -5955,7 +5955,7 @@ dependencies = [
  "pallet-identity",
  "pallet-pips",
  "pallet-portfolio",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
  "serde",
@@ -5978,7 +5978,7 @@ dependencies = [
  "pallet-identity",
  "pallet-pips",
  "pallet-portfolio",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
  "serde",
@@ -7180,24 +7180,6 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment"
-version = "2.0.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-primitives",
- "scale-info",
- "serde",
- "serde_json",
- "sp-api",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-transaction-payment"
 version = "28.0.0"
 source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2512-0#ce4188eafdcdac7730f87656f1176278b0c54048"
 dependencies = [
@@ -8014,7 +7996,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-runtime-api",
  "pallet-sudo",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -8025,6 +8007,7 @@ dependencies = [
  "polymesh-runtime-develop",
  "polymesh-runtime-mainnet",
  "polymesh-runtime-testnet",
+ "polymesh-transaction-payment",
  "rustc-hex",
  "sc-authority-discovery",
  "sc-basic-authorship",
@@ -8273,7 +8256,7 @@ dependencies = [
  "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
@@ -8283,6 +8266,7 @@ dependencies = [
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-transaction-payment",
  "polymesh-weights",
  "scale-info",
  "serde",
@@ -8355,7 +8339,7 @@ dependencies = [
  "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
@@ -8365,6 +8349,7 @@ dependencies = [
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-transaction-payment",
  "polymesh-weights",
  "scale-info",
  "serde",
@@ -8439,7 +8424,7 @@ dependencies = [
  "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
@@ -8449,6 +8434,7 @@ dependencies = [
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-transaction-payment",
  "polymesh-weights",
  "scale-info",
  "serde",
@@ -8527,7 +8513,7 @@ dependencies = [
  "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
@@ -8539,6 +8525,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
+ "polymesh-transaction-payment",
  "polymesh-weights",
  "rand 0.8.5",
  "scale-info",
@@ -8567,6 +8554,25 @@ dependencies = [
  "sp-version",
  "substrate-test-utils",
  "wat",
+]
+
+[[package]]
+name = "polymesh-transaction-payment"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8602,7 +8608,7 @@ dependencies = [
  "pallet-statistics",
  "pallet-sto",
  "pallet-timestamp",
- "pallet-transaction-payment 2.0.0",
+ "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
@@ -12351,7 +12357,7 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "pallet-asset-conversion",
- "pallet-transaction-payment 28.0.0",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
