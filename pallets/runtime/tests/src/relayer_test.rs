@@ -123,7 +123,7 @@ fn assert_invalid_subsidy_call(caller: &AccountId, call: &RuntimeCall) {
     let val_charge = Val::Charge {
         tip: 0,
         who: caller.clone(),
-        fee: 1,
+        fee_with_tip: 1,
         subsidiser: None,
     };
     let pre_err = ChargeTransactionPayment::from(0)
@@ -545,7 +545,7 @@ fn do_relayer_transaction_and_protocol_fees_test() {
             Val::Charge {
                 tip: 0,
                 who: bob.acc(),
-                fee: 1,
+                fee_with_tip: 1,
                 subsidiser: Some(alice.acc()),
             },
             &RuntimeOrigin::signed(bob.acc()),

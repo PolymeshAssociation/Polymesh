@@ -19,7 +19,6 @@ use frame_support::weights::Weight;
 use frame_support::RuntimeDebugNoBound;
 use frame_system::pallet_prelude::OriginFor;
 use scale_info::TypeInfo;
-use sp_runtime::traits::SaturatedConversion;
 use sp_runtime::traits::{AsSystemOriginSigner, TransactionExtension, Zero};
 use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf};
 use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
@@ -275,7 +274,7 @@ pub enum Val<T: Config> {
         // who called the transaction
         who: T::AccountId,
         // transaction fee
-        fee: BalanceOf<T>,
+        fee_with_tip: BalanceOf<T>,
         // Polymesh Subsidiser account (who paid the fee)
         subsidiser: Option<T::AccountId>,
     },
@@ -349,17 +348,22 @@ where
 
         let tip = self.ensure_valid_tip(caller_acc, info)?;
 
-        let (fee, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
+        let (fee_with_tip, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
 
         let valid_transaction = ValidTransaction {
-            priority: tip.saturated_into::<TransactionPriority>(),
+            priority: pallet_transaction_payment::ChargeTransactionPayment::<T>::get_priority(
+                info,
+                len,
+                tip,
+                fee_with_tip,
+            ),
             ..Default::default()
         };
 
         let val = Val::Charge {
             tip,
             who: caller_acc.clone(),
-            fee,
+            fee_with_tip,
             subsidiser,
         };
 
@@ -381,10 +385,11 @@ where
             Val::Charge {
                 tip,
                 who,
-                fee,
+                fee_with_tip,
                 subsidiser: _,
             } => {
-                let (_, subsidiser, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
+                let (_, subsidiser, imbalance) =
+                    self.withdraw_fee(&who, call, info, fee_with_tip)?;
 
                 Ok(Pre::Charge {
                     tip,

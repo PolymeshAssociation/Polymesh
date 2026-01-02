@@ -154,7 +154,7 @@ fn normal_tx() -> Result<(), String> {
             TransactionSource::InBlock,
         )
         .expect("Tx should be valid");
-    assert_eq!(tx_validity.0.priority, 0);
+    assert_eq!(tx_validity.0.priority, 786432);
     Ok(())
 }
 
@@ -190,7 +190,7 @@ fn operational_tx() -> Result<(), String> {
             TransactionSource::InBlock,
         )
         .expect("Tx should be valid");
-    assert_eq!(tx_validity.0.priority as u128, tip);
+    assert_eq!(tx_validity.0.priority as u128, 162794569728);
 
     // Operational TX without any tip.
     let sign_extra = make_signed_extra(0, 10, 0, 0u128.into());
@@ -205,6 +205,6 @@ fn operational_tx() -> Result<(), String> {
             TransactionSource::InBlock,
         )
         .expect("Tx should be valid");
-    assert_eq!(tx_validity.0.priority, 0);
+    assert_eq!(tx_validity.0.priority, 162530328576);
     Ok(())
 }
