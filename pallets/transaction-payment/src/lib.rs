@@ -625,7 +625,7 @@ where
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
-        Self::compute_fee_raw(len, info.call_weight, tip, info.pays_fee, info.class)
+        Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
     }
 
     /// Compute the actual post dispatch fee for a particular transaction.
