@@ -180,7 +180,7 @@ macro_rules! misc_pallet_impls {
             type LengthToFee = polymesh_runtime_common::LengthToFee;
             type FeeMultiplierUpdate = ();
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
-            type WeightInfo = polymesh_weights::pallet_transaction_payment::SubstrateWeight;
+            type WeightInfo = polymesh_weights::polymesh_transaction_payment::SubstrateWeight;
             type ChargeFees = PolymeshTransactionPayment;
         }
 

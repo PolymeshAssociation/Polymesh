@@ -31,6 +31,7 @@ pub use pallet::*;
 
 pub use pallet_transaction_payment::{
     ChargeFeesControl, FeeDetails, InclusionFee, OnChargeTransaction, RuntimeDispatchInfo,
+    WeightInfo,
 };
 
 #[cfg(feature = "runtime-benchmarks")]

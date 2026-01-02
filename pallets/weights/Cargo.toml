@@ -10,6 +10,7 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
@@ -17,12 +18,12 @@ pallet-grandpa = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false }
+pallet-staking = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false  }
 sp-std = { workspace = true, default-features = false }
 
 # our pallets
 pallet-asset = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false }
-pallet-staking = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 pallet-committee = { workspace = true, default-features = false }
 pallet-compliance-manager = { workspace = true, default-features = false  }
@@ -39,11 +40,11 @@ pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false  }
 pallet-statistics = { workspace = true, default-features = false  }
 pallet-sto = { workspace = true, default-features = false  }
-pallet-transaction-payment = { workspace = true, default-features = false  }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false  }
 
 [features]
 default = ["std"]
@@ -78,4 +79,5 @@ std = [
     "pallet-utility/std",
     "polymesh-contracts/std",
     "polymesh-primitives/std",
+    "polymesh-transaction-payment/std",
 ]
