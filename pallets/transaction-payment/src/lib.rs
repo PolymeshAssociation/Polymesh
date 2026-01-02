@@ -337,8 +337,9 @@ where
     type Val = Val<T>;
     type Pre = Pre<T>;
 
-    fn weight(&self, _: &T::RuntimeCall) -> Weight {
-        Weight::zero()
+    fn weight(&self, _call: &T::RuntimeCall) -> Weight {
+        // TODO: improve weight based on the call.
+        <T as pallet_transaction_payment::Config>::WeightInfo::charge_transaction_payment()
     }
 
     fn validate(
