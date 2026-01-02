@@ -181,6 +181,7 @@ macro_rules! misc_pallet_impls {
             type FeeMultiplierUpdate = ();
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
             type WeightInfo = polymesh_weights::pallet_transaction_payment::SubstrateWeight;
+            type ChargeFees = PolymeshTransactionPayment;
         }
 
         impl polymesh_transaction_payment::Config for Runtime {

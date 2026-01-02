@@ -31,11 +31,25 @@ pub use pallet::*;
 
 pub use pallet_transaction_payment::{
     FeeDetails, InclusionFee, OnChargeTransaction, RuntimeDispatchInfo,
+    ChargeFeesControl,
 };
 
 pub type TransactionPallet<T> = pallet_transaction_payment::Pallet<T>;
 
 type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+
+impl<T: Config> ChargeFeesControl for Pallet<T> {
+    fn disabled() -> bool {
+        #[cfg(feature = "disable_fees")]
+        {
+            DisableFees::<T>::get()
+        }
+        #[cfg(not(feature = "disable_fees"))]
+        {
+            false
+        }
+    }
+}
 
 #[frame_support::pallet]
 pub mod pallet {
