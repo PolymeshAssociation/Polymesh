@@ -3,7 +3,8 @@ use frame_support::dispatch::DispatchInfo;
 use frame_support::traits::Currency;
 use frame_support::weights::Weight;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::traits::TransactionExtension;
+use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
+use sp_runtime::transaction_validity::TransactionSource;
 
 use pallet_balances::{self as balances, Event as BalancesRawEvent};
 use pallet_identity as identity;
@@ -75,16 +76,15 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let charge_tx_payment = ChargeTransactionPayment::<TestStorage>::from(5);
-
-            let call = StorageRuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-            assert!(charge_tx_payment
-                .prepare(
-                    Val::NoCharge,
-                    &Origin::signed(Sr25519Keyring::Alice.to_account_id()),
-                    &call,
+            assert!(ChargeTransactionPayment::<TestStorage>::from(5)
+                .validate(
+                    Origin::signed(Sr25519Keyring::Alice.to_account_id()),
+                    &StorageRuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
                     &info_from_weight(3),
                     10,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
                 )
                 .is_err());
         });

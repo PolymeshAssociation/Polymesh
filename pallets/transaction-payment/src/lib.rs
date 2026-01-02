@@ -786,43 +786,95 @@ where
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
         len: usize,
-    ) -> Result<
-        (
-            BalanceOf<T>,
-            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-            Option<T::AccountId>,
-        ),
-        TransactionValidityError,
-    > {
+    ) -> Result<(BalanceOf<T>, Option<T::AccountId>), TransactionValidityError> {
         let tip = self.0;
-        let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+        let fee_with_tip = Pallet::<T>::compute_fee(len as u32, info, tip);
 
         // Polymesh change
         // -----------------------------------------------------------------
 
-        if fee.is_zero() {
-            return Ok((fee, Default::default(), None));
+        if fee_with_tip.is_zero() {
+            return Ok((fee_with_tip, None));
         }
 
-        // Get the payer for this transaction.
-        let payers_key =
-            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
+        let (payers_key, subsidiser) = Self::check_subsidy_conditions(&who, call, fee_with_tip)?;
 
-        // Check if the payer is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&payers_key, fee.into(), Some(call))?;
+        // key to pay the fee.
+        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
+
+        <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+            fee_key,
+            call,
+            info,
+            fee_with_tip,
+            tip,
+        )?;
+
+        T::CddHandler::set_payer_context(Some(payers_key));
+
+        // -----------------------------------------------------------------
+
+        Ok((fee_with_tip, subsidiser))
+    }
+
+    pub(crate) fn withdraw_fee(
+        &self,
+        who: &T::AccountId,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        fee_with_tip: BalanceOf<T>,
+    ) -> Result<
+        (
+            BalanceOf<T>,
+            Option<T::AccountId>,
+            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+        ),
+        TransactionValidityError,
+    > {
+        let tip = self.0;
+
+        // Polymesh change
+        // -----------------------------------------------------------------
+
+        if fee_with_tip.is_zero() {
+            return Ok((fee_with_tip, None, Default::default()));
+        }
+
+        let (payers_key, subsidiser) = Self::check_subsidy_conditions(who, call, fee_with_tip)?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
 
         let liq_info =
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-                fee_key, call, info, fee, tip,
+                fee_key,
+                call,
+                info,
+                fee_with_tip,
+                tip,
             )?;
 
         T::CddHandler::set_payer_context(Some(payers_key));
-        Ok((fee, liq_info, subsidiser))
 
         // -----------------------------------------------------------------
+
+        Ok((fee_with_tip, subsidiser, liq_info))
+    }
+
+    fn check_subsidy_conditions(
+        caller_acc: &T::AccountId,
+        call: &T::RuntimeCall,
+        fee_with_tip: BalanceOf<T>,
+    ) -> Result<(T::AccountId, Option<T::AccountId>), InvalidTransaction> {
+        // Get the payer for this transaction.
+        let payers_key = T::CddHandler::get_valid_payer(call, caller_acc.clone())?
+            .ok_or(InvalidTransaction::Payment)?;
+
+        // Check if the payer is being subsidised.
+        let subsidiser =
+            T::Subsidiser::check_subsidy(&payers_key, fee_with_tip.into(), Some(call))?;
+
+        Ok((payers_key, subsidiser))
     }
 
     // Polymesh change: Used to allow GC/CDD member to include a `tip`.
@@ -861,6 +913,8 @@ where
             DispatchClass::Mandatory => Ok(self.0),
         }
     }
+
+    // -----------------------------------------------------------------
 }
 
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
@@ -947,7 +1001,7 @@ where
 
         let tip = self.ensure_valid_tip(caller_acc, info)?;
 
-        let (fee, _, subsidiser) = self.can_withdraw_fee(caller_acc.clone(), call, info, len)?;
+        let (fee, subsidiser) = self.can_withdraw_fee(caller_acc.clone(), call, info, len)?;
 
         let valid_transaction = ValidTransaction {
             priority: tip.saturated_into::<TransactionPriority>(),
@@ -966,31 +1020,34 @@ where
 
     fn prepare(
         self,
-        _val: Self::Val,
-        origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
-        len: usize,
+        _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let caller_acc = origin
-            .as_system_origin_signer()
-            .ok_or(InvalidTransaction::BadSigner)?;
+        match val {
+            Val::NoCharge => Ok(Pre::NoCharge {
+                refund: self.weight(call),
+            }),
+            Val::Charge {
+                tip,
+                who,
+                fee,
+                subsidiser: _,
+            } => {
+                let (_, subsidiser, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
+                let auth_id = T::CddHandler::get_authorization_id(call);
 
-        let tip = self.ensure_valid_tip(caller_acc, info)?;
-
-        let (_, imbalance, subsidiser) =
-            self.can_withdraw_fee(caller_acc.clone(), call, info, len)?;
-        let auth_id = T::CddHandler::get_authorization_id(call);
-
-        let pre = Pre::Charge {
-            tip,
-            who: caller_acc.clone(),
-            imbalance,
-            subsidiser,
-            auth_id,
-        };
-
-        Ok(pre)
+                Ok(Pre::Charge {
+                    tip,
+                    who,
+                    imbalance,
+                    subsidiser,
+                    auth_id,
+                })
+            }
+        }
     }
 
     fn post_dispatch(
