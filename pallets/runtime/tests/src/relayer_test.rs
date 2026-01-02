@@ -120,8 +120,14 @@ fn assert_invalid_subsidy_call(caller: &AccountId, call: &RuntimeCall) {
         .unwrap_err();
     assert_eq!(pre_err, expected_err);
 
+    let val_charge = Val::Charge {
+        tip: 0,
+        who: caller.clone(),
+        fee: 1,
+        subsidiser: None,
+    };
     let pre_err = ChargeTransactionPayment::from(0)
-        .prepare(Val::NoCharge, &origin, call, &info_from_weight(5), 10)
+        .prepare(val_charge, &origin, call, &info_from_weight(5), 10)
         .map(|_| ())
         .unwrap_err();
     assert_eq!(pre_err, expected_err);
@@ -450,9 +456,21 @@ fn do_user_remove_paying_key_transaction_fee_test() {
     let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
 
     // 1. Call `pre_dispatch`.
+    let val = ChargeTransactionPayment::from(0)
+        .validate(
+            RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
     let pre = ChargeTransactionPayment::from(0)
         .prepare(
-            Val::NoCharge,
+            val.1,
             &RuntimeOrigin::signed(bob.acc()),
             &call,
             &call_info,
@@ -524,7 +542,12 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     // test `pre_dispatch`
     let pre_err = ChargeTransactionPayment::from(0)
         .prepare(
-            Val::NoCharge,
+            Val::Charge {
+                tip: 0,
+                who: bob.acc(),
+                fee: 1,
+                subsidiser: Some(alice.acc()),
+            },
             &RuntimeOrigin::signed(bob.acc()),
             &call_system_remark(42),
             &info_from_weight(5),
@@ -550,9 +573,21 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     let total_fee = transaction_fee + protocol_fee;
 
     // 1. Call `pre_dispatch`.
+    let val = ChargeTransactionPayment::from(0)
+        .validate(
+            RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
     let pre = ChargeTransactionPayment::from(0)
         .prepare(
-            Val::NoCharge,
+            val.1,
             &RuntimeOrigin::signed(bob.acc()),
             &call,
             &call_info,
@@ -661,9 +696,21 @@ fn do_relayer_batched_subsidy_calls_test() {
     let total_fee = transaction_fee + protocol_fee;
 
     // 1. Call `pre_dispatch`.
+    let val = ChargeTransactionPayment::from(0)
+        .validate(
+            RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
     let pre = ChargeTransactionPayment::from(0)
         .prepare(
-            Val::NoCharge,
+            val.1,
             &RuntimeOrigin::signed(bob.acc()),
             &call,
             &call_info,
