@@ -417,7 +417,7 @@ where
 
     // Charge weight for the call.
     let di = call.get_dispatch_info();
-    let charged_amount = env.charge_weight(di.total_weight())?;
+    let charged_amount = env.charge_weight(di.call_weight)?;
 
     // Execute call requested by contract, with current DID set to the contract owner.
     let addr = env.ext().address().clone();

@@ -495,7 +495,7 @@ fn sub_batch_handles_weight_refund() {
         let info = call.get_dispatch_info();
         let result = call.dispatch(charlie.origin());
         assert_ok!(result);
-        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
+        assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
         // Refund weight when ok
         let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -507,7 +507,7 @@ fn sub_batch_handles_weight_refund() {
         // Diff is refunded
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.total_weight() - diff * batch_len
+            info.call_weight - diff * batch_len
         );
 
         // Full weight when err
@@ -526,7 +526,7 @@ fn sub_batch_handles_weight_refund() {
             .into(),
         );
         // No weight is refunded
-        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
+        assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
         // Refund weight when err
         let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -546,7 +546,7 @@ fn sub_batch_handles_weight_refund() {
         );
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.total_weight() - diff * batch_len
+            info.call_weight - diff * batch_len
         );
 
         // Partial batch completion
@@ -611,7 +611,7 @@ fn sub_batch_all_revert() {
                 post_info: PostDispatchInfo {
                     actual_weight: Some(
                         <TestStorage as UtilityConfig>::WeightInfo::batch_all(2)
-                            + info.total_weight() * 2
+                            + info.call_weight * 2
                     ),
                     pays_fee: Pays::Yes
                 },
@@ -639,7 +639,7 @@ fn sub_batch_all_handles_weight_refund() {
         let info = call.get_dispatch_info();
         let result = call.dispatch(charlie.origin());
         assert_ok!(result);
-        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
+        assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
         // Refund weight when ok
         let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -651,7 +651,7 @@ fn sub_batch_all_handles_weight_refund() {
         // Diff is refunded
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.total_weight() - diff * batch_len
+            info.call_weight - diff * batch_len
         );
 
         // Full weight when err
@@ -663,7 +663,7 @@ fn sub_batch_all_handles_weight_refund() {
         let result = call.dispatch(charlie.origin());
         assert_err_ignore_postinfo!(result, "The cake is a lie.");
         // No weight is refunded
-        assert_eq!(extract_actual_weight(&result, &info), info.total_weight());
+        assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
         // Refund weight when err
         let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -676,7 +676,7 @@ fn sub_batch_all_handles_weight_refund() {
         assert_err_ignore_postinfo!(result, "The cake is a lie.");
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.total_weight() - diff * batch_len
+            info.call_weight - diff * batch_len
         );
 
         // Partial batch completion
@@ -718,8 +718,7 @@ fn sub_batch_all_does_not_nest() {
             DispatchErrorWithPostInfo {
                 post_info: PostDispatchInfo {
                     actual_weight: Some(
-                        <TestStorage as UtilityConfig>::WeightInfo::batch_all(1)
-                            + info.total_weight()
+                        <TestStorage as UtilityConfig>::WeightInfo::batch_all(1) + info.call_weight
                     ),
                     pays_fee: Pays::Yes
                 },
@@ -861,7 +860,7 @@ fn sub_batch_all_doesnt_work_with_inherents() {
             batch_all.dispatch(charlie.origin()),
             DispatchErrorWithPostInfo {
                 post_info: PostDispatchInfo {
-                    actual_weight: Some(info.total_weight()),
+                    actual_weight: Some(info.call_weight),
                     pays_fee: Pays::Yes
                 },
                 error: BadOrigin.into(),
@@ -989,7 +988,7 @@ fn sub_with_weight_works() {
         };
         // Weight after is set by Root.
         assert_eq!(
-            with_weight_call.get_dispatch_info().total_weight(),
+            with_weight_call.get_dispatch_info().call_weight,
             Weight::from_parts(123, 456)
         );
         assert_eq!(

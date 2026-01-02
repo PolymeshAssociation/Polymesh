@@ -257,7 +257,7 @@ pub mod pallet {
         #[pallet::weight({
           <T as Config>::WeightInfo::create_proposal()
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
-            .saturating_add(proposal.get_dispatch_info().total_weight())
+            .saturating_add(proposal.get_dispatch_info().call_weight)
         })]
         pub fn create_proposal(
             origin: OriginFor<T>,
@@ -1044,7 +1044,7 @@ impl<T: Config> Pallet<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(multisig, &signer)?;
-        let max_weight = proposal.get_dispatch_info().total_weight();
+        let max_weight = proposal.get_dispatch_info().call_weight;
         let caller_did = Self::ensure_ms_get_did(multisig)?;
         let proposal_id = NextProposalId::<T>::get(multisig);
         Self::ensure_valid_expiry(&expiry)?;
@@ -1123,7 +1123,7 @@ impl<T: Config> Pallet<T> {
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
         // Ensure `max_weight` was enough to cover the worst-case weight.
-        let proposal_weight = proposal.get_dispatch_info().total_weight();
+        let proposal_weight = proposal.get_dispatch_info().call_weight;
         ensure!(
             proposal_weight.all_lte(max_weight),
             Error::<T>::MaxWeightTooLow
