@@ -19,8 +19,8 @@ use frame_support::weights::Weight;
 use frame_support::RuntimeDebugNoBound;
 use frame_system::pallet_prelude::OriginFor;
 use scale_info::TypeInfo;
-use sp_runtime::traits::{AsSystemOriginSigner, TransactionExtension, Zero};
 use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf};
+use sp_runtime::traits::{TransactionExtension, Zero};
 use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
 
 use polymesh_primitives::traits::group::GroupTrait;
@@ -30,13 +30,15 @@ use polymesh_primitives::TransactionError;
 pub use pallet::*;
 
 pub use pallet_transaction_payment::{
-    FeeDetails, InclusionFee, OnChargeTransaction, RuntimeDispatchInfo,
-    ChargeFeesControl,
+    ChargeFeesControl, FeeDetails, InclusionFee, OnChargeTransaction, RuntimeDispatchInfo,
 };
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 pub type TransactionPallet<T> = pallet_transaction_payment::Pallet<T>;
 
-type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+pub(crate) type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 impl<T: Config> ChargeFeesControl for Pallet<T> {
     fn disabled() -> bool {
@@ -225,13 +227,13 @@ where
     }
 
     fn check_subsidy_conditions(
-        caller_acc: &T::AccountId,
+        who: &T::AccountId,
         call: &T::RuntimeCall,
         fee_with_tip: BalanceOf<T>,
     ) -> Result<(T::AccountId, Option<T::AccountId>), InvalidTransaction> {
         // Get the payer for this transaction.
         let payers_key =
-            T::CddHandler::get_valid_payer(call, caller_acc)?.ok_or(InvalidTransaction::Payment)?;
+            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
         let subsidiser =
@@ -327,7 +329,6 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    <T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
     BalanceOf<T>: Send + Sync + Into<u128>,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
@@ -356,13 +357,13 @@ where
         ),
         TransactionValidityError,
     > {
-        let caller_acc = origin
-            .as_system_origin_signer()
-            .ok_or(InvalidTransaction::BadSigner)?;
+        let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
+            return Ok((ValidTransaction::default(), Val::NoCharge, origin));
+        };
 
-        let tip = self.ensure_valid_tip(caller_acc, info)?;
+        let tip = self.ensure_valid_tip(&who, info)?;
 
-        let (fee_with_tip, subsidiser) = self.can_withdraw_fee(caller_acc, call, info, len)?;
+        let (fee_with_tip, subsidiser) = self.can_withdraw_fee(&who, call, info, len)?;
 
         let valid_transaction = ValidTransaction {
             priority: pallet_transaction_payment::ChargeTransactionPayment::<T>::get_priority(
@@ -376,7 +377,7 @@ where
 
         let val = Val::Charge {
             tip,
-            who: caller_acc.clone(),
+            who,
             fee_with_tip,
             subsidiser,
         };
