@@ -1078,7 +1078,11 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
     };
 
     let function = checked_extrinsic.function;
-    UncheckedExtrinsic { preamble, function }
+    UncheckedExtrinsic {
+        preamble,
+        function,
+        encoded_call: None,
+    }
 }
 
 /// Returns transaction extra.
