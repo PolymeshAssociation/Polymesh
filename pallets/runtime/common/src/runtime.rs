@@ -730,8 +730,8 @@ macro_rules! misc_pallet_impls {
                     .saturating_sub(1);
                 let era = generic::Era::mortal(period, current_block);
                 let tx_ext: TxExtension = (
-                    frame_system::AuthorizeCall::<Runtime>::new(),
-                    frame_system::CheckNonZeroSender::<Runtime>::new(),
+                    frame_system::AuthorizeCall::new(),
+                    frame_system::CheckNonZeroSender::new(),
                     frame_system::CheckSpecVersion::new(),
                     frame_system::CheckTxVersion::new(),
                     frame_system::CheckGenesis::new(),
@@ -740,7 +740,8 @@ macro_rules! misc_pallet_impls {
                     frame_system::CheckWeight::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
-                    frame_system::WeightReclaim::<Runtime>::new(),
+                    frame_metadata_hash_extension::CheckMetadataHash::new(false),
+                    frame_system::WeightReclaim::new(),
                 );
                 let raw_payload = SignedPayload::new(call, tx_ext)
                     .map_err(|e| {
@@ -782,8 +783,9 @@ macro_rules! misc_pallet_impls {
                     frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
                     frame_system::CheckNonce::<Runtime>::from(0),
                     frame_system::CheckWeight::<Runtime>::new(),
-                    polymesh_transaction_payment::ChargeTransactionPayment::from(0),
-                    pallet_permissions::StoreCallMetadata::new(),
+                    polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+                    pallet_permissions::StoreCallMetadata::<Runtime>::new(),
+                    frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )
             }
@@ -939,6 +941,7 @@ macro_rules! runtime_apis {
             frame_system::CheckWeight<Runtime>,
             polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
+            frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
             frame_system::WeightReclaim<Runtime>,
         );
         /// Unchecked extrinsic type as expected by this runtime.

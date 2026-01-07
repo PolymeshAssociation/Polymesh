@@ -198,24 +198,20 @@ pub fn create_extrinsic(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let tx_ext: polymesh_runtime_develop::TxExtension =
-        (
-            frame_system::AuthorizeCall::<polymesh_runtime_develop::Runtime>::new(),
-            frame_system::CheckNonZeroSender::<polymesh_runtime_develop::Runtime>::new(),
-            frame_system::CheckSpecVersion::<polymesh_runtime_develop::Runtime>::new(),
-            frame_system::CheckTxVersion::<polymesh_runtime_develop::Runtime>::new(),
-            frame_system::CheckGenesis::<polymesh_runtime_develop::Runtime>::new(),
-            frame_system::CheckEra::<polymesh_runtime_develop::Runtime>::from(
-                generic::Era::mortal(period, best_block.saturated_into()),
-            ),
-            frame_system::CheckNonce::<polymesh_runtime_develop::Runtime>::from(nonce),
-            frame_system::CheckWeight::<polymesh_runtime_develop::Runtime>::new(),
-            polymesh_transaction_payment::ChargeTransactionPayment::<
-                polymesh_runtime_develop::Runtime,
-            >::from(0),
-            pallet_permissions::StoreCallMetadata::<polymesh_runtime_develop::Runtime>::new(),
-            frame_system::WeightReclaim::<polymesh_runtime_develop::Runtime>::new(),
-        );
+    let tx_ext: polymesh_runtime_develop::TxExtension = (
+        frame_system::AuthorizeCall::new(),
+        frame_system::CheckNonZeroSender::new(),
+        frame_system::CheckSpecVersion::new(),
+        frame_system::CheckTxVersion::new(),
+        frame_system::CheckGenesis::new(),
+        frame_system::CheckEra::from(generic::Era::mortal(period, best_block.saturated_into())),
+        frame_system::CheckNonce::from(nonce),
+        frame_system::CheckWeight::new(),
+        polymesh_transaction_payment::ChargeTransactionPayment::from(0),
+        pallet_permissions::StoreCallMetadata::new(),
+        frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        frame_system::WeightReclaim::new(),
+    );
 
     let raw_payload = polymesh_runtime_develop::runtime::SignedPayload::from_raw(
         function.clone(),
@@ -231,6 +227,7 @@ pub fn create_extrinsic(
             (),
             (),
             (),
+            None,
             (),
         ),
     );

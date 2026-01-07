@@ -88,6 +88,7 @@ pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 
+frame-metadata-hash-extension = { workspace = true, default-features = false }
 frame-executive = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
@@ -106,7 +107,7 @@ frame-system-benchmarking = { workspace = true, default-features = false, option
 hex-literal = { version = "0.3.1", default-features = false, optional = true }
 
 [build-dependencies]
-polymesh-build-tool = { workspace = true, default-features = false }
+polymesh-build-tool = { workspace = true, default-features = false, optional = true }
 
 [features]
 default = ["std", "equalize"]
@@ -123,6 +124,7 @@ no_std = ["polymesh-primitives/no_std", "u64_backend"]
 
 std = [
     "polymesh-build-tool/std",
+    "frame-metadata-hash-extension/std",
     "frame-election-provider-support/std",
     "frame-executive/std",
     "frame-support/std",
@@ -217,3 +219,16 @@ running-ci = [
     "pallet-pips/running-ci",
     "pallet-identity/running-ci",
 ]
+
+# Enable the metadata hash generation.
+#
+# This is hidden behind a feature because it increases the compile time.
+# The wasm binary needs to be compiled twice, once to fetch the metadata,
+# generate the metadata hash and then a second time with the
+# `RUNTIME_METADATA_HASH` environment variable set for the `CheckMetadataHash`
+# extension.
+metadata-hash = ["polymesh-build-tool?/metadata-hash"]
+
+# A convenience feature for enabling things when doing a build
+# for an on-chain release.
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]
