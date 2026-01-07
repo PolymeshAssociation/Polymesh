@@ -31,6 +31,8 @@ pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
 ///     - `Normal` transactions have `priority` == 0, as `tip` == 0.
 fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -> TxExtension {
     (
+        frame_system::AuthorizeCall::new(),
+        frame_system::CheckNonZeroSender::new(),
         CheckSpecVersion::<Runtime>::new(),
         CheckTxVersion::<Runtime>::new(),
         CheckGenesis::<Runtime>::new(),

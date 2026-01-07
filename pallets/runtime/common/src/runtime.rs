@@ -694,6 +694,17 @@ macro_rules! misc_pallet_impls {
             type Checker = Identity;
         }
 
+        impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
+        where
+            RuntimeCall: From<LocalCall>,
+        {
+            type Extension = TxExtension;
+
+            fn create_transaction(call: RuntimeCall, extension: TxExtension) -> UncheckedExtrinsic {
+                generic::UncheckedExtrinsic::new_transaction(call, extension).into()
+            }
+        }
+
         impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
         where
             RuntimeCall: From<LocalCall>,
@@ -706,6 +717,7 @@ macro_rules! misc_pallet_impls {
                 account: polymesh_primitives::AccountId,
                 nonce: polymesh_primitives::Nonce,
             ) -> Option<UncheckedExtrinsic> {
+                let tip = 0;
                 // take the biggest period possible.
                 let period = polymesh_runtime_common::BlockHashCount::get()
                     .checked_next_power_of_two()
@@ -716,26 +728,28 @@ macro_rules! misc_pallet_impls {
                     // The `System::block_number` is initialized with `n+1`,
                     // so the actual block number is `n`.
                     .saturating_sub(1);
-                let tip = 0;
-                let extra: TxExtension = (
+                let era = generic::Era::mortal(period, current_block);
+                let tx_ext: TxExtension = (
+                    frame_system::AuthorizeCall::<Runtime>::new(),
+                    frame_system::CheckNonZeroSender::<Runtime>::new(),
                     frame_system::CheckSpecVersion::new(),
                     frame_system::CheckTxVersion::new(),
                     frame_system::CheckGenesis::new(),
-                    frame_system::CheckEra::from(generic::Era::mortal(period, current_block)),
+                    frame_system::CheckEra::from(era),
                     frame_system::CheckNonce::from(nonce),
                     frame_system::CheckWeight::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                 );
-                let raw_payload = SignedPayload::new(call, extra)
+                let raw_payload = SignedPayload::new(call, tx_ext)
                     .map_err(|e| {
                         log::warn!("Unable to create signed payload: {:?}", e);
                     })
                     .ok()?;
                 let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
                 let address = Indices::unlookup(account);
-                let (call, extra, _) = raw_payload.deconstruct();
-                let transaction = UncheckedExtrinsic::new_signed(call, address, signature, extra);
+                let (call, tx_ext, _) = raw_payload.deconstruct();
+                let transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
                 Some(transaction)
             }
         }
@@ -751,6 +765,26 @@ macro_rules! misc_pallet_impls {
         {
             type Extrinsic = UncheckedExtrinsic;
             type RuntimeCall = RuntimeCall;
+        }
+
+        impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Runtime
+        where
+            RuntimeCall: From<C>,
+        {
+            fn create_extension() -> Self::Extension {
+                (
+                    frame_system::AuthorizeCall::<Runtime>::new(),
+                    frame_system::CheckNonZeroSender::<Runtime>::new(),
+                    frame_system::CheckSpecVersion::<Runtime>::new(),
+                    frame_system::CheckTxVersion::<Runtime>::new(),
+                    frame_system::CheckGenesis::<Runtime>::new(),
+                    frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
+                    frame_system::CheckNonce::<Runtime>::from(0),
+                    frame_system::CheckWeight::<Runtime>::new(),
+                    polymesh_transaction_payment::ChargeTransactionPayment::from(0),
+                    pallet_permissions::StoreCallMetadata::new(),
+                )
+            }
         }
 
         impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
@@ -893,6 +927,8 @@ macro_rules! runtime_apis {
         pub type BlockId = generic::BlockId<Block>;
         /// The SignedExtension to the basic transaction logic.
         pub type TxExtension = (
+            frame_system::AuthorizeCall<Runtime>,
+            frame_system::CheckNonZeroSender<Runtime>,
             frame_system::CheckSpecVersion<Runtime>,
             frame_system::CheckTxVersion<Runtime>,
             frame_system::CheckGenesis<Runtime>,
