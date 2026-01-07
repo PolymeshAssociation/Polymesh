@@ -92,6 +92,7 @@ pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 
+frame-metadata-hash-extension = { workspace = true, default-features = false }
 frame-executive = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
@@ -126,6 +127,7 @@ std = [
     "u64_backend",
     "frame-support/std",
     "frame-system/std",
+    "frame-metadata-hash-extension/std",
     "frame-election-provider-support/std",
     "pallet-asset/std",
     "pallet-authorship/std",
