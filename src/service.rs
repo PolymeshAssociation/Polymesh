@@ -200,6 +200,8 @@ pub fn create_extrinsic(
         .unwrap_or(2) as u64;
     let tx_ext: polymesh_runtime_develop::TxExtension =
         (
+            frame_system::AuthorizeCall::<polymesh_runtime_develop::Runtime>::new(),
+            frame_system::CheckNonZeroSender::<polymesh_runtime_develop::Runtime>::new(),
             frame_system::CheckSpecVersion::<polymesh_runtime_develop::Runtime>::new(),
             frame_system::CheckTxVersion::<polymesh_runtime_develop::Runtime>::new(),
             frame_system::CheckGenesis::<polymesh_runtime_develop::Runtime>::new(),
@@ -218,6 +220,8 @@ pub fn create_extrinsic(
         function.clone(),
         tx_ext.clone(),
         (
+            (),
+            (),
             polymesh_runtime_develop::runtime::VERSION.spec_version,
             polymesh_runtime_develop::runtime::VERSION.transaction_version,
             genesis_hash,

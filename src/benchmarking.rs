@@ -124,7 +124,9 @@ pub fn create_benchmark_extrinsic<R>(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let extra: TxExtension = (
+    let tx_ext: TxExtension = (
+        frame_system::AuthorizeCall::<DevRuntime>::new(),
+        frame_system::CheckNonZeroSender::<DevRuntime>::new(),
         frame_system::CheckSpecVersion::<DevRuntime>::new(),
         frame_system::CheckTxVersion::<DevRuntime>::new(),
         frame_system::CheckGenesis::<DevRuntime>::new(),
@@ -140,8 +142,10 @@ pub fn create_benchmark_extrinsic<R>(
 
     let raw_payload = SignedPayload::from_raw(
         call.clone(),
-        extra.clone(),
+        tx_ext.clone(),
         (
+            (),
+            (),
             VERSION.spec_version,
             VERSION.transaction_version,
             genesis_hash,
@@ -158,7 +162,7 @@ pub fn create_benchmark_extrinsic<R>(
         call.clone(),
         sp_runtime::AccountId32::from(sender.public()).into(),
         Signature::Sr25519(signature.clone()),
-        extra.clone(),
+        tx_ext.clone(),
     )
 }
 

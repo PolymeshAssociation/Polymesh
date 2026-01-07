@@ -1099,6 +1099,8 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
 /// Returns transaction extra.
 fn signed_extra(nonce: Nonce) -> TxExtension {
     (
+        frame_system::AuthorizeCall::new(),
+        frame_system::CheckNonZeroSender::new(),
         frame_system::CheckSpecVersion::new(),
         frame_system::CheckTxVersion::new(),
         frame_system::CheckGenesis::new(),
