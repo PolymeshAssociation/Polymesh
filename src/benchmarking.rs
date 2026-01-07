@@ -138,6 +138,7 @@ pub fn create_benchmark_extrinsic<R>(
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::<DevRuntime>::from(0),
         pallet_permissions::StoreCallMetadata::new(),
+        frame_system::WeightReclaim::<DevRuntime>::new(),
     );
 
     let raw_payload = SignedPayload::from_raw(
@@ -150,6 +151,7 @@ pub fn create_benchmark_extrinsic<R>(
             VERSION.transaction_version,
             genesis_hash,
             best_hash,
+            (),
             (),
             (),
             (),
