@@ -41,6 +41,7 @@ fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -
         CheckWeight::<Runtime>::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
         pallet_permissions::StoreCallMetadata::<Runtime>::new(),
+        frame_system::WeightReclaim::<Runtime>::new(),
     )
 }
 

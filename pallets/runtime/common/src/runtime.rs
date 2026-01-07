@@ -740,6 +740,7 @@ macro_rules! misc_pallet_impls {
                     frame_system::CheckWeight::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
+                    frame_system::WeightReclaim::<Runtime>::new(),
                 );
                 let raw_payload = SignedPayload::new(call, tx_ext)
                     .map_err(|e| {
@@ -783,6 +784,7 @@ macro_rules! misc_pallet_impls {
                     frame_system::CheckWeight::<Runtime>::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::from(0),
                     pallet_permissions::StoreCallMetadata::new(),
+                    frame_system::WeightReclaim::<Runtime>::new(),
                 )
             }
         }
@@ -937,6 +939,7 @@ macro_rules! runtime_apis {
             frame_system::CheckWeight<Runtime>,
             polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
+            frame_system::WeightReclaim<Runtime>,
         );
         /// Unchecked extrinsic type as expected by this runtime.
         pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, polymesh_primitives::Signature, TxExtension>;

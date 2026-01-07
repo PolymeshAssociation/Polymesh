@@ -1114,6 +1114,7 @@ fn signed_extra(nonce: Nonce) -> TxExtension {
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
+        frame_system::WeightReclaim::new(),
     )
 }
 
