@@ -349,8 +349,8 @@ substrate-build-script-utils = { workspace = true }
 [features]
 default = ["std"]
 disable_fees = [
-    "polymesh-transaction-payment/disable_fees", 
-    "polymesh-runtime-develop/disable_fees", 
+    "polymesh-transaction-payment/disable_fees",
+    "polymesh-runtime-develop/disable_fees",
     "polymesh-runtime-mainnet/disable_fees",
     "polymesh-runtime-testnet/disable_fees",
 ]
@@ -366,5 +366,11 @@ runtime-benchmarks = [
 
 # Only build a "ci" runtime.
 ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
+
+metadata-hash = [
+    "polymesh-runtime-develop/metadata-hash",
+    "polymesh-runtime-mainnet/metadata-hash",
+    "polymesh-runtime-testnet/metadata-hash",
+]
 
 std = ["serde/std"]
