@@ -15,7 +15,7 @@ sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk
 
 [workspace]
 members = [
-    #"eth-rpc",
+    "eth-rpc",
     "node-rpc",
     "pallets/asset",
     "pallets/base",
