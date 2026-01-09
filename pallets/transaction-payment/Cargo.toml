@@ -1,7 +1,7 @@
 [package]
-name = "pallet-transaction-payment"
+name = "polymesh-transaction-payment"
 version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
@@ -18,9 +18,11 @@ sp-std = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
 frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0.56"
@@ -29,8 +31,12 @@ serde_json = "1.0.56"
 default = ["std"]
 disable_fees = []
 no_std = []
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+]
 std = [
+	"frame-benchmarking?/std",
 	"serde/std",
 	"polymesh-primitives/std",
 	"codec/std",
@@ -41,5 +47,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
 ]
 try-runtime = []

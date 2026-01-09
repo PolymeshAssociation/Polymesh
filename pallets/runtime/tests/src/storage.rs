@@ -272,6 +272,9 @@ mod runtime {
     #[runtime::pallet_index(6)]
     pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
+    #[runtime::pallet_index(51)]
+    pub type PolymeshTransactionPayment = polymesh_transaction_payment::Pallet<Runtime>;
+
     #[runtime::pallet_index(7)]
     pub type Identity = pallet_identity::Pallet<Runtime>;
 
@@ -1080,7 +1083,11 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
     };
 
     let function = checked_extrinsic.function;
-    UncheckedExtrinsic { preamble, function }
+    UncheckedExtrinsic {
+        preamble,
+        function,
+        encoded_call: None,
+    }
 }
 
 /// Returns transaction extra.
@@ -1092,7 +1099,7 @@ fn signed_extra(nonce: Nonce) -> SignedExtra {
         frame_system::CheckEra::from(Era::mortal(256, 0)),
         frame_system::CheckNonce::from(nonce),
         frame_system::CheckWeight::new(),
-        pallet_transaction_payment::ChargeTransactionPayment::from(0),
+        polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
     )
 }
