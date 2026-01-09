@@ -8,8 +8,8 @@ use sp_runtime::transaction_validity::TransactionSource;
 
 use pallet_balances::{self as balances, Event as BalancesRawEvent};
 use pallet_identity as identity;
-use pallet_transaction_payment::{ChargeTransactionPayment, Val};
 use polymesh_primitives::Memo;
+use polymesh_transaction_payment::{ChargeTransactionPayment, Val};
 
 use super::storage::{RuntimeCall as StorageRuntimeCall, TestStorage};
 use super::ExtBuilder;

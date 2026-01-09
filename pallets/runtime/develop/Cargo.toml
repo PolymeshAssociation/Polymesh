@@ -42,6 +42,7 @@ pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -106,7 +107,7 @@ polymesh-build-tool = { workspace = true, default-features = false }
 [features]
 default = ["std", "equalize"]
 testing = []
-disable_fees = ["pallet-transaction-payment/disable_fees"]
+disable_fees = ["polymesh-transaction-payment/disable_fees"]
 equalize = []
 
 ci-runtime = []
@@ -151,6 +152,7 @@ std = [
     "pallet-sto/std",
     "pallet-sudo/std",
     "pallet-transaction-payment/std",
+    "polymesh-transaction-payment/std",
     "pallet-utility/std",
     "pallet-validators/std",
     "polymesh-contracts/std",
@@ -194,6 +196,7 @@ runtime-benchmarks = [
     "pallet-statistics/runtime-benchmarks",
     "pallet-sto/runtime-benchmarks",
     "pallet-transaction-payment/runtime-benchmarks",
+    "polymesh-transaction-payment/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
     "pallet-validators/runtime-benchmarks",
