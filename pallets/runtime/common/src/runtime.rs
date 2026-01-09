@@ -229,9 +229,10 @@ macro_rules! misc_pallet_impls {
             // - The denominator is `Balance::from(ExtrinsicBaseWeight::get().ref_time())`
             //   - which is 1_000 * 108_157 = 108_157_000
             // TODO: switch to BlockRatioFee.
-            type WeightToFee = polymesh_runtime_common::WeightToFee;//pallet_revive::evm::fees::BlockRatioFee<30_000, 108_157_000, Self>;
+            //type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<30_000, 108_157_000, Self, Balance>;
+            type WeightToFee = polymesh_runtime_common::WeightToFee;
             type LengthToFee = polymesh_runtime_common::LengthToFee;
-            type FeeMultiplierUpdate = ();
+            type FeeMultiplierUpdate = pallet_transaction_payment::ConstFeeMultiplier<polymesh_runtime_common::FeeMultiplier>;
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
             type WeightInfo = polymesh_weights::polymesh_transaction_payment::SubstrateWeight;
             type ChargeFees = PolymeshTransactionPayment;
@@ -667,6 +668,7 @@ macro_rules! misc_pallet_impls {
             type FeeInfo = pallet_revive::evm::fees::Info<Address, polymesh_primitives::Signature, EthExtraImpl>;
             type MaxEthExtrinsicWeight = polymesh_runtime_common::MaxEthExtrinsicWeight;
             type DebugEnabled = frame_support::traits::ConstBool<false>;
+            type GasScale = frame_support::traits::ConstU32<50_000>;
         }
 
         impl pallet_compliance_manager::Config for Runtime {
