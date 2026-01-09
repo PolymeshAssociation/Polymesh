@@ -85,6 +85,7 @@ pallet-insecure-randomness-collective-flip = { workspace = true, default-feature
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
+pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false, features = ["historical"] }
 pallet-staking = { workspace = true, default-features = false }
@@ -156,6 +157,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-relayer/std",
     "pallet-insecure-randomness-collective-flip/std",
+    "pallet-revive/std",
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-staking/std",

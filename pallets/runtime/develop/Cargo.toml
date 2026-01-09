@@ -81,6 +81,7 @@ pallet-insecure-randomness-collective-flip = { workspace = true, default-feature
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
+pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
@@ -153,6 +154,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-protocol-fee/std",
     "pallet-protocol-fee-rpc-runtime-api/std",
+    "pallet-revive/std",
     "pallet-session/std",
     "pallet-settlement/std",
     "pallet-staking/std",
@@ -201,6 +203,7 @@ runtime-benchmarks = [
     "pallet-preimage/runtime-benchmarks",
     "pallet-protocol-fee/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
+    "pallet-revive/runtime-benchmarks",
     "pallet-scheduler/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",

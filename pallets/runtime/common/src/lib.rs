@@ -35,7 +35,7 @@ pub use frame_support::weights::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 pub use sp_runtime::transaction_validity::TransactionPriority;
-pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion, Saturating};
+pub use sp_runtime::{FixedU128, Perbill, Percent, Permill, SaturatedConversion, Saturating};
 
 pub use impls::Author;
 use polymesh_primitives::constants::currency::*;
@@ -91,12 +91,16 @@ parameter_types! {
     pub const DepositPerContract: Balance = 10 * CENTS;
     /// The balance a contract needs to deposit per storage item to stay alive indefinitely.
     pub const DepositPerItem: Balance = deposit(1, 0);
+    /// The balance a contract needs to deposit per child trie item to stay alive indefinitely.
+    pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
     /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
     pub const DepositPerByte: Balance = deposit(0, 1);
     /// The code hash lookup deposit.
     pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
     /// The default deposit limit.
     pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+    /// The maximum ratio of eth extrinsic weight to block weight.
+    pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
     /// The maximum nesting level of a call/instantiate stack.
     pub const ContractsMaxDepth: u32 = 32;
     /// The maximum size of a storage value and event payload in bytes.

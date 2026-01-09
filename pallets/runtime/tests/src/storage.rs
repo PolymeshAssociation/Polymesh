@@ -415,6 +415,9 @@ mod runtime {
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
 
+    #[runtime::pallet_index(80)]
+    pub type Revive = pallet_revive::Pallet<Runtime>;
+
     #[runtime::pallet_index(200)]
     pub type Example = example::Pallet<Runtime>;
 }
@@ -1090,27 +1093,31 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
     };
 
     let function = checked_extrinsic.function;
-    UncheckedExtrinsic {
+    generic::UncheckedExtrinsic {
         preamble,
         function,
         encoded_call: None,
     }
+    .into()
 }
 
 /// Returns transaction extra.
 fn signed_extra(nonce: Nonce) -> TxExtension {
     (
-        frame_system::AuthorizeCall::new(),
-        frame_system::CheckNonZeroSender::new(),
-        frame_system::CheckSpecVersion::new(),
-        frame_system::CheckTxVersion::new(),
-        frame_system::CheckGenesis::new(),
+        (
+            frame_system::AuthorizeCall::new(),
+            frame_system::CheckNonZeroSender::new(),
+            frame_system::CheckSpecVersion::new(),
+            frame_system::CheckTxVersion::new(),
+            frame_system::CheckGenesis::new(),
+        ),
         frame_system::CheckEra::from(Era::mortal(256, 0)),
         frame_system::CheckNonce::from(nonce),
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     )
 }

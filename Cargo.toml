@@ -15,6 +15,7 @@ sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk
 
 [workspace]
 members = [
+    #"eth-rpc",
     "node-rpc",
     "pallets/asset",
     "pallets/base",
@@ -60,6 +61,13 @@ exclude = [
     "integration",
     "metadata-tools"
 ]
+
+[workspace.package]
+version = "8.0.0"
+authors = ["PolymeshAssociation"]
+edition = "2021"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+homepage = "https://github.com/PolymeshAssociation/Polymesh"
 
 ## Keep common dependencies here.
 [workspace.dependencies]
@@ -143,6 +151,8 @@ pallet-insecure-randomness-collective-flip = { git = "https://github.com/Polymes
 pallet-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-offences = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-preimage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
+pallet-revive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
+pallet-revive-fixtures = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-scheduler = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
@@ -162,6 +172,7 @@ sp-consensus-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk
 sp-consensus-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 sp-consensus-slots = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 sp-core = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
+sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
 sp-debug-derive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 sp-externalities = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 sp-consensus-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
@@ -227,6 +238,7 @@ substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
 substrate-test-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
 substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
 
 # Crypto
 rand = { version = "0.8", default-features = false }
@@ -273,6 +285,7 @@ serde = { version = "1.0.136", default-features = false, features = ["alloc", "d
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
+array-bytes = { version = "6.2.2", default-features = false }
 
 # Substrate client deps.
 mmr-gadget = { workspace = true }
@@ -312,12 +325,13 @@ pallet-babe = { workspace = true }
 pallet-balances = { workspace = true, default-features = false, features = ["insecure_zero_ed"] }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
+pallet-revive = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true, default-features = false }
 pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
+prometheus-endpoint = { workspace = true, default-features = false }
 sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }

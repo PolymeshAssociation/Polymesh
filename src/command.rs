@@ -21,7 +21,7 @@ use std::sync::Arc;
 use core::future::Future;
 use frame_benchmarking_cli::*;
 use log::info;
-use sc_cli::{Result, SubstrateCli};
+use sc_cli::SubstrateCli;
 use sc_service::{Configuration, TaskManager};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::HashingFor;
@@ -111,8 +111,8 @@ impl SubstrateCli for Cli {
 }
 
 /// Parses Polymesh specific CLI arguments and run the service.
-pub fn run() -> Result<()> {
-    let cli = Cli::from_args();
+pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
+    let cli = Cli::from_iter(args);
 
     match &cli.subcommand {
         None => {
