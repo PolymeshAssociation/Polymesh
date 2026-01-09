@@ -24,6 +24,7 @@ pub mod runtime;
 
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 pub use frame_support::dispatch::{DispatchClass, GetDispatchInfo};
+use frame_support::pallet_prelude::One;
 pub use frame_support::parameter_types;
 pub use frame_support::traits::{Currency, Get};
 pub use frame_support::weights::constants::{
@@ -34,6 +35,7 @@ pub use frame_support::weights::{
     RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
+use pallet_transaction_payment::Multiplier;
 pub use sp_runtime::transaction_validity::TransactionPriority;
 pub use sp_runtime::{FixedU128, Perbill, Percent, Permill, SaturatedConversion, Saturating};
 
@@ -82,6 +84,8 @@ parameter_types! {
     pub const PolyXBaseFee: Balance = 3 * CENTS;
     /// The multiplier for operational fees.
     pub const OperationalFeeMultiplier: u8 = 5;
+    /// The fee multiplier to use for adjusting fees.
+    pub FeeMultiplier: Multiplier = Multiplier::one();
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
     pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_mul(75).saturating_div(100);
