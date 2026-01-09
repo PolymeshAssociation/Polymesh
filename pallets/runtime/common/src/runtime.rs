@@ -172,13 +172,19 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_transaction_payment::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
+            #[allow(deprecated)]
             type OnChargeTransaction =
                 pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type LengthToFee = polymesh_runtime_common::LengthToFee;
             type FeeMultiplierUpdate = ();
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
-            type WeightInfo = polymesh_weights::pallet_transaction_payment::SubstrateWeight;
+            type WeightInfo = polymesh_weights::polymesh_transaction_payment::SubstrateWeight;
+            type ChargeFees = PolymeshTransactionPayment;
+        }
+
+        impl polymesh_transaction_payment::Config for Runtime {
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
@@ -630,7 +636,7 @@ macro_rules! misc_pallet_impls {
                     frame_system::CheckEra::from(generic::Era::mortal(period, current_block)),
                     frame_system::CheckNonce::from(nonce),
                     frame_system::CheckWeight::new(),
-                    pallet_transaction_payment::ChargeTransactionPayment::from(tip),
+                    polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                 );
                 let raw_payload = SignedPayload::new(call, extra)
@@ -805,7 +811,7 @@ macro_rules! runtime_apis {
             frame_system::CheckEra<Runtime>,
             frame_system::CheckNonce<Runtime>,
             frame_system::CheckWeight<Runtime>,
-            pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+            polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
         );
         /// Unchecked extrinsic type as expected by this runtime.

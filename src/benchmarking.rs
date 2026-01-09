@@ -134,7 +134,7 @@ pub fn create_benchmark_extrinsic<R>(
         )),
         frame_system::CheckNonce::<DevRuntime>::from(nonce),
         frame_system::CheckWeight::new(),
-        pallet_transaction_payment::ChargeTransactionPayment::<DevRuntime>::from(0),
+        polymesh_transaction_payment::ChargeTransactionPayment::<DevRuntime>::from(0),
         pallet_permissions::StoreCallMetadata::new(),
     );
 

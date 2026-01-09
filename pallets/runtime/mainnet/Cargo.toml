@@ -42,6 +42,7 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # RPC
 node-rpc-runtime-api = { workspace = true, default-features = false }
@@ -100,7 +101,7 @@ polymesh-build-tool = { workspace = true, default-features = false }
 
 [features]
 default = ["std", "equalize"]
-disable_fees = ["pallet-transaction-payment/disable_fees"]
+disable_fees = ["polymesh-transaction-payment/disable_fees"]
 equalize = []
 testing = []
 
@@ -160,6 +161,7 @@ std = [
     "pallet-sudo/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
+    "polymesh-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
     "polymesh-contracts/std",

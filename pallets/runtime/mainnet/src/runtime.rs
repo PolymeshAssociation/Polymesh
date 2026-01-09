@@ -331,6 +331,9 @@ mod runtime {
     #[runtime::pallet_index(6)]
     pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
+    #[runtime::pallet_index(51)]
+    pub type PolymeshTransactionPayment = polymesh_transaction_payment::Pallet<Runtime>;
+
     #[runtime::pallet_index(7)]
     pub type Identity = pallet_identity::Pallet<Runtime>;
 
