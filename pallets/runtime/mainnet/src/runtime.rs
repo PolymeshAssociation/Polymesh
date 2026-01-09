@@ -32,7 +32,7 @@ use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::merge_active_and_inactive;
 use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
@@ -470,6 +470,9 @@ mod runtime {
 
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(80)]
+    pub type Revive = pallet_revive::Pallet<Runtime>;
 }
 
 polymesh_runtime_common::runtime_apis! {}
