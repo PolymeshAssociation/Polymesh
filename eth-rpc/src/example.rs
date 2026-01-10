@@ -61,6 +61,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
             let receipt = self.client.get_transaction_receipt(hash).await?;
             if let Some(receipt) = receipt {
                 if receipt.is_success() {
+                    eprintln!("Gas estimated; {}, used: {}", self.gas(), receipt.gas_used);
                     assert!(
                         self.gas() > receipt.gas_used,
                         "Gas used should be less than gas estimated."
