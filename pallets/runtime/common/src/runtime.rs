@@ -227,10 +227,8 @@ macro_rules! misc_pallet_impls {
             // `WeightToFeePolynomial` that was used before:
             // - The numerator is `3 * currency::CENTS` = 3 * 1_000_000 / 100 = 30_000
             // - The denominator is `Balance::from(ExtrinsicBaseWeight::get().ref_time())`
-            //   - which is 1_000 * 108_157 = 108_157_000
-            // TODO: switch to BlockRatioFee.
-            //type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<30_000, 108_157_000, Self, Balance>;
-            type WeightToFee = polymesh_runtime_common::WeightToFee;
+            //   - which is 1_000_000 * 650 = 650_000_000
+            type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<30_000, 650_000_000, Self, Balance>;
             type LengthToFee = polymesh_runtime_common::LengthToFee;
             type FeeMultiplierUpdate = pallet_transaction_payment::ConstFeeMultiplier<polymesh_runtime_common::FeeMultiplier>;
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
@@ -658,13 +656,13 @@ macro_rules! misc_pallet_impls {
             type RuntimeHoldReason = RuntimeHoldReason;
             type CodeHashLockupDepositPercent = polymesh_runtime_common::CodeHashLockupDepositPercent;
             type ChainId = frame_support::traits::ConstU64<420_420_420>;
-            type NativeToEthRatio = frame_support::traits::ConstU32<1_000_000_000_000>; // 10^(18 - 6) Eth is 10^18, Native is 10^6.
+            type NativeToEthRatio = frame_support::traits::ConstU64<1_000_000_000_000>; // 10^(18 - 6) Eth is 10^18, Native is 10^6.
             type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
             type AllowEVMBytecode = frame_support::traits::ConstBool<true>;
             type FeeInfo = pallet_revive::evm::fees::Info<Address, polymesh_primitives::Signature, EthExtraImpl>;
             type MaxEthExtrinsicWeight = polymesh_runtime_common::MaxEthExtrinsicWeight;
             type DebugEnabled = frame_support::traits::ConstBool<false>;
-            type GasScale = frame_support::traits::ConstU32<50_000>;
+            type GasScale = frame_support::traits::ConstU32<1>;
         }
 
         impl pallet_compliance_manager::Config for Runtime {
