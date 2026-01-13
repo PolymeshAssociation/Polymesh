@@ -39,7 +39,7 @@ pub mod benchmarking;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::traits::{Currency, ExistenceRequirement, OnUnbalanced};
+use frame_support::traits::{fungible::Credit, Currency, ExistenceRequirement, OnUnbalanced};
 use frame_support::weights::Weight;
 use frame_system::ensure_root;
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -224,8 +224,6 @@ impl<T: Config> Pallet<T> {
         T::Currency::free_balance(&Self::account_id())
     }
 }
-
-use frame_support::traits::fungible::Credit;
 
 pub type NegativeImbalanceOf<T> =
     Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
