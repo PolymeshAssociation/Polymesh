@@ -455,6 +455,7 @@ jobs:
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
+      - RUST_BACKTRACE: "1"
     steps:
       - checkout
       - attach_workspace:
