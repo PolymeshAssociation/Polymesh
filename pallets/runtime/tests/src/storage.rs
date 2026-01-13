@@ -5,8 +5,9 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
+use frame_support::traits::tokens::{fungible::Credit, imbalance::OnUnbalanced};
 use frame_support::traits::{ConstBool, Currency, Imbalance, KeyOwnerProofSystem};
-use frame_support::traits::{OnInitialize, OnUnbalanced, TryCollect};
+use frame_support::traits::{OnInitialize, TryCollect};
 use frame_support::weights::RuntimeDbWeight;
 use frame_support::weights::Weight;
 use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
@@ -520,11 +521,11 @@ parameter_types! {
 
 pub struct DealWithFees;
 
-impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
-    fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
+impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFees {
+    fn on_nonzero_unbalanced(credit: Credit<AccountId, Balances>) {
+        // Use a fixed account to receive transactino and protocol fees in tests.
         let target = account_from(5000);
-        let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
-        let _ = amount.offset(positive_imbalance).same().map_err(|_| 4); // random value mapped for error
+        let _ = Balances::deposit_creating(&target, credit.peek());
     }
 }
 
