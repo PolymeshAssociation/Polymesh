@@ -361,7 +361,7 @@ macro_rules! misc_pallet_impls {
             type UnixTime = Timestamp;
             type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
             type ElectionProvider = ElectionProviderMultiPhase;
-            type GenesisElectionProvider = Self::ElectionProvider;
+            type GenesisElectionProvider = frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
             type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
             type HistoryDepth = polymesh_runtime_common::HistoryDepth;
             type RewardRemainder = ();
