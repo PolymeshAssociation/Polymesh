@@ -61,8 +61,8 @@ fn controller_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],

@@ -490,6 +490,15 @@ impl<AccountId> SecondaryKey<AccountId> {
     pub fn complexity(&self) -> usize {
         self.permissions.complexity()
     }
+
+    /// Returns `true` if the secondary key has permission to access the given portfolio.
+    pub fn has_portfolio_access(&self, portfolio_id: &PortfolioId) -> bool {
+        match &self.permissions.portfolio {
+            SubsetRestriction::Whole => true,
+            SubsetRestriction::These(portfolios) => portfolios.contains(portfolio_id),
+            SubsetRestriction::Except(portfolios) => !portfolios.contains(portfolio_id),
+        }
+    }
 }
 
 #[cfg(test)]

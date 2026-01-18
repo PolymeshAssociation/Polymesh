@@ -484,8 +484,8 @@ impl<T: Config> Pallet<T> {
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::<T>::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        PortfolioNFT::<T>::insert(caller_portfolio, (asset_id, nft_id), true);
-        NFTOwner::<T>::insert(asset_id, nft_id, caller_portfolio);
+        PortfolioNFT::<T>::insert(&caller_portfolio, (asset_id, nft_id), true);
+        NFTOwner::<T>::insert(asset_id, nft_id, &caller_portfolio);
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,

@@ -29,14 +29,8 @@ fn base_transfer() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let alice_default_portfolio = PortfolioId {
-            did: alice.did,
-            kind: PortfolioKind::Default,
-        };
-        let bob_user_portfolio = PortfolioId {
-            did: bob.did,
-            kind: PortfolioKind::User(PortfolioNumber(1)),
-        };
+        let alice_default_portfolio = PortfolioId::new(alice.did, PortfolioKind::Default);
+        let bob_user_portfolio = PortfolioId::new(bob.did, PortfolioKind::User(PortfolioNumber(1)));
 
         assert_ok!(Portfolio::create_portfolio(
             bob.origin(),
@@ -49,8 +43,8 @@ fn base_transfer() {
         ),);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ok!(Asset::base_transfer(
-            alice_default_portfolio,
-            bob_user_portfolio,
+            alice_default_portfolio.clone(),
+            bob_user_portfolio.clone(),
             asset_id,
             ISSUE_AMOUNT,
             None,
@@ -227,8 +221,8 @@ fn base_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],

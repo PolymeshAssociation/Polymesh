@@ -76,7 +76,7 @@ fn create_collection_issue_nfts<T: Config>(
             collection_owner.origin.clone().into(),
             asset_id,
             metadata_attributes.clone(),
-            portfolio_kind,
+            portfolio_kind.clone(),
         )
         .expect("failed to mint nft");
     }
@@ -103,7 +103,8 @@ where
     let receiver_portfolio =
         create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
-    let asset_id = create_collection_issue_nfts::<T>(sender, 0, n_nfts, sender_portfolio.kind);
+    let asset_id =
+        create_collection_issue_nfts::<T>(sender, 0, n_nfts, sender_portfolio.kind.clone());
 
     // Sets mandatory mediators
     let mut asset_mediators = Vec::new();
@@ -229,8 +230,8 @@ benchmarks! {
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {
             Pallet::<T>::base_nft_transfer(
-                alice_user_portfolio,
-                bob_user_portfolio,
+                alice_user_portfolio.clone(),
+                bob_user_portfolio.clone(),
                 nfts.clone(),
                 InstructionId(1),
                 None,
@@ -242,13 +243,13 @@ benchmarks! {
         // Before the controller transfer all NFTs belong to bob
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), n as u64);
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), 0);
-    }: _(alice.origin.clone(), nfts.clone(), bob_user_portfolio, alice_user_portfolio.kind)
+    }: _(alice.origin.clone(), nfts.clone(), bob_user_portfolio.clone(), alice_user_portfolio.kind.clone())
     verify {
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), 0);
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), n as u64);
         for i in 1..n + 1 {
-            assert!(PortfolioNFT::<T>::contains_key(alice_user_portfolio, (asset_id, NFTId(i.into()))));
-            assert!(!PortfolioNFT::<T>::contains_key(bob_user_portfolio, (asset_id, NFTId(i.into()))));
+            assert!(PortfolioNFT::<T>::contains_key(alice_user_portfolio.clone(), (asset_id, NFTId(i.into()))));
+            assert!(!PortfolioNFT::<T>::contains_key(bob_user_portfolio.clone(), (asset_id, NFTId(i.into()))));
         }
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }

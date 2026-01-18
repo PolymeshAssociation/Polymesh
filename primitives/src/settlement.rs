@@ -644,24 +644,26 @@ impl FilteredLegs {
         for (leg_id, leg) in original_set {
             match leg {
                 Leg::Fungible {
-                    sender, receiver, ..
+                    ref sender,
+                    ref receiver,
+                    ..
                 } => {
-                    if portfolio_set.contains(&sender) {
+                    if portfolio_set.contains(sender) {
                         sender_subset.push((leg_id, leg));
                         sender_asset_count.add_fungible();
-                    } else if portfolio_set.contains(&receiver) {
+                    } else if portfolio_set.contains(receiver) {
                         receiver_asset_count.add_fungible();
                     }
                 }
                 Leg::NonFungible {
-                    sender,
-                    receiver,
+                    ref sender,
+                    ref receiver,
                     ref nfts,
                 } => {
-                    if portfolio_set.contains(&sender) {
+                    if portfolio_set.contains(sender) {
                         sender_asset_count.add_non_fungible(&nfts);
                         sender_subset.push((leg_id, leg));
-                    } else if portfolio_set.contains(&receiver) {
+                    } else if portfolio_set.contains(receiver) {
                         receiver_asset_count.add_non_fungible(&nfts);
                     }
                 }

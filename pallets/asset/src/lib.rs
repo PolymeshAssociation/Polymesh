@@ -2047,7 +2047,7 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        Portfolio::<T>::reduce_portfolio_balance(portfolio, asset_id, value)?;
+        Portfolio::<T>::reduce_portfolio_balance(&portfolio, asset_id, value)?;
 
         asset_details.total_supply = asset_details
             .total_supply
@@ -2200,19 +2200,20 @@ impl<T: AssetConfig> Pallet<T> {
             weight_meter,
         )?;
 
+        let callers_did = caller_portfolio.did;
         Self::unverified_transfer_asset(
-            sender_portfolio,
+            sender_portfolio.clone(),
             caller_portfolio,
             asset_id,
             transfer_value,
             None,
             None,
-            caller_portfolio.did,
+            callers_did,
             weight_meter,
         )?;
 
         Self::deposit_event(Event::ControllerTransfer(
-            caller_portfolio.did,
+            callers_did,
             asset_id,
             sender_portfolio,
             transfer_value,
@@ -2947,11 +2948,11 @@ impl<T: AssetConfig> Pallet<T> {
         let portfolio_id = PortfolioId::new(origin_data.primary_did, portfolio_kind);
         Portfolio::<T>::ensure_portfolio_validity(&portfolio_id)?;
         if ensure_custody {
-            Portfolio::<T>::ensure_portfolio_custody(portfolio_id, origin_data.primary_did)?;
+            Portfolio::<T>::ensure_portfolio_custody(&portfolio_id, origin_data.primary_did)?;
         }
         Portfolio::<T>::ensure_user_portfolio_permission(
             origin_data.secondary_key.as_ref(),
-            portfolio_id,
+            &portfolio_id,
         )?;
         Ok(portfolio_id)
     }
@@ -3443,9 +3444,9 @@ impl<T: AssetConfig> Pallet<T> {
 
         // No check since the total balance is always <= the total supply
         let new_issuer_portfolio_balance =
-            PortfolioAssetBalances::<T>::get(issuer_portfolio, asset_id) + amount_to_issue;
+            PortfolioAssetBalances::<T>::get(&issuer_portfolio, asset_id) + amount_to_issue;
         Portfolio::<T>::set_portfolio_balance(
-            issuer_portfolio,
+            &issuer_portfolio,
             asset_id,
             new_issuer_portfolio_balance,
         );
@@ -3508,8 +3509,8 @@ impl<T: AssetConfig> Pallet<T> {
 
         // Updates the balances in the portfolio pallet
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            sender_portfolio,
-            receiver_portfolio,
+            &sender_portfolio,
+            &receiver_portfolio,
             asset_id,
             transfer_value,
         );

@@ -102,17 +102,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 ///
 /// All information contained is used by on-chain logic.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo
-)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
@@ -481,7 +471,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotExpired
         );
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-            dist.from,
+            &dist.from,
             agent,
             secondary_key.as_ref(),
         )?;
@@ -588,8 +578,8 @@ impl<T: Config> Pallet<T> {
         // Transfer remainder (`gain`) to DID.
         let to = PortfolioId::default_portfolio(holder);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        <Asset<T>>::base_transfer(
-            dist.from,
+        Asset::<T>::base_transfer(
+            dist.from.clone(),
             to,
             dist.currency,
             gain,
@@ -604,7 +594,7 @@ impl<T: Config> Pallet<T> {
         let holder = holder.for_event();
 
         // Commit `dist` change to storage.
-        Distributions::<T>::insert(ca_id, dist);
+        Distributions::<T>::insert(ca_id, &dist);
 
         // Emit event.
         Self::deposit_event(Event::BenefitClaimed(
@@ -682,7 +672,7 @@ impl<T: Config> Pallet<T> {
             kind: portfolio.into(),
         };
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-            from,
+            &from,
             agent,
             secondary_key.as_ref(),
         )?;
@@ -719,7 +709,7 @@ impl<T: Config> Pallet<T> {
             payment_at,
             expires_at,
         };
-        Distributions::<T>::insert(ca_id, distribution);
+        Distributions::<T>::insert(ca_id, &distribution);
 
         // Emit event.
         Self::deposit_event(Event::Created(agent, ca_id, distribution));

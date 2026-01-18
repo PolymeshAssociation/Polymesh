@@ -321,8 +321,8 @@ fn receivers_missing_portfolio() {
         Portfolio::create_portfolio(bob.origin(), PortfolioName(b"MyPid".into())).unwrap();
 
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_portfolio,
+            sender: alice_default_portfolio.clone(),
+            receiver: bob_portfolio.clone(),
             asset_id,
             amount: 1_000,
         }];

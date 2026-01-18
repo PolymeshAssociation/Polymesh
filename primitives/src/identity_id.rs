@@ -252,7 +252,7 @@ impl From<u64> for PortfolioNumber {
 
 /// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
 #[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
@@ -277,7 +277,7 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
 
 /// The identification of a portfolio. Contains the [`IdentityId`] of the portfolio owner and the [`PortfolioKind`].
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
     /// The DID of the portfolio owner.

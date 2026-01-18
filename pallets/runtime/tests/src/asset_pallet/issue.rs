@@ -24,10 +24,7 @@ type Settlement = pallet_settlement::Pallet<TestStorage>;
 fn issue_tokens_default_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let alice_default_portfolio = PortfolioId {
-            did: alice.did,
-            kind: PortfolioKind::Default,
-        };
+        let alice_default_portfolio = PortfolioId::new(alice.did, PortfolioKind::Default);
 
         let asset_id = create_and_issue_sample_asset(&alice);
         assert_eq!(
@@ -47,7 +44,7 @@ fn issue_tokens_default_portfolio() {
             ISSUE_AMOUNT
         );
         assert_eq!(
-            PortfolioAssetCount::<TestStorage>::get(alice_default_portfolio),
+            PortfolioAssetCount::<TestStorage>::get(&alice_default_portfolio),
             1
         );
     });
@@ -131,7 +128,7 @@ fn issue_tokens_assigned_custody() {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
         let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
-        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
+        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind.clone());
 
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
@@ -150,7 +147,7 @@ fn issue_tokens_assigned_custody() {
         let authorization_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
-            AuthorizationData::PortfolioCustody(portfolio_id),
+            AuthorizationData::PortfolioCustody(portfolio_id.clone()),
             None,
         )
         .unwrap();

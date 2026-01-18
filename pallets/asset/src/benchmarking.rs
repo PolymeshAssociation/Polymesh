@@ -156,7 +156,12 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     let asset_id = create_and_issue_sample_asset::<T>(sender);
     if move_to_sender_portfolio {
         // Moves some asset to the sender portfolio
-        move_from_default_portfolio::<T>(sender, asset_id, ONE_UNIT * POLY, sender_portfolio);
+        move_from_default_portfolio::<T>(
+            sender,
+            asset_id,
+            ONE_UNIT * POLY,
+            sender_portfolio.clone(),
+        );
     }
 
     // Sets mandatory mediators

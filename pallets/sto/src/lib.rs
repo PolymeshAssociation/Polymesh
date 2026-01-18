@@ -71,9 +71,9 @@ use pallet_settlement::VenueInfo;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
+use polymesh_primitives::traits::PortfolioSubTrait;
 use polymesh_primitives::{
-    storage_migration_ver, traits::PortfolioSubTrait, Balance, EventDid, IdentityId, PortfolioId,
-    Ticker,
+    storage_migration_ver, Balance, EventDid, IdentityId, PortfolioId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -88,33 +88,18 @@ type Settlement<T> = pallet_settlement::Pallet<T>;
 type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 /// Status of a Fundraiser.
-#[derive(
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
-    PartialOrd,
-    Ord,
-    Debug
-)]
+#[derive(Encode, Decode, Default, TypeInfo)]
+#[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, PartialOrd, Ord)]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
     /// Fundraiser has been frozen, New investments can not be made right now.
     Frozen,
     /// Fundraiser has been stopped.
+    #[default]
     Closed,
     /// Fundraiser has been stopped before expiry.
     ClosedEarly,
-}
-
-impl Default for FundraiserStatus {
-    fn default() -> Self {
-        Self::Closed
-    }
 }
 
 /// Funding method.  On-chain asset or off-chain receipt.
@@ -525,12 +510,12 @@ pub mod pallet {
                 .ok_or(Error::<T>::InvalidVenue)?;
 
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                raising_portfolio,
+                &raising_portfolio,
                 did,
                 secondary_key.as_ref(),
             )?;
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                offering_portfolio,
+                &offering_portfolio,
                 did,
                 secondary_key.as_ref(),
             )?;
@@ -887,8 +872,8 @@ impl<T: Config> Pallet<T> {
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
 
-        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-            investment_portfolio,
+        Portfolio::<T>::ensure_portfolio_custody_and_permission(
+            &investment_portfolio,
             investor_did,
             secondary_key.as_ref(),
         )?;
@@ -963,16 +948,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxPriceExceeded
         );
 
-        let mut fundraiser_portfolios = [fundraiser.offering_portfolio]
-            .iter()
-            .copied()
+        let mut fundraiser_portfolios = [fundraiser.offering_portfolio.clone()]
+            .into_iter()
             .collect::<BTreeSet<_>>();
-        let mut investor_portfolios = [investment_portfolio]
-            .iter()
-            .copied()
+        let mut investor_portfolios = [investment_portfolio.clone()]
+            .into_iter()
             .collect::<BTreeSet<_>>();
         let mut legs = vec![Leg::Fungible {
-            sender: fundraiser.offering_portfolio,
+            sender: fundraiser.offering_portfolio.clone(),
             receiver: investment_portfolio,
             asset_id: fundraiser.offering_asset,
             amount: purchase_amount,
@@ -980,15 +963,15 @@ impl<T: Config> Pallet<T> {
         let funding_asset = match funding {
             FundingMethod::OnChain(funding_portfolio) => {
                 <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                    funding_portfolio,
+                    &funding_portfolio,
                     investor_did,
                     secondary_key.as_ref(),
                 )?;
-                fundraiser_portfolios.insert(fundraiser.raising_portfolio);
-                investor_portfolios.insert(funding_portfolio);
+                fundraiser_portfolios.insert(fundraiser.raising_portfolio.clone());
+                investor_portfolios.insert(funding_portfolio.clone());
                 legs.push(Leg::Fungible {
                     sender: funding_portfolio,
-                    receiver: fundraiser.raising_portfolio,
+                    receiver: fundraiser.raising_portfolio.clone(),
                     asset_id: fundraiser.raising_asset,
                     amount: cost,
                 });

@@ -98,7 +98,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// # Arguments
     /// * `portfolio` - Portfolio to check
     /// * `custodian` - DID of the custodian
-    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult;
+    fn ensure_portfolio_custody(portfolio: &PortfolioId, custodian: IdentityId) -> DispatchResult;
 
     /// Ensure that the `portfolio` exists.
     ///
@@ -135,7 +135,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `custodian` - Identity of the custodian
     /// * `secondary_key` - Secondary key that is accessing the portfolio
     fn ensure_portfolio_custody_and_permission(
-        portfolio: PortfolioId,
+        portfolio: &PortfolioId,
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult;
