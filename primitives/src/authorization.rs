@@ -26,7 +26,7 @@ use crate::secondary_key::Permissions;
 use crate::{Balance, PortfolioId, Ticker};
 
 /// Authorization data for two step processes.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change primary key

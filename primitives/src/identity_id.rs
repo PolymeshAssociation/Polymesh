@@ -251,22 +251,17 @@ impl From<u64> for PortfolioNumber {
 }
 
 /// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Default, Encode, TypeInfo, MaxEncodedLen)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
+    #[default]
     #[cfg_attr(feature = "std", serde(alias = "default"))]
     Default,
     /// A user-defined portfolio of a DID.
     #[cfg_attr(feature = "std", serde(alias = "user"))]
     User(PortfolioNumber),
-}
-
-impl Default for PortfolioKind {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 impl From<Option<PortfolioNumber>> for PortfolioKind {

@@ -55,7 +55,7 @@ pub type ExtrinsicNames = SubsetRestriction<ExtrinsicName>;
 /// A permission to call a set of functions, as described by `extrinsics`,
 /// within a given pallet `pallet_name`.
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
     /// A subset of function names within the pallet.
@@ -103,7 +103,7 @@ impl PalletPermissions {
 
 /// Extrinsic permissions.
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ExtrinsicPermissions {
     /// Allow the whole pallet.
@@ -213,7 +213,7 @@ pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 /// - `Permissions::empty()`: no permissions,
 /// - `Permissions::default()`: full permissions.
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Permissions {
     /// The subset of assets under management.
@@ -471,19 +471,9 @@ impl<AccountId> SecondaryKey<AccountId> {
         }
     }
 
-    /// Checks if the given key has permission to access the given asset.
-    pub fn has_asset_permission(&self, asset: AssetId) -> bool {
-        self.permissions.asset.ge(&SubsetRestriction::elem(asset))
-    }
-
     /// Checks if the given key has permission to call the given extrinsic.
     pub fn has_extrinsic_permission(&self, pallet: &PalletName, extrinsic: &ExtrinsicName) -> bool {
         self.permissions.extrinsic.sufficient_for(pallet, extrinsic)
-    }
-
-    /// Checks if the given key has permission to access all given portfolios.
-    pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioId>) -> bool {
-        self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
     }
 
     /// Returns the complexity of the secondary key's permissions.
@@ -491,8 +481,17 @@ impl<AccountId> SecondaryKey<AccountId> {
         self.permissions.complexity()
     }
 
+    /// Returns `true` if the secondary key has permission to access the given asset.
+    pub fn has_asset_permission(&self, asset: &AssetId) -> bool {
+        match &self.permissions.asset {
+            SubsetRestriction::Whole => true,
+            SubsetRestriction::These(assets) => assets.contains(&asset),
+            SubsetRestriction::Except(assets) => !assets.contains(&asset),
+        }
+    }
+
     /// Returns `true` if the secondary key has permission to access the given portfolio.
-    pub fn has_portfolio_access(&self, portfolio_id: &PortfolioId) -> bool {
+    pub fn has_portfolio_permission(&self, portfolio_id: &PortfolioId) -> bool {
         match &self.permissions.portfolio {
             SubsetRestriction::Whole => true,
             SubsetRestriction::These(portfolios) => portfolios.contains(portfolio_id),
@@ -542,18 +541,18 @@ mod tests {
         let permissions = Permissions {
             asset: SubsetRestriction::elem(AssetId::new([0; 16])),
             extrinsic: ExtrinsicPermissions::Whole,
-            portfolio: SubsetRestriction::elem(portfolio1),
+            portfolio: SubsetRestriction::elem(portfolio1.clone()),
         };
         let free_key = SecondaryKey::new(key.clone(), Permissions::default());
         let restricted_key = SecondaryKey::new(key, permissions.clone());
-        assert!(free_key.has_asset_permission(asset_id2));
+        assert!(free_key.has_asset_permission(&asset_id2));
         assert!(free_key.has_extrinsic_permission(&"pallet".into(), &"function".into()));
-        assert!(free_key.has_portfolio_permission(vec![portfolio1]));
-        assert!(restricted_key.has_asset_permission(asset_id));
-        assert!(!restricted_key.has_asset_permission(asset_id2));
+        assert!(free_key.has_portfolio_permission(&portfolio1));
+        assert!(restricted_key.has_asset_permission(&asset_id));
+        assert!(!restricted_key.has_asset_permission(&asset_id2));
         assert!(restricted_key.has_extrinsic_permission(&"pallet".into(), &"function".into()));
-        assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));
-        assert!(!restricted_key.has_portfolio_permission(vec![portfolio2]));
+        assert!(restricted_key.has_portfolio_permission(&portfolio1));
+        assert!(!restricted_key.has_portfolio_permission(&portfolio2));
     }
 
     #[test]
