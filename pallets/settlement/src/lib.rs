@@ -878,7 +878,7 @@ pub mod pallet {
             asset_id: AssetId,
             enabled: bool,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             if enabled {
                 VenueFiltering::<T>::insert(asset_id, enabled);
             } else {
@@ -902,7 +902,7 @@ pub mod pallet {
             asset_id: AssetId,
             venues: Vec<VenueId>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             for venue in &venues {
                 VenueAllowList::<T>::insert(&asset_id, venue, true);
             }
@@ -924,7 +924,7 @@ pub mod pallet {
             asset_id: AssetId,
             venues: Vec<VenueId>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             for venue in &venues {
                 VenueAllowList::<T>::remove(&asset_id, venue);
             }

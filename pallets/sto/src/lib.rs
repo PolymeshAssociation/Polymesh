@@ -503,7 +503,7 @@ pub mod pallet {
                 primary_did: did,
                 secondary_key,
                 ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?;
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &offering_asset)?;
 
             VenueInfo::<T>::get(venue_id)
                 .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
@@ -716,7 +716,7 @@ pub mod pallet {
             start: T::Moment,
             end: Option<T::Moment>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?.for_event();
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &offering_asset)?.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
@@ -773,7 +773,7 @@ pub mod pallet {
             let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
 
             let agent_did =
-                <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+                <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
             if fundraiser.creator != agent_did {
                 <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, agent_did)?;
             }
@@ -834,7 +834,7 @@ pub mod pallet {
             ticker: Ticker,
         ) -> DispatchResult {
             let agent_did =
-                <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+                <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
 
             let fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
             if fundraiser.creator != agent_did {
@@ -1063,7 +1063,7 @@ impl<T: Config> Pallet<T> {
         fundraiser_id: FundraiserId,
         frozen: bool,
     ) -> DispatchResult {
-        let agent_did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?;
+        let agent_did = <ExternalAgents<T>>::ensure_perms(origin, &offering_asset)?;
         let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {

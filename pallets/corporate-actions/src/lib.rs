@@ -566,7 +566,7 @@ pub mod pallet {
             asset_id: AssetId,
             targets: TargetIdentities,
         ) -> DispatchResult {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
             Self::ensure_target_ids_limited(&targets)?;
 
@@ -598,7 +598,7 @@ pub mod pallet {
             asset_id: AssetId,
             tax: Tax,
         ) -> DispatchResult {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             DefaultWithholdingTax::<T>::mutate(asset_id, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, asset_id, tax));
             Ok(())
@@ -628,7 +628,7 @@ pub mod pallet {
             taxed_did: IdentityId,
             tax: Option<Tax>,
         ) -> DispatchResult {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             DidWithholdingTax::<T>::try_mutate(asset_id, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
@@ -693,7 +693,7 @@ pub mod pallet {
             withholding_tax: Option<Vec<(IdentityId, Tax)>>,
         ) -> DispatchResult {
             // Ensure that a permissioned agent is calling.
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
             Self::unsafe_initiate_corporate_action(
                 caller_did,
@@ -735,7 +735,7 @@ pub mod pallet {
             docs: Vec<DocumentId>,
         ) -> DispatchResult {
             // Ensure that a permissioned agent is calling and that CA and the docs exists.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, id.asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &id.asset_id)?;
             Self::ensure_ca_exists(id)?;
             for doc in &docs {
                 <Asset<T>>::ensure_doc_exists(&id.asset_id, doc)?;
@@ -770,7 +770,7 @@ pub mod pallet {
         #[pallet::call_index(6)]
         pub fn remove_ca(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
             // Ensure origin is a permissioned agent + CA exists.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
             let ca = Self::ensure_ca_exists(ca_id)?;
 
             // Remove associated services.
@@ -821,7 +821,7 @@ pub mod pallet {
             record_date: Option<RecordDateSpec>,
         ) -> DispatchResult {
             // Ensure origin is a permissioned agent + CA exists.
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?;
             let agent = caller_did.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
@@ -883,7 +883,7 @@ pub mod pallet {
                 primary_did: caller_did,
                 secondary_key,
                 ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset_id)?;
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &asset_id)?;
 
             let ca_id = Self::unsafe_initiate_corporate_action(
                 caller_did,
@@ -923,7 +923,7 @@ pub mod pallet {
             rcv: bool,
         ) -> DispatchResult {
             // Ensure that the caller is a permissioned agent
-            let caller_did = ExternalAgents::<T>::ensure_perms(origin, ca_args.asset_id)?;
+            let caller_did = ExternalAgents::<T>::ensure_perms(origin, &ca_args.asset_id)?;
 
             let ca_id = Self::unsafe_initiate_corporate_action(
                 caller_did,

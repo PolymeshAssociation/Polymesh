@@ -436,7 +436,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::ExceptPermissionsNotAllowed.into());
         }
 
-        let caller_did = Self::ensure_perms(origin, asset_id)?;
+        let caller_did = Self::ensure_perms(origin, &asset_id)?;
 
         Identity::<T>::ensure_extrinsic_perms_length_limited(extrinsics_permissions)?;
 
@@ -490,14 +490,14 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         agent: IdentityId,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, asset_id)?.for_event();
+        let did = Self::ensure_perms(origin, &asset_id)?.for_event();
         Self::try_mutate_agents_group(asset_id, agent, None)?;
         Self::deposit_event(Event::AgentRemoved(did, asset_id, agent));
         Ok(())
     }
 
     fn base_abdicate(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
-        let did = Self::ensure_asset_perms(origin, asset_id)?.primary_did;
+        let did = Self::ensure_asset_perms(origin, &asset_id)?.primary_did;
         Self::try_mutate_agents_group(asset_id, did, None)?;
         Self::deposit_event(Event::AgentRemoved(did.for_event(), asset_id, did));
         Ok(())
@@ -519,7 +519,7 @@ impl<T: Config> Pallet<T> {
         agent: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, asset_id)?.for_event();
+        let did = Self::ensure_perms(origin, &asset_id)?.for_event();
         Self::unsafe_change_group(did, asset_id, agent, group)
     }
 
@@ -615,7 +615,7 @@ impl<T: Config> Pallet<T> {
     /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_perms(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<IdentityId, DispatchError> {
         Self::ensure_agent_asset_perms(origin, asset_id).map(|d| d.primary_did)
     }
@@ -623,10 +623,10 @@ impl<T: Config> Pallet<T> {
     /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_agent_asset_perms(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = Self::ensure_asset_perms(origin, asset_id)?;
-        Self::ensure_agent_permissioned(&asset_id, data.primary_did)?;
+        Self::ensure_agent_permissioned(asset_id, data.primary_did)?;
         Ok(data)
     }
 
@@ -634,7 +634,7 @@ impl<T: Config> Pallet<T> {
     /// and the secondary key has relevant asset permissions.
     pub fn ensure_asset_perms(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         let skey = data.secondary_key.as_ref();
@@ -642,7 +642,7 @@ impl<T: Config> Pallet<T> {
         // If `secondary_key` is None, the caller is the primary key and has all permissions.
         if let Some(sk) = skey {
             ensure!(
-                sk.has_asset_permission(asset_id),
+                sk.has_asset_permission(&asset_id),
                 Error::<T>::SecondaryKeyNotAuthorizedForAsset
             );
         }

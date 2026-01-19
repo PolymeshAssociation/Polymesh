@@ -1960,7 +1960,7 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: AssetId,
         freeze: bool,
     ) -> DispatchResult {
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         Self::ensure_asset_exists(&asset_id)?;
 
@@ -1989,7 +1989,7 @@ impl<T: AssetConfig> Pallet<T> {
         Self::ensure_valid_asset_name(&asset_name)?;
         Self::ensure_asset_exists(&asset_id)?;
 
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         AssetNames::<T>::insert(asset_id, asset_name.clone());
         Self::deposit_event(Event::AssetRenamed(caller_did, asset_id, asset_name));
@@ -2088,7 +2088,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     fn base_make_divisible(origin: T::RuntimeOrigin, asset_id: AssetId) -> DispatchResult {
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         Assets::<T>::try_mutate(&asset_id, |asset_details| -> DispatchResult {
             let asset_details = asset_details.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
@@ -2109,7 +2109,7 @@ impl<T: AssetConfig> Pallet<T> {
         docs: Vec<Document>,
         asset_id: AssetId,
     ) -> DispatchResult {
-        let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         // Ensure strings are limited.
         for doc in &docs {
@@ -2141,7 +2141,7 @@ impl<T: AssetConfig> Pallet<T> {
         docs_id: Vec<DocumentId>,
         asset_id: AssetId,
     ) -> DispatchResult {
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         for doc_id in docs_id {
             AssetDocuments::<T>::remove(asset_id, doc_id);
             Self::deposit_event(Event::DocumentRemoved(caller_did, asset_id, doc_id));
@@ -2155,7 +2155,7 @@ impl<T: AssetConfig> Pallet<T> {
         funding_round_name: FundingRoundName,
     ) -> DispatchResult {
         Self::ensure_valid_funding_round_name(&funding_round_name)?;
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         FundingRound::<T>::insert(asset_id, funding_round_name.clone());
         Self::deposit_event(Event::FundingRoundSet(
@@ -2171,7 +2171,7 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: AssetId,
         asset_identifiers: Vec<AssetIdentifier>,
     ) -> DispatchResult {
-        let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         Self::ensure_valid_asset_identifiers(&asset_identifiers)?;
         Self::unverified_update_asset_identifiers(did, asset_id, asset_identifiers);
         Ok(())
@@ -2269,7 +2269,7 @@ impl<T: AssetConfig> Pallet<T> {
         detail: Option<AssetMetadataValueDetail<T::Moment>>,
     ) -> DispatchResult {
         // Ensure the caller has the correct permissions for this asset.
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         Self::unverified_set_asset_metadata(caller_did, asset_id, key, value, detail)
     }
@@ -2281,7 +2281,7 @@ impl<T: AssetConfig> Pallet<T> {
         detail: AssetMetadataValueDetail<T::Moment>,
     ) -> DispatchResult {
         // Ensure the caller has the correct permissions for this asset.
-        let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         // Check key exists.
         ensure!(
@@ -2317,7 +2317,7 @@ impl<T: AssetConfig> Pallet<T> {
         detail: Option<AssetMetadataValueDetail<T::Moment>>,
     ) -> DispatchResult {
         // Ensure the caller has the correct permissions for this asset.
-        let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         // Register local metadata type.
         let key = Self::unverified_register_asset_metadata_local_type(did, asset_id, name, spec)?;
@@ -2332,7 +2332,7 @@ impl<T: AssetConfig> Pallet<T> {
         spec: AssetMetadataSpec,
     ) -> DispatchResult {
         // Ensure the caller has the correct permissions for this asset.
-        let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         Self::unverified_register_asset_metadata_local_type(did, asset_id, name, spec).map(drop)
     }
@@ -2371,7 +2371,7 @@ impl<T: AssetConfig> Pallet<T> {
     ) -> DispatchResult {
         Self::ensure_asset_exists(&asset_id)?;
         Self::ensure_valid_asset_type(&asset_type)?;
-        let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         Assets::<T>::try_mutate(&asset_id, |asset| -> DispatchResult {
             let asset = asset.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
             // Ensures that both parameters are non fungible types or if both are fungible types.
@@ -2392,7 +2392,7 @@ impl<T: AssetConfig> Pallet<T> {
         local_key: AssetMetadataLocalKey,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         // Verifies if the key exists.
         let name = AssetMetadataLocalKeyToName::<T>::try_get(asset_id, &local_key)
             .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
@@ -2427,7 +2427,7 @@ impl<T: AssetConfig> Pallet<T> {
         metadata_key: AssetMetadataKey,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         // Verifies if the key exists.
         match metadata_key {
             AssetMetadataKey::Global(global_key) => {
@@ -2507,7 +2507,7 @@ impl<T: AssetConfig> Pallet<T> {
         new_mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         // Tries to add all new identities as mandatory mediators for the asset
         MandatoryMediators::<T>::try_mutate(asset_id, |mandatory_mediators| -> DispatchResult {
             for new_mediator in &new_mediators {
@@ -2533,7 +2533,7 @@ impl<T: AssetConfig> Pallet<T> {
         mediators: BoundedBTreeSet<IdentityId, T::MaxAssetMediators>,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         // Removes the identities from the mandatory mediators list
         MandatoryMediators::<T>::mutate(asset_id, |mandatory_mediators| {
             for mediator in &mediators {
@@ -2593,7 +2593,7 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: AssetId,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         // The caller must own the ticker and the ticker can't be expired
         UniqueTickerRegistration::<T>::try_mutate(
             ticker,
@@ -2637,7 +2637,7 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: AssetId,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let caller_did = ExternalAgents::<T>::ensure_perms(origin, asset_id)?;
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
 
         // The caller must own the ticker
         let ticker_registration = UniqueTickerRegistration::<T>::take(ticker)
@@ -2944,7 +2944,7 @@ impl<T: AssetConfig> Pallet<T> {
         portfolio_kind: PortfolioKind,
         ensure_custody: bool,
     ) -> Result<PortfolioId, DispatchError> {
-        let origin_data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset_id)?;
+        let origin_data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &asset_id)?;
         let portfolio_id = PortfolioId::new(origin_data.primary_did, portfolio_kind);
         Portfolio::<T>::ensure_portfolio_validity(&portfolio_id)?;
         if ensure_custody {

@@ -775,7 +775,7 @@ impl<T: Config> Pallet<T> {
         if let Some(sk) = secondary_key {
             // Check that the secondary signer is allowed to work with this portfolio.
             ensure!(
-                sk.has_portfolio_access(portfolio_id),
+                sk.has_portfolio_permission(portfolio_id),
                 Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
             );
         }

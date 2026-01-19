@@ -285,7 +285,7 @@ pub mod pallet {
             sender_conditions: Vec<Condition>,
             receiver_conditions: Vec<Condition>,
         ) -> DispatchResult {
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             Self::base_add_compliance_requirement(
                 caller_did,
                 asset_id,
@@ -310,7 +310,7 @@ pub mod pallet {
             asset_id: AssetId,
             id: u32,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
             AssetCompliances::<T>::try_mutate(
                 asset_id,
@@ -351,7 +351,7 @@ pub mod pallet {
             asset_id: AssetId,
             asset_compliance: Vec<ComplianceRequirement>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
             // Ensure `Scope::Custom(..)`s are limited.
             Self::ensure_custom_scopes_limited(
@@ -399,7 +399,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::reset_asset_compliance())]
         #[pallet::call_index(3)]
         pub fn reset_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             AssetCompliances::<T>::remove(asset_id);
             Self::deposit_event(Event::AssetComplianceReset(did, asset_id));
             Ok(())
@@ -416,7 +416,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::pause_asset_compliance())]
         #[pallet::call_index(4)]
         pub fn pause_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
-            let did = Self::pause_resume_asset_compliance(origin, asset_id, true)?;
+            let did = Self::pause_resume_asset_compliance(origin, &asset_id, true)?;
             Self::deposit_event(Event::AssetCompliancePaused(did, asset_id));
             Ok(())
         }
@@ -432,7 +432,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::resume_asset_compliance())]
         #[pallet::call_index(5)]
         pub fn resume_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
-            let did = Self::pause_resume_asset_compliance(origin, asset_id, false)?;
+            let did = Self::pause_resume_asset_compliance(origin, &asset_id, false)?;
             Self::deposit_event(Event::AssetComplianceResumed(did, asset_id));
             Ok(())
         }
@@ -453,7 +453,7 @@ pub mod pallet {
             asset_id: AssetId,
             issuer: TrustedIssuer,
         ) -> DispatchResult {
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             Self::base_add_default_trusted_claim_issuer(caller_did, asset_id, issuer)
         }
 
@@ -473,7 +473,7 @@ pub mod pallet {
             asset_id: AssetId,
             issuer: IdentityId,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             TrustedClaimIssuer::<T>::try_mutate(asset_id, |issuers| {
                 let len = issuers.len();
                 issuers.retain(|ti| ti.issuer != issuer);
@@ -505,7 +505,7 @@ pub mod pallet {
             asset_id: AssetId,
             new_req: ComplianceRequirement,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
             // Ensure `Scope::Custom(..)`s are limited.
             Self::ensure_custom_scopes_limited(new_req.conditions())?;
@@ -547,7 +547,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_custom_scopes_limited(receiver_conditions.iter())?;
 
         // Bundle as a requirement.
-        let id = Self::get_latest_requirement_id(asset_id) + 1;
+        let id = Self::get_latest_requirement_id(&asset_id) + 1;
         let mut new_req = ComplianceRequirement {
             sender_conditions,
             receiver_conditions,
@@ -558,7 +558,7 @@ impl<T: Config> Pallet<T> {
         Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
 
         // Add to existing requirements, and place a limit on the total complexity.
-        let mut asset_compliance = AssetCompliances::<T>::get(asset_id);
+        let mut asset_compliance = AssetCompliances::<T>::get(&asset_id);
         asset_compliance.requirements.push(new_req.clone());
         Self::verify_compliance_complexity(&asset_compliance.requirements, asset_id, 0)?;
 
@@ -768,16 +768,16 @@ impl<T: Config> Pallet<T> {
     /// Pauses or resumes the asset compliance.
     fn pause_resume_asset_compliance(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
-        AssetCompliances::<T>::mutate(&asset_id, |compliance| compliance.paused = pause);
+        AssetCompliances::<T>::mutate(asset_id, |compliance| compliance.paused = pause);
         Ok(did)
     }
 
     /// Compute the id of the last requirement in an asset's compliance rules.
-    fn get_latest_requirement_id(asset_id: AssetId) -> u32 {
+    fn get_latest_requirement_id(asset_id: &AssetId) -> u32 {
         AssetCompliances::<T>::get(asset_id)
             .requirements
             .last()

@@ -355,7 +355,7 @@ impl<T: Config> Pallet<T> {
                         ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
                         let caller_did = <ExternalAgents<T>>::ensure_agent_asset_perms(
                             origin.clone(),
-                            asset_id,
+                            &asset_id,
                         )?
                         .primary_did;
                         (false, caller_did, asset_id)

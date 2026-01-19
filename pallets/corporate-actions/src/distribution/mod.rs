@@ -425,7 +425,7 @@ impl<T: Config> Pallet<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.asset_id)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &ca_id.asset_id)?;
 
         Self::unverified_distribute(
             agent,
@@ -451,7 +451,7 @@ impl<T: Config> Pallet<T> {
         ca_id: CAId,
         holder: IdentityId,
     ) -> DispatchResult {
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
         Self::transfer_benefit(agent, holder, ca_id)?;
         Ok(())
     }
@@ -463,7 +463,7 @@ impl<T: Config> Pallet<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.asset_id)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &ca_id.asset_id)?;
         let dist = Self::ensure_distribution_exists(ca_id)?;
         ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
         ensure!(
@@ -497,7 +497,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn base_remove_distribution(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
         let dist = Self::ensure_distribution_exists(ca_id)?;
         Self::unverified_remove_distribution(agent, ca_id, &dist)?;
 
