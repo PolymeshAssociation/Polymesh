@@ -570,6 +570,8 @@ pub mod pallet {
         InvalidInstructionStatusForWithdrawal,
         /// Receiver identity not found.
         ReceiverIdentityNotFound,
+        /// Invalid account id.
+        InvalidAccountId,
     }
 
     storage_migration_ver!(3);
@@ -2515,14 +2517,17 @@ impl<T: Config> Pallet<T> {
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
         input_asset_count: Option<AssetCount>,
-        use_default_portfolio: bool,
+        use_account_portfolio: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_did = origin_data.primary_did;
 
-        let caller_pid = if use_default_portfolio {
-            Some(PortfolioId::default_portfolio(caller_did))
+        let caller_pid = if use_account_portfolio {
+            let acc_portfolio =
+                PortfolioId::account_portfolio(caller_did, origin_data.sender.encode())
+                    .map_err(|_| Error::<T>::InvalidAccountId)?;
+            Some(acc_portfolio)
         } else {
             caller_pid
         };
@@ -3647,14 +3652,20 @@ impl<T: Config> Pallet<T> {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
 
+        let from_portfolio =
+            PortfolioId::account_portfolio(origin_data.primary_did, origin_data.sender.encode())
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
         let to_did = pallet_identity::Pallet::<T>::get_identity(&to)
             .ok_or(Error::<T>::ReceiverIdentityNotFound)?;
+        let to_portfolio = PortfolioId::account_portfolio(to_did, to.encode())
+            .map_err(|_| Error::<T>::InvalidAccountId)?;
+
         // Prepare the leg depending on whether it's a fungible or non-fungible transfer
         let (leg, is_fungible) = match asset_or_nft {
             AssetOrNft::Asset { asset_id, amount } => (
                 Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(origin_data.primary_did),
-                    receiver: PortfolioId::default_portfolio(to_did),
+                    sender: from_portfolio.clone(),
+                    receiver: to_portfolio,
                     asset_id,
                     amount,
                 },
@@ -3662,8 +3673,8 @@ impl<T: Config> Pallet<T> {
             ),
             AssetOrNft::Nft { asset_id, nft_id } => (
                 Leg::NonFungible {
-                    sender: PortfolioId::default_portfolio(origin_data.primary_did),
-                    receiver: PortfolioId::default_portfolio(to_did),
+                    sender: from_portfolio.clone(),
+                    receiver: to_portfolio,
                     nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
                 },
                 false,
@@ -3696,7 +3707,7 @@ impl<T: Config> Pallet<T> {
         Self::unsafe_affirm_instruction(
             origin_data.primary_did,
             instruction_id,
-            [PortfolioId::default_portfolio(origin_data.primary_did)].into(),
+            [from_portfolio].into(),
             origin_data.secondary_key.as_ref(),
             None,
         )?;
@@ -3725,7 +3736,9 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
-        let to_portfolio = PortfolioId::default_portfolio(origin_data.primary_did);
+        let to_portfolio =
+            PortfolioId::account_portfolio(origin_data.primary_did, origin_data.sender.encode())
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
 
         // Consume weight for the receiver affirmation
         Self::check_accrue(

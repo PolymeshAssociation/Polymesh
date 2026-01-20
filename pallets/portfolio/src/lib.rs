@@ -382,6 +382,14 @@ pub mod pallet {
         BadAuthorizationType,
         /// Default portfolios cannot have custodians.
         DefaultPortfoliosCannotHaveCustodians,
+        /// The key does not have permission to access the portfolio.
+        UnauthorizedPortfolioKey,
+        /// Unable to decode AccountId from PortfolioId.
+        InvalidAccountId,
+        /// Key not found for caller.
+        KeyNotFoundForCaller,
+        /// Account based portfolios cannot have custodians.
+        AccountBasedPortfoliosCannotHaveCustodians,
     }
 
     #[pallet::call]
@@ -475,6 +483,7 @@ pub mod pallet {
             Self::ensure_user_portfolio_permission(
                 secondary_key.as_ref(),
                 &PortfolioId::user_portfolio(primary_did, num),
+                None,
             )?;
             let old_name = Self::ensure_user_portfolio_validity(primary_did, num)?;
 
@@ -505,6 +514,10 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::quit_portfolio_custody())]
         #[pallet::call_index(3)]
         pub fn quit_portfolio_custody(origin: OriginFor<T>, pid: PortfolioId) -> DispatchResult {
+            if let PortfolioKind::AccountId(_) = pid.kind {
+                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
+            }
+
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
             let custodian = Self::custodian(&pid);
             ensure!(did == custodian, Error::<T>::UnauthorizedCustodian);
@@ -766,11 +779,40 @@ impl<T: Config> Pallet<T> {
         Ok(Portfolios::<T>::get(did, num).ok_or(Error::<T>::PortfolioDoesNotExist)?)
     }
 
-    /// Ensure that the `secondary_key` has access to `portfolio`.
+    /// Ensures that the caller has permission to access the specified portfolio.
+    ///
+    /// 1. **Account-based portfolios** (`PortfolioKind::AccountId`):
+    ///    - keys (primary or secondary) must match the account ID embedded in the portfolio.
+    ///
+    /// 2. **Standard portfolios** (Default or User portfolios):
+    ///    - Primary keys have automatic full permissions.
+    ///    - Secondary keys must have explicit portfolio permissions via `has_portfolio_permission()`.
     pub fn ensure_user_portfolio_permission(
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio_id: &PortfolioId,
+        callers_did: Option<IdentityId>,
     ) -> DispatchResult {
+        if let PortfolioKind::AccountId(account_id) = &portfolio_id.kind {
+            let account_id: T::AccountId = Decode::decode(&mut &account_id.encode()[..])
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
+
+            if let Some(sk) = secondary_key {
+                ensure!(sk.key == account_id, Error::<T>::UnauthorizedPortfolioKey);
+                return Ok(());
+            }
+
+            let callers_did = callers_did.ok_or(Error::<T>::UnauthorizedPortfolioKey)?;
+            let primary_key = pallet_identity::Pallet::<T>::get_primary_key(callers_did)
+                .ok_or(Error::<T>::KeyNotFoundForCaller)?;
+
+            ensure!(
+                primary_key == account_id,
+                Error::<T>::UnauthorizedPortfolioKey
+            );
+
+            return Ok(());
+        }
+
         // If `sk` is None, caller is primary key and has full permissions.
         if let Some(sk) = secondary_key {
             // Check that the secondary signer is allowed to work with this portfolio.
@@ -871,7 +913,7 @@ impl<T: Config> Pallet<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)?;
-        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio, Some(custodian))
     }
 
     /// Ensure `portfolio` has sufficient balance of `asset_id` to lock/withdraw `amount`.
@@ -904,6 +946,10 @@ impl<T: Config> Pallet<T> {
                 pid.kind != PortfolioKind::Default,
                 Error::<T>::DefaultPortfoliosCannotHaveCustodians
             );
+
+            if let PortfolioKind::AccountId(_) = pid.kind {
+                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
+            }
 
             let curr = Self::custodian(&pid);
             pallet_identity::Pallet::<T>::ensure_auth_by(from, curr)?;
@@ -954,7 +1000,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Ensures the secondary key has access to the receiver's portfolio.
-        Self::ensure_user_portfolio_permission(origin_data.secondary_key.as_ref(), to)?;
+        Self::ensure_user_portfolio_permission(origin_data.secondary_key.as_ref(), to, None)?;
         Ok(origin_data.primary_did)
     }
 
