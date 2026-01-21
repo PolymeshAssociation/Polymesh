@@ -112,7 +112,6 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio` - Portfolio to lock tokens
     /// * `asset_id` - [`AssetId`] of the token to lock
     /// * `amount` - Amount of tokens to lock
-
     fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult;
 
     /// Unlocks some tokens of a portfolio
@@ -170,13 +169,6 @@ pub trait ComplianceFnConfig {
         receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError>;
-
-    fn verify_restriction_granular(
-        asset_id: &AssetId,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        weight_meter: &mut WeightMeter,
-    ) -> Result<AssetComplianceResult, DispatchError>;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(

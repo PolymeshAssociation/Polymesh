@@ -912,37 +912,6 @@ impl<T: Config> ComplianceFnConfig for Pallet<T> {
         )
     }
 
-    /// verifies all requirements and returns the result in an array of booleans.
-    /// this does not care if the requirements are paused or not. It is meant to be
-    /// called only in failure conditions
-    fn verify_restriction_granular(
-        asset_id: &AssetId,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        weight_meter: &mut WeightMeter,
-    ) -> Result<AssetComplianceResult, DispatchError> {
-        let mut compliance_with_results =
-            AssetComplianceResult::from(AssetCompliances::<T>::get(asset_id));
-
-        // Evaluates all conditions.
-        // False result in any of the conditions => False requirement result.
-        let all_conditions_hold = |did, conditions, weight_meter: &mut WeightMeter| match did {
-            Some(did) => Self::evaluate_conditions(asset_id, did, conditions, weight_meter),
-            None => Ok(false),
-        };
-
-        for req in &mut compliance_with_results.requirements {
-            if !all_conditions_hold(from_did_opt, &mut req.sender_conditions, weight_meter)? {
-                req.result = false;
-            }
-            if !all_conditions_hold(to_did_opt, &mut req.receiver_conditions, weight_meter)? {
-                req.result = false;
-            }
-            compliance_with_results.result |= req.result;
-        }
-        Ok(compliance_with_results)
-    }
-
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(
         caller_did: IdentityId,

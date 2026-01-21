@@ -123,9 +123,9 @@ use polymesh_primitives::traits::{
     AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
 };
 use polymesh_primitives::{
-    extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
-    DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker,
-    WeightMeter,
+    extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind,
+    PortfolioUpdateReason, Ticker, WeightMeter,
 };
 
 pub use types::{
@@ -570,6 +570,18 @@ pub mod pallet {
     /// A per account nonce that is used for generating an [`AssetId`].
     #[pallet::storage]
     pub type AssetNonce<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery>;
+
+    /// Tracks the total [`Balance`] held by the account for each [`AssetId`].
+    #[pallet::storage]
+    pub type KeyAssetBalance<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
+        Balance,
+        ValueQuery,
+    >;
 
     /// Storage version.
     #[pallet::storage]
@@ -3444,8 +3456,17 @@ impl<T: AssetConfig> Pallet<T> {
         Assets::<T>::insert(asset_id, asset_details);
 
         // No check since the total balance is always <= the total supply
-        let new_issuer_portfolio_balance =
-            PortfolioAssetBalances::<T>::get(&issuer_portfolio, asset_id) + amount_to_issue;
+        let new_issuer_portfolio_balance = {
+            match &issuer_portfolio.kind {
+                PortfolioKind::AccountId(acc_id) => {
+                    KeyAssetBalance::<T>::get(acc_id, asset_id) + amount_to_issue
+                }
+                PortfolioKind::Default | PortfolioKind::User(_) => {
+                    PortfolioAssetBalances::<T>::get(&issuer_portfolio, asset_id) + amount_to_issue
+                }
+            }
+        };
+
         Portfolio::<T>::set_portfolio_balance(
             &issuer_portfolio,
             asset_id,
@@ -3741,6 +3762,14 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn generate_asset_id(caller_acc: T::AccountId) -> AssetId {
         Self::generate_asset_id(caller_acc, false)
+    }
+
+    fn set_balance_of_account(acc_id: AccountId32, asset_id: AssetId, balance: Balance) {
+        KeyAssetBalance::<T>::insert(acc_id, asset_id, balance);
+    }
+
+    fn get_account_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {
+        KeyAssetBalance::<T>::get(acc_id, asset_id)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

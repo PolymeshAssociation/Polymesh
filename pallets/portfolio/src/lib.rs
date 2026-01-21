@@ -57,11 +57,11 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::identity_id::PortfolioValidityResult;
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait};
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
+    extract_auth, storage_migration_ver, AccountId as AccountId32, Balance, Fund, FundDescription,
+    IdentityId, Memo, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey,
 };
 
 fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
@@ -321,6 +321,30 @@ pub mod pallet {
     pub type AllowedCustodians<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
 
+    /// Tracks the [`Balance`] of locked tokens for assets that are held by the key (i.e., not in a portfolio).
+    #[pallet::storage]
+    pub type KeyLockedBalance<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
+        Balance,
+        ValueQuery,
+    >;
+
+    /// Tracks locked NFTs for assets that are held by the key (i.e., not in a portfolio).
+    #[pallet::storage]
+    pub type KeyLockedNFT<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        (AssetId, NFTId),
+        bool,
+        ValueQuery,
+    >;
+
     /// Storage version.
     #[pallet::storage]
     pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -390,6 +414,8 @@ pub mod pallet {
         KeyNotFoundForCaller,
         /// Account based portfolios cannot have custodians.
         AccountBasedPortfoliosCannotHaveCustodians,
+        /// Insufficient balance (tokens might not exist or are locked).
+        InsufficientBalance,
     }
 
     #[pallet::call]
@@ -686,23 +712,14 @@ impl<T: Config> Pallet<T> {
         PortfolioCustodian::<T>::get(&pid).unwrap_or(pid.did)
     }
 
-    /// Returns the asset balance of the identity's default portfolio.
-    pub fn default_portfolio_balance(did: IdentityId, asset_id: &AssetId) -> Balance {
-        PortfolioAssetBalances::<T>::get(PortfolioId::default_portfolio(did), asset_id)
-    }
-
-    /// Returns the asset balance of an identity's user portfolio.
-    pub fn user_portfolio_balance(
-        did: IdentityId,
-        num: PortfolioNumber,
-        asset_id: &AssetId,
-    ) -> Balance {
-        PortfolioAssetBalances::<T>::get(PortfolioId::user_portfolio(did, num), asset_id)
-    }
-
     /// Sets the asset balance of the specified portfolio to `new_balance`.
     pub fn set_portfolio_balance(pid: &PortfolioId, asset_id: AssetId, new_balance: Balance) {
-        let old_balance = PortfolioAssetBalances::<T>::get(pid, &asset_id);
+        if let PortfolioKind::AccountId(acc_id) = &pid.kind {
+            T::AssetFn::set_balance_of_account(acc_id.clone(), asset_id, new_balance);
+            return;
+        }
+
+        let current_balance = PortfolioAssetBalances::<T>::get(pid, &asset_id);
 
         if new_balance.is_zero() {
             PortfolioAssetBalances::<T>::remove(pid, &asset_id);
@@ -710,7 +727,7 @@ impl<T: Config> Pallet<T> {
             PortfolioAssetBalances::<T>::insert(pid, asset_id, new_balance);
         }
 
-        Self::transition_asset_count(pid, old_balance, new_balance);
+        Self::transition_asset_count(pid, current_balance, new_balance);
     }
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
@@ -738,9 +755,22 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
     ) {
         // Subtracts the amount from the sender
-        let sender_old_balance = PortfolioAssetBalances::<T>::get(from, asset_id);
-        let sender_new_balance = sender_old_balance.saturating_sub(amount);
+        let (sender_old_balance, sender_new_balance) = {
+            match &from.kind {
+                PortfolioKind::AccountId(acc_id) => {
+                    let old_balance = T::AssetFn::balance_of_account(acc_id, &asset_id);
+                    let new_balance = old_balance.saturating_sub(amount);
+                    (old_balance, new_balance)
+                }
+                _ => {
+                    let old_balance = PortfolioAssetBalances::<T>::get(from, &asset_id);
+                    let new_balance = old_balance.saturating_sub(amount);
+                    (old_balance, new_balance)
+                }
+            }
+        };
         Self::set_portfolio_balance(from, asset_id, sender_new_balance);
+
 
         // Adds the amount to the receiver
         let rcv_old_balance = PortfolioAssetBalances::<T>::get(to, asset_id);
@@ -860,32 +890,6 @@ impl<T: Config> Pallet<T> {
         Self::ensure_sufficient_balance(&from_portfolio, asset_id, amount)
     }
 
-    /// Granular `ensure_portfolio_transfer_validity`.
-    pub fn ensure_portfolio_transfer_validity_granular(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
-        asset_id: &AssetId,
-        amount: Balance,
-    ) -> PortfolioValidityResult {
-        let receiver_is_same_portfolio = from_portfolio.did == to_portfolio.did;
-        let sender_portfolio_does_not_exist =
-            Self::ensure_portfolio_validity(from_portfolio).is_err();
-        let receiver_portfolio_does_not_exist =
-            Self::ensure_portfolio_validity(to_portfolio).is_err();
-        let sender_insufficient_balance =
-            Self::ensure_sufficient_balance(&from_portfolio, asset_id, amount).is_err();
-        PortfolioValidityResult {
-            receiver_is_same_portfolio,
-            sender_portfolio_does_not_exist,
-            receiver_portfolio_does_not_exist,
-            sender_insufficient_balance,
-            result: !receiver_is_same_portfolio
-                && !sender_portfolio_does_not_exist
-                && !receiver_portfolio_does_not_exist
-                && !sender_insufficient_balance,
-        }
-    }
-
     /// Reduces the balance of a portfolio.
     /// Throws an error if enough free balance is not available.
     pub fn reduce_portfolio_balance(
@@ -893,15 +897,31 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        // Ensure portfolio has enough free balance
-        let total_balance = PortfolioAssetBalances::<T>::get(pid, asset_id);
-        let locked_balance = PortfolioLockedAssets::<T>::get(pid, asset_id);
-        let remaining_balance = total_balance
-            .checked_sub(amount)
-            .filter(|rb| rb >= &locked_balance)
-            .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
+        let (current_balance, locked_balance) = {
+            match &pid.kind {
+                PortfolioKind::AccountId(acc_id) => {
+                    let current_balance = T::AssetFn::get_account_balance(acc_id, &asset_id);
+                    let locked_balance = KeyLockedBalance::<T>::get(acc_id, &asset_id);
+                    (current_balance, locked_balance)
+                }
+                PortfolioKind::User(_) | PortfolioKind::Default => {
+                    let current_balance = PortfolioAssetBalances::<T>::get(pid, &asset_id);
+                    let locked_balance = PortfolioLockedAssets::<T>::get(pid, &asset_id);
+                    (current_balance, locked_balance)
+                }
+            }
+        };
 
-        Self::set_portfolio_balance(pid, asset_id, remaining_balance);
+        let final_balance = current_balance
+            .checked_sub(amount)
+            .ok_or(Error::<T>::InsufficientBalance)?;
+
+        ensure!(
+            final_balance >= locked_balance,
+            Error::<T>::InsufficientBalance
+        );
+
+        Self::set_portfolio_balance(pid, asset_id, final_balance);
         Ok(())
     }
 
@@ -923,10 +943,22 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
     ) -> DispatchResult {
         T::AssetFn::ensure_granular(asset_id, amount)?;
+
+        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
+            let acc_balance = T::AssetFn::get_account_balance(acc_id, asset_id);
+            let locked_balance = KeyLockedBalance::<T>::get(acc_id, asset_id);
+
+            acc_balance
+                .saturating_sub(locked_balance)
+                .checked_sub(amount)
+                .ok_or::<DispatchError>(Error::<T>::InsufficientBalance.into())?;
+            return Ok(());
+        }
+
         PortfolioAssetBalances::<T>::get(portfolio, asset_id)
             .saturating_sub(PortfolioLockedAssets::<T>::get(portfolio, asset_id))
             .checked_sub(amount)
-            .ok_or_else(|| Error::<T>::InsufficientPortfolioBalance.into())
+            .ok_or(Error::<T>::InsufficientPortfolioBalance.into())
             .map(drop)
     }
 
@@ -934,6 +966,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
     pub fn unchecked_lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
+            KeyLockedBalance::<T>::mutate(acc_id, asset_id, |b| *b = b.saturating_add(amount));
+            return;
+        }
+
         PortfolioLockedAssets::<T>::mutate(portfolio, asset_id, |l| *l = l.saturating_add(amount));
     }
 
@@ -1196,59 +1233,81 @@ impl<T: Config> Pallet<T> {
         ));
         Ok(())
     }
+
+    /// Returns the balance of `asset_id` in `portfolio`.
+    fn get_asset_balance(
+        portfolio: &PortfolioId,
+        asset_id: &AssetId,
+    ) -> Balance {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
+            return T::AssetFn::get_account_balance(acc_id, asset_id);
+        }
+
+        PortfolioAssetBalances::<T>::get(portfolio, asset_id)
+    }
+
+    /// Returns the locked balance of `asset_id` in `portfolio`.
+    fn get_asset_locked_balance(
+        portfolio: &PortfolioId,
+        asset_id: &AssetId,
+    ) -> Balance {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
+            return KeyLockedBalance::<T>::get(acc_id, asset_id);
+        }
+
+        PortfolioLockedAssets::<T>::get(portfolio, asset_id)
+    }
+
+    /// Sets the locked balance of `asset_id` in `portfolio` to `new_locked_balance`.
+    fn set_asset_locked_balance(
+        portfolio: &PortfolioId,
+        asset_id: &AssetId,
+        new_locked_balance: Balance,
+    ) {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
+            if new_locked_balance.is_zero() {
+                KeyLockedBalance::<T>::remove(acc_id, asset_id);
+            } else {
+                KeyLockedBalance::<T>::insert(acc_id, asset_id, new_locked_balance);
+            }
+
+            return;
+        }
+
+        if new_locked_balance.is_zero() {
+            PortfolioLockedAssets::<T>::remove(portfolio, asset_id);
+        } else {
+            PortfolioLockedAssets::<T>::insert(portfolio, asset_id, new_locked_balance);
+        }
+    }
 }
 
 impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
-    /// Locks some user tokens so that they can not be used for transfers.
-    /// This is used internally by the settlement engine to prevent users from using the same funds
-    /// in multiple ongoing settlements
-    ///
-    /// # Errors
-    /// * `InsufficientPortfolioBalance` if the portfolio does not have enough free balance to lock
     fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult {
         Self::ensure_sufficient_balance(portfolio, asset_id, amount)?;
         Self::unchecked_lock_tokens(portfolio, asset_id, amount);
         Ok(())
     }
 
-    /// Unlocks some locked tokens of a user.
-    /// Since this is only ever called by the settlement engine,
-    /// it will never be called under circumstances when it has to return an error.
-    /// We are being defensive with the checks anyway.
-    ///
-    /// # Errors
-    /// * `InsufficientTokensLocked` if the portfolio does not have enough locked tokens to unlock
     fn unlock_tokens(
         portfolio: &PortfolioId,
         asset_id: &AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        // 1. Ensure portfolio has enough locked tokens
-        let locked = PortfolioLockedAssets::<T>::get(portfolio, asset_id);
+        let locked = Self::get_asset_locked_balance(portfolio, asset_id);
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
-
-        // 2. Unlock tokens. Can not underflow due to above ensure.
-        if (locked - amount) == 0 {
-            PortfolioLockedAssets::<T>::remove(portfolio, asset_id);
-        } else {
-            PortfolioLockedAssets::<T>::insert(portfolio, asset_id, locked - amount);
-        }
-
+        Self::set_asset_locked_balance(portfolio, asset_id, locked - amount);
         Ok(())
     }
 
-    /// Ensure that the `portfolio` exists.
     fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
         Self::ensure_portfolio_validity(portfolio)
     }
 
-    /// Ensures that the portfolio's custody is with the provided identity
     fn ensure_portfolio_custody(portfolio: &PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
     }
 
-    /// Ensures that the portfolio's custody is with the provided identity
-    /// And the secondary key has the relevant portfolio permission
     fn ensure_portfolio_custody_and_permission(
         portfolio: &PortfolioId,
         custodian: IdentityId,
@@ -1257,11 +1316,6 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
 
-    /// Locks the given nft. This prevents transfering the same NFT more than once.
-    ///
-    /// # Errors
-    /// * `NFTAlreadyLocked` if the given nft is already locked.
-    /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
     fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> DispatchResult {
         // Verifies if the portfolio contains the NFT
         ensure!(
@@ -1278,10 +1332,6 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         Ok(())
     }
 
-    /// Unlocks the given nft.
-    ///
-    /// # Errors
-    /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
     fn unlock_nft(
         portfolio_id: &PortfolioId,
         asset_id: &AssetId,

@@ -7,8 +7,10 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
 
-use crate::{asset::AssetId, Balance, IdentityId};
+
 use frame_support::dispatch::{DispatchError, DispatchResult};
+
+use crate::{asset::AssetId, Balance, IdentityId, AccountId as AccountId32};
 
 pub trait AssetFnConfig: frame_system::Config {
     type AssetFn: AssetFnTrait<Self::AccountId>;
@@ -32,6 +34,19 @@ pub trait AssetFnTrait<AccountId> {
 
     /// Returns the next [`AssetID`] for the `caller_acc`.
     fn generate_asset_id(caller_acc: AccountId) -> AssetId;
+
+    /// Sets the account's balance for the given `asset_id`.
+    fn set_balance_of_account(
+        account: AccountId32,
+        asset_id: AssetId,
+        new_balance: Balance,
+    );
+
+    /// Returns the account's balance for the given `asset_id`.
+    fn get_account_balance(
+        account: &AccountId32,
+        asset_id: &AssetId,
+    ) -> Balance;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(caller: AccountId, ticker: Ticker) -> DispatchResult;
