@@ -347,7 +347,7 @@ impl pallet_preimage::Config for Test {
 impl polymesh_primitives::traits::CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
-        _: &AccountId,
+        _: AccountId,
     ) -> Result<Option<AccountId>, sp_runtime::transaction_validity::InvalidTransaction> {
         Ok(None)
     }
@@ -355,6 +355,12 @@ impl polymesh_primitives::traits::CddAndFeeDetails<AccountId, Call> for Test {
     fn set_payer_context(_: Option<AccountId>) {}
     fn get_payer_from_context() -> Option<AccountId> {
         None
+    }
+    fn decrease_authorization_count(
+        _caller: &AccountId,
+        _call: &Call,
+        _call_result: &DispatchResult,
+    ) {
     }
 }
 

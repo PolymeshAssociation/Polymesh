@@ -63,7 +63,7 @@ fn motions_basic_environment_works_we() {
 
 fn make_proposal(value: u64) -> RuntimeCall {
     RuntimeCall::Identity(identity::Call::accept_primary_key {
-        rotation_auth_id: value,
+        auth_id: value,
         optional_cdd_auth_id: Some(value),
     })
 }

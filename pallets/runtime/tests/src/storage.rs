@@ -502,9 +502,8 @@ type CddHandler = TestStorage;
 impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     fn get_valid_payer(
         _: &RuntimeCall,
-        caller: &AccountId,
+        caller: AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
-        let caller: AccountId = caller.clone();
         Ok(Some(caller))
     }
     fn clear_context() {
@@ -515,6 +514,12 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     }
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
+    }
+    fn decrease_authorization_count(
+        _caller: &AccountId,
+        _call: &RuntimeCall,
+        _call_result: &DispatchResult,
+    ) {
     }
 }
 

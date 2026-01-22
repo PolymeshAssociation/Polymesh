@@ -461,7 +461,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
             value: 1_000,
             memo: None,
         }),
-        &AccountKeyring::Bob.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
     );
     assert!(payer.is_ok());
 

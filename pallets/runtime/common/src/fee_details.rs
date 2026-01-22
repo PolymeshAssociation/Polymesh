@@ -2,6 +2,7 @@ use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_runtime::DispatchResult;
 
 use pallet_identity::{Config as IdentityConfig, Context, Pallet as Identity};
 use polymesh_primitives::traits::CddAndFeeDetails;
@@ -31,11 +32,13 @@ where
 {
     /// If the authorization is valid for the call type, returns the account that will pay for the call.
     fn get_payers_account(
-        signatory_acc: &Signatory<AccountId>,
+        account_id: AccountId,
         auth_id: &u64,
         call_type: CallType,
     ) -> ValidPayerResult {
-        if let Some(auth) = Identity::<A>::get_non_expired_auth(signatory_acc, auth_id) {
+        if let Some(auth) =
+            Identity::<A>::get_non_expired_auth(&Signatory::Account(account_id), auth_id)
+        {
             match call_type {
                 CallType::RemoveAuthorization => {
                     return Ok(CddHandler::<A>::get_did_primary_key(auth.authorized_by));
@@ -84,13 +87,12 @@ where
         if pallet_multisig::MultiSigSigners::<A>::contains_key(&multisig_acc_id, caller_acc_id) {
             if let Some(auth_id) = auth_id {
                 let call_type = call_type.ok_or(InvalidTransaction::Custom(1))?;
-                let signatory_acc = Signatory::Account(multisig_acc_id);
-                return CddHandler::<A>::get_payers_account(&signatory_acc, auth_id, call_type);
+                return CddHandler::<A>::get_payers_account(multisig_acc_id, auth_id, call_type);
             }
 
             match pallet_multisig::Pallet::<A>::get_paying_did(&multisig_acc_id) {
                 Some(did) => return Ok(CddHandler::<A>::get_did_primary_key(did)),
-                None => return Ok(Some(multisig_acc_id.clone())),
+                None => return Ok(Some(multisig_acc_id)),
             }
         }
 
@@ -103,14 +105,11 @@ where
     }
 
     /// Returns the account that will pay for the call.
-    fn handle_multisig_calls(
-        call: &MultiSigCall<A>,
-        caller_acc_id: &AccountId,
-    ) -> ValidPayerResult {
+    fn handle_multisig_calls(call: &MultiSigCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
         match call {
             MultiSigCall::accept_multisig_signer { auth_id } => {
                 CddHandler::<A>::get_payers_account(
-                    &Signatory::Account(caller_acc_id.clone()),
+                    caller_acc_id,
                     auth_id,
                     CallType::AcceptMultiSigSigner,
                 )
@@ -118,7 +117,7 @@ where
             MultiSigCall::approve_join_identity { multisig, auth_id } => {
                 CddHandler::<A>::get_multisig_payer(
                     multisig.clone(),
-                    caller_acc_id,
+                    &caller_acc_id,
                     Some(auth_id),
                     Some(CallType::AcceptIdentitySecondary),
                 )
@@ -126,33 +125,30 @@ where
             MultiSigCall::create_proposal { multisig, .. }
             | MultiSigCall::approve { multisig, .. }
             | MultiSigCall::reject { multisig, .. } => {
-                CddHandler::<A>::get_multisig_payer(multisig.clone(), caller_acc_id, None, None)
+                CddHandler::<A>::get_multisig_payer(multisig.clone(), &caller_acc_id, None, None)
             }
-            _ => Ok(Some(caller_acc_id.clone())),
+            _ => Ok(Some(caller_acc_id)),
         }
     }
 
     /// Returns the account that will pay for the call.
-    fn handle_identity_calls(
-        call: &IdentityCall<A>,
-        caller_acc_id: &AccountId,
-    ) -> ValidPayerResult {
+    fn handle_identity_calls(call: &IdentityCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
         match call {
             IdentityCall::join_identity_as_key { auth_id } => CddHandler::<A>::get_payers_account(
-                &Signatory::Account(caller_acc_id.clone()),
+                caller_acc_id,
                 auth_id,
                 CallType::AcceptIdentitySecondary,
             ),
-            IdentityCall::accept_primary_key {
-                rotation_auth_id, ..
-            } => CddHandler::<A>::get_payers_account(
-                &Signatory::Account(caller_acc_id.clone()),
-                rotation_auth_id,
-                CallType::AcceptIdentityPrimary,
-            ),
+            IdentityCall::accept_primary_key { auth_id, .. } => {
+                CddHandler::<A>::get_payers_account(
+                    caller_acc_id,
+                    auth_id,
+                    CallType::AcceptIdentityPrimary,
+                )
+            }
             IdentityCall::rotate_primary_key_to_secondary { auth_id, .. } => {
                 CddHandler::<A>::get_payers_account(
-                    &Signatory::Account(caller_acc_id.clone()),
+                    caller_acc_id,
                     auth_id,
                     CallType::RotatePrimaryToSecondary,
                 )
@@ -162,23 +158,40 @@ where
                 auth_id,
                 auth_issuer_pays: true,
             } => {
-                CddHandler::<A>::get_payers_account(&target, auth_id, CallType::RemoveAuthorization)
+                if target.as_account() != Some(&caller_acc_id) {
+                    return Err(InvalidTransaction::Custom(
+                        TransactionError::InvalidAuthorization as u8,
+                    ));
+                }
+                CddHandler::<A>::get_payers_account(
+                    caller_acc_id,
+                    auth_id,
+                    CallType::RemoveAuthorization,
+                )
             }
-            _ => Ok(Some(caller_acc_id.clone())),
+            _ => Ok(Some(caller_acc_id)),
         }
     }
 
     /// Returns the account that will pay for the call.
-    fn handle_relayer_calls(call: &RelayerCall<A>, caller_acc_id: &AccountId) -> ValidPayerResult {
+    fn handle_relayer_calls(call: &RelayerCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
         if let RelayerCall::accept_paying_key { auth_id } = call {
             return CddHandler::<A>::get_payers_account(
-                &Signatory::Account(caller_acc_id.clone()),
+                caller_acc_id,
                 auth_id,
                 CallType::AcceptRelayerPayingKey,
             );
         }
 
         Ok(Some(caller_acc_id.clone()))
+    }
+
+    /// Decreases the authorization count for the given target and auth_id.
+    fn decrease_auth_count(caller: AccountId, auth_id: &u64) {
+        pallet_identity::Pallet::<A>::decrease_authorization_count(
+            &Signatory::Account(caller),
+            auth_id,
+        );
     }
 }
 
@@ -187,7 +200,7 @@ where
     for<'a> Call<'a, A>: TryFrom<&'a C>,
     A: IdentityConfig<AccountId = AccountId> + pallet_multisig::Config + pallet_relayer::Config,
 {
-    fn get_valid_payer(call: &C, caller_acc_id: &AccountId) -> ValidPayerResult {
+    fn get_valid_payer(call: &C, caller_acc_id: AccountId) -> ValidPayerResult {
         match call.try_into() {
             Ok(Call::MultiSig(multi_sig_call)) => {
                 CddHandler::<A>::handle_multisig_calls(multi_sig_call, caller_acc_id)
@@ -198,7 +211,7 @@ where
             Ok(Call::Relayer(relayer_call)) => {
                 CddHandler::<A>::handle_relayer_calls(relayer_call, caller_acc_id)
             }
-            Err(_) => Ok(Some(caller_acc_id.clone())),
+            Err(_) => Ok(Some(caller_acc_id)),
         }
     }
 
@@ -212,6 +225,35 @@ where
 
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity<A>>()
+    }
+
+    fn decrease_authorization_count(caller: &AccountId, call: &C, call_result: &DispatchResult) {
+        // If the call was successful, no need to decrease the count
+        if call_result.is_ok() {
+            return;
+        }
+
+        match call.try_into() {
+            Ok(Call::MultiSig(multi_sig_call)) => {
+                if let MultiSigCall::accept_multisig_signer { auth_id } = multi_sig_call {
+                    CddHandler::<A>::decrease_auth_count(caller.clone(), auth_id);
+                }
+            }
+            Ok(Call::Relayer(relayer_call)) => {
+                if let RelayerCall::accept_paying_key { auth_id } = relayer_call {
+                    CddHandler::<A>::decrease_auth_count(caller.clone(), auth_id);
+                }
+            }
+            Ok(Call::Identity(identity_call)) => match identity_call {
+                IdentityCall::join_identity_as_key { auth_id }
+                | IdentityCall::rotate_primary_key_to_secondary { auth_id, .. }
+                | IdentityCall::accept_primary_key { auth_id, .. } => {
+                    CddHandler::<A>::decrease_auth_count(caller.clone(), auth_id);
+                }
+                _ => {}
+            },
+            Err(_) => {}
+        }
     }
 }
 

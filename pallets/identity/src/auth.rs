@@ -166,6 +166,7 @@ impl<T: Config> Pallet<T> {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
+                && auth.count > 0
         })
     }
 
@@ -223,5 +224,15 @@ impl<T: Config> Pallet<T> {
             }
         }
         Ok(auth)
+    }
+
+    /// Decreases the authorization count for the given target and auth_id.
+    pub fn decrease_authorization_count(target: &Signatory<T::AccountId>, auth_id: &u64) {
+        if let Some(mut auth) = Authorizations::<T>::get(target, auth_id) {
+            if auth.count > 0 {
+                auth.count -= 1;
+                Authorizations::<T>::insert(target, auth_id, auth);
+            }
+        }
     }
 }

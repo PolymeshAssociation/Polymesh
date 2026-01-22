@@ -34,7 +34,7 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     /// Returns the account that will pay for the call.
     fn get_valid_payer(
         call: &Call,
-        caller: &AccountId,
+        caller: AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
     /// Clears context. Should be called in post_dispatch
     fn clear_context();
@@ -42,6 +42,11 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     fn set_payer_context(payer: Option<AccountId>);
     /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId>;
+    /// Decreases the authorization count if any of the following extrinsics failed:
+    /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
+    /// - pallet-relayer (accept_paying_key)
+    /// - pallet-multisig (accept_multisig_signer)
+    fn decrease_authorization_count(caller: &AccountId, call: &Call, call_result: &DispatchResult);
 }
 
 pub trait CheckCdd<AccountId> {

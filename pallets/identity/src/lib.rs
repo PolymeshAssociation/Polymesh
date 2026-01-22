@@ -677,10 +677,10 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn accept_primary_key(
             origin: OriginFor<T>,
-            rotation_auth_id: u64,
+            auth_id: u64,
             optional_cdd_auth_id: Option<u64>,
         ) -> DispatchResult {
-            Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
+            Self::accept_primary_key_rotation(origin, auth_id, optional_cdd_auth_id)
         }
 
         /// Set if CDD authorization is required for updating primary key of an identity.
