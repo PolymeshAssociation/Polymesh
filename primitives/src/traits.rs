@@ -31,12 +31,16 @@ pub use asset::*;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<AccountId, Call> {
+    /// Returns the account that will pay for the call.
     fn get_valid_payer(
         call: &Call,
         caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
+    /// Clears context. Should be called in post_dispatch
     fn clear_context();
+    /// Sets payer in context. Should be called by the signed extension that first charges fee.
     fn set_payer_context(payer: Option<AccountId>);
+    /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId>;
 }
 
