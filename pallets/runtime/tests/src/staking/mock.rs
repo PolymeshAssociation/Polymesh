@@ -307,6 +307,7 @@ impl pallet_identity::Config for Test {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
+    type MaxAuthRetries = MaxAuthRetries;
 }
 
 parameter_types! {
@@ -314,6 +315,7 @@ parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
     pub const MaxGivenAuths: u32 = 1024;
+    pub const MaxAuthRetries: u8 = 10;
 }
 
 impl pallet_scheduler::Config for Test {
@@ -356,11 +358,9 @@ impl polymesh_primitives::traits::CddAndFeeDetails<AccountId, Call> for Test {
     fn get_payer_from_context() -> Option<AccountId> {
         None
     }
-    fn decrease_authorization_count(
-        _caller: &AccountId,
-        _call: &Call,
-        _call_result: &DispatchResult,
-    ) {
+    fn decrease_authorization_count(_caller: &AccountId, _auth_id: Option<u64>) {}
+    fn get_authorization_id(_call: &RuntimeCall) -> Option<u64> {
+        None
     }
 }
 

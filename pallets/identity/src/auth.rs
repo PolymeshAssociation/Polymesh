@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
             authorized_by: from,
             expiry,
             auth_id: new_auth_id,
-            count: 50,
+            count: T::MaxAuthRetries::get() as u32,
         };
 
         Authorizations::<T>::insert(target.clone(), new_auth_id, auth);

@@ -269,6 +269,10 @@ pub mod pallet {
         /// Maximum number of authorizations an identity can give.
         #[pallet::constant]
         type MaxGivenAuths: Get<u32>;
+
+        /// Maximum number of authorizations an identity can give.
+        #[pallet::constant]
+        type MaxAuthRetries: Get<u8>;
     }
 
     #[pallet::event]
@@ -677,10 +681,10 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn accept_primary_key(
             origin: OriginFor<T>,
-            auth_id: u64,
+            rotation_auth_id: u64,
             optional_cdd_auth_id: Option<u64>,
         ) -> DispatchResult {
-            Self::accept_primary_key_rotation(origin, auth_id, optional_cdd_auth_id)
+            Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
         }
 
         /// Set if CDD authorization is required for updating primary key of an identity.

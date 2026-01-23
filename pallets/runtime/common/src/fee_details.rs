@@ -2,7 +2,6 @@ use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use sp_runtime::DispatchResult;
 
 use pallet_identity::{Config as IdentityConfig, Context, Pallet as Identity};
 use polymesh_primitives::traits::CddAndFeeDetails;
@@ -81,12 +80,10 @@ where
     fn get_multisig_payer(
         multisig_acc_id: AccountId,
         caller_acc_id: &AccountId,
-        auth_id: Option<&u64>,
-        call_type: Option<CallType>,
+        call_auth_id: Option<(CallType, &u64)>,
     ) -> ValidPayerResult {
         if pallet_multisig::MultiSigSigners::<A>::contains_key(&multisig_acc_id, caller_acc_id) {
-            if let Some(auth_id) = auth_id {
-                let call_type = call_type.ok_or(InvalidTransaction::Custom(1))?;
+            if let Some((call_type, auth_id)) = call_auth_id {
                 return CddHandler::<A>::get_payers_account(multisig_acc_id, auth_id, call_type);
             }
 
@@ -118,14 +115,13 @@ where
                 CddHandler::<A>::get_multisig_payer(
                     multisig.clone(),
                     &caller_acc_id,
-                    Some(auth_id),
-                    Some(CallType::AcceptIdentitySecondary),
+                    Some((CallType::AcceptIdentitySecondary, auth_id)),
                 )
             }
             MultiSigCall::create_proposal { multisig, .. }
             | MultiSigCall::approve { multisig, .. }
             | MultiSigCall::reject { multisig, .. } => {
-                CddHandler::<A>::get_multisig_payer(multisig.clone(), &caller_acc_id, None, None)
+                CddHandler::<A>::get_multisig_payer(multisig.clone(), &caller_acc_id, None)
             }
             _ => Ok(Some(caller_acc_id)),
         }
@@ -139,13 +135,13 @@ where
                 auth_id,
                 CallType::AcceptIdentitySecondary,
             ),
-            IdentityCall::accept_primary_key { auth_id, .. } => {
-                CddHandler::<A>::get_payers_account(
-                    caller_acc_id,
-                    auth_id,
-                    CallType::AcceptIdentityPrimary,
-                )
-            }
+            IdentityCall::accept_primary_key {
+                rotation_auth_id, ..
+            } => CddHandler::<A>::get_payers_account(
+                caller_acc_id,
+                rotation_auth_id,
+                CallType::AcceptIdentityPrimary,
+            ),
             IdentityCall::rotate_primary_key_to_secondary { auth_id, .. } => {
                 CddHandler::<A>::get_payers_account(
                     caller_acc_id,
@@ -227,32 +223,37 @@ where
         Context::current_payer::<Identity<A>>()
     }
 
-    fn decrease_authorization_count(caller: &AccountId, call: &C, call_result: &DispatchResult) {
-        // If the call was successful, no need to decrease the count
-        if call_result.is_ok() {
-            return;
-        }
-
+    fn get_authorization_id(call: &C) -> Option<u64> {
         match call.try_into() {
             Ok(Call::MultiSig(multi_sig_call)) => {
                 if let MultiSigCall::accept_multisig_signer { auth_id } = multi_sig_call {
-                    CddHandler::<A>::decrease_auth_count(caller.clone(), auth_id);
+                    return Some(*auth_id);
                 }
             }
             Ok(Call::Relayer(relayer_call)) => {
                 if let RelayerCall::accept_paying_key { auth_id } = relayer_call {
-                    CddHandler::<A>::decrease_auth_count(caller.clone(), auth_id);
+                    return Some(*auth_id);
                 }
             }
             Ok(Call::Identity(identity_call)) => match identity_call {
                 IdentityCall::join_identity_as_key { auth_id }
-                | IdentityCall::rotate_primary_key_to_secondary { auth_id, .. }
-                | IdentityCall::accept_primary_key { auth_id, .. } => {
-                    CddHandler::<A>::decrease_auth_count(caller.clone(), auth_id);
+                | IdentityCall::rotate_primary_key_to_secondary { auth_id, .. } => {
+                    return Some(*auth_id)
                 }
+                IdentityCall::accept_primary_key {
+                    rotation_auth_id, ..
+                } => return Some(*rotation_auth_id),
                 _ => {}
             },
             Err(_) => {}
+        }
+
+        None
+    }
+
+    fn decrease_authorization_count(caller: &AccountId, auth_id: Option<u64>) {
+        if let Some(auth_id) = auth_id {
+            CddHandler::<A>::decrease_auth_count(caller.clone(), &auth_id);
         }
     }
 }

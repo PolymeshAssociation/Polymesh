@@ -46,7 +46,12 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
     /// - pallet-relayer (accept_paying_key)
     /// - pallet-multisig (accept_multisig_signer)
-    fn decrease_authorization_count(caller: &AccountId, call: &Call, call_result: &DispatchResult);
+    fn decrease_authorization_count(caller: &AccountId, auth_id: Option<u64>);
+    /// Returns Some(auth_id) of the call if any of the following extrinsics are called:
+    /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
+    /// - pallet-relayer (accept_paying_key)
+    /// - pallet-multisig (accept_multisig_signer)
+    fn get_authorization_id(call: &Call) -> Option<u64>;
 }
 
 pub trait CheckCdd<AccountId> {
