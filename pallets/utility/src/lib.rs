@@ -87,7 +87,7 @@ use sp_std::prelude::*;
 use pallet_balances::Config as BalancesConfig;
 use pallet_identity::{Config as IdentityConfig, Context};
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::identity::AuthorizationNonce;
+use polymesh_primitives::identity::AuthorizationNonce;
 use polymesh_primitives::{crypto::verify_signature, IdentityId};
 
 type Identity<T> = pallet_identity::Pallet<T>;

@@ -51,7 +51,7 @@ use sp_std::vec::Vec;
 
 use frame_system::ensure_root;
 use pallet_identity::Config as IdentityConfig;
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::traits::{CddAndFeeDetails, SubsidiserTrait};
 use polymesh_primitives::{Balance, IdentityId, PosRatio, GC_DID};
 

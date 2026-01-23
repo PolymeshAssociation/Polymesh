@@ -16,11 +16,11 @@
 use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
-use polymesh_common_utilities::identity::TargetIdAuthorization;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
+use polymesh_primitives::identity::TargetIdAuthorization;
 use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
     AssetPermissions, AuthorizationData, Claim, CountryCode, ExtrinsicName, ExtrinsicPermissions,

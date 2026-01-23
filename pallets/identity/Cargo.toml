@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 pallet-base = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Others
@@ -52,7 +51,6 @@ std = [
     "pallet-permissions/std",
     "pallet-timestamp/std",
     "polymesh-primitives/std",
-    "polymesh-common-utilities/std",
     "serde/std",
     "serde_derive",
     "sp-api/std",

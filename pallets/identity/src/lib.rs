@@ -105,12 +105,12 @@ use frame_support::traits::{
 };
 use frame_support::weights::Weight;
 use frame_support::Parameter;
-use polymesh_common_utilities::{
-    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-};
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
+};
+use polymesh_primitives::{
+    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
     storage_migration_ver,

@@ -9,8 +9,8 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityEr
 use sp_runtime::MultiAddress;
 
 use pallet_relayer::Subsidy;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::constants::currency::POLY;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::traits::CddAndFeeDetails;
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};

@@ -230,8 +230,14 @@ pub use condition::{Condition, ConditionType, TargetIdentity, TrustedFor, Truste
 pub mod proposition;
 pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
 
+/// Protocol fee types and traits.
+pub mod protocol_fee;
+
 /// Timekeeping and checkpoints.
 pub mod calendar;
+
+/// Checkpoint types and traits.
+pub mod checkpoint;
 
 /// Runtime crypto tools.
 pub mod crypto;

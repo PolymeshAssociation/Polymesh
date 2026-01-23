@@ -5,7 +5,6 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Our Pallets
@@ -36,7 +35,6 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "polymesh-primitives/std",
-    "polymesh-common-utilities/std",
 		"pallet-identity/std",
     "serde/std",
     "sp-core/std",

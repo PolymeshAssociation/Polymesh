@@ -20,10 +20,10 @@ use pallet_identity::{
     CustomClaimsInverse, OffChainAuthorizationNonce, ParentDid,
 };
 use pallet_identity::{Config as IdentityConfig, Event};
-use polymesh_common_utilities::identity::{
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::identity::{
     CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
 };
-use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::{
     constants::currency::POLY, traits::group::GroupTrait, traits::CddAndFeeDetails, AccountId,
     AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId,
