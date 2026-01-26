@@ -326,7 +326,7 @@ fn issuers_can_redeem_tokens() {
                 ISSUE_AMOUNT + 1,
                 PortfolioKind::Default
             ),
-            PortfolioError::InsufficientPortfolioBalance
+            PortfolioError::InsufficientBalance
         );
 
         assert_ok!(Asset::redeem(
@@ -345,7 +345,7 @@ fn issuers_can_redeem_tokens() {
 
         assert_noop!(
             Asset::redeem(owner.origin(), asset_id, 1, PortfolioKind::Default),
-            PortfolioError::InsufficientPortfolioBalance
+            PortfolioError::InsufficientBalance
         );
     })
 }
@@ -1281,7 +1281,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     ISSUE_AMOUNT + 1,
                     PortfolioKind::User(next_portfolio_num)
                 ),
-                PortfolioError::InsufficientPortfolioBalance
+                PortfolioError::InsufficientBalance
             );
 
             assert_ok!(Asset::redeem(

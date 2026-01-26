@@ -179,12 +179,14 @@ fn cannot_delete_portfolio_with_asset() {
             System::events().last().unwrap().event,
         );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
+            let default_portfolio = PortfolioId::new(owner.did, PortfolioKind::Default);
+            let user_portfolio = PortfolioId::new(owner.did, PortfolioKind::User(num));
             assert_eq!(
-                Portfolio::default_portfolio_balance(owner.did, &asset_id),
+                Portfolio::get_asset_balance(&default_portfolio, &asset_id),
                 default_portfolio_balance
             );
             assert_eq!(
-                Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+                Portfolio::get_asset_balance(&user_portfolio, &asset_id),
                 user_portfolio_balance
             );
         };
@@ -235,12 +237,19 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
     let asset_id = create_and_issue_sample_asset(&owner);
+
     assert_eq!(
-        Portfolio::default_portfolio_balance(owner.did, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::Default),
+            &asset_id
+        ),
         ISSUE_AMOUNT,
     );
     assert_eq!(
-        Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+            &asset_id
+        ),
         0,
     );
 
@@ -346,11 +355,17 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         System::events().last().unwrap().event,
     );
     assert_eq!(
-        Portfolio::default_portfolio_balance(owner.did, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::Default),
+            &asset_id
+        ),
         ISSUE_AMOUNT - move_amount,
     );
     assert_eq!(
-        Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+            &asset_id
+        ),
         move_amount,
     );
 }
@@ -361,7 +376,10 @@ fn can_lock_unlock_assets() {
         let (owner, num) = create_portfolio();
         let asset_id = create_and_issue_sample_asset(&owner);
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT,
         );
 
@@ -371,13 +389,16 @@ fn can_lock_unlock_assets() {
         // Lock half of the tokens
         let lock_amount = ISSUE_AMOUNT / 2;
         assert_ok!(Portfolio::lock_tokens(
-            &owner_default_portfolio,
-            &asset_id,
+            owner_default_portfolio.clone(),
+            asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT,
         );
         assert_eq!(
@@ -415,11 +436,17 @@ fn can_lock_unlock_assets() {
             }]
         ));
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             lock_amount,
         );
         assert_eq!(
@@ -446,17 +473,23 @@ fn can_lock_unlock_assets() {
 
         // Unlock tokens
         assert_ok!(Portfolio::unlock_tokens(
-            &owner_default_portfolio,
-            &asset_id,
+            owner_default_portfolio.clone(),
+            asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             lock_amount,
         );
         assert_eq!(
@@ -478,11 +511,17 @@ fn can_lock_unlock_assets() {
             }]
         ));
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             0,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             ISSUE_AMOUNT,
         );
         assert_eq!(

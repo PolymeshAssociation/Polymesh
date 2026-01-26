@@ -543,7 +543,11 @@ pub mod pallet {
             let mut seq = FundraiserCount::<T>::get(&offering_asset);
             let fundraiser_id = try_next_post::<T, _>(&mut seq)?;
 
-            <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
+            Portfolio::<T>::lock_tokens(
+                offering_portfolio.clone(),
+                offering_asset,
+                offering_amount,
+            )?;
 
             let fundraiser = Fundraiser {
                 creator: did,
@@ -786,9 +790,9 @@ pub mod pallet {
                 .map(|t| t.remaining)
                 .fold(0, |remaining, x| remaining + x);
 
-            <Portfolio<T>>::unlock_tokens(
-                &fundraiser.offering_portfolio,
-                &fundraiser.offering_asset,
+            Portfolio::<T>::unlock_tokens(
+                fundraiser.offering_portfolio.clone(),
+                fundraiser.offering_asset,
                 remaining_amount,
             )?;
             fundraiser.status = match fundraiser.end {
@@ -1006,9 +1010,9 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        <Portfolio<T>>::unlock_tokens(
-            &fundraiser.offering_portfolio,
-            &fundraiser.offering_asset,
+        Portfolio::<T>::unlock_tokens(
+            fundraiser.offering_portfolio.clone(),
+            fundraiser.offering_asset,
             purchase_amount,
         )?;
 

@@ -439,11 +439,11 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_tokens(_: &PortfolioId, _: &AssetId, _: Balance) -> DispatchResult {
+    fn lock_tokens(_: PortfolioId, _: AssetId, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(_: &PortfolioId, _: &AssetId, _: Balance) -> DispatchResult {
+    fn unlock_tokens(_: PortfolioId, _: AssetId, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
@@ -455,7 +455,7 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_nft(_: &PortfolioId, _: &AssetId, _: &NFTId) -> DispatchResult {
+    fn lock_nft(_: PortfolioId, _: AssetId, _: NFTId) -> DispatchResult {
         unimplemented!()
     }
 

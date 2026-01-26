@@ -606,7 +606,7 @@ impl<T: Config> Pallet<T> {
 
     /// Unlock `amount` of `dist.currency` in the `dist.from` portfolio.
     fn unlock(dist: &Distribution, amount: Balance) -> DispatchResult {
-        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, amount)
+        Portfolio::<T>::unlock_tokens(dist.from.clone(), dist.currency, amount)
     }
 
     // Compute `balance * per_share`, i.e. DID's benefit.
@@ -696,7 +696,7 @@ impl<T: Config> Pallet<T> {
         T::ProtocolFee::charge_fee(ProtocolOp::CapitalDistributionDistribute)?;
 
         // (1) Lock `amount` in `from`.
-        <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
+        Portfolio::<T>::unchecked_lock_tokens(from.clone(), currency, amount);
 
         // Commit to storage.
         let distribution = Distribution {

@@ -143,7 +143,10 @@ impl UserWithBalance {
     #[track_caller]
     fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
-            Portfolio::user_portfolio_balance(self.user.did, num, asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(self.user.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             balance,
         );
     }
@@ -151,7 +154,10 @@ impl UserWithBalance {
     #[track_caller]
     fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
-            Portfolio::default_portfolio_balance(self.user.did, asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(self.user.did, PortfolioKind::Default),
+                &asset_id
+            ),
             balance,
         );
     }
