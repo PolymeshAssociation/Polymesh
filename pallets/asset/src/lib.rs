@@ -107,7 +107,7 @@ use pallet_base::{
 };
 use pallet_external_agents::Config as EAConfig;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_portfolio::{Error as PortfolioError};
+use pallet_portfolio::Error as PortfolioError;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{

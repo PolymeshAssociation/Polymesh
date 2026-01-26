@@ -46,7 +46,7 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::{OptionQuery, *};
-    use frame_system::{pallet_prelude::*};
+    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:
@@ -744,16 +744,8 @@ impl<T: Config> Pallet<T> {
         });
         // Update the portfolio of the sender and the receiver
         for nft_id in nfts.ids() {
-            Portfolio::<T>::remove_nft_from_owner(
-                sender_portfolio,
-                nfts.asset_id(),
-                nft_id,
-            );
-            Portfolio::<T>::add_nft_to_owner(
-                receiver_portfolio.clone(),
-                *nfts.asset_id(),
-                *nft_id,
-            );
+            Portfolio::<T>::remove_nft_from_owner(sender_portfolio, nfts.asset_id(), nft_id);
+            Portfolio::<T>::add_nft_to_owner(receiver_portfolio.clone(), *nfts.asset_id(), *nft_id);
             NFTOwner::<T>::insert(nfts.asset_id(), nft_id, receiver_portfolio);
         }
     }

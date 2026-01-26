@@ -87,8 +87,7 @@ use pallet_external_agents::{Config as EAConfig, GroupOfAgent};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
-    AssetCompliance, ComplianceReport, ComplianceRequirement,
-    ConditionReport, RequirementReport,
+    AssetCompliance, ComplianceReport, ComplianceRequirement, ConditionReport, RequirementReport,
 };
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
 use polymesh_primitives::traits::{AssetFnConfig, ComplianceFnConfig};
