@@ -2523,13 +2523,15 @@ impl<T: Config> Pallet<T> {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_did = origin_data.primary_did;
 
-        let caller_pid = if use_account_portfolio {
-            let acc_portfolio =
-                PortfolioId::account_portfolio(caller_did, origin_data.sender.encode())
-                    .map_err(|_| Error::<T>::InvalidAccountId)?;
-            Some(acc_portfolio)
-        } else {
-            caller_pid
+        let caller_pid = {
+            if use_account_portfolio {
+                let acc_portfolio =
+                    PortfolioId::account_portfolio(caller_did, origin_data.sender.encode())
+                        .map_err(|_| Error::<T>::InvalidAccountId)?;
+                Some(acc_portfolio)
+            } else {
+                caller_pid
+            }
         };
 
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();

@@ -755,25 +755,13 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
     ) {
         // Subtracts the amount from the sender
-        let (sender_old_balance, sender_new_balance) = {
-            match &from.kind {
-                PortfolioKind::AccountId(acc_id) => {
-                    let old_balance = T::AssetFn::balance_of_account(acc_id, &asset_id);
-                    let new_balance = old_balance.saturating_sub(amount);
-                    (old_balance, new_balance)
-                }
-                _ => {
-                    let old_balance = PortfolioAssetBalances::<T>::get(from, &asset_id);
-                    let new_balance = old_balance.saturating_sub(amount);
-                    (old_balance, new_balance)
-                }
-            }
-        };
+        let sender_old_balance = Self::get_asset_balance(from, &asset_id);
+        let sender_new_balance = sender_old_balance.saturating_sub(amount);
+
         Self::set_portfolio_balance(from, asset_id, sender_new_balance);
 
-
         // Adds the amount to the receiver
-        let rcv_old_balance = PortfolioAssetBalances::<T>::get(to, asset_id);
+        let rcv_old_balance = Self::get_asset_balance(to, &asset_id);
         let rcv_new_balance = rcv_old_balance.saturating_add(amount);
         Self::set_portfolio_balance(to, asset_id, rcv_new_balance);
     }
@@ -897,20 +885,8 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        let (current_balance, locked_balance) = {
-            match &pid.kind {
-                PortfolioKind::AccountId(acc_id) => {
-                    let current_balance = T::AssetFn::get_account_balance(acc_id, &asset_id);
-                    let locked_balance = KeyLockedBalance::<T>::get(acc_id, &asset_id);
-                    (current_balance, locked_balance)
-                }
-                PortfolioKind::User(_) | PortfolioKind::Default => {
-                    let current_balance = PortfolioAssetBalances::<T>::get(pid, &asset_id);
-                    let locked_balance = PortfolioLockedAssets::<T>::get(pid, &asset_id);
-                    (current_balance, locked_balance)
-                }
-            }
-        };
+        let current_balance = Self::get_asset_balance(pid, &asset_id);
+        let locked_balance = Self::get_locked_asset_balance(pid, &asset_id);
 
         let final_balance = current_balance
             .checked_sub(amount)
@@ -944,22 +920,13 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         T::AssetFn::ensure_granular(asset_id, amount)?;
 
-        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
-            let acc_balance = T::AssetFn::get_account_balance(acc_id, asset_id);
-            let locked_balance = KeyLockedBalance::<T>::get(acc_id, asset_id);
+        let current_balance = Self::get_asset_balance(portfolio, asset_id);
+        let locked_balance = Self::get_locked_asset_balance(portfolio, asset_id);
 
-            acc_balance
-                .saturating_sub(locked_balance)
-                .checked_sub(amount)
-                .ok_or::<DispatchError>(Error::<T>::InsufficientBalance.into())?;
-            return Ok(());
-        }
-
-        PortfolioAssetBalances::<T>::get(portfolio, asset_id)
-            .saturating_sub(PortfolioLockedAssets::<T>::get(portfolio, asset_id))
-            .checked_sub(amount)
-            .ok_or(Error::<T>::InsufficientPortfolioBalance.into())
-            .map(drop)
+        ensure!(
+            current_balance.saturating_sub(locked_balance) >= amount,
+            Error::<T>::InsufficientPortfolioBalance
+        );
     }
 
     /// Locks `amount` of `asset_id` in `portfolio` without checking that this is sane.
@@ -1235,10 +1202,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the balance of `asset_id` in `portfolio`.
-    fn get_asset_balance(
-        portfolio: &PortfolioId,
-        asset_id: &AssetId,
-    ) -> Balance {
+    fn get_asset_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
             return T::AssetFn::get_account_balance(acc_id, asset_id);
         }
@@ -1247,10 +1211,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the locked balance of `asset_id` in `portfolio`.
-    fn get_asset_locked_balance(
-        portfolio: &PortfolioId,
-        asset_id: &AssetId,
-    ) -> Balance {
+    fn get_asset_locked_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
             return KeyLockedBalance::<T>::get(acc_id, asset_id);
         }
