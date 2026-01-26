@@ -17,10 +17,10 @@
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
-use crate::{
-    asset::AssetId, asset_metadata::AssetMetadataKey, compliance_manager::AssetComplianceResult,
-    secondary_key::SecondaryKey, Balance, IdentityId, NFTId, PortfolioId, WeightMeter,
-};
+use crate::asset::AssetId;
+use crate::asset_metadata::AssetMetadataKey;
+use crate::secondary_key::SecondaryKey;
+use crate::{AccountId as AccountId32, Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{asset::NonFungibleType, NFTCollectionKeys};
@@ -112,7 +112,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio` - Portfolio to lock tokens
     /// * `asset_id` - [`AssetId`] of the token to lock
     /// * `amount` - Amount of tokens to lock
-    fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult;
+    fn lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult;
 
     /// Unlocks some tokens of a portfolio
     ///
@@ -120,11 +120,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio` - Portfolio to unlock tokens
     /// * asset_id` - [`AssetId`] of the token to unlock
     /// * `amount` - Amount of tokens to unlock
-    fn unlock_tokens(
-        portfolio: &PortfolioId,
-        asset_id: &AssetId,
-        amount: Balance,
-    ) -> DispatchResult;
+    fn unlock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult;
 
     /// Ensures that the portfolio's custody is with the provided identity
     /// And the secondary key has the relevant portfolio permission
@@ -145,7 +141,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
     /// asset_id` - [`AssetId`] of the NFT.
     /// * `nft_id` - the id of the nft to be unlocked.
-    fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> DispatchResult;
+    fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
 
     /// Unlocks the given nft.
     ///
@@ -184,6 +180,18 @@ pub trait NFTTrait<Origin> {
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
     /// Updates the NFTOwner storage after moving funds.
     fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
+    /// Returns `true` if the `key` is the holder of the `nft_id` of the `asset_id` collection.
+    fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
+    /// Adds the `nft_id` of the `asset_id` collection to the `key` holder.
+    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
+    /// Removes the `nft_id` of the `asset_id` collection from the `key` holder.
+    fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId);
+    /// Locks the NFT.
+    fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
+    /// Unlocks the NFT.
+    fn unlock_nft(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId);
+    /// Returns `true` if the NFT is locked.
+    fn is_nft_locked(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(

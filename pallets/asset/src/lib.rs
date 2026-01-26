@@ -107,7 +107,7 @@ use pallet_base::{
 };
 use pallet_external_agents::Config as EAConfig;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_portfolio::{Error as PortfolioError, PortfolioAssetBalances};
+use pallet_portfolio::{Error as PortfolioError};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
@@ -573,7 +573,19 @@ pub mod pallet {
 
     /// Tracks the total [`Balance`] held by the account for each [`AssetId`].
     #[pallet::storage]
-    pub type KeyAssetBalance<T: Config> = StorageDoubleMap<
+    pub type AssetBalance<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
+        Balance,
+        ValueQuery,
+    >;
+
+    /// Tracks the [`Balance`] of locked tokens for assets that are held by the key (i.e., not in a portfolio).
+    #[pallet::storage]
+    pub type LockedBalance<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         AccountId32,
@@ -3190,7 +3202,7 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         if skip_locked_check {
-            if PortfolioAssetBalances::<T>::get(sender_portfolio, asset_id) < transfer_value {
+            if Portfolio::<T>::get_asset_balance(sender_portfolio, asset_id) < transfer_value {
                 asset_transfer_errors
                     .push(PortfolioError::<T>::InsufficientPortfolioBalance.into());
             }
@@ -3456,16 +3468,8 @@ impl<T: AssetConfig> Pallet<T> {
         Assets::<T>::insert(asset_id, asset_details);
 
         // No check since the total balance is always <= the total supply
-        let new_issuer_portfolio_balance = {
-            match &issuer_portfolio.kind {
-                PortfolioKind::AccountId(acc_id) => {
-                    KeyAssetBalance::<T>::get(acc_id, asset_id) + amount_to_issue
-                }
-                PortfolioKind::Default | PortfolioKind::User(_) => {
-                    PortfolioAssetBalances::<T>::get(&issuer_portfolio, asset_id) + amount_to_issue
-                }
-            }
-        };
+        let current_balance = Portfolio::<T>::get_asset_balance(&issuer_portfolio, &asset_id);
+        let new_issuer_portfolio_balance = current_balance.saturating_add(amount_to_issue);
 
         Portfolio::<T>::set_portfolio_balance(
             &issuer_portfolio,
@@ -3765,11 +3769,29 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
     }
 
     fn set_balance_of_account(acc_id: AccountId32, asset_id: AssetId, balance: Balance) {
-        KeyAssetBalance::<T>::insert(acc_id, asset_id, balance);
+        if balance.is_zero() {
+            AssetBalance::<T>::remove(&acc_id, &asset_id);
+            return;
+        }
+
+        AssetBalance::<T>::insert(acc_id, asset_id, balance);
     }
 
     fn get_account_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {
-        KeyAssetBalance::<T>::get(acc_id, asset_id)
+        AssetBalance::<T>::get(acc_id, asset_id)
+    }
+
+    fn get_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance {
+        LockedBalance::<T>::get(account, asset_id)
+    }
+
+    fn set_locked_balance(account: AccountId32, asset_id: AssetId, new_locked_balance: Balance) {
+        if new_locked_balance.is_zero() {
+            LockedBalance::<T>::remove(&account, &asset_id);
+            return;
+        }
+
+        LockedBalance::<T>::insert(account, asset_id, new_locked_balance);
     }
 
     #[cfg(feature = "runtime-benchmarks")]

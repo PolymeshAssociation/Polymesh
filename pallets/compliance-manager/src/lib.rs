@@ -87,8 +87,8 @@ use pallet_external_agents::{Config as EAConfig, GroupOfAgent};
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
-    AssetCompliance, AssetComplianceResult, ComplianceReport, ComplianceRequirement,
-    ConditionReport, ConditionResult, RequirementReport,
+    AssetCompliance, ComplianceReport, ComplianceRequirement,
+    ConditionReport, RequirementReport,
 };
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
 use polymesh_primitives::traits::{AssetFnConfig, ComplianceFnConfig};
@@ -739,30 +739,6 @@ impl<T: Config> Pallet<T> {
         let context = Self::fetch_context(did, asset_id, slot, &condition, weight_meter)?;
         let any_ea = |ctx: Context<_>| GroupOfAgent::<T>::get(asset_id, ctx.id).is_some();
         Ok(proposition::run(&condition, context, any_ea))
-    }
-
-    /// Returns whether all conditions, in their proper context, hold when evaluated.
-    /// As a side-effect, each condition will be updated with its result,
-    /// implying strict (non-lazy) evaluation of the conditions.
-    fn evaluate_conditions(
-        asset_id: &AssetId,
-        did: IdentityId,
-        conditions: &mut [ConditionResult],
-        weight_meter: &mut WeightMeter,
-    ) -> Result<bool, DispatchError> {
-        let mut all_conditions_hold = true;
-        for condition in conditions {
-            let condition_holds = Self::is_condition_satisfied(
-                asset_id,
-                did,
-                &condition.condition,
-                &mut None,
-                weight_meter,
-            )?;
-            condition.result = condition_holds;
-            all_conditions_hold = all_conditions_hold & condition_holds;
-        }
-        Ok(all_conditions_hold)
     }
 
     /// Pauses or resumes the asset compliance.

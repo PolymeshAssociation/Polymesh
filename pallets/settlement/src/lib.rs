@@ -1478,10 +1478,10 @@ impl<T: Config> Pallet<T> {
                 asset_id,
                 amount,
                 ..
-            } => T::Portfolio::lock_tokens(&sender, &asset_id, *amount),
+            } => T::Portfolio::lock_tokens(sender.clone(), *asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::lock_nft(&sender, nfts.asset_id(), &nft_id)?;
+                    T::Portfolio::lock_nft(sender.clone(), *nfts.asset_id(), *nft_id)?;
                 }
                 Ok(())
             }
@@ -1496,10 +1496,10 @@ impl<T: Config> Pallet<T> {
                 asset_id,
                 amount,
                 ..
-            } => T::Portfolio::unlock_tokens(&sender, &asset_id, *amount),
+            } => T::Portfolio::unlock_tokens(sender.clone(), *asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::unlock_nft(&sender, nfts.asset_id(), &nft_id)?;
+                    T::Portfolio::unlock_nft(sender, nfts.asset_id(), nft_id)?;
                 }
                 Ok(())
             }

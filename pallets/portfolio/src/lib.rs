@@ -59,9 +59,8 @@ use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait};
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AccountId as AccountId32, Balance, Fund, FundDescription,
-    IdentityId, Memo, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey,
+    extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
 };
 
 fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
@@ -320,30 +319,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type AllowedCustodians<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
-
-    /// Tracks the [`Balance`] of locked tokens for assets that are held by the key (i.e., not in a portfolio).
-    #[pallet::storage]
-    pub type KeyLockedBalance<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        AccountId32,
-        Blake2_128Concat,
-        AssetId,
-        Balance,
-        ValueQuery,
-    >;
-
-    /// Tracks locked NFTs for assets that are held by the key (i.e., not in a portfolio).
-    #[pallet::storage]
-    pub type KeyLockedNFT<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        AccountId32,
-        Blake2_128Concat,
-        (AssetId, NFTId),
-        bool,
-        ValueQuery,
-    >;
 
     /// Storage version.
     #[pallet::storage]
@@ -886,7 +861,7 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
     ) -> DispatchResult {
         let current_balance = Self::get_asset_balance(pid, &asset_id);
-        let locked_balance = Self::get_locked_asset_balance(pid, &asset_id);
+        let locked_balance = Self::get_asset_locked_balance(pid, &asset_id);
 
         let final_balance = current_balance
             .checked_sub(amount)
@@ -921,24 +896,29 @@ impl<T: Config> Pallet<T> {
         T::AssetFn::ensure_granular(asset_id, amount)?;
 
         let current_balance = Self::get_asset_balance(portfolio, asset_id);
-        let locked_balance = Self::get_locked_asset_balance(portfolio, asset_id);
+        let locked_balance = Self::get_asset_locked_balance(portfolio, asset_id);
 
         ensure!(
             current_balance.saturating_sub(locked_balance) >= amount,
             Error::<T>::InsufficientPortfolioBalance
         );
+        Ok(())
     }
 
     /// Locks `amount` of `asset_id` in `portfolio` without checking that this is sane.
     ///
     /// Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
-    pub fn unchecked_lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
-            KeyLockedBalance::<T>::mutate(acc_id, asset_id, |b| *b = b.saturating_add(amount));
+    pub fn unchecked_lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) {
+        if let PortfolioKind::AccountId(acc_id) = portfolio.kind {
+            let current_locked_balance = T::AssetFn::get_locked_balance(&acc_id, &asset_id);
+            let new_locked_balance = current_locked_balance.saturating_add(amount);
+            T::AssetFn::set_locked_balance(acc_id, asset_id, new_locked_balance);
             return;
         }
 
-        PortfolioLockedAssets::<T>::mutate(portfolio, asset_id, |l| *l = l.saturating_add(amount));
+        PortfolioLockedAssets::<T>::mutate(&portfolio, &asset_id, |l| {
+            *l = l.saturating_add(amount)
+        });
     }
 
     fn base_accept_portfolio_custody(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
@@ -1040,11 +1020,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for nft_id in nft_ids {
             ensure!(
-                PortfolioNFT::<T>::contains_key(portfolio, (asset_id, nft_id)),
+                Self::is_nft_owner(portfolio, asset_id, nft_id),
                 Error::<T>::InvalidTransferNFTNotOwned
             );
             ensure!(
-                !PortfolioLockedNFT::<T>::contains_key(portfolio, (asset_id, nft_id)),
+                !Self::is_nft_locked(portfolio, asset_id, nft_id),
                 Error::<T>::InvalidTransferNFTIsLocked
             );
         }
@@ -1077,11 +1057,11 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        PortfolioNFT::<T>::remove(&sender_portfolio, (nfts.asset_id(), nft_id));
-                        PortfolioNFT::<T>::insert(
-                            &receiver_portfolio,
-                            (nfts.asset_id(), nft_id),
-                            true,
+                        Self::remove_nft_from_owner(&sender_portfolio, nfts.asset_id(), nft_id);
+                        Self::add_nft_to_owner(
+                            receiver_portfolio.clone(),
+                            *nfts.asset_id(),
+                            *nft_id,
                         );
                         T::NFT::move_portfolio_owner(
                             *nfts.asset_id(),
@@ -1202,7 +1182,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the balance of `asset_id` in `portfolio`.
-    fn get_asset_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
+    pub fn get_asset_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
             return T::AssetFn::get_account_balance(acc_id, asset_id);
         }
@@ -1211,9 +1191,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the locked balance of `asset_id` in `portfolio`.
-    fn get_asset_locked_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
+    pub fn get_asset_locked_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
-            return KeyLockedBalance::<T>::get(acc_id, asset_id);
+            return T::AssetFn::get_locked_balance(acc_id, asset_id);
         }
 
         PortfolioLockedAssets::<T>::get(portfolio, asset_id)
@@ -1221,41 +1201,70 @@ impl<T: Config> Pallet<T> {
 
     /// Sets the locked balance of `asset_id` in `portfolio` to `new_locked_balance`.
     fn set_asset_locked_balance(
-        portfolio: &PortfolioId,
-        asset_id: &AssetId,
+        portfolio: PortfolioId,
+        asset_id: AssetId,
         new_locked_balance: Balance,
     ) {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
-            if new_locked_balance.is_zero() {
-                KeyLockedBalance::<T>::remove(acc_id, asset_id);
-            } else {
-                KeyLockedBalance::<T>::insert(acc_id, asset_id, new_locked_balance);
-            }
-
+        if let PortfolioKind::AccountId(acc_id) = portfolio.kind {
+            T::AssetFn::set_locked_balance(acc_id, asset_id, new_locked_balance);
             return;
         }
 
         if new_locked_balance.is_zero() {
-            PortfolioLockedAssets::<T>::remove(portfolio, asset_id);
+            PortfolioLockedAssets::<T>::remove(&portfolio, &asset_id);
         } else {
             PortfolioLockedAssets::<T>::insert(portfolio, asset_id, new_locked_balance);
         }
     }
+
+    /// Returns `true` if the given portfolio owns the `nft_id` of `asset_id` collection.
+    pub fn is_nft_owner(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> bool {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
+            return T::NFT::is_nft_holder(acc_id, asset_id, nft_id);
+        }
+
+        PortfolioNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id))
+    }
+
+    /// Returns `true` if the nft is locked.
+    pub fn is_nft_locked(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> bool {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
+            return T::NFT::is_nft_locked(acc_id, asset_id, nft_id);
+        }
+
+        PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id))
+    }
+
+    /// Removes the nft from the owner's portfolio.
+    pub fn remove_nft_from_owner(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) {
+        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
+            T::NFT::remove_nft_from_key(acc_id, asset_id, nft_id);
+            return;
+        }
+
+        PortfolioNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
+    }
+
+    /// Adds the nft to the owner's portfolio.
+    pub fn add_nft_to_owner(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
+        if let PortfolioKind::AccountId(acc_id) = portfolio_id.kind {
+            T::NFT::add_nft_to_key(acc_id, asset_id, nft_id);
+            return;
+        }
+
+        PortfolioNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
+    }
 }
 
 impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
-    fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult {
-        Self::ensure_sufficient_balance(portfolio, asset_id, amount)?;
+    fn lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
+        Self::ensure_sufficient_balance(&portfolio, &asset_id, amount)?;
         Self::unchecked_lock_tokens(portfolio, asset_id, amount);
         Ok(())
     }
 
-    fn unlock_tokens(
-        portfolio: &PortfolioId,
-        asset_id: &AssetId,
-        amount: Balance,
-    ) -> DispatchResult {
-        let locked = Self::get_asset_locked_balance(portfolio, asset_id);
+    fn unlock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
+        let locked = Self::get_asset_locked_balance(&portfolio, &asset_id);
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
         Self::set_asset_locked_balance(portfolio, asset_id, locked - amount);
         Ok(())
@@ -1277,18 +1286,22 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
 
-    fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> DispatchResult {
-        // Verifies if the portfolio contains the NFT
+    fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) -> DispatchResult {
         ensure!(
-            PortfolioNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
+            Self::is_nft_owner(&portfolio_id, &asset_id, &nft_id),
             Error::<T>::NFTNotFoundInPortfolio
         );
-        // Verifies if the nft is not locked
+
         ensure!(
-            !PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
+            !Self::is_nft_locked(&portfolio_id, &asset_id, &nft_id),
             Error::<T>::NFTAlreadyLocked
         );
-        // Locks the nft
+
+        if let PortfolioKind::AccountId(acc_id) = portfolio_id.kind {
+            T::NFT::lock_nft(acc_id, asset_id, nft_id);
+            return Ok(());
+        }
+
         PortfolioLockedNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
         Ok(())
     }
@@ -1298,11 +1311,16 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
         asset_id: &AssetId,
         nft_id: &NFTId,
     ) -> DispatchResult {
-        // Verifies if the locked NFT exist.
         ensure!(
-            PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id)),
+            Self::is_nft_locked(portfolio_id, asset_id, nft_id),
             Error::<T>::NFTNotLocked
         );
+
+        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
+            T::NFT::unlock_nft(acc_id, asset_id, nft_id);
+            return Ok(());
+        }
+
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
         Ok(())
     }

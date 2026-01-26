@@ -40,6 +40,12 @@ pub trait AssetFnTrait<AccountId> {
     /// Returns the account's balance for the given `asset_id`.
     fn get_account_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;
 
+    /// Returns the account's locked balance for the given `asset_id`.
+    fn get_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;
+
+    /// Sets the account's locked balance for the given `asset_id`.
+    fn set_locked_balance(account: AccountId32, asset_id: AssetId, new_locked_balance: Balance);
+
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(caller: AccountId, ticker: Ticker) -> DispatchResult;
 
