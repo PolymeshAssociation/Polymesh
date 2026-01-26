@@ -149,6 +149,7 @@ where
                 pause_restrictions,
                 4,
                 true,
+                false,
             );
             asset_mediators.append(&mut mediators);
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());

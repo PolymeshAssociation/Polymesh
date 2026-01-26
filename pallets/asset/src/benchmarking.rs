@@ -146,11 +146,22 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     pause_restrictions: bool,
     n_mediators: u8,
     move_to_sender_portfolio: bool,
+    use_account_portfolio: bool,
 ) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId) {
-    let sender_portfolio =
-        create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
-    let receiver_portfolio =
-        create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
+    let (sender_portfolio, receiver_portfolio) = {
+        if use_account_portfolio {
+            (
+                PortfolioId::account_portfolio(sender.did(), sender.account().encode()).unwrap(),
+                PortfolioId::account_portfolio(receiver.did(), receiver.account().encode())
+                    .unwrap(),
+            )
+        } else {
+            (
+                create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio")),
+                create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio")),
+            )
+        }
+    };
 
     // Creates the asset
     let asset_id = create_and_issue_sample_asset::<T>(sender);
@@ -673,7 +684,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (sender_portfolio, receiver_portfolio, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true);
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, false);
     }: {
         Pallet::<T>::base_transfer(
             sender_portfolio,
@@ -793,7 +804,7 @@ benchmarks! {
         // Setup the transfer with worse case conditions.
         // Don't move the assets from the default portfolio.
         let (_sender_portfolio, _receiver_portfolio, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false);
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, false);
     }: {
         Pallet::<T>::base_transfer_asset(
             alice.origin.into(),
@@ -814,7 +825,7 @@ benchmarks! {
         // Setup the transfer with worse case conditions.
         // Don't move the assets from the default portfolio.
         let (_sender_portfolio, _receiver_portfolio, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false);
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, true);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
