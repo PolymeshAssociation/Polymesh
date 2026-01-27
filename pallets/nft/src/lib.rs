@@ -66,7 +66,7 @@ pub mod pallet {
         type MaxNumberOfNFTsCount: Get<u32>;
     }
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -189,7 +189,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            if Pallet::<T>::on_chain_storage_version() <= StorageVersion::new(5) {
+            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::current_storage_version() {
                 log::info!("Running Migration for initializing Owner storage.");
                 let mut n = 0;
                 for (asset_id, nft_id, owner_portfolio) in NFTOwner::<T>::iter() {
