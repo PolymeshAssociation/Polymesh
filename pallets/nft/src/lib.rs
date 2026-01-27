@@ -149,7 +149,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type CurrentCollectionId<T: Config> = StorageValue<_, NFTCollectionId, OptionQuery>;
 
-    /// The NFT associated to the account Key.
+    /// All NFTs associated to the account Key.
     #[pallet::storage]
     pub type NFTHolder<T: Config> = StorageDoubleMap<
         _,
@@ -161,7 +161,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Tracks the owner of an NFT
+    /// Reverse mapping for allowing to find the owner of a specific NFT.
     #[pallet::storage]
     pub type Owner<T: Config> = StorageDoubleMap<
         _,
@@ -172,6 +172,10 @@ pub mod pallet {
         AssetHolder,
         OptionQuery,
     >;
+
+    /// Tracks the number of NFTs held by an account.
+    #[pallet::storage]
+    pub type NFTsInAccount<T: Config> = StorageMap<_, Twox64Concat, AccountId32, u64, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(Default)]
@@ -998,10 +1002,16 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
     }
 
     fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) {
+        if !NFTHolder::<T>::contains_key(&key, (&asset_id, &nft_id)) {
+            NFTsInAccount::<T>::mutate(&key, |n| *n = n.saturating_add(1));
+        }
         NFTHolder::<T>::insert(key, (asset_id, nft_id), NFTOwnerStatus::Owner);
     }
 
     fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) {
+        if NFTHolder::<T>::contains_key(&key, (&asset_id, &nft_id)) {
+            NFTsInAccount::<T>::mutate(&key, |n| *n = n.saturating_sub(1));
+        }
         NFTHolder::<T>::remove(key, (asset_id, nft_id));
     }
 

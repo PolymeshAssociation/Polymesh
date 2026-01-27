@@ -595,6 +595,10 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// Tracks the number of assets held by an account.
+    #[pallet::storage]
+    pub type AssetInAccount<T: Config> = StorageMap<_, Twox64Concat, AccountId32, u64, ValueQuery>;
+
     /// Storage version.
     #[pallet::storage]
     pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -3768,13 +3772,21 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
         Self::generate_asset_id(caller_acc, false)
     }
 
-    fn set_balance_of_account(acc_id: AccountId32, asset_id: AssetId, balance: Balance) {
-        if balance.is_zero() {
+    fn set_balance_of_account(acc_id: AccountId32, asset_id: AssetId, new_balance: Balance) {
+        let old_balance = AssetBalance::<T>::get(&acc_id, &asset_id);
+
+        if new_balance.is_zero() {
             AssetBalance::<T>::remove(&acc_id, &asset_id);
+            if old_balance > 0 {
+                AssetInAccount::<T>::mutate(&acc_id, |n| *n = n.saturating_sub(1));
+            }
             return;
         }
 
-        AssetBalance::<T>::insert(acc_id, asset_id, balance);
+        if old_balance.is_zero() {
+            AssetInAccount::<T>::mutate(&acc_id, |n| *n = n.saturating_add(1));
+        }
+        AssetBalance::<T>::insert(acc_id, asset_id, new_balance);
     }
 
     fn get_account_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {
