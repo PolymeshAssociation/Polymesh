@@ -24,6 +24,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
+            Some(PortfolioKind::AccountId(asset_issuer.account())),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
@@ -76,6 +77,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
+            Some(PortfolioKind::AccountId(asset_issuer.account())),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
@@ -128,6 +130,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
+            Some(PortfolioKind::AccountId(asset_issuer.account())),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
@@ -180,6 +183,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
+            Some(PortfolioKind::AccountId(asset_issuer.account())),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
