@@ -15,7 +15,8 @@ use pallet_base::try_next_pre;
 use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
-    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
+    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute,
+    NFTOwnerStatus, NFTs,
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
@@ -156,19 +157,7 @@ pub mod pallet {
         AccountId32,
         Blake2_128Concat,
         (AssetId, NFTId),
-        bool,
-        ValueQuery,
-    >;
-
-    /// Tracks locked NFTs for assets that are held by the key (i.e., not in a portfolio).
-    #[pallet::storage]
-    pub type LockedNFT<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        AccountId32,
-        Blake2_128Concat,
-        (AssetId, NFTId),
-        bool,
+        NFTOwnerStatus,
         ValueQuery,
     >;
 
@@ -950,11 +939,14 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
     }
 
     fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool {
-        NFTHolder::<T>::get(key, (asset_id, nft_id))
+        match NFTHolder::<T>::get(key, (asset_id, nft_id)) {
+            NFTOwnerStatus::Owner | NFTOwnerStatus::OwnerLocked => true,
+            NFTOwnerStatus::NotOwned => false,
+        }
     }
 
     fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) {
-        NFTHolder::<T>::insert(key, (asset_id, nft_id), true);
+        NFTHolder::<T>::insert(key, (asset_id, nft_id), NFTOwnerStatus::Owner);
     }
 
     fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) {
@@ -962,15 +954,22 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
     }
 
     fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId) {
-        LockedNFT::<T>::insert(key, (asset_id, nft_id), true);
+        NFTHolder::<T>::insert(key, (asset_id, nft_id), NFTOwnerStatus::OwnerLocked);
     }
 
     fn unlock_nft(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) {
-        LockedNFT::<T>::remove(key, (asset_id, nft_id));
+        NFTHolder::<T>::insert(
+            key.clone(),
+            (asset_id.clone(), nft_id.clone()),
+            NFTOwnerStatus::Owner,
+        );
     }
 
     fn is_nft_locked(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool {
-        LockedNFT::<T>::get(key, (asset_id, nft_id))
+        match NFTHolder::<T>::get(key, (asset_id, nft_id)) {
+            NFTOwnerStatus::OwnerLocked => true,
+            NFTOwnerStatus::Owner | NFTOwnerStatus::NotOwned => false,
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

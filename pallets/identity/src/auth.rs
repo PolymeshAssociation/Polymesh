@@ -40,12 +40,6 @@ impl<T: Config> Pallet<T> {
             Self::ensure_perms_length_limited(perms)?;
         }
 
-        if let AuthorizationData::PortfolioCustody(portfolio_id) = &authorization_data {
-            if let PortfolioKind::AccountId(_) = &portfolio_id.kind {
-                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
-            }
-        }
-
         Ok(Self::add_auth(
             from_did,
             target,
@@ -61,6 +55,12 @@ impl<T: Config> Pallet<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
     ) -> Result<u64, DispatchError> {
+        if let AuthorizationData::PortfolioCustody(portfolio_id) = &authorization_data {
+            if let PortfolioKind::AccountId(_) = &portfolio_id.kind {
+                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
+            }
+        }
+
         let number_of_given_auths = NumberOfGivenAuths::<T>::get(from);
         ensure!(
             number_of_given_auths < T::MaxGivenAuths::get(),

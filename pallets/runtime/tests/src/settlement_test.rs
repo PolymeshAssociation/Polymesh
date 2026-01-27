@@ -197,9 +197,9 @@ fn venue_details_length_limited() {
         let id = VenueCounter::<TestStorage>::get();
         let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
         let update = |d| Settlement::update_venue_details(actor.origin(), id, d);
-        //assert_too_long!(create(max_len_bytes(1)));
+        assert_too_long!(create(max_len_bytes(1)));
         assert_ok!(create(max_len_bytes(0)));
-        //assert_too_long!(update(max_len_bytes(1)));
+        assert_too_long!(update(max_len_bytes(1)));
         assert_ok!(update(max_len_bytes(0)));
     });
 }

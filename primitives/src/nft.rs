@@ -157,3 +157,16 @@ pub struct NFTMetadataAttribute {
     /// The metadata value.
     pub value: AssetMetadataValue,
 }
+
+/// Defines the ownership status of an NFT.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+pub enum NFTOwnerStatus {
+    /// The NFT is not owned by the account.
+    #[default]
+    NotOwned,
+    /// The NFT is owned by the account.
+    Owner,
+    /// The NFT is owned by the account but is locked.
+    OwnerLocked,
+}
