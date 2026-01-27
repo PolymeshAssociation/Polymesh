@@ -1,7 +1,7 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
-use pallet_asset::{Assets, BalanceOf};
+use pallet_asset::{AssetBalance, Assets, BalanceOf, LockedBalance};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets};
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::{
@@ -253,4 +253,59 @@ fn issue_tokens_invalid_token_type() {
             AssetError::UnexpectedNonFungibleToken
         );
     })
+}
+
+#[test]
+fn issue_tokens_account_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_portfolio_kind = PortfolioKind::AccountId(alice.acc());
+        let alice_acc_portfolio = PortfolioId::new(alice.did, alice_portfolio_kind);
+
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            b"MyAsset".into(),
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            asset_id,
+            ISSUE_AMOUNT,
+            alice_acc_portfolio.kind.clone()
+        ));
+
+        assert_eq!(
+            AssetBalance::<TestStorage>::get(&alice.acc(), &asset_id),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            PortfolioAssetBalances::<TestStorage>::get(&alice_acc_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(
+            PortfolioLockedAssets::<TestStorage>::get(&alice_acc_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(
+            LockedBalance::<TestStorage>::get(&alice.acc(), &asset_id),
+            0
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &alice.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            Assets::<TestStorage>::get(&asset_id).unwrap().total_supply,
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            PortfolioAssetCount::<TestStorage>::get(&alice_acc_portfolio),
+            0
+        );
+    });
 }

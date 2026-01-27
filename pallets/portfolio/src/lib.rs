@@ -984,7 +984,11 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Ensures the secondary key has access to the receiver's portfolio.
-        Self::ensure_user_portfolio_permission(origin_data.secondary_key.as_ref(), to, None)?;
+        Self::ensure_user_portfolio_permission(
+            origin_data.secondary_key.as_ref(),
+            to,
+            Some(origin_data.primary_did),
+        )?;
         Ok(origin_data.primary_did)
     }
 
