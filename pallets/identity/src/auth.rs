@@ -20,7 +20,7 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, PortfolioKind, Signatory};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
@@ -39,6 +39,13 @@ impl<T: Config> Pallet<T> {
         {
             Self::ensure_perms_length_limited(perms)?;
         }
+
+        if let AuthorizationData::PortfolioCustody(portfolio_id) = &authorization_data {
+            if let PortfolioKind::AccountId(_) = &portfolio_id.kind {
+                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
+            }
+        }
+
         Ok(Self::add_auth(
             from_did,
             target,
