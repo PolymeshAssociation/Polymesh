@@ -4,6 +4,7 @@ mod asset_transfer_tests {
     use anyhow::Result;
 
     use integration::*;
+    use polymesh_api::types::polymesh_primitives::identity_id::PortfolioKind;
 
     /// Test for an asset transfer requiring receiver affirmation.
     #[tokio::test]
@@ -14,6 +15,7 @@ mod asset_transfer_tests {
             .await?
             .into_iter();
         let mut asset_issuer = users.next().expect("Asset issuer");
+        let asset_issuer_acc = asset_issuer.account();
         let mut investor = users.next().expect("Investor");
 
         // Create a new asset and mint some tokens.
@@ -24,7 +26,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
-            Some(PortfolioKind::AccountId(asset_issuer.account())),
+            Some(PortfolioKind::AccountId(asset_issuer_acc)),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
@@ -67,6 +69,7 @@ mod asset_transfer_tests {
             .await?
             .into_iter();
         let mut asset_issuer = users.next().expect("Asset issuer");
+        let asset_issuer_acc = asset_issuer.account();
         let mut investor = users.next().expect("Investor");
 
         // Create a new asset and mint some tokens.
@@ -77,7 +80,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
-            Some(PortfolioKind::AccountId(asset_issuer.account())),
+            Some(PortfolioKind::AccountId(asset_issuer_acc)),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
@@ -120,6 +123,7 @@ mod asset_transfer_tests {
             .await?
             .into_iter();
         let mut asset_issuer = users.next().expect("Asset issuer");
+        let asset_issuer_acc = asset_issuer.account();
         let investor = users.next().expect("Investor");
 
         // Create a new asset and mint some tokens.
@@ -130,7 +134,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
-            Some(PortfolioKind::AccountId(asset_issuer.account())),
+            Some(PortfolioKind::AccountId(asset_issuer_acc)),
         )
         .await?;
         let asset_id = asset_helper.asset_id;
@@ -173,6 +177,7 @@ mod asset_transfer_tests {
             .await?
             .into_iter();
         let mut asset_issuer = users.next().expect("Asset issuer");
+        let asset_issuer_acc = asset_issuer.account();
         let mut investor = users.next().expect("Investor");
 
         // Create a new asset and mint some tokens.
@@ -183,7 +188,7 @@ mod asset_transfer_tests {
             1_000_000,
             vec![],
             false,
-            Some(PortfolioKind::AccountId(asset_issuer.account())),
+            Some(PortfolioKind::AccountId(asset_issuer_acc)),
         )
         .await?;
         let asset_id = asset_helper.asset_id;

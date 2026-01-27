@@ -5,7 +5,7 @@ pub use polymesh_api_tester::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 use polymesh_api::types::polymesh_primitives::{
-    identity_id::{PortfolioId, PortfolioKind},
+    identity_id::PortfolioId,
     secondary_key::{ExtrinsicPermissions, PalletPermissions},
     subset::SubsetRestriction,
     ExtrinsicName, PalletName,
