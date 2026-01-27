@@ -2977,7 +2977,7 @@ impl<T: AssetConfig> Pallet<T> {
         Portfolio::<T>::ensure_user_portfolio_permission(
             origin_data.secondary_key.as_ref(),
             &portfolio_id,
-            Some(origin_data.primary_did),
+            origin_data.primary_did,
         )?;
         Ok(portfolio_id)
     }

@@ -178,8 +178,8 @@ pub trait ComplianceFnConfig {
 pub trait NFTTrait<Origin> {
     /// Returns `true` if the given `metadata_key` is a mandatory key for the `asset_id` NFT collection.
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
-    /// Updates the NFTOwner storage after moving funds.
-    fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
+    /// Updates the Owner storage after moving funds.
+    fn move_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
     /// Returns `true` if the `key` is the holder of the `nft_id` of the `asset_id` collection.
     fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
     /// Adds the `nft_id` of the `asset_id` collection to the `key` holder.

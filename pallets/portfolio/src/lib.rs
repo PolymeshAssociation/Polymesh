@@ -431,10 +431,6 @@ pub mod pallet {
                 PortfolioNFT::<T>::iter_prefix(&pid).count() == 0,
                 Error::<T>::PortfolioNotEmpty
             );
-            ensure!(
-                PortfolioLockedNFT::<T>::iter_prefix(&pid).count() == 0,
-                Error::<T>::PortfolioNotEmpty
-            );
 
             // Check that the portfolio exists and the secondary key has access to it.
             let portfolio = Self::ensure_user_portfolio_validity(primary_did, num)?;
@@ -484,7 +480,7 @@ pub mod pallet {
             Self::ensure_user_portfolio_permission(
                 secondary_key.as_ref(),
                 &PortfolioId::user_portfolio(primary_did, num),
-                None,
+                primary_did,
             )?;
             let old_name = Self::ensure_user_portfolio_validity(primary_did, num)?;
 
@@ -783,7 +779,7 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_user_portfolio_permission(
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio_id: &PortfolioId,
-        callers_did: Option<IdentityId>,
+        callers_did: IdentityId,
     ) -> DispatchResult {
         if let PortfolioKind::AccountId(account_id) = &portfolio_id.kind {
             let account_id: T::AccountId = Decode::decode(&mut &account_id.encode()[..])
@@ -794,7 +790,6 @@ impl<T: Config> Pallet<T> {
                 return Ok(());
             }
 
-            let callers_did = callers_did.ok_or(Error::<T>::UnauthorizedPortfolioKey)?;
             let primary_key = pallet_identity::Pallet::<T>::get_primary_key(callers_did)
                 .ok_or(Error::<T>::KeyNotFoundForCaller)?;
 
@@ -884,7 +879,7 @@ impl<T: Config> Pallet<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)?;
-        Self::ensure_user_portfolio_permission(secondary_key, portfolio, Some(custodian))
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio, custodian)
     }
 
     /// Ensure `portfolio` has sufficient balance of `asset_id` to lock/withdraw `amount`.
@@ -987,7 +982,7 @@ impl<T: Config> Pallet<T> {
         Self::ensure_user_portfolio_permission(
             origin_data.secondary_key.as_ref(),
             to,
-            Some(origin_data.primary_did),
+            origin_data.primary_did,
         )?;
         Ok(origin_data.primary_did)
     }
@@ -1067,7 +1062,7 @@ impl<T: Config> Pallet<T> {
                             *nfts.asset_id(),
                             *nft_id,
                         );
-                        T::NFT::move_portfolio_owner(
+                        T::NFT::move_nft_owner(
                             *nfts.asset_id(),
                             *nft_id,
                             receiver_portfolio.clone(),
