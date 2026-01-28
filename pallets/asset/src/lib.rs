@@ -595,10 +595,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Tracks the number of assets held by an account.
-    #[pallet::storage]
-    pub type AssetInAccount<T: Config> = StorageMap<_, Twox64Concat, AccountId32, u64, ValueQuery>;
-
     /// Storage version.
     #[pallet::storage]
     pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -3479,7 +3475,7 @@ impl<T: AssetConfig> Pallet<T> {
             &issuer_portfolio,
             asset_id,
             new_issuer_portfolio_balance,
-        );
+        )?;
 
         Statistics::<T>::update_asset_stats(
             asset_id,
@@ -3543,7 +3539,7 @@ impl<T: AssetConfig> Pallet<T> {
             &receiver_portfolio,
             asset_id,
             transfer_value,
-        );
+        )?;
 
         // Update statistics info.
         Statistics::<T>::update_asset_stats(
@@ -3772,21 +3768,28 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
         Self::generate_asset_id(caller_acc, false)
     }
 
-    fn set_balance_of_account(acc_id: AccountId32, asset_id: AssetId, new_balance: Balance) {
+    fn set_balance_of_account(
+        acc_id: AccountId32,
+        asset_id: AssetId,
+        new_balance: Balance,
+    ) -> DispatchResult {
         let old_balance = AssetBalance::<T>::get(&acc_id, &asset_id);
 
         if new_balance.is_zero() {
             AssetBalance::<T>::remove(&acc_id, &asset_id);
             if old_balance > 0 {
-                AssetInAccount::<T>::mutate(&acc_id, |n| *n = n.saturating_sub(1));
+                let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
+                IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
             }
-            return;
+            return Ok(());
         }
 
         if old_balance.is_zero() {
-            AssetInAccount::<T>::mutate(&acc_id, |n| *n = n.saturating_add(1));
+            let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
+            IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
         }
         AssetBalance::<T>::insert(acc_id, asset_id, new_balance);
+        Ok(())
     }
 
     fn get_account_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {

@@ -428,7 +428,7 @@ pub mod pallet {
                 Error::<T>::PortfolioNotEmpty
             );
             ensure!(
-                PortfolioNFT::<T>::iter_prefix(&pid).count() == 0,
+                PortfolioNFT::<T>::iter_prefix(&pid).next().is_none(),
                 Error::<T>::PortfolioNotEmpty
             );
 
@@ -566,7 +566,7 @@ pub mod pallet {
             Self::ensure_valid_funds(&from, &funds)?;
 
             // Updates the portfolio of the sender and receiver
-            Self::unchecked_move_funds(primary_did, from, to, funds);
+            Self::unchecked_move_funds(primary_did, from, to, funds)?;
 
             Ok(())
         }
@@ -684,10 +684,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets the asset balance of the specified portfolio to `new_balance`.
-    pub fn set_portfolio_balance(pid: &PortfolioId, asset_id: AssetId, new_balance: Balance) {
+    pub fn set_portfolio_balance(pid: &PortfolioId, asset_id: AssetId, new_balance: Balance) -> DispatchResult {
         if let PortfolioKind::AccountId(acc_id) = &pid.kind {
-            T::AssetFn::set_balance_of_account(acc_id.clone(), asset_id, new_balance);
-            return;
+            T::AssetFn::set_balance_of_account(acc_id.clone(), asset_id, new_balance)?;
+            return Ok(());
         }
 
         let current_balance = PortfolioAssetBalances::<T>::get(pid, &asset_id);
@@ -699,6 +699,7 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::transition_asset_count(pid, current_balance, new_balance);
+        Ok(())
     }
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
@@ -724,17 +725,18 @@ impl<T: Config> Pallet<T> {
         to: &PortfolioId,
         asset_id: AssetId,
         amount: Balance,
-    ) {
+    ) -> DispatchResult {
         // Subtracts the amount from the sender
         let sender_old_balance = Self::get_asset_balance(from, &asset_id);
         let sender_new_balance = sender_old_balance.saturating_sub(amount);
 
-        Self::set_portfolio_balance(from, asset_id, sender_new_balance);
+        Self::set_portfolio_balance(from, asset_id, sender_new_balance)?;
 
         // Adds the amount to the receiver
         let rcv_old_balance = Self::get_asset_balance(to, &asset_id);
         let rcv_new_balance = rcv_old_balance.saturating_add(amount);
-        Self::set_portfolio_balance(to, asset_id, rcv_new_balance);
+        Self::set_portfolio_balance(to, asset_id, rcv_new_balance)?;
+        Ok(())
     }
 
     /// Handle cases where the balance for an asset goes to and from 0.
@@ -867,7 +869,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientBalance
         );
 
-        Self::set_portfolio_balance(pid, asset_id, final_balance);
+        Self::set_portfolio_balance(pid, asset_id, final_balance)?;
         Ok(())
     }
 
@@ -1036,7 +1038,7 @@ impl<T: Config> Pallet<T> {
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
         funds: Vec<Fund>,
-    ) {
+    ) -> DispatchResult {
         for fund in funds {
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
@@ -1045,7 +1047,7 @@ impl<T: Config> Pallet<T> {
                         &receiver_portfolio,
                         asset_id,
                         amount,
-                    );
+                    )?;
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
                         sender_portfolio.clone(),
@@ -1056,12 +1058,12 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        Self::remove_nft_from_owner(&sender_portfolio, nfts.asset_id(), nft_id);
+                        Self::remove_nft_from_owner(&sender_portfolio, nfts.asset_id(), nft_id)?;
                         Self::add_nft_to_owner(
                             receiver_portfolio.clone(),
                             *nfts.asset_id(),
                             *nft_id,
-                        );
+                        )?;
                         T::NFT::move_nft_owner(
                             *nfts.asset_id(),
                             *nft_id,
@@ -1078,6 +1080,8 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
+        Ok(())
     }
 
     fn base_pre_approve_portfolio(
@@ -1235,23 +1239,33 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Removes the nft from the owner's portfolio.
-    pub fn remove_nft_from_owner(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) {
+    pub fn remove_nft_from_owner(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+    ) -> DispatchResult {
         if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
-            T::NFT::remove_nft_from_key(acc_id, asset_id, nft_id);
-            return;
+            T::NFT::remove_nft_from_key(acc_id, asset_id, nft_id)?;
+            return Ok(());
         }
 
         PortfolioNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
+        Ok(())
     }
 
     /// Adds the nft to the owner's portfolio.
-    pub fn add_nft_to_owner(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
+    pub fn add_nft_to_owner(
+        portfolio_id: PortfolioId,
+        asset_id: AssetId,
+        nft_id: NFTId,
+    ) -> DispatchResult {
         if let PortfolioKind::AccountId(acc_id) = portfolio_id.kind {
-            T::NFT::add_nft_to_key(acc_id, asset_id, nft_id);
-            return;
+            T::NFT::add_nft_to_key(acc_id, asset_id, nft_id)?;
+            return Ok(());
         }
 
         PortfolioNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
+        Ok(())
     }
 }
 

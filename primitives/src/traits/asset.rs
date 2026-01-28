@@ -35,7 +35,11 @@ pub trait AssetFnTrait<AccountId> {
     fn generate_asset_id(caller_acc: AccountId) -> AssetId;
 
     /// Sets the account's balance for the given `asset_id`.
-    fn set_balance_of_account(account: AccountId32, asset_id: AssetId, new_balance: Balance);
+    fn set_balance_of_account(
+        account: AccountId32,
+        asset_id: AssetId,
+        new_balance: Balance,
+    ) -> DispatchResult;
 
     /// Returns the account's balance for the given `asset_id`.
     fn get_account_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;

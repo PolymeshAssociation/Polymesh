@@ -24,11 +24,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
 use core::mem;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::ensure;
 use frame_support::traits::Get;
 use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::AccountId as AccountId32;
 
 pub use pallet::*;
 
@@ -72,6 +74,8 @@ pub mod pallet {
         /// In practice, these errors will never happen but no code path should result in a panic,
         /// so these corner cases need to be covered with an error variant.
         CounterOverflow,
+        /// Invalid account ID.
+        InvalidAccountId,
     }
 
     #[pallet::hooks]
@@ -123,4 +127,11 @@ pub fn try_next_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, Dispatc
     seq.checked_inc()
         .map(|x| mem::replace(seq, x))
         .ok_or_else(|| Error::<T>::CounterOverflow.into())
+}
+
+/// Returns account ID of type `T::AccountId` from an `AccountId32`.
+pub fn pallet_account_id<T: Config>(acc_id: &AccountId32) -> Result<T::AccountId, DispatchError> {
+    let account_id =
+        Decode::decode(&mut &acc_id.encode()[..]).map_err(|_| Error::<T>::InvalidAccountId)?;
+    Ok(account_id)
 }

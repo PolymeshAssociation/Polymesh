@@ -183,9 +183,10 @@ pub trait NFTTrait<Origin> {
     /// Returns `true` if the `key` is the holder of the `nft_id` of the `asset_id` collection.
     fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
     /// Adds the `nft_id` of the `asset_id` collection to the `key` holder.
-    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
+    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
     /// Removes the `nft_id` of the `asset_id` collection from the `key` holder.
-    fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId);
+    fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId)
+        -> DispatchResult;
     /// Locks the NFT.
     fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
     /// Unlocks the NFT.
