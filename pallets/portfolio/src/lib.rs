@@ -383,8 +383,6 @@ pub mod pallet {
         DefaultPortfoliosCannotHaveCustodians,
         /// The key does not have permission to access the portfolio.
         UnauthorizedPortfolioKey,
-        /// Unable to decode AccountId from PortfolioId.
-        InvalidAccountId,
         /// Key not found for caller.
         KeyNotFoundForCaller,
         /// Account based portfolios cannot have custodians.
@@ -684,7 +682,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets the asset balance of the specified portfolio to `new_balance`.
-    pub fn set_portfolio_balance(pid: &PortfolioId, asset_id: AssetId, new_balance: Balance) -> DispatchResult {
+    pub fn set_portfolio_balance(
+        pid: &PortfolioId,
+        asset_id: AssetId,
+        new_balance: Balance,
+    ) -> DispatchResult {
         if let PortfolioKind::AccountId(acc_id) = &pid.kind {
             T::AssetFn::set_balance_of_account(acc_id.clone(), asset_id, new_balance)?;
             return Ok(());
@@ -784,8 +786,7 @@ impl<T: Config> Pallet<T> {
         callers_did: IdentityId,
     ) -> DispatchResult {
         if let PortfolioKind::AccountId(account_id) = &portfolio_id.kind {
-            let account_id: T::AccountId = Decode::decode(&mut &account_id.encode()[..])
-                .map_err(|_| Error::<T>::InvalidAccountId)?;
+            let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
 
             if let Some(sk) = secondary_key {
                 ensure!(sk.key == account_id, Error::<T>::UnauthorizedPortfolioKey);
