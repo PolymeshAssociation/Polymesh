@@ -19,6 +19,8 @@ sp-std = { workspace = true, default-features = false }
 # Only Benchmarking
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
+log = "0.4"
+
 [features]
 default = ["std"]
 no_std = []

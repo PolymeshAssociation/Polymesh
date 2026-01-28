@@ -16,7 +16,7 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use pallet_identity::benchmarking::{user, User};
+use pallet_identity::benchmarking::{user_without_did, User};
 use polymesh_primitives::Balance;
 
 type Relayer<T> = crate::Pallet<T>;
@@ -24,22 +24,22 @@ type Relayer<T> = crate::Pallet<T>;
 pub(crate) const SEED: u32 = 0;
 
 fn setup_users<T: Config>() -> (User<T>, User<T>) {
-    let payer = user::<T>("payer", SEED);
-    let user = user::<T>("user", SEED);
+    let payer = user_without_did::<T>("payer", SEED);
+    let user = user_without_did::<T>("user", SEED);
     (payer, user)
 }
 
-fn setup_paying_key<T: Config>(limit: u128) -> (User<T>, User<T>) {
+fn setup_subsidy<T: Config>(limit: u128) -> (User<T>, User<T>) {
     let (payer, user) = setup_users::<T>();
-    // accept paying key
-    <Relayer<T>>::auth_accept_paying_key(
-        user.did(),
-        payer.did(),
-        user.account(),
-        payer.account(),
-        limit,
-    )
-    .unwrap();
+    // Add subsidy
+    Subsidies::<T>::insert(
+        &user.account(),
+        Subsidy {
+            paying_key: payer.account(),
+            remaining: limit,
+        },
+    );
+
     (payer, user)
 }
 
@@ -55,24 +55,24 @@ fn assert_subsidy<T: Config>(user: User<T>, subsidy: Option<(User<T>, Balance)>)
 benchmarks! {
     where_clause { where T: Config }
 
-    set_paying_key {
+    approve_subsidy {
         let (payer, user) = setup_users::<T>();
     }: _(payer.origin(), user.account(), 0u128)
 
-    accept_paying_key {
+    accept_subsidy {
         let (payer, user) = setup_users::<T>();
         let limit = 100u128;
         // setup authorization
-        let auth_id = <Relayer<T>>::unverified_add_auth_for_paying_key(
-            payer.did(), user.account(), payer.account(), limit
+        Relayer::<T>::approve_subsidy(
+            payer.origin().into(), user.account(), limit
         ).unwrap();
-    }: _(user.origin(), auth_id)
+    }: _(user.origin(), payer.account())
     verify {
         assert_subsidy(user, Some((payer, limit)));
     }
 
-    remove_paying_key {
-        let (payer, user) = setup_paying_key::<T>(0u128);
+    remove_subsidy {
+        let (payer, user) = setup_subsidy::<T>(0u128);
     }: _(payer.origin(), user.account(), payer.account())
     verify {
         assert_subsidy(user, None);
@@ -80,7 +80,7 @@ benchmarks! {
 
     update_polyx_limit {
         let limit = 1_000u128;
-        let (payer, user) = setup_paying_key::<T>(42u128);
+        let (payer, user) = setup_subsidy::<T>(42u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
         assert_subsidy(user, Some((payer, limit)));
@@ -88,7 +88,7 @@ benchmarks! {
 
     increase_polyx_limit {
         let limit = 500u128;
-        let (payer, user) = setup_paying_key::<T>(0u128);
+        let (payer, user) = setup_subsidy::<T>(0u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
         assert_subsidy(user, Some((payer, limit)));
@@ -96,7 +96,7 @@ benchmarks! {
 
     decrease_polyx_limit {
         let limit = 500u128;
-        let (payer, user) = setup_paying_key::<T>(1_000u128);
+        let (payer, user) = setup_subsidy::<T>(1_000u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
         assert_subsidy(user, Some((payer, limit)));

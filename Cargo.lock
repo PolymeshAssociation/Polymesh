@@ -7025,6 +7025,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-identity",
  "parity-scale-codec",
  "polymesh-primitives",

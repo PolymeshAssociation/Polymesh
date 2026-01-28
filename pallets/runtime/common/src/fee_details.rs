@@ -57,12 +57,6 @@ where
                         return Ok(CddHandler::<A>::get_did_primary_key(auth.authorized_by));
                     }
                 }
-                CallType::AcceptRelayerPayingKey => {
-                    if let AuthorizationData::AddRelayerPayingKey(_, _, _) = auth.authorization_data
-                    {
-                        return Ok(CddHandler::<A>::get_did_primary_key(auth.authorized_by));
-                    }
-                }
                 CallType::RotatePrimaryToSecondary => {
                     if let AuthorizationData::RotatePrimaryKeyToSecondary(_) =
                         auth.authorization_data
@@ -171,15 +165,16 @@ where
 
     /// Returns the account that will pay for the call.
     fn handle_relayer_calls(call: &RelayerCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
-        if let RelayerCall::accept_paying_key { auth_id } = call {
-            return CddHandler::<A>::get_payers_account(
-                caller_acc_id,
-                auth_id,
-                CallType::AcceptRelayerPayingKey,
-            );
+        if let RelayerCall::accept_subsidy { paying_key } = call {
+            use pallet_relayer::Pallet as Relayer;
+            if Relayer::<A>::has_pending_subsidy(&caller_acc_id, paying_key) {
+                Ok(Some(paying_key.clone()))
+            } else {
+                Ok(Some(caller_acc_id))
+            }
+        } else {
+            Ok(Some(caller_acc_id))
         }
-
-        Ok(Some(caller_acc_id))
     }
 
     /// Decreases the authorization count for the given target and auth_id.
@@ -230,11 +225,6 @@ where
                     return Some(*auth_id);
                 }
             }
-            Ok(Call::Relayer(relayer_call)) => {
-                if let RelayerCall::accept_paying_key { auth_id } = relayer_call {
-                    return Some(*auth_id);
-                }
-            }
             Ok(Call::Identity(identity_call)) => match identity_call {
                 IdentityCall::join_identity_as_key { auth_id }
                 | IdentityCall::rotate_primary_key_to_secondary { auth_id, .. } => {
@@ -245,7 +235,7 @@ where
                 } => return Some(*rotation_auth_id),
                 _ => {}
             },
-            Err(_) => {}
+            Ok(_) | Err(_) => {}
         }
 
         None
@@ -261,7 +251,6 @@ where
 #[derive(Encode, Decode)]
 enum CallType {
     AcceptMultiSigSigner,
-    AcceptRelayerPayingKey,
     AcceptIdentitySecondary,
     AcceptIdentityPrimary,
     RotatePrimaryToSecondary,
