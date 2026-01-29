@@ -42,6 +42,7 @@ where
             false,
             false,
             0,
+            true,
         );
     let (investor_raising_portfolio, fundraiser_raising_portfolio, _, raising_asset_id) =
         setup_asset_transfer(
@@ -52,6 +53,7 @@ where
             false,
             false,
             0,
+            true,
         );
 
     let trusted_user = UserBuilder::<T>::default()

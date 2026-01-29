@@ -89,12 +89,14 @@ mod types;
 use codec::{Decode, Encode};
 use core::mem;
 use currency::*;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::{
+    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+};
 use frame_support::ensure;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
-use frame_system::ensure_root;
+use frame_system::{ensure_root, ensure_signed};
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -117,7 +119,9 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::constants::*;
 use polymesh_primitives::settlement::InstructionId;
-use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait};
+use polymesh_primitives::traits::{
+    AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
+};
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document,
     DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, Ticker,
@@ -191,7 +195,11 @@ pub mod pallet {
 
         type WeightInfo: WeightInfo;
 
+        /// The implementation of nft functions.
         type NFTFn: NFTTrait<Self::RuntimeOrigin>;
+
+        /// The implementation of settlement asset transfer functions.
+        type SettlementFn: SettlementFnTrait<Self>;
 
         /// Maximum number of mediators for an asset.
         #[pallet::constant]
@@ -330,6 +338,15 @@ pub mod pallet {
         /// Asset Global Metadata Spec has been Updated.
         /// Parameters: [`AssetMetadataName`] of the metadata, [`AssetMetadataSpec`] of the metadata.
         GlobalMetadataSpecUpdated(AssetMetadataName, AssetMetadataSpec),
+        /// An asset transfer has been created.
+        CreatedAssetTransfer {
+            asset_id: AssetId,
+            from: T::AccountId,
+            to: T::AccountId,
+            amount: Balance,
+            memo: Option<Memo>,
+            pending_transfer_id: Option<InstructionId>,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -1566,6 +1583,116 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_update_global_metadata_spec(origin, asset_metadata_name, asset_metadata_spec)
         }
+
+        /// Transfer assets from the caller's default portfolio to the target address's default portfolio.
+        ///
+        /// The settlement engine is used to perform the asset transfer.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which will be the sender of the assets.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `to` - The target address to which the assets will be sent.
+        /// * `amount` - The [`Balance`] of tokens that will be transferred.
+        /// * `memo` - An optional [`Memo`] that can be attached to the transfer instruction.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        ///
+        /// # Events
+        /// * `CreatedAssetTransfer` - When an asset transfer instruction is created.
+        /// * `InstructionCreated` - The asset transfer settlement was created.
+        /// * `InstructionAffirmed` - The asset transfer settlement was affirmed by the caller as the sender.
+        /// * `InstructionAutomaticallyAffirmed` - If the receiver pre-approved the asset, the instruction is automatically affirmed for the receiver.
+        /// * `InstructionExecuted` - The asset transfer settlement was executed successfully (if the receiver pre-approved the asset).
+        ///
+        /// # Errors
+        /// * `InsufficientBalance` - If the sender's balance is not sufficient to cover the transfer amount.
+        /// * `InvalidTransfer` - If the transfer validation check fails.
+        /// * `ReceiverIdentityNotFound` - If the receiver's identity is not found.
+        /// * `UnexpectedOFFChainAsset` - If the asset could not be found on-chain.
+        /// * `MissingIdentity` - The caller doesn't have an identity.
+        #[pallet::call_index(34)]
+        #[pallet::weight(<T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::transfer_asset_base_weight(), true).limit())]
+        pub fn transfer_asset(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            to: T::AccountId,
+            amount: Balance,
+            memo: Option<Memo>,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_transfer_asset(
+                origin,
+                asset_id,
+                to,
+                amount,
+                memo,
+                #[cfg(feature = "runtime-benchmarks")]
+                false,
+            )
+        }
+
+        /// Receiver affirms a pending asset transfer.
+        ///
+        /// If someone tries to transfer asset to an account that requires receiver affirmations, then the receiver will need to affirm the transfer
+        /// before the transfer is executed.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which will be the receiver of the assets.
+        /// * `transfer_id` - The [`InstructionId`] associated to the pending transfer.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        ///
+        /// # Events
+        /// * `InstructionAffirmed` - The asset transfer settlement was affirmed by the caller as the receiver.
+        /// * `InstructionExecuted` - The asset transfer settlement was executed successfully.
+        /// * `AssetBalanceUpdated` - The asset balance was updated for both the sender and receiver portfolios.
+        ///
+        /// # Errors
+        /// * `UnknownInstruction` - If the instruction associated to the given transfer ID does not exist.
+        /// * `InvalidTransfer` - If the transfer validation check fails.
+        #[pallet::call_index(35)]
+        #[pallet::weight(<T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), true).limit())]
+        pub fn receiver_affirm_asset_transfer(
+            origin: OriginFor<T>,
+            transfer_id: InstructionId,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_receiver_affirm_asset_transfer(
+                origin,
+                transfer_id,
+                #[cfg(feature = "runtime-benchmarks")]
+                false,
+            )
+        }
+
+        /// Reject a pending asset transfer.
+        ///
+        /// If someone tries to transfer asset to an account that requires receiver affirmations, then the receiver can reject the transfer.
+        /// The sender can also reject the transfer before the receiver affirms it.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which can be either the sender or receiver.
+        /// * `transfer_id` - The [`InstructionId`] associated to the pending transfer.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        ///
+        /// # Events
+        /// * `InstructionRejected` - The asset transfer settlement was rejected by the caller.
+        ///
+        /// # Errors
+        /// * `InvalidInstructionStatusForRejection` - Either the instruction doesn't exist or it has already been executed or rejected.
+        #[pallet::call_index(36)]
+        #[pallet::weight(<T as Config>::SettlementFn::reject_transfer_weight_meter(true).limit())]
+        pub fn reject_asset_transfer(
+            origin: OriginFor<T>,
+            transfer_id: InstructionId,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_reject_asset_transfer(origin, transfer_id)
+        }
     }
 
     #[pallet::error]
@@ -1707,6 +1834,8 @@ pub mod pallet {
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
         fn update_global_metadata_spec() -> Weight;
+        fn transfer_asset_base_weight() -> Weight;
+        fn receiver_affirm_asset_transfer_base_weight() -> Weight;
     }
 }
 
@@ -2560,6 +2689,81 @@ impl<T: AssetConfig> Pallet<T> {
         ));
 
         Ok(())
+    }
+
+    pub fn base_transfer_asset(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        to: T::AccountId,
+        amount: Balance,
+        memo: Option<Memo>,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> DispatchResultWithPostInfo {
+        let from = ensure_signed(origin.clone())?;
+        let mut weight_meter = <T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(
+            <T as Config>::WeightInfo::transfer_asset_base_weight(),
+            true,
+        );
+
+        // Create the transfer instruction via the settlement engine and affirm it as the sender.
+        let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
+            origin,
+            to.clone(),
+            asset_id,
+            amount,
+            memo.clone(),
+            &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            bench_base_weight,
+        )?;
+
+        // Emit a transfer event.
+        Self::deposit_event(Event::CreatedAssetTransfer {
+            asset_id,
+            from,
+            to,
+            amount,
+            memo,
+            pending_transfer_id: instruction_id,
+        });
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+    }
+
+    pub fn base_receiver_affirm_asset_transfer(
+        origin: T::RuntimeOrigin,
+        transfer_id: InstructionId,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> DispatchResultWithPostInfo {
+        let mut weight_meter =
+            <T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(
+                <T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(),
+                true,
+            );
+
+        // Affirm the transfer as the receiver and execute it.
+        T::SettlementFn::receiver_affirm_transfer_and_try_execute(
+            origin,
+            transfer_id,
+            true,
+            &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            bench_base_weight,
+        )?;
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+    }
+
+    pub fn base_reject_asset_transfer(
+        origin: T::RuntimeOrigin,
+        transfer_id: InstructionId,
+    ) -> DispatchResultWithPostInfo {
+        let mut weight_meter = <T as Config>::SettlementFn::reject_transfer_weight_meter(true);
+
+        // Reject the transfer.
+        T::SettlementFn::reject_transfer(origin, transfer_id, true, &mut weight_meter)?;
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 }
 
