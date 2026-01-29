@@ -374,7 +374,7 @@ benchmarks! {
             .add_compliance_requirement().build();
 
         // Remove the latest one.
-        let id = Pallet::<T>::get_latest_requirement_id(d.asset_id);
+        let id = Pallet::<T>::get_latest_requirement_id(&d.asset_id);
     }: _(d.owner.origin, d.asset_id, id)
     verify {
         let is_removed = AssetCompliances::<T>::get(d.asset_id)
@@ -454,7 +454,7 @@ benchmarks! {
             .add_compliance_requirement().build();
 
         // Change the latest one.
-        let id = Pallet::<T>::get_latest_requirement_id(d.asset_id);
+        let id = Pallet::<T>::get_latest_requirement_id(&d.asset_id);
 
         // Build a new set of compliance requirements.
         let (sender_count, receiver_count) = split_conditions(c);

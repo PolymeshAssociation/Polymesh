@@ -115,8 +115,8 @@ fn raise_happy_path() {
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unverified_transfer_asset(
-        alice_portfolio,
-        bob_portfolio,
+        alice_portfolio.clone(),
+        bob_portfolio.clone(),
         raise_asset,
         RAISE_SUPPLY,
         None,
@@ -146,9 +146,9 @@ fn raise_happy_path() {
     let fundraiser_name: FundraiserName = max_len_bytes(0);
     exec_ok!(Sto::create_fundraiser(
         alice.origin(),
-        alice_portfolio,
+        alice_portfolio.clone(),
         offering_asset,
-        alice_portfolio,
+        alice_portfolio.clone(),
         raise_asset,
         vec![PriceTier {
             total: 1_000_000u128,
@@ -166,9 +166,9 @@ fn raise_happy_path() {
             Fundraisers::<TestStorage>::get(offering_asset, fundraiser_id),
             Some(Fundraiser {
                 creator: alice.did,
-                offering_portfolio: alice_portfolio,
+                offering_portfolio: alice_portfolio.clone(),
                 offering_asset,
-                raising_portfolio: alice_portfolio,
+                raising_portfolio: alice_portfolio.clone(),
                 raising_asset: raise_asset,
                 tiers: vec![FundraiserTier {
                     total: 1_000_000u128,
@@ -212,8 +212,8 @@ fn raise_happy_path() {
                 bob.origin(),
                 offering_asset,
                 fundraiser_id,
-                bob_portfolio,
-                FundingMethod::OnChain(bob_portfolio),
+                bob_portfolio.clone(),
+                FundingMethod::OnChain(bob_portfolio.clone()),
                 purchase_amount,
                 max_price,
             ),
@@ -235,8 +235,8 @@ fn raise_happy_path() {
         bob.origin(),
         offering_asset,
         fundraiser_id,
-        bob_portfolio,
-        FundingMethod::OnChain(bob_portfolio),
+        bob_portfolio.clone(),
+        FundingMethod::OnChain(bob_portfolio.clone()),
         amount.into(),
         Some(1_000_000u128),
     ));
@@ -276,9 +276,9 @@ fn raise_unhappy_path() {
     assert_noop!(
         Sto::create_fundraiser(
             alice.origin(),
-            alice_portfolio,
+            alice_portfolio.clone(),
             [0; 16].into(),
-            alice_portfolio,
+            alice_portfolio.clone(),
             [1; 16].into(),
             Vec::new(),
             VenueId(0),
@@ -296,9 +296,9 @@ fn raise_unhappy_path() {
     let fundraise = |tiers, venue, name| {
         Sto::create_fundraiser(
             alice.origin(),
-            alice_portfolio,
+            alice_portfolio.clone(),
             offering_asset,
-            alice_portfolio,
+            alice_portfolio.clone(),
             raise_asset,
             tiers,
             venue,
@@ -357,8 +357,8 @@ fn raise_unhappy_path() {
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unverified_transfer_asset(
-        alice_portfolio,
-        bob_portfolio,
+        alice_portfolio.clone(),
+        bob_portfolio.clone(),
         raise_asset,
         1_000_000,
         None,
@@ -393,9 +393,9 @@ fn raise_unhappy_path() {
     assert_noop!(
         Sto::create_fundraiser(
             alice.origin(),
-            alice_portfolio,
+            alice_portfolio.clone(),
             offering_asset,
-            alice_portfolio,
+            alice_portfolio.clone(),
             raise_asset,
             vec![PriceTier {
                 total: 100u128,
@@ -431,9 +431,9 @@ fn invalid_fundraiser() {
     let create_fundraiser_fn = |tiers| {
         Sto::create_fundraiser(
             alice.origin(),
-            alice_portfolio,
+            alice_portfolio.clone(),
             offering_asset,
-            alice_portfolio,
+            alice_portfolio.clone(),
             raise_asset.unwrap(),
             tiers,
             venue_counter,
@@ -493,9 +493,9 @@ fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     let fundraiser_id = FundraiserCount::<TestStorage>::get(context.offering_asset);
     assert_ok!(Sto::create_fundraiser(
         context.alice.origin(),
-        context.alice_portfolio,
+        context.alice_portfolio.clone(),
         context.offering_asset,
-        context.alice_portfolio,
+        context.alice_portfolio.clone(),
         context.raise_asset.unwrap(),
         vec![PriceTier { total: 1, price: 2 }],
         venue_counter,
@@ -545,8 +545,8 @@ fn fundraiser_expired() {
             bob.origin(),
             offering_asset,
             fundraiser_id,
-            bob_portfolio,
-            FundingMethod::OnChain(bob_portfolio),
+            bob_portfolio.clone(),
+            FundingMethod::OnChain(bob_portfolio.clone()),
             1000,
             None,
         ),

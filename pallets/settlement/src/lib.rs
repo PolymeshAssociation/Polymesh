@@ -570,6 +570,8 @@ pub mod pallet {
         InvalidInstructionStatusForWithdrawal,
         /// Receiver identity not found.
         ReceiverIdentityNotFound,
+        /// Invalid account id.
+        InvalidAccountId,
     }
 
     storage_migration_ver!(3);
@@ -878,7 +880,7 @@ pub mod pallet {
             asset_id: AssetId,
             enabled: bool,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             if enabled {
                 VenueFiltering::<T>::insert(asset_id, enabled);
             } else {
@@ -902,7 +904,7 @@ pub mod pallet {
             asset_id: AssetId,
             venues: Vec<VenueId>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             for venue in &venues {
                 VenueAllowList::<T>::insert(&asset_id, venue, true);
             }
@@ -924,7 +926,7 @@ pub mod pallet {
             asset_id: AssetId,
             venues: Vec<VenueId>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             for venue in &venues {
                 VenueAllowList::<T>::remove(&asset_id, venue);
             }
@@ -991,7 +993,7 @@ pub mod pallet {
             Self::base_manual_execution(
                 origin,
                 id,
-                portfolio,
+                portfolio.as_ref(),
                 &input_cost,
                 false,
                 &mut weight_meter,
@@ -1476,10 +1478,10 @@ impl<T: Config> Pallet<T> {
                 asset_id,
                 amount,
                 ..
-            } => T::Portfolio::lock_tokens(&sender, &asset_id, *amount),
+            } => T::Portfolio::lock_tokens(sender.clone(), *asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::lock_nft(&sender, nfts.asset_id(), &nft_id)?;
+                    T::Portfolio::lock_nft(sender.clone(), *nfts.asset_id(), *nft_id)?;
                 }
                 Ok(())
             }
@@ -1494,10 +1496,10 @@ impl<T: Config> Pallet<T> {
                 asset_id,
                 amount,
                 ..
-            } => T::Portfolio::unlock_tokens(&sender, &asset_id, *amount),
+            } => T::Portfolio::unlock_tokens(sender.clone(), *asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::unlock_nft(&sender, nfts.asset_id(), &nft_id)?;
+                    T::Portfolio::unlock_nft(sender, nfts.asset_id(), nft_id)?;
                 }
                 Ok(())
             }
@@ -1637,7 +1639,7 @@ impl<T: Config> Pallet<T> {
             AffirmsReceived::<T>::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
             Self::deposit_event(Event::InstructionAutomaticallyAffirmed(
                 did,
-                *portfolio_id,
+                portfolio_id.clone(),
                 instruction_id,
             ));
         }
@@ -1703,11 +1705,11 @@ impl<T: Config> Pallet<T> {
             T::Portfolio::ensure_portfolio_validity(sender)?;
             T::Portfolio::ensure_portfolio_validity(receiver)?;
 
-            portfolios_pending_approval.insert(*sender);
+            portfolios_pending_approval.insert(sender.clone());
             if T::Portfolio::skip_portfolio_affirmation(receiver, asset_id) {
-                portfolios_pre_approved.insert(*receiver);
+                portfolios_pre_approved.insert(receiver.clone());
             } else {
-                portfolios_pending_approval.insert(*receiver);
+                portfolios_pending_approval.insert(receiver.clone());
             }
 
             let asset_mediators = MandatoryMediators::<T>::get(asset_id);
@@ -1765,14 +1767,15 @@ impl<T: Config> Pallet<T> {
         }
 
         // Updates storage.
-        for portfolio in &portfolios {
-            UserAffirmations::<T>::insert(portfolio, id, AffirmationStatus::Pending);
-            AffirmsReceived::<T>::remove(id, portfolio);
-            Self::deposit_event(Event::AffirmationWithdrawn(did, *portfolio, id));
+        let n_portfolios = portfolios.len();
+        for portfolio in portfolios {
+            UserAffirmations::<T>::insert(&portfolio, id, AffirmationStatus::Pending);
+            AffirmsReceived::<T>::remove(id, &portfolio);
+            Self::deposit_event(Event::AffirmationWithdrawn(did, portfolio, id));
         }
 
         InstructionAffirmsPending::<T>::mutate(id, |affirms_pending| {
-            *affirms_pending += u64::try_from(portfolios.len()).unwrap_or_default()
+            *affirms_pending += u64::try_from(n_portfolios).unwrap_or_default()
         });
         Ok(filtered_legs)
     }
@@ -2041,8 +2044,8 @@ impl<T: Config> Pallet<T> {
             match leg {
                 Leg::Fungible { sender, receiver, asset_id, amount } => {
                     if Asset::<T>::base_transfer(
-                        *sender,
-                        *receiver,
+                        sender.clone(),
+                        receiver.clone(),
                         *asset_id,
                         *amount,
                         Some(inst_id),
@@ -2057,8 +2060,8 @@ impl<T: Config> Pallet<T> {
                 }
                 Leg::NonFungible { sender, receiver, nfts } => {
                     if Nft::<T>::base_nft_transfer(
-                        *sender,
-                        *receiver,
+                        sender.clone(),
+                        receiver.clone(),
                         nfts.clone(),
                         inst_id,
                         inst_memo.clone(),
@@ -2152,14 +2155,15 @@ impl<T: Config> Pallet<T> {
         let affirms_pending = InstructionAffirmsPending::<T>::get(id);
 
         // Updates storage
-        for portfolio in &portfolios {
-            UserAffirmations::<T>::insert(portfolio, id, AffirmationStatus::Affirmed);
-            AffirmsReceived::<T>::insert(id, portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(Event::InstructionAffirmed(did, *portfolio, id));
+        let n_porfolios = portfolios.len();
+        for portfolio in portfolios {
+            UserAffirmations::<T>::insert(&portfolio, id, AffirmationStatus::Affirmed);
+            AffirmsReceived::<T>::insert(id, &portfolio, AffirmationStatus::Affirmed);
+            Self::deposit_event(Event::InstructionAffirmed(did, portfolio, id));
         }
         InstructionAffirmsPending::<T>::insert(
             id,
-            affirms_pending.saturating_sub(u64::try_from(portfolios.len()).unwrap_or_default()),
+            affirms_pending.saturating_sub(u64::try_from(n_porfolios).unwrap_or_default()),
         );
         Ok(filtered_legs)
     }
@@ -2289,8 +2293,8 @@ impl<T: Config> Pallet<T> {
         }
 
         for portfolio in portfolios {
-            UserAffirmations::<T>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-            AffirmsReceived::<T>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            UserAffirmations::<T>::insert(&portfolio, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::<T>::insert(instruction_id, &portfolio, AffirmationStatus::Affirmed);
             Self::deposit_event(Event::InstructionAffirmed(did, portfolio, instruction_id));
         }
 
@@ -2427,7 +2431,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         for portfolio in portfolios {
             T::Portfolio::ensure_portfolio_custody_and_permission(
-                *portfolio,
+                portfolio,
                 custodian,
                 secondary_key,
             )?;
@@ -2513,16 +2517,21 @@ impl<T: Config> Pallet<T> {
         inst_id: InstructionId,
         caller_pid: Option<PortfolioId>,
         input_asset_count: Option<AssetCount>,
-        use_default_portfolio: bool,
+        use_account_portfolio: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_did = origin_data.primary_did;
 
-        let caller_pid = if use_default_portfolio {
-            Some(PortfolioId::default_portfolio(caller_did))
-        } else {
-            caller_pid
+        let caller_pid = {
+            if use_account_portfolio {
+                let acc_portfolio =
+                    PortfolioId::account_portfolio(caller_did, origin_data.sender.encode())
+                        .map_err(|_| Error::<T>::InvalidAccountId)?;
+                Some(acc_portfolio)
+            } else {
+                caller_pid
+            }
         };
 
         let inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
@@ -2547,7 +2556,7 @@ impl<T: Config> Pallet<T> {
                 Self::ensure_valid_caller(
                     caller_did,
                     origin_data.secondary_key.as_ref(),
-                    caller_pid,
+                    caller_pid.as_ref(),
                     inst_details.venue_id,
                     &inst_id,
                     &inst_legs,
@@ -2559,7 +2568,7 @@ impl<T: Config> Pallet<T> {
                     Self::ensure_valid_caller(
                         caller_did,
                         origin_data.secondary_key.as_ref(),
-                        caller_pid,
+                        caller_pid.as_ref(),
                         inst_details.venue_id,
                         &inst_id,
                         &inst_legs,
@@ -2787,7 +2796,7 @@ impl<T: Config> Pallet<T> {
     fn base_manual_execution(
         origin: OriginFor<T>,
         inst_id: InstructionId,
-        caller_pid: Option<PortfolioId>,
+        caller_pid: Option<&PortfolioId>,
         input_asset_count: &AssetCount,
         skip_caller_check: bool,
         weight_meter: &mut WeightMeter,
@@ -3167,7 +3176,7 @@ impl<T: Config> Pallet<T> {
     fn ensure_valid_caller(
         caller_did: IdentityId,
         caller_sk: Option<&SecondaryKey<T::AccountId>>,
-        caller_pid: Option<PortfolioId>,
+        caller_pid: Option<&PortfolioId>,
         venue_id: Option<VenueId>,
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
@@ -3176,7 +3185,7 @@ impl<T: Config> Pallet<T> {
             T::Portfolio::ensure_portfolio_custody_and_permission(
                 caller_pid, caller_did, caller_sk,
             )?;
-            Self::ensure_portfolio_belongs_to_instruction(&inst_id, &caller_pid)?;
+            Self::ensure_portfolio_belongs_to_instruction(&inst_id, caller_pid)?;
             return Ok(());
         }
 
@@ -3645,16 +3654,19 @@ impl<T: Config> Pallet<T> {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
 
-        let from_portfolio = PortfolioId::default_portfolio(origin_data.primary_did);
+        let from_portfolio =
+            PortfolioId::account_portfolio(origin_data.primary_did, origin_data.sender.encode())
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
         let to_did = pallet_identity::Pallet::<T>::get_identity(&to)
             .ok_or(Error::<T>::ReceiverIdentityNotFound)?;
-        let to_portfolio = PortfolioId::default_portfolio(to_did);
+        let to_portfolio = PortfolioId::account_portfolio(to_did, to.encode())
+            .map_err(|_| Error::<T>::InvalidAccountId)?;
 
         // Prepare the leg depending on whether it's a fungible or non-fungible transfer
         let (leg, is_fungible) = match asset_or_nft {
             AssetOrNft::Asset { asset_id, amount } => (
                 Leg::Fungible {
-                    sender: from_portfolio,
+                    sender: from_portfolio.clone(),
                     receiver: to_portfolio,
                     asset_id,
                     amount,
@@ -3663,7 +3675,7 @@ impl<T: Config> Pallet<T> {
             ),
             AssetOrNft::Nft { asset_id, nft_id } => (
                 Leg::NonFungible {
-                    sender: from_portfolio,
+                    sender: from_portfolio.clone(),
                     receiver: to_portfolio,
                     nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
                 },
@@ -3726,7 +3738,9 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
-        let to_portfolio = PortfolioId::default_portfolio(origin_data.primary_did);
+        let to_portfolio =
+            PortfolioId::account_portfolio(origin_data.primary_did, origin_data.sender.encode())
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
 
         // Consume weight for the receiver affirmation
         Self::check_accrue(

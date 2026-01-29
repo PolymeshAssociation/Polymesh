@@ -143,7 +143,10 @@ impl UserWithBalance {
     #[track_caller]
     fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
-            Portfolio::user_portfolio_balance(self.user.did, num, asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(self.user.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             balance,
         );
     }
@@ -151,7 +154,10 @@ impl UserWithBalance {
     #[track_caller]
     fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
-            Portfolio::default_portfolio_balance(self.user.did, asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(self.user.did, PortfolioKind::Default),
+                &asset_id
+            ),
             balance,
         );
     }
@@ -2531,7 +2537,7 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                Some(alice_portfolio),
+                Some(alice_portfolio.clone()),
                 1,
                 0,
                 0,
@@ -2561,7 +2567,7 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                Some(alice_portfolio),
+                Some(alice_portfolio.clone()),
                 0,
                 0,
                 0,
@@ -3200,8 +3206,8 @@ fn add_instruction_with_offchain_assets() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3266,14 +3272,14 @@ fn add_instruction_with_pre_affirmed_tickers() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_user_porfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_user_porfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3328,7 +3334,7 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
         let authorization_id = Identity::add_auth(
             bob.did,
             Signatory::from(charlie.did),
-            AuthorizationData::PortfolioCustody(bob_user_porfolio),
+            AuthorizationData::PortfolioCustody(bob_user_porfolio.clone()),
             None,
         )
         .unwrap();
@@ -3336,14 +3342,14 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_user_porfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_user_porfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3392,19 +3398,21 @@ fn add_instruction_with_pre_affirmed_portfolio() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed their user portfolios
-        Portfolio::pre_approve_portfolio(bob.origin(), asset_id, bob_user_porfolio).unwrap();
-        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_user_porfolio).unwrap();
+        Portfolio::pre_approve_portfolio(bob.origin(), asset_id, bob_user_porfolio.clone())
+            .unwrap();
+        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_user_porfolio.clone())
+            .unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_user_porfolio,
-                receiver: bob_user_porfolio,
+                sender: alice_user_porfolio.clone(),
+                receiver: bob_user_porfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3460,14 +3468,14 @@ fn add_instruction_with_single_pre_affirmed() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id: asset_id2,
                 amount: ONE_UNIT,
             },
@@ -3514,14 +3522,14 @@ fn manually_execute_failed_instruction() {
         // Creates and affirms an instruction and force a failed execution
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: 1,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id: asset_id2,
                 amount: 1,
             },
@@ -3648,14 +3656,14 @@ fn affirm_instruction_cost() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_user_porfolio,
-                receiver: bob_user_porfolio,
+                sender: alice_user_porfolio.clone(),
+                receiver: bob_user_porfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3769,14 +3777,14 @@ fn reject_instruction_cost() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: 1,
             },
             Leg::NonFungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 nfts: NFTs::new_unverified(asset_id2, vec![NFTId(1)]),
             },
         ];
@@ -3794,7 +3802,7 @@ fn reject_instruction_cost() {
             Settlement::reject_instruction_with_count(
                 bob.origin(),
                 InstructionId(0),
-                bob_default_portfolio,
+                bob_default_portfolio.clone(),
                 Some(AssetCount::new(1, 0, 0))
             ),
             Error::NumberOfTransferredNFTsUnderestimated

@@ -61,6 +61,7 @@ std = [
 	"sp-arithmetic/std",
 	"rand_chacha",
 	"frame-benchmarking",
+	"sp-core/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

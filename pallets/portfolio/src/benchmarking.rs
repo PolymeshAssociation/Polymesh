@@ -105,11 +105,11 @@ benchmarks! {
 
         // Transfer the custody of the portfolio from `owner` to `custodian`.
         let custodian = user::<T>("custodian", 0);
-        let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio);
+        let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio.clone());
         Pallet::<T>::accept_portfolio_custody(custodian.origin.clone().into(), auth_id)?;
 
-        assert_custodian::<T>(user_portfolio, &custodian, true);
-    }: _(custodian.origin.clone(), user_portfolio)
+        assert_custodian::<T>(user_portfolio.clone(), &custodian, true);
+    }: _(custodian.origin.clone(), user_portfolio.clone())
     verify {
         assert_custodian::<T>(user_portfolio, &custodian, false);
     }
@@ -118,8 +118,8 @@ benchmarks! {
         let (owner, user_portfolio) = owner_portfolio::<T>();
 
         let custodian = user::<T>("custodian", 0);
-        let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio);
-        assert_custodian::<T>(user_portfolio, &custodian, false);
+        let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio.clone());
+        assert_custodian::<T>(user_portfolio.clone(), &custodian, false);
     }: _(custodian.origin.clone(), auth_id)
     verify {
         assert_custodian::<T>(user_portfolio, &custodian, true);
@@ -135,7 +135,7 @@ benchmarks! {
         Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
         let nft_asset_id = AssetId::new([0; 16]);
-        (1..n + 1).for_each(|id| PortfolioNFT::<T>::insert(alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
+        (1..n + 1).for_each(|id| PortfolioNFT::<T>::insert(&alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
 
         let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
         let mut funds = vec![Fund { description: FundDescription::NonFungible(nfts), memo: None }];
@@ -163,7 +163,7 @@ benchmarks! {
 
         let asset_id = AssetId::new([0; 16]);
         Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
-        Pallet::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio).unwrap();
+        Pallet::<T>::pre_approve_portfolio(alice.clone().origin().into(), asset_id, alice_custom_portfolio.clone()).unwrap();
     }: _(alice.origin, asset_id, alice_custom_portfolio)
 
     allow_identity_to_create_portfolios {

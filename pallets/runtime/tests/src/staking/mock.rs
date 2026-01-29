@@ -431,7 +431,7 @@ impl GroupTrait<Moment> for Test {
 }
 
 impl PortfolioSubTrait<AccountId> for Test {
-    fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
+    fn ensure_portfolio_custody(_: &PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 
@@ -439,23 +439,23 @@ impl PortfolioSubTrait<AccountId> for Test {
         unimplemented!()
     }
 
-    fn lock_tokens(_: &PortfolioId, _: &AssetId, _: Balance) -> DispatchResult {
+    fn lock_tokens(_: PortfolioId, _: AssetId, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(_: &PortfolioId, _: &AssetId, _: Balance) -> DispatchResult {
+    fn unlock_tokens(_: PortfolioId, _: AssetId, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
     fn ensure_portfolio_custody_and_permission(
-        _: PortfolioId,
+        _: &PortfolioId,
         _: IdentityId,
         _: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult {
         unimplemented!()
     }
 
-    fn lock_nft(_: &PortfolioId, _: &AssetId, _: &NFTId) -> DispatchResult {
+    fn lock_nft(_: PortfolioId, _: AssetId, _: NFTId) -> DispatchResult {
         unimplemented!()
     }
 

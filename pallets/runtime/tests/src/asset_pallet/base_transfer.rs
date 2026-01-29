@@ -1,7 +1,7 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::AccountKeyring;
 
-use pallet_asset::BalanceOf;
+use pallet_asset::{AssetBalance, BalanceOf};
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType};
@@ -29,14 +29,8 @@ fn base_transfer() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(AccountKeyring::Bob);
         let alice = User::new(AccountKeyring::Alice);
-        let alice_default_portfolio = PortfolioId {
-            did: alice.did,
-            kind: PortfolioKind::Default,
-        };
-        let bob_user_portfolio = PortfolioId {
-            did: bob.did,
-            kind: PortfolioKind::User(PortfolioNumber(1)),
-        };
+        let alice_default_portfolio = PortfolioId::new(alice.did, PortfolioKind::Default);
+        let bob_user_portfolio = PortfolioId::new(bob.did, PortfolioKind::User(PortfolioNumber(1)));
 
         assert_ok!(Portfolio::create_portfolio(
             bob.origin(),
@@ -49,8 +43,8 @@ fn base_transfer() {
         ),);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ok!(Asset::base_transfer(
-            alice_default_portfolio,
-            bob_user_portfolio,
+            alice_default_portfolio.clone(),
+            bob_user_portfolio.clone(),
             asset_id,
             ISSUE_AMOUNT,
             None,
@@ -227,8 +221,8 @@ fn base_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio,
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone(),
+                receiver: bob_default_portfolio.clone(),
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],
@@ -369,6 +363,72 @@ fn base_transfer_frozen_asset() {
                 &mut weight_meter
             ),
             AssetError::InvalidTransferFrozenAsset
+        );
+    })
+}
+
+#[test]
+fn base_acc_transfer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_acc_portfolio =
+            PortfolioId::new(alice.did, PortfolioKind::AccountId(alice.acc()));
+        let bob_acc_portfolio = PortfolioId::new(bob.did, PortfolioKind::AccountId(bob.acc()));
+
+        let asset_id = Asset::generate_asset_id(alice.acc(), false);
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            b"MyAsset".into(),
+            true,
+            AssetType::default(),
+            Vec::new(),
+            None,
+        ));
+
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            asset_id,
+            ISSUE_AMOUNT,
+            alice_acc_portfolio.kind.clone()
+        ));
+        assert_ok!(ComplianceManager::pause_asset_compliance(
+            alice.origin(),
+            asset_id
+        ),);
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        assert_ok!(Asset::base_transfer(
+            alice_acc_portfolio.clone(),
+            bob_acc_portfolio.clone(),
+            asset_id,
+            ISSUE_AMOUNT,
+            None,
+            None,
+            alice.did,
+            &mut weight_meter
+        ),);
+
+        assert_eq!(AssetBalance::<TestStorage>::get(&alice.acc(), &asset_id), 0);
+        assert_eq!(
+            AssetBalance::<TestStorage>::get(&bob.acc(), &asset_id),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &alice_acc_portfolio.did),
+            0
+        );
+        assert_eq!(
+            PortfolioAssetBalances::<TestStorage>::get(&alice_acc_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &bob_acc_portfolio.did),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            PortfolioAssetBalances::<TestStorage>::get(&bob_acc_portfolio, &asset_id),
+            0
         );
     })
 }

@@ -102,17 +102,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 ///
 /// All information contained is used by on-chain logic.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo
-)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
@@ -435,7 +425,7 @@ impl<T: Config> Pallet<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.asset_id)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &ca_id.asset_id)?;
 
         Self::unverified_distribute(
             agent,
@@ -461,7 +451,7 @@ impl<T: Config> Pallet<T> {
         ca_id: CAId,
         holder: IdentityId,
     ) -> DispatchResult {
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
         Self::transfer_benefit(agent, holder, ca_id)?;
         Ok(())
     }
@@ -473,7 +463,7 @@ impl<T: Config> Pallet<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.asset_id)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &ca_id.asset_id)?;
         let dist = Self::ensure_distribution_exists(ca_id)?;
         ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
         ensure!(
@@ -481,7 +471,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotExpired
         );
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-            dist.from,
+            &dist.from,
             agent,
             secondary_key.as_ref(),
         )?;
@@ -507,7 +497,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn base_remove_distribution(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
         let dist = Self::ensure_distribution_exists(ca_id)?;
         Self::unverified_remove_distribution(agent, ca_id, &dist)?;
 
@@ -588,8 +578,8 @@ impl<T: Config> Pallet<T> {
         // Transfer remainder (`gain`) to DID.
         let to = PortfolioId::default_portfolio(holder);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        <Asset<T>>::base_transfer(
-            dist.from,
+        Asset::<T>::base_transfer(
+            dist.from.clone(),
             to,
             dist.currency,
             gain,
@@ -604,7 +594,7 @@ impl<T: Config> Pallet<T> {
         let holder = holder.for_event();
 
         // Commit `dist` change to storage.
-        Distributions::<T>::insert(ca_id, dist);
+        Distributions::<T>::insert(ca_id, &dist);
 
         // Emit event.
         Self::deposit_event(Event::BenefitClaimed(
@@ -616,7 +606,7 @@ impl<T: Config> Pallet<T> {
 
     /// Unlock `amount` of `dist.currency` in the `dist.from` portfolio.
     fn unlock(dist: &Distribution, amount: Balance) -> DispatchResult {
-        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, amount)
+        Portfolio::<T>::unlock_tokens(dist.from.clone(), dist.currency, amount)
     }
 
     // Compute `balance * per_share`, i.e. DID's benefit.
@@ -682,7 +672,7 @@ impl<T: Config> Pallet<T> {
             kind: portfolio.into(),
         };
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-            from,
+            &from,
             agent,
             secondary_key.as_ref(),
         )?;
@@ -706,7 +696,7 @@ impl<T: Config> Pallet<T> {
         T::ProtocolFee::charge_fee(ProtocolOp::CapitalDistributionDistribute)?;
 
         // (1) Lock `amount` in `from`.
-        <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
+        Portfolio::<T>::unchecked_lock_tokens(from.clone(), currency, amount);
 
         // Commit to storage.
         let distribution = Distribution {
@@ -719,7 +709,7 @@ impl<T: Config> Pallet<T> {
             payment_at,
             expires_at,
         };
-        Distributions::<T>::insert(ca_id, distribution);
+        Distributions::<T>::insert(ca_id, &distribution);
 
         // Emit event.
         Self::deposit_event(Event::Created(agent, ca_id, distribution));

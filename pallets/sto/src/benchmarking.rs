@@ -43,6 +43,7 @@ where
             false,
             0,
             true,
+            false,
         );
     let (investor_raising_portfolio, fundraiser_raising_portfolio, _, raising_asset_id) =
         setup_asset_transfer(
@@ -54,6 +55,7 @@ where
             false,
             0,
             true,
+            false,
         );
 
     let trusted_user = UserBuilder::<T>::default()
@@ -113,9 +115,9 @@ where
 
     <Sto<T>>::create_fundraiser(
         fundraiser.origin().into(),
-        setup_portfolios.fundraiser_offering_portfolio,
+        setup_portfolios.fundraiser_offering_portfolio.clone(),
         setup_portfolios.offering_asset_id,
-        setup_portfolios.fundraiser_raising_portfolio,
+        setup_portfolios.fundraiser_raising_portfolio.clone(),
         setup_portfolios.raising_asset_id,
         generate_tiers(tiers),
         venue_id,

@@ -18,9 +18,11 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use alloc::string::ToString;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::{Display, Formatter};
 use core::str;
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Printable;
 use sp_std::prelude::Vec;
@@ -251,22 +253,20 @@ impl From<u64> for PortfolioNumber {
 }
 
 /// The kind of a portfolio. It can be either a default portfolio or a user-defined one.
-#[derive(Decode, Encode, TypeInfo, MaxEncodedLen)]
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Default, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
+    #[default]
     #[cfg_attr(feature = "std", serde(alias = "default"))]
     Default,
     /// A user-defined portfolio of a DID.
     #[cfg_attr(feature = "std", serde(alias = "user"))]
     User(PortfolioNumber),
-}
-
-impl Default for PortfolioKind {
-    fn default() -> Self {
-        Self::Default
-    }
+    /// A key-based portfolio owned by an account.
+    #[cfg_attr(feature = "std", serde(alias = "account"))]
+    AccountId(AccountId),
 }
 
 impl From<Option<PortfolioNumber>> for PortfolioKind {
@@ -277,8 +277,8 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
 
 /// The identification of a portfolio. Contains the [`IdentityId`] of the portfolio owner and the [`PortfolioKind`].
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct PortfolioId {
     /// The DID of the portfolio owner.
     pub did: IdentityId,
@@ -290,12 +290,16 @@ impl Printable for PortfolioId {
     fn print(&self) {
         self.did.print();
         sp_io::misc::print_utf8(b"/");
-        match self.kind {
+        match &self.kind {
             PortfolioKind::Default => {
                 sp_io::misc::print_utf8(b"default");
             }
             PortfolioKind::User(num) => {
                 sp_io::misc::print_num(num.0);
+            }
+            PortfolioKind::AccountId(account_id) => {
+                sp_io::misc::print_utf8(b"account:");
+                sp_io::misc::print_hex(account_id.as_ref());
             }
         }
     }
@@ -321,6 +325,18 @@ impl PortfolioId {
             did,
             kind: PortfolioKind::User(num),
         }
+    }
+
+    /// Returns an account based portfolio for the given account. Fails if the provided account ID is not 32 bytes long.
+    pub fn account_portfolio(did: IdentityId, account_id: Vec<u8>) -> Result<Self, String> {
+        let account_id: [u8; 32] = account_id
+            .try_into()
+            .map_err(|_| "AccountId must be 32 bytes long".to_string())?;
+
+        Ok(Self {
+            did,
+            kind: PortfolioKind::AccountId(account_id.into()),
+        })
     }
 }
 

@@ -50,7 +50,7 @@ impl AssetHelper {
         mint: u128,
         signers: Vec<AccountId>,
     ) -> Result<Self> {
-        Self::new_full(api, issuer, name, mint, signers, true).await
+        Self::new_full(api, issuer, name, mint, signers, true, None).await
     }
 
     /// Create a new asset and mint some tokens.
@@ -61,6 +61,7 @@ impl AssetHelper {
         mint: u128,
         signers: Vec<AccountId>,
         need_venue: bool,
+        portfolio_kind: Option<PortfolioKind>,
     ) -> Result<Self> {
         // Create a new venue.
         let venue_res = if need_venue {
@@ -102,7 +103,11 @@ impl AssetHelper {
         let mut mint_res = api
             .call()
             .asset()
-            .issue(asset_id, mint, PortfolioKind::Default)?
+            .issue(
+                asset_id,
+                mint,
+                portfolio_kind.unwrap_or(PortfolioKind::Default),
+            )?
             .submit_and_watch(issuer)
             .await?;
 

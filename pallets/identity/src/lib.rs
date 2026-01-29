@@ -515,6 +515,8 @@ pub mod pallet {
     ///
     /// Pallets using "strong" references to account keys:
     /// * Relayer: For `user_key` and `paying_key`
+    /// * Assets: Updated when an account holds an asset with non-zero balance.
+    /// * NFT: Updated when an account owns an NFT.
     ///
     #[pallet::storage]
     pub type AccountKeyRefCount<T: Config> =
@@ -1099,6 +1101,8 @@ pub mod pallet {
         UnauthorizedCallerDidMissingCdd,
         /// The key does not have permissions to execute the extrinsic.
         UnauthorizedCallerMissingPermissions,
+        /// Account based portfolios cannot have custodians.
+        AccountBasedPortfoliosCannotHaveCustodians,
     }
 }
 

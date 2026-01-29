@@ -321,8 +321,8 @@ fn receivers_missing_portfolio() {
         Portfolio::create_portfolio(bob.origin(), PortfolioName(b"MyPid".into())).unwrap();
 
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_portfolio,
+            sender: alice_default_portfolio.clone(),
+            receiver: bob_portfolio.clone(),
             asset_id,
             amount: 1_000,
         }];
@@ -410,7 +410,7 @@ fn sender_tokens_are_locked() {
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
-        Portfolio::unlock_tokens(&PortfolioId::default_portfolio(alice.did), &asset_id, 1).unwrap();
+        Portfolio::unlock_tokens(PortfolioId::default_portfolio(alice.did), asset_id, 1).unwrap();
 
         assert_noop!(
             Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
