@@ -129,6 +129,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, AssetId, NFTCount, ValueQuery>;
 
     /// Tracks the owner of an NFT
+    /// This will be deprecated in the future release.
     #[pallet::storage]
     pub type NFTOwner<T: Config> = StorageDoubleMap<
         _,
@@ -967,7 +968,11 @@ impl<T: Config> Pallet<T> {
     fn add_nft_owner(asset_id: AssetId, nft_id: NFTId, owner_portfolio: PortfolioId) {
         let asset_holder = {
             match owner_portfolio.kind {
-                PortfolioKind::AccountId(acc_id) => AssetHolder::Account(acc_id),
+                PortfolioKind::AccountId(acc_id) => {
+                    // TODO: Remove storage after v7.4
+                    NFTOwner::<T>::remove(&asset_id, &nft_id);
+                    AssetHolder::Account(acc_id);
+                }
                 PortfolioKind::Default | PortfolioKind::User(_) => {
                     // TODO: Remove storage after v7.4
                     NFTOwner::<T>::insert(asset_id, nft_id, owner_portfolio.clone());
