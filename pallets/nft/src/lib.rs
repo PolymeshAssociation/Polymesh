@@ -971,7 +971,7 @@ impl<T: Config> Pallet<T> {
                 PortfolioKind::AccountId(acc_id) => {
                     // TODO: Remove storage after v7.4
                     NFTOwner::<T>::remove(&asset_id, &nft_id);
-                    AssetHolder::Account(acc_id);
+                    AssetHolder::Account(acc_id)
                 }
                 PortfolioKind::Default | PortfolioKind::User(_) => {
                     // TODO: Remove storage after v7.4
