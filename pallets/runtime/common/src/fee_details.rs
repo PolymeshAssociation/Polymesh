@@ -179,7 +179,7 @@ where
             );
         }
 
-        Ok(Some(caller_acc_id.clone()))
+        Ok(Some(caller_acc_id))
     }
 
     /// Decreases the authorization count for the given target and auth_id.
