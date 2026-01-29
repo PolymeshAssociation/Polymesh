@@ -270,7 +270,8 @@ pub mod pallet {
         #[pallet::constant]
         type MaxGivenAuths: Get<u32>;
 
-        /// Maximum number of authorizations an identity can give.
+        /// Maximum number of retry attempts allowed for an authorization
+        /// before it is considered unusable.
         #[pallet::constant]
         type MaxAuthRetries: Get<u8>;
     }
