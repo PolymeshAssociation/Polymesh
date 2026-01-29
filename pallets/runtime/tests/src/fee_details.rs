@@ -40,7 +40,7 @@ fn cdd_checks() {
                     &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
                         sigs_required: 1
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
@@ -49,7 +49,7 @@ fn cdd_checks() {
             assert_noop!(
                 CddHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer { auth_id: 0 }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
             );
@@ -66,7 +66,7 @@ fn cdd_checks() {
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
@@ -78,7 +78,7 @@ fn cdd_checks() {
                         auth_id: alice_auth_id,
                         auth_issuer_pays: true
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
@@ -90,7 +90,7 @@ fn cdd_checks() {
                         auth_id: alice_auth_id,
                         auth_issuer_pays: false
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
@@ -110,7 +110,7 @@ fn cdd_checks() {
                         auth_id: alice_auth_id,
                         auth_issuer_pays: false
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
@@ -122,7 +122,7 @@ fn cdd_checks() {
                         auth_id: alice_auth_id,
                         auth_issuer_pays: true
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
@@ -142,7 +142,7 @@ fn cdd_checks() {
                         auth_id: charlie_auth_id,
                         auth_issuer_pays: true
                     }),
-                    &charlie_account
+                    charlie_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
@@ -155,7 +155,7 @@ fn cdd_checks() {
                         auth_id: charlie_auth_id,
                         auth_issuer_pays: false
                     }),
-                    &charlie_account
+                    charlie_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
@@ -174,7 +174,7 @@ fn cdd_checks() {
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
-                    &alice_account
+                    alice_account.clone()
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
@@ -185,7 +185,7 @@ fn cdd_checks() {
                     &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
                         sigs_required: 1
                     }),
-                    &charlie_account
+                    charlie_account
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );

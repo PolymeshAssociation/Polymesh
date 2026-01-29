@@ -675,7 +675,7 @@ fn do_relayer_accept_cdd_and_fees_test() {
     assert_eq!(
         CddHandler::get_valid_payer(
             &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }),
-            &bob.acc()
+            bob.acc()
         ),
         Ok(Some(alice.acc()))
     );

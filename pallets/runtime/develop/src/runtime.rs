@@ -134,6 +134,7 @@ parameter_types! {
     // Identity:
     pub const InitialPOLYX: Balance = 0;
     pub const MaxGivenAuths: u32 = 1024;
+    pub const MaxAuthRetries: u8 = 10;
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
@@ -213,6 +214,7 @@ impl pallet_identity::Config for Runtime {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
+    type MaxAuthRetries = MaxAuthRetries;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

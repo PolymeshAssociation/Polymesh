@@ -194,6 +194,7 @@ parameter_types! {
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 
     pub MaxGivenAuths: u32 = 1024;
+    pub MaxAuthRetries: u8 = 10;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
@@ -215,6 +216,7 @@ impl pallet_identity::Config for Runtime {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
+    type MaxAuthRetries = MaxAuthRetries;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

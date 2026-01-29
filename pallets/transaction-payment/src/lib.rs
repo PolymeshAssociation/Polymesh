@@ -760,7 +760,7 @@ where
 
     fn withdraw_fee(
         &self,
-        who: &T::AccountId,
+        who: T::AccountId,
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
         len: usize,
@@ -858,6 +858,8 @@ where
         <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
         // Polymesh: Subsidiser
         Option<Self::AccountId>,
+        // The AuthId of the call
+        Option<u64>,
     );
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
@@ -872,7 +874,7 @@ where
     ) -> TransactionValidity {
         let tip = self.ensure_valid_tip(who, info)?;
 
-        let (_fee, _, _) = self.withdraw_fee(who, call, info, len)?;
+        let (_fee, _, _) = self.withdraw_fee(who.clone(), call, info, len)?;
         // Polymesh: `tip` can only be used by GC/CDD members.
         Ok(ValidTransaction {
             priority: tip.saturated_into::<TransactionPriority>(),
@@ -888,8 +890,9 @@ where
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let tip = self.ensure_valid_tip(who, info)?;
-        let (_fee, imbalance, subsidiser) = self.withdraw_fee(who, call, info, len)?;
-        Ok((tip, who.clone(), imbalance, subsidiser))
+        let (_fee, imbalance, subsidiser) = self.withdraw_fee(who.clone(), call, info, len)?;
+        let auth_id = T::CddHandler::get_authorization_id(call);
+        Ok((tip, who.clone(), imbalance, subsidiser, auth_id))
     }
 
     fn post_dispatch(
@@ -897,12 +900,18 @@ where
         info: &DispatchInfoOf<Self::Call>,
         post_info: &PostDispatchInfoOf<Self::Call>,
         len: usize,
-        _result: &DispatchResult,
+        result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance, subsidiser) = match pre {
+        let (tip, who, imbalance, subsidiser, auth_id) = match pre {
             Some(pre) => pre,
             None => return Ok(()),
         };
+
+        // We want to decrease the counter of Authorization.count when the caller is not paying for the fee and the call failed
+        if result.is_err() {
+            T::CddHandler::decrease_authorization_count(&who, auth_id);
+        }
+
         let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.
