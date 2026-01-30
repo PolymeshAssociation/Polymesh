@@ -19,7 +19,7 @@ use pallet_portfolio::{Call as PortfolioCall, Portfolios};
 use pallet_timestamp::Call as TimestampCall;
 use pallet_utility::{self as utility, Call as UtilityCall, Config as UtilityConfig};
 use pallet_utility::{Event, Nonces, UniqueCall, WeightInfo};
-use polymesh_primitives::traits::CddAndFeeDetails;
+use polymesh_primitives::traits::CurrentFeePayer;
 use polymesh_primitives::{AccountId, Balance, ExtrinsicPermissions};
 use polymesh_primitives::{PalletPermissions, Permissions, PortfolioName};
 use polymesh_primitives::{PortfolioNumber, SubsetRestriction, Ticker};

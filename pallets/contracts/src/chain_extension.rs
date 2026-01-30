@@ -14,12 +14,10 @@ use sp_runtime::traits::Dispatchable;
 
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
-use pallet_identity::Context;
 use pallet_permissions::with_call_metadata;
+use polymesh_transaction_payment::Pallet as TransactionPallet;
 
 use super::*;
-
-type Identity<T> = pallet_identity::Pallet<T>;
 
 /// Maximum decoding depth.
 const MAX_DECODE_DEPTH: u32 = 10;
@@ -139,10 +137,10 @@ impl Into<i32> for FuncId {
 
 /// Run `with` while the current Payer is temporarily set to the given one.
 fn with_payer<T: Config, W: FnOnce() -> R, R>(payer: T::AccountId, with: W) -> R {
-    let old_payer = Context::current_payer::<Identity<T>>();
-    Context::set_current_payer::<Identity<T>>(Some(payer));
+    let old_payer = TransactionPallet::<T>::current_payer();
+    TransactionPallet::<T>::set_current_payer(Some(payer));
     let result = with();
-    Context::set_current_payer::<Identity<T>>(old_payer);
+    TransactionPallet::<T>::set_current_payer(old_payer);
     result
 }
 
@@ -261,7 +259,7 @@ where
         target: "runtime",
         "PolymeshExtension contract GetKeyDid: key={key:?}",
     );
-    let did = Identity::<T>::get_identity(&key);
+    let did = pallet_identity::Pallet::<T>::get_identity(&key);
     log::trace!(
         target: "runtime",
         "PolymeshExtension contract GetKeyDid: did={did:?}",

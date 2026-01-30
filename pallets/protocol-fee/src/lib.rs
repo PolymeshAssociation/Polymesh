@@ -52,7 +52,7 @@ use sp_std::vec::Vec;
 use frame_system::ensure_root;
 use pallet_identity::Config as IdentityConfig;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::traits::{CddAndFeeDetails, SubsidiserTrait};
+use polymesh_primitives::traits::{CurrentFeePayer, SubsidiserTrait};
 use polymesh_primitives::{Balance, IdentityId, PosRatio, GC_DID};
 
 type NegativeImbalanceOf<T> =
@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn withdraw_from_payer(fee: Balance) -> DispatchResult {
-        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+        if let Some(payer) = T::TxFeeHandler::get_payer_from_context() {
             let imbalance = Self::withdraw_fee(payer, fee)?;
             T::OnProtocolFeePayment::on_unbalanced(imbalance);
         }

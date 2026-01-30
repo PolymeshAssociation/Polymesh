@@ -33,34 +33,28 @@ pub use asset::*;
 pub use settlement::*;
 
 // Polymesh note: This was specifically added for Polymesh
-pub trait CddAndFeeDetails<AccountId, Call> {
+pub trait CurrentFeePayer<AccountId, Call> {
     /// Returns the account that will pay for the call.
     fn get_valid_payer(
         call: &Call,
         caller: AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
-    /// Clears context. Should be called in post_dispatch
-    fn clear_context();
     /// Sets payer in context. Should be called by the signed extension that first charges fee.
     fn set_payer_context(payer: Option<AccountId>);
     /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId>;
     /// Decreases the authorization count if any of the following extrinsics failed:
     /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
-    /// - pallet-relayer (accept_paying_key)
     /// - pallet-multisig (accept_multisig_signer)
     fn decrease_authorization_count(caller: &AccountId, auth_id: Option<u64>);
     /// Returns Some(auth_id) of the call if any of the following extrinsics are called:
     /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
-    /// - pallet-relayer (accept_paying_key)
     /// - pallet-multisig (accept_multisig_signer)
     fn get_authorization_id(call: &Call) -> Option<u64>;
 }
 
 pub trait IdentityFnTrait<AccountId> {
     fn get_identity(key: &AccountId) -> Option<IdentityId>;
-    fn current_payer() -> Option<AccountId>;
-    fn set_current_payer(payer: Option<AccountId>);
 
     /// Provides the DID status for the given DID
     fn is_did_active(target_did: IdentityId) -> bool;

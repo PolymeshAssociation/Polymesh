@@ -231,7 +231,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl polymesh_transaction_payment::Config for Runtime {
-            type CddHandler = CddHandler;
+            type TxFeeHandler = TxFeeHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
             type DidRegistrars = DidRegistrars;

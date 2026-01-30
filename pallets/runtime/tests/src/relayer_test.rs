@@ -11,9 +11,9 @@ use sp_runtime::MultiAddress;
 use pallet_relayer::Subsidy;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::protocol_fee::ProtocolOp;
-use polymesh_primitives::traits::CddAndFeeDetails;
+use polymesh_primitives::traits::CurrentFeePayer;
 use polymesh_primitives::{AccountId, Balance, Ticker, TransactionError};
-use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
+use polymesh_runtime_develop::runtime::{TxFeeHandler, RuntimeCall as DevRuntimeCall};
 use polymesh_transaction_payment::Val;
 
 use super::storage::{RuntimeCall, TestStorage, User};
@@ -667,7 +667,7 @@ fn do_relayer_accept_cdd_and_fees_test() {
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
-        CddHandler::get_valid_payer(
+        TxFeeHandler::get_valid_payer(
             &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_subsidy {
                 paying_key: alice.acc()
             }),

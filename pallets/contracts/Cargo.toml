@@ -13,7 +13,9 @@ codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-system = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
-scale-info = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = [
+    "derive",
+] }
 sp-core = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
@@ -23,6 +25,7 @@ sp-std = { workspace = true, default-features = false }
 pallet-base = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
@@ -41,6 +44,7 @@ std = [
     "pallet-base/std",
     "pallet-identity/std",
     "pallet-contracts/std",
+    "polymesh-transaction-payment/std",
     "polymesh-primitives/std",
     "wasm-instrument?/std",
 ]
@@ -51,6 +55,7 @@ runtime-benchmarks = [
     "pallet-contracts/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
     "pallet-permissions/runtime-benchmarks",
+    "polymesh-transaction-payment/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "wasm-instrument",
 ]

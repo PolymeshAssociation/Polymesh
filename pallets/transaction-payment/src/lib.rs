@@ -24,7 +24,7 @@ use sp_runtime::traits::{TransactionExtension, Zero};
 use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
 
 use polymesh_primitives::traits::group::GroupTrait;
-use polymesh_primitives::traits::{CddAndFeeDetails, IdentityFnTrait, SubsidiserTrait};
+use polymesh_primitives::traits::{CurrentFeePayer, IdentityFnTrait, SubsidiserTrait};
 use polymesh_primitives::TransactionError;
 
 pub use pallet::*;
@@ -66,7 +66,7 @@ pub mod pallet {
         frame_system::Config + pallet_transaction_payment::Config + pallet_timestamp::Config
     {
         /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
-        type CddHandler: CddAndFeeDetails<Self::AccountId, Self::RuntimeCall>;
+        type TxFeeHandler: CurrentFeePayer<Self::AccountId, Self::RuntimeCall>;
 
         /// Used to charge transaction fees to a subsidiser, instead of the payer.
         type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
@@ -81,6 +81,10 @@ pub mod pallet {
     #[cfg(feature = "disable_fees")]
     #[pallet::storage]
     pub type DisableFees<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    /// It stores the current gas fee payer for the current transaction.
+    #[pallet::storage]
+    pub type CurrentPayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -117,6 +121,23 @@ pub mod pallet {
             #[cfg(feature = "disable_fees")]
             DisableFees::<T>::put(_value);
             Ok(())
+        }
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    /// Fetches the fee payer from the context.
+    pub fn current_payer() -> Option<T::AccountId> {
+        CurrentPayer::<T>::get()
+    }
+
+    /// Sets the fee payer in the context.
+    pub fn set_current_payer(payer: Option<T::AccountId>) {
+        if let Some(payer) = payer {
+            CurrentPayer::<T>::put(payer);
+        } else {
+            // Clear the current payer
+            CurrentPayer::<T>::kill();
         }
     }
 }
@@ -176,7 +197,7 @@ where
             T,
         >>::can_withdraw_fee(fee_key, call, info, fee_with_tip, tip)?;
 
-        T::CddHandler::set_payer_context(Some(payers_key));
+        T::TxFeeHandler::set_payer_context(Some(payers_key));
 
         // -----------------------------------------------------------------
 
@@ -220,7 +241,7 @@ where
                 tip,
             )?;
 
-        T::CddHandler::set_payer_context(Some(payers_key));
+        T::TxFeeHandler::set_payer_context(Some(payers_key));
 
         // -----------------------------------------------------------------
 
@@ -233,7 +254,7 @@ where
         fee_with_tip: BalanceOf<T>,
     ) -> Result<(T::AccountId, Option<T::AccountId>), InvalidTransaction> {
         // Get the payer for this transaction.
-        let payers_key = T::CddHandler::get_valid_payer(call, who.clone())?
+        let payers_key = T::TxFeeHandler::get_valid_payer(call, who.clone())?
             .ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
@@ -410,7 +431,7 @@ where
             } => {
                 let (_, subsidiser, imbalance) =
                     self.withdraw_fee(&who, call, info, fee_with_tip)?;
-                let auth_id = T::CddHandler::get_authorization_id(call);
+                let auth_id = T::TxFeeHandler::get_authorization_id(call);
 
                 Ok(Pre::Charge {
                     tip,
@@ -430,6 +451,9 @@ where
         len: usize,
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
+        // Clear the current payer at the beginning of post_dispatch to ensure it's cleared even if errors occur later.
+        let current_payer = CurrentPayer::<T>::take();
+
         let (tip, who, imbalance, subsidiser, auth_id) = {
             match pre {
                 Pre::Charge {
@@ -445,14 +469,14 @@ where
 
         // We want to decrease the counter of Authorization.count when the caller is not paying for the fee and the call failed
         if result.is_err() {
-            T::CddHandler::decrease_authorization_count(&who, auth_id);
+            T::TxFeeHandler::decrease_authorization_count(&who, auth_id);
         }
 
         let actual_fee =
             TransactionPallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.
-        let payers_key = T::CddHandler::get_payer_from_context().unwrap_or(who.clone());
+        let payers_key = current_payer.unwrap_or(who.clone());
 
         let fee_key = {
             if let Some(subsidiser_acc) = subsidiser {
@@ -469,8 +493,6 @@ where
 
         TransactionPallet::<T>::deposit_fee_paid_event(fee_key, actual_fee, tip);
 
-        // It clears the identity and payer in the context after transaction.
-        T::CddHandler::clear_context();
         Ok(())
     }
 }

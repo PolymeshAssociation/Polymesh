@@ -25,13 +25,13 @@ use polymesh_primitives::identity::{
     CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
 };
 use polymesh_primitives::{
-    constants::currency::POLY, traits::group::GroupTrait, traits::CddAndFeeDetails, AccountId,
+    constants::currency::POLY, traits::group::GroupTrait, traits::CurrentFeePayer, AccountId,
     AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId,
     ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord, PalletName,
     PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
     SubsetRestriction, SystematicIssuers, Ticker, GC_DID,
 };
-use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
+use polymesh_runtime_develop::runtime::{RuntimeCall, TxFeeHandler};
 use sp_core::H512;
 use sp_keyring::Sr25519Keyring;
 use sp_std::iter;
@@ -455,7 +455,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 
     // 4. Bob should be able to transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
-    let payer = CddHandler::get_valid_payer(
+    let payer = TxFeeHandler::get_valid_payer(
         &RuntimeCall::Balances(balances::Call::transfer_with_memo {
             dest: Sr25519Keyring::Charlie.to_account_id().into(),
             value: 1_000,

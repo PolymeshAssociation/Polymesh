@@ -85,12 +85,11 @@ use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
 use pallet_balances::Config as BalancesConfig;
-use pallet_identity::{Config as IdentityConfig, Context};
+use pallet_identity::Config as IdentityConfig;
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::identity::AuthorizationNonce;
 use polymesh_primitives::{crypto::verify_signature, IdentityId};
-
-type Identity<T> = pallet_identity::Pallet<T>;
+use polymesh_transaction_payment::{Config as TransactionConfig, Pallet as TransactionPallet};
 
 pub trait WeightInfo {
     fn batch(c: u32) -> Weight;
@@ -148,7 +147,9 @@ pub mod pallet {
     ///
     /// POLYMESH: Add `IdentityConfig` and `BalancesConfig`.
     #[pallet::config]
-    pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
+    pub trait Config:
+        frame_system::Config + IdentityConfig + BalancesConfig + TransactionConfig
+    {
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -712,9 +713,9 @@ impl<T: Config> Pallet<T> {
         bypass_filter: bool,
     ) -> Result<PostDispatchInfo, DispatchErrorWithPostInfo> {
         // Hold the original value for payer.
-        let original_payer = Context::current_payer::<Identity<T>>();
+        let original_payer = TransactionPallet::<T>::current_payer();
         // Temporarily change payer
-        Context::set_current_payer::<Identity<T>>(account_id);
+        TransactionPallet::<T>::set_current_payer(account_id);
         // dispatch the call
         let call_result = {
             with_call_metadata::<T, _>(call.get_call_metadata(), || {
@@ -726,7 +727,7 @@ impl<T: Config> Pallet<T> {
             })
         };
         // Restore the original payer
-        Context::set_current_payer::<Identity<T>>(original_payer);
+        TransactionPallet::<T>::set_current_payer(original_payer);
         call_result
     }
 }
