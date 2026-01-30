@@ -118,7 +118,7 @@ benchmarks! {
 
     }: _(parent.origin, child_did)
     verify {
-        assert!(Pallet::<T>::has_valid_cdd(child_did));
+        assert!(Pallet::<T>::is_did_active(child_did));
     }
 
     cdd_register_did {

@@ -264,7 +264,7 @@ impl pallet_pips::Config for Runtime {
     type SchedulerPreimage = Preimage;
 }
 
-/// CddProviders instance of group
+/// DidRegistrars instance of group
 impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = polymesh_primitives::EnsureRoot;

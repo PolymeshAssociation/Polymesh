@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
 
 pub type Error = Vec<u8>;
-pub type CddStatus = Result<IdentityId, Error>;
+pub type DidActiveStatus = Result<IdentityId, Error>;
 pub type AssetDidResult = Result<IdentityId, Error>;
 
 pub fn zero_account_id<AccountId: Decode>() -> AccountId {
@@ -35,7 +35,9 @@ pub enum RpcDidRecords<AccountId> {
 pub enum DidStatus {
     Unknown,
     Exists,
-    CddVerified,
+    /// DID is registered and active.
+    /// Note: Formerly `CddVerified`. With CDD removal, DID existence is sufficient.
+    Active,
 }
 
 /// Aggregate information about an `AccountId` in relation to an `IdentityId`.

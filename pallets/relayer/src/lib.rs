@@ -192,8 +192,8 @@ pub mod pallet {
         /// - `Error::BadAuthorizationType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
         /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
         /// - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
-        /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
-        /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
+        /// - `UserKeyDidMissing` if the `user_key` is not attached to an active identity.
+        /// - `PayingKeyDidMissing` if the `paying_key` is not attached to an active identity.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::accept_paying_key())]
@@ -287,10 +287,10 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The `user_key` is not attached to a CDD'd identity.
-        UserKeyCddMissing,
-        /// The `user_key` is not attached to a CDD'd identity.
-        PayingKeyCddMissing,
+        /// The `user_key` is not attached to an active DID.
+        UserKeyDidMissing,
+        /// The `paying_key` is not attached to an active DID.
+        PayingKeyDidMissing,
         /// The `user_key` doesn't have a `paying_key`.
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
@@ -322,7 +322,7 @@ impl<T: Config> Pallet<T> {
     fn base_accept_paying_key(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let caller_key = ensure_signed(origin)?;
         let user_did =
-            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::UserKeyCddMissing)?;
+            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::UserKeyDidMissing)?;
         let signer = Signatory::Account(caller_key.clone());
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
@@ -455,10 +455,10 @@ impl<T: Config> Pallet<T> {
         Ok(auth_id)
     }
 
-    /// Check if the `key` has a valid CDD.
-    fn key_has_valid_cdd(key: &T::AccountId) -> bool {
+    /// Check if the `key` is attached to an active DID.
+    fn key_has_valid_did(key: &T::AccountId) -> bool {
         if let Some(did) = <Identity<T>>::get_identity(key) {
-            <Identity<T>>::has_valid_cdd(did)
+            <Identity<T>>::is_did_active(did)
         } else {
             false
         }
@@ -493,14 +493,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotAuthorizedForPayingKey
         );
 
-        // Ensure both user_key and paying_key have valid CDD.
+        // Ensure both user_key and paying_key are attached to active DIDs.
         ensure!(
-            <Identity<T>>::has_valid_cdd(user_did),
-            Error::<T>::UserKeyCddMissing
+            <Identity<T>>::is_did_active(user_did),
+            Error::<T>::UserKeyDidMissing
         );
         ensure!(
-            Self::key_has_valid_cdd(&paying_key),
-            Error::<T>::PayingKeyCddMissing
+            Self::key_has_valid_did(&paying_key),
+            Error::<T>::PayingKeyDidMissing
         );
 
         // Remove existing subsidy for the user_key, if it exists.

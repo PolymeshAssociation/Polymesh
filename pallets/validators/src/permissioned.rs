@@ -9,6 +9,7 @@ use sp_std::prelude::*;
 
 use polymesh_primitives::IdentityId;
 use polymesh_primitives::GC_DID;
+
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
 
@@ -50,7 +51,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     /// Onboard an account.
     #[cfg(feature = "runtime-benchmarks")]
     fn onboard_account(who: &T::AccountId) {
-        let _ = T::IdentityFn::testing_cdd_register_did(who.clone(), vec![]);
+        let _ = T::IdentityFn::testing_register_did(who.clone(), vec![]);
     }
 
     /// Permission a validator.
@@ -133,16 +134,16 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         Ok(())
     }
 
-    /// Returns `true` if `stash` has a valid cdd claim and is permissioned. Otherwise, returns `false`.
+    /// Returns `true` if `stash` has an active DID and is permissioned. Otherwise, returns `false`.
     fn is_validator_compliant(stash: &T::AccountId) -> bool {
         pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
-            pallet_identity::Pallet::<T>::has_valid_cdd(id)
+            pallet_identity::Pallet::<T>::is_did_active(id)
                 && PermissionedIdentity::<T>::get(id).is_some()
                 && Self::is_validator_active_balance_valid(stash)
         })
     }
 
-    /// Returns `true` if `who` has a valid cdd claim. Otherwise, returns `false`.
+    /// Returns `true` if `who` has an active DID. Otherwise, returns `false`.
     fn is_nominator_compliant(_who: &T::AccountId) -> bool {
         true
     }
@@ -250,8 +251,8 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            pallet_identity::Pallet::<T>::has_valid_cdd(identity),
-            Error::<T>::IdentityIsMissingCDD
+            pallet_identity::Pallet::<T>::is_did_active(identity),
+            Error::<T>::IdentityNotActive
         );
 
         match intended_count {

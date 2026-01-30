@@ -89,7 +89,9 @@ mod context;
 pub use context::Context;
 
 pub mod types;
-pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
+pub use types::{
+    Claim1stKey, Claim2ndKey, DidActiveStatus, DidStatus, PermissionedCallOriginData, RpcDidRecords,
+};
 
 use codec::{Decode, Encode};
 use core::convert::From;
@@ -642,7 +644,7 @@ pub mod pallet {
             target_account: T::AccountId,
             secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         ) -> DispatchResult {
-            Self::base_cdd_register_did(origin, target_account, secondary_keys)?;
+            Self::base_register_did(origin, target_account, secondary_keys)?;
             Ok(())
         }
 
@@ -861,15 +863,15 @@ pub mod pallet {
         ///
         /// Keys are directly added to identity because each of them has an authorization.
         ///
-        /// # Arguments:
-        ///     - `origin` which must be the primary key of the identity `id`.
-        ///     - `id` to which new secondary keys will be added.
-        ///     - `additional_keys` which includes secondary keys,
-        ///        coupled with authorization data, to add to target identity.
+        /// # Arguments
+        /// * `origin` which must be the primary key of the identity `id`.
+        /// * `additional_keys` which includes secondary keys,
+        ///   coupled with authorization data, to add to target identity.
+        /// * `expires_at` expiration time for the authorizations.
         ///
         /// # Errors
-        ///     - Can only called by primary key owner.
-        ///     - Keys should be able to linked to any identity.
+        /// * Can only called by primary key owner.
+        /// * Keys should be able to linked to any identity.
         #[pallet::weight(<T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys))]
         #[pallet::call_index(16)]
         pub fn add_secondary_keys_with_authorization(
@@ -940,7 +942,7 @@ pub mod pallet {
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             let (cdd_did, target_did) =
-                Self::base_cdd_register_did(origin, target_account, secondary_keys)?;
+                Self::base_register_did(origin, target_account, secondary_keys)?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
             Self::base_add_claim(target_did, cdd_claim, cdd_did, expiry)?;
             Ok(())
@@ -1026,22 +1028,22 @@ pub mod pallet {
         Unauthorized,
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
-        /// Only CDD service providers are allowed.
-        UnAuthorizedCddProvider,
+        /// Only DID registrars (formerly CDD service providers) are allowed.
+        UnAuthorizedDidRegistrar,
         /// An invalid authorization from the owner.
         InvalidAuthorizationFromOwner,
-        /// An invalid authorization from the CDD provider.
-        InvalidAuthorizationFromCddProvider,
-        /// Attestation was not by a CDD service provider.
-        NotCddProviderAttestation,
+        /// An invalid authorization from the DID registrar.
+        InvalidAuthorizationFromDidRegistrar,
+        /// Attestation was not by a DID registrar.
+        NotDidRegistrarAttestation,
         /// Authorizations are not for the same DID.
         AuthorizationsNotForSameDids,
         /// The DID must already exist.
         DidMustAlreadyExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
-        /// The target DID has no valid CDD.
-        TargetHasNoCdd,
+        /// The target DID does not exist (is not active).
+        TargetDidInactive,
         /// Authorization has been explicitly revoked.
         AuthorizationHasBeenRevoked,
         /// An invalid authorization signature.
@@ -1092,8 +1094,8 @@ pub mod pallet {
         InvalidAuthorization,
         /// Frozen secondary key.
         UnauthorizedCallerFrozenDid,
-        /// The DID is missing a CDD claim.
-        UnauthorizedCallerDidMissingCdd,
+        /// The DID does not exist (is not active).
+        UnauthorizedCallerDidInactive,
         /// The key does not have permissions to execute the extrinsic.
         UnauthorizedCallerMissingPermissions,
     }
@@ -1104,18 +1106,27 @@ impl<T: Config> Pallet<T> {
         dids.into_iter()
             .map(|did| {
                 // Does DID exist in the ecosystem?
-                if !DidRecords::<T>::contains_key(did) {
-                    DidStatus::Unknown
-                }
-                // DID exists, but does it have a valid CDD?
-                else if Self::has_valid_cdd(did) {
-                    DidStatus::CddVerified
+                if Self::is_did_active(did) {
+                    DidStatus::Active
                 } else {
-                    DidStatus::Exists
+                    DidStatus::Unknown
                 }
             })
             .collect()
     }
+
+    /// RPC helper: Check if a DID is active (exists).
+    /// Returns the DID if active, or an error message if not.
+    ///
+    /// Note: The `_buffer_time` parameter is kept for RPC API compatibility
+    /// but is no longer used (previously for CDD expiry checking).
+    // pub fn is_identity_active(did: IdentityId, _buffer_time: Option<u64>) -> DidActiveStatus {
+    //     if Self::is_did_active(did) {
+    //         Ok(did)
+    //     } else {
+    //         Err(b"Identity does not exist".to_vec())
+    //     }
+    // }
 
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
@@ -1144,17 +1155,17 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Pallet<T> {
         }
     }
 
-    /// Provides the DID status for the given DID
-    fn has_valid_cdd(target_did: IdentityId) -> bool {
-        Self::has_valid_cdd(target_did)
+    /// Returns true if the DID exists (is active).
+    fn is_did_active(target_did: IdentityId) -> bool {
+        Self::is_did_active(target_did)
     }
 
-    /// Creates a new did and attaches a CDD claim.
-    fn testing_cdd_register_did(
+    /// Creates a new DID for testing purposes.
+    fn testing_register_did(
         target: T::AccountId,
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
     ) -> Result<IdentityId, DispatchError> {
-        Self::testing_cdd_register_did(target, secondary_keys)
+        Self::testing_register_did(target, secondary_keys)
     }
 }
 

@@ -820,7 +820,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::testing_cdd_register_did(id.clone(), vec![])
+            let _ = Identity::testing_register_did(id.clone(), vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }

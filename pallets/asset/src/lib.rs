@@ -1651,10 +1651,10 @@ pub mod pallet {
         InvalidTransferFrozenAsset,
         /// Failed to transfer an NFT - compliance failed.
         InvalidTransferComplianceFailure,
-        /// Failed to transfer the asset - receiver cdd is not valid.
-        InvalidTransferInvalidReceiverCDD,
-        /// Failed to transfer the asset - sender cdd is not valid.
-        InvalidTransferInvalidSenderCDD,
+        /// Failed to transfer the asset - receiver DID is not active.
+        InvalidTransferInvalidReceiverDID,
+        /// Failed to transfer the asset - sender DID is not active.
+        InvalidTransferInvalidSenderDID,
         /// The ticker registration associated to the ticker was not found.
         TickerRegistrationNotFound,
         /// The given ticker is already linked to an asset.
@@ -2880,13 +2880,13 @@ impl<T: AssetConfig> Pallet<T> {
         );
 
         ensure!(
-            IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did),
-            Error::<T>::InvalidTransferInvalidReceiverCDD
+            IdentityPallet::<T>::is_did_active(receiver_portfolio.did),
+            Error::<T>::InvalidTransferInvalidReceiverDID
         );
 
         ensure!(
-            IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did),
-            Error::<T>::InvalidTransferInvalidSenderCDD
+            IdentityPallet::<T>::is_did_active(sender_portfolio.did),
+            Error::<T>::InvalidTransferInvalidSenderDID
         );
 
         // Verifies that the statistics restrictions are satisfied
@@ -2981,12 +2981,12 @@ impl<T: AssetConfig> Pallet<T> {
             }
         }
 
-        if !IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did) {
-            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverCDD.into());
+        if !IdentityPallet::<T>::is_did_active(receiver_portfolio.did) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverDID.into());
         }
 
-        if !IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did) {
-            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidSenderCDD.into());
+        if !IdentityPallet::<T>::is_did_active(sender_portfolio.did) {
+            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidSenderDID.into());
         }
 
         if Frozen::<T>::get(asset_id) {

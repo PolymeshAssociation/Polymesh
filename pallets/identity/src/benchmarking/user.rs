@@ -107,7 +107,7 @@ impl<T: Config> UserBuilder<T> {
 
     /// Create a DID for account `acc` using the specified investor ID.
     fn make_did(acc: T::AccountId) -> IdentityId {
-        match T::IdentityFn::testing_cdd_register_did(acc.clone(), vec![]) {
+        match T::IdentityFn::testing_register_did(acc.clone(), vec![]) {
             Ok(did) => did,
             _ => T::IdentityFn::get_identity(&acc).unwrap(),
         }

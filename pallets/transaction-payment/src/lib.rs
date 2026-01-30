@@ -71,7 +71,7 @@ pub mod pallet {
         /// Used to charge transaction fees to a subsidiser, instead of the payer.
         type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
 
-        type CddProviders: GroupTrait<Self::Moment>;
+        type DidRegistrars: GroupTrait<Self::Moment>;
 
         type GovernanceCommittee: GroupTrait<Self::Moment>;
 
@@ -243,19 +243,19 @@ where
         Ok((payers_key, subsidiser))
     }
 
-    // Polymesh change: Used to allow GC/CDD member to include a `tip`.
+    // Polymesh change: Used to allow GC/DID registrar member to include a `tip`.
     // -----------------------------------------------------------------
 
-    /// Returns `true` if `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
-    fn is_gc_or_cdd_member(who: &T::AccountId) -> bool {
+    /// Returns `true` if `who` is member of `T::GovernanceCommittee` or `T::DidRegistrars`.
+    fn is_gc_or_registrar_member(who: &T::AccountId) -> bool {
         T::Identity::get_identity(who)
-            .map(|did| T::GovernanceCommittee::is_member(&did) || T::CddProviders::is_member(&did))
+            .map(|did| T::GovernanceCommittee::is_member(&did) || T::DidRegistrars::is_member(&did))
             .unwrap_or(false)
     }
 
     /// Ensures that the transaction tip is valid.
     ///
-    /// Tipping is allowed for `DispatchClass::Operational` created by a Governance or CDD Provider member.
+    /// Tipping is allowed for `DispatchClass::Operational` created by a Governance or DID registrar member.
     /// Mandatory transactions are going to be included in the block, so adding a tip does not matter.
     pub(crate) fn ensure_valid_tip(
         &self,
@@ -268,7 +268,7 @@ where
                     return Ok(self.0);
                 }
 
-                if info.class == DispatchClass::Operational && Self::is_gc_or_cdd_member(who) {
+                if info.class == DispatchClass::Operational && Self::is_gc_or_registrar_member(who) {
                     return Ok(self.0);
                 }
 

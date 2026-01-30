@@ -231,7 +231,7 @@ macro_rules! misc_pallet_impls {
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
-            type CddProviders = CddServiceProviders;
+            type DidRegistrars = CddServiceProviders;
             type Identity = Identity;
         }
 
@@ -906,7 +906,7 @@ macro_rules! runtime_apis {
         use frame_support::dispatch::DispatchResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
-        use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords};
+        use pallet_identity::types::{AssetDidResult, DidActiveStatus, RpcDidRecords};
         use pallet_identity::types::{DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
@@ -1288,12 +1288,6 @@ macro_rules! runtime_apis {
                     Moment
                 > for Runtime
             {
-                /// RPC call to know whether the given did has valid cdd claim or not
-                fn is_identity_has_valid_cdd(did: IdentityId, leeway: Option<u64>) -> CddStatus {
-                    Identity::fetch_cdd(did, leeway.unwrap_or_default())
-                        .ok_or_else(|| "Either cdd claim is expired or not yet provided to give identity".into())
-                }
-
                 /// Retrieve primary key and secondary keys for a given IdentityId
                 fn get_did_records(did: IdentityId) -> RpcDidRecords<polymesh_primitives::AccountId> {
                     Identity::get_did_records(did)
@@ -1315,11 +1309,6 @@ macro_rules! runtime_apis {
                     auth_type: Option<polymesh_primitives::AuthorizationType>
                 ) -> Vec<polymesh_primitives::Authorization<polymesh_primitives::AccountId, Moment>> {
                     Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
-                }
-
-                /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
-                fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim> {
-                    Identity::valid_cdd_claims(target_identity, cdd_checker_leeway)
                 }
             }
 

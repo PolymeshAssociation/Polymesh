@@ -9,7 +9,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
-pub use pallet_identity::types::{CddStatus, DidStatus, KeyIdentityData, RpcDidRecords};
+pub use pallet_identity::types::{DidActiveStatus, DidStatus, KeyIdentityData, RpcDidRecords};
 use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
 
 use crate::Error;
@@ -19,15 +19,6 @@ const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 /// Identity RPC methods
 #[rpc(client, server)]
 pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, Moment> {
-    /// Below function use to tell whether the given did has valid cdd claim or not
-    #[method(name = "identity_isIdentityHasValidCdd")]
-    fn is_identity_has_valid_cdd(
-        &self,
-        did: IdentityId,
-        buffer_time: Option<u64>,
-        at: Option<BlockHash>,
-    ) -> RpcResult<CddStatus>;
-
     /// DidRecords for a `did`
     #[method(name = "identity_getDidRecords")]
     fn get_did_records(
@@ -66,15 +57,6 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, Moment> {
         acc: AccountId,
         at: Option<BlockHash>,
     ) -> RpcResult<Option<KeyIdentityData<IdentityId>>>;
-
-    /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
-    #[method(name = "identity_validCDDClaims")]
-    fn valid_cdd_claims(
-        &self,
-        target_identity: IdentityId,
-        cdd_checker_leeway: Option<u64>,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<IdentityClaim>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -105,24 +87,6 @@ where
     AccountId: Codec,
     Moment: Codec,
 {
-    fn is_identity_has_valid_cdd(
-        &self,
-        did: IdentityId,
-        buffer_time: Option<u64>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<CddStatus> {
-        rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.is_identity_has_valid_cdd(
-                at,
-                did,
-                buffer_time,
-            ),
-            "Unable to query `is_identity_has_valid_cdd`."
-        )
-    }
-
     fn get_did_records(
         &self,
         did: IdentityId,
@@ -192,24 +156,6 @@ where
                 api.get_key_identity_data(at, acc)
             },
             "Unable to query `get_key_identity_data`."
-        )
-    }
-
-    fn valid_cdd_claims(
-        &self,
-        target_identity: IdentityId,
-        cdd_checker_leeway: Option<u64>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<IdentityClaim>> {
-        rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.valid_cdd_claims(
-                at,
-                target_identity,
-                cdd_checker_leeway
-            ),
-            "Unable to query `valid_cdd_claims`."
         )
     }
 }

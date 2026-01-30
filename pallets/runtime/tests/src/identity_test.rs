@@ -1511,8 +1511,8 @@ fn cdd_register_did_test_we() {
     let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
     assert_add_cdd_claim!(cdd1.clone(), alice_id);
 
-    // Check that Alice's ID is attested by CDD 1.
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+    // Check that Alice's ID is active DID.
+    assert_eq!(Identity::is_did_active(alice_id), true);
 
     // Error case: Try account without ID.
     assert!(Identity::cdd_register_did(non_id, bob_acc.clone(), vec![]).is_err(),);
@@ -1526,7 +1526,7 @@ fn cdd_register_did_test_we() {
     let bob_id = get_identity_id(Sr25519Keyring::Bob).unwrap();
     assert_add_cdd_claim!(cdd2, bob_id);
 
-    assert_eq!(Identity::has_valid_cdd(bob_id), true);
+    assert_eq!(Identity::is_did_active(bob_id), true);
 
     // Register with secondary_keys
     // ==============================================
@@ -1544,7 +1544,7 @@ fn cdd_register_did_test_we() {
     assert_add_cdd_claim!(cdd1.clone(), charlie_id);
 
     Balances::make_free_balance_be(&charlie, 10_000_000_000);
-    assert_eq!(Identity::has_valid_cdd(charlie_id), true);
+    assert_eq!(Identity::is_did_active(charlie_id), true);
     assert_eq!(get_secondary_keys(charlie_id).is_empty(), true);
 
     let dave_auth_id = get_last_auth_id(&Signatory::Account(dave_si.key.clone()));
@@ -1672,28 +1672,28 @@ fn invalidate_cdd_claims_we() {
     let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
     assert_add_cdd_claim!(Origin::signed(cdd.clone()), alice_id);
 
-    // Check that Alice's ID is attested by CDD 1.
+    // Check that Alice's ID is active DID.
     let cdd_1_id = Identity::get_identity(&cdd).unwrap();
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+    assert_eq!(Identity::is_did_active(alice_id), true);
 
     // Disable CDD 1.
     assert_ok!(Identity::invalidate_cdd_claims(root, cdd_1_id, 5, Some(10)));
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+    assert_eq!(Identity::is_did_active(alice_id), true);
 
     // Move to time 8... CDD_1 is inactive: Its claims are valid.
     set_timestamp(8);
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+    assert_eq!(Identity::is_did_active(alice_id), true);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
-        Error::UnauthorizedCallerDidMissingCdd
+        Error::UnauthorizedCallerDidInactive
     );
 
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
     set_timestamp(11);
-    assert_eq!(Identity::has_valid_cdd(alice_id), false);
+    assert_eq!(Identity::is_did_active(alice_id), false);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
-        Error::UnauthorizedCallerDidMissingCdd
+        Error::UnauthorizedCallerDidInactive
     );
 }
 
@@ -2088,7 +2088,7 @@ fn do_child_identity_test() {
 
     // Helper functions.
     let did_of = |u: User| Identity::get_identity(&u.acc());
-    let valid_cdd = |u: User| did_of(u).map(Identity::has_valid_cdd).unwrap_or_default();
+    let is_did_active = |u: User| did_of(u).map(Identity::is_did_active).unwrap_or_default();
     let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
     let rejoin_parent = |parent: User, child: User| {
         ParentDid::<TestStorage>::insert(child.did, parent.did);
@@ -2101,9 +2101,9 @@ fn do_child_identity_test() {
     // Check KeyRecords map
     assert_eq!(did_of(bob), Some(alice.did));
     assert_eq!(did_of(dave), Some(alice.did));
-    assert!(valid_cdd(alice));
-    assert!(valid_cdd(bob));
-    assert!(valid_cdd(dave));
+    assert!(is_did_active(alice));
+    assert!(is_did_active(bob));
+    assert!(is_did_active(dave));
 
     // The new child identity's primary key must be a secondary key.
     exec_noop!(
@@ -2137,7 +2137,7 @@ fn do_child_identity_test() {
     let bob = User::new_with(bob_did, Sr25519Keyring::Bob);
 
     // Ensure bob has a new identity.
-    assert!(valid_cdd(bob));
+    assert!(is_did_active(bob));
     assert_ne!(bob.did, alice.did);
     assert_eq!(ParentDid::<TestStorage>::get(bob.did), Some(alice.did));
     assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), true);
@@ -2207,14 +2207,14 @@ fn do_child_identity_test() {
     assert_eq!(ParentDid::<TestStorage>::get(bob.did), None);
     assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), false);
 
-    assert!(valid_cdd(bob));
+    assert!(is_did_active(bob));
 
     // Bob's identity is no longer a child identity.  It can create child identities.
     exec_ok!(Identity::create_child_identity(bob.origin(), ferdie.acc()));
     // Update ferdie's identity.
     let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
     let ferdie = User::new_with(ferdie_did, Sr25519Keyring::Ferdie);
-    assert!(valid_cdd(ferdie));
+    assert!(is_did_active(ferdie));
     assert_eq!(ParentDid::<TestStorage>::get(ferdie.did), Some(bob.did));
     assert_eq!(ChildDid::<TestStorage>::get(bob.did, ferdie.did), true);
 }
