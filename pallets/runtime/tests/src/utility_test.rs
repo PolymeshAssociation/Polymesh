@@ -1,4 +1,3 @@
-use codec::Encode;
 use frame_support::dispatch::{extract_actual_weight, DispatchErrorWithPostInfo};
 use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::error::BadOrigin;
@@ -10,7 +9,6 @@ use frame_support::{assert_storage_noop, storage};
 use frame_system::{Call as SystemCall, EventRecord};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::Dispatchable;
-use sp_runtime::MultiSignature;
 
 use pallet_asset::UniqueTickerRegistration;
 use pallet_balances::Call as BalancesCall;
@@ -18,7 +16,7 @@ use pallet_pips::{PipIdSequence, ProposalState, SnapshotResult};
 use pallet_portfolio::{Call as PortfolioCall, Portfolios};
 use pallet_timestamp::Call as TimestampCall;
 use pallet_utility::{self as utility, Call as UtilityCall, Config as UtilityConfig};
-use pallet_utility::{Event, Nonces, UniqueCall, WeightInfo};
+use pallet_utility::{Event, WeightInfo};
 use polymesh_primitives::traits::CurrentFeePayer;
 use polymesh_primitives::{AccountId, Balance, ExtrinsicPermissions};
 use polymesh_primitives::{PalletPermissions, Permissions, PortfolioName};
@@ -203,98 +201,6 @@ fn batch_atomic_early_exit_works() {
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
     })
-}
-
-#[test]
-fn relay_happy_case() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(_relay_happy_case);
-}
-
-fn _relay_happy_case() {
-    let alice = Sr25519Keyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
-
-    let bob = Sr25519Keyring::Bob.to_account_id();
-    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
-
-    let charlie = Sr25519Keyring::Charlie.to_account_id();
-    let _ = register_keyring_account_with_balance(Sr25519Keyring::Charlie, 1_000).unwrap();
-
-    // 41 Extra for registering a DID
-    assert_balance(bob.clone(), 1041, 0);
-    assert_balance(charlie.clone(), 1041, 0);
-
-    let origin = RuntimeOrigin::signed(alice);
-    let transaction = UniqueCall::new(
-        Nonces::<TestStorage>::get(bob.clone()),
-        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: charlie.clone().into(),
-            value: 50,
-        }),
-    );
-
-    assert_ok!(Utility::relay_tx(
-        origin,
-        bob.clone(),
-        Sr25519Keyring::Bob.sign(&transaction.encode()).into(),
-        transaction
-    ));
-
-    assert_balance(bob, 991, 0);
-    assert_balance(charlie, 1_091, 0);
-}
-
-#[test]
-fn relay_unhappy_cases() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(_relay_unhappy_cases);
-}
-
-fn _relay_unhappy_cases() {
-    let alice = Sr25519Keyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
-
-    let bob = Sr25519Keyring::Bob.to_account_id();
-
-    let charlie = Sr25519Keyring::Charlie.to_account_id();
-
-    let origin = RuntimeOrigin::signed(alice);
-    let transaction = UniqueCall::new(
-        Nonces::<TestStorage>::get(bob.clone()),
-        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: charlie.clone().into(),
-            value: 59,
-        }),
-    );
-
-    let signature = MultiSignature::Sr25519(Default::default());
-    assert_noop!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob.clone(),
-            signature.clone(),
-            transaction.clone()
-        ),
-        Error::InvalidSignature
-    );
-
-    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
-
-    let transaction = UniqueCall::new(
-        Nonces::<TestStorage>::get(bob.clone()) + 1,
-        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: charlie.into(),
-            value: 59,
-        }),
-    );
-
-    assert_noop!(
-        Utility::relay_tx(origin.clone(), bob, signature, transaction),
-        Error::InvalidNonce
-    );
 }
 
 #[test]

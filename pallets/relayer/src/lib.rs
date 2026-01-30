@@ -36,23 +36,28 @@
 //! - `update_polyx_limit` updates the available POLYX for a `user_key`.
 //! - `increase_polyx_limit` increases the available POLYX for a `user_key`.
 //! - `decrease_polyx_limit` decreases the available POLYX for a `user_key`.
+//! - `relay_tx` relays a transaction on behalf of a target account.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::dispatch::DispatchResult;
-use frame_support::pallet_prelude::DispatchError;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::dispatch::{extract_actual_weight, DispatchResult, GetDispatchInfo};
+use frame_support::pallet_prelude::{DispatchError, DispatchResultWithPostInfo};
 use frame_support::traits::{Contains, GetCallMetadata};
 use frame_support::weights::Weight;
 use frame_support::{ensure, fail};
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_runtime::RuntimeDebug;
+use sp_std::prelude::*;
 use sp_std::vec;
 
+use polymesh_primitives::crypto::verify_signature;
+use polymesh_primitives::identity::AuthorizationNonce;
 use polymesh_primitives::traits::SubsidiserTrait;
 use polymesh_primitives::{Balance, TransactionError};
 
@@ -63,6 +68,25 @@ pub trait WeightInfo {
     fn update_polyx_limit() -> Weight;
     fn increase_polyx_limit() -> Weight;
     fn decrease_polyx_limit() -> Weight;
+
+    fn relay_tx() -> Weight;
+}
+
+/// Wraps a `Call` and provides uniqueness through a nonce
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode)]
+pub struct UniqueCall<C> {
+    nonce: AuthorizationNonce,
+    call: Box<C>,
+}
+
+impl<C> UniqueCall<C> {
+    pub fn new(nonce: AuthorizationNonce, call: C) -> Self {
+        Self {
+            nonce,
+            call: Box::new(call),
+        }
+    }
 }
 
 pub use pallet::*;
@@ -73,11 +97,15 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_identity::Config {
+    pub trait Config:
+        frame_system::Config + pallet_identity::Config + pallet_utility::Config
+    {
         /// Subsidy pallet weights.
         type WeightInfo: WeightInfo;
         /// Subsidy call filter.
-        type SubsidyCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
+        type SubsidyCallFilter: frame_support::traits::Contains<
+            <Self as frame_system::Config>::RuntimeCall,
+        >;
     }
 
     #[pallet::event]
@@ -133,6 +161,13 @@ pub mod pallet {
             paying_key: T::AccountId,
             /// The amount of POLYX debited.
             amount: Balance,
+        },
+
+        /// Relayed transaction.
+        RelayedTx {
+            caller: T::AccountId,
+            target: T::AccountId,
+            result: DispatchResult,
         },
     }
 
@@ -201,6 +236,11 @@ pub mod pallet {
         Balance,      // initial POLYX limit
         OptionQuery,
     >;
+
+    /// Nonce for `relay_tx`.
+    #[pallet::storage]
+    pub type RelayTxNonces<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -339,6 +379,65 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, UpdateAction::Sub, amount)
         }
+
+        /// Relay a call for a target from an origin
+        ///
+        /// Relaying in this context refers to the ability of origin to make a call on behalf of
+        /// target.
+        ///
+        /// Transaction and protocol fees are charged to origin.
+        ///
+        /// # Parameters
+        /// - `target`: Account to be relayed
+        /// - `signature`: Signature from target authorizing the relay
+        /// - `call`: Call to be relayed on behalf of target
+        #[pallet::call_index(6)]
+        #[pallet::weight({
+                let dispatch_info = call.call.get_dispatch_info();
+                (
+                    <T as Config>::WeightInfo::relay_tx()
+                        .saturating_add(dispatch_info.call_weight),
+                    dispatch_info.class,
+                )
+            })]
+        pub fn relay_tx(
+            origin: OriginFor<T>,
+            target: T::AccountId,
+            signature: T::OffChainSignature,
+            call: UniqueCall<<T as pallet_utility::Config>::RuntimeCall>,
+        ) -> DispatchResultWithPostInfo {
+            let caller = ensure_signed(origin)?;
+
+            let target_nonce = RelayTxNonces::<T>::get(&target);
+
+            ensure!(target_nonce == call.nonce, Error::<T>::InvalidNonce);
+
+            ensure!(
+                verify_signature::<T, _, _>(&target, &signature, &call, false),
+                Error::<T>::InvalidSignature
+            );
+
+            RelayTxNonces::<T>::insert(target.clone(), target_nonce + 1);
+
+            let info = call.call.get_dispatch_info();
+            // Dispatch the call with the `target` as the signed origin.
+            let result = pallet_utility::Pallet::<T>::dispatch_call(
+                RawOrigin::Signed(target.clone()).into(),
+                false,
+                *call.call,
+            );
+            // Get the actual weight of this call.
+            let weight = extract_actual_weight(&result, &info);
+
+            Self::deposit_event(Event::<T>::RelayedTx {
+                caller,
+                target,
+                result: result.map(|_| ()).map_err(|e| e.error),
+            });
+
+            let base_weight = <T as Config>::WeightInfo::relay_tx();
+            Ok(Some(base_weight.saturating_add(weight)).into())
+        }
     }
 
     #[pallet::error]
@@ -353,6 +452,12 @@ pub mod pallet {
         Overflow,
         /// There is no pending subsidy from the `paying_key` for the `user_key`.
         NoPendingSubsidy,
+        /// Offchain signature is invalid
+        InvalidSignature,
+        /// Provided nonce was invalid
+        /// If the provided nonce < current nonce, the call was already executed
+        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
+        InvalidNonce,
     }
 }
 

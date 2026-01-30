@@ -104,26 +104,6 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Utility Nonces (r:1 w:1)
-    // Proof: Utility Nonces (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
-    fn relay_tx() -> Weight {
-        // Minimum execution time: 128_001 nanoseconds.
-        Weight::from_parts(138_117_000, 0)
-            .saturating_add(DbWeight::get().reads(9))
-            .saturating_add(DbWeight::get().writes(3))
-    }
     fn ensure_root() -> Weight {
         // Minimum execution time: 631 nanoseconds.
         Weight::from_parts(711_000, 0)

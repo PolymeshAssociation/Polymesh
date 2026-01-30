@@ -5,16 +5,20 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-pallet-identity = { workspace = true, default-features = false}
-polymesh-primitives = { workspace = true, default-features = false}
+pallet-identity = { workspace = true, default-features = false }
+pallet-utility = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-runtime = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
-scale-info = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = [
+    "derive",
+] }
 sp-std = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
 
 # Only Benchmarking
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
@@ -30,12 +34,15 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "sp-std/std",
+    "sp-core/std",
     "pallet-identity/std",
+    "pallet-utility/std",
     "polymesh-primitives/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
+    "pallet-utility/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime"]

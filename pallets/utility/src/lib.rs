@@ -57,18 +57,13 @@
 //!   won't interrupt.
 //! * `dispatch_as` - Dispatches a function call with a provided origin.
 //! * `with_weight` - Dispatch a function call with a specified weight.
-//!
-//! ## POLYMESH
-//! * Removed `as_derivative`.
-//! * Added `relay_tx`.
-//! * Added as deprecated: `batch_old`, `batch_atomic`, `batch_optimistic`.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
 
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo};
 use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
@@ -76,19 +71,14 @@ use frame_support::ensure;
 use frame_support::traits::{GetCallMetadata, IsSubType, OriginTrait, UnfilteredDispatchable};
 use frame_support::weights::Weight;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
-use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::traits::{BadOrigin, Dispatchable};
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 use sp_std::prelude::*;
 
-use pallet_balances::Config as BalancesConfig;
-use pallet_identity::Config as IdentityConfig;
-use pallet_permissions::with_call_metadata;
-use polymesh_primitives::identity::AuthorizationNonce;
-use polymesh_primitives::{crypto::verify_signature, IdentityId};
+use pallet_permissions::{with_call_metadata, Config as PermissionsConfig};
 use polymesh_transaction_payment::{Config as TransactionConfig, Pallet as TransactionPallet};
 
 pub trait WeightInfo {
@@ -99,38 +89,11 @@ pub trait WeightInfo {
 
     // POLYMESH:
     fn ensure_root() -> Weight;
-    fn relay_tx() -> Weight;
     fn as_derivative() -> Weight;
 }
 
 // POLYMESH:
 pub const MIN_WEIGHT: Weight = Weight::from_parts(1_000_000, 0);
-
-// POLYMESH: Used for permission checks.
-type CallPermissions<T> = pallet_permissions::Pallet<T>;
-
-/// POLYMESH: type for our events.
-pub type EventCounts = Vec<u32>;
-/// POLYMESH: type for our events.
-pub type ErrorAt = (u32, DispatchError);
-
-/// Wraps a `Call` and provides uniqueness through a nonce
-/// POLYMESH: used for `relay_tx`
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-#[derive(Decode, DecodeWithMemTracking, Encode)]
-pub struct UniqueCall<C> {
-    nonce: AuthorizationNonce,
-    call: Box<C>,
-}
-
-impl<C> UniqueCall<C> {
-    pub fn new(nonce: AuthorizationNonce, call: C) -> Self {
-        Self {
-            nonce,
-            call: Box::new(call),
-        }
-    }
-}
 
 pub use pallet::*;
 
@@ -145,11 +108,9 @@ pub mod pallet {
 
     /// Configuration trait.
     ///
-    /// POLYMESH: Add `IdentityConfig` and `BalancesConfig`.
+    /// POLYMESH: Add `TransactionConfig`, `PermissionsConfig` bounds.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config + IdentityConfig + BalancesConfig + TransactionConfig
-    {
+    pub trait Config: frame_system::Config + TransactionConfig + PermissionsConfig {
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -185,13 +146,6 @@ pub mod pallet {
         ItemFailed { error: DispatchError },
         /// A call was dispatched.
         DispatchedAs { result: DispatchResult },
-        /// Relayed transaction.
-        /// POLYMESH: event.
-        RelayedTx {
-            caller_did: IdentityId,
-            target: T::AccountId,
-            result: DispatchResult,
-        },
     }
 
     // Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -232,24 +186,9 @@ pub mod pallet {
     pub enum Error<T> {
         /// Too many calls batched.
         TooManyCalls,
-        /// Offchain signature is invalid
-        /// POLYMESH error
-        InvalidSignature,
-
-        /// Provided nonce was invalid
-        /// If the provided nonce < current nonce, the call was already executed
-        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
-        /// POLYMESH error
-        InvalidNonce,
         /// Decoding derivative account Id failed.
         UnableToDeriveAccountId,
     }
-
-    /// Nonce for `relay_tx`.
-    /// POLYMESH: added.
-    #[pallet::storage]
-    pub type Nonces<T: Config> =
-        StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -316,65 +255,6 @@ pub mod pallet {
             }
             Self::deposit_event(Event::<T>::BatchCompleted);
             let base_weight = <T as Config>::WeightInfo::batch(calls_len as u32);
-            Ok(Some(base_weight.saturating_add(weight)).into())
-        }
-
-        /// Relay a call for a target from an origin
-        ///
-        /// Relaying in this context refers to the ability of origin to make a call on behalf of
-        /// target.
-        ///
-        /// Fees are charged to origin
-        ///
-        /// # Parameters
-        /// - `target`: Account to be relayed
-        /// - `signature`: Signature from target authorizing the relay
-        /// - `call`: Call to be relayed on behalf of target
-        ///
-        /// POLYMESH: added.
-        #[pallet::call_index(1)]
-        #[pallet::weight({
-                let dispatch_info = call.call.get_dispatch_info();
-                (
-                    <T as Config>::WeightInfo::relay_tx()
-                        .saturating_add(dispatch_info.call_weight),
-                    dispatch_info.class,
-                )
-            })]
-        pub fn relay_tx(
-            origin: OriginFor<T>,
-            target: T::AccountId,
-            signature: T::OffChainSignature,
-            call: UniqueCall<<T as Config>::RuntimeCall>,
-        ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
-            let caller_did = CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did;
-
-            let target_nonce = <Nonces<T>>::get(&target);
-
-            ensure!(target_nonce == call.nonce, Error::<T>::InvalidNonce);
-
-            ensure!(
-                verify_signature::<T, _, _>(&target, &signature, &call, false),
-                Error::<T>::InvalidSignature
-            );
-
-            <Nonces<T>>::insert(target.clone(), target_nonce + 1);
-
-            let info = call.call.get_dispatch_info();
-            // Dispatch the call with the `target` as the signed origin.
-            let result =
-                Self::dispatch_call(RawOrigin::Signed(target.clone()).into(), false, *call.call);
-            // Get the actual weight of this call.
-            let weight = extract_actual_weight(&result, &info);
-
-            Self::deposit_event(Event::<T>::RelayedTx {
-                caller_did,
-                target,
-                result: result.map(|_| ()).map_err(|e| e.error),
-            });
-
-            let base_weight = <T as Config>::WeightInfo::relay_tx();
             Ok(Some(base_weight.saturating_add(weight)).into())
         }
 
@@ -606,7 +486,7 @@ impl<T: Config> Pallet<T> {
 
 // POLYMESH:
 impl<T: Config> Pallet<T> {
-    fn dispatch_call(
+    pub fn dispatch_call(
         origin: T::RuntimeOrigin,
         is_root: bool,
         call: <T as Config>::RuntimeCall,

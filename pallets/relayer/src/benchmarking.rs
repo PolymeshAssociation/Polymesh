@@ -16,6 +16,9 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
+use sp_core::sr25519::Signature;
+use sp_runtime::MultiSignature;
+
 use pallet_identity::benchmarking::{user_without_did, User};
 use polymesh_primitives::Balance;
 
@@ -41,6 +44,36 @@ fn setup_subsidy<T: Config>(limit: u128) -> (User<T>, User<T>) {
     );
 
     (payer, user)
+}
+
+/// Generate `c` no-op system remark calls.
+fn make_calls<T: Config>(c: u32) -> Vec<<T as pallet_utility::Config>::RuntimeCall> {
+    let call: <T as pallet_utility::Config>::RuntimeCall =
+        frame_system::Call::<T>::remark { remark: vec![] }.into();
+    vec![call; c as usize]
+}
+
+fn remark_call_builder<T: Config>(
+    signer: &User<T>,
+    _: T::AccountId,
+) -> (
+    UniqueCall<<T as pallet_utility::Config>::RuntimeCall>,
+    Vec<u8>,
+) {
+    let call = make_calls::<T>(1).pop().unwrap();
+    let nonce: AuthorizationNonce = RelayTxNonces::<T>::get(signer.account());
+    let call = UniqueCall::new(nonce, call);
+
+    // Signer signs the relay call.
+    // NB: Decode as T::OffChainSignature because there is not type constraints in
+    // `T::OffChainSignature` to limit it.
+    let raw_signature: [u8; 64] = signer
+        .sign(&call.encode())
+        .expect("Data cannot be signed")
+        .0;
+    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
+
+    (call, encoded)
 }
 
 #[track_caller]
@@ -100,5 +133,18 @@ benchmarks! {
     }: _(payer.origin(), user.account(), limit)
     verify {
         assert_subsidy(user, Some((payer, limit)));
+    }
+
+    relay_tx {
+        let (caller, target) = setup_users::<T>();
+        let (call, encoded) = remark_call_builder( &target, caller.account());
+
+        // Rebuild signature from `encoded`.
+        let signature = T::OffChainSignature::decode(&mut &encoded[..])
+            .expect("OffChainSignature cannot be decoded from a MultiSignature");
+
+    }: _(caller.origin.clone(), target.account(), signature, call)
+    verify {
+        // NB see comment at `batch` verify section.
     }
 }
