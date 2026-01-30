@@ -24,12 +24,12 @@ describe("16 - Relayer Unit Test", () => {
     ).resolves.not.toThrow();
     console.log("Set Paying Key");
     await expect(
-      relayer.setPayingKey(alice, bob.publicKey, 100000)
+      relayer.approveSubsidy(alice, bob.publicKey, 100000)
     ).resolves.not.toThrow();
     const authId = await getAuthId();
     console.log("Accept Paying Key");
     await expect(
-      relayer.acceptPayingKey(bob, authId)
+      relayer.acceptSubsidy(bob, alice.publicKey)
     ).resolves.not.toThrow();
     console.log("Update POLYX Limit");
     await expect(
@@ -45,7 +45,7 @@ describe("16 - Relayer Unit Test", () => {
     ).resolves.not.toThrow();
     console.log("Remove Paying Key");
     await expect(
-      relayer.removePayingKey(alice, bob, "userKey")
+      relayer.removeSubsidy(alice, bob, "userKey")
     ).resolves.not.toThrow();
   });
 });
