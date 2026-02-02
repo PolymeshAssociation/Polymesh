@@ -121,13 +121,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidTransferFrozenAsset: AugmentedError<ApiType>;
       /**
-       * Failed to transfer the asset - receiver cdd is not valid.
+       * Failed to transfer the asset - receiver DID is not active.
        **/
-      InvalidTransferInvalidReceiverCDD: AugmentedError<ApiType>;
+      InvalidTransferInvalidReceiverDID: AugmentedError<ApiType>;
       /**
-       * Failed to transfer the asset - sender cdd is not valid.
+       * Failed to transfer the asset - sender DID is not active.
        **/
-      InvalidTransferInvalidSenderCDD: AugmentedError<ApiType>;
+      InvalidTransferInvalidSenderDID: AugmentedError<ApiType>;
       /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
@@ -316,10 +316,52 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CounterOverflow: AugmentedError<ApiType>;
       /**
+       * Invalid account ID.
+       **/
+      InvalidAccountId: AugmentedError<ApiType>;
+      /**
        * Exceeded a generic length limit.
        * The limit could be for any sort of lists of things, including a string.
        **/
       TooLong: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
+    beefy: {
+      /**
+       * A given equivocation report is valid but already previously reported.
+       **/
+      DuplicateOffenceReport: AugmentedError<ApiType>;
+      /**
+       * Submitted configuration is invalid.
+       **/
+      InvalidConfiguration: AugmentedError<ApiType>;
+      /**
+       * A double voting proof provided as part of an equivocation report is invalid.
+       **/
+      InvalidDoubleVotingProof: AugmentedError<ApiType>;
+      /**
+       * The session of the equivocation proof is invalid
+       **/
+      InvalidEquivocationProofSession: AugmentedError<ApiType>;
+      /**
+       * The session of the equivocation proof is not in the mapping (anymore)
+       **/
+      InvalidEquivocationProofSessionMember: AugmentedError<ApiType>;
+      /**
+       * A fork voting proof provided as part of an equivocation report is invalid.
+       **/
+      InvalidForkVotingProof: AugmentedError<ApiType>;
+      /**
+       * A future block voting proof provided as part of an equivocation report is invalid.
+       **/
+      InvalidFutureBlockVotingProof: AugmentedError<ApiType>;
+      /**
+       * A key ownership proof provided as part of an equivocation report is invalid.
+       **/
+      InvalidKeyOwnershipProof: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -387,36 +429,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Distribution had not expired yet, or there's no expiry date.
        **/
       NotExpired: AugmentedError<ApiType>;
-      /**
-       * Generic error
-       **/
-      [key: string]: AugmentedError<ApiType>;
-    };
-    cddServiceProviders: {
-      /**
-       * The limit for the number of concurrent active members for this group has been exceeded.
-       **/
-      ActiveMembersLimitExceeded: AugmentedError<ApiType>;
-      /**
-       * Active member limit was greater than maximum committee members limit.
-       **/
-      ActiveMembersLimitOverflow: AugmentedError<ApiType>;
-      /**
-       * Group member was added already.
-       **/
-      DuplicateMember: AugmentedError<ApiType>;
-      /**
-       * Last member of the committee can not quit.
-       **/
-      LastMemberCannotQuit: AugmentedError<ApiType>;
-      /**
-       * Can't remove a member that doesn't exist.
-       **/
-      NoSuchMember: AugmentedError<ApiType>;
-      /**
-       * Only primary key of the identity is allowed.
-       **/
-      OnlyPrimaryKeyAllowed: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -806,6 +818,36 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    didRegistrars: {
+      /**
+       * The limit for the number of concurrent active members for this group has been exceeded.
+       **/
+      ActiveMembersLimitExceeded: AugmentedError<ApiType>;
+      /**
+       * Active member limit was greater than maximum committee members limit.
+       **/
+      ActiveMembersLimitOverflow: AugmentedError<ApiType>;
+      /**
+       * Group member was added already.
+       **/
+      DuplicateMember: AugmentedError<ApiType>;
+      /**
+       * Last member of the committee can not quit.
+       **/
+      LastMemberCannotQuit: AugmentedError<ApiType>;
+      /**
+       * Can't remove a member that doesn't exist.
+       **/
+      NoSuchMember: AugmentedError<ApiType>;
+      /**
+       * Only primary key of the identity is allowed.
+       **/
+      OnlyPrimaryKeyAllowed: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     electionProviderMultiPhase: {
       /**
        * Some bound not met
@@ -882,6 +924,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       BadAuthorizationType: AugmentedError<ApiType>;
       /**
+       * Except `ExtrinsicPermissions` are not allowed for external agents.
+       **/
+      ExceptPermissionsNotAllowed: AugmentedError<ApiType>;
+      /**
        * An AG with the given `AGId` did not exist for the `AssetId`.
        **/
       NoSuchAG: AugmentedError<ApiType>;
@@ -944,6 +990,10 @@ declare module '@polkadot/api-base/types/errors' {
       [key: string]: AugmentedError<ApiType>;
     };
     identity: {
+      /**
+       * Account based portfolios cannot have custodians.
+       **/
+      AccountBasedPortfoliosCannotHaveCustodians: AugmentedError<ApiType>;
       /**
        * The account key is being used, it can't be unlinked.
        **/
@@ -1027,9 +1077,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidAuthorization: AugmentedError<ApiType>;
       /**
-       * An invalid authorization from the CDD provider.
+       * An invalid authorization from the DID registrar.
        **/
-      InvalidAuthorizationFromCddProvider: AugmentedError<ApiType>;
+      InvalidAuthorizationFromDidRegistrar: AugmentedError<ApiType>;
       /**
        * An invalid authorization from the owner.
        **/
@@ -1059,9 +1109,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       NotASigner: AugmentedError<ApiType>;
       /**
-       * Attestation was not by a CDD service provider.
+       * Attestation was not by a DID registrar.
        **/
-      NotCddProviderAttestation: AugmentedError<ApiType>;
+      NotDidRegistrarAttestation: AugmentedError<ApiType>;
       /**
        * The caller is not the parent or child identity.
        **/
@@ -1075,17 +1125,17 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       SecondaryKeysContainPrimaryKey: AugmentedError<ApiType>;
       /**
-       * The target DID has no valid CDD.
+       * The target DID does not exist (is not active).
        **/
-      TargetHasNoCdd: AugmentedError<ApiType>;
+      TargetDidInactive: AugmentedError<ApiType>;
       /**
        * Signatory is not pre authorized by the identity
        **/
       Unauthorized: AugmentedError<ApiType>;
       /**
-       * The DID is missing a CDD claim.
+       * The DID does not exist (is not active).
        **/
-      UnauthorizedCallerDidMissingCdd: AugmentedError<ApiType>;
+      UnauthorizedCallerDidInactive: AugmentedError<ApiType>;
       /**
        * Frozen secondary key.
        **/
@@ -1095,9 +1145,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       UnauthorizedCallerMissingPermissions: AugmentedError<ApiType>;
       /**
-       * Only CDD service providers are allowed.
+       * Only DID registrars (formerly CDD service providers) are allowed.
        **/
-      UnAuthorizedCddProvider: AugmentedError<ApiType>;
+      UnAuthorizedDidRegistrar: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1312,13 +1362,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidNFTTransferInsufficientCount: AugmentedError<ApiType>;
       /**
-       * The receiver has an invalid CDD.
+       * The receiver has an invalid DID.
        **/
-      InvalidNFTTransferInvalidReceiverCDD: AugmentedError<ApiType>;
+      InvalidNFTTransferInvalidReceiverDID: AugmentedError<ApiType>;
       /**
-       * The sender has an invalid CDD.
+       * The sender has an invalid DID.
        **/
-      InvalidNFTTransferInvalidSenderCDD: AugmentedError<ApiType>;
+      InvalidNFTTransferInvalidSenderDID: AugmentedError<ApiType>;
       /**
        * Failed to transfer an NFT - nft is locked.
        **/
@@ -1577,6 +1627,10 @@ declare module '@polkadot/api-base/types/errors' {
     };
     portfolio: {
       /**
+       * Account based portfolios cannot have custodians.
+       **/
+      AccountBasedPortfoliosCannotHaveCustodians: AugmentedError<ApiType>;
+      /**
        * The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
        **/
       BadAuthorizationType: AugmentedError<ApiType>;
@@ -1597,6 +1651,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       EmptyTransfer: AugmentedError<ApiType>;
       /**
+       * Insufficient balance (tokens might not exist or are locked).
+       **/
+      InsufficientBalance: AugmentedError<ApiType>;
+      /**
        * Insufficient balance for a transaction.
        **/
       InsufficientPortfolioBalance: AugmentedError<ApiType>;
@@ -1616,6 +1674,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The sender identity can't be the same as the receiver identity.
        **/
       InvalidTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
+      /**
+       * Key not found for caller.
+       **/
+      KeyNotFoundForCaller: AugmentedError<ApiType>;
       /**
        * The caller doesn't have permission to create portfolios on the owner's behalf.
        **/
@@ -1660,6 +1722,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The porfolio's custody is with someone other than the caller.
        **/
       UnauthorizedCustodian: AugmentedError<ApiType>;
+      /**
+       * The key does not have permission to access the portfolio.
+       **/
+      UnauthorizedPortfolioKey: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1727,6 +1793,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       BadAuthorizationType: AugmentedError<ApiType>;
       /**
+       * The caller's identity was not found.
+       **/
+      IdentityNotFound: AugmentedError<ApiType>;
+      /**
        * The `user_key` doesn't have a `paying_key`.
        **/
       NoPayingKey: AugmentedError<ApiType>;
@@ -1747,13 +1817,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       Overflow: AugmentedError<ApiType>;
       /**
-       * The `user_key` is not attached to a CDD'd identity.
+       * The `paying_key` is not attached to an active DID.
        **/
-      PayingKeyCddMissing: AugmentedError<ApiType>;
+      PayingKeyDidMissing: AugmentedError<ApiType>;
       /**
-       * The `user_key` is not attached to a CDD'd identity.
+       * The `user_key` is not attached to an active DID.
        **/
-      UserKeyCddMissing: AugmentedError<ApiType>;
+      UserKeyDidMissing: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1861,6 +1931,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InstructionSettleBlockPassed: AugmentedError<ApiType>;
       /**
+       * Invalid account id.
+       **/
+      InvalidAccountId: AugmentedError<ApiType>;
+      /**
        * The mediator's expiry date must be in the future.
        **/
       InvalidExpiryDate: AugmentedError<ApiType>;
@@ -1960,6 +2034,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The instruction id in all receipts must match the extrinsic parameter.
        **/
       ReceiptInstructionIdMissmatch: AugmentedError<ApiType>;
+      /**
+       * Receiver identity not found.
+       **/
+      ReceiverIdentityNotFound: AugmentedError<ApiType>;
       /**
        * Sender and receiver are the same.
        **/
@@ -2266,7 +2344,7 @@ declare module '@polkadot/api-base/types/errors' {
     };
     sudo: {
       /**
-       * Sender must be the Sudo account
+       * Sender must be the Sudo account.
        **/
       RequireSudo: AugmentedError<ApiType>;
       /**
@@ -2498,11 +2576,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidSignature: AugmentedError<ApiType>;
       /**
-       * Target does not have a valid CDD
-       * POLYMESH error
-       **/
-      TargetCddMissing: AugmentedError<ApiType>;
-      /**
        * Too many calls batched.
        **/
       TooManyCalls: AugmentedError<ApiType>;
@@ -2529,9 +2602,9 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       IdentityIsAlreadyPermissioned: AugmentedError<ApiType>;
       /**
-       * Identity has not gone throught CDD.
+       * Identity has no active DID.
        **/
-      IdentityIsMissingCDD: AugmentedError<ApiType>;
+      IdentityIsMissingDID: AugmentedError<ApiType>;
       /**
        * Identity was not found in the permissioned identity pool.
        **/

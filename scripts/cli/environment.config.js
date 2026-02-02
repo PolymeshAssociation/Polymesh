@@ -3,8 +3,8 @@ let chain = "local";
 let polymesh_bin = "../../target/release/polymesh";
 let common = "--wasm-execution compiled " +
   //  "--db-cache=3000 " +
-  "--pruning=archive " +
-  "--rpc-methods=unsafe --rpc-external --ws-external " +
+  "--state-pruning=archive " +
+  "--rpc-methods=unsafe --rpc-external " +
   "--rpc-cors all --no-prometheus --no-telemetry --no-mdns " +
   "--validator --chain " + chain + " ";
 // Use node-key parameter for the primary node.
@@ -20,7 +20,7 @@ module.exports = {
       script: polymesh_bin,
       args:
         "-d /tmp/pmesh-primary-node --alice " + primary +
-        " --port 30334 --ws-port 9944 --rpc-port 9933",
+        " --port 30334 --rpc-port 9944",
       env: {
         RUST_BACKTRACE: "1",
       },
@@ -30,7 +30,7 @@ module.exports = {
       script: polymesh_bin,
       args:
         "-d /tmp/pmesh-peer-node-1 --bob " + peer +
-        " --port 30335 --ws-port 9945 --rpc-port 9935",
+        " --port 30335 --rpc-port 9945",
       env: {
         RUST_BACKTRACE: "1",
       },
@@ -40,7 +40,7 @@ module.exports = {
       script: polymesh_bin,
       args:
         "-d /tmp/pmesh-peer-node-2 --charlie " + peer +
-        " --port 30336 --ws-port 9946 --rpc-port 9936",
+        " --port 30336 --rpc-port 9946",
       env: {
         RUST_BACKTRACE: "1",
       },
@@ -50,7 +50,7 @@ module.exports = {
       script: polymesh_bin,
       args:
         "-d /tmp/pmesh-peer-node-3 --dave " + peer +
-        " --port 30337 --ws-port 9947 --rpc-port 9937",
+        " --port 30337 --rpc-port 9947",
       env: {
         RUST_BACKTRACE: "1",
       },
@@ -60,7 +60,7 @@ module.exports = {
       script: polymesh_bin,
       args:
         "-d /tmp/pmesh-peer-node-4 --eve " + peer +
-        " --port 30338 --ws-port 9948 --rpc-port 9938",
+        " --port 30338 --rpc-port 9948",
       env: {
         RUST_BACKTRACE: "1",
       },
