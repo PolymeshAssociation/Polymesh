@@ -59,6 +59,12 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
         // Minimum execution time: 8_311 nanoseconds.
         Weight::from_parts(8_311_000, 0).saturating_add(DbWeight::get().writes(1))
     }
+    // Storage: `Relayer::PendingSubsidies` (r:0 w:1)
+    // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+    fn revoke_subsidy() -> Weight {
+        // Minimum execution time: 8_311 nanoseconds.
+        Weight::from_parts(8_311_000, 0).saturating_add(DbWeight::get().writes(1))
+    }
     // Storage: `Relayer::PendingSubsidies` (r:1 w:1)
     // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
     // Storage: `Relayer::Subsidies` (r:1 w:1)

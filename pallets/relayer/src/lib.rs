@@ -64,6 +64,7 @@ use polymesh_primitives::{Balance, TransactionError};
 pub trait WeightInfo {
     fn approve_subsidy() -> Weight;
     fn accept_subsidy() -> Weight;
+    fn revoke_subsidy() -> Weight;
     fn remove_subsidy() -> Weight;
     fn update_polyx_limit() -> Weight;
     fn increase_polyx_limit() -> Weight;
@@ -139,6 +140,16 @@ pub mod pallet {
             paying_key: T::AccountId,
             /// The remaining POLYX for this subsidy.
             remaining: Balance,
+        },
+
+        /// Removed pending subsidy.
+        RemovedPendingSubsidy {
+            /// The user key that was being subsidised.
+            user_key: T::AccountId,
+            /// The paying key that was subsidising the `user_key`.
+            paying_key: T::AccountId,
+            /// The initial POLYX limit for this subsidy.
+            initial_polyx_limit: Balance,
         },
 
         /// Updated polyx limit.
@@ -290,11 +301,21 @@ pub mod pallet {
             Self::base_approve_subsidy(origin, user_key, polyx_limit)
         }
 
+        /// Revoke a previously approved subsidy.
+        ///
+        /// # Arguments
+        /// - `user_key` the user key to revoke the subsidy for.
+        #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::revoke_subsidy())]
+        pub fn revoke_subsidy(origin: OriginFor<T>, user_key: T::AccountId) -> DispatchResult {
+            Self::base_revoke_subsidy(origin, user_key)
+        }
+
         /// Accepts a subsidy from a `paying_key`.
         ///
         /// # Arguments
         /// - `paying_key` the paying key that is subsidising the caller's `user_key`.
-        #[pallet::call_index(1)]
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::accept_subsidy())]
         pub fn accept_subsidy(origin: OriginFor<T>, paying_key: T::AccountId) -> DispatchResult {
             Self::base_accept_subsidy(origin, paying_key)
@@ -311,7 +332,7 @@ pub mod pallet {
         /// # Errors
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if the `paying_key` doesn't match the current `paying_key`.
-        #[pallet::call_index(2)]
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_subsidy())]
         pub fn remove_subsidy(
             origin: OriginFor<T>,
@@ -330,7 +351,7 @@ pub mod pallet {
         /// # Errors
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
-        #[pallet::call_index(3)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::update_polyx_limit())]
         pub fn update_polyx_limit(
             origin: OriginFor<T>,
@@ -350,7 +371,7 @@ pub mod pallet {
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
         /// - `Overlow` if the subsidy's remaining POLYX would have overflowed `u128::MAX`.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_polyx_limit())]
         pub fn increase_polyx_limit(
             origin: OriginFor<T>,
@@ -370,7 +391,7 @@ pub mod pallet {
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
         /// - `Overlow` if the subsidy has less then `amount` POLYX remaining.
-        #[pallet::call_index(5)]
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::decrease_polyx_limit())]
         pub fn decrease_polyx_limit(
             origin: OriginFor<T>,
@@ -391,7 +412,7 @@ pub mod pallet {
         /// - `target`: Account to be relayed
         /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
-        #[pallet::call_index(6)]
+        #[pallet::call_index(7)]
         #[pallet::weight({
                 let dispatch_info = call.call.get_dispatch_info();
                 (
@@ -473,6 +494,22 @@ impl<T: Config> Pallet<T> {
         PendingSubsidies::<T>::insert(&user_key, &paying_key, initial_polyx_limit);
 
         Self::deposit_event(Event::ApprovedSubsidy {
+            user_key,
+            paying_key,
+            initial_polyx_limit,
+        });
+        Ok(())
+    }
+
+    fn base_revoke_subsidy(origin: T::RuntimeOrigin, user_key: T::AccountId) -> DispatchResult {
+        let paying_key = ensure_signed(origin)?;
+
+        // Remove pending subsidy.
+        let initial_polyx_limit = PendingSubsidies::<T>::take(&user_key, &paying_key)
+            .ok_or(Error::<T>::NoPendingSubsidy)?;
+
+        // Emit event.
+        Self::deposit_event(Event::RemovedPendingSubsidy {
             user_key,
             paying_key,
             initial_polyx_limit,
