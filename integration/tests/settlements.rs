@@ -231,7 +231,7 @@ async fn offchain_settlement() -> Result<()> {
         .call()
         .settlement()
         .add_and_affirm_instruction(
-            Some(venue_id),
+            venue_id,
             SettlementType::SettleManual(0),
             None,
             None,

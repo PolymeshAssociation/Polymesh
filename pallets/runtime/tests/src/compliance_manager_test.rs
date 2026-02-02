@@ -6,9 +6,7 @@ use sp_std::prelude::*;
 use pallet_compliance_manager::{AssetCompliances, Error as CMError, TrustedClaimIssuer};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::compliance_manager::{
-    ComplianceReport, ComplianceRequirement, ComplianceRequirementResult,
-};
+use polymesh_primitives::compliance_manager::{ComplianceReport, ComplianceRequirement};
 use polymesh_primitives::{
     traits::ComplianceFnConfig, AuthorizationData, Claim, ClaimType, Condition, ConditionType,
     CountryCode, IdentityId, PortfolioId, Scope, Signatory, TargetIdentity, TrustedFor,
@@ -1227,17 +1225,6 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_valid_transfer!(asset_id, owner.did, charlie.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
-        &asset_id,
-        Some(owner.did),
-        Some(charlie.did),
-        &mut WeightMeter::max_limit_no_minimum(),
-    )
-    .unwrap();
-    assert!(result.result);
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[1].result);
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
     assert_ok!(Identity::add_claim(
@@ -1254,17 +1241,6 @@ fn cm_test_case_11_we() {
     ));
 
     assert_invalid_transfer!(asset_id, owner.did, dave.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
-        &asset_id,
-        Some(owner.did),
-        Some(dave.did),
-        &mut WeightMeter::max_limit_no_minimum(),
-    )
-    .unwrap();
-    assert!(!result.result);
-    assert!(!result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(!result.requirements[0].receiver_conditions[1].result);
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
@@ -1281,17 +1257,6 @@ fn cm_test_case_11_we() {
     ));
 
     assert_valid_transfer!(asset_id, owner.did, eve.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
-        &asset_id,
-        Some(owner.did),
-        Some(eve.did),
-        &mut WeightMeter::max_limit_no_minimum(),
-    )
-    .unwrap();
-    assert!(result.result);
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[1].result);
 }
 
 #[test]
@@ -1355,19 +1320,6 @@ fn cm_test_case_13_we() {
     ));
 
     assert_invalid_transfer!(asset_id, owner.did, charlie.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
-        &asset_id,
-        None,
-        Some(charlie.did),
-        &mut WeightMeter::max_limit_no_minimum(),
-    )
-    .unwrap();
-    assert!(!result.result);
-    assert!(!result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(!result.requirements[0].receiver_conditions[1].result);
-    assert!(result.requirements[0].receiver_conditions[2].result);
-
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
 
     assert_add_claim!(
@@ -1390,18 +1342,6 @@ fn cm_test_case_13_we() {
     );
 
     assert_invalid_transfer!(asset_id, owner.did, dave.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
-        &asset_id,
-        None,
-        Some(dave.did),
-        &mut WeightMeter::max_limit_no_minimum(),
-    )
-    .unwrap();
-    assert!(!result.result);
-    assert!(!result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[1].result);
-    assert!(!result.requirements[0].receiver_conditions[2].result);
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_add_claim!(
@@ -1424,18 +1364,6 @@ fn cm_test_case_13_we() {
     );
 
     assert_valid_transfer!(asset_id, owner.did, eve.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(
-        &asset_id,
-        Some(owner.did),
-        Some(eve.did),
-        &mut WeightMeter::max_limit_no_minimum(),
-    )
-    .unwrap();
-    assert!(result.result);
-    assert!(result.requirements[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[1].result);
-    assert!(result.requirements[0].receiver_conditions[2].result);
 }
 
 #[test]
@@ -1579,25 +1507,6 @@ fn check_new_return_type_of_rpc() {
 
         ComplianceManager::add_compliance_requirement(owner.origin(), asset_id, vec![], vec![])
             .unwrap();
-
-        let result = ComplianceManager::verify_restriction_granular(
-            &asset_id,
-            Some(owner.did),
-            Some(receiver.did),
-            &mut WeightMeter::max_limit_no_minimum(),
-        )
-        .unwrap();
-
-        let compliance_requirement = ComplianceRequirementResult {
-            sender_conditions: vec![],
-            receiver_conditions: vec![],
-            id: 1,
-            result: true,
-        };
-
-        assert!(result.requirements.len() == 1);
-        assert_eq!(result.requirements[0], compliance_requirement);
-        assert_eq!(result.result, true);
 
         // Transfer should be valid as there are no restrictions.
         assert_valid_transfer!(asset_id, owner.did, receiver.did, 100);

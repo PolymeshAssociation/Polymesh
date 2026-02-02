@@ -271,8 +271,8 @@ pub mod pallet {
         StashIdentityNotPermissioned,
         /// Permissioned validator already exists.
         IdentityIsAlreadyPermissioned,
-        /// Identity is not active (DID does not exist).
-        IdentityNotActive,
+        /// Identity has no active DID.
+        IdentityIsMissingDID,
         /// When the intended number of validators to run is >= 2/3 of `validator_count`.
         IntendedCountIsExceedingConsensusLimit,
         /// Identity was not found in the permissioned identity pool.

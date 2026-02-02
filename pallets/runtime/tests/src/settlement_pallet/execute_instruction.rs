@@ -125,27 +125,27 @@ fn storage_rollback() {
         next_block();
         // Asserts storage has not changed
         assert_eq!(
-            PortfolioLockedAssets::<TestStorage>::get(alice_default_portfolio, asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&alice_default_portfolio, asset_id),
             1_000
         );
         assert_eq!(
-            PortfolioLockedAssets::<TestStorage>::get(alice_default_portfolio, asset_id2),
+            PortfolioLockedAssets::<TestStorage>::get(&alice_default_portfolio, asset_id2),
             1_000
         );
         assert_eq!(
-            UserAffirmations::<TestStorage>::get(alice_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(&alice_default_portfolio, instruction_id),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            UserAffirmations::<TestStorage>::get(bob_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(&bob_default_portfolio, instruction_id),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            InstructionStatuses::<TestStorage>::get(instruction_id),
+            InstructionStatuses::<TestStorage>::get(&instruction_id),
             InstructionStatus::Failed
         );
         let all_legs =
-            InstructionLegs::<TestStorage>::iter_prefix_values(instruction_id).collect::<Vec<_>>();
+            InstructionLegs::<TestStorage>::iter_prefix_values(&instruction_id).collect::<Vec<_>>();
         assert_eq!(all_legs.len(), 2);
         // Asserts the events are being emitted
         let mut system_events = System::events();

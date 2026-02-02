@@ -152,7 +152,7 @@ where
 
     pub(crate) fn can_withdraw_fee(
         &self,
-        who: &T::AccountId,
+        who: T::AccountId,
         call: &T::RuntimeCall,
         info: &DispatchInfoOf<T::RuntimeCall>,
         len: usize,
@@ -167,7 +167,7 @@ where
             return Ok((fee_with_tip, None));
         }
 
-        let (payers_key, subsidiser) = Self::check_subsidy_conditions(who, call, fee_with_tip)?;
+        let (payers_key, subsidiser) = Self::check_subsidy_conditions(&who, call, fee_with_tip)?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
@@ -233,8 +233,8 @@ where
         fee_with_tip: BalanceOf<T>,
     ) -> Result<(T::AccountId, Option<T::AccountId>), InvalidTransaction> {
         // Get the payer for this transaction.
-        let payers_key =
-            T::CddHandler::get_valid_payer(call, who)?.ok_or(InvalidTransaction::Payment)?;
+        let payers_key = T::CddHandler::get_valid_payer(call, who.clone())?
+            .ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
         let subsidiser =
@@ -268,7 +268,8 @@ where
                     return Ok(self.0);
                 }
 
-                if info.class == DispatchClass::Operational && Self::is_gc_or_registrar_member(who) {
+                if info.class == DispatchClass::Operational && Self::is_gc_or_registrar_member(who)
+                {
                     return Ok(self.0);
                 }
 
@@ -309,6 +310,8 @@ pub enum Pre<T: Config> {
         imbalance: <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
         // Polymesh Subsidiser account (who paid the fee)
         subsidiser: Option<T::AccountId>,
+        // The AuthId of the call
+        auth_id: Option<u64>,
     },
     NoCharge {
         // weight initially estimated by the extension, to be refunded
@@ -365,7 +368,7 @@ where
 
         let tip = self.ensure_valid_tip(&who, info)?;
 
-        let (fee_with_tip, subsidiser) = self.can_withdraw_fee(&who, call, info, len)?;
+        let (fee_with_tip, subsidiser) = self.can_withdraw_fee(who.clone(), call, info, len)?;
 
         let valid_transaction = ValidTransaction {
             priority: pallet_transaction_payment::ChargeTransactionPayment::<T>::get_priority(
@@ -407,12 +410,14 @@ where
             } => {
                 let (_, subsidiser, imbalance) =
                     self.withdraw_fee(&who, call, info, fee_with_tip)?;
+                let auth_id = T::CddHandler::get_authorization_id(call);
 
                 Ok(Pre::Charge {
                     tip,
                     who,
                     imbalance,
                     subsidiser,
+                    auth_id,
                 })
             }
         }
@@ -423,19 +428,25 @@ where
         info: &DispatchInfoOf<T::RuntimeCall>,
         post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
         len: usize,
-        _result: &DispatchResult,
+        result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance, subsidiser) = {
+        let (tip, who, imbalance, subsidiser, auth_id) = {
             match pre {
                 Pre::Charge {
                     tip,
                     who,
                     imbalance,
                     subsidiser,
-                } => (tip, who, imbalance, subsidiser),
+                    auth_id,
+                } => (tip, who, imbalance, subsidiser, auth_id),
                 Pre::NoCharge { .. } => return Ok(()),
             }
         };
+
+        // We want to decrease the counter of Authorization.count when the caller is not paying for the fee and the call failed
+        if result.is_err() {
+            T::CddHandler::decrease_authorization_count(&who, auth_id);
+        }
 
         let actual_fee =
             TransactionPallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);

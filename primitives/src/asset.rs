@@ -20,9 +20,10 @@ use scale_info::TypeInfo;
 use sp_io::hashing::blake2_128;
 use sp_std::prelude::Vec;
 
-use crate::impl_checked_inc;
-use crate::ticker::Ticker;
 use polymesh_primitives_derive::VecU8StrongTyped;
+
+use crate::ticker::Ticker;
+use crate::{impl_checked_inc, AccountId as AccountId32, PortfolioId};
 
 /// An unique asset identifier.
 #[derive(Serialize, Deserialize)]
@@ -174,3 +175,13 @@ impl AssetType {
 #[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct FundingRoundName(pub Vec<u8>);
+
+/// Represents the holder of an asset, which can be either a portfolio or an account.
+#[derive(Clone, Debug, PartialEq)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+pub enum AssetHolder {
+    /// The asset is held in a portfolio.
+    Portfolio(PortfolioId),
+    /// The asset is held byt the key.
+    Account(AccountId32),
+}

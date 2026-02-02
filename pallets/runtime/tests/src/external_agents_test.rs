@@ -422,3 +422,51 @@ fn atredis_multi_group_perms() {
         assert_ok!(set(b));
     });
 }
+
+#[test]
+fn except_permissions_not_allowed() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        let ext_perms = ExtrinsicPermissions::except([PalletPermissions::entire_pallet(
+            "pallet_external_agent".into(),
+        )]);
+
+        assert_noop!(
+            ExternalAgents::create_group(alice.origin(), asset_id, ext_perms.clone()),
+            Error::ExceptPermissionsNotAllowed
+        );
+    });
+}
+
+#[test]
+fn except_permissions_not_allowed_set() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        let ext_perms = ExtrinsicPermissions::these([PalletPermissions::entire_pallet(
+            "pallet_external_agent".into(),
+        )]);
+
+        assert_ok!(ExternalAgents::create_group(
+            alice.origin(),
+            asset_id,
+            ext_perms.clone()
+        ),);
+
+        let ext_perms = ExtrinsicPermissions::except([PalletPermissions::entire_pallet(
+            "pallet_external_agent".into(),
+        )]);
+        assert_noop!(
+            ExternalAgents::set_group_permissions(
+                alice.origin(),
+                asset_id,
+                AGIdSequence::get(asset_id),
+                ext_perms.clone()
+            ),
+            Error::ExceptPermissionsNotAllowed
+        );
+    });
+}

@@ -44,6 +44,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 /// 100% goes to the block author.
 pub type DealWithFees = Author<Runtime>;
 pub type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -55,7 +56,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: Cow::Borrowed("polymesh_dev"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
-    spec_version: 8_000_001,
+    // N.B. `d` is unpinned from the binary version
+    spec_version: 8_000_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 8,
@@ -137,6 +139,7 @@ parameter_types! {
     // Identity:
     pub const InitialPOLYX: Balance = 0;
     pub const MaxGivenAuths: u32 = 1024;
+    pub const MaxAuthRetries: u8 = 10;
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
@@ -199,6 +202,7 @@ impl pallet_identity::Config for Runtime {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
+    type MaxAuthRetries = MaxAuthRetries;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

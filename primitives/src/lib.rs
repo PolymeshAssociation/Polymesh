@@ -198,7 +198,7 @@ pub use secondary_key::{
 
 /// Subset type.
 pub mod subset;
-pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
+pub use subset::SubsetRestriction;
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;

@@ -11,16 +11,17 @@ use sp_std::{vec, vec::Vec};
 
 use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
-use pallet_portfolio::{PortfolioLockedNFT, PortfolioNFT};
-use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetHolder, AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
-    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
+    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute,
+    NFTOwnerStatus, NFTs,
 };
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
-    IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason, WeightMeter,
+    AccountId as AccountId32, IdentityId, Memo, PortfolioId, PortfolioKind, PortfolioUpdateReason,
+    RocksDbWeight as DbWeight, WeightMeter,
 };
 
 type Asset<T> = pallet_asset::Pallet<T>;
@@ -63,7 +64,7 @@ pub mod pallet {
         type MaxNumberOfNFTsCount: Get<u32>;
     }
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -126,6 +127,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, AssetId, NFTCount, ValueQuery>;
 
     /// Tracks the owner of an NFT
+    /// This will be deprecated in the future release.
     #[pallet::storage]
     pub type NFTOwner<T: Config> = StorageDoubleMap<
         _,
@@ -146,6 +148,30 @@ pub mod pallet {
     #[pallet::storage]
     pub type CurrentCollectionId<T: Config> = StorageValue<_, NFTCollectionId, OptionQuery>;
 
+    /// All NFTs associated to the account Key.
+    #[pallet::storage]
+    pub type NFTHolder<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        (AssetId, NFTId),
+        NFTOwnerStatus,
+        ValueQuery,
+    >;
+
+    /// Reverse mapping for allowing to find the owner of a specific NFT.
+    #[pallet::storage]
+    pub type Owner<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Blake2_128Concat,
+        NFTId,
+        AssetHolder,
+        OptionQuery,
+    >;
+
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
@@ -161,7 +187,30 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            polymesh_primitives::migrate::frame_v2_migrate::<Pallet<T>>("NFT", STORAGE_VERSION)
+            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::in_code_storage_version() {
+                log::info!("Running Migration for initializing Owner storage.");
+                let mut n = 0;
+                for (asset_id, nft_id, owner_portfolio) in NFTOwner::<T>::iter() {
+                    let asset_holder = {
+                        match owner_portfolio.kind {
+                            PortfolioKind::AccountId(acc_id) => AssetHolder::Account(acc_id),
+                            PortfolioKind::Default | PortfolioKind::User(_) => {
+                                AssetHolder::Portfolio(owner_portfolio.clone())
+                            }
+                        }
+                    };
+
+                    Owner::<T>::insert(asset_id, nft_id, asset_holder);
+                    n += 1;
+                }
+                log::info!("Initialized Owner storage for {} items.", n);
+                let weight = DbWeight::get()
+                    .reads(n)
+                    .saturating_add(DbWeight::get().writes(n));
+                return weight;
+            }
+
+            Weight::zero()
         }
     }
 
@@ -356,7 +405,7 @@ impl<T: Config> Pallet<T> {
                         ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
                         let caller_did = <ExternalAgents<T>>::ensure_agent_asset_perms(
                             origin.clone(),
-                            asset_id,
+                            &asset_id,
                         )?
                         .primary_did;
                         (false, caller_did, asset_id)
@@ -480,13 +529,14 @@ impl<T: Config> Pallet<T> {
             .checked_add(1)
             .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = Self::update_current_nft_id(&collection_id)?;
+
         NFTsInCollection::<T>::insert(&asset_id, new_supply);
         NumberOfNFTs::<T>::insert(&asset_id, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::<T>::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        PortfolioNFT::<T>::insert(caller_portfolio, (asset_id, nft_id), true);
-        NFTOwner::<T>::insert(asset_id, nft_id, caller_portfolio);
+        Portfolio::<T>::add_nft_to_owner(caller_portfolio.clone(), asset_id, nft_id)?;
+        Self::add_nft_owner(asset_id, nft_id, caller_portfolio.clone());
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -519,13 +569,12 @@ impl<T: Config> Pallet<T> {
             true,
         )?;
 
-        // Verifies if the NFT exists
         ensure!(
-            PortfolioNFT::<T>::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            Portfolio::<T>::is_nft_owner(&caller_portfolio, &asset_id, &nft_id),
             Error::<T>::NFTNotFound
         );
         ensure!(
-            !PortfolioLockedNFT::<T>::contains_key(&caller_portfolio, (&asset_id, &nft_id)),
+            !Portfolio::<T>::is_nft_locked(&caller_portfolio, &asset_id, &nft_id),
             Error::<T>::NFTIsLocked
         );
 
@@ -536,10 +585,11 @@ impl<T: Config> Pallet<T> {
         let new_balance = NumberOfNFTs::<T>::get(&asset_id, &caller_portfolio.did)
             .checked_sub(1)
             .ok_or(Error::<T>::BalanceUnderflow)?;
+
         NFTsInCollection::<T>::insert(&asset_id, new_supply);
         NumberOfNFTs::<T>::insert(&asset_id, &caller_portfolio.did, new_balance);
-        PortfolioNFT::<T>::remove(&caller_portfolio, (&asset_id, &nft_id));
-        NFTOwner::<T>::remove(asset_id, nft_id);
+        Portfolio::<T>::remove_nft_from_owner(&caller_portfolio, &asset_id, &nft_id)?;
+        Self::remove_nft_owner(&asset_id, &nft_id);
         let removed_keys = MetadataValue::<T>::drain_prefix((&collection_id, &nft_id)).count();
         if let Some(number_of_keys) = number_of_keys {
             ensure!(
@@ -581,7 +631,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Transfer ownership of the NFTs
-        Self::unverified_nfts_transfer(&sender_portfolio, &receiver_portfolio, &nfts);
+        Self::unverified_nfts_transfer(&sender_portfolio, &receiver_portfolio, &nfts)?;
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_did,
@@ -675,11 +725,11 @@ impl<T: Config> Pallet<T> {
         // Verfies that the sender owns the nfts and that they are not locked
         for nft_id in nfts.ids() {
             ensure!(
-                PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                Portfolio::<T>::is_nft_owner(sender_portfolio, nfts.asset_id(), nft_id),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
             );
             ensure!(
-                !PortfolioLockedNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)),
+                !Portfolio::<T>::is_nft_locked(sender_portfolio, nfts.asset_id(), nft_id),
                 Error::<T>::InvalidNFTTransferNFTIsLocked
             );
         }
@@ -709,7 +759,7 @@ impl<T: Config> Pallet<T> {
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
-    ) {
+    ) -> DispatchResult {
         // Update the balance of the sender and the receiver
         let transferred_amount = nfts.len() as u64;
         NumberOfNFTs::<T>::mutate(nfts.asset_id(), sender_portfolio.did, |balance| {
@@ -720,10 +770,16 @@ impl<T: Config> Pallet<T> {
         });
         // Update the portfolio of the sender and the receiver
         for nft_id in nfts.ids() {
-            PortfolioNFT::<T>::remove(sender_portfolio, (nfts.asset_id(), nft_id));
-            PortfolioNFT::<T>::insert(receiver_portfolio, (nfts.asset_id(), nft_id), true);
-            NFTOwner::<T>::insert(nfts.asset_id(), nft_id, receiver_portfolio);
+            Portfolio::<T>::remove_nft_from_owner(sender_portfolio, nfts.asset_id(), nft_id)?;
+            Portfolio::<T>::add_nft_to_owner(
+                receiver_portfolio.clone(),
+                *nfts.asset_id(),
+                *nft_id,
+            )?;
+            Self::add_nft_owner(*nfts.asset_id(), *nft_id, receiver_portfolio.clone());
         }
+
+        Ok(())
     }
 
     pub fn base_controller_transfer(
@@ -743,7 +799,7 @@ impl<T: Config> Pallet<T> {
         // Verifies if all rules for transfering the NFTs are being respected
         Self::validate_nft_transfer(&source_portfolio, &caller_portfolio, &nfts, true, None)?;
         // Transfer ownership of the NFTs
-        Self::unverified_nfts_transfer(&source_portfolio, &caller_portfolio, &nfts);
+        Self::unverified_nfts_transfer(&source_portfolio, &caller_portfolio, &nfts)?;
 
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_portfolio.did,
@@ -794,7 +850,7 @@ impl<T: Config> Pallet<T> {
 
         if skip_locked_check {
             for nft_id in nfts.ids() {
-                if !PortfolioNFT::<T>::contains_key(sender_portfolio, (nfts.asset_id(), nft_id)) {
+                if !Portfolio::<T>::is_nft_owner(sender_portfolio, nfts.asset_id(), nft_id) {
                     nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTNotOwned.into());
                     break;
                 }
@@ -884,7 +940,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Portfolio::<T>::ensure_portfolio_validity(&receiver_pid)?;
         Self::ensure_sender_owns_nfts(&sender_pid, &nfts)?;
-        Self::unverified_nfts_transfer(&sender_pid, &receiver_pid, &nfts);
+        Self::unverified_nfts_transfer(&sender_pid, &receiver_pid, &nfts)?;
         Self::deposit_event(Event::NFTPortfolioUpdated(
             caller_did,
             nfts,
@@ -902,11 +958,37 @@ impl<T: Config> Pallet<T> {
     fn ensure_sender_owns_nfts(sender_pid: &PortfolioId, nfts: &NFTs) -> DispatchResult {
         for nft_id in nfts.ids() {
             ensure!(
-                PortfolioNFT::<T>::contains_key(sender_pid, (nfts.asset_id(), nft_id)),
+                Portfolio::<T>::is_nft_owner(sender_pid, nfts.asset_id(), nft_id),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
             );
         }
         Ok(())
+    }
+
+    /// Updates the [`Owner`] storage to add a new owner for the given nft.
+    fn add_nft_owner(asset_id: AssetId, nft_id: NFTId, owner_portfolio: PortfolioId) {
+        let asset_holder = {
+            match owner_portfolio.kind {
+                PortfolioKind::AccountId(acc_id) => {
+                    // TODO: Remove storage after v7.4
+                    NFTOwner::<T>::remove(&asset_id, &nft_id);
+                    AssetHolder::Account(acc_id)
+                }
+                PortfolioKind::Default | PortfolioKind::User(_) => {
+                    // TODO: Remove storage after v7.4
+                    NFTOwner::<T>::insert(asset_id, nft_id, owner_portfolio.clone());
+                    AssetHolder::Portfolio(owner_portfolio)
+                }
+            }
+        };
+        Owner::<T>::insert(asset_id, nft_id, asset_holder);
+    }
+
+    /// Updates the [`Owner`] storage to remove the owner for the given nft.
+    fn remove_nft_owner(asset_id: &AssetId, nft_id: &NFTId) {
+        Owner::<T>::remove(asset_id, nft_id);
+        // TODO: Remove storage after v7.4
+        NFTOwner::<T>::remove(asset_id, nft_id);
     }
 }
 
@@ -921,8 +1003,56 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
         }
     }
 
-    fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
-        NFTOwner::<T>::insert(asset_id, nft_id, new_owner_portfolio);
+    fn move_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
+        Self::add_nft_owner(asset_id, nft_id, new_owner_portfolio);
+    }
+
+    fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool {
+        match NFTHolder::<T>::get(key, (asset_id, nft_id)) {
+            NFTOwnerStatus::Owner | NFTOwnerStatus::OwnerLocked => true,
+            NFTOwnerStatus::NotOwned => false,
+        }
+    }
+
+    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) -> DispatchResult {
+        if !NFTHolder::<T>::contains_key(&key, (&asset_id, &nft_id)) {
+            let acc_id = pallet_base::pallet_account_id::<T>(&key)?;
+            IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
+        }
+        NFTHolder::<T>::insert(key, (asset_id, nft_id), NFTOwnerStatus::Owner);
+        Ok(())
+    }
+
+    fn remove_nft_from_key(
+        key: &AccountId32,
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+    ) -> DispatchResult {
+        if NFTHolder::<T>::contains_key(&key, (&asset_id, &nft_id)) {
+            let acc_id = pallet_base::pallet_account_id::<T>(&key)?;
+            IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
+        }
+        NFTHolder::<T>::remove(key, (asset_id, nft_id));
+        Ok(())
+    }
+
+    fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId) {
+        NFTHolder::<T>::insert(key, (asset_id, nft_id), NFTOwnerStatus::OwnerLocked);
+    }
+
+    fn unlock_nft(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) {
+        NFTHolder::<T>::insert(
+            key.clone(),
+            (asset_id.clone(), nft_id.clone()),
+            NFTOwnerStatus::Owner,
+        );
+    }
+
+    fn is_nft_locked(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool {
+        match NFTHolder::<T>::get(key, (asset_id, nft_id)) {
+            NFTOwnerStatus::OwnerLocked => true,
+            NFTOwnerStatus::Owner | NFTOwnerStatus::NotOwned => false,
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

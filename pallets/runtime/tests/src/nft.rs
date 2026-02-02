@@ -507,7 +507,7 @@ fn burn_nft_no_custody() {
         let bob: User = User::new(Sr25519Keyring::Bob);
         let alice: User = User::new(Sr25519Keyring::Alice);
         let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
-        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
+        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind.clone());
 
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -543,7 +543,7 @@ fn burn_nft_no_custody() {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec()),
             }],
-            portfolio_kind,
+            portfolio_kind.clone(),
         )
         .unwrap();
 
@@ -919,8 +919,8 @@ fn transfer_nft() {
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
         assert_ok!(with_transaction(|| {
             NFT::base_nft_transfer(
-                sender_portfolio,
-                receiver_portfolio,
+                sender_portfolio.clone(),
+                receiver_portfolio.clone(),
                 nfts.clone(),
                 InstructionId(0),
                 None,
@@ -947,7 +947,7 @@ fn transfer_nft() {
         );
         assert_eq!(
             NFTOwner::<TestStorage>::get(asset_id, NFTId(1)),
-            Some(receiver_portfolio)
+            Some(receiver_portfolio.clone())
         );
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(
@@ -1002,8 +1002,8 @@ fn controller_transfer() {
         let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
         assert_ok!(with_transaction(|| {
             NFT::base_nft_transfer(
-                alice_portfolio,
-                bob_portfolio,
+                alice_portfolio.clone(),
+                bob_portfolio.clone(),
                 nfts.clone(),
                 InstructionId(0),
                 None,
@@ -1017,7 +1017,7 @@ fn controller_transfer() {
             1
         );
         assert!(PortfolioNFT::<TestStorage>::contains_key(
-            bob_portfolio,
+            &bob_portfolio,
             (asset_id, NFTId(1))
         ));
         assert_eq!(
@@ -1025,22 +1025,22 @@ fn controller_transfer() {
             0
         );
         assert!(!PortfolioNFT::<TestStorage>::contains_key(
-            alice_portfolio,
+            &alice_portfolio,
             (asset_id, NFTId(1))
         ));
         // Calls controller transfer
         assert_ok!(NFT::controller_transfer(
             alice.origin(),
             nfts.clone(),
-            bob_portfolio,
-            alice_portfolio.kind
+            bob_portfolio.clone(),
+            alice_portfolio.clone().kind
         ));
         assert_eq!(
             NumberOfNFTs::<TestStorage>::get(nfts.asset_id(), bob.did),
             0
         );
         assert!(!PortfolioNFT::<TestStorage>::contains_key(
-            bob_portfolio,
+            &bob_portfolio,
             (asset_id, NFTId(1))
         ));
         assert_eq!(
@@ -1048,12 +1048,12 @@ fn controller_transfer() {
             1
         );
         assert!(PortfolioNFT::<TestStorage>::contains_key(
-            alice_portfolio,
+            &alice_portfolio,
             (asset_id, NFTId(1))
         ));
         assert_eq!(
             NFTOwner::<TestStorage>::get(asset_id, NFTId(1)),
-            Some(alice_portfolio)
+            Some(alice_portfolio.clone())
         );
         assert_eq!(
             super::storage::EventTest::Nft(Event::NFTPortfolioUpdated(

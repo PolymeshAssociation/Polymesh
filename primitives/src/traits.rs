@@ -18,27 +18,43 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::DispatchError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
-use crate::{
-    asset::AssetId, asset_metadata::AssetMetadataKey, compliance_manager::AssetComplianceResult,
-    secondary_key::SecondaryKey, Balance, IdentityId, NFTId, PortfolioId, WeightMeter,
-};
+use crate::asset::AssetId;
+use crate::asset_metadata::AssetMetadataKey;
+use crate::secondary_key::SecondaryKey;
+use crate::{AccountId as AccountId32, Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{asset::NonFungibleType, NFTCollectionKeys};
 
 mod asset;
 pub mod group;
+mod settlement;
 pub use asset::*;
+pub use settlement::*;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<AccountId, Call> {
+    /// Returns the account that will pay for the call.
     fn get_valid_payer(
         call: &Call,
-        caller: &AccountId,
+        caller: AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
+    /// Clears context. Should be called in post_dispatch
     fn clear_context();
+    /// Sets payer in context. Should be called by the signed extension that first charges fee.
     fn set_payer_context(payer: Option<AccountId>);
+    /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId>;
+    /// Decreases the authorization count if any of the following extrinsics failed:
+    /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
+    /// - pallet-relayer (accept_paying_key)
+    /// - pallet-multisig (accept_multisig_signer)
+    fn decrease_authorization_count(caller: &AccountId, auth_id: Option<u64>);
+    /// Returns Some(auth_id) of the call if any of the following extrinsics are called:
+    /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
+    /// - pallet-relayer (accept_paying_key)
+    /// - pallet-multisig (accept_multisig_signer)
+    fn get_authorization_id(call: &Call) -> Option<u64>;
 }
 
 pub trait IdentityFnTrait<AccountId> {
@@ -79,7 +95,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// # Arguments
     /// * `portfolio` - Portfolio to check
     /// * `custodian` - DID of the custodian
-    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult;
+    fn ensure_portfolio_custody(portfolio: &PortfolioId, custodian: IdentityId) -> DispatchResult;
 
     /// Ensure that the `portfolio` exists.
     ///
@@ -93,8 +109,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio` - Portfolio to lock tokens
     /// * `asset_id` - [`AssetId`] of the token to lock
     /// * `amount` - Amount of tokens to lock
-
-    fn lock_tokens(portfolio: &PortfolioId, asset_id: &AssetId, amount: Balance) -> DispatchResult;
+    fn lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult;
 
     /// Unlocks some tokens of a portfolio
     ///
@@ -102,11 +117,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio` - Portfolio to unlock tokens
     /// * asset_id` - [`AssetId`] of the token to unlock
     /// * `amount` - Amount of tokens to unlock
-    fn unlock_tokens(
-        portfolio: &PortfolioId,
-        asset_id: &AssetId,
-        amount: Balance,
-    ) -> DispatchResult;
+    fn unlock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult;
 
     /// Ensures that the portfolio's custody is with the provided identity
     /// And the secondary key has the relevant portfolio permission
@@ -116,7 +127,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `custodian` - Identity of the custodian
     /// * `secondary_key` - Secondary key that is accessing the portfolio
     fn ensure_portfolio_custody_and_permission(
-        portfolio: PortfolioId,
+        portfolio: &PortfolioId,
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult;
@@ -127,7 +138,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
     /// asset_id` - [`AssetId`] of the NFT.
     /// * `nft_id` - the id of the nft to be unlocked.
-    fn lock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> DispatchResult;
+    fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
 
     /// Unlocks the given nft.
     ///
@@ -152,13 +163,6 @@ pub trait ComplianceFnConfig {
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError>;
 
-    fn verify_restriction_granular(
-        asset_id: &AssetId,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        weight_meter: &mut WeightMeter,
-    ) -> Result<AssetComplianceResult, DispatchError>;
-
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(
         caler_did: IdentityId,
@@ -171,8 +175,21 @@ pub trait ComplianceFnConfig {
 pub trait NFTTrait<Origin> {
     /// Returns `true` if the given `metadata_key` is a mandatory key for the `asset_id` NFT collection.
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
-    /// Updates the NFTOwner storage after moving funds.
-    fn move_portfolio_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
+    /// Updates the Owner storage after moving funds.
+    fn move_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
+    /// Returns `true` if the `key` is the holder of the `nft_id` of the `asset_id` collection.
+    fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
+    /// Adds the `nft_id` of the `asset_id` collection to the `key` holder.
+    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
+    /// Removes the `nft_id` of the `asset_id` collection from the `key` holder.
+    fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId)
+        -> DispatchResult;
+    /// Locks the NFT.
+    fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
+    /// Unlocks the NFT.
+    fn unlock_nft(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId);
+    /// Returns `true` if the NFT is locked.
+    fn is_nft_locked(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(

@@ -25,7 +25,7 @@ use crate::secondary_key::Permissions;
 use crate::{Balance, PortfolioId, Ticker};
 
 /// Authorization data for two step processes.
-#[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, Eq)]
 #[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 pub enum AuthorizationData<AccountId> {
     /// DID registrar's attestation to change primary key

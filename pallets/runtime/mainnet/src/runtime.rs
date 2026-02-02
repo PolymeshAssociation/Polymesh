@@ -55,7 +55,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: Cow::Borrowed("polymesh_mainnet"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
-    spec_version: 8_000_001,
+    // N.B. `d` is unpinned from the binary version
+    spec_version: 8_000_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 8,
@@ -137,6 +138,7 @@ parameter_types! {
     // Identity:
     pub const InitialPOLYX: Balance = 0;
     pub const MaxGivenAuths: u32 = 1024;
+    pub const MaxAuthRetries: u8 = 10;
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
@@ -171,7 +173,6 @@ parameter_types! {
 
     // Election Provider Multi Phase
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
-
 }
 
 // Staking
@@ -200,6 +201,7 @@ impl pallet_identity::Config for Runtime {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
+    type MaxAuthRetries = MaxAuthRetries;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

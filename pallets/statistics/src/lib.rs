@@ -304,9 +304,9 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn ensure_asset_perms(
         origin: T::RuntimeOrigin,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<IdentityId, DispatchError> {
-        <ExternalAgents<T>>::ensure_perms(origin, asset_id)
+        ExternalAgents::<T>::ensure_perms(origin, asset_id)
     }
 
     fn is_asset_stat_active(asset_id: &AssetId, stat_type: &StatType) -> bool {
@@ -319,7 +319,7 @@ impl<T: Config> Pallet<T> {
         stat_types: BTreeSet<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
-        let did = Self::ensure_asset_perms(origin, asset_id)?;
+        let did = Self::ensure_asset_perms(origin, &asset_id)?;
         // converting from a btreeset to a bounded version
         let stat_types: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types
             .try_into()
@@ -381,7 +381,7 @@ impl<T: Config> Pallet<T> {
         values: BTreeSet<StatUpdate>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
-        let did = Self::ensure_asset_perms(origin, asset_id)?;
+        let did = Self::ensure_asset_perms(origin, &asset_id)?;
         // Check that `stat_type` is active for `asset`.
         ensure!(
             Self::is_asset_stat_active(&asset_id, &stat_type),
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
         transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
-        let did = Self::ensure_asset_perms(origin, asset_id)?;
+        let did = Self::ensure_asset_perms(origin, &asset_id)?;
 
         // TODO: Use complexity instead of count to limit TransferConditions per asset.
         // converting from a btreeset to a bounded version
@@ -461,7 +461,7 @@ impl<T: Config> Pallet<T> {
         entities: BTreeSet<IdentityId>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
-        let did = Self::ensure_asset_perms(origin, exempt_key.asset_id)?;
+        let did = Self::ensure_asset_perms(origin, &exempt_key.asset_id)?;
         if is_exempt {
             for entity in &entities {
                 TransferConditionExemptEntities::<T>::insert(&exempt_key, entity, true);

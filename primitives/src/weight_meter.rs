@@ -24,15 +24,31 @@ pub struct WeightMeter {
 }
 
 impl WeightMeter {
-    /// Creates [`Self`] from a limit for the maximal consumable weight and a minimum charge of `minimum_charge`.
-    pub fn with_limit(minimum_charge: Weight, limit: Weight) -> Result<Self, String> {
-        if limit.ref_time() < minimum_charge.ref_time() {
-            return Err(String::from(
-                "The limit must be higher than the minimum_charge",
-            ));
+    /// Creates [`Self`] from a limit for the maximal consumable weight and a minimum charge of `minimum_charge` without checking if the limit is less than the minimum charge.
+    pub fn from_limit_unchecked(minimum_charge: Weight, mut limit: Weight) -> Self {
+        if limit.checked_sub(&minimum_charge).is_none() {
+            // Log a warning to help with debugging issues with the minimum charge.
+            log::warn!(
+                "WeightMeter limit {:?} is less than minimum charge {:?}, setting limit to minimum charge",
+                limit,
+                minimum_charge
+            );
+            limit = minimum_charge;
         }
 
-        Ok(Self {
+        Self {
+            minimum_charge,
+            meter: FrameWeightMeter::with_limit(limit),
+        }
+    }
+
+    /// Creates [`Self`] from a limit for the maximal consumable weight and a minimum charge of `minimum_charge`.
+    pub fn with_limit(minimum_charge: Weight, limit: Weight) -> Option<Self> {
+        if limit.checked_sub(&minimum_charge).is_none() {
+            return None;
+        }
+
+        Some(Self {
             minimum_charge,
             meter: FrameWeightMeter::with_limit(limit),
         })

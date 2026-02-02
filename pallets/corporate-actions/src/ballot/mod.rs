@@ -380,7 +380,7 @@ pub mod pallet {
             rcv: bool,
         ) -> DispatchResult {
             // Ensure that the caller is a permissioned agent
-            let caller_did = ExternalAgents::<T>::ensure_perms(origin, ca_id.asset_id)?;
+            let caller_did = ExternalAgents::<T>::ensure_perms(origin, &ca_id.asset_id)?;
 
             let motion_choices = Self::validate_ballot_creation_rules(ca_id, range, &meta)?;
 
@@ -519,7 +519,7 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn change_end(origin: OriginFor<T>, ca_id: CAId, end: Moment) -> DispatchResult {
             // Ensure origin is a permissioned agent, ballot exists, and start is in the future.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?;
             let mut range = Self::ensure_ballot_exists(ca_id)?;
             Self::ensure_ballot_not_started(range)?;
 
@@ -550,7 +550,7 @@ pub mod pallet {
         #[pallet::call_index(3)]
         pub fn change_meta(origin: OriginFor<T>, ca_id: CAId, meta: BallotMeta) -> DispatchResult {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Compute number-of-choices-in-motion cache.
@@ -579,7 +579,7 @@ pub mod pallet {
         #[pallet::call_index(4)]
         pub fn change_rcv(origin: OriginFor<T>, ca_id: CAId, rcv: bool) -> DispatchResult {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Commit to storage + emit event.
@@ -601,7 +601,7 @@ pub mod pallet {
         #[pallet::weight(<T as ca::Config>::BallotWeightInfo::remove_ballot())]
         #[pallet::call_index(5)]
         pub fn remove_ballot(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.asset_id)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
             let range = Self::ensure_ballot_exists(ca_id)?;
             Self::remove_ballot_base(agent, ca_id, range)?;
             Ok(().into())

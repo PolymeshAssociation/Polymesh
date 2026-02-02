@@ -196,6 +196,8 @@ pub mod pallet {
         SecondaryKeyNotAuthorizedForAsset,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// Except `ExtrinsicPermissions` are not allowed for external agents.
+        ExceptPermissionsNotAllowed,
     }
 
     #[pallet::call]
@@ -404,16 +406,45 @@ impl<T: Config> Pallet<T> {
     fn base_create_group(
         origin: OriginFor<T>,
         asset_id: AssetId,
-        perms: ExtrinsicPermissions,
+        extrinsics_permissions: ExtrinsicPermissions,
     ) -> Result<(IdentityId, AGId), DispatchError> {
-        let did = Self::ensure_perms(origin, asset_id)?;
-        <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
         // Fetch the AG id & advance the sequence.
-        let id = AGIdSequence::<T>::try_mutate(asset_id, try_next_pre::<T, _>)?;
-        // Commit & emit.
-        GroupPermissions::<T>::insert(asset_id, id, perms.clone());
-        Self::deposit_event(Event::GroupCreated(did.for_event(), asset_id, id, perms));
-        Ok((did, id))
+        let ag_id = AGIdSequence::<T>::try_mutate(asset_id, try_next_pre::<T, _>)?;
+
+        let caller_did = Self::validate_set_group_permissions(
+            origin,
+            asset_id.clone(),
+            &extrinsics_permissions,
+            &ag_id,
+        )?;
+
+        GroupPermissions::<T>::insert(asset_id, ag_id, extrinsics_permissions.clone());
+        Self::deposit_event(Event::GroupCreated(
+            caller_did.for_event(),
+            asset_id,
+            ag_id,
+            extrinsics_permissions,
+        ));
+        Ok((caller_did, ag_id))
+    }
+
+    fn validate_set_group_permissions(
+        origin: OriginFor<T>,
+        asset_id: AssetId,
+        extrinsics_permissions: &ExtrinsicPermissions,
+        ag_id: &AGId,
+    ) -> Result<IdentityId, DispatchError> {
+        if let ExtrinsicPermissions::Except(_) = extrinsics_permissions {
+            return Err(Error::<T>::ExceptPermissionsNotAllowed.into());
+        }
+
+        let caller_did = Self::ensure_perms(origin, &asset_id)?;
+
+        Identity::<T>::ensure_extrinsic_perms_length_limited(extrinsics_permissions)?;
+
+        Self::ensure_custom_agent_group_exists(&asset_id, ag_id)?;
+
+        Ok(caller_did)
     }
 
     fn base_create_group_and_add_auth(
@@ -436,16 +467,23 @@ impl<T: Config> Pallet<T> {
     fn base_set_group_permissions(
         origin: OriginFor<T>,
         asset_id: AssetId,
-        id: AGId,
-        perms: ExtrinsicPermissions,
+        ag_id: AGId,
+        extrinsics_permissions: ExtrinsicPermissions,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, asset_id)?.for_event();
-        <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
-        Self::ensure_custom_agent_group_exists(&asset_id, &id)?;
+        let caller_did = Self::validate_set_group_permissions(
+            origin,
+            asset_id.clone(),
+            &extrinsics_permissions,
+            &ag_id,
+        )?;
 
-        // Commit & emit.
-        GroupPermissions::<T>::insert(asset_id, id, perms.clone());
-        Self::deposit_event(Event::GroupPermissionsUpdated(did, asset_id, id, perms));
+        GroupPermissions::<T>::insert(asset_id, ag_id, extrinsics_permissions.clone());
+        Self::deposit_event(Event::GroupPermissionsUpdated(
+            caller_did.for_event(),
+            asset_id,
+            ag_id,
+            extrinsics_permissions,
+        ));
         Ok(())
     }
 
@@ -454,14 +492,14 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         agent: IdentityId,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, asset_id)?.for_event();
+        let did = Self::ensure_perms(origin, &asset_id)?.for_event();
         Self::try_mutate_agents_group(asset_id, agent, None)?;
         Self::deposit_event(Event::AgentRemoved(did, asset_id, agent));
         Ok(())
     }
 
     fn base_abdicate(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
-        let did = Self::ensure_asset_perms(origin, asset_id)?.primary_did;
+        let did = Self::ensure_asset_perms(origin, &asset_id)?.primary_did;
         Self::try_mutate_agents_group(asset_id, did, None)?;
         Self::deposit_event(Event::AgentRemoved(did.for_event(), asset_id, did));
         Ok(())
@@ -483,7 +521,7 @@ impl<T: Config> Pallet<T> {
         agent: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
-        let did = Self::ensure_perms(origin, asset_id)?.for_event();
+        let did = Self::ensure_perms(origin, &asset_id)?.for_event();
         Self::unsafe_change_group(did, asset_id, agent, group)
     }
 
@@ -517,7 +555,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensure that `agent` is an agent of `asset_id` and set the group to `group`.
-    fn try_mutate_agents_group(
+    pub fn try_mutate_agents_group(
         asset_id: AssetId,
         agent: IdentityId,
         group: Option<AgentGroup>,
@@ -579,7 +617,7 @@ impl<T: Config> Pallet<T> {
     /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_perms(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<IdentityId, DispatchError> {
         Self::ensure_agent_asset_perms(origin, asset_id).map(|d| d.primary_did)
     }
@@ -587,10 +625,10 @@ impl<T: Config> Pallet<T> {
     /// Ensures that `origin` is a permissioned agent for `asset_id`.
     pub fn ensure_agent_asset_perms(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = Self::ensure_asset_perms(origin, asset_id)?;
-        Self::ensure_agent_permissioned(&asset_id, data.primary_did)?;
+        Self::ensure_agent_permissioned(asset_id, data.primary_did)?;
         Ok(data)
     }
 
@@ -598,7 +636,7 @@ impl<T: Config> Pallet<T> {
     /// and the secondary key has relevant asset permissions.
     pub fn ensure_asset_perms(
         origin: OriginFor<T>,
-        asset_id: AssetId,
+        asset_id: &AssetId,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         let skey = data.secondary_key.as_ref();
@@ -606,7 +644,7 @@ impl<T: Config> Pallet<T> {
         // If `secondary_key` is None, the caller is the primary key and has all permissions.
         if let Some(sk) = skey {
             ensure!(
-                sk.has_asset_permission(asset_id),
+                sk.has_asset_permission(&asset_id),
                 Error::<T>::SecondaryKeyNotAuthorizedForAsset
             );
         }

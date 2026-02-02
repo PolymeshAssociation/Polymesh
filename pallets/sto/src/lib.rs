@@ -88,8 +88,8 @@ type Settlement<T> = pallet_settlement::Pallet<T>;
 type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 /// Status of a Fundraiser.
-#[derive(Clone, Debug, Default, Eq, MaxEncodedLen, Ord, PartialEq, PartialOrd)]
-#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, MaxEncodedLen, PartialEq, PartialOrd, Ord)]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
@@ -502,19 +502,19 @@ pub mod pallet {
                 primary_did: did,
                 secondary_key,
                 ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?;
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &offering_asset)?;
 
             VenueInfo::<T>::get(venue_id)
                 .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
                 .ok_or(Error::<T>::InvalidVenue)?;
 
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                raising_portfolio,
+                &raising_portfolio,
                 did,
                 secondary_key.as_ref(),
             )?;
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                offering_portfolio,
+                &offering_portfolio,
                 did,
                 secondary_key.as_ref(),
             )?;
@@ -542,7 +542,11 @@ pub mod pallet {
             let mut seq = FundraiserCount::<T>::get(&offering_asset);
             let fundraiser_id = try_next_post::<T, _>(&mut seq)?;
 
-            <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
+            Portfolio::<T>::lock_tokens(
+                offering_portfolio.clone(),
+                offering_asset,
+                offering_amount,
+            )?;
 
             let fundraiser = Fundraiser {
                 creator: did,
@@ -715,7 +719,7 @@ pub mod pallet {
             start: T::Moment,
             end: Option<T::Moment>,
         ) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?.for_event();
+            let did = <ExternalAgents<T>>::ensure_perms(origin, &offering_asset)?.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
@@ -772,7 +776,7 @@ pub mod pallet {
             let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
 
             let agent_did =
-                <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+                <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
             if fundraiser.creator != agent_did {
                 <ExternalAgents<T>>::ensure_agent_permissioned(&offering_asset, agent_did)?;
             }
@@ -785,9 +789,9 @@ pub mod pallet {
                 .map(|t| t.remaining)
                 .fold(0, |remaining, x| remaining + x);
 
-            <Portfolio<T>>::unlock_tokens(
-                &fundraiser.offering_portfolio,
-                &fundraiser.offering_asset,
+            Portfolio::<T>::unlock_tokens(
+                fundraiser.offering_portfolio.clone(),
+                fundraiser.offering_asset,
                 remaining_amount,
             )?;
             fundraiser.status = match fundraiser.end {
@@ -833,7 +837,7 @@ pub mod pallet {
             ticker: Ticker,
         ) -> DispatchResult {
             let agent_did =
-                <ExternalAgents<T>>::ensure_asset_perms(origin, offering_asset)?.primary_did;
+                <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
 
             let fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
             if fundraiser.creator != agent_did {
@@ -871,8 +875,8 @@ impl<T: Config> Pallet<T> {
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
 
-        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-            investment_portfolio,
+        Portfolio::<T>::ensure_portfolio_custody_and_permission(
+            &investment_portfolio,
             investor_did,
             secondary_key.as_ref(),
         )?;
@@ -947,16 +951,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxPriceExceeded
         );
 
-        let mut fundraiser_portfolios = [fundraiser.offering_portfolio]
-            .iter()
-            .copied()
+        let mut fundraiser_portfolios = [fundraiser.offering_portfolio.clone()]
+            .into_iter()
             .collect::<BTreeSet<_>>();
-        let mut investor_portfolios = [investment_portfolio]
-            .iter()
-            .copied()
+        let mut investor_portfolios = [investment_portfolio.clone()]
+            .into_iter()
             .collect::<BTreeSet<_>>();
         let mut legs = vec![Leg::Fungible {
-            sender: fundraiser.offering_portfolio,
+            sender: fundraiser.offering_portfolio.clone(),
             receiver: investment_portfolio,
             asset_id: fundraiser.offering_asset,
             amount: purchase_amount,
@@ -964,15 +966,15 @@ impl<T: Config> Pallet<T> {
         let funding_asset = match funding {
             FundingMethod::OnChain(funding_portfolio) => {
                 <Portfolio<T>>::ensure_portfolio_custody_and_permission(
-                    funding_portfolio,
+                    &funding_portfolio,
                     investor_did,
                     secondary_key.as_ref(),
                 )?;
-                fundraiser_portfolios.insert(fundraiser.raising_portfolio);
-                investor_portfolios.insert(funding_portfolio);
+                fundraiser_portfolios.insert(fundraiser.raising_portfolio.clone());
+                investor_portfolios.insert(funding_portfolio.clone());
                 legs.push(Leg::Fungible {
                     sender: funding_portfolio,
-                    receiver: fundraiser.raising_portfolio,
+                    receiver: fundraiser.raising_portfolio.clone(),
                     asset_id: fundraiser.raising_asset,
                     amount: cost,
                 });
@@ -1007,9 +1009,9 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        <Portfolio<T>>::unlock_tokens(
-            &fundraiser.offering_portfolio,
-            &fundraiser.offering_asset,
+        Portfolio::<T>::unlock_tokens(
+            fundraiser.offering_portfolio.clone(),
+            fundraiser.offering_asset,
             purchase_amount,
         )?;
 
@@ -1064,7 +1066,7 @@ impl<T: Config> Pallet<T> {
         fundraiser_id: FundraiserId,
         frozen: bool,
     ) -> DispatchResult {
-        let agent_did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?;
+        let agent_did = <ExternalAgents<T>>::ensure_perms(origin, &offering_asset)?;
         let mut fundraiser = Self::ensure_fundraiser(offering_asset, fundraiser_id)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {

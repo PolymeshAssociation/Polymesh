@@ -286,7 +286,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::create_checkpoint())]
         #[pallet::call_index(0)]
         pub fn create_checkpoint(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             Self::create_at_by(caller_did, asset_id, Self::now_unix())?;
             Ok(())
         }
@@ -339,7 +339,7 @@ pub mod pallet {
             asset_id: AssetId,
             schedule: ScheduleCheckpoints,
         ) -> DispatchResult {
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             Self::base_create_schedule(caller_did, asset_id, schedule, 0)?;
             Ok(())
         }
@@ -365,7 +365,7 @@ pub mod pallet {
             asset_id: AssetId,
             id: ScheduleId,
         ) -> DispatchResult {
-            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, asset_id)?;
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             Self::base_remove_schedule(caller_did, asset_id, id)
         }
     }

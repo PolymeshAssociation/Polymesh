@@ -504,6 +504,7 @@ macro_rules! misc_pallet_impls {
             type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
             type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
             type NFTFn = pallet_nft::Pallet<Runtime>;
+            type SettlementFn = pallet_settlement::Pallet<Runtime>;
             type MaxAssetMediators = MaxAssetMediators;
         }
 

@@ -297,7 +297,7 @@ fn issuers_can_redeem_tokens() {
 
         let asset_id = create_and_issue_sample_asset(&owner);
         assert_eq!(
-            PortfolioAssetCount::<TestStorage>::get(owner_portfolio_id),
+            PortfolioAssetCount::<TestStorage>::get(&owner_portfolio_id),
             1
         );
 
@@ -313,7 +313,7 @@ fn issuers_can_redeem_tokens() {
                 ISSUE_AMOUNT + 1,
                 PortfolioKind::Default
             ),
-            PortfolioError::InsufficientPortfolioBalance
+            PortfolioError::InsufficientBalance
         );
 
         assert_ok!(Asset::redeem(
@@ -324,7 +324,7 @@ fn issuers_can_redeem_tokens() {
         ));
 
         assert_eq!(
-            PortfolioAssetCount::<TestStorage>::get(owner_portfolio_id),
+            PortfolioAssetCount::<TestStorage>::get(&owner_portfolio_id),
             0
         );
         assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, owner.did), 0);
@@ -332,7 +332,7 @@ fn issuers_can_redeem_tokens() {
 
         assert_noop!(
             Asset::redeem(owner.origin(), asset_id, 1, PortfolioKind::Default),
-            PortfolioError::InsufficientPortfolioBalance
+            PortfolioError::InsufficientBalance
         );
     })
 }
@@ -471,12 +471,6 @@ fn transfer_token_ownership() {
             true
         );
 
-        assert_ok!(ExternalAgents::unchecked_add_agent(
-            asset_id,
-            alice.did,
-            AgentGroup::Full
-        ));
-        assert_ok!(ExternalAgents::abdicate(owner.origin(), asset_id));
         assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
             Err(EAError::UnauthorizedAgent.into())
@@ -665,17 +659,6 @@ fn freeze_unfreeze_asset() {
             auth_id
         ));
 
-        // Not enough; bob needs to become an agent.
-        assert_noop!(
-            Asset::unfreeze(bob.origin(), asset_id),
-            EAError::UnauthorizedAgent
-        );
-
-        assert_ok!(ExternalAgents::unchecked_add_agent(
-            asset_id,
-            bob.did,
-            AgentGroup::Full
-        ));
         assert_ok!(Asset::unfreeze(bob.origin(), asset_id));
         assert_noop!(
             Asset::unfreeze(bob.origin(), asset_id),
@@ -1253,8 +1236,8 @@ fn issuers_can_redeem_tokens_from_portfolio() {
 
             Portfolio::move_portfolio_funds(
                 owner.origin(),
-                portfolio,
-                user_portfolio,
+                portfolio.clone(),
+                user_portfolio.clone(),
                 vec![Fund {
                     description: FundDescription::Fungible {
                         asset_id,
@@ -1291,7 +1274,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     ISSUE_AMOUNT + 1,
                     PortfolioKind::User(next_portfolio_num)
                 ),
-                PortfolioError::InsufficientPortfolioBalance
+                PortfolioError::InsufficientBalance
             );
 
             assert_ok!(Asset::redeem(
@@ -1311,7 +1294,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             let auth_id = Identity::add_auth(
                 owner.did,
                 Signatory::from(bob.did),
-                AuthorizationData::PortfolioCustody(user_portfolio),
+                AuthorizationData::PortfolioCustody(user_portfolio.clone()),
                 None,
             )
             .unwrap();
@@ -1320,7 +1303,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
             assert_eq!(
-                PortfolioCustodian::<TestStorage>::get(user_portfolio),
+                PortfolioCustodian::<TestStorage>::get(&user_portfolio),
                 Some(bob.did)
             );
 
@@ -1744,7 +1727,7 @@ fn redeem_token_assigned_custody() {
         let bob = User::new(Sr25519Keyring::Bob);
         let alice = User::new(Sr25519Keyring::Alice);
         let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
-        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind);
+        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind.clone());
 
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
@@ -1993,7 +1976,7 @@ fn controller_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio,
+                sender: alice_default_portfolio.clone(),
                 receiver: bob_default_portfolio,
                 asset_id,
                 amount: ISSUE_AMOUNT,

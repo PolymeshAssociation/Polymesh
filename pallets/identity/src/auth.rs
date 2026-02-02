@@ -20,7 +20,7 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, PortfolioKind, Signatory};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
@@ -39,6 +39,7 @@ impl<T: Config> Pallet<T> {
         {
             Self::ensure_perms_length_limited(perms)?;
         }
+
         Ok(Self::add_auth(
             from_did,
             target,
@@ -54,6 +55,12 @@ impl<T: Config> Pallet<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
     ) -> Result<u64, DispatchError> {
+        if let AuthorizationData::PortfolioCustody(portfolio_id) = &authorization_data {
+            if let PortfolioKind::AccountId(_) = &portfolio_id.kind {
+                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
+            }
+        }
+
         let number_of_given_auths = NumberOfGivenAuths::<T>::get(from);
         ensure!(
             number_of_given_auths < T::MaxGivenAuths::get(),
@@ -70,7 +77,7 @@ impl<T: Config> Pallet<T> {
             authorized_by: from,
             expiry,
             auth_id: new_auth_id,
-            count: 50,
+            count: T::MaxAuthRetries::get() as u32,
         };
 
         Authorizations::<T>::insert(target.clone(), new_auth_id, auth);
@@ -166,6 +173,7 @@ impl<T: Config> Pallet<T> {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
+                && auth.count > 0
         })
     }
 
@@ -223,5 +231,15 @@ impl<T: Config> Pallet<T> {
             }
         }
         Ok(auth)
+    }
+
+    /// Decreases the authorization count for the given target and auth_id.
+    pub fn decrease_authorization_count(target: &Signatory<T::AccountId>, auth_id: &u64) {
+        if let Some(mut auth) = Authorizations::<T>::get(target, auth_id) {
+            if auth.count > 0 {
+                auth.count -= 1;
+                Authorizations::<T>::insert(target, auth_id, auth);
+            }
+        }
     }
 }

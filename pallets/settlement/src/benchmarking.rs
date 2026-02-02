@@ -148,6 +148,8 @@ where
                 pause_compliance,
                 pause_restrictions,
                 4,
+                true,
+                false,
             );
             asset_mediators.append(&mut mediators);
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());
@@ -794,6 +796,7 @@ benchmarks! {
             inst_id,
             None,
             Some(AssetCount::new(f, n, o)),
+            false,
             &mut WeightMeter::max_limit_no_minimum()
         )
         .unwrap()

@@ -155,8 +155,8 @@ fn cannot_delete_portfolio_with_asset() {
         let move_amount = ISSUE_AMOUNT / 2;
         assert_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
-            owner_default_portfolio,
-            owner_user_portfolio,
+            owner_default_portfolio.clone(),
+            owner_user_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -168,8 +168,8 @@ fn cannot_delete_portfolio_with_asset() {
         assert_eq!(
             EventTest::Portfolio(Event::FundsMovedBetweenPortfolios(
                 owner.did,
-                owner_default_portfolio,
-                owner_user_portfolio,
+                owner_default_portfolio.clone(),
+                owner_user_portfolio.clone(),
                 FundDescription::Fungible {
                     asset_id,
                     amount: move_amount
@@ -179,12 +179,14 @@ fn cannot_delete_portfolio_with_asset() {
             System::events().last().unwrap().event,
         );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
+            let default_portfolio = PortfolioId::new(owner.did, PortfolioKind::Default);
+            let user_portfolio = PortfolioId::new(owner.did, PortfolioKind::User(num));
             assert_eq!(
-                Portfolio::default_portfolio_balance(owner.did, &asset_id),
+                Portfolio::get_asset_balance(&default_portfolio, &asset_id),
                 default_portfolio_balance
             );
             assert_eq!(
-                Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+                Portfolio::get_asset_balance(&user_portfolio, &asset_id),
                 user_portfolio_balance
             );
         };
@@ -198,8 +200,8 @@ fn cannot_delete_portfolio_with_asset() {
         // Remove remaining funds.
         assert_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
-            owner_user_portfolio,
-            owner_default_portfolio,
+            owner_user_portfolio.clone(),
+            owner_default_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -235,12 +237,19 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     let (owner, num) = create_portfolio();
     let bob = User::new(Sr25519Keyring::Bob);
     let asset_id = create_and_issue_sample_asset(&owner);
+
     assert_eq!(
-        Portfolio::default_portfolio_balance(owner.did, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::Default),
+            &asset_id
+        ),
         ISSUE_AMOUNT,
     );
     assert_eq!(
-        Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+            &asset_id
+        ),
         0,
     );
 
@@ -251,8 +260,8 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     assert_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
-            owner_default_portfolio,
-            owner_user_portfolio,
+            owner_default_portfolio.clone(),
+            owner_user_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -268,8 +277,8 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     assert_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
-            owner_default_portfolio,
-            owner_default_portfolio,
+            owner_default_portfolio.clone(),
+            owner_default_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -305,8 +314,8 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     assert_noop!(
         Portfolio::move_portfolio_funds(
             bob.origin(),
-            owner_default_portfolio,
-            owner_user_portfolio,
+            owner_default_portfolio.clone(),
+            owner_user_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -322,8 +331,8 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     let move_amount = ISSUE_AMOUNT / 2;
     assert_ok!(Portfolio::move_portfolio_funds(
         owner.origin(),
-        owner_default_portfolio,
-        owner_user_portfolio,
+        owner_default_portfolio.clone(),
+        owner_user_portfolio.clone(),
         vec![Fund {
             description: FundDescription::Fungible {
                 asset_id,
@@ -346,11 +355,17 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         System::events().last().unwrap().event,
     );
     assert_eq!(
-        Portfolio::default_portfolio_balance(owner.did, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::Default),
+            &asset_id
+        ),
         ISSUE_AMOUNT - move_amount,
     );
     assert_eq!(
-        Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+        Portfolio::get_asset_balance(
+            &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+            &asset_id
+        ),
         move_amount,
     );
 }
@@ -361,7 +376,10 @@ fn can_lock_unlock_assets() {
         let (owner, num) = create_portfolio();
         let asset_id = create_and_issue_sample_asset(&owner);
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT,
         );
 
@@ -371,25 +389,28 @@ fn can_lock_unlock_assets() {
         // Lock half of the tokens
         let lock_amount = ISSUE_AMOUNT / 2;
         assert_ok!(Portfolio::lock_tokens(
-            &owner_default_portfolio,
-            &asset_id,
+            owner_default_portfolio.clone(),
+            asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT,
         );
         assert_eq!(
-            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&owner_default_portfolio, &asset_id),
             lock_amount,
         );
 
         assert_noop!(
             Portfolio::move_portfolio_funds(
                 owner.origin(),
-                owner_default_portfolio,
-                owner_user_portfolio,
+                owner_default_portfolio.clone(),
+                owner_user_portfolio.clone(),
                 vec![Fund {
                     description: FundDescription::Fungible {
                         asset_id,
@@ -404,8 +425,8 @@ fn can_lock_unlock_assets() {
         // Transfer for unlocked tokens succeeds
         assert_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
-            owner_default_portfolio,
-            owner_user_portfolio,
+            owner_default_portfolio.clone(),
+            owner_user_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -415,15 +436,21 @@ fn can_lock_unlock_assets() {
             }]
         ));
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             lock_amount,
         );
         assert_eq!(
-            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&owner_default_portfolio, &asset_id),
             lock_amount,
         );
 
@@ -431,8 +458,8 @@ fn can_lock_unlock_assets() {
         assert_noop!(
             Portfolio::move_portfolio_funds(
                 owner.origin(),
-                owner_default_portfolio,
-                owner_user_portfolio,
+                owner_default_portfolio.clone(),
+                owner_user_portfolio.clone(),
                 vec![Fund {
                     description: FundDescription::Fungible {
                         asset_id,
@@ -446,29 +473,35 @@ fn can_lock_unlock_assets() {
 
         // Unlock tokens
         assert_ok!(Portfolio::unlock_tokens(
-            &owner_default_portfolio,
-            &asset_id,
+            owner_default_portfolio.clone(),
+            asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             lock_amount,
         );
         assert_eq!(
-            PortfolioLockedAssets::<TestStorage>::get(owner_default_portfolio, &asset_id),
+            PortfolioLockedAssets::<TestStorage>::get(&owner_default_portfolio, &asset_id),
             0,
         );
 
         // Transfer of all tokens succeeds since there is no lock anymore
         assert_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
-            owner_default_portfolio,
-            owner_user_portfolio,
+            owner_default_portfolio.clone(),
+            owner_user_portfolio.clone(),
             vec![Fund {
                 description: FundDescription::Fungible {
                     asset_id,
@@ -478,11 +511,17 @@ fn can_lock_unlock_assets() {
             }]
         ));
         assert_eq!(
-            Portfolio::default_portfolio_balance(owner.did, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::Default),
+                &asset_id
+            ),
             0,
         );
         assert_eq!(
-            Portfolio::user_portfolio_balance(owner.did, num, &asset_id),
+            Portfolio::get_asset_balance(
+                &PortfolioId::new(owner.did, PortfolioKind::User(num)),
+                &asset_id
+            ),
             ISSUE_AMOUNT,
         );
         assert_eq!(
@@ -502,30 +541,30 @@ fn can_take_custody_of_portfolios() {
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
         let has_custody =
-            |u: User| PortfoliosInCustody::<TestStorage>::get(u.did, owner_user_portfolio);
+            |u: User| PortfoliosInCustody::<TestStorage>::get(u.did, &owner_user_portfolio);
 
         // Custody of all portfolios is with the owner identity by default
         assert_ok!(Portfolio::ensure_portfolio_custody(
-            owner_default_portfolio,
+            &owner_default_portfolio,
             owner.did
         ));
         assert_ok!(Portfolio::ensure_portfolio_custody(
-            owner_user_portfolio,
+            &owner_user_portfolio,
             owner.did
         ));
         assert_eq!(
-            PortfolioCustodian::<TestStorage>::get(owner_default_portfolio),
+            PortfolioCustodian::<TestStorage>::get(&owner_default_portfolio),
             None
         );
         assert_eq!(
-            PortfolioCustodian::<TestStorage>::get(owner_user_portfolio),
+            PortfolioCustodian::<TestStorage>::get(&owner_user_portfolio),
             None
         );
         assert!(!has_custody(bob));
 
         // Bob can not issue authorization for custody transfer of a portfolio they don't have custody of
         let add_auth = |from: User, target: User| {
-            let auth = AuthorizationData::PortfolioCustody(owner_user_portfolio);
+            let auth = AuthorizationData::PortfolioCustody(owner_user_portfolio.clone());
             Identity::add_auth(from.did, Signatory::from(target.did), auth, None).unwrap()
         };
 
@@ -546,23 +585,23 @@ fn can_take_custody_of_portfolios() {
         assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
         assert_ok!(Portfolio::ensure_portfolio_custody(
-            owner_default_portfolio,
+            &owner_default_portfolio,
             owner.did
         ));
         assert_ok!(Portfolio::ensure_portfolio_custody(
-            owner_user_portfolio,
+            &owner_user_portfolio,
             bob.did
         ));
         assert_noop!(
-            Portfolio::ensure_portfolio_custody(owner_user_portfolio, owner.did),
+            Portfolio::ensure_portfolio_custody(&owner_user_portfolio, owner.did),
             Error::UnauthorizedCustodian
         );
         assert_eq!(
-            PortfolioCustodian::<TestStorage>::get(owner_default_portfolio),
+            PortfolioCustodian::<TestStorage>::get(&owner_default_portfolio),
             None
         );
         assert_eq!(
-            PortfolioCustodian::<TestStorage>::get(owner_user_portfolio),
+            PortfolioCustodian::<TestStorage>::get(&owner_user_portfolio),
             Some(bob.did)
         );
         assert!(has_custody(bob));
@@ -575,9 +614,9 @@ fn can_take_custody_of_portfolios() {
         );
 
         // Bob transfers portfolio custody back to Alice.
-        set_custodian_ok(bob, owner, owner_user_portfolio);
+        set_custodian_ok(bob, owner, owner_user_portfolio.clone());
         // The mapping is removed which means the owner is the custodian.
-        assert_owner_is_custodian!(owner_user_portfolio);
+        assert_owner_is_custodian!(&owner_user_portfolio);
     });
 }
 
@@ -589,16 +628,16 @@ fn quit_portfolio_custody() {
         let user_portfolio = PortfolioId::user_portfolio(alice.did, num);
 
         assert_noop!(
-            Portfolio::quit_portfolio_custody(bob.origin(), user_portfolio),
+            Portfolio::quit_portfolio_custody(bob.origin(), user_portfolio.clone()),
             Error::UnauthorizedCustodian
         );
-        set_custodian_ok(alice, bob, user_portfolio);
+        set_custodian_ok(alice, bob, user_portfolio.clone());
         assert_ok!(Portfolio::quit_portfolio_custody(
             bob.origin(),
-            user_portfolio
+            user_portfolio.clone()
         ));
         // The mapping is removed which means the owner is the custodian.
-        assert_owner_is_custodian!(user_portfolio);
+        assert_owner_is_custodian!(&user_portfolio);
     });
 }
 
@@ -806,29 +845,29 @@ fn move_portfolio_nfts() {
         ];
         assert_ok!(Portfolio::move_portfolio_funds(
             alice.origin(),
-            alice_default_portfolio,
-            alice_custom_portfolio,
+            alice_default_portfolio.clone(),
+            alice_custom_portfolio.clone(),
             funds,
         ));
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(alice_default_portfolio, (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get(alice_default_portfolio.clone(), (asset_id, NFTId(1))),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(alice_default_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get(&alice_default_portfolio, (asset_id, NFTId(2))),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(alice_custom_portfolio, (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get(&alice_custom_portfolio, (asset_id, NFTId(1))),
             true
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(alice_custom_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get(&alice_custom_portfolio, (asset_id, NFTId(2))),
             true
         );
         assert_eq!(
             NFTOwner::<TestStorage>::get(asset_id, NFTId(1)),
-            Some(alice_custom_portfolio)
+            Some(alice_custom_portfolio.clone())
         );
         assert_eq!(
             NFTOwner::<TestStorage>::get(asset_id, NFTId(2)),
@@ -967,15 +1006,15 @@ fn pre_approve_portfolio() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         let asset_id = AssetId::new([0; 16]);
-        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
+        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
             .unwrap();
 
         assert!(PreApprovedPortfolios::<TestStorage>::get(
-            alice_default_portfolio,
+            &alice_default_portfolio,
             asset_id
         ));
         assert!(!PreApprovedPortfolios::<TestStorage>::get(
-            alice_user_porfolio,
+            &alice_user_porfolio,
             asset_id
         ));
         assert!(!Portfolio::skip_portfolio_affirmation(
@@ -998,17 +1037,21 @@ fn remove_portfolio_pre_approval() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         let asset_id = AssetId::new([0; 16]);
-        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio)
+        Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
             .unwrap();
-        Portfolio::remove_portfolio_pre_approval(alice.origin(), asset_id, alice_default_portfolio)
-            .unwrap();
+        Portfolio::remove_portfolio_pre_approval(
+            alice.origin(),
+            asset_id,
+            alice_default_portfolio.clone(),
+        )
+        .unwrap();
 
         assert!(!PreApprovedPortfolios::<TestStorage>::get(
-            alice_default_portfolio,
+            &alice_default_portfolio,
             asset_id
         ));
         assert!(!PreApprovedPortfolios::<TestStorage>::get(
-            alice_user_porfolio,
+            &alice_user_porfolio,
             asset_id
         ));
         assert!(!Portfolio::skip_portfolio_affirmation(
@@ -1033,14 +1076,14 @@ fn unauthorized_custodian_pre_approval() {
 
         let asset_id = AssetId::new([0; 16]);
         assert_noop!(
-            Portfolio::pre_approve_portfolio(bob.origin(), asset_id, alice_user_porfolio),
+            Portfolio::pre_approve_portfolio(bob.origin(), asset_id, alice_user_porfolio.clone()),
             Error::UnauthorizedCustodian
         );
 
-        set_custodian_ok(alice, bob, alice_user_porfolio);
+        set_custodian_ok(alice, bob, alice_user_porfolio.clone());
 
         assert_noop!(
-            Portfolio::pre_approve_portfolio(eve.origin(), asset_id, alice_user_porfolio),
+            Portfolio::pre_approve_portfolio(eve.origin(), asset_id, alice_user_porfolio.clone()),
             Error::UnauthorizedCustodian
         );
 

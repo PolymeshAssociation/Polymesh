@@ -230,6 +230,7 @@ parameter_types! {
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaxAssetMediators: u32 = 4;
     pub const MaxGivenAuths: u32 = 1024;
+    pub const MaxAuthRetries: u8 = 10;
     pub const MigrationSignedDepositPerItem: Balance = 0;
     pub const MigrationSignedDepositBase: Balance = 0;
     pub const MaxKeyLen: u32 = 2048;
@@ -582,9 +583,8 @@ type CddHandler = TestStorage;
 impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     fn get_valid_payer(
         _: &RuntimeCall,
-        caller: &AccountId,
+        caller: AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
-        let caller: AccountId = caller.clone();
         Ok(Some(caller))
     }
     fn clear_context() {
@@ -595,6 +595,10 @@ impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     }
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
+    }
+    fn decrease_authorization_count(_caller: &AccountId, _auth_id: Option<u64>) {}
+    fn get_authorization_id(_call: &RuntimeCall) -> Option<u64> {
+        None
     }
 }
 
@@ -683,6 +687,7 @@ impl pallet_identity::Config for TestStorage {
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
+    type MaxAuthRetries = MaxAuthRetries;
 }
 
 impl example::Config for TestStorage {}
