@@ -74,7 +74,7 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
     Identity::fetch_claim(
         target,
         ClaimType::CustomerDueDiligence,
-        SystematicIssuers::CDDProvider.as_id(),
+        SystematicIssuers::DIDRegistrar.as_id(),
         None,
     )
 }
