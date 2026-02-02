@@ -91,10 +91,10 @@ impl<T: Config> UserBuilder<T> {
             .did
             .or_else(|| self.generate_did.then(|| Self::make_did(account.clone())));
 
-        // Become a CDD provider.
+        // Become a DID registrar.
         self.as_cdd_provider.then(|| {
-            T::CddServiceProviders::add_member(did.clone().unwrap())
-                .expect("User cannot be added as CDD provider")
+            T::DidRegistrars::add_member(did.clone().unwrap())
+                .expect("User cannot be added as DID registrar")
         });
 
         User {

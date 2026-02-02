@@ -47,7 +47,7 @@ type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
+type DidRegistrars = <TestStorage as IdentityConfig>::DidRegistrars;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;
 
@@ -1719,8 +1719,8 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
     let alice_id =
         get_identity_id(Sr25519Keyring::Alice).expect("Bob should be one of CDD providers");
 
-    // 1. Each CDD provider has a *systematic* CDD claim.
-    let cdd_providers = CddServiceProviders::get_members();
+    // 1. Each DID registrar has a *systematic* CDD claim.
+    let cdd_providers = DidRegistrars::get_members();
     assert_eq!(
         cdd_providers
             .iter()
@@ -1728,9 +1728,9 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
         true
     );
 
-    // 2. Remove one member from CDD provider and double-check that systematic CDD claim was
+    // 2. Remove one member from DID registrars and double-check that systematic CDD claim was
     //    removed too.
-    assert_ok!(CddServiceProviders::remove_member(root.clone(), bob_id));
+    assert_ok!(DidRegistrars::remove_member(root.clone(), bob_id));
     assert_eq!(fetch_systematic_claim(bob_id).is_none(), true);
     assert_eq!(fetch_systematic_claim(alice_id).is_some(), true);
 
@@ -1752,13 +1752,13 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
     let charlie_cdd_claim =
         Identity::fetch_cdd(charlie_id, 0).expect("Charlie should have a CDD claim by Alice");
 
-    // 3.2. Add Charlie as trusted CDD providers, and check its new systematic CDD claim.
-    assert_ok!(CddServiceProviders::add_member(root.clone(), charlie_id));
+    // 3.2. Add Charlie as trusted DID registrars, and check its new systematic CDD claim.
+    assert_ok!(DidRegistrars::add_member(root.clone(), charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_some(), true);
 
-    // 3.3. Remove Charlie from trusted CDD providers, and verify that systematic CDD claim was
+    // 3.3. Remove Charlie from trusted DID registrars, and verify that systematic CDD claim was
     //   removed and previous CDD claim works.
-    assert_ok!(CddServiceProviders::remove_member(root, charlie_id));
+    assert_ok!(DidRegistrars::remove_member(root, charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
     assert_eq!(Identity::fetch_cdd(charlie_id, 0), Some(charlie_cdd_claim));
 }
@@ -1863,8 +1863,8 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
     assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
 
-    // 2. Remove Alice from CDD providers.
-    assert_ok!(CddServiceProviders::remove_member(root.clone(), alice_id));
+    // 2. Remove Alice from DID registrars.
+    assert_ok!(DidRegistrars::remove_member(root.clone(), alice_id));
     assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
     assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
 

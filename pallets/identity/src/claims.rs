@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
     /// Ensures that the did is an active DID registrar (formerly CDD Provider).
     fn ensure_authorized_did_registrar(did: IdentityId) -> DispatchResult {
         ensure!(
-            T::CddServiceProviders::get_members().contains(&did),
+            T::DidRegistrars::get_members().contains(&did),
             Error::<T>::UnAuthorizedDidRegistrar
         );
         Ok(())
@@ -243,11 +243,11 @@ impl<T: Config> Pallet<T> {
 
         let now = <pallet_timestamp::Pallet<T>>::get();
         ensure!(
-            T::CddServiceProviders::get_valid_members_at(now).contains(&cdd),
+            T::DidRegistrars::get_valid_members_at(now).contains(&cdd),
             Error::<T>::UnAuthorizedDidRegistrar
         );
 
-        T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))?;
+        T::DidRegistrars::disable_member(cdd, expiry, Some(disable_from))?;
         Self::deposit_event(Event::CddClaimsInvalidated(cdd, disable_from));
         Ok(())
     }

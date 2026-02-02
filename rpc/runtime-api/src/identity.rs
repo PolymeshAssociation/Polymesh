@@ -1,5 +1,5 @@
 use codec::Codec;
-use pallet_identity::types::{DidActiveStatus, DidStatus, KeyIdentityData, RpcDidRecords};
+use pallet_identity::types::{DidStatus, KeyIdentityData, RpcDidRecords};
 use polymesh_primitives::{Authorization, AuthorizationType, Signatory};
 use sp_std::prelude::*;
 

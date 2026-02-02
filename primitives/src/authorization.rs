@@ -28,7 +28,7 @@ use crate::{Balance, PortfolioId, Ticker};
 #[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 pub enum AuthorizationData<AccountId> {
-    /// CDD provider's attestation to change primary key
+    /// DID registrar's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
     RotatePrimaryKey,

@@ -279,7 +279,7 @@ mod runtime {
     pub type Identity = pallet_identity::Pallet<Runtime>;
 
     #[runtime::pallet_index(8)]
-    pub type CddServiceProviders = pallet_group::Pallet<Runtime, Instance2>;
+    pub type DidRegistrars = pallet_group::Pallet<Runtime, Instance2>;
 
     #[runtime::pallet_index(9)]
     pub type PolymeshCommittee = pallet_committee::Pallet<Runtime, Instance1>;
@@ -671,7 +671,7 @@ impl committee::Config<committee::Instance4> for TestStorage {
 
 impl pallet_identity::Config for TestStorage {
     type Proposal = RuntimeCall;
-    type CddServiceProviders = CddServiceProvider;
+    type DidRegistrars = DidRegistrar;
     type Balances = balances::Pallet<TestStorage>;
     type CddHandler = TestStorage;
     type Public = <MultiSignature as Verify>::Signer;
@@ -763,7 +763,7 @@ impl pallet_sudo::Config for Runtime {
 polymesh_runtime_common::misc_pallet_impls!();
 
 pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
-pub type CddServiceProvider = group::Pallet<TestStorage, group::Instance2>;
+pub type DidRegistrar = group::Pallet<TestStorage, group::Instance2>;
 pub type Committee = committee::Pallet<TestStorage, committee::Instance1>;
 //pub type WrapperContracts = polymesh_contracts::Pallet<TestStorage>;
 pub type CorporateActions = corporate_actions::Pallet<TestStorage>;
@@ -800,11 +800,11 @@ pub fn make_account_with_balance(
     let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    // If we have CDD providers, first of them executes the registration.
-    let cdd_providers = CddServiceProvider::get_members();
-    let did = match cdd_providers.into_iter().nth(0) {
-        Some(cdd_provider) => {
-            let cdd_acc = get_primary_key(cdd_provider);
+    // If we have DID registrars, first of them executes the registration.
+    let did_registrars = DidRegistrar::get_members();
+    let did = match did_registrars.into_iter().nth(0) {
+        Some(did_registrar) => {
+            let cdd_acc = get_primary_key(did_registrar);
             let _ = Identity::cdd_register_did(
                 RuntimeOrigin::signed(cdd_acc.clone()),
                 id.clone(),

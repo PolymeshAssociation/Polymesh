@@ -89,7 +89,7 @@ where
 
     fn register_did(account_id: T::AccountId) -> DispatchResult {
         let cdd_provider_origin = {
-            match T::CddServiceProviders::get_members().first() {
+            match T::DidRegistrars::get_members().first() {
                 Some(cdd_did) => {
                     let cdd_acc = pallet_identity::Pallet::<T>::get_primary_key(*cdd_did).unwrap();
                     RawOrigin::Signed(cdd_acc).into()

@@ -231,7 +231,7 @@ macro_rules! misc_pallet_impls {
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
-            type DidRegistrars = CddServiceProviders;
+            type DidRegistrars = DidRegistrars;
             type Identity = Identity;
         }
 
@@ -1335,8 +1335,8 @@ macro_rules! runtime_apis {
             impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
                 fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
                     merge_active_and_inactive::<Block>(
-                        CddServiceProviders::active_members(),
-                        CddServiceProviders::inactive_members())
+                        DidRegistrars::active_members(),
+                        DidRegistrars::inactive_members())
                 }
 
                 fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {

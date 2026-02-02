@@ -357,7 +357,7 @@ impl<T: Config> Pallet<T> {
                 let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
                 // Attestor must be a DID registrar.
                 ensure!(
-                    T::CddServiceProviders::is_member(&auth_by),
+                    T::DidRegistrars::is_member(&auth_by),
                     Error::<T>::NotDidRegistrarAttestation
                 );
                 // Ensure authorizations are for the same DID.

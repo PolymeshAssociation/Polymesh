@@ -10,7 +10,7 @@ use sp_runtime::traits::{Block as BlockT, Zero};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
 pub use pallet_identity::types::{DidActiveStatus, DidStatus, KeyIdentityData, RpcDidRecords};
-use polymesh_primitives::{Authorization, AuthorizationType, IdentityClaim, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationType, Signatory};
 
 use crate::Error;
 
