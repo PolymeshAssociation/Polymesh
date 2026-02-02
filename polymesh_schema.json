@@ -532,7 +532,8 @@
     "PortfolioKind": {
       "_enum": {
         "Default": "",
-        "User": "PortfolioNumber"
+        "User": "PortfolioNumber",
+        "AccountId": "AccountId32"
       }
     },
     "PortfolioId": {
