@@ -101,8 +101,8 @@ pub struct ExtBuilder {
     /// When `false`, no balances will be initialized on genesis.
     monied: bool,
     vesting: bool,
-    /// CDD Service provides. Their DID will be generated.
-    cdd_providers: Vec<AccountId>,
+    /// DID Registrars (formerly CDD providers). Their DID will be generated.
+    did_registrars: Vec<AccountId>,
     /// Governance committee members. Their DID will be generated.
     governance_committee_members: Vec<AccountId>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
@@ -189,10 +189,10 @@ impl ExtBuilder {
         self
     }
 
-    /// It sets `providers` as CDD providers.
-    pub fn cdd_providers(mut self, providers: Vec<AccountId>) -> Self {
-        self.cdd_providers = providers;
-        self.cdd_providers.sort();
+    /// It sets `providers` as DID registrars (formerly CDD providers).
+    pub fn did_registrars(mut self, registrars: Vec<AccountId>) -> Self {
+        self.did_registrars = registrars;
+        self.did_registrars.sort();
         self
     }
 
@@ -338,11 +338,11 @@ impl ExtBuilder {
         .unwrap();
     }
 
-    /// For each `cdd_providers`:
+    /// For each `did_registrars`:
     ///     1. A new `IdentityId` is generated (from 1 to n),
-    ///     2. CDD provider's account key is linked to its new Identity ID.
-    ///     3. That Identity ID is added as member of CDD provider group.
-    fn build_cdd_providers_genesis(
+    ///     2. DID registrar's account key is linked to its new Identity ID.
+    ///     3. That Identity ID is added as member of DID registrar group.
+    fn build_did_registrars_genesis(
         &self,
         storage: &mut Storage,
         identities: &[GenesisIdentityRecord<AccountId>],
@@ -422,48 +422,52 @@ impl ExtBuilder {
     pub fn build(self) -> TestExternalities {
         self.set_associated_consts();
 
-        // Regular users should intersect neither with CDD providers nor with GC members.
+        // Regular users should intersect neither with DID registrars nor with GC members.
         assert!(!self
             .regular_users
             .iter()
-            .any(|id| self.cdd_providers.contains(&id.primary_key)
+            .any(|id| self.did_registrars.contains(&id.primary_key)
                 || self.governance_committee_members.contains(&id.primary_key)));
 
         // System identities.
-        let cdd_identities = Self::make_identities(self.cdd_providers.iter().cloned(), 0, vec![]);
+        let registrar_identities =
+            Self::make_identities(self.did_registrars.iter().cloned(), 0, vec![]);
         let gc_only_accs = self
             .governance_committee_members
             .iter()
-            .filter(|acc| !self.cdd_providers.contains(acc))
+            .filter(|acc| !self.did_registrars.contains(acc))
             .cloned()
             .collect::<Vec<_>>();
-        let gc_only_identities =
-            Self::make_identities(gc_only_accs.iter().cloned(), cdd_identities.len(), vec![]);
-        let gc_and_cdd_identities = cdd_identities.iter().filter(|gen_id| {
+        let gc_only_identities = Self::make_identities(
+            gc_only_accs.iter().cloned(),
+            registrar_identities.len(),
+            vec![],
+        );
+        let gc_and_registrar_identities = registrar_identities.iter().filter(|gen_id| {
             self.governance_committee_members
                 .contains(gen_id.primary_key.as_ref().unwrap())
         });
         let gc_full_identities = gc_only_identities
             .iter()
-            .chain(gc_and_cdd_identities)
+            .chain(gc_and_registrar_identities)
             .cloned()
             .collect::<Vec<_>>();
 
         //  User identities.
-        let issuer_did = cdd_identities
+        let issuer_did = registrar_identities
             .iter()
             .map(|gen_id| gen_id.did)
             .next()
             .unwrap_or(SystematicIssuers::CDDProvider.as_id());
         let regular_accounts = self.regular_users.iter().map(|id| id.primary_key.clone());
 
-        // Create regular user identities + .
+        // Create regular user identities.
         let mut user_identities = Self::make_identities(
             regular_accounts,
-            cdd_identities.len() + gc_only_identities.len(),
+            registrar_identities.len() + gc_only_identities.len(),
             vec![issuer_did],
         );
-        // Add secondary keys (and permissions) to new identites.
+        // Add secondary keys (and permissions) to new identities.
         for user_id in user_identities.iter_mut() {
             if let Some(user) = self
                 .regular_users
@@ -474,7 +478,7 @@ impl ExtBuilder {
             }
         }
 
-        let identities = cdd_identities
+        let identities = registrar_identities
             .iter()
             .chain(gc_only_identities.iter())
             .chain(user_identities.iter())
@@ -489,7 +493,7 @@ impl ExtBuilder {
         self.build_identity_genesis(&mut storage, identities);
         self.build_balances_genesis(&mut storage);
         self.build_asset_genesis(&mut storage);
-        self.build_cdd_providers_genesis(&mut storage, cdd_identities.as_slice());
+        self.build_did_registrars_genesis(&mut storage, registrar_identities.as_slice());
         self.build_committee_genesis(&mut storage, gc_full_identities.as_slice());
         self.build_protocol_fee_genesis(&mut storage);
         self.build_pips_genesis(&mut storage);

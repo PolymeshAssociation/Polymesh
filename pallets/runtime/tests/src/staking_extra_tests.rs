@@ -12,7 +12,7 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 fn updating_controller() {
     let charlie = vec![Sr25519Keyring::Charlie.to_account_id()];
     ExtBuilder::default()
-        .cdd_providers(charlie)
+        .did_registrars(charlie)
         .build()
         .execute_with(|| {
             let alice: User = User::new(Sr25519Keyring::Alice);

@@ -548,7 +548,7 @@ fn should_reset_asset_compliance_we() {
 #[test]
 fn pause_resume_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(pause_resume_asset_compliance_we);
 }
@@ -895,7 +895,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
 }
@@ -953,7 +953,7 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(scope_asset_compliance_we);
 }
@@ -1063,7 +1063,7 @@ fn ensure_custom_scopes_limited() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::One.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::One.to_account_id()])
         .build()
         .execute_with(cm_test_case_9_we);
 }
@@ -1174,7 +1174,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Ferdie.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_11_we);
 }
@@ -1297,7 +1297,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Ferdie.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_13_we);
 }
@@ -1441,7 +1441,7 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }

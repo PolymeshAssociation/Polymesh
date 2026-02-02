@@ -975,7 +975,7 @@ fn mesh_1531_ts_collission_regression_test() {
 fn secondary_key_not_authorized_for_asset_test() {
     let charlie = vec![Sr25519Keyring::Charlie.to_account_id()];
     ExtBuilder::default()
-        .cdd_providers(charlie)
+        .did_registrars(charlie)
         .build()
         .execute_with(|| {
             let alice = User::new(Sr25519Keyring::Alice);
@@ -1182,7 +1182,7 @@ fn test_with_owner(test: impl FnOnce(User)) {
     let owner = Sr25519Keyring::Alice;
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner.to_account_id()])
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| test(User::existing(owner)));
 }
@@ -1234,7 +1234,7 @@ fn update_identifiers_errors_test() {
 fn issuers_can_redeem_tokens_from_portfolio() {
     let alice = Sr25519Keyring::Alice.to_account_id();
     ExtBuilder::default()
-        .cdd_providers(vec![alice.clone()])
+        .did_registrars(vec![alice.clone()])
         .build()
         .execute_with(|| {
             set_timestamp(now());

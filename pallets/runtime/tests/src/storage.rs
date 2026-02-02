@@ -804,20 +804,11 @@ pub fn make_account_with_balance(
     let did_registrars = DidRegistrar::get_members();
     let did = match did_registrars.into_iter().nth(0) {
         Some(did_registrar) => {
-            let cdd_acc = get_primary_key(did_registrar);
-            let _ = Identity::cdd_register_did(
-                RuntimeOrigin::signed(cdd_acc.clone()),
-                id.clone(),
-                vec![],
-            )
-            .map_err(|_| "CDD register DID failed")?;
-
-            // Add CDD Claim
-            let did = Identity::get_identity(&id).unwrap();
-            let cdd_claim = Claim::CustomerDueDiligence(Default::default());
-            Identity::add_claim(RuntimeOrigin::signed(cdd_acc), did, cdd_claim, None)
-                .map_err(|_| "CDD provider cannot add the CDD claim")?;
-            did
+            let registrar_acc = get_primary_key(did_registrar);
+            // Use the new register_did extrinsic (no secondary keys, no CDD claim)
+            Identity::register_did(RuntimeOrigin::signed(registrar_acc), id.clone())
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
         }
         _ => {
             let _ = Identity::testing_register_did(id.clone(), vec![])

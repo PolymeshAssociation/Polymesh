@@ -34,7 +34,7 @@ type System = frame_system::Pallet<TestStorage>;
 #[track_caller]
 fn test(logic: impl FnOnce()) {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(logic);
 }

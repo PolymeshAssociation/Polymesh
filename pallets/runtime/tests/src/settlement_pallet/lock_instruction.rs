@@ -258,7 +258,7 @@ fn frozen_asset() {
 #[test]
 fn sender_missing_cdd_claim() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             let bob = User::new(Sr25519Keyring::Bob);
@@ -284,7 +284,7 @@ fn sender_missing_cdd_claim() {
 #[test]
 fn rcv_missing_cdd_claim() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             let bob = User::new(Sr25519Keyring::Bob);
