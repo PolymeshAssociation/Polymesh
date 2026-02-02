@@ -26,7 +26,7 @@ use sp_runtime::Perbill;
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
-use pallet_identity::benchmarking::{cdd_provider, user, User, UserBuilder};
+use pallet_identity::benchmarking::{did_registrar, user, User, UserBuilder};
 use pallet_identity::ParentDid;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
@@ -88,22 +88,18 @@ where
     }
 
     fn register_did(account_id: T::AccountId) -> DispatchResult {
-        let cdd_provider_origin = {
+        let did_registrar_origin = {
             match T::DidRegistrars::get_members().first() {
-                Some(cdd_did) => {
-                    let cdd_acc = pallet_identity::Pallet::<T>::get_primary_key(*cdd_did).unwrap();
-                    RawOrigin::Signed(cdd_acc).into()
+                Some(did_registrar) => {
+                    let did_registrar_acc =
+                        pallet_identity::Pallet::<T>::get_primary_key(*did_registrar).unwrap();
+                    RawOrigin::Signed(did_registrar_acc).into()
                 }
-                None => cdd_provider::<T>("cdd", 0).origin.into(),
+                None => did_registrar::<T>("did_registrar", 0).origin.into(),
             }
         };
 
-        pallet_identity::Pallet::<T>::cdd_register_did_with_cdd(
-            cdd_provider_origin,
-            account_id.into(),
-            Vec::new(),
-            None,
-        )
+        pallet_identity::Pallet::<T>::register_did(did_registrar_origin, account_id)
     }
 }
 
@@ -188,7 +184,7 @@ where
         let caller = UserBuilder::<T>::default()
             .seed(SEED)
             .generate_did()
-            .become_cdd_provider()
+            .become_did_registrar()
             .build("Caller");
         T::Currency::make_free_balance_be(&caller.account(), 1_000_000 * POLY);
 
@@ -510,7 +506,7 @@ benchmarks! {
     link_contract_as_secondary_key {
         let alice = UserBuilder::<T>::default()
             .generate_did()
-            .become_cdd_provider()
+            .become_did_registrar()
             .build("Alice");
         T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
         let caller = alice.account();
@@ -525,7 +521,7 @@ benchmarks! {
     link_contract_as_primary_key {
         let alice = UserBuilder::<T>::default()
             .generate_did()
-            .become_cdd_provider()
+            .become_did_registrar()
             .build("Alice");
         T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
         let caller = alice.account();

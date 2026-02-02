@@ -113,7 +113,7 @@ benchmarks! {
         let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
 
         // Add CDD claim to the child identity.
-        let cdd = cdd_provider::<T>("cdd", 0).did.unwrap();
+        let cdd = did_registrar::<T>("cdd", 0).did.unwrap();
         Pallet::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
 
     }: _(parent.origin, child_did)
@@ -122,7 +122,7 @@ benchmarks! {
     }
 
     register_did {
-        let registrar = cdd_provider::<T>("registrar", 0);
+        let registrar = did_registrar::<T>("registrar", 0);
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(registrar.origin, target.clone())
     verify {
@@ -133,7 +133,7 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
 
-        let cdd = cdd_provider::<T>("cdd", 0);
+        let cdd = did_registrar::<T>("cdd", 0);
         let target: T::AccountId = account("target", SEED, SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
@@ -143,7 +143,7 @@ benchmarks! {
         // Therefore, it's unbounded in complexity. However, this can only be called by governance.
         // Hence, the weight is for best case scenario
 
-        let cdd = cdd_provider::<T>("cdd", 0);
+        let cdd = did_registrar::<T>("cdd", 0);
 
     }: _(RawOrigin::Root, cdd.did(), 0u32.into(), None)
 
@@ -162,7 +162,7 @@ benchmarks! {
     }: _(target.origin, signatories.clone())
 
     accept_primary_key {
-        let cdd = cdd_provider::<T>("cdd", 0);
+        let cdd = did_registrar::<T>("cdd", 0);
         let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
@@ -187,7 +187,7 @@ benchmarks! {
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
     rotate_primary_key_to_secondary {
-        let cdd = cdd_provider::<T>("cdd", 0);
+        let cdd = did_registrar::<T>("cdd", 0);
         let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());

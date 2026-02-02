@@ -65,7 +65,7 @@ pub struct UserBuilder<T: Config> {
     balance: u32,
     seed: u32,
     generate_did: bool,
-    as_cdd_provider: bool,
+    as_did_registrar: bool,
 }
 
 macro_rules! self_update {
@@ -92,7 +92,7 @@ impl<T: Config> UserBuilder<T> {
             .or_else(|| self.generate_did.then(|| Self::make_did(account.clone())));
 
         // Become a DID registrar.
-        self.as_cdd_provider.then(|| {
+        self.as_did_registrar.then(|| {
             T::DidRegistrars::add_member(did.clone().unwrap())
                 .expect("User cannot be added as DID registrar")
         });
@@ -120,9 +120,9 @@ impl<T: Config> UserBuilder<T> {
         self_update!(self, generate_did, true)
     }
 
-    pub fn become_cdd_provider(self) -> Self {
+    pub fn become_did_registrar(self) -> Self {
         assert_eq!(self.generate_did, true || self.did.is_some());
-        self_update!(self, as_cdd_provider, true)
+        self_update!(self, as_did_registrar, true)
     }
 
     pub fn did(self, did: IdentityId) -> Self {
@@ -168,7 +168,7 @@ impl<T: Config> Default for UserBuilder<T> {
             balance: 5_000_000u32,
             seed: 0,
             generate_did: false,
-            as_cdd_provider: false,
+            as_did_registrar: false,
         }
     }
 }
@@ -184,10 +184,10 @@ pub fn user_without_did<T: Config>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default().seed(u).build(prefix)
 }
 
-pub fn cdd_provider<T: Config>(prefix: &'static str, u: u32) -> User<T> {
+pub fn did_registrar<T: Config>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .seed(u)
-        .become_cdd_provider()
+        .become_did_registrar()
         .build(prefix)
 }
