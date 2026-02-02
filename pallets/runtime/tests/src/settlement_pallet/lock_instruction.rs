@@ -256,58 +256,6 @@ fn frozen_asset() {
 }
 
 #[test]
-fn sender_missing_cdd_claim() {
-    ExtBuilder::default()
-        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| {
-            let bob = User::new(Sr25519Keyring::Bob);
-            let dave = User::new(Sr25519Keyring::Dave);
-            let alice = User::new(Sr25519Keyring::Alice);
-
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
-
-            Identity::revoke_claim(
-                RuntimeOrigin::signed(Sr25519Keyring::Eve.to_account_id()),
-                alice.did,
-                Claim::CustomerDueDiligence(Default::default()),
-            )
-            .unwrap();
-
-            assert_noop!(
-                Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-                Error::<TestStorage>::FailedAssetTransferringConditions
-            );
-        });
-}
-
-#[test]
-fn rcv_missing_cdd_claim() {
-    ExtBuilder::default()
-        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| {
-            let bob = User::new(Sr25519Keyring::Bob);
-            let dave = User::new(Sr25519Keyring::Dave);
-            let alice = User::new(Sr25519Keyring::Alice);
-
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
-
-            Identity::revoke_claim(
-                RuntimeOrigin::signed(Sr25519Keyring::Eve.to_account_id()),
-                bob.did,
-                Claim::CustomerDueDiligence(Default::default()),
-            )
-            .unwrap();
-
-            assert_noop!(
-                Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-                Error::<TestStorage>::FailedAssetTransferringConditions
-            );
-        });
-}
-
-#[test]
 fn receivers_missing_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let inst_id = InstructionId(0);

@@ -14,11 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, CddAuthForPrimaryKeyRotation, ChildDid, Config,
-    CurrentAuthId, DidKeys, DidRecords, Error, Event, IsDidFrozen, KeyAssetPermissions,
-    KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords, MultiPurposeNonce,
-    OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
-    PermissionedCallOriginData, RpcDidRecords,
+    types, AccountKeyRefCount, CddAuthForPrimaryKeyRotation, ChildDid, Config, CurrentAuthId,
+    DidKeys, DidRecords, Error, Event, IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions,
+    KeyPortfolioPermissions, KeyRecords, MultiPurposeNonce, OffChainAuthorizationNonce,
+    OutdatedAuthorizations, Pallet, ParentDid, PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::Encode as _;
 use frame_support::dispatch::DispatchResult;

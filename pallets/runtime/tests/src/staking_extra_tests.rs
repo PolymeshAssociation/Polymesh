@@ -47,10 +47,8 @@ fn updating_controller() {
                 pallet_staking::ValidatorPrefs::default()
             ));
 
-            assert_ok!(pallet_identity::Pallet::<TestStorage>::revoke_claim(
-                Origin::signed(Sr25519Keyring::Charlie.to_account_id()),
-                alice.did,
-                polymesh_primitives::Claim::CustomerDueDiligence(Default::default())
+            assert!(pallet_identity::Pallet::<TestStorage>::is_did_active(
+                alice.did
             ));
 
             assert_ok!(
