@@ -413,7 +413,7 @@ pub mod pallet {
             ensure!(target_nonce == call.nonce, Error::<T>::InvalidNonce);
 
             ensure!(
-                verify_signature::<T, _, _>(&target, &signature, &call, false),
+                verify_signature::<T, _, _>(&target, &signature, &call),
                 Error::<T>::InvalidSignature
             );
 

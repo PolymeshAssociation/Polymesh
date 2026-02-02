@@ -80,12 +80,11 @@ pub fn verify_any_signature<T: frame_system::Config, M: Encode>(
     key: &T::AccountId,
     signature: H512,
     message: &M,
-    only_wrapped: bool,
 ) -> bool {
     let signature = AnySignature::from(Signature::from_h512(signature));
 
     if let Some(key) = Public::from_slice(&key.encode()).ok() {
-        verify_signature_common(&key, &signature, message, only_wrapped)
+        verify_signature_common(&key, &signature, message)
     } else {
         // It shouldn't be possible to fail to convert an `AccountId` to a `Public` key.
         false
@@ -93,25 +92,19 @@ pub fn verify_any_signature<T: frame_system::Config, M: Encode>(
 }
 
 /// Verify a signature using the given public key and message.
-pub fn verify_signature<T, V, M>(
-    key: &T::AccountId,
-    signature: &V,
-    message: &M,
-    only_wrapped: bool,
-) -> bool
+pub fn verify_signature<T, V, M>(key: &T::AccountId, signature: &V, message: &M) -> bool
 where
     T: frame_system::Config,
     V: Verify<Signer: IdentifyAccount<AccountId = T::AccountId>>,
     M: Encode,
 {
-    verify_signature_common(key, signature, message, only_wrapped)
+    verify_signature_common(key, signature, message)
 }
 
 fn verify_signature_common<V, M>(
     key: &<<V as Verify>::Signer as IdentifyAccount>::AccountId,
     signature: &V,
     message: &M,
-    only_wrapped: bool,
 ) -> bool
 where
     V: Verify,
@@ -119,14 +112,5 @@ where
 {
     // Try to verify the signature with a wrapped message.
     let wrapped_message = BytesWrapped(message).encode();
-    if signature.verify(wrapped_message.as_slice(), key) {
-        true
-    } else if only_wrapped {
-        // We only accept wrapped messages.
-        false
-    } else {
-        // Try old legacy verification with the raw message.
-        let encoded = message.encode();
-        signature.verify(encoded.as_slice(), key)
-    }
+    signature.verify(wrapped_message.as_slice(), key)
 }

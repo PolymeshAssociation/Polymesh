@@ -1001,7 +1001,6 @@ impl<T: Config> Pallet<T> {
                         &receipt_details.signer,
                         &receipt_details.signature,
                         &receipt,
-                        true,
                     ),
                     Error::<T>::InvalidSignature
                 );

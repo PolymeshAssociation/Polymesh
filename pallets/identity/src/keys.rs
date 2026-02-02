@@ -495,7 +495,7 @@ impl<T: Config> Pallet<T> {
 
             // Verify the signature.
             ensure!(
-                verify_any_signature::<T, _>(&auth.key, auth.auth_signature, &authorization, false),
+                verify_any_signature::<T, _>(&auth.key, auth.auth_signature, &authorization),
                 Error::<T>::InvalidAuthorizationSignature
             );
         }
@@ -637,12 +637,7 @@ impl<T: Config> Pallet<T> {
 
             // Verify the signature.
             ensure!(
-                verify_any_signature::<T, _>(
-                    &secondary_key.key,
-                    auth_signature,
-                    &authorization,
-                    false
-                ),
+                verify_any_signature::<T, _>(&secondary_key.key, auth_signature, &authorization),
                 Error::<T>::InvalidAuthorizationSignature
             );
 
