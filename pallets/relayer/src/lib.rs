@@ -452,15 +452,6 @@ impl<T: Config> Pallet<T> {
         Ok(auth_id)
     }
 
-    /// Check if the `key` is attached to an active DID.
-    fn key_has_valid_did(key: &T::AccountId) -> bool {
-        if let Some(did) = <Identity<T>>::get_identity(key) {
-            <Identity<T>>::is_did_active(did)
-        } else {
-            false
-        }
-    }
-
     /// Ensure that `paying_key` is the paying key for `user_key`.
     fn ensure_is_paying_key(
         user_key: &T::AccountId,
@@ -496,7 +487,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UserKeyDidMissing
         );
         ensure!(
-            Self::key_has_valid_did(&paying_key),
+            <Identity<T>>::is_did_active(from),
             Error::<T>::PayingKeyDidMissing
         );
 

@@ -1152,19 +1152,6 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
-    /// RPC helper: Check if a DID is active (exists).
-    /// Returns the DID if active, or an error message if not.
-    ///
-    /// Note: The `_buffer_time` parameter is kept for RPC API compatibility
-    /// but is no longer used (previously for CDD expiry checking).
-    // pub fn is_identity_active(did: IdentityId, _buffer_time: Option<u64>) -> DidActiveStatus {
-    //     if Self::is_did_active(did) {
-    //         Ok(did)
-    //     } else {
-    //         Err(b"Identity does not exist".to_vec())
-    //     }
-    // }
-
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {

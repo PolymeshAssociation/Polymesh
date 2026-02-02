@@ -126,7 +126,8 @@ benchmarks! {
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(registrar.origin, target.clone())
     verify {
-        assert!(Pallet::<T>::get_identity(&target).is_some());
+        let did = Pallet::<T>::get_identity(&target).expect("target should have a DID");
+        assert!(Pallet::<T>::is_did_active(did));
     }
 
     cdd_register_did {
