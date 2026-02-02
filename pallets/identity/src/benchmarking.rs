@@ -121,6 +121,14 @@ benchmarks! {
         assert!(Pallet::<T>::is_did_active(child_did));
     }
 
+    register_did {
+        let registrar = cdd_provider::<T>("registrar", 0);
+        let target: T::AccountId = account("target", SEED, SEED);
+    }: _(registrar.origin, target.clone())
+    verify {
+        assert!(Pallet::<T>::get_identity(&target).is_some());
+    }
+
     cdd_register_did {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;

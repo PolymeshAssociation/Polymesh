@@ -509,7 +509,7 @@ mod benches {
         [pallet_utility, Utility]
         [pallet_treasury, Treasury]
         [pallet_im_online, ImOnline]
-        [pallet_group, CddServiceProviders]
+        [pallet_group, DidRegistrars]
         [pallet_statistics, Statistics]
         [pallet_permissions, Permissions]
         [pallet_preimage, Preimage]
