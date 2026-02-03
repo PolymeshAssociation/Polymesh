@@ -5275,13 +5275,13 @@ declare module '@polkadot/types/lookup' {
     readonly isStashIdentityDoesNotExist: boolean;
     readonly isStashIdentityNotPermissioned: boolean;
     readonly isIdentityIsAlreadyPermissioned: boolean;
-    readonly isIdentityIsMissingDID: boolean;
+    readonly isIdentityDoesNotExist: boolean;
     readonly isIntendedCountIsExceedingConsensusLimit: boolean;
     readonly isIdentityNotFound: boolean;
     readonly isValidatorNotFound: boolean;
     readonly isCommissionTooHigh: boolean;
     readonly isCommissionUnchanged: boolean;
-    readonly type: 'StashIdentityDoesNotExist' | 'StashIdentityNotPermissioned' | 'IdentityIsAlreadyPermissioned' | 'IdentityIsMissingDID' | 'IntendedCountIsExceedingConsensusLimit' | 'IdentityNotFound' | 'ValidatorNotFound' | 'CommissionTooHigh' | 'CommissionUnchanged';
+    readonly type: 'StashIdentityDoesNotExist' | 'StashIdentityNotPermissioned' | 'IdentityIsAlreadyPermissioned' | 'IdentityDoesNotExist' | 'IntendedCountIsExceedingConsensusLimit' | 'IdentityNotFound' | 'ValidatorNotFound' | 'CommissionTooHigh' | 'CommissionUnchanged';
   }
 
   /** @name PalletStakingStakingLedger (609) */

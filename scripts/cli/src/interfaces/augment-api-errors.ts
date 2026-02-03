@@ -2598,13 +2598,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CommissionUnchanged: AugmentedError<ApiType>;
       /**
+       * Identity does not exist or is not active.
+       **/
+      IdentityDoesNotExist: AugmentedError<ApiType>;
+      /**
        * Permissioned validator already exists.
        **/
       IdentityIsAlreadyPermissioned: AugmentedError<ApiType>;
-      /**
-       * Identity has no active DID.
-       **/
-      IdentityIsMissingDID: AugmentedError<ApiType>;
       /**
        * Identity was not found in the permissioned identity pool.
        **/

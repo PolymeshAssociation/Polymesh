@@ -4598,7 +4598,7 @@ export default {
    * Lookup608: pallet_validators::pallet::Error<T>
    **/
   PalletValidatorsError: {
-    _enum: ['StashIdentityDoesNotExist', 'StashIdentityNotPermissioned', 'IdentityIsAlreadyPermissioned', 'IdentityIsMissingDID', 'IntendedCountIsExceedingConsensusLimit', 'IdentityNotFound', 'ValidatorNotFound', 'CommissionTooHigh', 'CommissionUnchanged']
+    _enum: ['StashIdentityDoesNotExist', 'StashIdentityNotPermissioned', 'IdentityIsAlreadyPermissioned', 'IdentityDoesNotExist', 'IntendedCountIsExceedingConsensusLimit', 'IdentityNotFound', 'ValidatorNotFound', 'CommissionTooHigh', 'CommissionUnchanged']
   },
   /**
    * Lookup609: pallet_staking::StakingLedger<T>

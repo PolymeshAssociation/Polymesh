@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
 
         ensure!(
             pallet_identity::Pallet::<T>::is_did_active(identity),
-            Error::<T>::IdentityIsMissingDID
+            Error::<T>::IdentityDoesNotExist
         );
 
         match intended_count {
