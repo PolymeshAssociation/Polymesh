@@ -458,7 +458,7 @@ impl ExtBuilder {
             .iter()
             .map(|gen_id| gen_id.did)
             .next()
-            .unwrap_or(SystematicIssuers::DIDRegistrar.as_id());
+            .unwrap_or(SystematicIssuers::CDDProvider.as_id());
         let regular_accounts = self.regular_users.iter().map(|id| id.primary_key.clone());
 
         // Create regular user identities.

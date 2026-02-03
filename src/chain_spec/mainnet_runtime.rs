@@ -212,12 +212,12 @@ pub(crate) fn genesis_data(
     // Give CDD issuer to operator and sudo since it won't receive CDD from the group automatically
     genesis_id_records[3]
         .issuers
-        .push(SystematicIssuers::DIDRegistrar.as_id());
+        .push(SystematicIssuers::CDDProvider.as_id());
 
     // Give CDD issuer to operator and sudo since it won't receive CDD from the group automatically
     genesis_id_records[4]
         .issuers
-        .push(SystematicIssuers::DIDRegistrar.as_id());
+        .push(SystematicIssuers::CDDProvider.as_id());
 
     // Treasury
     identities_balance.push((

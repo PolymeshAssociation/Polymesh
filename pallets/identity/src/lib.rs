@@ -581,7 +581,7 @@ pub mod pallet {
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
-            Pallet::<T>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::DIDRegistrar);
+            Pallet::<T>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
             for gen_id in &self.identities {
@@ -1202,7 +1202,7 @@ impl<T: Config> ChangeMembers<IdentityId> for Pallet<T> {
         _new: &[IdentityId],
     ) {
         // Add/remove Systematic CDD claims for new/removed members.
-        let issuer = SystematicIssuers::DIDRegistrar;
+        let issuer = SystematicIssuers::CDDProvider;
         Self::add_systematic_cdd_claims(incoming, issuer);
         Self::revoke_systematic_cdd_claims(outgoing, issuer);
     }
@@ -1212,7 +1212,7 @@ impl<T: Config> ChangeMembers<IdentityId> for Pallet<T> {
 impl<T: Config> InitializeMembers<IdentityId> for Pallet<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
-        Self::add_systematic_cdd_claims(members, SystematicIssuers::DIDRegistrar);
+        Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
     }
 }
 
