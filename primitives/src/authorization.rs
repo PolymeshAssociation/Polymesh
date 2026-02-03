@@ -29,6 +29,7 @@ use crate::{Balance, PortfolioId, Ticker};
 #[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 pub enum AuthorizationData<AccountId> {
     /// DID registrar's attestation to change primary key
+    #[deprecated(note = "This authorization variant is no longer used")]
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
     RotatePrimaryKey,
