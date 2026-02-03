@@ -13,7 +13,7 @@ use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scop
 use polymesh_runtime_common::Weight;
 
 use super::setup::{add_and_affirm_simple_instruction, create_and_issue_sample_asset_with_venue};
-use crate::storage::{EventTest, RuntimeOrigin, User};
+use crate::storage::{EventTest, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;

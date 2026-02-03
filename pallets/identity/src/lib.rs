@@ -238,7 +238,7 @@ pub mod pallet {
             > + GetCallMetadata
             + GetDispatchInfo
             + From<frame_system::Call<Self>>;
-        /// DID Registrars group (formerly CDD Service Providers)
+        /// Group module (formerly CDD Service Providers)
         type DidRegistrars: GroupTrait<Self::Moment>;
         /// Balances module
         type Balances: Currency<Self::AccountId, Balance = Balance>

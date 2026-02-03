@@ -36,7 +36,7 @@ use polymesh_primitives::constants::currency::{DOLLARS, POLY};
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::traits::{group::GroupTrait, CddAndFeeDetails};
 use polymesh_primitives::{AccountId, Authorization, AuthorizationData, BlockNumber};
-use polymesh_primitives::{Claim, Moment, Permissions as AuthPermissions};
+use polymesh_primitives::{Moment, Permissions as AuthPermissions};
 use polymesh_primitives::{PortfolioNumber, Scope, SecondaryKey, TrustedFor, TrustedIssuer};
 use polymesh_runtime_common::merge_active_and_inactive;
 use polymesh_runtime_common::runtime::{BENCHMARK_MAX_INCREASE, VMO};
