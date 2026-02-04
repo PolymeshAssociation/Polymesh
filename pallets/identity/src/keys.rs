@@ -56,13 +56,8 @@ const MAX_PERMISSION_COMPLEXITY: usize = 1_000_000;
 type System<T> = frame_system::Pallet<T>;
 
 impl<T: Config> Pallet<T> {
-    /// Does the identity given by `did` exist?
-    pub fn is_identity_exists(did: &IdentityId) -> bool {
-        DidRecords::<T>::contains_key(did)
-    }
-
     pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
-        ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
+        ensure!(!Self::is_did_active(id), Error::<T>::DidAlreadyExists);
         Ok(())
     }
 
@@ -76,7 +71,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Err(DidDoesNotExist)` unless `id` has an associated record.
     pub fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
-        ensure!(Self::is_identity_exists(&id), Error::<T>::DidDoesNotExist);
+        ensure!(Self::is_did_active(id), Error::<T>::DidDoesNotExist);
         Ok(())
     }
 
