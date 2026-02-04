@@ -1090,6 +1090,7 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn secondary_key_with_bad_permissions() {
     ExtBuilder::default()
         .balance_factor(1_000)
@@ -1306,6 +1307,7 @@ fn changing_primary_key_with_cdd_auth() {
         .execute_with(|| changing_primary_key_with_cdd_auth_we());
 }
 
+#[allow(deprecated)]
 fn changing_primary_key_with_cdd_auth_we() {
     let alice = User::new(Sr25519Keyring::Alice);
     let alice_pk = || get_primary_key(alice.did);
@@ -1429,6 +1431,7 @@ fn rotating_primary_key_to_secondary_with_cdd_auth() {
         .execute_with(|| rotating_primary_key_to_secondary_with_cdd_auth_we());
 }
 
+#[allow(deprecated)]
 fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
     let alice = User::new(Sr25519Keyring::Alice);
     let alice_pk = || get_primary_key(alice.did);
@@ -1494,6 +1497,7 @@ fn cdd_register_did_test() {
         .execute_with(|| cdd_register_did_test_we());
 }
 
+#[allow(deprecated)]
 fn cdd_register_did_test_we() {
     let cdd1 = Origin::signed(Sr25519Keyring::Eve.to_account_id());
     let cdd2 = Origin::signed(Sr25519Keyring::Ferdie.to_account_id());
@@ -1558,6 +1562,7 @@ fn cdd_register_did_test_we() {
 
 // Test for the DuplicateKey error in `cdd_register_did`.
 #[test]
+#[allow(deprecated)]
 fn cdd_register_did_duplicate_keys_test() {
     ExtBuilder::default()
         .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
@@ -1704,15 +1709,15 @@ fn invalidate_cdd_claims() {
         .execute_with(invalidate_cdd_claims_we);
 }
 
+#[allow(deprecated)]
 fn invalidate_cdd_claims_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
     let cdd = Sr25519Keyring::Eve.to_account_id();
     let alice_acc = Sr25519Keyring::Alice.to_account_id();
     let bob_acc = Sr25519Keyring::Bob.to_account_id();
-    assert_ok!(Identity::cdd_register_did(
+    assert_ok!(Identity::register_did(
         Origin::signed(cdd.clone()),
         alice_acc,
-        vec![]
     ));
     let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
     assert_add_cdd_claim!(Origin::signed(cdd.clone()), alice_id);
@@ -1729,7 +1734,7 @@ fn invalidate_cdd_claims_we() {
     set_timestamp(8);
     assert_eq!(Identity::is_did_active(alice_id), true);
     assert_noop!(
-        Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
+        Identity::register_did(Origin::signed(cdd.clone()), bob_acc.clone()),
         Error::UnAuthorizedDidRegistrar
     );
 
@@ -1737,7 +1742,7 @@ fn invalidate_cdd_claims_we() {
     set_timestamp(11);
     assert_eq!(Identity::is_did_active(alice_id), true);
     assert_noop!(
-        Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
+        Identity::register_did(Origin::signed(cdd), bob_acc),
         Error::UnAuthorizedDidRegistrar
     );
 }
@@ -1786,11 +1791,7 @@ fn did_registrar_with_systematic_cdd_claims_we() {
     let charlie_acc = Sr25519Keyring::Charlie.to_account_id();
 
     // 3.1. Add CDD claim to Charlie, by Alice (a DID registrar).
-    assert_ok!(Identity::cdd_register_did(
-        alice.clone(),
-        charlie_acc.clone(),
-        vec![]
-    ));
+    assert_ok!(Identity::register_did(alice.clone(), charlie_acc.clone()));
     let charlie_id =
         get_identity_id(Sr25519Keyring::Charlie).expect("Charlie should have an Identity Id");
     assert_add_cdd_claim!(alice, charlie_id);
@@ -1864,11 +1865,7 @@ fn gc_with_systematic_cdd_claims_we() {
     let ferdie_acc = Sr25519Keyring::Ferdie.to_account_id();
 
     // 3.1. Add CDD claim to Ferdie, by Alice.
-    assert_ok!(Identity::cdd_register_did(
-        alice.clone(),
-        ferdie_acc.clone(),
-        vec![]
-    ));
+    assert_ok!(Identity::register_did(alice.clone(), ferdie_acc.clone()));
     let ferdie_id =
         get_identity_id(Sr25519Keyring::Ferdie).expect("Ferdie should have an Identity Id");
     assert_add_cdd_claim!(alice, ferdie_id);
@@ -1930,6 +1927,7 @@ fn gc_and_registrar_with_systematic_cdd_claims_we() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn add_permission_with_secondary_key() {
     ExtBuilder::default()
         .balance_factor(1_000)
@@ -2068,6 +2066,7 @@ fn invalid_custom_claim_type() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn cdd_register_did_events() {
     ExtBuilder::default()
         .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])

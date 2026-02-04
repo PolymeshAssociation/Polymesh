@@ -62,6 +62,7 @@ impl<AccountId> AuthorizationData<AccountId> {
     /// Returns the `AuthorizationType` of this auth data.
     pub fn auth_type(&self) -> AuthorizationType {
         match self {
+            #[allow(deprecated)]
             Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
             Self::RotatePrimaryKey => AuthorizationType::RotatePrimaryKey,
             Self::TransferTicker(..) => AuthorizationType::TransferTicker,

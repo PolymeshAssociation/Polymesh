@@ -357,6 +357,7 @@ fn remove_multisig_signers() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn add_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);

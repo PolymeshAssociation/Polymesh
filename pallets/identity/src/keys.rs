@@ -353,6 +353,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromDidRegistrar)?;
 
             Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
+                #[allow(deprecated)]
                 let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
                 // Attestor must be a DID registrar.
                 ensure!(
