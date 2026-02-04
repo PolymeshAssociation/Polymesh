@@ -4598,7 +4598,7 @@ export default {
    * Lookup608: pallet_validators::pallet::Error<T>
    **/
   PalletValidatorsError: {
-    _enum: ['StashIdentityDoesNotExist', 'StashIdentityNotPermissioned', 'IdentityIsAlreadyPermissioned', 'IdentityDoesNotExist', 'IntendedCountIsExceedingConsensusLimit', 'IdentityNotFound', 'ValidatorNotFound', 'CommissionTooHigh', 'CommissionUnchanged']
+    _enum: ['StashIdentityDoesNotExist', 'StashIdentityNotPermissioned', 'IdentityIsAlreadyPermissioned', 'IdentityIsInactive', 'IntendedCountIsExceedingConsensusLimit', 'IdentityNotFound', 'ValidatorNotFound', 'CommissionTooHigh', 'CommissionUnchanged']
   },
   /**
    * Lookup609: pallet_staking::StakingLedger<T>
@@ -5061,7 +5061,7 @@ export default {
    * Lookup749: pallet_relayer::pallet::Error<T>
    **/
   PalletRelayerError: {
-    _enum: ['UserKeyDidMissing', 'PayingKeyDidMissing', 'NoPayingKey', 'NotPayingKey', 'NotAuthorizedForPayingKey', 'NotAuthorizedForUserKey', 'Overflow', 'BadAuthorizationType', 'IdentityNotFound']
+    _enum: ['UserKeyDidInactive', 'PayingKeyDidInactive', 'NoPayingKey', 'NotPayingKey', 'NotAuthorizedForPayingKey', 'NotAuthorizedForUserKey', 'Overflow', 'BadAuthorizationType', 'IdentityNotFound']
   },
   /**
    * Lookup751: pallet_contracts::wasm::CodeInfo<T>

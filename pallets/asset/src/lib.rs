@@ -3116,11 +3116,6 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::InvalidTransferInvalidReceiverDID
         );
 
-        ensure!(
-            IdentityPallet::<T>::is_did_active(sender_portfolio.did),
-            Error::<T>::InvalidTransferInvalidSenderDID
-        );
-
         // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
             asset_id,
@@ -3215,10 +3210,6 @@ impl<T: AssetConfig> Pallet<T> {
 
         if !IdentityPallet::<T>::is_did_active(receiver_portfolio.did) {
             asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverDID.into());
-        }
-
-        if !IdentityPallet::<T>::is_did_active(sender_portfolio.did) {
-            asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidSenderDID.into());
         }
 
         if Frozen::<T>::get(asset_id) {

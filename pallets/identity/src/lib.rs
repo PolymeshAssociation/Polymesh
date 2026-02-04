@@ -1078,7 +1078,7 @@ pub mod pallet {
         DidMustAlreadyExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
-        /// The target DID does not exist (is not active).
+        /// The target DID does not exist or is locked.
         TargetDidInactive,
         /// Authorization has been explicitly revoked.
         AuthorizationHasBeenRevoked,
@@ -1130,7 +1130,7 @@ pub mod pallet {
         InvalidAuthorization,
         /// Frozen secondary key.
         UnauthorizedCallerFrozenDid,
-        /// The DID does not exist (is not active).
+        /// The DID does not exist or is locked.
         UnauthorizedCallerDidInactive,
         /// The key does not have permissions to execute the extrinsic.
         UnauthorizedCallerMissingPermissions,
@@ -1183,6 +1183,12 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Pallet<T> {
     /// Returns true if the DID exists (is active).
     fn is_did_active(target_did: IdentityId) -> bool {
         Self::is_did_active(target_did)
+    }
+
+    /// Check if a DID is locked.
+    /// TODO: Implement DID locking. For now, always returns false.
+    fn is_did_locked(target_did: IdentityId) -> bool {
+        Self::is_did_locked(target_did)
     }
 
     /// Creates a new DID for testing purposes.

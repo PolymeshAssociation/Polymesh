@@ -5275,13 +5275,13 @@ declare module '@polkadot/types/lookup' {
     readonly isStashIdentityDoesNotExist: boolean;
     readonly isStashIdentityNotPermissioned: boolean;
     readonly isIdentityIsAlreadyPermissioned: boolean;
-    readonly isIdentityDoesNotExist: boolean;
+    readonly isIdentityIsInactive: boolean;
     readonly isIntendedCountIsExceedingConsensusLimit: boolean;
     readonly isIdentityNotFound: boolean;
     readonly isValidatorNotFound: boolean;
     readonly isCommissionTooHigh: boolean;
     readonly isCommissionUnchanged: boolean;
-    readonly type: 'StashIdentityDoesNotExist' | 'StashIdentityNotPermissioned' | 'IdentityIsAlreadyPermissioned' | 'IdentityDoesNotExist' | 'IntendedCountIsExceedingConsensusLimit' | 'IdentityNotFound' | 'ValidatorNotFound' | 'CommissionTooHigh' | 'CommissionUnchanged';
+    readonly type: 'StashIdentityDoesNotExist' | 'StashIdentityNotPermissioned' | 'IdentityIsAlreadyPermissioned' | 'IdentityIsInactive' | 'IntendedCountIsExceedingConsensusLimit' | 'IdentityNotFound' | 'ValidatorNotFound' | 'CommissionTooHigh' | 'CommissionUnchanged';
   }
 
   /** @name PalletStakingStakingLedger (609) */
@@ -5981,8 +5981,8 @@ declare module '@polkadot/types/lookup' {
 
   /** @name PalletRelayerError (749) */
   interface PalletRelayerError extends Enum {
-    readonly isUserKeyDidMissing: boolean;
-    readonly isPayingKeyDidMissing: boolean;
+    readonly isUserKeyDidInactive: boolean;
+    readonly isPayingKeyDidInactive: boolean;
     readonly isNoPayingKey: boolean;
     readonly isNotPayingKey: boolean;
     readonly isNotAuthorizedForPayingKey: boolean;
@@ -5990,7 +5990,7 @@ declare module '@polkadot/types/lookup' {
     readonly isOverflow: boolean;
     readonly isBadAuthorizationType: boolean;
     readonly isIdentityNotFound: boolean;
-    readonly type: 'UserKeyDidMissing' | 'PayingKeyDidMissing' | 'NoPayingKey' | 'NotPayingKey' | 'NotAuthorizedForPayingKey' | 'NotAuthorizedForUserKey' | 'Overflow' | 'BadAuthorizationType' | 'IdentityNotFound';
+    readonly type: 'UserKeyDidInactive' | 'PayingKeyDidInactive' | 'NoPayingKey' | 'NotPayingKey' | 'NotAuthorizedForPayingKey' | 'NotAuthorizedForUserKey' | 'Overflow' | 'BadAuthorizationType' | 'IdentityNotFound';
   }
 
   /** @name PalletContractsWasmCodeInfo (751) */

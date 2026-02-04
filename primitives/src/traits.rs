@@ -63,8 +63,11 @@ pub trait IdentityFnTrait<AccountId> {
     fn set_current_payer(payer: Option<AccountId>);
 
     /// Provides the DID status for the given DID
-
     fn is_did_active(target_did: IdentityId) -> bool;
+
+    /// Check if a DID is locked.
+    /// TODO: Implement DID locking. For now, always returns false.
+    fn is_did_locked(target_did: IdentityId) -> bool;
 
     /// Creates a new did.
     fn testing_register_did(

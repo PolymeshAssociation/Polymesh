@@ -1125,7 +1125,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       SecondaryKeysContainPrimaryKey: AugmentedError<ApiType>;
       /**
-       * The target DID does not exist (is not active).
+       * The target DID does not exist or is locked.
        **/
       TargetDidInactive: AugmentedError<ApiType>;
       /**
@@ -1133,7 +1133,7 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       Unauthorized: AugmentedError<ApiType>;
       /**
-       * The DID does not exist (is not active).
+       * The DID does not exist or is locked.
        **/
       UnauthorizedCallerDidInactive: AugmentedError<ApiType>;
       /**
@@ -1819,11 +1819,11 @@ declare module '@polkadot/api-base/types/errors' {
       /**
        * The `paying_key` is not attached to an active DID.
        **/
-      PayingKeyDidMissing: AugmentedError<ApiType>;
+      PayingKeyDidInactive: AugmentedError<ApiType>;
       /**
        * The `user_key` is not attached to an active DID.
        **/
-      UserKeyDidMissing: AugmentedError<ApiType>;
+      UserKeyDidInactive: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -2598,13 +2598,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       CommissionUnchanged: AugmentedError<ApiType>;
       /**
-       * Identity does not exist or is not active.
-       **/
-      IdentityDoesNotExist: AugmentedError<ApiType>;
-      /**
        * Permissioned validator already exists.
        **/
       IdentityIsAlreadyPermissioned: AugmentedError<ApiType>;
+      /**
+       * Identity does not exist or is locked.
+       **/
+      IdentityIsInactive: AugmentedError<ApiType>;
       /**
        * Identity was not found in the permissioned identity pool.
        **/

@@ -66,6 +66,12 @@ impl<T: Config> Pallet<T> {
         <DidRecords<T>>::contains_key(did)
     }
 
+    /// Check if a DID is locked.
+    /// TODO: Implement DID locking. For now, always returns false.
+    pub fn is_did_locked(_did: IdentityId) -> bool {
+        false
+    }
+
     /// Returns true if `id_claim` is not expired at `moment`.
     #[inline]
     fn is_identity_claim_not_expired_at(id_claim: &IdentityClaim, moment: T::Moment) -> bool {

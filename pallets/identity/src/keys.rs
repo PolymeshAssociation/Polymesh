@@ -714,11 +714,11 @@ impl<T: Config> Pallet<T> {
             // Ensure that the key is unlinked.
             Self::ensure_key_did_unlinked(&key)?;
 
-            // Check that the target Identity exists (is active).
             ensure!(
-                Self::is_did_active(target_did),
+                !Self::is_did_locked(target_did),
                 Error::<T>::TargetDidInactive
             );
+
             // Charge the protocol fee after all checks.
             T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)?;
 
@@ -895,7 +895,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
         let did = key_rec.is_primary_key().ok_or(Error::<T>::KeyNotAllowed)?;
         ensure!(
-            Self::is_did_active(did),
+            !Self::is_did_locked(did),
             Error::<T>::UnauthorizedCallerDidInactive
         );
         Ok((sender, did))
@@ -909,7 +909,7 @@ impl<T: Config> Pallet<T> {
         let sender = ensure_signed(origin)?;
         let did = Self::get_identity(&sender).ok_or(Error::<T>::MissingIdentity)?;
         ensure!(
-            Self::is_did_active(did),
+            !Self::is_did_locked(did),
             Error::<T>::UnauthorizedCallerDidInactive
         );
         Ok((sender, did))
@@ -996,7 +996,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
             Self::ensure_valid_origin_permissions(who, false, pallet_name, function_name)?;
 
         ensure!(
-            Self::is_did_active(account_call_permissions_data.primary_did),
+            !Self::is_did_locked(account_call_permissions_data.primary_did),
             Error::<T>::UnauthorizedCallerDidInactive
         );
 

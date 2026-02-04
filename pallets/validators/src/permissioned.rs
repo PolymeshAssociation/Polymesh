@@ -137,7 +137,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     /// Returns `true` if `stash` has an active DID and is permissioned. Otherwise, returns `false`.
     fn is_validator_compliant(stash: &T::AccountId) -> bool {
         pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
-            pallet_identity::Pallet::<T>::is_did_active(id)
+            !pallet_identity::Pallet::<T>::is_did_locked(id)
                 && PermissionedIdentity::<T>::get(id).is_some()
                 && Self::is_validator_active_balance_valid(stash)
         })
@@ -251,8 +251,8 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            pallet_identity::Pallet::<T>::is_did_active(identity),
-            Error::<T>::IdentityDoesNotExist
+            !pallet_identity::Pallet::<T>::is_did_locked(identity),
+            Error::<T>::IdentityIsInactive
         );
 
         match intended_count {

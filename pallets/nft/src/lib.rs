@@ -695,16 +695,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
 
-        // Verifies if the receiver has a valid CDD claim.
+        // Verifies if the receiver has an active DID.
         ensure!(
             IdentityPallet::<T>::is_did_active(receiver_portfolio.did),
             Error::<T>::InvalidNFTTransferInvalidReceiverDID
-        );
-
-        // Verifies if the sender has a valid CDD claim.
-        ensure!(
-            IdentityPallet::<T>::is_did_active(sender_portfolio.did),
-            Error::<T>::InvalidNFTTransferInvalidSenderDID
         );
 
         // Verifies that all compliance rules are being respected
@@ -863,10 +857,6 @@ impl<T: Config> Pallet<T> {
 
         if !IdentityPallet::<T>::is_did_active(receiver_portfolio.did) {
             nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidReceiverDID.into());
-        }
-
-        if !IdentityPallet::<T>::is_did_active(sender_portfolio.did) {
-            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidSenderDID.into());
         }
 
         if NumberOfNFTs::<T>::get(nfts.asset_id(), &receiver_portfolio.did)

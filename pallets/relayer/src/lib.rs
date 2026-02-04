@@ -287,9 +287,9 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         /// The `user_key` is not attached to an active DID.
-        UserKeyDidMissing,
+        UserKeyDidInactive,
         /// The `paying_key` is not attached to an active DID.
-        PayingKeyDidMissing,
+        PayingKeyDidInactive,
         /// The `user_key` doesn't have a `paying_key`.
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
@@ -483,12 +483,12 @@ impl<T: Config> Pallet<T> {
 
         // Ensure both user_key and paying_key are attached to active DIDs.
         ensure!(
-            <Identity<T>>::is_did_active(user_did),
-            Error::<T>::UserKeyDidMissing
+            !<Identity<T>>::is_did_locked(user_did),
+            Error::<T>::UserKeyDidInactive
         );
         ensure!(
-            <Identity<T>>::is_did_active(from),
-            Error::<T>::PayingKeyDidMissing
+            !<Identity<T>>::is_did_locked(from),
+            Error::<T>::PayingKeyDidInactive
         );
 
         // Remove existing subsidy for the user_key, if it exists.
