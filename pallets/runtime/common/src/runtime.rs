@@ -108,6 +108,7 @@ macro_rules! misc_pallet_impls {
             /// The set code logic, just the default since we're not a parachain.
             type SingleBlockMigrations = (
                 UpgradeSessionKeys,
+                MigrateCddServiceProvidersToDidRegistrars,
                 pallet_contracts::Migration<Runtime>,
                 pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
                 pallet_im_online::migration::v1::Migration<Runtime>,
@@ -325,6 +326,20 @@ macro_rules! misc_pallet_impls {
             fn on_runtime_upgrade() -> Weight {
                 Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
                 Perbill::from_percent(50) * polymesh_runtime_common::RuntimeBlockWeights::get().max_block
+            }
+        }
+
+        /// Migrate storage from the old `CddServiceProviders` prefix to the new `DidRegistrars` prefix.
+        /// This is needed because renaming the pallet type alias in the runtime changes the storage prefix.
+        pub struct MigrateCddServiceProvidersToDidRegistrars;
+        impl frame_support::traits::OnRuntimeUpgrade for MigrateCddServiceProvidersToDidRegistrars {
+            fn on_runtime_upgrade() -> Weight {
+                log::info!("Migrating storage: CddServiceProviders -> DidRegistrars");
+                frame_support::storage::migration::move_pallet(
+                    b"CddServiceProviders",
+                    b"DidRegistrars",
+                );
+                Weight::from_parts(100_000_000, 0)
             }
         }
 
