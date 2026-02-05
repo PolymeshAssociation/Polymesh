@@ -387,9 +387,6 @@ mod runtime {
     #[runtime::pallet_index(23)]
     pub type ImOnline = pallet_im_online::Pallet<Runtime>;
 
-    #[runtime::pallet_index(24)]
-    pub type RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip::Pallet<Runtime>;
-
     #[runtime::pallet_index(26)]
     pub type Asset = pallet_asset::Pallet<Runtime>;
 

@@ -590,13 +590,11 @@ impl pallet_contracts::WeightInfo for SubstrateWeight {
 			.saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2553).saturating_mul(n.into()))
 	}
-	/// Storage: `RandomnessCollectiveFlip::RandomMaterial` (r:1 w:0)
-	/// Proof: `RandomnessCollectiveFlip::RandomMaterial` (`max_values`: Some(1), `max_size`: Some(2594), added: 3089, mode: `Measured`)
+	/// Storage: `Babe::Randomness` (r:1 w:0)
+	/// Storage: `Babe::EpochStart` (r:1 w:0)
+	/// TODO: Weights need re-benchmarking after switching from RandomnessCollectiveFlip to Babe.
 	fn seal_random() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `1485`
-		// Minimum execution time: 2_304_000 picoseconds.
+		// Conservative overestimate from old RandomnessCollectiveFlip benchmarks.
 		Weight::from_parts(2_359_000, 1485)
 			.saturating_add(DbWeight::get().reads(1_u64))
 	}
