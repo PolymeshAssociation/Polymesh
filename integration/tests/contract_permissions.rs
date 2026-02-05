@@ -49,7 +49,7 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
         .polymesh_contracts()
         .instantiate_with_code_perms(
             0,
-            Weight::from_parts(10_500_000_000, 0),
+            Weight::from_parts(15_000_000_000, 0),
             None,
             call_runtime_bytes.to_vec(),
             vec![0x9b, 0xae, 0x9d, 0x5e], // Selector for `new` constructor.
@@ -134,7 +134,7 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
         .call(
             contract.into(),
             0,
-            Weight::from_parts(10_500_000_000, 0),
+            Weight::from_parts(15_000_000_000, 0),
             None,
             encoded_call,
         )?
