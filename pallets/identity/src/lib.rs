@@ -116,7 +116,7 @@ use polymesh_primitives::{
     traits::{CddAndFeeDetails, IdentityFnTrait},
     AssetPermissions, Authorization, AuthorizationData, AuthorizationType, Balance, CddId, Claim,
     ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory, Ticker,
+    KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
 };
 use polymesh_primitives::{SystematicIssuers, GC_DID};
 use scale_info::TypeInfo;
@@ -124,7 +124,7 @@ use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
-storage_migration_ver!(7);
+storage_migration_ver!(8);
 
 pub trait WeightInfo {
     fn create_child_identity() -> Weight;
@@ -320,11 +320,6 @@ pub mod pallet {
         ///
         /// (DID, claim)
         ClaimRevoked(IdentityId, IdentityClaim),
-
-        /// Asset's identity registered.
-        ///
-        /// (Asset DID, ticker)
-        AssetDidRegistered(IdentityId, Ticker),
 
         /// New authorization added.
         ///
@@ -560,7 +555,7 @@ pub mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             MultiPurposeNonce::<T>::put(1);
-            StorageVersion::<T>::put(Version::new(7));
+            StorageVersion::<T>::put(Version::new(8));
 
             polymesh_primitives::SYSTEMATIC_ISSUERS
                 .iter()
