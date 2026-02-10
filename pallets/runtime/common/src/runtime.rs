@@ -334,25 +334,23 @@ macro_rules! misc_pallet_impls {
         impl frame_support::traits::OnRuntimeUpgrade for RemoveTickerDidRecords {
             fn on_runtime_upgrade() -> Weight {
                 use codec::Encode;
-                use sp_runtime::traits::Hash;
+
+                const TARGET_VERSION: pallet_identity::Version = pallet_identity::Version::new(8);
 
                 let current_version = pallet_identity::StorageVersion::<Runtime>::get();
-                if current_version >= pallet_identity::Version::new(8) {
+                if current_version >= TARGET_VERSION {
                     log::info!("identity::RemoveTickerDidRecords: Already at version >= 8, skipping.");
                     return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
                 }
 
-                let tickers = pallet_asset::UniqueTickerRegistration::<Runtime>::iter_keys()
-                    .collect::<Vec<_>>();
-
                 const SECURITY_TOKEN_PREFIX: &[u8; 15] = b"SECURITY_TOKEN:";
 
                 let mut removed = 0u64;
-                for ticker in &tickers {
-                    let mut buf = SECURITY_TOKEN_PREFIX.encode();
-                    buf.append(&mut ticker.encode());
-                    let hash = sp_runtime::traits::BlakeTwo256::hash(&buf[..]);
-                    let did = polymesh_primitives::IdentityId::try_from(hash.as_ref())
+                let mut ticker_count = 0u64;
+                for ticker in pallet_asset::UniqueTickerRegistration::<Runtime>::iter_keys() {
+                    ticker_count += 1;
+                    let hash = (SECURITY_TOKEN_PREFIX, ticker).using_encoded(sp_io::hashing::blake2_256);
+                    let did = polymesh_primitives::IdentityId::try_from(&hash[..])
                         .expect("BlakeTwo256 output is 32 bytes = IdentityId size");
 
                     if pallet_identity::DidRecords::<Runtime>::contains_key(&did) {
@@ -361,9 +359,8 @@ macro_rules! misc_pallet_impls {
                     }
                 }
 
-                pallet_identity::StorageVersion::<Runtime>::put(pallet_identity::Version::new(8));
+                pallet_identity::StorageVersion::<Runtime>::put(TARGET_VERSION);
 
-                let ticker_count = tickers.len() as u64;
                 log::info!(
                     "identity::RemoveTickerDidRecords: Removed {} asset DidRecords from {} tickers. Storage version set to 8.",
                     removed,
