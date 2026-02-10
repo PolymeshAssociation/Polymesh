@@ -17,10 +17,15 @@ pallet-group-rpc = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc = {  workspace = true, default-features = false }
 node-rpc = { workspace = true, default-features = false }
 
+mmr-gadget = { workspace = true }
+mmr-rpc = { workspace = true }
+
 sc-chain-spec = { workspace = true }
 sc-client-api = { workspace = true }
 sc-consensus-babe = { workspace = true }
 sc-consensus-babe-rpc = { workspace = true }
+sc-consensus-beefy = { workspace = true }
+sc-consensus-beefy-rpc = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
 sc-consensus-grandpa-rpc = { workspace = true }
 sc-rpc = { workspace = true }
@@ -29,10 +34,12 @@ sc-rpc-spec-v2 = { workspace = true }
 sc-sync-state-rpc = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
 sp-api = { workspace = true, default-features = false }
+sp-application-crypto = { workspace = true, default-features = false }
 sp-block-builder = { workspace = true, default-features = false }
 sp-blockchain = { workspace = true, default-features = false }
 sp-consensus = { workspace = true, default-features = false }
 sp-consensus-babe = { workspace = true, default-features = false }
+sp-consensus-beefy = { workspace = true }
 sp-keystore = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 substrate-frame-rpc-system = { workspace = true, default-features = false }
