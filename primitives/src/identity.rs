@@ -52,8 +52,6 @@ pub mod limits {
 /// Identity record.
 ///
 /// Used to check if an identity exists and lookup its primary key.
-///
-/// Asset Identities don't have a primary key.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[derive(Serialize, Deserialize)]

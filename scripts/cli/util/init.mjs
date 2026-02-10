@@ -322,16 +322,6 @@ async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
 
 }
 
-// Returns the asset did
-function tickerToDid(ticker) {
-  return blake2AsHex(
-    u8aConcat(
-      stringToU8a("SECURITY_TOKEN:"),
-      u8aFixLength(stringToU8a(ticker), 96, true)
-    )
-  );
-}
-
 // Creates claim compliance for an asset
 async function createClaimCompliance(api, accounts, dids, ticker) {
 
@@ -682,7 +672,6 @@ let reqImports = {
   receiverConditions1,
   createClaimCompliance,
   addClaimsToDids,
-  tickerToDid,
   sendTransaction,
   generateStashKeys,
   generateEntity,
