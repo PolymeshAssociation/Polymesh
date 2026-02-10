@@ -281,6 +281,7 @@ fn session_keys(init_authorities: &[InitialAuth]) -> Vec<(AccountId, AccountId, 
                 babe: initial_auth.3.clone(),
                 im_online: initial_auth.4.clone(),
                 authority_discovery: initial_auth.5.clone(),
+                beefy: initial_auth.6.clone(),
             },
         ))
     }

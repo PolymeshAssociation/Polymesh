@@ -17,6 +17,8 @@ pub const BENCHMARK_MAX_INCREASE: u32 = 0;
 #[macro_export]
 macro_rules! misc_pallet_impls {
     () => {
+        use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
+
         /// The BABE epoch configuration at genesis.
         pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
             sp_consensus_babe::BabeEpochConfiguration {
@@ -105,6 +107,7 @@ macro_rules! misc_pallet_impls {
             type MaxConsumers = frame_support::traits::ConstU32<16>;
             /// The set code logic, just the default since we're not a parachain.
             type SingleBlockMigrations = (
+                UpgradeSessionKeys,
                 pallet_contracts::Migration<Runtime>,
                 pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
                 pallet_im_online::migration::v1::Migration<Runtime>,
@@ -137,6 +140,46 @@ macro_rules! misc_pallet_impls {
               <Historical as KeyOwnerProofSystem<(sp_core::crypto::KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
             type EquivocationReportSystem =
               pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
+        }
+
+        impl pallet_mmr::Config for Runtime {
+            const INDEXING_PREFIX: &'static [u8] = b"mmr";
+            type Hashing = sp_runtime::traits::Keccak256;
+            type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
+            type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
+            type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
+            type WeightInfo = ();
+            #[cfg(feature = "runtime-benchmarks")]
+            type BenchmarkHelper = ();
+        }
+
+        parameter_types! {
+            pub LeafVersion: sp_consensus_beefy::mmr::MmrLeafVersion = sp_consensus_beefy::mmr::MmrLeafVersion::new(0, 0);
+        }
+
+        impl pallet_beefy_mmr::Config for Runtime {
+            type LeafVersion = LeafVersion;
+            type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
+            type LeafExtra = Vec<u8>;
+            type BeefyDataProvider = ();
+            type WeightInfo = ();
+        }
+
+        parameter_types! {
+            pub const BeefySetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+        }
+
+        impl pallet_beefy::Config for Runtime {
+            type BeefyId = BeefyId;
+            type MaxAuthorities = MaxAuthorities;
+            type MaxNominators = frame_support::traits::ConstU32<0>;
+            type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
+            type OnNewValidatorSet = MmrLeaf;
+            type AncestryHelper = MmrLeaf;
+            type WeightInfo = ();
+            type KeyOwnerProof = sp_session::MembershipProof;
+            type EquivocationReportSystem =
+                pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
         }
 
         impl pallet_indices::Config for Runtime {
@@ -175,7 +218,7 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             #[allow(deprecated)]
             type OnChargeTransaction =
-                pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
+                pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees>;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type LengthToFee = polymesh_runtime_common::LengthToFee;
             type FeeMultiplierUpdate = ();
@@ -233,11 +276,55 @@ macro_rules! misc_pallet_impls {
         }
 
         impl_opaque_keys! {
+            pub struct OldSessionKeys {
+                pub grandpa: Grandpa,
+                pub babe: Babe,
+                pub im_online: ImOnline,
+                pub authority_discovery: AuthorityDiscovery,
+            }
+        }
+
+        impl_opaque_keys! {
             pub struct SessionKeys {
                 pub grandpa: Grandpa,
                 pub babe: Babe,
                 pub im_online: ImOnline,
                 pub authority_discovery: AuthorityDiscovery,
+                pub beefy: Beefy,
+            }
+        }
+
+        // remove this when removing `OldSessionKeys`
+        fn transform_session_keys(v: polymesh_primitives::AccountId, old: OldSessionKeys) -> SessionKeys {
+            SessionKeys {
+                grandpa: old.grandpa,
+                babe: old.babe,
+                im_online: old.im_online,
+                authority_discovery: old.authority_discovery,
+                beefy: {
+                    // From Session::upgrade_keys():
+                    //
+                    // Care should be taken that the raw versions of the
+                    // added keys are unique for every `ValidatorId, KeyTypeId` combination.
+                    // This is an invariant that the session pallet typically maintains internally.
+                    //
+                    // So, produce a dummy value that's unique for the `ValidatorId, KeyTypeId` combination.
+                    let mut id: BeefyId = sp_core::ecdsa::Public::from_raw([0u8; 33]).into();
+                    let id_raw: &mut [u8] = id.as_mut();
+                    id_raw[1..33].copy_from_slice(v.as_ref());
+                    id_raw[0..4].copy_from_slice(b"beef");
+                    id
+                },
+            }
+        }
+
+        /// Upgrade Session keys to include BEEFY key.
+        /// When this is removed, should also remove `OldSessionKeys`.
+        pub struct UpgradeSessionKeys;
+        impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
+            fn on_runtime_upgrade() -> Weight {
+                Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
+                Perbill::from_percent(50) * polymesh_runtime_common::RuntimeBlockWeights::get().max_block
             }
         }
 
@@ -274,7 +361,7 @@ macro_rules! misc_pallet_impls {
             type UnixTime = Timestamp;
             type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
             type ElectionProvider = ElectionProviderMultiPhase;
-            type GenesisElectionProvider = Self::ElectionProvider;
+            type GenesisElectionProvider = frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
             type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
             type HistoryDepth = polymesh_runtime_common::HistoryDepth;
             type RewardRemainder = ();
@@ -607,6 +694,17 @@ macro_rules! misc_pallet_impls {
             type Checker = Identity;
         }
 
+        impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
+        where
+            RuntimeCall: From<LocalCall>,
+        {
+            type Extension = TxExtension;
+
+            fn create_transaction(call: RuntimeCall, extension: TxExtension) -> UncheckedExtrinsic {
+                generic::UncheckedExtrinsic::new_transaction(call, extension).into()
+            }
+        }
+
         impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
         where
             RuntimeCall: From<LocalCall>,
@@ -619,6 +717,7 @@ macro_rules! misc_pallet_impls {
                 account: polymesh_primitives::AccountId,
                 nonce: polymesh_primitives::Nonce,
             ) -> Option<UncheckedExtrinsic> {
+                let tip = 0;
                 // take the biggest period possible.
                 let period = polymesh_runtime_common::BlockHashCount::get()
                     .checked_next_power_of_two()
@@ -629,26 +728,30 @@ macro_rules! misc_pallet_impls {
                     // The `System::block_number` is initialized with `n+1`,
                     // so the actual block number is `n`.
                     .saturating_sub(1);
-                let tip = 0;
-                let extra: SignedExtra = (
+                let era = generic::Era::mortal(period, current_block);
+                let tx_ext: TxExtension = (
+                    frame_system::AuthorizeCall::new(),
+                    frame_system::CheckNonZeroSender::new(),
                     frame_system::CheckSpecVersion::new(),
                     frame_system::CheckTxVersion::new(),
                     frame_system::CheckGenesis::new(),
-                    frame_system::CheckEra::from(generic::Era::mortal(period, current_block)),
+                    frame_system::CheckEra::from(era),
                     frame_system::CheckNonce::from(nonce),
                     frame_system::CheckWeight::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
+                    frame_metadata_hash_extension::CheckMetadataHash::new(false),
+                    frame_system::WeightReclaim::new(),
                 );
-                let raw_payload = SignedPayload::new(call, extra)
+                let raw_payload = SignedPayload::new(call, tx_ext)
                     .map_err(|e| {
                         log::warn!("Unable to create signed payload: {:?}", e);
                     })
                     .ok()?;
                 let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
                 let address = Indices::unlookup(account);
-                let (call, extra, _) = raw_payload.deconstruct();
-                let transaction = UncheckedExtrinsic::new_signed(call, address, signature, extra);
+                let (call, tx_ext, _) = raw_payload.deconstruct();
+                let transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
                 Some(transaction)
             }
         }
@@ -664,6 +767,28 @@ macro_rules! misc_pallet_impls {
         {
             type Extrinsic = UncheckedExtrinsic;
             type RuntimeCall = RuntimeCall;
+        }
+
+        impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Runtime
+        where
+            RuntimeCall: From<C>,
+        {
+            fn create_extension() -> Self::Extension {
+                (
+                    frame_system::AuthorizeCall::<Runtime>::new(),
+                    frame_system::CheckNonZeroSender::<Runtime>::new(),
+                    frame_system::CheckSpecVersion::<Runtime>::new(),
+                    frame_system::CheckTxVersion::<Runtime>::new(),
+                    frame_system::CheckGenesis::<Runtime>::new(),
+                    frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
+                    frame_system::CheckNonce::<Runtime>::from(0),
+                    frame_system::CheckWeight::<Runtime>::new(),
+                    polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+                    pallet_permissions::StoreCallMetadata::<Runtime>::new(),
+                    frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    frame_system::WeightReclaim::<Runtime>::new(),
+                )
+            }
         }
 
         impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
@@ -805,7 +930,9 @@ macro_rules! runtime_apis {
         /// BlockId type as expected by this runtime.
         pub type BlockId = generic::BlockId<Block>;
         /// The SignedExtension to the basic transaction logic.
-        pub type SignedExtra = (
+        pub type TxExtension = (
+            frame_system::AuthorizeCall<Runtime>,
+            frame_system::CheckNonZeroSender<Runtime>,
             frame_system::CheckSpecVersion<Runtime>,
             frame_system::CheckTxVersion<Runtime>,
             frame_system::CheckGenesis<Runtime>,
@@ -814,13 +941,15 @@ macro_rules! runtime_apis {
             frame_system::CheckWeight<Runtime>,
             polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
+            frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+            frame_system::WeightReclaim<Runtime>,
         );
         /// Unchecked extrinsic type as expected by this runtime.
-        pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, polymesh_primitives::Signature, SignedExtra>;
+        pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, polymesh_primitives::Signature, TxExtension>;
         /// The payload being signed in transactions.
-        pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+        pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
         /// Extrinsic type that has already been checked.
-        pub type CheckedExtrinsic = generic::CheckedExtrinsic<polymesh_primitives::AccountId, RuntimeCall, SignedExtra>;
+        pub type CheckedExtrinsic = generic::CheckedExtrinsic<polymesh_primitives::AccountId, RuntimeCall, TxExtension>;
         /// Executive: handles dispatch to the various modules.
         pub type Executive = frame_executive::Executive<
             Runtime,
@@ -834,6 +963,16 @@ macro_rules! runtime_apis {
             <Runtime as frame_system::Config>::RuntimeEvent,
             <Runtime as frame_system::Config>::Hash,
         >;
+
+        /// MMR helper types.
+        mod mmr {
+            use super::*;
+            pub use pallet_mmr::primitives::*;
+
+            pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
+            pub type Hash = <Hashing as sp_runtime::traits::Hash>::Output;
+            pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
+        }
 
         sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {
@@ -1324,6 +1463,125 @@ macro_rules! runtime_apis {
 
                 fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
                     vec![]
+                }
+            }
+
+            #[api_version(6)]
+            impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
+                fn beefy_genesis() -> Option<BlockNumber> {
+                    pallet_beefy::GenesisBlock::<Runtime>::get()
+                }
+
+                fn validator_set() -> Option<sp_consensus_beefy::ValidatorSet<BeefyId>> {
+                    Beefy::validator_set()
+                }
+
+                fn submit_report_double_voting_unsigned_extrinsic(
+                    equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
+                        BlockNumber,
+                        BeefyId,
+                        BeefySignature,
+                    >,
+                    key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+                ) -> Option<()> {
+                    let key_owner_proof = key_owner_proof.decode()?;
+
+                    Beefy::submit_unsigned_double_voting_report(
+                        equivocation_proof,
+                        key_owner_proof,
+                    )
+                }
+
+                fn submit_report_fork_voting_unsigned_extrinsic(
+                    equivocation_proof:
+                        sp_consensus_beefy::ForkVotingProof<
+                            <Block as BlockT>::Header,
+                            BeefyId,
+                            sp_runtime::OpaqueValue
+                        >,
+                    key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+                ) -> Option<()> {
+                    Beefy::submit_unsigned_fork_voting_report(
+                        equivocation_proof.try_into()?,
+                        key_owner_proof.decode()?,
+                    )
+                }
+
+                fn submit_report_future_block_voting_unsigned_extrinsic(
+                    equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+                    key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+                ) -> Option<()> {
+                    Beefy::submit_unsigned_future_block_voting_report(
+                        equivocation_proof,
+                        key_owner_proof.decode()?,
+                    )
+                }
+
+                fn generate_key_ownership_proof(
+                    _set_id: sp_consensus_beefy::ValidatorSetId,
+                    authority_id: BeefyId,
+                ) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
+                    Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
+                        .map(|p| p.encode())
+                        .map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+                }
+            }
+
+            #[api_version(3)]
+            impl pallet_mmr::primitives::MmrApi<
+                Block,
+                mmr::Hash,
+                BlockNumber,
+            > for Runtime {
+                fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
+                    Ok(pallet_mmr::RootHash::<Runtime>::get())
+                }
+
+                fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
+                    Ok(pallet_mmr::NumberOfLeaves::<Runtime>::get())
+                }
+
+                fn generate_proof(
+                    block_numbers: Vec<BlockNumber>,
+                    best_known_block_number: Option<BlockNumber>,
+                ) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<mmr::Hash>), mmr::Error> {
+                    Mmr::generate_proof(block_numbers, best_known_block_number).map(
+                        |(leaves, proof)| {
+                            (
+                                leaves
+                                    .into_iter()
+                                    .map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf))
+                                    .collect(),
+                                proof,
+                            )
+                        },
+                    )
+                }
+
+                fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)
+                    -> Result<(), mmr::Error>
+                {
+                    let leaves = leaves.into_iter().map(|leaf|
+                        leaf.into_opaque_leaf()
+                        .try_decode()
+                        .ok_or(mmr::Error::Verify)).collect::<Result<Vec<mmr::Leaf>, mmr::Error>>()?;
+                    Mmr::verify_leaves(leaves, proof)
+                }
+
+                fn generate_ancestry_proof(
+                    prev_block_number: BlockNumber,
+                    best_known_block_number: Option<BlockNumber>,
+                ) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+                    Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
+                }
+
+                fn verify_proof_stateless(
+                    root: mmr::Hash,
+                    leaves: Vec<mmr::EncodableOpaqueLeaf>,
+                    proof: mmr::LeafProof<mmr::Hash>
+                ) -> Result<(), mmr::Error> {
+                    let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
+                    pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
                 }
             }
 

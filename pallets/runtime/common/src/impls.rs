@@ -34,20 +34,20 @@
 //! Auxillary struct/enums
 
 use frame_election_provider_support::BalancingConfig;
-use frame_support::traits::tokens::imbalance::OnUnbalanced;
-use frame_support::traits::Currency;
-
-use crate::NegativeImbalance;
+use frame_support::traits::tokens::{
+    fungible::{Balanced, Credit},
+    imbalance::OnUnbalanced,
+};
 
 pub struct Author<T>(sp_std::marker::PhantomData<T>);
 
-impl<T> OnUnbalanced<NegativeImbalance<T>> for Author<T>
+impl<T> OnUnbalanced<Credit<T::AccountId, pallet_balances::Pallet<T>>> for Author<T>
 where
-    T: pallet_authorship::Config + pallet_balances::Config,
+    T: pallet_authorship::Config + pallet_balances::Config + frame_system::Config,
 {
-    fn on_nonzero_unbalanced(amount: NegativeImbalance<T>) {
+    fn on_nonzero_unbalanced(credit: Credit<T::AccountId, pallet_balances::Pallet<T>>) {
         if let Some(author) = pallet_authorship::Pallet::<T>::author() {
-            pallet_balances::Pallet::<T>::resolve_creating(&author, amount);
+            let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, credit);
         }
     }
 }

@@ -1,13 +1,14 @@
 use std::convert::TryInto;
 
-use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use sc_chain_spec::ChainSpecExtension;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sc_service::Properties;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::Perbill;
@@ -36,6 +37,7 @@ pub(crate) type InitialAuth = (
     BabeId,
     ImOnlineId,
     AuthorityDiscoveryId,
+    BeefyId,
 );
 pub(crate) type AccountPublic = <Signature as Verify>::Signer;
 
@@ -86,12 +88,13 @@ pub(crate) fn get_authority_keys_from_seed(s: &str, uniq: bool) -> InitialAuth {
     let stash_acc_id = seeded_acc_id(&format!("{}//stash", s));
     let acc_id = seeded_acc_id(s);
 
-    let (grandpa_id, babe_id, im_online_id, discovery_id) = if uniq {
+    let (grandpa_id, babe_id, im_online_id, discovery_id, beefy_id) = if uniq {
         (
             get_from_seed::<GrandpaId>(&format!("{}//gran", s)),
             get_from_seed::<BabeId>(&format!("{}//babe", s)),
             get_from_seed::<ImOnlineId>(&format!("{}//imon", s)),
             get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", s)),
+            get_from_seed::<BeefyId>(&format!("{}//beef", s)),
         )
     } else {
         (
@@ -99,6 +102,7 @@ pub(crate) fn get_authority_keys_from_seed(s: &str, uniq: bool) -> InitialAuth {
             get_from_seed::<BabeId>(s),
             get_from_seed::<ImOnlineId>(s),
             get_from_seed::<AuthorityDiscoveryId>(s),
+            get_from_seed::<BeefyId>(s),
         )
     };
 
@@ -109,6 +113,7 @@ pub(crate) fn get_authority_keys_from_seed(s: &str, uniq: bool) -> InitialAuth {
         babe_id,
         im_online_id,
         discovery_id,
+        beefy_id,
     )
 }
 

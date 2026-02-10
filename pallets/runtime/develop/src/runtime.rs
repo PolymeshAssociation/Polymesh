@@ -472,6 +472,17 @@ mod runtime {
 
     #[runtime::pallet_index(50)]
     pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet<Runtime>;
+
+    #[runtime::pallet_index(52)]
+    pub type Beefy = pallet_beefy::Pallet<Runtime>;
+
+    // MMR leaf construction must be after session in order to have a leaf's next_auth_set
+    // refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+    #[runtime::pallet_index(53)]
+    pub type Mmr = pallet_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(54)]
+    pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -481,6 +492,7 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [pallet_asset, Asset]
         [pallet_balances, Balances]
+        [pallet_beefy_mmr, MmrLeaf]
         [pallet_identity, Identity]
         [pallet_pips, Pips]
         [pallet_multisig, MultiSig]

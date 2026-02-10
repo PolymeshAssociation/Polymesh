@@ -5,8 +5,9 @@ use std::cell::RefCell;
 use std::convert::From;
 
 use codec::Encode;
+use frame_support::traits::tokens::{fungible::Credit, imbalance::OnUnbalanced};
 use frame_support::traits::{ConstBool, Currency, Imbalance, KeyOwnerProofSystem};
-use frame_support::traits::{OnInitialize, OnUnbalanced, TryCollect};
+use frame_support::traits::{OnInitialize, TryCollect};
 use frame_support::weights::RuntimeDbWeight;
 use frame_support::weights::Weight;
 use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
@@ -404,6 +405,17 @@ mod runtime {
     #[runtime::pallet_index(50)]
     pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet<Runtime>;
 
+    #[runtime::pallet_index(52)]
+    pub type Beefy = pallet_beefy::Pallet<Runtime>;
+
+    // MMR leaf construction must be after session in order to have a leaf's next_auth_set
+    // refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+    #[runtime::pallet_index(53)]
+    pub type Mmr = pallet_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(54)]
+    pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
+
     #[runtime::pallet_index(200)]
     pub type Example = example::Pallet<Runtime>;
 }
@@ -509,11 +521,11 @@ parameter_types! {
 
 pub struct DealWithFees;
 
-impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
-    fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
+impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFees {
+    fn on_nonzero_unbalanced(credit: Credit<AccountId, Balances>) {
+        // Use a fixed account to receive transactino and protocol fees in tests.
         let target = account_from(5000);
-        let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
-        let _ = amount.offset(positive_imbalance).same().map_err(|_| 4); // random value mapped for error
+        let _ = Balances::deposit_creating(&target, credit.peek());
     }
 }
 
@@ -1091,8 +1103,10 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
 }
 
 /// Returns transaction extra.
-fn signed_extra(nonce: Nonce) -> SignedExtra {
+fn signed_extra(nonce: Nonce) -> TxExtension {
     (
+        frame_system::AuthorizeCall::new(),
+        frame_system::CheckNonZeroSender::new(),
         frame_system::CheckSpecVersion::new(),
         frame_system::CheckTxVersion::new(),
         frame_system::CheckGenesis::new(),
@@ -1101,6 +1115,8 @@ fn signed_extra(nonce: Nonce) -> SignedExtra {
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
+        frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        frame_system::WeightReclaim::new(),
     )
 }
 

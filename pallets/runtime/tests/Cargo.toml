@@ -5,7 +5,14 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-node-rpc-runtime-api = { workspace = true, default-features = false }
+# Common
+polymesh-runtime-common = { workspace = true, default-features = false }
+polymesh-runtime-develop = { workspace = true }
+polymesh-common-utilities = { workspace = true, default-features = false }
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-weights = { workspace = true, default-features = false }
+
+# Our pallets
 pallet-asset = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-base = { workspace = true, default-features = false }
@@ -14,7 +21,6 @@ pallet-compliance-manager = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
-pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false, features = ["no_cdd"] }
 pallet-multisig = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
@@ -22,82 +28,83 @@ pallet-permissions = { workspace = true, default-features = false }
 pallet-pips = { workspace = true, default-features = false }
 pallet-portfolio = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-relayer = { workspace = true, default-features = false }
-pallet-settlement = { workspace = true, default-features = false }
-pallet-staking = { workspace = true, default-features = false }
-pallet-validators = { workspace = true, default-features = false }
-pallet-staking-runtime-api = { workspace = true, default-features = false }
-pallet-statistics = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
-pallet-sudo = { workspace = true, default-features = false }
+pallet-settlement = { workspace = true, default-features = false }
+pallet-validators = { workspace = true, default-features = false }
+pallet-statistics = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
-polymesh-primitives = { workspace = true, default-features = false }
-polymesh-runtime-common = { workspace = true, default-features = false }
-polymesh-runtime-develop = { workspace = true }
-polymesh-weights = { workspace = true, default-features = false }
 polymesh-exec-macro = { path = "exec_macro" }
 
-# General
-serde = { version = "1.0", default-features = false }
+# Others
+serde = { version = "1.0.104", default-features = false }
+log = { version = "0.4.8", default-features = false }
 rand = { version = "0.8", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["now"]}
-smallvec = "1.4"
 lazy_static = "1.4"
-parking_lot = "0.12"
-env_logger = "0.7"
-serde_json = { version = "1.0", default-features = false }
-log = "0.4"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-frame-benchmarking = { workspace = true, default-features = false, optional = true }
-frame-support = { workspace = true, default-features = false }
-frame-executive = { workspace = true, default-features = false }
-frame-system = { workspace = true, default-features = false }
-frame-system-rpc-runtime-api = { workspace = true, default-features = false }
-frame-election-provider-support = { workspace = true, default-features = false }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-core = { workspace = true, default-features = false, features = ["full_crypto"] }
+sp-std = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-npos-elections = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-version = { workspace = true, default-features = false }
+sp-api = { workspace = true, default-features = false }
+sp-inherents = { workspace = true, default-features = false }
+sp-offchain = { workspace = true, default-features = false }
+sp-staking = { workspace = true, default-features = false }
+sp-consensus-babe = { workspace = true, default-features = false }
+sp-consensus-beefy = { workspace = true, default-features = false }
+sp-consensus-grandpa = { workspace = true, default-features = false }
+sp-session = { workspace = true, default-features = false }
+sp-authority-discovery = { workspace = true, default-features = false }
+sp-transaction-pool = { workspace = true, default-features = false }
+sp-block-builder = { workspace = true, default-features = false }
+sp-arithmetic = { workspace = true, default-features = false }
+sp-genesis-builder = { workspace = true, default-features = false }
+sp-keyring = { workspace = true }
+#
 pallet-authority-discovery = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
+pallet-beefy = { workspace = true, default-features = false }
+pallet-beefy-mmr = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
+pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
+pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false, features = ["historical"] }
+pallet-staking = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { workspace = true, default-features = false }
+pallet-sudo = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
-scale-info = { workspace = true, default-features = false, features = ["derive"] }
-sp-api = { workspace = true, default-features = false }
-sp-arithmetic = { workspace = true, default-features = false }
-sp-authority-discovery = { workspace = true, default-features = false }
-sp-block-builder = { workspace = true, default-features = false }
-sp-consensus-babe = { workspace = true, default-features = false }
-sp-consensus-grandpa = { workspace = true, default-features = false }
-sp-core = { workspace = true, default-features = false, features = ["full_crypto"] }
-sp-genesis-builder = { workspace = true, default-features = false }
-sp-inherents = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
-sp-npos-elections = { workspace = true, default-features = false }
-sp-offchain = { workspace = true, default-features = false }
-sp-runtime = { workspace = true, default-features = false }
-sp-session = { workspace = true, default-features = false }
-sp-staking = { workspace = true, default-features = false }
-sp-std = { workspace = true, default-features = false }
-sp-transaction-pool = { workspace = true, default-features = false }
-sp-version = { workspace = true, default-features = false }
-sp-keyring = { workspace = true }
+
+frame-metadata-hash-extension = { workspace = true, default-features = false }
+frame-executive = { workspace = true, default-features = false }
+frame-election-provider-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
 substrate-test-utils = { workspace = true, default-features = false }
+
+# Runtime APIs
+node-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-staking-runtime-api = { workspace = true, default-features = false }
+frame-system-rpc-runtime-api = { workspace = true, default-features = false }
 
 [dev-dependencies]
 wat = "1.0"
@@ -120,13 +127,17 @@ std = [
     "u64_backend",
     "frame-support/std",
     "frame-system/std",
-    "frame-benchmarking?/std",
+    "frame-metadata-hash-extension/std",
     "frame-election-provider-support/std",
     "pallet-asset/std",
     "pallet-authorship/std",
+    "pallet-authority-discovery/std",
     "pallet-base/std",
     "pallet-babe/std",
     "pallet-balances/std",
+    "pallet-beefy/std",
+    "pallet-beefy-mmr/std",
+    "pallet-mmr/std",
     "pallet-sto/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
@@ -135,7 +146,6 @@ std = [
     "pallet-election-provider-multi-phase/std",
     "pallet-external-agents/std",
     "polymesh-weights/std",
-    "pallet-group-rpc-runtime-api/std",
     "pallet-group/std",
     "pallet-identity/std",
     "pallet-multisig/std",
@@ -162,6 +172,7 @@ std = [
     "polymesh-contracts/std",
     "polymesh-weights/std",
     "serde/std",
+    "sp-authority-discovery/std",
     "sp-arithmetic/std",
     "sp-core/std",
     "sp-io/std",
@@ -173,6 +184,6 @@ std = [
     "rand/std",
 ]
 
-runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
+runtime-benchmarks = []
 
 try-runtime = []

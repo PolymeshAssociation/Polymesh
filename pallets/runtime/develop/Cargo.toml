@@ -33,14 +33,11 @@ pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-relayer = { workspace = true, default-features = false }
 pallet-sto = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
-pallet-staking = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
-pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
-pallet-sudo = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
@@ -61,6 +58,7 @@ sp-inherents = { workspace = true, default-features = false }
 sp-offchain = { workspace = true, default-features = false }
 sp-staking = { workspace = true, default-features = false }
 sp-consensus-babe = { workspace = true, default-features = false }
+sp-consensus-beefy = { workspace = true, default-features = false }
 sp-consensus-grandpa = { workspace = true, default-features = false }
 sp-session = { workspace = true, default-features = false }
 sp-authority-discovery = { workspace = true, default-features = false }
@@ -69,21 +67,28 @@ sp-block-builder = { workspace = true, default-features = false }
 sp-arithmetic = { workspace = true, default-features = false }
 sp-genesis-builder = { workspace = true, default-features = false }
 #
+pallet-authority-discovery = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
+pallet-babe = { workspace = true, default-features = false }
+pallet-beefy = { workspace = true, default-features = false }
+pallet-beefy-mmr = { workspace = true, default-features = false }
 pallet-contracts = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
+pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
+pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
-pallet-session = { workspace = true, default-features = false }
-pallet-timestamp = { workspace = true, default-features = false }
-pallet-babe = { workspace = true, default-features = false }
-pallet-authority-discovery = { workspace = true, default-features = false }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
+pallet-session = { workspace = true, default-features = false }
+pallet-staking = { workspace = true, default-features = false }
+pallet-staking-reward-curve = { workspace = true, default-features = false }
+pallet-sudo = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
 
+frame-metadata-hash-extension = { workspace = true, default-features = false }
 frame-executive = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
@@ -102,7 +107,7 @@ frame-system-benchmarking = { workspace = true, default-features = false, option
 hex-literal = { version = "0.3.1", default-features = false, optional = true }
 
 [build-dependencies]
-polymesh-build-tool = { workspace = true, default-features = false }
+polymesh-build-tool = { workspace = true, default-features = false, optional = true }
 
 [features]
 default = ["std", "equalize"]
@@ -118,7 +123,8 @@ u64_backend = ["polymesh-primitives/u64_backend"]
 no_std = ["polymesh-primitives/no_std", "u64_backend"]
 
 std = [
-	  "polymesh-build-tool/std",
+    "polymesh-build-tool/std",
+    "frame-metadata-hash-extension/std",
     "frame-election-provider-support/std",
     "frame-executive/std",
     "frame-support/std",
@@ -128,6 +134,9 @@ std = [
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-babe/std",
+    "pallet-beefy/std",
+    "pallet-beefy-mmr/std",
+    "pallet-mmr/std",
     "pallet-balances/std",
     "pallet-committee/std",
     "pallet-contracts/std",
@@ -176,6 +185,8 @@ runtime-benchmarks = [
     "pallet-asset/runtime-benchmarks",
     "pallet-babe/runtime-benchmarks",
     "pallet-balances/runtime-benchmarks",
+    "pallet-beefy-mmr/runtime-benchmarks",
+    "pallet-mmr/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
     "pallet-contracts/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
@@ -208,3 +219,16 @@ running-ci = [
     "pallet-pips/running-ci",
     "pallet-identity/running-ci",
 ]
+
+# Enable the metadata hash generation.
+#
+# This is hidden behind a feature because it increases the compile time.
+# The wasm binary needs to be compiled twice, once to fetch the metadata,
+# generate the metadata hash and then a second time with the
+# `RUNTIME_METADATA_HASH` environment variable set for the `CheckMetadataHash`
+# extension.
+metadata-hash = ["polymesh-build-tool?/metadata-hash"]
+
+# A convenience feature for enabling things when doing a build
+# for an on-chain release.
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]

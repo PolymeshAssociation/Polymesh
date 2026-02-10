@@ -469,6 +469,17 @@ mod runtime {
 
     #[runtime::pallet_index(50)]
     pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet<Runtime>;
+
+    #[runtime::pallet_index(52)]
+    pub type Beefy = pallet_beefy::Pallet<Runtime>;
+
+    // MMR leaf construction must be after session in order to have a leaf's next_auth_set
+    // refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+    #[runtime::pallet_index(53)]
+    pub type Mmr = pallet_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(54)]
+    pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
 }
 
 polymesh_runtime_common::runtime_apis! {}

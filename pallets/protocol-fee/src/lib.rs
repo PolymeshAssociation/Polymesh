@@ -40,19 +40,24 @@ pub mod benchmarking;
 
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons};
+use frame_support::traits::{
+    fungible::{Balanced, Credit, Inspect},
+    tokens::{Fortitude, Precision, Preservation},
+    OnUnbalanced,
+};
 use frame_support::weights::Weight;
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::vec::Vec;
 
-use frame_system::{ensure_root, Config as SystemConfig};
+use frame_system::ensure_root;
 use pallet_identity::Config as IdentityConfig;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::traits::{CddAndFeeDetails, SubsidiserTrait};
 use polymesh_primitives::{Balance, IdentityId, PosRatio, GC_DID};
 
 type NegativeImbalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::NegativeImbalance;
+    Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 
@@ -72,7 +77,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + IdentityConfig {
         /// The currency type in which fees will be paid.
-        type Currency: Currency<Self::AccountId, Balance = Balance> + Send + Sync;
+        type Currency: Inspect<Self::AccountId, Balance = Balance> + Balanced<Self::AccountId>;
         /// Handler for the unbalanced reduction when taking protocol fees.
         type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
         /// Weight calaculation.
@@ -234,8 +239,9 @@ impl<T: Config> Pallet<T> {
         let ret = T::Currency::withdraw(
             &fee_key,
             fee,
-            WithdrawReasons::FEE,
-            ExistenceRequirement::KeepAlive,
+            Precision::Exact,
+            Preservation::Protect,
+            Fortitude::Polite,
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
 
