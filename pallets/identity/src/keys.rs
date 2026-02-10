@@ -23,7 +23,7 @@ use crate::{
 use codec::Encode as _;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
-use frame_support::traits::{Currency as _, Get as _};
+use frame_support::traits::{Currency as _, Get as _, Randomness as _};
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
@@ -53,8 +53,6 @@ const MAX_NAME_LEN: usize = 60;
 
 // Limit the maximum memory/cpu cost of a key's permissions.
 const MAX_PERMISSION_COMPLEXITY: usize = 1_000_000;
-
-type System<T> = frame_system::Pallet<T>;
 
 impl<T: Config> Pallet<T> {
     /// Does the identity given by `did` exist?
@@ -773,17 +771,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Create a new DID out of the parent block hash and a `nonce`.
+    /// Create a new DID from BABE randomness and a `nonce`.
     fn make_did() -> Result<IdentityId, DispatchError> {
         let nonce = MultiPurposeNonce::<T>::get() + 7u64;
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
         MultiPurposeNonce::<T>::put(&nonce);
 
-        // TODO: Look into getting randomness from `pallet_babe`.
-        // NB: We can't get the current block's hash while processing
-        // an extrinsic, so we use parent hash here.
-        let parent_hash = System::<T>::parent_hash();
-        let did = IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()));
+        let (randomness, _) = T::Randomness::random(&nonce.encode());
+        let did = IdentityId(blake2_256(&(USER, randomness, nonce).encode()));
 
         // Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
