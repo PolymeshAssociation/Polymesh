@@ -35,8 +35,7 @@ use crate::chain_spec::develop_runtime::develop_chain_spec;
 use crate::chain_spec::mainnet_runtime::mainnet_chain_spec;
 use crate::chain_spec::testnet_runtime::testnet_chain_spec;
 use crate::cli::{Cli, Subcommand};
-use crate::service::{general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops};
-use crate::service::{general_new_full, mainnet_new_full, testnet_new_full};
+use crate::service::{self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops};
 use crate::service::{FullClient, HostFunctions, IsNetwork, Network, NewChainOps};
 
 impl SubstrateCli for Cli {
@@ -45,7 +44,7 @@ impl SubstrateCli for Cli {
     }
 
     fn impl_version() -> String {
-        env!("CARGO_PKG_VERSION").into()
+        env!("SUBSTRATE_CLI_IMPL_VERSION").into()
     }
 
     fn description() -> String {
@@ -70,6 +69,12 @@ impl SubstrateCli for Cli {
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
+            "" => {
+                return Err(
+                    "Please specify which chain you want to run, e.g. --dev or --chain=local"
+                        .into(),
+                );
+            }
             "dev" => {
                 if cfg!(feature = "ci-runtime") {
                     Box::new(ci_chain_spec(ChainSpecMode::Development))
@@ -107,95 +112,25 @@ impl SubstrateCli for Cli {
 
 /// Parses Polymesh specific CLI arguments and run the service.
 pub fn run() -> Result<()> {
-    let mut cli = Cli::from_args();
-
-    if cli.run.operator {
-        cli.run.base.validator = true;
-    }
+    let cli = Cli::from_args();
 
     match &cli.subcommand {
         None => {
-            let runner = cli.create_runner(&cli.run.base)?;
-            let network = runner.config().chain_spec.network();
+            let runner = cli.create_runner(&cli.run)?;
 
             info!(
                 "Reserved nodes: {:?}",
-                cli.run.base.network_params.reserved_nodes
+                cli.run.network_params.reserved_nodes
             );
 
             runner.run_node_until_exit(|config| async move {
-                match network {
-                    Network::Testnet => testnet_new_full(config),
-                    Network::Mainnet => mainnet_new_full(config),
-                    Network::Other => general_new_full(config),
-                }
-                .map_err(sc_cli::Error::Service)
+                service::new_full(config, cli).map_err(sc_cli::Error::Service)
             })
         }
-        Some(Subcommand::BuildSpec(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
+        Some(Subcommand::ExportChainSpec(cmd)) => {
+            let chain_spec = cli.load_spec(&cmd.chain)?;
+            cmd.run(chain_spec)
         }
-        Some(Subcommand::CheckBlock(cmd)) => async_run(
-            &cli,
-            cmd,
-            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-        ),
-        Some(Subcommand::ExportBlocks(cmd)) => async_run(
-            &cli,
-            cmd,
-            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
-            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
-            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
-        ),
-        Some(Subcommand::ExportState(cmd)) => async_run(
-            &cli,
-            cmd,
-            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
-            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
-            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
-        ),
-        Some(Subcommand::ImportBlocks(cmd)) => async_run(
-            &cli,
-            cmd,
-            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-        ),
-        Some(Subcommand::PurgeChain(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            runner.sync_run(|config| cmd.run(config.database))
-        }
-        Some(Subcommand::Revert(cmd)) => async_run(
-            &cli,
-            cmd,
-            |(c, b, _, tm), _| {
-                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
-                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
-                    grandpa::revert(client, blocks)?;
-                    Ok(())
-                });
-                Ok((cmd.run(c, b, Some(aux_revert)), tm))
-            },
-            |(c, b, _, tm), _| {
-                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
-                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
-                    grandpa::revert(client, blocks)?;
-                    Ok(())
-                });
-                Ok((cmd.run(c, b, Some(aux_revert)), tm))
-            },
-            |(c, b, _, tm), _| {
-                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
-                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
-                    grandpa::revert(client, blocks)?;
-                    Ok(())
-                });
-                Ok((cmd.run(c, b, Some(aux_revert)), tm))
-            },
-        ),
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             let network = runner.config().chain_spec.network();
@@ -410,6 +345,78 @@ pub fn run() -> Result<()> {
                     (_, _) => Err("Benchmarking is only supported with the `develop` runtime.")?,
                 }
             })
+        }
+        Some(Subcommand::Key(cmd)) => cmd.run(&cli),
+        Some(Subcommand::Sign(cmd)) => cmd.run(),
+        Some(Subcommand::Verify(cmd)) => cmd.run(),
+        Some(Subcommand::Vanity(cmd)) => cmd.run(),
+        Some(Subcommand::BuildSpec(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
+        }
+        Some(Subcommand::CheckBlock(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+        ),
+        Some(Subcommand::ExportBlocks(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
+        ),
+        Some(Subcommand::ExportState(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+        ),
+        Some(Subcommand::ImportBlocks(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+        ),
+        Some(Subcommand::PurgeChain(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|config| cmd.run(config.database))
+        }
+        Some(Subcommand::Revert(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, b, _, tm), _| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
+                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
+                    sc_consensus_grandpa::revert(client, blocks)?;
+                    Ok(())
+                });
+                Ok((cmd.run(c, b, Some(aux_revert)), tm))
+            },
+            |(c, b, _, tm), _| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
+                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
+                    sc_consensus_grandpa::revert(client, blocks)?;
+                    Ok(())
+                });
+                Ok((cmd.run(c, b, Some(aux_revert)), tm))
+            },
+            |(c, b, _, tm), _| {
+                let aux_revert = Box::new(|client: Arc<FullClient<_>>, backend, blocks| {
+                    sc_consensus_babe::revert(client.clone(), backend, blocks)?;
+                    sc_consensus_grandpa::revert(client, blocks)?;
+                    Ok(())
+                });
+                Ok((cmd.run(c, b, Some(aux_revert)), tm))
+            },
+        ),
+        Some(Subcommand::ChainInfo(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|config| cmd.run::<Block>(&config))
         }
     }
 }

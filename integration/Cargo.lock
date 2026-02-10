@@ -3077,9 +3077,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api"
-version = "3.12.1"
+version = "3.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "139d00fd7dcb3766f713f1d99302e712392427b81e3228090b47f977734e6f73"
+checksum = "846f2b44b8a7392986284a391c6376053f6b70d6c0bcc69ba697e7c106673f9b"
 dependencies = [
  "async-trait",
  "ink",
@@ -3095,9 +3095,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.10.2"
+version = "3.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e24189cb7c2e7035c7cfc748ac3bb717e51976468f1b59f0adc8c476f464b97a"
+checksum = "e70cf61a899a749b026a4e1ec0731eecf0dcb7e20d80063c073111ca7bfa8fb8"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3142,9 +3142,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen"
-version = "3.7.2"
+version = "3.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09fd8ddf2bd4bfdd514911c2f7fb7de20d366f1bb300d00ad9bcf39435edcb6e"
+checksum = "3d6549a43d5579ad483ebf8bd5bd5b90c31cb1981f8f569600e837c48a8fec25"
 dependencies = [
  "frame-metadata",
  "heck 0.4.1",
@@ -3162,9 +3162,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "3.7.2"
+version = "3.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aecf61a1cb8e47040a7e8ac9e53912380d1af80031fb0813392815dc6e58870"
+checksum = "2dabf76731ecc7a962d0176f15cb3f1ef07e60e038a723c3d576da4f197c3343"
 dependencies = [
  "darling",
  "parity-scale-codec",

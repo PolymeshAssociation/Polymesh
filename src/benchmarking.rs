@@ -15,8 +15,8 @@ use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
 
 use polymesh_primitives::{AccountId, Balance, Signature};
 use polymesh_runtime_common::BlockHashCount;
-use polymesh_runtime_develop::runtime::{BalancesCall, SignedExtra, VERSION};
-use polymesh_runtime_develop::runtime::{Runtime as DevRuntime, RuntimeCall as DevRuntimeCall};
+use polymesh_runtime_develop::runtime::RuntimeCall as DevRuntimeCall;
+use polymesh_runtime_develop::runtime::{BalancesCall, TxExtension, VERSION};
 use polymesh_runtime_develop::runtime::{SignedPayload, SystemCall, UncheckedExtrinsic};
 
 use crate::service::FullClient;
@@ -124,24 +124,30 @@ pub fn create_benchmark_extrinsic<R>(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let extra: SignedExtra = (
-        frame_system::CheckSpecVersion::<DevRuntime>::new(),
-        frame_system::CheckTxVersion::<DevRuntime>::new(),
-        frame_system::CheckGenesis::<DevRuntime>::new(),
-        frame_system::CheckEra::<DevRuntime>::from(sp_runtime::generic::Era::mortal(
+    let tx_ext: TxExtension = (
+        frame_system::AuthorizeCall::new(),
+        frame_system::CheckNonZeroSender::new(),
+        frame_system::CheckSpecVersion::new(),
+        frame_system::CheckTxVersion::new(),
+        frame_system::CheckGenesis::new(),
+        frame_system::CheckEra::from(sp_runtime::generic::Era::mortal(
             period,
             best_block.saturated_into(),
         )),
-        frame_system::CheckNonce::<DevRuntime>::from(nonce),
+        frame_system::CheckNonce::from(nonce),
         frame_system::CheckWeight::new(),
-        polymesh_transaction_payment::ChargeTransactionPayment::<DevRuntime>::from(0),
+        polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
+        frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        frame_system::WeightReclaim::new(),
     );
 
     let raw_payload = SignedPayload::from_raw(
         call.clone(),
-        extra.clone(),
+        tx_ext.clone(),
         (
+            (),
+            (),
             VERSION.spec_version,
             VERSION.transaction_version,
             genesis_hash,
@@ -149,6 +155,8 @@ pub fn create_benchmark_extrinsic<R>(
             (),
             (),
             (),
+            (),
+            None,
             (),
         ),
     );
@@ -158,7 +166,7 @@ pub fn create_benchmark_extrinsic<R>(
         call.clone(),
         sp_runtime::AccountId32::from(sender.public()).into(),
         Signature::Sr25519(signature.clone()),
-        extra.clone(),
+        tx_ext.clone(),
     )
 }
 

@@ -40,6 +40,6 @@ sp-keyring = "41.0"
 sp-weights = "31.1"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "max-encoded-len"] }
 
-polymesh-api = { version = "3.12.1", features = ["download_metadata"] }
+polymesh-api = { version = "3.13.1", features = ["download_metadata"] }
 polymesh-api-client-extras = { version = "3.6.2" }
 polymesh-api-tester = { version = "0.10.1", features = ["download_metadata"] }
