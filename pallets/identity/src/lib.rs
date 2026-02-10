@@ -276,6 +276,9 @@ pub mod pallet {
         /// before it is considered unusable.
         #[pallet::constant]
         type MaxAuthRetries: Get<u8>;
+
+        /// Source of randomness for DID generation.
+        type Randomness: frame_support::traits::Randomness<Self::Hash, BlockNumberFor<Self>>;
     }
 
     #[pallet::event]

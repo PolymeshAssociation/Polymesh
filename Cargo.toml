@@ -139,7 +139,6 @@ pallet-election-provider-multi-phase = { git = "https://github.com/PolymeshAssoc
 pallet-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-im-online = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-indices = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-insecure-randomness-collective-flip = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-offences = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-preimage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }

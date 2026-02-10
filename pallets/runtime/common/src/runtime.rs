@@ -109,6 +109,7 @@ macro_rules! misc_pallet_impls {
             type SingleBlockMigrations = (
                 UpgradeSessionKeys,
                 RemoveTickerDidRecords,
+                RemoveRandomnessCollectiveFlipStorage,
                 pallet_contracts::Migration<Runtime>,
                 pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
                 pallet_im_online::migration::v1::Migration<Runtime>,
@@ -562,7 +563,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
-            type Randomness = RandomnessCollectiveFlip;
+            type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
             type Currency = Balances;
             type RuntimeEvent = RuntimeEvent;
             type RuntimeCall = RuntimeCall;
@@ -664,7 +665,13 @@ macro_rules! misc_pallet_impls {
             pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
             pub const BridgePalletName: &'static str = "Bridge";
+            pub const RandomnessCollectiveFlipPalletName: &'static str = "RandomnessCollectiveFlip";
         }
+
+        type RemoveRandomnessCollectiveFlipStorage = frame_support::migrations::RemovePallet<
+            RandomnessCollectiveFlipPalletName,
+            <Runtime as frame_system::Config>::DbWeight
+        >;
 
         impl pallet_preimage::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
@@ -708,8 +715,6 @@ macro_rules! misc_pallet_impls {
             type EquivocationReportSystem =
               pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
         }
-
-        impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
         impl pallet_treasury::Config for Runtime {
             type Currency = Balances;

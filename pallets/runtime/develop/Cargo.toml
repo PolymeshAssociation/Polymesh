@@ -77,7 +77,6 @@ pallet-election-provider-multi-phase = { workspace = true, default-features = fa
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
@@ -146,7 +145,6 @@ std = [
     "pallet-group-rpc-runtime-api/std",
     "pallet-im-online/std",
     "pallet-indices/std",
-    "pallet-insecure-randomness-collective-flip/std",
     "pallet-multisig/std",
     "pallet-nft/std",
     "pallet-pips/std",
