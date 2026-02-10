@@ -203,6 +203,7 @@ impl pallet_identity::Config for Runtime {
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
     type MaxAuthRetries = MaxAuthRetries;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {

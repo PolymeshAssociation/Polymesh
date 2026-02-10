@@ -685,6 +685,7 @@ impl pallet_identity::Config for TestStorage {
     type InitialPOLYX = InitialPOLYX;
     type MaxGivenAuths = MaxGivenAuths;
     type MaxAuthRetries = MaxAuthRetries;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<TestStorage>;
 }
 
 impl example::Config for TestStorage {}
