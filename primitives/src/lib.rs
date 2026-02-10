@@ -419,7 +419,7 @@ macro_rules! storage_migration_ver {
             const MAX: u8 = $ver;
 
             /// Build const version and do compile-time maximum version check.
-            const fn new(ver: u8) -> Self {
+            pub const fn new(ver: u8) -> Self {
                 Self(ver)
             }
 
