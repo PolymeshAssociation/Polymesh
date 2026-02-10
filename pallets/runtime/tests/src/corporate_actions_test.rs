@@ -85,7 +85,7 @@ fn test(logic: impl FnOnce(AssetId, [User; 3])) {
             let asset_id = create_and_issue_sample_asset(&alice);
 
             // Execute the test.
-            logic(asset_id, [alice, bob, charlie])
+            logic(asset_id, [alice, charlie, bob])
         });
 }
 

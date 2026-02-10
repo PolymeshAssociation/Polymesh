@@ -325,10 +325,10 @@ fn disable_member_we() {
         None,
         None
     ));
-    assert_eq!(CommitteeGroup::get_members(), vec![charlie_id, alice_id]);
+    assert_eq!(CommitteeGroup::get_members(), vec![alice_id, charlie_id]);
     assert_eq!(
         CommitteeGroup::get_valid_members(),
-        vec![charlie_id, alice_id, bob_id]
+        vec![alice_id, charlie_id, bob_id]
     );
 
     // Revoke at
