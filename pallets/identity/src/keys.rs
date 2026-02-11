@@ -14,10 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, CddAuthForPrimaryKeyRotation, ChildDid, Config, CurrentAuthId,
-    DidKeys, DidRecords, Error, Event, IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions,
-    KeyPortfolioPermissions, KeyRecords, MultiPurposeNonce, OffChainAuthorizationNonce,
-    OutdatedAuthorizations, Pallet, ParentDid, PermissionedCallOriginData, RpcDidRecords,
+    types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error, Event,
+    IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
+    MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
+    PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::Encode as _;
 use frame_support::dispatch::DispatchResult;
@@ -37,8 +37,8 @@ use polymesh_primitives::identity::limits::{
 };
 use polymesh_primitives::SystematicIssuers;
 use polymesh_primitives::{
-    extract_auth, traits::group::GroupTrait, AuthorizationData, DidRecord, ExtrinsicName,
-    ExtrinsicPermissions, IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
+    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::AccountIdConversion as _;
@@ -291,26 +291,23 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn accept_primary_key_rotation(
         origin: T::RuntimeOrigin,
         rotation_auth_id: u64,
-        optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         let signer = Signatory::Account(sender.clone());
         Self::accept_auth_with(&signer, rotation_auth_id, |data, target_did| {
             // Ensure Authorization is a `RotatePrimaryKey`.
             extract_auth!(data, RotatePrimaryKey);
-            Self::common_rotate_primary_key(target_did, sender, None, optional_cdd_auth_id)
+            Self::common_rotate_primary_key(target_did, sender, None)
         })
     }
 
     // Sets the new primary key and optionally removes it as a secondary key if it is one.
-    // Checks the cdd auth if this is required.
     // Old primary key will be added as a secondary key if `new_permissions` is not None
     // New primary key must either be unlinked, or linked to the `target_did`
     pub fn common_rotate_primary_key(
         target_did: IdentityId,
         new_primary_key: T::AccountId,
         new_permissions: Option<Permissions>,
-        optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let old_primary_key =
             Self::get_primary_key(target_did).ok_or(Error::<T>::InvalidAccountKey)?;
@@ -338,30 +335,6 @@ impl<T: Config> Pallet<T> {
 
         if new_permissions.is_none() {
             Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
-        }
-
-        let signer = Signatory::Account(new_primary_key.clone());
-
-        // Accept authorization from DID registrar.
-        if CddAuthForPrimaryKeyRotation::<T>::get() {
-            let auth_id = optional_cdd_auth_id
-                .ok_or_else(|| Error::<T>::InvalidAuthorizationFromDidRegistrar)?;
-
-            Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
-                #[allow(deprecated)]
-                let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
-                // Attestor must be a DID registrar.
-                ensure!(
-                    T::DidRegistrars::is_member(&auth_by),
-                    Error::<T>::NotDidRegistrarAttestation
-                );
-                // Ensure authorizations are for the same DID.
-                ensure!(
-                    target_did == attestation_for_did,
-                    Error::<T>::AuthorizationsNotForSameDids
-                );
-                Ok(())
-            })?;
         }
 
         // Replace primary key of the owner that initiated key rotation.
@@ -402,7 +375,6 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn base_rotate_primary_key_to_secondary(
         origin: T::RuntimeOrigin,
         rotation_auth_id: u64,
-        optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let new_primary_key = ensure_signed(origin)?;
         let new_primary_key_signer = Signatory::Account(new_primary_key.clone());
@@ -412,12 +384,7 @@ impl<T: Config> Pallet<T> {
             |data, target_did| {
                 let perms = extract_auth!(data, RotatePrimaryKeyToSecondary(p));
 
-                Self::common_rotate_primary_key(
-                    target_did,
-                    new_primary_key,
-                    Some(perms),
-                    optional_cdd_auth_id,
-                )
+                Self::common_rotate_primary_key(target_did, new_primary_key, Some(perms))
             },
         )
     }
@@ -835,11 +802,8 @@ impl<T: Config> Pallet<T> {
     /// For testing/benchmarking only.
     /// Registers a DID.
     //#[cfg(feature = "runtime-benchmarks")]
-    pub fn testing_register_did(
-        sender: T::AccountId,
-        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
-    ) -> Result<IdentityId, DispatchError> {
-        Self::register_did_without_cdd(sender, secondary_keys, None)
+    pub fn testing_register_did(sender: T::AccountId) -> Result<IdentityId, DispatchError> {
+        Self::register_did_without_cdd(sender, vec![], None)
     }
 
     /// Registers the systematic issuer with its DID.

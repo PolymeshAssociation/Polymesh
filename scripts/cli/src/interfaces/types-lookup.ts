@@ -493,10 +493,6 @@ declare module '@polkadot/types/lookup' {
     readonly asAuthorizationConsumed: ITuple<[Option<PolymeshPrimitivesIdentityId>, Option<AccountId32>, u64]>;
     readonly isAuthorizationRetryLimitReached: boolean;
     readonly asAuthorizationRetryLimitReached: ITuple<[Option<PolymeshPrimitivesIdentityId>, Option<AccountId32>, u64]>;
-    readonly isCddRequirementForPrimaryKeyUpdated: boolean;
-    readonly asCddRequirementForPrimaryKeyUpdated: bool;
-    readonly isCddClaimsInvalidated: boolean;
-    readonly asCddClaimsInvalidated: ITuple<[PolymeshPrimitivesIdentityId, u64]>;
     readonly isSecondaryKeysFrozen: boolean;
     readonly asSecondaryKeysFrozen: PolymeshPrimitivesIdentityId;
     readonly isSecondaryKeysUnfrozen: boolean;
@@ -507,7 +503,7 @@ declare module '@polkadot/types/lookup' {
     readonly asChildDidCreated: ITuple<[PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, AccountId32]>;
     readonly isChildDidUnlinked: boolean;
     readonly asChildDidUnlinked: ITuple<[PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;
-    readonly type: 'DidCreated' | 'SecondaryKeysAdded' | 'SecondaryKeysRemoved' | 'SecondaryKeyLeftIdentity' | 'SecondaryKeyPermissionsUpdated' | 'PrimaryKeyUpdated' | 'ClaimAdded' | 'ClaimRevoked' | 'AssetDidRegistered' | 'AuthorizationAdded' | 'AuthorizationRevoked' | 'AuthorizationRejected' | 'AuthorizationConsumed' | 'AuthorizationRetryLimitReached' | 'CddRequirementForPrimaryKeyUpdated' | 'CddClaimsInvalidated' | 'SecondaryKeysFrozen' | 'SecondaryKeysUnfrozen' | 'CustomClaimTypeAdded' | 'ChildDidCreated' | 'ChildDidUnlinked';
+    readonly type: 'DidCreated' | 'SecondaryKeysAdded' | 'SecondaryKeysRemoved' | 'SecondaryKeyLeftIdentity' | 'SecondaryKeyPermissionsUpdated' | 'PrimaryKeyUpdated' | 'ClaimAdded' | 'ClaimRevoked' | 'AssetDidRegistered' | 'AuthorizationAdded' | 'AuthorizationRevoked' | 'AuthorizationRejected' | 'AuthorizationConsumed' | 'AuthorizationRetryLimitReached' | 'SecondaryKeysFrozen' | 'SecondaryKeysUnfrozen' | 'CustomClaimTypeAdded' | 'ChildDidCreated' | 'ChildDidUnlinked';
   }
 
   /** @name PolymeshPrimitivesIdentityId (45) */
@@ -3003,20 +2999,9 @@ declare module '@polkadot/types/lookup' {
       readonly targetAccount: AccountId32;
       readonly secondaryKeys: Vec<PolymeshPrimitivesSecondaryKey>;
     } & Struct;
-    readonly isInvalidateCddClaims: boolean;
-    readonly asInvalidateCddClaims: {
-      readonly cdd: PolymeshPrimitivesIdentityId;
-      readonly disableFrom: u64;
-      readonly expiry: Option<u64>;
-    } & Struct;
     readonly isAcceptPrimaryKey: boolean;
     readonly asAcceptPrimaryKey: {
       readonly rotationAuthId: u64;
-      readonly optionalCddAuthId: Option<u64>;
-    } & Struct;
-    readonly isChangeCddRequirementForMkRotation: boolean;
-    readonly asChangeCddRequirementForMkRotation: {
-      readonly authRequired: bool;
     } & Struct;
     readonly isJoinIdentityAsKey: boolean;
     readonly asJoinIdentityAsKey: {
@@ -3065,7 +3050,6 @@ declare module '@polkadot/types/lookup' {
     readonly isRotatePrimaryKeyToSecondary: boolean;
     readonly asRotatePrimaryKeyToSecondary: {
       readonly authId: u64;
-      readonly optionalCddAuthId: Option<u64>;
     } & Struct;
     readonly isAddSecondaryKeysWithAuthorization: boolean;
     readonly asAddSecondaryKeysWithAuthorization: {
@@ -3108,7 +3092,7 @@ declare module '@polkadot/types/lookup' {
     readonly asRegisterDid: {
       readonly targetAccount: AccountId32;
     } & Struct;
-    readonly type: 'CddRegisterDid' | 'InvalidateCddClaims' | 'AcceptPrimaryKey' | 'ChangeCddRequirementForMkRotation' | 'JoinIdentityAsKey' | 'LeaveIdentityAsKey' | 'AddClaim' | 'RevokeClaim' | 'FreezeSecondaryKeys' | 'UnfreezeSecondaryKeys' | 'AddAuthorization' | 'RemoveAuthorization' | 'GcAddCddClaim' | 'GcRevokeCddClaim' | 'RevokeClaimByIndex' | 'RotatePrimaryKeyToSecondary' | 'AddSecondaryKeysWithAuthorization' | 'SetSecondaryKeyPermissions' | 'RemoveSecondaryKeys' | 'RegisterCustomClaimType' | 'CddRegisterDidWithCdd' | 'CreateChildIdentity' | 'CreateChildIdentities' | 'UnlinkChildIdentity' | 'RegisterDid';
+    readonly type: 'CddRegisterDid' | 'AcceptPrimaryKey' | 'JoinIdentityAsKey' | 'LeaveIdentityAsKey' | 'AddClaim' | 'RevokeClaim' | 'FreezeSecondaryKeys' | 'UnfreezeSecondaryKeys' | 'AddAuthorization' | 'RemoveAuthorization' | 'GcAddCddClaim' | 'GcRevokeCddClaim' | 'RevokeClaimByIndex' | 'RotatePrimaryKeyToSecondary' | 'AddSecondaryKeysWithAuthorization' | 'SetSecondaryKeyPermissions' | 'RemoveSecondaryKeys' | 'RegisterCustomClaimType' | 'CddRegisterDidWithCdd' | 'CreateChildIdentity' | 'CreateChildIdentities' | 'UnlinkChildIdentity' | 'RegisterDid';
   }
 
   /** @name PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth (391) */
@@ -3164,7 +3148,8 @@ declare module '@polkadot/types/lookup' {
     readonly isUnauthorizedCallerDidInactive: boolean;
     readonly isUnauthorizedCallerMissingPermissions: boolean;
     readonly isAccountBasedPortfoliosCannotHaveCustodians: boolean;
-    readonly type: 'AlreadyLinked' | 'MissingIdentity' | 'Unauthorized' | 'InvalidAccountKey' | 'UnAuthorizedDidRegistrar' | 'InvalidAuthorizationFromOwner' | 'InvalidAuthorizationFromDidRegistrar' | 'NotDidRegistrarAttestation' | 'AuthorizationsNotForSameDids' | 'DidMustAlreadyExist' | 'AuthorizationExpired' | 'TargetDidInactive' | 'AuthorizationHasBeenRevoked' | 'InvalidAuthorizationSignature' | 'KeyNotAllowed' | 'NotPrimaryKey' | 'DidDoesNotExist' | 'DidAlreadyExists' | 'SecondaryKeysContainPrimaryKey' | 'FailedToChargeFee' | 'NotASigner' | 'CannotDecodeSignerAccountId' | 'AccountKeyIsBeingUsed' | 'CustomScopeTooLong' | 'CustomClaimTypeAlreadyExists' | 'CustomClaimTypeDoesNotExist' | 'ClaimDoesNotExist' | 'IsChildIdentity' | 'NoParentIdentity' | 'NotParentOrChildIdentity' | 'DuplicateKey' | 'ExceptNotAllowedForExtrinsics' | 'ExceededNumberOfGivenAuths' | 'BadAuthorizationType' | 'InvalidAuthorization' | 'UnauthorizedCallerFrozenDid' | 'UnauthorizedCallerDidInactive' | 'UnauthorizedCallerMissingPermissions' | 'AccountBasedPortfoliosCannotHaveCustodians';
+    readonly isSecondaryKeysNotAllowed: boolean;
+    readonly type: 'AlreadyLinked' | 'MissingIdentity' | 'Unauthorized' | 'InvalidAccountKey' | 'UnAuthorizedDidRegistrar' | 'InvalidAuthorizationFromOwner' | 'InvalidAuthorizationFromDidRegistrar' | 'NotDidRegistrarAttestation' | 'AuthorizationsNotForSameDids' | 'DidMustAlreadyExist' | 'AuthorizationExpired' | 'TargetDidInactive' | 'AuthorizationHasBeenRevoked' | 'InvalidAuthorizationSignature' | 'KeyNotAllowed' | 'NotPrimaryKey' | 'DidDoesNotExist' | 'DidAlreadyExists' | 'SecondaryKeysContainPrimaryKey' | 'FailedToChargeFee' | 'NotASigner' | 'CannotDecodeSignerAccountId' | 'AccountKeyIsBeingUsed' | 'CustomScopeTooLong' | 'CustomClaimTypeAlreadyExists' | 'CustomClaimTypeDoesNotExist' | 'ClaimDoesNotExist' | 'IsChildIdentity' | 'NoParentIdentity' | 'NotParentOrChildIdentity' | 'DuplicateKey' | 'ExceptNotAllowedForExtrinsics' | 'ExceededNumberOfGivenAuths' | 'BadAuthorizationType' | 'InvalidAuthorization' | 'UnauthorizedCallerFrozenDid' | 'UnauthorizedCallerDidInactive' | 'UnauthorizedCallerMissingPermissions' | 'AccountBasedPortfoliosCannotHaveCustodians' | 'SecondaryKeysNotAllowed';
   }
 
   /** @name PolymeshPrimitivesGroupInactiveMember (397) */
@@ -5246,7 +5231,6 @@ declare module '@polkadot/types/lookup' {
     readonly isAlreadyASigner: boolean;
     readonly isIdentityNotAdmin: boolean;
     readonly isIdentityNotPayer: boolean;
-    readonly isChangeNotAllowed: boolean;
     readonly isSignerAlreadyLinkedToMultisig: boolean;
     readonly isSignerAlreadyLinkedToIdentity: boolean;
     readonly isNestingNotAllowed: boolean;
@@ -5261,7 +5245,7 @@ declare module '@polkadot/types/lookup' {
     readonly isInvalidatedProposal: boolean;
     readonly isAdminNotFound: boolean;
     readonly isBadAuthorizationType: boolean;
-    readonly type: 'ProposalMissing' | 'DecodingError' | 'RequiredSignersIsZero' | 'NotASigner' | 'NoSuchMultisig' | 'NotEnoughSigners' | 'NonceOverflow' | 'AlreadyVoted' | 'AlreadyASigner' | 'IdentityNotAdmin' | 'IdentityNotPayer' | 'ChangeNotAllowed' | 'SignerAlreadyLinkedToMultisig' | 'SignerAlreadyLinkedToIdentity' | 'NestingNotAllowed' | 'ProposalAlreadyRejected' | 'ProposalExpired' | 'ProposalAlreadyExecuted' | 'MaxWeightTooLow' | 'MultisigMissingIdentity' | 'TooManySigners' | 'NoPayingDid' | 'InvalidExpiryDate' | 'InvalidatedProposal' | 'AdminNotFound' | 'BadAuthorizationType';
+    readonly type: 'ProposalMissing' | 'DecodingError' | 'RequiredSignersIsZero' | 'NotASigner' | 'NoSuchMultisig' | 'NotEnoughSigners' | 'NonceOverflow' | 'AlreadyVoted' | 'AlreadyASigner' | 'IdentityNotAdmin' | 'IdentityNotPayer' | 'SignerAlreadyLinkedToMultisig' | 'SignerAlreadyLinkedToIdentity' | 'NestingNotAllowed' | 'ProposalAlreadyRejected' | 'ProposalExpired' | 'ProposalAlreadyExecuted' | 'MaxWeightTooLow' | 'MultisigMissingIdentity' | 'TooManySigners' | 'NoPayingDid' | 'InvalidExpiryDate' | 'InvalidatedProposal' | 'AdminNotFound' | 'BadAuthorizationType';
   }
 
   /** @name PalletValidatorsPermissionedIdentityPrefs (607) */
@@ -5521,7 +5505,6 @@ declare module '@polkadot/types/lookup' {
     readonly isInvalidTransferFrozenAsset: boolean;
     readonly isInvalidTransferComplianceFailure: boolean;
     readonly isInvalidTransferInvalidReceiverDID: boolean;
-    readonly isInvalidTransferInvalidSenderDID: boolean;
     readonly isTickerRegistrationNotFound: boolean;
     readonly isTickerIsAlreadyLinkedToAnAsset: boolean;
     readonly isAssetIdGenerationError: boolean;
@@ -5529,7 +5512,7 @@ declare module '@polkadot/types/lookup' {
     readonly isAssetIsAlreadyLinkedToATicker: boolean;
     readonly isTickerIsNotLinkedToTheAsset: boolean;
     readonly isBadAuthorizationType: boolean;
-    readonly type: 'Unauthorized' | 'AssetAlreadyCreated' | 'TickerTooLong' | 'TickerNotAlphanumeric' | 'TickerAlreadyRegistered' | 'TotalSupplyAboveLimit' | 'NoSuchAsset' | 'AlreadyFrozen' | 'NotAnOwner' | 'BalanceOverflow' | 'TotalSupplyOverflow' | 'InvalidGranularity' | 'NotFrozen' | 'InvalidTransfer' | 'InsufficientBalance' | 'AssetAlreadyDivisible' | 'InvalidEthereumSignature' | 'TickerRegistrationExpired' | 'SenderSameAsReceiver' | 'NoSuchDoc' | 'MaxLengthOfAssetNameExceeded' | 'FundingRoundNameMaxLengthExceeded' | 'InvalidAssetIdentifier' | 'InvestorUniquenessClaimNotAllowed' | 'InvalidCustomAssetTypeId' | 'AssetMetadataNameMaxLengthExceeded' | 'AssetMetadataValueMaxLengthExceeded' | 'AssetMetadataTypeDefMaxLengthExceeded' | 'AssetMetadataKeyIsMissing' | 'AssetMetadataValueIsLocked' | 'AssetMetadataLocalKeyAlreadyExists' | 'AssetMetadataGlobalKeyAlreadyExists' | 'TickerFirstByteNotValid' | 'UnexpectedNonFungibleToken' | 'IncompatibleAssetTypeUpdate' | 'AssetMetadataKeyBelongsToNFTCollection' | 'AssetMetadataValueIsEmpty' | 'NumberOfAssetMediatorsExceeded' | 'InvalidTickerCharacter' | 'InvalidTransferFrozenAsset' | 'InvalidTransferComplianceFailure' | 'InvalidTransferInvalidReceiverDID' | 'InvalidTransferInvalidSenderDID' | 'TickerRegistrationNotFound' | 'TickerIsAlreadyLinkedToAnAsset' | 'AssetIdGenerationError' | 'TickerNotRegisteredToCaller' | 'AssetIsAlreadyLinkedToATicker' | 'TickerIsNotLinkedToTheAsset' | 'BadAuthorizationType';
+    readonly type: 'Unauthorized' | 'AssetAlreadyCreated' | 'TickerTooLong' | 'TickerNotAlphanumeric' | 'TickerAlreadyRegistered' | 'TotalSupplyAboveLimit' | 'NoSuchAsset' | 'AlreadyFrozen' | 'NotAnOwner' | 'BalanceOverflow' | 'TotalSupplyOverflow' | 'InvalidGranularity' | 'NotFrozen' | 'InvalidTransfer' | 'InsufficientBalance' | 'AssetAlreadyDivisible' | 'InvalidEthereumSignature' | 'TickerRegistrationExpired' | 'SenderSameAsReceiver' | 'NoSuchDoc' | 'MaxLengthOfAssetNameExceeded' | 'FundingRoundNameMaxLengthExceeded' | 'InvalidAssetIdentifier' | 'InvestorUniquenessClaimNotAllowed' | 'InvalidCustomAssetTypeId' | 'AssetMetadataNameMaxLengthExceeded' | 'AssetMetadataValueMaxLengthExceeded' | 'AssetMetadataTypeDefMaxLengthExceeded' | 'AssetMetadataKeyIsMissing' | 'AssetMetadataValueIsLocked' | 'AssetMetadataLocalKeyAlreadyExists' | 'AssetMetadataGlobalKeyAlreadyExists' | 'TickerFirstByteNotValid' | 'UnexpectedNonFungibleToken' | 'IncompatibleAssetTypeUpdate' | 'AssetMetadataKeyBelongsToNFTCollection' | 'AssetMetadataValueIsEmpty' | 'NumberOfAssetMediatorsExceeded' | 'InvalidTickerCharacter' | 'InvalidTransferFrozenAsset' | 'InvalidTransferComplianceFailure' | 'InvalidTransferInvalidReceiverDID' | 'TickerRegistrationNotFound' | 'TickerIsAlreadyLinkedToAnAsset' | 'AssetIdGenerationError' | 'TickerNotRegisteredToCaller' | 'AssetIsAlreadyLinkedToATicker' | 'TickerIsNotLinkedToTheAsset' | 'BadAuthorizationType';
   }
 
   /** @name PalletCorporateActionsDistributionPalletError (666) */
@@ -6224,11 +6207,10 @@ declare module '@polkadot/types/lookup' {
     readonly isInvalidNFTTransferNFTIsLocked: boolean;
     readonly isInvalidNFTTransferSenderIdMatchesReceiverId: boolean;
     readonly isInvalidNFTTransferInvalidReceiverDID: boolean;
-    readonly isInvalidNFTTransferInvalidSenderDID: boolean;
     readonly isInvalidAssetId: boolean;
     readonly isNftIsLocked: boolean;
     readonly isNumberOfKeysIsLessThanExpected: boolean;
-    readonly type: 'BalanceOverflow' | 'BalanceUnderflow' | 'CollectionAlredyRegistered' | 'CollectionNotFound' | 'DuplicateMetadataKey' | 'DuplicatedNFTId' | 'InvalidAssetType' | 'InvalidMetadataAttribute' | 'InvalidNFTTransferCollectionNotFound' | 'InvalidNFTTransferSamePortfolio' | 'InvalidNFTTransferNFTNotOwned' | 'InvalidNFTTransferCountOverflow' | 'InvalidNFTTransferComplianceFailure' | 'InvalidNFTTransferFrozenAsset' | 'InvalidNFTTransferInsufficientCount' | 'MaxNumberOfKeysExceeded' | 'MaxNumberOfNFTsPerLegExceeded' | 'NftNotFound' | 'UnregisteredMetadataKey' | 'ZeroCount' | 'SupplyOverflow' | 'SupplyUnderflow' | 'InvalidNFTTransferNFTIsLocked' | 'InvalidNFTTransferSenderIdMatchesReceiverId' | 'InvalidNFTTransferInvalidReceiverDID' | 'InvalidNFTTransferInvalidSenderDID' | 'InvalidAssetId' | 'NftIsLocked' | 'NumberOfKeysIsLessThanExpected';
+    readonly type: 'BalanceOverflow' | 'BalanceUnderflow' | 'CollectionAlredyRegistered' | 'CollectionNotFound' | 'DuplicateMetadataKey' | 'DuplicatedNFTId' | 'InvalidAssetType' | 'InvalidMetadataAttribute' | 'InvalidNFTTransferCollectionNotFound' | 'InvalidNFTTransferSamePortfolio' | 'InvalidNFTTransferNFTNotOwned' | 'InvalidNFTTransferCountOverflow' | 'InvalidNFTTransferComplianceFailure' | 'InvalidNFTTransferFrozenAsset' | 'InvalidNFTTransferInsufficientCount' | 'MaxNumberOfKeysExceeded' | 'MaxNumberOfNFTsPerLegExceeded' | 'NftNotFound' | 'UnregisteredMetadataKey' | 'ZeroCount' | 'SupplyOverflow' | 'SupplyUnderflow' | 'InvalidNFTTransferNFTIsLocked' | 'InvalidNFTTransferSenderIdMatchesReceiverId' | 'InvalidNFTTransferInvalidReceiverDID' | 'InvalidAssetId' | 'NftIsLocked' | 'NumberOfKeysIsLessThanExpected';
   }
 
   /** @name PalletElectionProviderMultiPhaseReadySolution (789) */

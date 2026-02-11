@@ -466,8 +466,6 @@ export default {
       AuthorizationRejected: '(Option<PolymeshPrimitivesIdentityId>,Option<AccountId32>,u64)',
       AuthorizationConsumed: '(Option<PolymeshPrimitivesIdentityId>,Option<AccountId32>,u64)',
       AuthorizationRetryLimitReached: '(Option<PolymeshPrimitivesIdentityId>,Option<AccountId32>,u64)',
-      CddRequirementForPrimaryKeyUpdated: 'bool',
-      CddClaimsInvalidated: '(PolymeshPrimitivesIdentityId,u64)',
       SecondaryKeysFrozen: 'PolymeshPrimitivesIdentityId',
       SecondaryKeysUnfrozen: 'PolymeshPrimitivesIdentityId',
       CustomClaimTypeAdded: '(PolymeshPrimitivesIdentityId,u32,Bytes)',
@@ -2568,18 +2566,11 @@ export default {
         targetAccount: 'AccountId32',
         secondaryKeys: 'Vec<PolymeshPrimitivesSecondaryKey>',
       },
-      invalidate_cdd_claims: {
-        cdd: 'PolymeshPrimitivesIdentityId',
-        disableFrom: 'u64',
-        expiry: 'Option<u64>',
-      },
+      __Unused1: 'Null',
       accept_primary_key: {
         rotationAuthId: 'u64',
-        optionalCddAuthId: 'Option<u64>',
       },
-      change_cdd_requirement_for_mk_rotation: {
-        authRequired: 'bool',
-      },
+      __Unused3: 'Null',
       join_identity_as_key: {
         authId: 'u64',
       },
@@ -2618,7 +2609,6 @@ export default {
       },
       rotate_primary_key_to_secondary: {
         authId: 'u64',
-        optionalCddAuthId: 'Option<u64>',
       },
       add_secondary_keys_with_authorization: {
         additionalKeys: 'Vec<PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth>',
@@ -2672,7 +2662,7 @@ export default {
    * Lookup395: pallet_identity::pallet::Error<T>
    **/
   PalletIdentityError: {
-    _enum: ['AlreadyLinked', 'MissingIdentity', 'Unauthorized', 'InvalidAccountKey', 'UnAuthorizedDidRegistrar', 'InvalidAuthorizationFromOwner', 'InvalidAuthorizationFromDidRegistrar', 'NotDidRegistrarAttestation', 'AuthorizationsNotForSameDids', 'DidMustAlreadyExist', 'AuthorizationExpired', 'TargetDidInactive', 'AuthorizationHasBeenRevoked', 'InvalidAuthorizationSignature', 'KeyNotAllowed', 'NotPrimaryKey', 'DidDoesNotExist', 'DidAlreadyExists', 'SecondaryKeysContainPrimaryKey', 'FailedToChargeFee', 'NotASigner', 'CannotDecodeSignerAccountId', 'AccountKeyIsBeingUsed', 'CustomScopeTooLong', 'CustomClaimTypeAlreadyExists', 'CustomClaimTypeDoesNotExist', 'ClaimDoesNotExist', 'IsChildIdentity', 'NoParentIdentity', 'NotParentOrChildIdentity', 'DuplicateKey', 'ExceptNotAllowedForExtrinsics', 'ExceededNumberOfGivenAuths', 'BadAuthorizationType', 'InvalidAuthorization', 'UnauthorizedCallerFrozenDid', 'UnauthorizedCallerDidInactive', 'UnauthorizedCallerMissingPermissions', 'AccountBasedPortfoliosCannotHaveCustodians']
+    _enum: ['AlreadyLinked', 'MissingIdentity', 'Unauthorized', 'InvalidAccountKey', 'UnAuthorizedDidRegistrar', 'InvalidAuthorizationFromOwner', 'InvalidAuthorizationFromDidRegistrar', 'NotDidRegistrarAttestation', 'AuthorizationsNotForSameDids', 'DidMustAlreadyExist', 'AuthorizationExpired', 'TargetDidInactive', 'AuthorizationHasBeenRevoked', 'InvalidAuthorizationSignature', 'KeyNotAllowed', 'NotPrimaryKey', 'DidDoesNotExist', 'DidAlreadyExists', 'SecondaryKeysContainPrimaryKey', 'FailedToChargeFee', 'NotASigner', 'CannotDecodeSignerAccountId', 'AccountKeyIsBeingUsed', 'CustomScopeTooLong', 'CustomClaimTypeAlreadyExists', 'CustomClaimTypeDoesNotExist', 'ClaimDoesNotExist', 'IsChildIdentity', 'NoParentIdentity', 'NotParentOrChildIdentity', 'DuplicateKey', 'ExceptNotAllowedForExtrinsics', 'ExceededNumberOfGivenAuths', 'BadAuthorizationType', 'InvalidAuthorization', 'UnauthorizedCallerFrozenDid', 'UnauthorizedCallerDidInactive', 'UnauthorizedCallerMissingPermissions', 'AccountBasedPortfoliosCannotHaveCustodians', 'SecondaryKeysNotAllowed']
   },
   /**
    * Lookup397: polymesh_primitives::traits::group::InactiveMember<Moment>
@@ -4585,7 +4575,7 @@ export default {
    * Lookup606: pallet_multisig::pallet::Error<T>
    **/
   PalletMultisigError: {
-    _enum: ['ProposalMissing', 'DecodingError', 'RequiredSignersIsZero', 'NotASigner', 'NoSuchMultisig', 'NotEnoughSigners', 'NonceOverflow', 'AlreadyVoted', 'AlreadyASigner', 'IdentityNotAdmin', 'IdentityNotPayer', 'ChangeNotAllowed', 'SignerAlreadyLinkedToMultisig', 'SignerAlreadyLinkedToIdentity', 'NestingNotAllowed', 'ProposalAlreadyRejected', 'ProposalExpired', 'ProposalAlreadyExecuted', 'MaxWeightTooLow', 'MultisigMissingIdentity', 'TooManySigners', 'NoPayingDid', 'InvalidExpiryDate', 'InvalidatedProposal', 'AdminNotFound', 'BadAuthorizationType']
+    _enum: ['ProposalMissing', 'DecodingError', 'RequiredSignersIsZero', 'NotASigner', 'NoSuchMultisig', 'NotEnoughSigners', 'NonceOverflow', 'AlreadyVoted', 'AlreadyASigner', 'IdentityNotAdmin', 'IdentityNotPayer', 'SignerAlreadyLinkedToMultisig', 'SignerAlreadyLinkedToIdentity', 'NestingNotAllowed', 'ProposalAlreadyRejected', 'ProposalExpired', 'ProposalAlreadyExecuted', 'MaxWeightTooLow', 'MultisigMissingIdentity', 'TooManySigners', 'NoPayingDid', 'InvalidExpiryDate', 'InvalidatedProposal', 'AdminNotFound', 'BadAuthorizationType']
   },
   /**
    * Lookup607: pallet_validators::types::PermissionedIdentityPrefs
@@ -4768,7 +4758,7 @@ export default {
    * Lookup663: pallet_asset::pallet::Error<T>
    **/
   PalletAssetError: {
-    _enum: ['Unauthorized', 'AssetAlreadyCreated', 'TickerTooLong', 'TickerNotAlphanumeric', 'TickerAlreadyRegistered', 'TotalSupplyAboveLimit', 'NoSuchAsset', 'AlreadyFrozen', 'NotAnOwner', 'BalanceOverflow', 'TotalSupplyOverflow', 'InvalidGranularity', 'NotFrozen', 'InvalidTransfer', 'InsufficientBalance', 'AssetAlreadyDivisible', 'InvalidEthereumSignature', 'TickerRegistrationExpired', 'SenderSameAsReceiver', 'NoSuchDoc', 'MaxLengthOfAssetNameExceeded', 'FundingRoundNameMaxLengthExceeded', 'InvalidAssetIdentifier', 'InvestorUniquenessClaimNotAllowed', 'InvalidCustomAssetTypeId', 'AssetMetadataNameMaxLengthExceeded', 'AssetMetadataValueMaxLengthExceeded', 'AssetMetadataTypeDefMaxLengthExceeded', 'AssetMetadataKeyIsMissing', 'AssetMetadataValueIsLocked', 'AssetMetadataLocalKeyAlreadyExists', 'AssetMetadataGlobalKeyAlreadyExists', 'TickerFirstByteNotValid', 'UnexpectedNonFungibleToken', 'IncompatibleAssetTypeUpdate', 'AssetMetadataKeyBelongsToNFTCollection', 'AssetMetadataValueIsEmpty', 'NumberOfAssetMediatorsExceeded', 'InvalidTickerCharacter', 'InvalidTransferFrozenAsset', 'InvalidTransferComplianceFailure', 'InvalidTransferInvalidReceiverDID', 'InvalidTransferInvalidSenderDID', 'TickerRegistrationNotFound', 'TickerIsAlreadyLinkedToAnAsset', 'AssetIdGenerationError', 'TickerNotRegisteredToCaller', 'AssetIsAlreadyLinkedToATicker', 'TickerIsNotLinkedToTheAsset', 'BadAuthorizationType']
+    _enum: ['Unauthorized', 'AssetAlreadyCreated', 'TickerTooLong', 'TickerNotAlphanumeric', 'TickerAlreadyRegistered', 'TotalSupplyAboveLimit', 'NoSuchAsset', 'AlreadyFrozen', 'NotAnOwner', 'BalanceOverflow', 'TotalSupplyOverflow', 'InvalidGranularity', 'NotFrozen', 'InvalidTransfer', 'InsufficientBalance', 'AssetAlreadyDivisible', 'InvalidEthereumSignature', 'TickerRegistrationExpired', 'SenderSameAsReceiver', 'NoSuchDoc', 'MaxLengthOfAssetNameExceeded', 'FundingRoundNameMaxLengthExceeded', 'InvalidAssetIdentifier', 'InvestorUniquenessClaimNotAllowed', 'InvalidCustomAssetTypeId', 'AssetMetadataNameMaxLengthExceeded', 'AssetMetadataValueMaxLengthExceeded', 'AssetMetadataTypeDefMaxLengthExceeded', 'AssetMetadataKeyIsMissing', 'AssetMetadataValueIsLocked', 'AssetMetadataLocalKeyAlreadyExists', 'AssetMetadataGlobalKeyAlreadyExists', 'TickerFirstByteNotValid', 'UnexpectedNonFungibleToken', 'IncompatibleAssetTypeUpdate', 'AssetMetadataKeyBelongsToNFTCollection', 'AssetMetadataValueIsEmpty', 'NumberOfAssetMediatorsExceeded', 'InvalidTickerCharacter', 'InvalidTransferFrozenAsset', 'InvalidTransferComplianceFailure', 'InvalidTransferInvalidReceiverDID', 'TickerRegistrationNotFound', 'TickerIsAlreadyLinkedToAnAsset', 'AssetIdGenerationError', 'TickerNotRegisteredToCaller', 'AssetIsAlreadyLinkedToATicker', 'TickerIsNotLinkedToTheAsset', 'BadAuthorizationType']
   },
   /**
    * Lookup666: pallet_corporate_actions::distribution::pallet::Error<T>
@@ -5232,7 +5222,7 @@ export default {
    * Lookup788: pallet_nft::pallet::Error<T>
    **/
   PalletNftError: {
-    _enum: ['BalanceOverflow', 'BalanceUnderflow', 'CollectionAlredyRegistered', 'CollectionNotFound', 'DuplicateMetadataKey', 'DuplicatedNFTId', 'InvalidAssetType', 'InvalidMetadataAttribute', 'InvalidNFTTransferCollectionNotFound', 'InvalidNFTTransferSamePortfolio', 'InvalidNFTTransferNFTNotOwned', 'InvalidNFTTransferCountOverflow', 'InvalidNFTTransferComplianceFailure', 'InvalidNFTTransferFrozenAsset', 'InvalidNFTTransferInsufficientCount', 'MaxNumberOfKeysExceeded', 'MaxNumberOfNFTsPerLegExceeded', 'NFTNotFound', 'UnregisteredMetadataKey', 'ZeroCount', 'SupplyOverflow', 'SupplyUnderflow', 'InvalidNFTTransferNFTIsLocked', 'InvalidNFTTransferSenderIdMatchesReceiverId', 'InvalidNFTTransferInvalidReceiverDID', 'InvalidNFTTransferInvalidSenderDID', 'InvalidAssetId', 'NFTIsLocked', 'NumberOfKeysIsLessThanExpected']
+    _enum: ['BalanceOverflow', 'BalanceUnderflow', 'CollectionAlredyRegistered', 'CollectionNotFound', 'DuplicateMetadataKey', 'DuplicatedNFTId', 'InvalidAssetType', 'InvalidMetadataAttribute', 'InvalidNFTTransferCollectionNotFound', 'InvalidNFTTransferSamePortfolio', 'InvalidNFTTransferNFTNotOwned', 'InvalidNFTTransferCountOverflow', 'InvalidNFTTransferComplianceFailure', 'InvalidNFTTransferFrozenAsset', 'InvalidNFTTransferInsufficientCount', 'MaxNumberOfKeysExceeded', 'MaxNumberOfNFTsPerLegExceeded', 'NFTNotFound', 'UnregisteredMetadataKey', 'ZeroCount', 'SupplyOverflow', 'SupplyUnderflow', 'InvalidNFTTransferNFTIsLocked', 'InvalidNFTTransferSenderIdMatchesReceiverId', 'InvalidNFTTransferInvalidReceiverDID', 'InvalidAssetId', 'NFTIsLocked', 'NumberOfKeysIsLessThanExpected']
   },
   /**
    * Lookup789: pallet_election_provider_multi_phase::ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>

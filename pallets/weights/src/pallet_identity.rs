@@ -192,20 +192,6 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(6))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
     }
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:1)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Instance2Group InactiveMembers (r:1 w:1)
-    // Proof Skipped: Instance2Group InactiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:1 w:1)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    fn invalidate_cdd_claims() -> Weight {
-        // Minimum execution time: 49_044 nanoseconds.
-        Weight::from_parts(52_138_000, 0)
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(3))
-    }
     // Storage: Identity KeyRecords (r:200 w:199)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity AccountKeyRefCount (r:199 w:0)
@@ -287,12 +273,6 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
         Weight::from_parts(97_495_000, 0)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(13))
-    }
-    // Storage: Identity CddAuthForPrimaryKeyRotation (r:0 w:1)
-    // Proof Skipped: Identity CddAuthForPrimaryKeyRotation (max_values: Some(1), max_size: None, mode: Measured)
-    fn change_cdd_requirement_for_mk_rotation() -> Weight {
-        // Minimum execution time: 9_873 nanoseconds.
-        Weight::from_parts(10_345_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)

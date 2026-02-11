@@ -125,10 +125,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidTransferInvalidReceiverDID: AugmentedError<ApiType>;
       /**
-       * Failed to transfer the asset - sender DID is not active.
-       **/
-      InvalidTransferInvalidSenderDID: AugmentedError<ApiType>;
-      /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
@@ -1125,6 +1121,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       SecondaryKeysContainPrimaryKey: AugmentedError<ApiType>;
       /**
+       * Secondary keys are no longer allowed in DID registration.
+       **/
+      SecondaryKeysNotAllowed: AugmentedError<ApiType>;
+      /**
        * The target DID does not exist or is locked.
        **/
       TargetDidInactive: AugmentedError<ApiType>;
@@ -1210,10 +1210,6 @@ declare module '@polkadot/api-base/types/errors' {
        * The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
        **/
       BadAuthorizationType: AugmentedError<ApiType>;
-      /**
-       * Changing multisig parameters not allowed since multisig is a primary key.
-       **/
-      ChangeNotAllowed: AugmentedError<ApiType>;
       /**
        * Multisig address.
        **/
@@ -1365,10 +1361,6 @@ declare module '@polkadot/api-base/types/errors' {
        * The receiver has an invalid DID.
        **/
       InvalidNFTTransferInvalidReceiverDID: AugmentedError<ApiType>;
-      /**
-       * The sender has an invalid DID.
-       **/
-      InvalidNFTTransferInvalidSenderDID: AugmentedError<ApiType>;
       /**
        * Failed to transfer an NFT - nft is locked.
        **/

@@ -1802,8 +1802,6 @@ pub mod pallet {
         InvalidTransferComplianceFailure,
         /// Failed to transfer the asset - receiver DID is not active.
         InvalidTransferInvalidReceiverDID,
-        /// Failed to transfer the asset - sender DID is not active.
-        InvalidTransferInvalidSenderDID,
         /// The ticker registration associated to the ticker was not found.
         TickerRegistrationNotFound,
         /// The given ticker is already linked to an asset.

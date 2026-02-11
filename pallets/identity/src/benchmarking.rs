@@ -139,15 +139,6 @@ benchmarks! {
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
 
-    invalidate_cdd_claims {
-        // NB: This function loops over all cdd claims issued by the cdd provider.
-        // Therefore, it's unbounded in complexity. However, this can only be called by governance.
-        // Hence, the weight is for best case scenario
-
-        let cdd = did_registrar::<T>("cdd", 0);
-
-    }: _(RawOrigin::Root, cdd.did(), 0u32.into(), None)
-
     remove_secondary_keys {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
@@ -163,21 +154,9 @@ benchmarks! {
     }: _(target.origin, signatories.clone())
 
     accept_primary_key {
-        let cdd = did_registrar::<T>("cdd", 0);
         let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
-
-        let cdd_auth_id =  Pallet::<T>::add_auth(
-            cdd.did(), signatory.clone(),
-            AuthorizationData::AttestPrimaryKeyRotation(target.did()),
-            None,
-        )
-        .unwrap();
-        Pallet::<T>::change_cdd_requirement_for_mk_rotation(
-            RawOrigin::Root.into(),
-            true
-        ).unwrap();
 
         let owner_auth_id =  Pallet::<T>::add_auth(
             target.did(), signatory,
@@ -185,45 +164,21 @@ benchmarks! {
             None,
         ).
         unwrap();
-    }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
+    }: _(new_key.origin, owner_auth_id)
 
     rotate_primary_key_to_secondary {
-        let cdd = did_registrar::<T>("cdd", 0);
         let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
 
-        let cdd_auth_id =  Pallet::<T>::add_auth(
-            cdd.did(), signatory.clone(),
-            AuthorizationData::AttestPrimaryKeyRotation(target.did()),
-            None,
-        )
-        .unwrap();
         let rotate_auth_id =  Pallet::<T>::add_auth(
             target.did(), signatory.clone(),
             AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
             None,
         )
         .unwrap();
-        Pallet::<T>::change_cdd_requirement_for_mk_rotation(
-            RawOrigin::Root.into(),
-            true
-        ).unwrap();
 
-    }: _(new_key.origin, rotate_auth_id, Some(cdd_auth_id))
-
-    change_cdd_requirement_for_mk_rotation {
-        assert!(
-            !CddAuthForPrimaryKeyRotation::<T>::get(),
-            "CDD auth for primary key rotation is enabled"
-        );
-    }: _(RawOrigin::Root, true)
-    verify {
-        assert!(
-            CddAuthForPrimaryKeyRotation::<T>::get(),
-            "CDD auth for primary key rotation did not change"
-        );
-    }
+    }: _(new_key.origin, rotate_auth_id)
 
     join_identity_as_key {
         let target = user::<T>("target", 0);

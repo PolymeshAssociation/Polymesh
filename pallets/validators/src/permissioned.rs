@@ -51,7 +51,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     /// Onboard an account.
     #[cfg(feature = "runtime-benchmarks")]
     fn onboard_account(who: &T::AccountId) {
-        let _ = T::IdentityFn::testing_register_did(who.clone(), vec![]);
+        let _ = T::IdentityFn::testing_register_did(who.clone());
     }
 
     /// Permission a validator.

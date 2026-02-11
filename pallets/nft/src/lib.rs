@@ -379,8 +379,6 @@ pub mod pallet {
         InvalidNFTTransferSenderIdMatchesReceiverId,
         /// The receiver has an invalid DID.
         InvalidNFTTransferInvalidReceiverDID,
-        /// The sender has an invalid DID.
-        InvalidNFTTransferInvalidSenderDID,
         /// There's no asset associated to the given asset_id.
         InvalidAssetId,
         /// The NFT is locked.

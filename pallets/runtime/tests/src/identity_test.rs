@@ -1263,7 +1263,7 @@ fn changing_primary_key_we() {
         .unwrap()
     };
     let accept = |ring: Sr25519Keyring, auth| {
-        Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth, None)
+        Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth)
     };
 
     // In the case of a key belong to key DID for which we're rotating, we don't allow rotation.
@@ -1299,68 +1299,6 @@ fn changing_primary_key_we() {
 }
 
 #[test]
-fn changing_primary_key_with_cdd_auth() {
-    ExtBuilder::default()
-        .monied(true)
-        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| changing_primary_key_with_cdd_auth_we());
-}
-
-#[allow(deprecated)]
-fn changing_primary_key_with_cdd_auth_we() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let alice_pk = || get_primary_key(alice.did);
-    let new = User::new_with(alice.did, Sr25519Keyring::Bob);
-
-    let cdd_did = get_identity_id(Sr25519Keyring::Eve).unwrap();
-
-    // Primary key matches Alice's key
-    assert_eq!(alice_pk(), alice.acc());
-
-    // Alice triggers change of primary key
-    let owner_auth_id = Identity::add_auth(
-        alice.did,
-        new.signatory_acc(),
-        AuthorizationData::RotatePrimaryKey,
-        None,
-    )
-    .unwrap();
-
-    let cdd_auth_id = Identity::add_auth(
-        cdd_did,
-        new.signatory_acc(),
-        AuthorizationData::AttestPrimaryKeyRotation(alice.did),
-        None,
-    )
-    .unwrap();
-
-    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
-        frame_system::RawOrigin::Root.into(),
-        true
-    ));
-
-    assert!(Identity::accept_primary_key(new.origin(), owner_auth_id.clone(), None).is_err());
-
-    let owner_auth_id2 = Identity::add_auth(
-        alice.did,
-        new.signatory_acc(),
-        AuthorizationData::RotatePrimaryKey,
-        None,
-    )
-    .unwrap();
-
-    // Accept the authorization with the new key
-    assert_ok!(Identity::accept_primary_key(
-        new.origin(),
-        owner_auth_id2,
-        Some(cdd_auth_id)
-    ));
-
-    // Alice's primary key is now Bob's
-    assert_eq!(alice_pk(), Sr25519Keyring::Bob.to_account_id());
-}
-#[test]
 fn rotating_primary_key_to_secondary() {
     ExtBuilder::default()
         .monied(true)
@@ -1380,7 +1318,7 @@ fn rotating_primary_key_to_secondary_we() {
     assert_eq!(alice_pk(), alice.acc());
 
     let rotate =
-        |from: Origin, auth_id: u64| Identity::rotate_primary_key_to_secondary(from, auth_id, None);
+        |from: Origin, auth_id: u64| Identity::rotate_primary_key_to_secondary(from, auth_id);
 
     assert!(rotate(charlie_origin.clone(), 0).is_err());
 
@@ -1420,68 +1358,6 @@ fn rotating_primary_key_to_secondary_we() {
         alice.did,
         &charlie.to_account_id()
     ));
-}
-
-#[test]
-fn rotating_primary_key_to_secondary_with_cdd_auth() {
-    ExtBuilder::default()
-        .monied(true)
-        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| rotating_primary_key_to_secondary_with_cdd_auth_we());
-}
-
-#[allow(deprecated)]
-fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let alice_pk = || get_primary_key(alice.did);
-    let charlie = Sr25519Keyring::Charlie;
-    let charlie_origin = Origin::signed(charlie.to_account_id());
-
-    let rotate = |from: Origin, auth_id: u64, cdd: Option<u64>| {
-        Identity::rotate_primary_key_to_secondary(from, auth_id, cdd)
-    };
-
-    let cdd_did = get_identity_id(Sr25519Keyring::Eve).unwrap();
-
-    let rotate_auth = Identity::add_auth(
-        alice.did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
-        None,
-    )
-    .unwrap();
-    let join_auth = Identity::add_auth(
-        alice.did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None,
-    )
-    .unwrap();
-    assert_ok!(Identity::join_identity(charlie_origin.clone(), join_auth));
-
-    // Primary key matches Alice's key
-    assert_eq!(alice_pk(), alice.acc());
-
-    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
-        frame_system::RawOrigin::Root.into(),
-        true
-    ));
-
-    assert!(rotate(charlie_origin.clone(), rotate_auth, None).is_err());
-
-    let cdd_auth_id = Identity::add_auth(
-        cdd_did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::AttestPrimaryKeyRotation(alice.did),
-        None,
-    )
-    .unwrap();
-
-    assert_ok!(rotate(charlie_origin, rotate_auth, Some(cdd_auth_id)));
-
-    // Alice's primary key is now Bob's
-    assert_eq!(alice_pk(), charlie.to_account_id());
 }
 
 #[test]
@@ -1694,57 +1570,6 @@ fn add_identity_signers() {
             .find(|si| **si == dave_sk)
             .is_none());
     });
-}
-
-#[test]
-fn invalidate_cdd_claims() {
-    ExtBuilder::default()
-        .balance_factor(1_000)
-        .monied(true)
-        .did_registrars(vec![
-            Sr25519Keyring::Eve.to_account_id(),
-            Sr25519Keyring::Ferdie.to_account_id(),
-        ])
-        .build()
-        .execute_with(invalidate_cdd_claims_we);
-}
-
-#[allow(deprecated)]
-fn invalidate_cdd_claims_we() {
-    let root = Origin::from(frame_system::RawOrigin::Root);
-    let cdd = Sr25519Keyring::Eve.to_account_id();
-    let alice_acc = Sr25519Keyring::Alice.to_account_id();
-    let bob_acc = Sr25519Keyring::Bob.to_account_id();
-    assert_ok!(Identity::register_did(
-        Origin::signed(cdd.clone()),
-        alice_acc,
-    ));
-    let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
-    assert_add_cdd_claim!(Origin::signed(cdd.clone()), alice_id);
-
-    // Check that Alice's ID is active DID.
-    let cdd_1_id = Identity::get_identity(&cdd).unwrap();
-    assert_eq!(Identity::is_did_active(alice_id), true);
-
-    // Disable CDD 1.
-    assert_ok!(Identity::invalidate_cdd_claims(root, cdd_1_id, 5, Some(10)));
-    assert_eq!(Identity::is_did_active(alice_id), true);
-
-    // Move to time 8... Eve is now inactive as a registrar.
-    set_timestamp(8);
-    assert_eq!(Identity::is_did_active(alice_id), true);
-    assert_noop!(
-        Identity::register_did(Origin::signed(cdd.clone()), bob_acc.clone()),
-        Error::UnAuthorizedDidRegistrar
-    );
-
-    // Move to time 11 ... Eve's registrar membership has expired.
-    set_timestamp(11);
-    assert_eq!(Identity::is_did_active(alice_id), true);
-    assert_noop!(
-        Identity::register_did(Origin::signed(cdd), bob_acc),
-        Error::UnAuthorizedDidRegistrar
-    );
 }
 
 #[test]

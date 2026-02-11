@@ -816,8 +816,8 @@ pub fn make_account_with_balance(
             Identity::get_identity(&id).unwrap()
         }
         _ => {
-            let _ = Identity::testing_register_did(id.clone(), vec![])
-                .map_err(|_| "Register DID failed")?;
+            let _ =
+                Identity::testing_register_did(id.clone()).map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }
     };

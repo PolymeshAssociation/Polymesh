@@ -955,11 +955,6 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       authorizationsGiven: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<PolymeshPrimitivesSecondaryKeySignatory>, [PolymeshPrimitivesIdentityId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, u64]>;
       /**
-       * A config flag that, if set, instructs an authorization from a DID registrar in order to
-       * change the primary key of an identity.
-       **/
-      cddAuthForPrimaryKeyRotation: AugmentedQuery<ApiType, () => Observable<bool>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * All child identities of a parent (i.e ParentDID, ChildDID, true)
        **/
       childDid: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId]>;

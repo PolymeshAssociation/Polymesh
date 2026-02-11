@@ -73,8 +73,7 @@ fn updating_controller() {
             assert_ok!(
                 pallet_identity::Pallet::<TestStorage>::rotate_primary_key_to_secondary(
                     eve.origin(),
-                    auth_id,
-                    None
+                    auth_id
                 )
             );
         });

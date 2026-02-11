@@ -186,7 +186,7 @@ impl MuliSigState {
             .api
             .call()
             .identity()
-            .accept_primary_key(auth_id, None)?;
+            .accept_primary_key(auth_id)?;
         self.run_proposal(rotate_primary_call).await
     }
 

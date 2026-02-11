@@ -70,10 +70,7 @@ pub trait IdentityFnTrait<AccountId> {
     fn is_did_locked(target_did: IdentityId) -> bool;
 
     /// Creates a new did.
-    fn testing_register_did(
-        target: AccountId,
-        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
-    ) -> Result<IdentityId, DispatchError>;
+    fn testing_register_did(target: AccountId) -> Result<IdentityId, DispatchError>;
 }
 
 pub trait SubsidiserTrait<AccountId, RuntimeCall> {
