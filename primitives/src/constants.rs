@@ -34,8 +34,6 @@ pub mod currency {
 pub mod did {
     /// prefix for user dids
     pub const USER: &[u8; 5] = b"USER:";
-    /// prefix for security token dids
-    pub const SECURITY_TOKEN: &[u8; 15] = b"SECURITY_TOKEN:";
 
     /// Governance Committee DID. It is used in systematic CDD claim for Governance Committee members.
     pub const GOVERNANCE_COMMITTEE_DID: &[u8; 32] = b"system:governance_committee\0\0\0\0\0";

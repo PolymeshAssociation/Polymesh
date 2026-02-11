@@ -456,11 +456,9 @@ async function addClaimsBatchToDid(api, accounts, dids, n_claims, fast) {
     // Holds the batch of claims
     let claims = [];
 
-    const asset_did = reqImports.tickerToDid(reqImports.ticker);
-
     // Stores the value of each claim
     let claim_record = {target: dids[0],
-                        claim: { Exempted: asset_did },
+                        claim: { Exempted: dids[0] },
                         expiry: null};
 
     // This fills the claims array with claim_values up to n_claims amount

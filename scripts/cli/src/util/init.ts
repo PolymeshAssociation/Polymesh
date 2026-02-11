@@ -230,18 +230,6 @@ export async function keyToIdentityIds(
   return <IdentityId>(0 as unknown);
 }
 
-// Returns the asset did
-export function tickerToDid(ticker: Ticker) {
-  let tickerString = String.fromCharCode.apply(ticker);
-  let tickerUintArray = Uint8Array.from(tickerString, (x) => x.charCodeAt(0));
-  return blake2AsHex(
-    u8aConcat(
-      stringToU8a("SECURITY_TOKEN:"),
-      u8aFixLength(tickerUintArray, 96, true)
-    )
-  );
-}
-
 export async function generateStashKeys(
   accounts: string[]
 ): Promise<KeyringPair[]> {

@@ -9,7 +9,7 @@ build = "build.rs"
 
 [dependencies]
 # Common
-polymesh-runtime-common = { workspace = true, default-features = false}
+polymesh-runtime-common = { workspace = true, default-features = false }
 polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-weights = { workspace = true, default-features = false }
@@ -50,7 +50,9 @@ smallvec = "1.4.0"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = [
+    "derive",
+] }
 sp-core = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
@@ -80,7 +82,6 @@ pallet-election-provider-multi-phase = { workspace = true, default-features = fa
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = false }
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
@@ -116,12 +117,9 @@ testing = []
 u64_backend = ["polymesh-primitives/u64_backend"]
 
 migration-dry-run = []
-no_std = [
-    "polymesh-primitives/no_std",
-    "u64_backend"
-]
+no_std = ["polymesh-primitives/no_std", "u64_backend"]
 std = [
-	"polymesh-build-tool/std",
+    "polymesh-build-tool/std",
     "u64_backend",
     "codec/std",
     "frame-metadata-hash-extension/std",
@@ -162,7 +160,6 @@ std = [
     "pallet-protocol-fee-rpc-runtime-api/std",
     "pallet-protocol-fee/std",
     "pallet-relayer/std",
-    "pallet-insecure-randomness-collective-flip/std",
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-settlement/std",
