@@ -16,7 +16,6 @@
 use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
-use frame_system::RawOrigin;
 use polymesh_common_utilities::identity::TargetIdAuthorization;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{

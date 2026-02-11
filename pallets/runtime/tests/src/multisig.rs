@@ -430,8 +430,6 @@ fn add_multisig_signers() {
         let bob_auth_id = get_last_auth_id(&bob_signer);
         let charlie_auth_id = get_last_auth_id(&charlie_signer);
 
-        let root = Origin::from(frame_system::RawOrigin::Root);
-
         assert_ok!(make_multisig_primary(alice, ms_address.clone()));
 
         assert_ok!(MultiSig::accept_multisig_signer(
