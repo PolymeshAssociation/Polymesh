@@ -43,7 +43,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::{extract_actual_weight, DispatchResult, GetDispatchInfo};
 use frame_support::pallet_prelude::{DispatchError, DispatchResultWithPostInfo};
 use frame_support::traits::{Contains, GetCallMetadata};
@@ -52,11 +52,10 @@ use frame_support::{ensure, fail};
 use frame_system::{ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use sp_std::vec;
 
-use polymesh_primitives::crypto::verify_signature;
+use polymesh_primitives::crypto::{ChainScopedMessage, RELAY_TX_LABEL};
 use polymesh_primitives::identity::AuthorizationNonce;
 use polymesh_primitives::traits::SubsidiserTrait;
 use polymesh_primitives::{Balance, TransactionError};
@@ -71,23 +70,6 @@ pub trait WeightInfo {
     fn decrease_polyx_limit() -> Weight;
 
     fn relay_tx() -> Weight;
-}
-
-/// Wraps a `Call` and provides uniqueness through a nonce
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-#[derive(Decode, DecodeWithMemTracking, Encode)]
-pub struct UniqueCall<C> {
-    nonce: AuthorizationNonce,
-    call: Box<C>,
-}
-
-impl<C> UniqueCall<C> {
-    pub fn new(nonce: AuthorizationNonce, call: C) -> Self {
-        Self {
-            nonce,
-            call: Box::new(call),
-        }
-    }
 }
 
 pub use pallet::*;
@@ -414,7 +396,7 @@ pub mod pallet {
         /// - `call`: Call to be relayed on behalf of target
         #[pallet::call_index(7)]
         #[pallet::weight({
-                let dispatch_info = call.call.get_dispatch_info();
+                let dispatch_info = call.get_dispatch_info();
                 (
                     <T as Config>::WeightInfo::relay_tx()
                         .saturating_add(dispatch_info.call_weight),
@@ -425,27 +407,33 @@ pub mod pallet {
             origin: OriginFor<T>,
             target: T::AccountId,
             signature: T::OffChainSignature,
-            call: UniqueCall<<T as pallet_utility::Config>::RuntimeCall>,
+            call: Box<<T as pallet_utility::Config>::RuntimeCall>,
+            expires_at: T::Moment,
         ) -> DispatchResultWithPostInfo {
             let caller = ensure_signed(origin)?;
 
-            let target_nonce = RelayTxNonces::<T>::get(&target);
-
-            ensure!(target_nonce == call.nonce, Error::<T>::InvalidNonce);
+            // Get the current nonce for the target and increment it.
+            let nonce = RelayTxNonces::<T>::mutate(&target, |nonce| {
+                let current_nonce = *nonce;
+                *nonce = current_nonce + 1;
+                current_nonce
+            });
+            // Create the chain scoped message that the target needs to have signed.
+            let scoped_call =
+                ChainScopedMessage::<T, _>::new(nonce, RELAY_TX_LABEL, expires_at, &call)
+                    .ok_or(Error::<T>::ExpiredRelayTx)?;
 
             ensure!(
-                verify_signature::<T, _, _>(&target, &signature, &call),
+                scoped_call.verify_signature(&target, &signature),
                 Error::<T>::InvalidSignature
             );
 
-            RelayTxNonces::<T>::insert(target.clone(), target_nonce + 1);
-
-            let info = call.call.get_dispatch_info();
+            let info = call.get_dispatch_info();
             // Dispatch the call with the `target` as the signed origin.
             let result = pallet_utility::Pallet::<T>::dispatch_call(
                 RawOrigin::Signed(target.clone()).into(),
                 false,
-                *call.call,
+                *call,
             );
             // Get the actual weight of this call.
             let weight = extract_actual_weight(&result, &info);
@@ -475,10 +463,8 @@ pub mod pallet {
         NoPendingSubsidy,
         /// Offchain signature is invalid
         InvalidSignature,
-        /// Provided nonce was invalid
-        /// If the provided nonce < current nonce, the call was already executed
-        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
-        InvalidNonce,
+        /// The relay transaction has expired.
+        ExpiredRelayTx,
     }
 }
 

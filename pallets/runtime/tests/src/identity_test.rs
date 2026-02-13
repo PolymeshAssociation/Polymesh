@@ -20,16 +20,18 @@ use pallet_identity::{
     CustomClaimsInverse, OffChainAuthorizationNonce, ParentDid,
 };
 use pallet_identity::{Config as IdentityConfig, Event};
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::identity::{
-    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
+use polymesh_primitives::identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth};
+use polymesh_primitives::{
+    asset::AssetId,
+    crypto::{ChainScopedMessage, IDENTITY_ADD_SECONDARY_KEY_LABEL},
 };
 use polymesh_primitives::{
-    constants::currency::POLY, traits::group::GroupTrait, traits::CurrentFeePayer, AccountId,
-    AssetPermissions, AuthorizationData, AuthorizationType, Claim, ClaimType, CustomClaimTypeId,
-    ExtrinsicName, ExtrinsicPermissions, IdentityClaim, IdentityId, KeyRecord, PalletName,
-    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
-    SubsetRestriction, SystematicIssuers, Ticker, GC_DID,
+    constants::currency::POLY, crypto::BytesWrapped, traits::group::GroupTrait,
+    traits::CurrentFeePayer, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
+    Claim, ClaimType, CustomClaimTypeId, ExtrinsicName, ExtrinsicPermissions, IdentityClaim,
+    IdentityId, KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId,
+    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, SystematicIssuers, Ticker,
+    GC_DID,
 };
 use polymesh_runtime_develop::runtime::{RuntimeCall, TxFeeHandler};
 use sp_core::H512;
@@ -79,16 +81,16 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
     )
 }
 
-fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
+fn scoped_target_id_auth(user: &User) -> (ChainScopedMessage<TestStorage, IdentityId>, u64) {
     let expires_at = 100u64;
-    (
-        TargetIdAuthorization {
-            target_id: user.did,
-            nonce: OffChainAuthorizationNonce::<TestStorage>::get(user.did),
-            expires_at,
-        },
+    let nonce = OffChainAuthorizationNonce::<TestStorage>::get(user.did);
+    let message = ChainScopedMessage::new_unchecked(
+        nonce,
+        IDENTITY_ADD_SECONDARY_KEY_LABEL,
         expires_at,
-    )
+        user.did,
+    );
+    (message, expires_at)
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -566,9 +568,11 @@ fn do_add_secondary_keys_with_permissions_test() {
     );
 
     // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
-    let (authorization, expires_at) = target_id_auth(alice);
-    let auth_encoded = authorization.encode();
-    let auth_signature = H512::from(alice.ring.sign(&auth_encoded));
+    let (authorization, expires_at) = scoped_target_id_auth(&alice);
+    let signature = authorization
+        .sign(&alice.ring)
+        .expect("Signing should not fail");
+    let auth_signature = H512::from(signature.as_ref());
 
     let key_with_auth = SecondaryKeyWithAuth {
         auth_signature,
@@ -902,8 +906,8 @@ fn one_step_join_id() {
 fn one_step_join_id_with_ext() {
     let a = User::new(Sr25519Keyring::Alice);
 
-    let (authorization, expires_at) = target_id_auth(a);
-    let auth_encoded = authorization.encode();
+    let (scoped_auth, expires_at) = scoped_target_id_auth(&a);
+    let auth_encoded = BytesWrapped(&scoped_auth).encode();
 
     let keys = [
         Sr25519Keyring::Bob,
@@ -938,10 +942,13 @@ fn one_step_join_id_with_ext() {
     set_timestamp(expires_at);
 
     let f = User::new(Sr25519Keyring::Ferdie);
-    let (ferdie_auth, _) = target_id_auth(a);
+    let (ferdie_auth, _) = scoped_target_id_auth(&a);
+    let signature = ferdie_auth
+        .sign(&f.ring)
+        .expect("Failed to sign the authorization");
     let ferdie_secondary_key_with_auth = SecondaryKeyWithAuth {
         secondary_key: SecondaryKey::from_account_id(f.acc()).into(),
-        auth_signature: H512::from(Sr25519Keyring::Eve.sign(ferdie_auth.encode().as_slice())),
+        auth_signature: H512::from(signature.as_ref()),
     };
 
     assert_noop!(
@@ -1007,17 +1014,18 @@ fn add_secondary_keys_with_authorization_duplicate_keys() {
         let bob = User::new_with(user.did, Sr25519Keyring::Bob);
 
         let expires_at = 100;
-        let auth = || {
-            let auth = TargetIdAuthorization {
-                target_id: user.did,
-                nonce: OffChainAuthorizationNonce::<TestStorage>::get(user.did),
-                expires_at,
-            };
-            auth.encode()
-        };
+        let nonce = OffChainAuthorizationNonce::<TestStorage>::get(user.did);
+        let scoped = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            nonce,
+            IDENTITY_ADD_SECONDARY_KEY_LABEL,
+            expires_at,
+            &user.did,
+        );
 
-        let auth_encoded = auth();
-        let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
+        let signature = scoped
+            .sign(&bob.ring)
+            .expect("Failed to sign the authorization");
+        let auth_signature = H512::from(signature);
 
         let secondary_key = SecondaryKey::new(bob.acc(), Permissions::default());
         let auths = vec![
@@ -1043,19 +1051,11 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
         let user = User::new(Sr25519Keyring::Alice);
         let bob = User::new_with(user.did, Sr25519Keyring::Bob);
 
-        let expires_at = 100;
-        let auth = || {
-            let auth = TargetIdAuthorization {
-                target_id: user.did,
-                nonce: OffChainAuthorizationNonce::<TestStorage>::get(user.did),
-                expires_at,
-            };
-            auth.encode()
-        };
+        let (scoped_auth, expires_at) = scoped_target_id_auth(&user);
+        let auth_encoded = BytesWrapped(&scoped_auth).encode();
 
         // Test various length problems in `Permissions`.
         test_with_bad_perms(user.did, |perms| {
-            let auth_encoded = auth();
             let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
 
             let secondary_key = SecondaryKey::new(bob.acc(), perms);
@@ -1080,7 +1080,6 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
         }
 
         // No Secondary key limit.
-        let auth_encoded = auth();
         assert_ok!(Identity::add_secondary_keys_with_authorization(
             user.origin(),
             secondary_keys_with_auth(&[bob], &auth_encoded),
@@ -2114,20 +2113,13 @@ fn do_create_child_identities_with_auth_test() {
     // Create some secondary keys.
     add_secondary_key(alice.did, charlie.acc());
 
-    let expires_at = 100;
-    let auth = || {
-        let auth = TargetIdAuthorization {
-            target_id: alice.did,
-            nonce: OffChainAuthorizationNonce::<TestStorage>::get(alice.did),
-            expires_at,
-        };
-        auth.encode()
-    };
+    let (authorization, expires_at) = scoped_target_id_auth(&alice);
+
     let create_with_auth = |child: Sr25519Keyring| {
-        let auth_encoded = auth();
+        let signature = authorization.sign(&child).expect("Signing should not fail");
         CreateChildIdentityWithAuth {
             key: child.to_account_id(),
-            auth_signature: H512::from(child.sign(&auth_encoded)),
+            auth_signature: H512::from(signature.as_ref()),
         }
     };
 

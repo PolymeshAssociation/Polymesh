@@ -27,13 +27,11 @@ use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_primitives::constants::did::USER;
-use polymesh_primitives::crypto::verify_any_signature;
+use polymesh_primitives::crypto::{ChainScopedMessage, IDENTITY_ADD_SECONDARY_KEY_LABEL};
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
-use polymesh_primitives::identity::{
-    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
-};
+use polymesh_primitives::identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_primitives::SystematicIssuers;
 use polymesh_primitives::{
@@ -474,14 +472,21 @@ impl<T: Config> Pallet<T> {
         // Make sure `parent_did` has no parent.
         Self::ensure_no_parent(parent_did)?;
 
-        // Create authorization data that the child keys need to sign.
-        let now = <pallet_timestamp::Pallet<T>>::get();
-        ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
-        let authorization = TargetIdAuthorization {
-            target_id: parent_did,
-            nonce: OffChainAuthorizationNonce::<T>::get(parent_did),
+        // Update that identity's offchain authorization nonce.
+        let nonce = OffChainAuthorizationNonce::<T>::mutate(parent_did, |nonce| {
+            let auth_nonce = *nonce;
+            *nonce = auth_nonce + 1;
+            auth_nonce
+        });
+
+        // Create authorization data that the keys need to sign.
+        let authorization = ChainScopedMessage::<T, _>::new(
+            nonce,
+            IDENTITY_ADD_SECONDARY_KEY_LABEL,
             expires_at,
-        };
+            parent_did,
+        )
+        .ok_or(Error::<T>::AuthorizationExpired)?;
 
         // Verify signatures.
         let mut keys = BTreeSet::new();
@@ -495,7 +500,7 @@ impl<T: Config> Pallet<T> {
 
             // Verify the signature.
             ensure!(
-                verify_any_signature::<T, _>(&auth.key, auth.auth_signature, &authorization),
+                authorization.verify_any_signature(&auth.key, auth.auth_signature),
                 Error::<T>::InvalidAuthorizationSignature
             );
         }
@@ -512,11 +517,6 @@ impl<T: Config> Pallet<T> {
             let child_did = Self::make_did()?;
             children.push((auth.key, child_did));
         }
-
-        // Update that identity's offchain authorization nonce.
-        OffChainAuthorizationNonce::<T>::mutate(parent_did, |nonce| {
-            *nonce = authorization.nonce + 1
-        });
 
         for (key, child_did) in children {
             // Create a new identity record and link the primary key.
@@ -600,22 +600,27 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
 
-        // Check expiration
-        let now = <pallet_timestamp::Pallet<T>>::get();
-        ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
-
         // Charge the fee.
         T::ProtocolFee::batch_charge_fee(
             ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             keys.len(),
         )?;
 
+        // Update that identity's offchain authorization nonce.
+        let nonce = OffChainAuthorizationNonce::<T>::mutate(did, |nonce| {
+            let auth_nonce = *nonce;
+            *nonce = auth_nonce + 1;
+            auth_nonce
+        });
+
         // Create authorization data that the keys need to sign.
-        let authorization = TargetIdAuthorization {
-            target_id: did,
-            nonce: OffChainAuthorizationNonce::<T>::get(did),
+        let authorization = ChainScopedMessage::<T, _>::new(
+            nonce,
+            IDENTITY_ADD_SECONDARY_KEY_LABEL,
             expires_at,
-        };
+            did,
+        )
+        .ok_or(Error::<T>::AuthorizationExpired)?;
 
         // Verify signatures.
         let mut additional_keys_si = Vec::with_capacity(keys.len());
@@ -637,7 +642,7 @@ impl<T: Config> Pallet<T> {
 
             // Verify the signature.
             ensure!(
-                verify_any_signature::<T, _>(&secondary_key.key, auth_signature, &authorization),
+                authorization.verify_any_signature(&secondary_key.key, auth_signature),
                 Error::<T>::InvalidAuthorizationSignature
             );
 
@@ -649,9 +654,6 @@ impl<T: Config> Pallet<T> {
             Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(did));
             Self::set_key_permissions(&sk.key, &sk.permissions);
         }
-
-        // Update that identity's offchain authorization nonce.
-        OffChainAuthorizationNonce::<T>::mutate(did, |nonce| *nonce = authorization.nonce + 1);
 
         Self::deposit_event(Event::SecondaryKeysAdded(did, additional_keys_si));
         Ok(())

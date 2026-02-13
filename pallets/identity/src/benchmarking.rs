@@ -20,9 +20,9 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
 };
-use polymesh_primitives::identity::TargetIdAuthorization;
 use polymesh_primitives::secondary_key::ExtrinsicNames;
 use polymesh_primitives::{
+    crypto::{ChainScopedMessage, IDENTITY_ADD_SECONDARY_KEY_LABEL},
     AssetPermissions, AuthorizationData, Claim, CountryCode, ExtrinsicName, ExtrinsicPermissions,
     PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, PortfolioPermissions,
     Scope, SecondaryKey, Signatory,
@@ -70,18 +70,19 @@ benchmarks! {
         let parent_did = parent.did.unwrap();
 
         let expires_at: T::Moment = 600u32.into();
-        let authorization = TargetIdAuthorization::<T::Moment> {
-            target_id: parent_did,
-            nonce: OffChainAuthorizationNonce::<T>::get(parent_did),
+        let nonce = OffChainAuthorizationNonce::<T>::get(parent_did);
+        let authorization = ChainScopedMessage::<T, _>::new_unchecked(
+            nonce,
+            IDENTITY_ADD_SECONDARY_KEY_LABEL,
             expires_at,
-        };
-        let auth_encoded = authorization.encode();
+            parent_did,
+        );
 
         let child_keys_with_auth = (0..i).map(|x| {
             let user = user_without_did::<T>("key", x);
             CreateChildIdentityWithAuth {
                 key: user.account(),
-                auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
+                auth_signature: H512::from(authorization.native_sign(&user.secret.as_ref().unwrap().to_bytes()).unwrap()),
             }
         }).collect::<Vec<_>>();
     }: _(parent.origin, child_keys_with_auth.clone(), expires_at)
@@ -337,18 +338,19 @@ benchmarks! {
         let caller = user::<T>("caller", SEED);
 
         let expires_at: T::Moment = 600u32.into();
-        let authorization = TargetIdAuthorization::<T::Moment> {
-            target_id: caller.did(),
-            nonce: OffChainAuthorizationNonce::<T>::get(caller.did()),
+        let nonce = OffChainAuthorizationNonce::<T>::get(caller.did());
+        let authorization = ChainScopedMessage::<T, _>::new_unchecked(
+            nonce,
+            IDENTITY_ADD_SECONDARY_KEY_LABEL,
             expires_at,
-        };
-        let auth_encoded = authorization.encode();
+            caller.did(),
+        );
 
         let secondary_keys_with_auth = (0..i).map(|x| {
             let user = user_without_did::<T>("key", x);
             SecondaryKeyWithAuth {
                 secondary_key: SecondaryKey::from_account_id(user.account()).into(),
-                auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
+                auth_signature: H512::from(authorization.native_sign(&user.secret.as_ref().unwrap().to_bytes()).unwrap()),
             }
         }).collect::<Vec<_>>();
     }: _(caller.origin, secondary_keys_with_auth, expires_at)

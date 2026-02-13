@@ -14,6 +14,7 @@ codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-runtime = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
+pallet-timestamp = { workspace = true, default-features = false }
 scale-info = { workspace = true, default-features = false, features = [
     "derive",
 ] }
@@ -33,6 +34,7 @@ std = [
     "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-timestamp/std",
     "sp-std/std",
     "sp-core/std",
     "pallet-identity/std",

@@ -46,34 +46,36 @@ fn setup_subsidy<T: Config>(limit: u128) -> (User<T>, User<T>) {
     (payer, user)
 }
 
-/// Generate `c` no-op system remark calls.
-fn make_calls<T: Config>(c: u32) -> Vec<<T as pallet_utility::Config>::RuntimeCall> {
-    let call: <T as pallet_utility::Config>::RuntimeCall =
-        frame_system::Call::<T>::remark { remark: vec![] }.into();
-    vec![call; c as usize]
-}
-
-fn remark_call_builder<T: Config>(
+fn relay_remark_call_builder<T: Config>(
     signer: &User<T>,
-    _: T::AccountId,
 ) -> (
-    UniqueCall<<T as pallet_utility::Config>::RuntimeCall>,
+    Box<<T as pallet_utility::Config>::RuntimeCall>,
+    T::Moment,
     Vec<u8>,
 ) {
-    let call = make_calls::<T>(1).pop().unwrap();
+    let call: Box<<T as pallet_utility::Config>::RuntimeCall> =
+        Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+    let expires_at = pallet_timestamp::Pallet::<T>::get() + 1000u32.into();
     let nonce: AuthorizationNonce = RelayTxNonces::<T>::get(signer.account());
-    let call = UniqueCall::new(nonce, call);
+    let scoped_call =
+        ChainScopedMessage::<T, _>::new_unchecked(nonce, RELAY_TX_LABEL, expires_at, &call);
 
     // Signer signs the relay call.
     // NB: Decode as T::OffChainSignature because there is not type constraints in
     // `T::OffChainSignature` to limit it.
-    let raw_signature: [u8; 64] = signer
-        .sign(&call.encode())
+    let raw_signature = scoped_call
+        .native_sign(
+            &signer
+                .secret
+                .as_ref()
+                .expect("User without secret key")
+                .to_bytes(),
+        )
         .expect("Data cannot be signed")
         .0;
     let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
 
-    (call, encoded)
+    (call, expires_at, encoded)
 }
 
 #[track_caller]
@@ -137,13 +139,13 @@ benchmarks! {
 
     relay_tx {
         let (caller, target) = setup_users::<T>();
-        let (call, encoded) = remark_call_builder( &target, caller.account());
+        let (call, expires_at, encoded) = relay_remark_call_builder(&target);
 
         // Rebuild signature from `encoded`.
         let signature = T::OffChainSignature::decode(&mut &encoded[..])
             .expect("OffChainSignature cannot be decoded from a MultiSignature");
 
-    }: _(caller.origin.clone(), target.account(), signature, call)
+    }: _(caller.origin.clone(), target.account(), signature, call, expires_at)
     verify {
         // NB see comment at `batch` verify section.
     }

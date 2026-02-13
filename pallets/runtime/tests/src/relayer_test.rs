@@ -1,8 +1,8 @@
-use codec::Encode;
 use frame_support::dispatch::{DispatchInfo, Pays, PostDispatchInfo};
 use frame_support::weights::Weight;
 use frame_support::{assert_noop, assert_ok};
 use frame_system;
+use polymesh_primitives::crypto::{ChainScopedMessage, RELAY_TX_LABEL};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::{Dispatchable, TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::TransactionSource;
@@ -11,7 +11,7 @@ use sp_runtime::MultiAddress;
 use sp_runtime::MultiSignature;
 
 use pallet_balances::Call as BalancesCall;
-use pallet_relayer::{RelayTxNonces, Subsidy, UniqueCall};
+use pallet_relayer::{RelayTxNonces, Subsidy};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::traits::CurrentFeePayer;
@@ -19,6 +19,7 @@ use polymesh_primitives::{AccountId, Balance, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{RuntimeCall as DevRuntimeCall, TxFeeHandler};
 use polymesh_transaction_payment::Val;
 
+use super::asset_test::set_timestamp;
 use super::pips_test::assert_balance;
 use super::storage::{register_keyring_account_with_balance, RuntimeCall, TestStorage, User};
 use super::ExtBuilder;
@@ -703,19 +704,23 @@ fn _relay_happy_case() {
     assert_balance(charlie.clone(), 1041, 0);
 
     let origin = RuntimeOrigin::signed(alice);
-    let transaction = UniqueCall::new(
-        RelayTxNonces::<TestStorage>::get(bob.clone()),
-        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: charlie.clone().into(),
-            value: 50,
-        }),
-    );
+    let nonce = RelayTxNonces::<TestStorage>::get(bob.clone());
+    let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+        dest: charlie.clone().into(),
+        value: 50,
+    }));
+    let expires_at = 100u64;
+    let scoped_call =
+        ChainScopedMessage::<TestStorage, _>::new(nonce, RELAY_TX_LABEL, expires_at, &call)
+            .expect("Shouldn't be expired");
+    let signature = scoped_call.sign(&Sr25519Keyring::Bob).expect("Should sign");
 
     assert_ok!(Relayer::relay_tx(
         origin,
         bob.clone(),
-        Sr25519Keyring::Bob.sign(&transaction.encode()).into(),
-        transaction
+        signature.into(),
+        call,
+        expires_at
     ));
 
     assert_balance(bob, 991, 0);
@@ -738,37 +743,29 @@ fn _relay_unhappy_cases() {
     let charlie = Sr25519Keyring::Charlie.to_account_id();
 
     let origin = RuntimeOrigin::signed(alice);
-    let transaction = UniqueCall::new(
-        RelayTxNonces::<TestStorage>::get(bob.clone()),
-        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: charlie.clone().into(),
-            value: 59,
-        }),
-    );
-
+    let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+        dest: charlie.clone().into(),
+        value: 59,
+    }));
+    let expires_at = 100u64;
     let signature = MultiSignature::Sr25519(Default::default());
     assert_noop!(
         Relayer::relay_tx(
             origin.clone(),
             bob.clone(),
             signature.clone(),
-            transaction.clone()
+            call.clone(),
+            expires_at,
         ),
         Error::InvalidSignature
     );
 
     let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
 
-    let transaction = UniqueCall::new(
-        RelayTxNonces::<TestStorage>::get(bob.clone()) + 1,
-        RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: charlie.into(),
-            value: 59,
-        }),
-    );
+    set_timestamp(expires_at);
 
     assert_noop!(
-        Relayer::relay_tx(origin.clone(), bob, signature, transaction),
-        Error::InvalidNonce
+        Relayer::relay_tx(origin.clone(), bob, signature, call, expires_at),
+        Error::ExpiredRelayTx
     );
 }

@@ -1,7 +1,7 @@
 [package]
 name = "polymesh-primitives"
 version = "5.0.0"
-authors = [ "Polymesh Association" ]
+authors = ["Polymesh Association"]
 license-file = "../LICENSE"
 repository = "https://github.com/PolymeshAssociation/Polymesh"
 description = "Polymesh Primitives"
@@ -12,8 +12,13 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
 
 [dependencies]
 chrono = { version = "0.4", default-features = false }
-serde = { version = "1.0.104", default-features = false, features = ["alloc", "derive"] }
-serde_bytes = { version = "0.11.14", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.104", default-features = false, features = [
+  "alloc",
+  "derive",
+] }
+serde_bytes = { version = "0.11.14", default-features = false, features = [
+  "alloc",
+] }
 rand_core = { version = "0.6", default-features = false }
 rand = { version = "0.8", default-features = false, optional = true }
 rustc-hex = { version = "2.1.0", default-features = false }
@@ -30,7 +35,11 @@ schnorrkel = { version = "0.11", default-features = false }
 codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
-scale-info = { workspace = true, default-features = false, features = ["derive", "decode"] }
+pallet-timestamp = { workspace = true, default-features = false }
+scale-info = { workspace = true, default-features = false, features = [
+  "derive",
+  "decode",
+] }
 sp-application-crypto = { workspace = true, default-features = false, optional = true }
 sp-arithmetic = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
@@ -39,8 +48,12 @@ sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 sp-runtime-interface = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
+sp-keyring = { workspace = true, default-features = false }
 sp-version = { workspace = true, default-features = false }
-libsecp256k1 = { version = "0.7", default-features = false, features = ["hmac", "static-context"] }
+libsecp256k1 = { version = "0.7", default-features = false, features = [
+  "hmac",
+  "static-context",
+] }
 
 [dev-dependencies]
 hex = { version = "^0.4.0", default-features = false }
@@ -55,29 +68,31 @@ u64_backend = []
 no_std = ["u64_backend"]
 
 std = [
-		"u64_backend",
-    "chrono/std",
-    "codec/std",
-    "frame-support/std",
-    "frame-system/std",
-    "serde/std",
-    "serde_bytes/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-runtime-interface/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "sp-version/std",
+  "u64_backend",
+  "chrono/std",
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-timestamp/std",
+  "serde/std",
+  "serde_bytes/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime-interface/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-keyring/std",
+  "sp-version/std",
 
-    # Crypto
-    "polymesh-primitives-derive/std",
-    "schnorrkel/std",
-    "sp-application-crypto/std",
+  # Crypto
+  "polymesh-primitives-derive/std",
+  "schnorrkel/std",
+  "sp-application-crypto/std",
 
-    # Rng
-    "rand/std",
-    "rand/std_rng",
-    "rand_core/std",
+  # Rng
+  "rand/std",
+  "rand/std_rng",
+  "rand_core/std",
 ]
 
 runtime-benchmarks = []
