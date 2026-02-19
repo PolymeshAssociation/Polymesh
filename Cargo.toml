@@ -104,6 +104,7 @@ members = [
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/relayer",
+    "pallets/stable-api-precompiles",
     "pallets/runtime/common",
     "pallets/runtime/develop",
     "pallets/runtime/mainnet",
@@ -178,6 +179,7 @@ polymesh-transaction-payment = { path = "pallets/transaction-payment", default-f
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
+polymesh-stable-api-precompiles = { path = "pallets/stable-api-precompiles", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }

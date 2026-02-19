@@ -33,10 +33,7 @@ polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
-polymesh-primitives = { workspace = true, default-features = false }
-polymesh-runtime-common = { workspace = true, default-features = false }
-polymesh-runtime-develop = { workspace = true }
-polymesh-weights = { workspace = true, default-features = false }
+polymesh-stable-api-precompiles = { workspace = true, default-features = false }
 polymesh-exec-macro = { path = "exec_macro" }
 
 # Others
@@ -175,7 +172,7 @@ std = [
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "polymesh-contracts/std",
-    "polymesh-weights/std",
+    "polymesh-stable-api-precompiles/std",
     "serde/std",
     "sp-authority-discovery/std",
     "sp-arithmetic/std",

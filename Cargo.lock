@@ -11164,6 +11164,7 @@ dependencies = [
  "polymesh-dart",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-stable-api-precompiles",
  "polymesh-transaction-payment",
  "polymesh-weights",
  "scale-info",
@@ -11251,6 +11252,7 @@ dependencies = [
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-stable-api-precompiles",
  "polymesh-transaction-payment",
  "polymesh-weights",
  "scale-info",
@@ -11342,6 +11344,7 @@ dependencies = [
  "polymesh-dart",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-stable-api-precompiles",
  "polymesh-transaction-payment",
  "polymesh-weights",
  "scale-info",
@@ -11435,6 +11438,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
+ "polymesh-stable-api-precompiles",
  "polymesh-transaction-payment",
  "polymesh-weights",
  "rand 0.8.6",
@@ -11463,6 +11467,23 @@ dependencies = [
  "sp-version",
  "substrate-test-utils",
  "wat",
+]
+
+[[package]]
+name = "polymesh-stable-api-precompiles"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "pallet-asset",
+ "pallet-corporate-actions",
+ "pallet-identity",
+ "pallet-nft",
+ "pallet-portfolio",
+ "pallet-revive",
+ "pallet-settlement",
+ "polymesh-primitives",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

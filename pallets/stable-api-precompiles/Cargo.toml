@@ -1,0 +1,52 @@
+[package]
+name = "polymesh-stable-api-precompiles"
+version = "0.1.0"
+authors = ["PolymeshAssociation"]
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+
+sp-core = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+
+# Substrate pallets
+pallet-revive = { workspace = true, default-features = false }
+
+# Polymesh pallets
+pallet-asset = { workspace = true, default-features = false }
+pallet-corporate-actions = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
+pallet-nft = { workspace = true, default-features = false }
+pallet-portfolio = { workspace = true, default-features = false }
+pallet-settlement = { workspace = true, default-features = false }
+
+# Polymesh primitives
+polymesh-primitives = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "sp-core/std",
+    "sp-runtime/std",
+    "pallet-revive/std",
+    "pallet-asset/std",
+    "pallet-corporate-actions/std",
+    "pallet-identity/std",
+    "pallet-nft/std",
+    "pallet-portfolio/std",
+    "pallet-settlement/std",
+    "polymesh-primitives/std",
+]
+runtime-benchmarks = [
+    "pallet-revive/runtime-benchmarks",
+    "pallet-asset/runtime-benchmarks",
+    "pallet-corporate-actions/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
+    "pallet-nft/runtime-benchmarks",
+    "pallet-portfolio/runtime-benchmarks",
+    "pallet-settlement/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
+]
+try-runtime = ["pallet-revive/try-runtime"]

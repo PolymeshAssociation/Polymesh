@@ -39,6 +39,7 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
+polymesh-stable-api-precompiles = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Others
@@ -174,6 +175,7 @@ std = [
     "pallet-treasury/std",
     "pallet-utility/std",
     "polymesh-contracts/std",
+    "polymesh-stable-api-precompiles/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
@@ -232,6 +234,7 @@ runtime-benchmarks = [
     "pallet-utility/runtime-benchmarks",
     "pallet-validators/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
+    "polymesh-stable-api-precompiles/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
 ]
 
