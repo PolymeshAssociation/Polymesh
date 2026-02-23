@@ -474,7 +474,7 @@
         "IdentityCreateChildIdentity"
       ]
     },
-    "CddStatus": {
+    "DidActiveStatus": {
       "_enum": {
         "Ok": "IdentityId",
         "Err": "Vec<u8>"
@@ -525,7 +525,7 @@
       "_enum": {
         "Unknown": "",
         "Exists": "",
-        "CddVerified": ""
+        "Active": ""
       }
     },
     "PortfolioNumber": "u64",
@@ -660,27 +660,6 @@
   },
   "rpc": {
     "identity": {
-      "isIdentityHasValidCdd": {
-        "description": "use to tell whether the given did has valid cdd claim or not",
-        "params": [
-          {
-            "name": "did",
-            "type": "IdentityId",
-            "isOptional": false
-          },
-          {
-            "name": "buffer_time",
-            "type": "u64",
-            "isOptional": true
-          },
-          {
-            "name": "blockHash",
-            "type": "Hash",
-            "isOptional": true
-          }
-        ],
-        "type": "CddStatus"
-      },
       "getDidRecords": {
         "description": "Used to get the did record values for a given DID",
         "params": [
@@ -754,27 +733,6 @@
           }
         ],
         "type": "Option<KeyIdentityData>"
-      },
-      "validCDDClaims": {
-        "description": "Returns all valid IdentityClaim of type CustomerDueDiligence for the given target_identity",
-        "params": [
-          {
-            "name": "target_identity",
-            "type": "IdentityId",
-            "isOptional": false
-          },
-          {
-            "name": "cdd_checker_leeway",
-            "type": "u64",
-            "isOptional": true
-          },
-          {
-            "name": "blockHash",
-            "type": "Hash",
-            "isOptional": true
-          }
-        ],
-        "type": "Vec<IdentityClaim>"
       }
     },
     "pips": {
@@ -1091,20 +1049,6 @@
     "IdentityApi": [
       {
         "methods": {
-          "is_identity_has_valid_cdd": {
-            "description": "use to tell whether the given did has valid cdd claim or not",
-            "params": [
-              {
-                "name": "did",
-                "type": "IdentityId"
-              },
-              {
-                "name": "buffer_time",
-                "type": "Option<u64>"
-              }
-            ],
-            "type": "CddStatus"
-          },
           "get_did_records": {
             "description": "Used to get the did record values for a given DID",
             "params": [
@@ -1152,20 +1096,6 @@
               }
             ],
             "type": "Option<KeyIdentityData>"
-          },
-          "valid_cdd_claims": {
-            "description": "Returns all valid IdentityClaim of type CustomerDueDiligence for the given target_identity",
-            "params": [
-              {
-                "name": "target_identity",
-                "type": "IdentityId"
-              },
-              {
-                "name": "cdd_checker_leeway",
-                "type": "Option<u64>"
-              }
-            ],
-            "type": "Vec<IdentityClaim>"
           }
         },
         "version": 4

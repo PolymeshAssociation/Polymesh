@@ -120,6 +120,29 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       [key: string]: Codec;
     };
+    beefy: {
+      /**
+       * The maximum number of authorities that can be added.
+       **/
+      maxAuthorities: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of nominators for each validator.
+       **/
+      maxNominators: u32 & AugmentedConst<ApiType>;
+      /**
+       * The maximum number of entries to keep in the set id to session index mapping.
+       * 
+       * Since the `SetIdSession` map is only used for validating equivocations this
+       * value should relate to the bonding duration of whatever staking system is
+       * being used (if any). If equivocation handling is not enabled then this value
+       * can be zero.
+       **/
+      maxSetIdSessionEntries: u64 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
     complianceManager: {
       /**
        * The maximum claim reads that are allowed to happen in worst case of a condition resolution
@@ -239,8 +262,13 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       betterSignedThreshold: Perbill & AugmentedConst<ApiType>;
       /**
-       * The maximum number of winners that can be elected by this `ElectionProvider`
-       * implementation.
+       * Maximum number of voters that can support a winner in an election solution.
+       * 
+       * This is needed to ensure election computation is bounded.
+       **/
+      maxBackersPerWinner: u32 & AugmentedConst<ApiType>;
+      /**
+       * Maximum number of winners that an election supports.
        * 
        * Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
        **/
@@ -328,6 +356,11 @@ declare module '@polkadot/api-base/types/consts' {
        **/
       initialPOLYX: u128 & AugmentedConst<ApiType>;
       /**
+       * Maximum number of retry attempts allowed for an authorization
+       * before it is considered unusable.
+       **/
+      maxAuthRetries: u8 & AugmentedConst<ApiType>;
+      /**
        * Maximum number of authorizations an identity can give.
        **/
       maxGivenAuths: u32 & AugmentedConst<ApiType>;
@@ -414,6 +447,16 @@ declare module '@polkadot/api-base/types/consts' {
        * higher limit under `runtime-benchmarks` feature.
        **/
       maxScheduledPerBlock: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
+    session: {
+      /**
+       * The amount to be held when setting keys.
+       **/
+      keyDeposit: u128 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/
@@ -512,6 +555,10 @@ declare module '@polkadot/api-base/types/consts' {
        * this effect.
        **/
       maxUnlockingChunks: u32 & AugmentedConst<ApiType>;
+      /**
+       * The absolute maximum of winner validators this pallet should return.
+       **/
+      maxValidatorSet: u32 & AugmentedConst<ApiType>;
       /**
        * Number of sessions per era.
        **/

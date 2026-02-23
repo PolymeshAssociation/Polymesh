@@ -234,9 +234,7 @@ pub mod pallet {
         /// Offchain signature is invalid
         /// POLYMESH error
         InvalidSignature,
-        /// Target does not have a valid CDD
-        /// POLYMESH error
-        TargetCddMissing,
+
         /// Provided nonce was invalid
         /// If the provided nonce < current nonce, the call was already executed
         /// If the provided nonce > current nonce, the call(s) before the current failed to execute

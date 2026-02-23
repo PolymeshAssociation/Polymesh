@@ -61,7 +61,7 @@ type Details = pallet_corporate_actions::Details<TestStorage>;
 type CAIdSequence = pallet_corporate_actions::CAIdSequence<TestStorage>;
 type CorporateActions = pallet_corporate_actions::CorporateActions<TestStorage>;
 
-const CDDP: Sr25519Keyring = Sr25519Keyring::Eve;
+const DIDR: Sr25519Keyring = Sr25519Keyring::Eve;
 
 const P0: Permill = Permill::zero();
 const P25: Permill = Permill::from_percent(25);
@@ -71,7 +71,7 @@ const P75: Permill = Permill::from_percent(75);
 #[track_caller]
 fn test(logic: impl FnOnce(AssetId, [User; 3])) {
     ExtBuilder::default()
-        .cdd_providers(vec![CDDP.to_account_id()])
+        .did_registrars(vec![DIDR.to_account_id()])
         .build()
         .execute_with(|| {
             System::set_block_number(1);

@@ -387,7 +387,7 @@ fn do_relayer_user_key_without_cdd_test() {
         10u128
     ));
 
-    // Bob tries to accept the paying key, without having a CDD.
+    // Bob tries to accept the paying key, without having a DID.
     let auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
     assert_ok!(Relayer::accept_paying_key(bob_sign, auth_id),);
 }
@@ -408,7 +408,7 @@ fn do_relayer_paying_key_without_cdd_test() {
     assert_ok!(Relayer::set_paying_key(bob_sign, alice.acc(), 10u128));
 
     // Alice tries to accept the paying key, but the paying key
-    // is without a CDD.
+    // is without a DID.
     let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
     assert_ok!(Relayer::accept_paying_key(alice.origin(), auth_id),);
 }

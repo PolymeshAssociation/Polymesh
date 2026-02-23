@@ -191,8 +191,8 @@ pub mod pallet {
         /// - `Error::BadAuthorizationType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
         /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
         /// - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
-        /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
-        /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
+        /// - `UserKeyDidMissing` if the `user_key` is not attached to an active identity.
+        /// - `PayingKeyDidMissing` if the `paying_key` is not attached to an active identity.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::accept_paying_key())]
@@ -286,10 +286,10 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The `user_key` is not attached to a CDD'd identity.
-        UserKeyCddMissing,
-        /// The `user_key` is not attached to a CDD'd identity.
-        PayingKeyCddMissing,
+        /// The `user_key` is not attached to an active DID.
+        UserKeyDidInactive,
+        /// The `paying_key` is not attached to an active DID.
+        PayingKeyDidInactive,
         /// The `user_key` doesn't have a `paying_key`.
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
@@ -479,6 +479,16 @@ impl<T: Config> Pallet<T> {
         ensure!(
             <Identity<T>>::get_identity(&paying_key) == Some(from),
             Error::<T>::NotAuthorizedForPayingKey
+        );
+
+        // Ensure both user_key and paying_key are attached to active DIDs.
+        ensure!(
+            !<Identity<T>>::is_did_locked(user_did),
+            Error::<T>::UserKeyDidInactive
+        );
+        ensure!(
+            !<Identity<T>>::is_did_locked(from),
+            Error::<T>::PayingKeyDidInactive
         );
 
         // Remove existing subsidy for the user_key, if it exists.

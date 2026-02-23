@@ -47,7 +47,7 @@ type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
+type DidRegistrars = <TestStorage as IdentityConfig>::DidRegistrars;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;
 
@@ -1090,11 +1090,12 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn secondary_key_with_bad_permissions() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![
+        .did_registrars(vec![
             Sr25519Keyring::Eve.to_account_id(),
             Sr25519Keyring::Ferdie.to_account_id(),
         ])
@@ -1239,7 +1240,7 @@ fn removing_authorizations() {
 fn changing_primary_key() {
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(changing_primary_key_we);
 }
@@ -1262,7 +1263,7 @@ fn changing_primary_key_we() {
         .unwrap()
     };
     let accept = |ring: Sr25519Keyring, auth| {
-        Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth, None)
+        Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth)
     };
 
     // In the case of a key belong to key DID for which we're rotating, we don't allow rotation.
@@ -1298,71 +1299,10 @@ fn changing_primary_key_we() {
 }
 
 #[test]
-fn changing_primary_key_with_cdd_auth() {
-    ExtBuilder::default()
-        .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| changing_primary_key_with_cdd_auth_we());
-}
-
-fn changing_primary_key_with_cdd_auth_we() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let alice_pk = || get_primary_key(alice.did);
-    let new = User::new_with(alice.did, Sr25519Keyring::Bob);
-
-    let cdd_did = get_identity_id(Sr25519Keyring::Eve).unwrap();
-
-    // Primary key matches Alice's key
-    assert_eq!(alice_pk(), alice.acc());
-
-    // Alice triggers change of primary key
-    let owner_auth_id = Identity::add_auth(
-        alice.did,
-        new.signatory_acc(),
-        AuthorizationData::RotatePrimaryKey,
-        None,
-    )
-    .unwrap();
-
-    let cdd_auth_id = Identity::add_auth(
-        cdd_did,
-        new.signatory_acc(),
-        AuthorizationData::AttestPrimaryKeyRotation(alice.did),
-        None,
-    )
-    .unwrap();
-
-    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
-        frame_system::RawOrigin::Root.into(),
-        true
-    ));
-
-    assert!(Identity::accept_primary_key(new.origin(), owner_auth_id.clone(), None).is_err());
-
-    let owner_auth_id2 = Identity::add_auth(
-        alice.did,
-        new.signatory_acc(),
-        AuthorizationData::RotatePrimaryKey,
-        None,
-    )
-    .unwrap();
-
-    // Accept the authorization with the new key
-    assert_ok!(Identity::accept_primary_key(
-        new.origin(),
-        owner_auth_id2,
-        Some(cdd_auth_id)
-    ));
-
-    // Alice's primary key is now Bob's
-    assert_eq!(alice_pk(), Sr25519Keyring::Bob.to_account_id());
-}
-#[test]
 fn rotating_primary_key_to_secondary() {
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(rotating_primary_key_to_secondary_we);
 }
@@ -1378,7 +1318,7 @@ fn rotating_primary_key_to_secondary_we() {
     assert_eq!(alice_pk(), alice.acc());
 
     let rotate =
-        |from: Origin, auth_id: u64| Identity::rotate_primary_key_to_secondary(from, auth_id, None);
+        |from: Origin, auth_id: u64| Identity::rotate_primary_key_to_secondary(from, auth_id);
 
     assert!(rotate(charlie_origin.clone(), 0).is_err());
 
@@ -1421,72 +1361,11 @@ fn rotating_primary_key_to_secondary_we() {
 }
 
 #[test]
-fn rotating_primary_key_to_secondary_with_cdd_auth() {
-    ExtBuilder::default()
-        .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| rotating_primary_key_to_secondary_with_cdd_auth_we());
-}
-
-fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let alice_pk = || get_primary_key(alice.did);
-    let charlie = Sr25519Keyring::Charlie;
-    let charlie_origin = Origin::signed(charlie.to_account_id());
-
-    let rotate = |from: Origin, auth_id: u64, cdd: Option<u64>| {
-        Identity::rotate_primary_key_to_secondary(from, auth_id, cdd)
-    };
-
-    let cdd_did = get_identity_id(Sr25519Keyring::Eve).unwrap();
-
-    let rotate_auth = Identity::add_auth(
-        alice.did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
-        None,
-    )
-    .unwrap();
-    let join_auth = Identity::add_auth(
-        alice.did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None,
-    )
-    .unwrap();
-    assert_ok!(Identity::join_identity(charlie_origin.clone(), join_auth));
-
-    // Primary key matches Alice's key
-    assert_eq!(alice_pk(), alice.acc());
-
-    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
-        frame_system::RawOrigin::Root.into(),
-        true
-    ));
-
-    assert!(rotate(charlie_origin.clone(), rotate_auth, None).is_err());
-
-    let cdd_auth_id = Identity::add_auth(
-        cdd_did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::AttestPrimaryKeyRotation(alice.did),
-        None,
-    )
-    .unwrap();
-
-    assert_ok!(rotate(charlie_origin, rotate_auth, Some(cdd_auth_id)));
-
-    // Alice's primary key is now Bob's
-    assert_eq!(alice_pk(), charlie.to_account_id());
-}
-
-#[test]
 fn cdd_register_did_test() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![
+        .did_registrars(vec![
             Sr25519Keyring::Eve.to_account_id(),
             Sr25519Keyring::Ferdie.to_account_id(),
         ])
@@ -1494,6 +1373,7 @@ fn cdd_register_did_test() {
         .execute_with(|| cdd_register_did_test_we());
 }
 
+#[allow(deprecated)]
 fn cdd_register_did_test_we() {
     let cdd1 = Origin::signed(Sr25519Keyring::Eve.to_account_id());
     let cdd2 = Origin::signed(Sr25519Keyring::Ferdie.to_account_id());
@@ -1511,8 +1391,8 @@ fn cdd_register_did_test_we() {
     let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
     assert_add_cdd_claim!(cdd1.clone(), alice_id);
 
-    // Check that Alice's ID is attested by CDD 1.
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
+    // Check that Alice's ID is active DID.
+    assert_eq!(Identity::is_did_active(alice_id), true);
 
     // Error case: Try account without ID.
     assert!(Identity::cdd_register_did(non_id, bob_acc.clone(), vec![]).is_err(),);
@@ -1526,7 +1406,7 @@ fn cdd_register_did_test_we() {
     let bob_id = get_identity_id(Sr25519Keyring::Bob).unwrap();
     assert_add_cdd_claim!(cdd2, bob_id);
 
-    assert_eq!(Identity::has_valid_cdd(bob_id), true);
+    assert_eq!(Identity::is_did_active(bob_id), true);
 
     // Register with secondary_keys
     // ==============================================
@@ -1544,7 +1424,7 @@ fn cdd_register_did_test_we() {
     assert_add_cdd_claim!(cdd1.clone(), charlie_id);
 
     Balances::make_free_balance_be(&charlie, 10_000_000_000);
-    assert_eq!(Identity::has_valid_cdd(charlie_id), true);
+    assert_eq!(Identity::is_did_active(charlie_id), true);
     assert_eq!(get_secondary_keys(charlie_id).is_empty(), true);
 
     let dave_auth_id = get_last_auth_id(&Signatory::Account(dave_si.key.clone()));
@@ -1558,9 +1438,10 @@ fn cdd_register_did_test_we() {
 
 // Test for the DuplicateKey error in `cdd_register_did`.
 #[test]
+#[allow(deprecated)]
 fn cdd_register_did_duplicate_keys_test() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             let cdd = Origin::signed(Sr25519Keyring::Eve.to_account_id());
@@ -1572,6 +1453,51 @@ fn cdd_register_did_duplicate_keys_test() {
             assert_noop!(
                 Identity::cdd_register_did(cdd, alice, secondary_keys),
                 Error::DuplicateKey
+            );
+        });
+}
+
+/// Test the new `register_did` extrinsic for registering DIDs.
+#[test]
+fn register_did_test() {
+    ExtBuilder::default()
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let registrar = Origin::signed(Sr25519Keyring::Eve.to_account_id());
+            let alice = Sr25519Keyring::Alice.to_account_id();
+            let bob = Sr25519Keyring::Bob.to_account_id();
+            let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+            // Success: DID registrar registers Alice's DID
+            assert_ok!(Identity::register_did(registrar.clone(), alice.clone()));
+            let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
+
+            // Verify DID is active and primary key is set correctly
+            assert!(Identity::is_did_active(alice_id));
+            assert_eq!(get_primary_key(alice_id), alice.clone());
+
+            // Verify DidCreated event was emitted
+            System::assert_has_event(Event::DidCreated(alice_id, alice.clone(), vec![]).into());
+
+            // Error: Cannot register DID for account that already has one
+            assert_noop!(
+                Identity::register_did(registrar.clone(), alice.clone()),
+                Error::AlreadyLinked
+            );
+
+            // Error: Account without DID cannot register others
+            assert_noop!(
+                Identity::register_did(Origin::signed(charlie.clone()), bob.clone()),
+                Error::MissingIdentity
+            );
+
+            // Error: Account with DID but not in DidRegistrars group cannot register
+            assert_noop!(
+                Identity::register_did(Origin::signed(alice.clone()), bob.clone()),
+                Error::UnAuthorizedDidRegistrar
             );
         });
 }
@@ -1647,59 +1573,8 @@ fn add_identity_signers() {
 }
 
 #[test]
-fn invalidate_cdd_claims() {
-    ExtBuilder::default()
-        .balance_factor(1_000)
-        .monied(true)
-        .cdd_providers(vec![
-            Sr25519Keyring::Eve.to_account_id(),
-            Sr25519Keyring::Ferdie.to_account_id(),
-        ])
-        .build()
-        .execute_with(invalidate_cdd_claims_we);
-}
-
-fn invalidate_cdd_claims_we() {
-    let root = Origin::from(frame_system::RawOrigin::Root);
-    let cdd = Sr25519Keyring::Eve.to_account_id();
-    let alice_acc = Sr25519Keyring::Alice.to_account_id();
-    let bob_acc = Sr25519Keyring::Bob.to_account_id();
-    assert_ok!(Identity::cdd_register_did(
-        Origin::signed(cdd.clone()),
-        alice_acc,
-        vec![]
-    ));
-    let alice_id = get_identity_id(Sr25519Keyring::Alice).unwrap();
-    assert_add_cdd_claim!(Origin::signed(cdd.clone()), alice_id);
-
-    // Check that Alice's ID is attested by CDD 1.
-    let cdd_1_id = Identity::get_identity(&cdd).unwrap();
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
-
-    // Disable CDD 1.
-    assert_ok!(Identity::invalidate_cdd_claims(root, cdd_1_id, 5, Some(10)));
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
-
-    // Move to time 8... CDD_1 is inactive: Its claims are valid.
-    set_timestamp(8);
-    assert_eq!(Identity::has_valid_cdd(alice_id), true);
-    assert_noop!(
-        Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
-        Error::UnauthorizedCallerDidMissingCdd
-    );
-
-    // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
-    set_timestamp(11);
-    assert_eq!(Identity::has_valid_cdd(alice_id), false);
-    assert_noop!(
-        Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
-        Error::UnauthorizedCallerDidMissingCdd
-    );
-}
-
-#[test]
-fn cdd_provider_with_systematic_cdd_claims() {
-    let cdd_providers = [
+fn did_registrar_with_systematic_cdd_claims() {
+    let did_registrars = [
         Sr25519Keyring::Alice.to_account_id(),
         Sr25519Keyring::Bob.to_account_id(),
     ]
@@ -1707,65 +1582,66 @@ fn cdd_provider_with_systematic_cdd_claims() {
 
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(cdd_providers)
+        .did_registrars(did_registrars)
         .build()
-        .execute_with(cdd_provider_with_systematic_cdd_claims_we);
+        .execute_with(did_registrar_with_systematic_cdd_claims_we);
 }
 
-fn cdd_provider_with_systematic_cdd_claims_we() {
+fn did_registrar_with_systematic_cdd_claims_we() {
     // 0. Get Bob & Alice IDs.
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let bob_id = get_identity_id(Sr25519Keyring::Bob).expect("Bob should be one of CDD providers");
+    let bob_id =
+        get_identity_id(Sr25519Keyring::Bob).expect("Bob should be one of the DID registrars");
     let alice_id =
-        get_identity_id(Sr25519Keyring::Alice).expect("Bob should be one of CDD providers");
+        get_identity_id(Sr25519Keyring::Alice).expect("Alice should be one of the DID registrars");
 
-    // 1. Each CDD provider has a *systematic* CDD claim.
-    let cdd_providers = CddServiceProviders::get_members();
+    // 1. Each DID registrar has a *systematic* CDD claim.
+    let did_registrars = DidRegistrars::get_members();
     assert_eq!(
-        cdd_providers
+        did_registrars
             .iter()
-            .all(|cdd| fetch_systematic_claim(*cdd).is_some()),
+            .all(|did| fetch_systematic_claim(*did).is_some()),
         true
     );
 
-    // 2. Remove one member from CDD provider and double-check that systematic CDD claim was
+    // 2. Remove one member from DID registrars and double-check that systematic CDD claim was
     //    removed too.
-    assert_ok!(CddServiceProviders::remove_member(root.clone(), bob_id));
+    assert_ok!(DidRegistrars::remove_member(root.clone(), bob_id));
     assert_eq!(fetch_systematic_claim(bob_id).is_none(), true);
     assert_eq!(fetch_systematic_claim(alice_id).is_some(), true);
 
-    // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
-    // Then remove that DID from CDD provides, it should keep its previous CDD claim.
+    // 3. Add DID with CDD claim to DID registrars, and check that systematic CDD claim was added.
+    // Then remove that DID from DID registrars, it should keep its previous CDD claim.
     let alice = Origin::signed(Sr25519Keyring::Alice.to_account_id());
     let charlie_acc = Sr25519Keyring::Charlie.to_account_id();
 
-    // 3.1. Add CDD claim to Charlie, by Alice.
-    assert_ok!(Identity::cdd_register_did(
-        alice.clone(),
-        charlie_acc.clone(),
-        vec![]
-    ));
+    // 3.1. Add CDD claim to Charlie, by Alice (a DID registrar).
+    assert_ok!(Identity::register_did(alice.clone(), charlie_acc.clone()));
     let charlie_id =
         get_identity_id(Sr25519Keyring::Charlie).expect("Charlie should have an Identity Id");
     assert_add_cdd_claim!(alice, charlie_id);
 
     let charlie_cdd_claim =
-        Identity::fetch_cdd(charlie_id, 0).expect("Charlie should have a CDD claim by Alice");
+        Identity::fetch_claim(charlie_id, ClaimType::CustomerDueDiligence, alice_id, None)
+            .expect("Charlie should have a CDD claim by Alice");
 
-    // 3.2. Add Charlie as trusted CDD providers, and check its new systematic CDD claim.
-    assert_ok!(CddServiceProviders::add_member(root.clone(), charlie_id));
+    // 3.2. Add Charlie as trusted DID registrar, and check its new systematic CDD claim.
+    assert_ok!(DidRegistrars::add_member(root.clone(), charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_some(), true);
 
-    // 3.3. Remove Charlie from trusted CDD providers, and verify that systematic CDD claim was
+    // 3.3. Remove Charlie from trusted DID registrars, and verify that systematic CDD claim was
     //   removed and previous CDD claim works.
-    assert_ok!(CddServiceProviders::remove_member(root, charlie_id));
+    assert_ok!(DidRegistrars::remove_member(root, charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
-    assert_eq!(Identity::fetch_cdd(charlie_id, 0), Some(charlie_cdd_claim));
+    assert_eq!(
+        Identity::fetch_claim(charlie_id, ClaimType::CustomerDueDiligence, alice_id, None),
+        Some(charlie_cdd_claim)
+    );
 }
 
 #[test]
 fn gc_with_systematic_cdd_claims() {
-    let cdd_providers = [
+    let did_registrars = [
         Sr25519Keyring::Alice.to_account_id(),
         Sr25519Keyring::Bob.to_account_id(),
     ]
@@ -1778,7 +1654,7 @@ fn gc_with_systematic_cdd_claims() {
 
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(cdd_providers)
+        .did_registrars(did_registrars)
         .governance_committee(governance_committee)
         .build()
         .execute_with(gc_with_systematic_cdd_claims_we);
@@ -1791,6 +1667,7 @@ fn gc_with_systematic_cdd_claims_we() {
         .expect("Charlie should be a Governance Committee member");
     let dave_id = get_identity_id(Sr25519Keyring::Dave)
         .expect("Dave should be a Governance Committee member");
+    let alice_id = get_identity_id(Sr25519Keyring::Alice).expect("Alice should be a DID registrar");
 
     // 1. Each GC member has a *systematic* CDD claim.
     let governance_committee = GovernanceCommittee::get_members();
@@ -1807,23 +1684,20 @@ fn gc_with_systematic_cdd_claims_we() {
     assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
     assert_eq!(fetch_systematic_claim(dave_id).is_some(), true);
 
-    // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
-    // Then remove that DID from CDD provides, it should keep its previous CDD claim.
+    // 3. Add DID with CDD claim to DID registrars, and check that systematic CDD claim was added.
+    // Then remove that DID from DID registrars, it should keep its previous CDD claim.
     let alice = Origin::signed(Sr25519Keyring::Alice.to_account_id());
     let ferdie_acc = Sr25519Keyring::Ferdie.to_account_id();
 
     // 3.1. Add CDD claim to Ferdie, by Alice.
-    assert_ok!(Identity::cdd_register_did(
-        alice.clone(),
-        ferdie_acc.clone(),
-        vec![]
-    ));
+    assert_ok!(Identity::register_did(alice.clone(), ferdie_acc.clone()));
     let ferdie_id =
         get_identity_id(Sr25519Keyring::Ferdie).expect("Ferdie should have an Identity Id");
     assert_add_cdd_claim!(alice, ferdie_id);
 
     let ferdie_cdd_claim =
-        Identity::fetch_cdd(ferdie_id, 0).expect("Ferdie should have a CDD claim by Alice");
+        Identity::fetch_claim(ferdie_id, ClaimType::CustomerDueDiligence, alice_id, None)
+            .expect("Ferdie should have a CDD claim by Alice");
 
     // 3.2. Add Ferdie to GC, and check its new systematic CDD claim.
     assert_ok!(GovernanceCommittee::add_member(root.clone(), ferdie_id));
@@ -1833,12 +1707,15 @@ fn gc_with_systematic_cdd_claims_we() {
     //   removed and previous CDD claim works.
     assert_ok!(GovernanceCommittee::remove_member(root, ferdie_id));
     assert_eq!(fetch_systematic_claim(ferdie_id).is_none(), true);
-    assert_eq!(Identity::fetch_cdd(ferdie_id, 0), Some(ferdie_cdd_claim));
+    assert_eq!(
+        Identity::fetch_claim(ferdie_id, ClaimType::CustomerDueDiligence, alice_id, None),
+        Some(ferdie_cdd_claim)
+    );
 }
 
 #[test]
-fn gc_and_cdd_with_systematic_cdd_claims() {
-    let gc_and_cdd_providers = [
+fn gc_and_registrar_with_systematic_cdd_claims() {
+    let gc_and_registrars = [
         Sr25519Keyring::Alice.to_account_id(),
         Sr25519Keyring::Bob.to_account_id(),
     ]
@@ -1846,25 +1723,25 @@ fn gc_and_cdd_with_systematic_cdd_claims() {
 
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(gc_and_cdd_providers.clone())
-        .governance_committee(gc_and_cdd_providers.clone())
+        .did_registrars(gc_and_registrars.clone())
+        .governance_committee(gc_and_registrars.clone())
         .build()
-        .execute_with(gc_and_cdd_with_systematic_cdd_claims_we);
+        .execute_with(gc_and_registrar_with_systematic_cdd_claims_we);
 }
 
-fn gc_and_cdd_with_systematic_cdd_claims_we() {
+fn gc_and_registrar_with_systematic_cdd_claims_we() {
     // 0. Accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_id = get_identity_id(Sr25519Keyring::Alice)
         .expect("Alice should be a Governance Committee member");
 
-    // 1. Alice should have 2 systematic CDD claims: One as GC member & another one as CDD
-    //    provider.
+    // 1. Alice should have 2 systematic CDD claims: One as GC member & another one as DID
+    //    registrar.
     assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
     assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
 
-    // 2. Remove Alice from CDD providers.
-    assert_ok!(CddServiceProviders::remove_member(root.clone(), alice_id));
+    // 2. Remove Alice from DID registrars.
+    assert_ok!(DidRegistrars::remove_member(root.clone(), alice_id));
     assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
     assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
 
@@ -1875,17 +1752,18 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn add_permission_with_secondary_key() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![
+        .did_registrars(vec![
             Sr25519Keyring::Eve.to_account_id(),
             Sr25519Keyring::Ferdie.to_account_id(),
         ])
         .build()
         .execute_with(|| {
-            let cdd_1_acc = Sr25519Keyring::Eve.to_account_id();
+            let registrar_acc = Sr25519Keyring::Eve.to_account_id();
             let alice_acc = Sr25519Keyring::Alice.to_account_id();
             let bob_acc = Sr25519Keyring::Bob.to_account_id();
             let charlie_acc = Sr25519Keyring::Charlie.to_account_id();
@@ -1898,12 +1776,12 @@ fn add_permission_with_secondary_key() {
             let sks = vec![sk(&bob_acc), sk(&charlie_acc)];
 
             assert_ok!(Identity::cdd_register_did(
-                Origin::signed(cdd_1_acc.clone()),
+                Origin::signed(registrar_acc.clone()),
                 alice_acc.clone(),
                 sks.clone(),
             ));
             let alice_did = Identity::get_identity(&alice_acc).unwrap();
-            assert_add_cdd_claim!(Origin::signed(cdd_1_acc), alice_did);
+            assert_add_cdd_claim!(Origin::signed(registrar_acc), alice_did);
 
             let bob_auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
             let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie_acc.clone()));
@@ -2013,26 +1891,27 @@ fn invalid_custom_claim_type() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn cdd_register_did_events() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             System::set_block_number(1);
-            // Register an Identity for alice with two secundary keys
-            let cdd_provider = Origin::signed(Sr25519Keyring::Eve.to_account_id());
+            // Register an Identity for alice with two secondary keys
+            let registrar = Origin::signed(Sr25519Keyring::Eve.to_account_id());
             let alice_account_id = Sr25519Keyring::Alice.to_account_id();
-            let alice_secundary_keys = vec![
+            let alice_secondary_keys = vec![
                 SecondaryKey::from_account_id(Sr25519Keyring::Dave.to_account_id()),
                 SecondaryKey::from_account_id(Sr25519Keyring::Charlie.to_account_id()),
             ];
             assert_ok!(Identity::cdd_register_did(
-                cdd_provider,
+                registrar,
                 alice_account_id.clone(),
-                alice_secundary_keys.clone()
+                alice_secondary_keys.clone()
             ));
             let alice_did = get_identity_id(Sr25519Keyring::Alice).unwrap();
-            // Make sure one Authorization event was sent for each secundary key
+            // Make sure one Authorization event was sent for each secondary key
             let mut system_events = System::events();
             assert_eq!(
                 system_events.pop().unwrap().event,
@@ -2041,7 +1920,7 @@ fn cdd_register_did_events() {
                     None,
                     Some(Sr25519Keyring::Charlie.to_account_id()),
                     CurrentAuthId::<TestStorage>::get(),
-                    AuthorizationData::JoinIdentity(alice_secundary_keys[1].permissions.clone()),
+                    AuthorizationData::JoinIdentity(alice_secondary_keys[1].permissions.clone()),
                     None,
                 ))
             );
@@ -2052,7 +1931,7 @@ fn cdd_register_did_events() {
                     None,
                     Some(Sr25519Keyring::Dave.to_account_id()),
                     CurrentAuthId::<TestStorage>::get() - 1,
-                    AuthorizationData::JoinIdentity(alice_secundary_keys[0].permissions.clone()),
+                    AuthorizationData::JoinIdentity(alice_secondary_keys[0].permissions.clone()),
                     None,
                 ))
             );
@@ -2062,7 +1941,7 @@ fn cdd_register_did_events() {
                 super::storage::EventTest::Identity(Event::DidCreated(
                     alice_did,
                     alice_account_id,
-                    alice_secundary_keys.clone()
+                    alice_secondary_keys.clone()
                 ))
             );
         });
@@ -2073,7 +1952,7 @@ fn child_identity_test() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(&do_child_identity_test);
 }
@@ -2088,7 +1967,7 @@ fn do_child_identity_test() {
 
     // Helper functions.
     let did_of = |u: User| Identity::get_identity(&u.acc());
-    let valid_cdd = |u: User| did_of(u).map(Identity::has_valid_cdd).unwrap_or_default();
+    let is_did_active = |u: User| did_of(u).map(Identity::is_did_active).unwrap_or_default();
     let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
     let rejoin_parent = |parent: User, child: User| {
         ParentDid::<TestStorage>::insert(child.did, parent.did);
@@ -2101,9 +1980,9 @@ fn do_child_identity_test() {
     // Check KeyRecords map
     assert_eq!(did_of(bob), Some(alice.did));
     assert_eq!(did_of(dave), Some(alice.did));
-    assert!(valid_cdd(alice));
-    assert!(valid_cdd(bob));
-    assert!(valid_cdd(dave));
+    assert!(is_did_active(alice));
+    assert!(is_did_active(bob));
+    assert!(is_did_active(dave));
 
     // The new child identity's primary key must be a secondary key.
     exec_noop!(
@@ -2137,7 +2016,7 @@ fn do_child_identity_test() {
     let bob = User::new_with(bob_did, Sr25519Keyring::Bob);
 
     // Ensure bob has a new identity.
-    assert!(valid_cdd(bob));
+    assert!(is_did_active(bob));
     assert_ne!(bob.did, alice.did);
     assert_eq!(ParentDid::<TestStorage>::get(bob.did), Some(alice.did));
     assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), true);
@@ -2207,14 +2086,14 @@ fn do_child_identity_test() {
     assert_eq!(ParentDid::<TestStorage>::get(bob.did), None);
     assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), false);
 
-    assert!(valid_cdd(bob));
+    assert!(is_did_active(bob));
 
     // Bob's identity is no longer a child identity.  It can create child identities.
     exec_ok!(Identity::create_child_identity(bob.origin(), ferdie.acc()));
     // Update ferdie's identity.
     let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
     let ferdie = User::new_with(ferdie_did, Sr25519Keyring::Ferdie);
-    assert!(valid_cdd(ferdie));
+    assert!(is_did_active(ferdie));
     assert_eq!(ParentDid::<TestStorage>::get(ferdie.did), Some(bob.did));
     assert_eq!(ChildDid::<TestStorage>::get(bob.did, ferdie.did), true);
 }
@@ -2224,7 +2103,7 @@ fn create_child_identities_with_auth_test() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(&do_create_child_identities_with_auth_test);
 }

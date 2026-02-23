@@ -104,8 +104,8 @@ fn ci_genesis_config(
         // Governing council
         "committeeMembership": group_genesis_config(vec![identity_1, identity_2, identity_3, identity_5]),
         "polymeshCommittee": committee_genesis_config((2, 4), identity_1),
-        // CDD providers
-        "cddServiceProviders": group_genesis_config(vec![identity_1, identity_2, identity_3, identity_5]),
+        // DID registrars
+        "didRegistrars": group_genesis_config(vec![identity_1, identity_2, identity_3, identity_5]),
         // Technical Committee
         "technicalCommitteeMembership": group_genesis_config(vec![identity_3, identity_5]),
         "technicalCommittee": committee_genesis_config((1, 2), identity_5),

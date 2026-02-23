@@ -115,7 +115,7 @@ fn develop_genesis_config(
         },
         "committeeMembership": group_genesis_config,
         "polymeshCommittee": committee_genesis_config,
-        "cddServiceProviders": group_genesis_config,
+        "didRegistrars": group_genesis_config,
         "technicalCommitteeMembership": group_genesis_config,
         "technicalCommittee": committee_genesis_config,
         "upgradeCommitteeMembership": group_genesis_config,

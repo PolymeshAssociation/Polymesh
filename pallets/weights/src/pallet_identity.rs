@@ -149,6 +149,33 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity NumberOfGivenAuths (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity CurrentAuthId (r:1 w:1)
     // Proof Skipped: Identity CurrentAuthId (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity DidKeys (r:0 w:1)
+    // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
+    fn register_did() -> Weight {
+        // Minimum execution time: 46_980 nanoseconds.
+        // Same as cdd_register_did with 0 secondary keys
+        Weight::from_parts(74_450_297, 0)
+            .saturating_add(DbWeight::get().reads(10))
+            .saturating_add(DbWeight::get().writes(6))
+    }
+    // Storage: Identity KeyRecords (r:201 w:1)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Identity MultiPurposeNonce (r:1 w:1)
+    // Proof Skipped: Identity MultiPurposeNonce (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: System ParentHash (r:1 w:0)
+    // Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
+    // Storage: Identity DidRecords (r:1 w:1)
+    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: ProtocolFee Coefficient (r:1 w:0)
+    // Proof Skipped: ProtocolFee Coefficient (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: ProtocolFee BaseFees (r:1 w:0)
+    // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity NumberOfGivenAuths (r:1 w:1)
+    // Proof Skipped: Identity NumberOfGivenAuths (max_values: None, max_size: None, mode: Measured)
+    // Storage: Identity CurrentAuthId (r:1 w:1)
+    // Proof Skipped: Identity CurrentAuthId (max_values: Some(1), max_size: None, mode: Measured)
     // Storage: Identity AuthorizationsGiven (r:0 w:199)
     // Proof Skipped: Identity AuthorizationsGiven (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity DidKeys (r:0 w:1)
@@ -165,20 +192,6 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(6))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
-    }
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: Instance2Group ActiveMembers (r:1 w:1)
-    // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Instance2Group InactiveMembers (r:1 w:1)
-    // Proof Skipped: Instance2Group InactiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:1 w:1)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    fn invalidate_cdd_claims() -> Weight {
-        // Minimum execution time: 49_044 nanoseconds.
-        Weight::from_parts(52_138_000, 0)
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:200 w:199)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
@@ -261,12 +274,6 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
         Weight::from_parts(97_495_000, 0)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(13))
-    }
-    // Storage: Identity CddAuthForPrimaryKeyRotation (r:0 w:1)
-    // Proof Skipped: Identity CddAuthForPrimaryKeyRotation (max_values: Some(1), max_size: None, mode: Measured)
-    fn change_cdd_requirement_for_mk_rotation() -> Weight {
-        // Minimum execution time: 9_873 nanoseconds.
-        Weight::from_parts(10_345_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)

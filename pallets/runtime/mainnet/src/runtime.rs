@@ -189,7 +189,7 @@ pallet_staking_reward_curve::build! {
 
 impl pallet_identity::Config for Runtime {
     type Proposal = RuntimeCall;
-    type CddServiceProviders = CddServiceProviders;
+    type DidRegistrars = DidRegistrars;
     type Balances = pallet_balances::Pallet<Runtime>;
     type CddHandler = CddHandler;
     type Public = <MultiSignature as Verify>::Signer;
@@ -267,7 +267,7 @@ impl pallet_pips::Config for Runtime {
     type SchedulerPreimage = Preimage;
 }
 
-/// CddProviders instance of group
+/// DidRegistrars instance of group
 impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = polymesh_primitives::EnsureRoot;
@@ -341,7 +341,7 @@ mod runtime {
     pub type Identity = pallet_identity::Pallet<Runtime>;
 
     #[runtime::pallet_index(8)]
-    pub type CddServiceProviders = pallet_group::Pallet<Runtime, Instance2>;
+    pub type DidRegistrars = pallet_group::Pallet<Runtime, Instance2>;
 
     #[runtime::pallet_index(9)]
     pub type PolymeshCommittee = pallet_committee::Pallet<Runtime, Instance1>;
