@@ -427,13 +427,12 @@ impl IntegrationUser for User {
 pub async fn sign_with_key<S: Signer, T: sp_core::Encode>(
     signer: &S,
     message: &T,
-    no_wrapping: bool,
 ) -> Result<sp_runtime::MultiSignature> {
     let encoded = {
         use crate::client::{BytesPayload, Encoded};
         use sp_core::Encode;
 
-        if cfg!(feature = "previous_release") || no_wrapping {
+        if cfg!(feature = "previous_release") {
             message.encode()
         } else {
             BytesPayload(Encoded::from(message)).encode()

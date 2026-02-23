@@ -56,7 +56,7 @@ mod offchain_tests {
         }))?;
         let mut keys = Vec::new();
         for key in &mut secondary_keys {
-            match sign_with_key(key, &auth, false).await? {
+            match sign_with_key(key, &auth).await? {
                 MultiSignature::Sr25519(sig) => {
                     keys.push(SecondaryKeyWithAuth {
                         secondary_key: SecondaryKey {
@@ -120,7 +120,7 @@ mod offchain_tests {
         let mut children = Vec::new();
         for key in &keys {
             // Sign the authorization data with the secondary key.
-            match sign_with_key(key, &auth, false).await? {
+            match sign_with_key(key, &auth).await? {
                 MultiSignature::Sr25519(sig) => {
                     // Create child identity with authorization.
                     let child = CreateChildIdentityWithAuth {
@@ -178,7 +178,7 @@ mod offchain_tests {
                 call: Box::new(remark_call.clone()),
                 nonce: nonce + idx,
             };
-            let sig = sign_with_key(&relayed, &unique_call, false).await?;
+            let sig = sign_with_key(&relayed, &unique_call).await?;
 
             // Use `relayer` to relay the call.
             tester
@@ -203,7 +203,6 @@ mod offchain_tests {
 
     use polymesh_api::client::Signer;
     use polymesh_api::polymesh::types::{
-        pallet_relayer::UniqueCall,
         polymesh_primitives::identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
         polymesh_primitives::secondary_key::{Permissions, SecondaryKey},
         primitive_types::H512,
@@ -252,7 +251,7 @@ mod offchain_tests {
         }))?;
         let mut keys = Vec::new();
         for key in &mut secondary_keys {
-            match sign_with_key(key, &auth, false).await? {
+            match sign_with_key(key, &auth).await? {
                 MultiSignature::Sr25519(sig) => {
                     keys.push(SecondaryKeyWithAuth {
                         secondary_key: SecondaryKey {
@@ -316,7 +315,7 @@ mod offchain_tests {
         let mut children = Vec::new();
         for key in &keys {
             // Sign the authorization data with the secondary key.
-            match sign_with_key(key, &auth, false).await? {
+            match sign_with_key(key, &auth).await? {
                 MultiSignature::Sr25519(sig) => {
                     // Create child identity with authorization.
                     let child = CreateChildIdentityWithAuth {
@@ -370,18 +369,19 @@ mod offchain_tests {
                 .remark(format!("Hello, Polymesh! {idx}").into())?
                 .into_runtime_call();
 
-            let unique_call = UniqueCall {
-                call: Box::new(remark_call.clone()),
-                nonce: nonce + idx,
-            };
-            let sig = sign_with_key(&relayed, &unique_call, false).await?;
+            let call = remark_call.clone();
+            let message =
+                ChainScopedMessage::new(&tester.api, nonce + idx, RELAY_TX_LABEL, None, &call)
+                    .await?;
+            let expires_at = message.expires_at;
+            let sig = sign_with_key(&relayed, &message).await?;
 
             // Use `relayer` to relay the call.
             tester
                 .api
                 .call()
                 .relayer()
-                .relay_tx(relayed.account(), sig.into(), unique_call)?
+                .relay_tx(relayed.account(), sig.into(), call, expires_at)?
                 .execute(&mut relayer)
                 .await?;
         }

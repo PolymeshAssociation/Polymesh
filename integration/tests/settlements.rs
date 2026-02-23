@@ -263,16 +263,53 @@ async fn offchain_settlement() -> Result<()> {
     // Create a receipt for the offchain asset and sign it with the venue signer.
     let uid = 0u64;
     let leg_id = LegId(1u64);
-    let receipt = Receipt {
-        uid,
-        instruction_id,
-        leg_id,
-        sender_identity,
-        receiver_identity,
-        ticker,
-        amount,
+    #[cfg(feature = "previous_release")]
+    let receipt_details = {
+        let receipt = Receipt {
+            uid,
+            instruction_id,
+            leg_id,
+            sender_identity,
+            receiver_identity,
+            ticker,
+            amount,
+        };
+        let sig = sign_with_key(&signer1, &receipt).await?;
+
+        ReceiptDetails {
+            uid,
+            instruction_id,
+            leg_id,
+            signer: signer1.account(),
+            signature: sig,
+            metadata: None,
+        }
     };
-    let sig = sign_with_key(&signer1, &receipt, false).await?;
+    #[cfg(feature = "current_release")]
+    let receipt_details = {
+        let receipt = Receipt {
+            instruction_id,
+            leg_id,
+            sender_identity,
+            receiver_identity,
+            ticker,
+            amount,
+        };
+        let message =
+            ChainScopedMessage::new(&tester.api, uid, SETTLEMENT_RECEIPT_LABEL, None, &receipt)
+                .await?;
+        let sig = sign_with_key(&signer1, &message).await?;
+
+        ReceiptDetails {
+            uid,
+            instruction_id,
+            leg_id,
+            signer: signer1.account(),
+            signature: sig,
+            metadata: None,
+            expires_at: message.expires_at,
+        }
+    };
 
     // The investor needs to affirm the settlement with the offchain receipt.
     let mut affirm_res = tester
@@ -281,14 +318,7 @@ async fn offchain_settlement() -> Result<()> {
         .settlement()
         .affirm_with_receipts(
             instruction_id,
-            vec![ReceiptDetails {
-                uid,
-                instruction_id,
-                leg_id,
-                signer: signer1.account(),
-                signature: sig,
-                metadata: None,
-            }],
+            vec![receipt_details],
             [investor_portfolio].into(),
         )?
         .submit_and_watch(&mut investor1)

@@ -142,7 +142,7 @@ mod sto_tests {
     }
 }
 
-// >=v7.3
+// >=v8.0
 #[cfg(feature = "current_release")]
 mod sto_tests {
     use anyhow::Result;
@@ -159,7 +159,6 @@ mod sto_tests {
     /// An offchain fundraiser receipt.
     #[derive(Encode, Decode, Clone, Debug)]
     pub struct FundraiserReceipt {
-        uid: u64,
         fundraiser_id: FundraiserId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
@@ -425,19 +424,28 @@ mod sto_tests {
         // Create a receipt for the offchain asset funding.
         let uid = 0u64;
         let receipt = FundraiserReceipt {
-            uid,
             fundraiser_id: fundraiser_id.clone(),
             sender_identity: investor1_did,
             receiver_identity: venue_did,
             ticker,
             amount: offchain_funding_amount,
         };
-        let sig = sign_with_key(&signer1, &receipt, false).await?;
+        let message = ChainScopedMessage::new(
+            &tester.api,
+            uid,
+            STO_FUNDRAISER_RECEIPT_LABEL,
+            None,
+            &receipt,
+        )
+        .await?;
+        let sig = sign_with_key(&signer1, &message).await?;
+
         let receipt_details = FundraiserReceiptDetails {
             uid,
             signer: signer1.account(),
             signature: sig,
             metadata: None,
+            expires_at: message.expires_at,
         };
 
         // Ensure the venue has the offchain asset funding enabled.
