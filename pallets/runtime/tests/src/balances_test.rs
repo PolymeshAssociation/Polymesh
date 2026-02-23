@@ -95,7 +95,7 @@ fn transfer_with_memo() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![Sr25519Keyring::Ferdie.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Ferdie.to_account_id()])
         .build()
         .execute_with(transfer_with_memo_we);
 }

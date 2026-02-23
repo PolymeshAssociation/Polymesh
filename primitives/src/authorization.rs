@@ -28,7 +28,8 @@ use crate::{Balance, PortfolioId, Ticker};
 #[derive(Decode, DecodeWithMemTracking, Encode, PartialEq, Eq)]
 #[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 pub enum AuthorizationData<AccountId> {
-    /// CDD provider's attestation to change primary key
+    /// DID registrar's attestation to change primary key
+    #[deprecated(note = "This authorization variant is no longer used")]
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
     RotatePrimaryKey,
@@ -61,6 +62,7 @@ impl<AccountId> AuthorizationData<AccountId> {
     /// Returns the `AuthorizationType` of this auth data.
     pub fn auth_type(&self) -> AuthorizationType {
         match self {
+            #[allow(deprecated)]
             Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
             Self::RotatePrimaryKey => AuthorizationType::RotatePrimaryKey,
             Self::TransferTicker(..) => AuthorizationType::TransferTicker,

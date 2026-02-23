@@ -19,18 +19,18 @@ type Identity = identity::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
-fn cdd_checks() {
+fn did_checks() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Bob.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Bob.to_account_id()])
         .monied(true)
         .build()
         .execute_with(|| {
-            // alice does not have cdd
+            // alice does not have a DID registered by a DID registrar
             make_account_without_cdd(Sr25519Keyring::Alice.to_account_id()).unwrap();
             let alice_account = Sr25519Keyring::Alice.to_account_id();
             let alice_signatory = Signatory::Account(alice_account.clone());
 
-            // charlie has valid cdd
+            // charlie has a valid DID
             let _ = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
             let charlie_account = Sr25519Keyring::Charlie.to_account_id();
             let charlie_signatory = Signatory::Account(charlie_account.clone());

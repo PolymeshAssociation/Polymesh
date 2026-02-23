@@ -126,15 +126,6 @@ export interface CappedFee extends u64 {}
 /** @name CddId */
 export interface CddId extends U8aFixed {}
 
-/** @name CddStatus */
-export interface CddStatus extends Enum {
-  readonly isOk: boolean;
-  readonly asOk: IdentityId;
-  readonly isErr: boolean;
-  readonly asErr: Bytes;
-  readonly type: 'Ok' | 'Err';
-}
-
 /** @name Claim */
 export interface Claim extends Enum {
   readonly isAccredited: boolean;
@@ -482,12 +473,21 @@ export interface CountryCode extends Enum {
 /** @name CustomClaimTypeId */
 export interface CustomClaimTypeId extends u32 {}
 
+/** @name DidActiveStatus */
+export interface DidActiveStatus extends Enum {
+  readonly isOk: boolean;
+  readonly asOk: IdentityId;
+  readonly isErr: boolean;
+  readonly asErr: Bytes;
+  readonly type: 'Ok' | 'Err';
+}
+
 /** @name DidStatus */
 export interface DidStatus extends Enum {
   readonly isUnknown: boolean;
   readonly isExists: boolean;
-  readonly isCddVerified: boolean;
-  readonly type: 'Unknown' | 'Exists' | 'CddVerified';
+  readonly isActive: boolean;
+  readonly type: 'Unknown' | 'Exists' | 'Active';
 }
 
 /** @name ExecuteInstructionInfo */

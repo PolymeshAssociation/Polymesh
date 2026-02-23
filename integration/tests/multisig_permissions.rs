@@ -182,11 +182,16 @@ impl MuliSigState {
             .await?
             .expect("Missing RotatePrimaryKey auth id");
 
+        #[cfg(feature = "previous_release")]
         let rotate_primary_call = self
             .api
             .call()
             .identity()
             .accept_primary_key(auth_id, None)?;
+
+        #[cfg(feature = "current_release")]
+        let rotate_primary_call = self.api.call().identity().accept_primary_key(auth_id)?;
+
         self.run_proposal(rotate_primary_call).await
     }
 

@@ -21,7 +21,9 @@ pallet-compliance-manager = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
-pallet-identity = { workspace = true, default-features = false, features = ["no_cdd"] }
+pallet-identity = { workspace = true, default-features = false, features = [
+    "no_cdd",
+] }
 pallet-multisig = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
@@ -44,13 +46,17 @@ polymesh-exec-macro = { path = "exec_macro" }
 serde = { version = "1.0.104", default-features = false }
 log = { version = "0.4.8", default-features = false }
 rand = { version = "0.8", default-features = false }
-chrono = { version = "0.4", default-features = false, features = ["now"]}
+chrono = { version = "0.4", default-features = false, features = ["now"] }
 lazy_static = "1.4"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { workspace = true, default-features = false, features = ["derive"] }
-sp-core = { workspace = true, default-features = false, features = ["full_crypto"] }
+scale-info = { workspace = true, default-features = false, features = [
+    "derive",
+] }
+sp-core = { workspace = true, default-features = false, features = [
+    "full_crypto",
+] }
 sp-std = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-npos-elections = { workspace = true, default-features = false }
@@ -85,7 +91,9 @@ pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
-pallet-session = { workspace = true, default-features = false, features = ["historical"] }
+pallet-session = { workspace = true, default-features = false, features = [
+    "historical",
+] }
 pallet-staking = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }

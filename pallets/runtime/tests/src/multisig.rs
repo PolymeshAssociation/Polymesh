@@ -49,7 +49,7 @@ fn make_multisig_primary(primary: User, ms_address: AccountId) -> DispatchResult
         None,
     )?;
     let ms_origin = Origin::signed(ms_address);
-    Identity::rotate_primary_key_to_secondary(ms_origin, auth_id, None)?;
+    Identity::rotate_primary_key_to_secondary(ms_origin, auth_id)?;
     Ok(())
 }
 
@@ -357,6 +357,7 @@ fn remove_multisig_signers() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn add_multisig_signers() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
@@ -429,8 +430,6 @@ fn add_multisig_signers() {
         let bob_auth_id = get_last_auth_id(&bob_signer);
         let charlie_auth_id = get_last_auth_id(&charlie_signer);
 
-        let root = Origin::from(frame_system::RawOrigin::Root);
-
         assert_ok!(make_multisig_primary(alice, ms_address.clone()));
 
         assert_ok!(MultiSig::accept_multisig_signer(
@@ -442,13 +441,6 @@ fn add_multisig_signers() {
             MultiSig::ms_signers(ms_address.clone(), charlie_signer),
             true
         );
-        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
-
-        assert_eq!(
-            MultiSig::accept_multisig_signer(bob.clone(), bob_auth_id),
-            Err(Error::ChangeNotAllowed.into()),
-        );
-        assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
         assert_ok!(MultiSig::accept_multisig_signer(bob.clone(), bob_auth_id));
 
@@ -527,8 +519,7 @@ fn rotate_multisig_primary_key_with_balance() {
         // Succeeds
         assert_ok!(Identity::accept_primary_key(
             Origin::signed(charlie_key.clone()),
-            auth_id,
-            None
+            auth_id
         ));
     });
 }

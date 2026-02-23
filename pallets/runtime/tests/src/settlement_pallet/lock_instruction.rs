@@ -13,7 +13,7 @@ use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scop
 use polymesh_runtime_common::Weight;
 
 use super::setup::{add_and_affirm_simple_instruction, create_and_issue_sample_asset_with_venue};
-use crate::storage::{EventTest, RuntimeOrigin, User};
+use crate::storage::{EventTest, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -253,58 +253,6 @@ fn frozen_asset() {
             Error::<TestStorage>::FailedAssetTransferringConditions
         );
     });
-}
-
-#[test]
-fn sender_missing_cdd_claim() {
-    ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| {
-            let bob = User::new(Sr25519Keyring::Bob);
-            let dave = User::new(Sr25519Keyring::Dave);
-            let alice = User::new(Sr25519Keyring::Alice);
-
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
-
-            Identity::revoke_claim(
-                RuntimeOrigin::signed(Sr25519Keyring::Eve.to_account_id()),
-                alice.did,
-                Claim::CustomerDueDiligence(Default::default()),
-            )
-            .unwrap();
-
-            assert_noop!(
-                Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-                Error::<TestStorage>::FailedAssetTransferringConditions
-            );
-        });
-}
-
-#[test]
-fn rcv_missing_cdd_claim() {
-    ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(|| {
-            let bob = User::new(Sr25519Keyring::Bob);
-            let dave = User::new(Sr25519Keyring::Dave);
-            let alice = User::new(Sr25519Keyring::Alice);
-
-            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
-
-            Identity::revoke_claim(
-                RuntimeOrigin::signed(Sr25519Keyring::Eve.to_account_id()),
-                bob.did,
-                Claim::CustomerDueDiligence(Default::default()),
-            )
-            .unwrap();
-
-            assert_noop!(
-                Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-                Error::<TestStorage>::FailedAssetTransferringConditions
-            );
-        });
 }
 
 #[test]

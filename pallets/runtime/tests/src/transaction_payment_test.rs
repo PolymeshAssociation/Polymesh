@@ -687,18 +687,18 @@ fn normal_tx_with_tip_ext() {
 
 #[test]
 fn operational_tx_with_tip() {
-    let cdd_provider = Sr25519Keyring::Bob.to_account_id();
+    let did_registrar = Sr25519Keyring::Bob.to_account_id();
     let gc_member = Sr25519Keyring::Charlie.to_account_id();
 
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![cdd_provider.clone()])
+        .did_registrars(vec![did_registrar.clone()])
         .governance_committee(vec![gc_member.clone()])
         .build()
-        .execute_with(|| operational_tx_with_tip_ext(cdd_provider, gc_member));
+        .execute_with(|| operational_tx_with_tip_ext(did_registrar, gc_member));
 }
 
-fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
+fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
     let len = 10;
     let tip = 42;
     let user = Sr25519Keyring::Alice.to_account_id();
@@ -711,7 +711,7 @@ fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
         .prepare(Val::NoCharge, &alice_origin, &call, &operational_info, len)
         .is_ok());
 
-    // Valid operational tx with tip. Only CDD and Governance members can tip.
+    // Valid operational tx with tip. Only DID registrars and Governance members can tip.
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
         .validate(
             alice_origin.clone(),
@@ -743,12 +743,12 @@ fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
         .prepare(val.1, &gc_origin, &call, &operational_info, len)
         .is_ok());
 
-    // CDD can also tip.
-    let cdd_origin = RuntimeOrigin::signed(cdd.clone());
+    // DID registrar can also tip.
+    let registrar_origin = RuntimeOrigin::signed(registrar.clone());
 
     let val = ChargeTransactionPayment::<TestStorage>::from(tip)
         .validate(
-            cdd_origin.clone(),
+            registrar_origin.clone(),
             &call,
             &operational_info,
             len,
@@ -759,6 +759,6 @@ fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
         .unwrap();
 
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(val.1, &cdd_origin, &call, &operational_info, len)
+        .prepare(val.1, &registrar_origin, &call, &operational_info, len)
         .is_ok());
 }

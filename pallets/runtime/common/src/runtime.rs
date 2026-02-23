@@ -110,6 +110,7 @@ macro_rules! misc_pallet_impls {
                 UpgradeSessionKeys,
                 RemoveTickerDidRecords,
                 RemoveRandomnessCollectiveFlipStorage,
+                MigrateCddServiceProvidersToDidRegistrars,
                 pallet_contracts::Migration<Runtime>,
                 pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
                 pallet_im_online::migration::v1::Migration<Runtime>,
@@ -233,7 +234,7 @@ macro_rules! misc_pallet_impls {
             type CddHandler = CddHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
-            type CddProviders = CddServiceProviders;
+            type DidRegistrars = DidRegistrars;
             type Identity = Identity;
         }
 
@@ -372,6 +373,20 @@ macro_rules! misc_pallet_impls {
                 // Writes: 1 (version put) + removed (DidRecords removals).
                 <Runtime as frame_system::Config>::DbWeight::get()
                     .reads_writes(1 + (2 * ticker_count), 1 + removed)
+            }
+        }
+
+        /// Migrate storage from the old `CddServiceProviders` prefix to the new `DidRegistrars` prefix.
+        /// This is needed because renaming the pallet type alias in the runtime changes the storage prefix.
+        pub struct MigrateCddServiceProvidersToDidRegistrars;
+        impl frame_support::traits::OnRuntimeUpgrade for MigrateCddServiceProvidersToDidRegistrars {
+            fn on_runtime_upgrade() -> Weight {
+                log::info!("Migrating storage: CddServiceProviders -> DidRegistrars");
+                frame_support::storage::migration::move_pallet(
+                    b"CddServiceProviders",
+                    b"DidRegistrars",
+                );
+                Weight::from_parts(100_000_000, 0)
             }
         }
 
@@ -958,7 +973,7 @@ macro_rules! runtime_apis {
         use frame_support::dispatch::DispatchResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
-        use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords};
+        use pallet_identity::types::{AssetDidResult, DidActiveStatus, RpcDidRecords};
         use pallet_identity::types::{DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
@@ -1340,12 +1355,6 @@ macro_rules! runtime_apis {
                     Moment
                 > for Runtime
             {
-                /// RPC call to know whether the given did has valid cdd claim or not
-                fn is_identity_has_valid_cdd(did: IdentityId, leeway: Option<u64>) -> CddStatus {
-                    Identity::fetch_cdd(did, leeway.unwrap_or_default())
-                        .ok_or_else(|| "Either cdd claim is expired or not yet provided to give identity".into())
-                }
-
                 /// Retrieve primary key and secondary keys for a given IdentityId
                 fn get_did_records(did: IdentityId) -> RpcDidRecords<polymesh_primitives::AccountId> {
                     Identity::get_did_records(did)
@@ -1367,11 +1376,6 @@ macro_rules! runtime_apis {
                     auth_type: Option<polymesh_primitives::AuthorizationType>
                 ) -> Vec<polymesh_primitives::Authorization<polymesh_primitives::AccountId, Moment>> {
                     Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
-                }
-
-                /// Returns all valid [`IdentityClaim`] of type `CustomerDueDiligence` for the given `target_identity`.
-                fn valid_cdd_claims(target_identity: IdentityId, cdd_checker_leeway: Option<u64>) -> Vec<IdentityClaim> {
-                    Identity::valid_cdd_claims(target_identity, cdd_checker_leeway)
                 }
             }
 
@@ -1398,8 +1402,8 @@ macro_rules! runtime_apis {
             impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
                 fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
                     merge_active_and_inactive::<Block>(
-                        CddServiceProviders::active_members(),
-                        CddServiceProviders::inactive_members())
+                        DidRegistrars::active_members(),
+                        DidRegistrars::inactive_members())
                 }
 
                 fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
