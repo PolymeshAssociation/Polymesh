@@ -27,7 +27,7 @@ type Error = pallet_statistics::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
-const CDD_PROVIDER: Sr25519Keyring = Sr25519Keyring::Eve;
+const DID_REGISTRAR: Sr25519Keyring = Sr25519Keyring::Eve;
 
 #[derive(Clone)]
 struct InvestorState {
@@ -646,7 +646,7 @@ fn create_batches(tracker: &mut AssetTracker) -> Vec<Batch> {
 #[test]
 fn multiple_stats() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(multiple_stats_with_ext);
 }
@@ -738,7 +738,7 @@ fn multiple_stats_with_ext() {
 #[test]
 fn max_investor_rule() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(max_investor_rule_with_ext);
 }
@@ -776,7 +776,7 @@ fn max_investor_rule_with_ext() {
 #[test]
 fn max_investor_ownership_rule() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(max_investor_ownership_rule_with_ext);
 }
@@ -816,7 +816,7 @@ fn max_investor_ownership_rule_with_ext() {
 #[test]
 fn claim_count_rule() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(|| claim_count_rule_with_ext());
 }
@@ -904,7 +904,7 @@ fn claim_count_rule_with_ext() {
 #[test]
 fn jurisdiction_count_rule() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(jurisdiction_count_rule_with_ext);
 }
@@ -990,7 +990,7 @@ fn jurisdiction_count_rule_with_ext() {
 #[test]
 fn jurisdiction_ownership_rule() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(jurisdiction_ownership_rule_with_ext);
 }
@@ -1075,7 +1075,7 @@ fn jurisdiction_ownership_rule_with_ext() {
 #[test]
 fn ensure_invalid_set_active_stats() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(ensure_invalid_set_active_stats_ext);
 }
@@ -1107,7 +1107,7 @@ fn ensure_invalid_set_active_stats_ext() {
 #[test]
 fn ensure_invalid_transfer_conditions() {
     ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .did_registrars(vec![DID_REGISTRAR.to_account_id()])
         .build()
         .execute_with(ensure_invalid_transfer_conditions_ext);
 }

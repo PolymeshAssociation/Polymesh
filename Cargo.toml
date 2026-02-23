@@ -55,11 +55,7 @@ members = [
     "rpc/runtime-api",
     "pallets/common",
 ]
-exclude = [
-    "contracts",
-    "integration",
-    "metadata-tools"
-]
+exclude = ["contracts", "integration", "metadata-tools"]
 
 ## Keep common dependencies here.
 [workspace.dependencies]
@@ -113,8 +109,13 @@ polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 polymesh-build-tool = { path = "pallets/runtime/build_tool", default-features = false }
 
 # SCALE Codec deps.
-codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.11.6", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = [
+    "derive",
+    "max-encoded-len",
+] }
+scale-info = { version = "2.11.6", default-features = false, features = [
+    "derive",
+] }
 
 # Substrate pallet/runtime deps.
 frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
@@ -131,7 +132,9 @@ mmr-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch 
 pallet-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false, features = ['insecure_zero_ed'] }
+pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false, features = [
+    'insecure_zero_ed',
+] }
 pallet-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-beefy-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
 pallet-contracts = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
@@ -268,7 +271,10 @@ polymesh-runtime-testnet = { workspace = true }
 futures = "0.3.21"
 jsonrpsee = { version = "0.24.9", features = ["server"] }
 log = "0.4"
-serde = { version = "1.0.136", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.136", default-features = false, features = [
+    "alloc",
+    "derive",
+] }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
@@ -302,13 +308,18 @@ sc-transaction-pool-api = { workspace = true }
 sc-offchain = { workspace = true }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = [
+    "derive",
+    "max-encoded-len",
+] }
 frame-metadata-hash-extension = { workspace = true, default-features = false }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-babe = { workspace = true }
-pallet-balances = { workspace = true, default-features = false, features = ["insecure_zero_ed"] }
+pallet-balances = { workspace = true, default-features = false, features = [
+    "insecure_zero_ed",
+] }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-session = { workspace = true }
@@ -353,7 +364,7 @@ disable_fees = [
     "polymesh-runtime-mainnet/disable_fees",
     "polymesh-runtime-testnet/disable_fees",
 ]
-running-ci = [ "polymesh-runtime-develop/running-ci" ]
+running-ci = ["polymesh-runtime-develop/running-ci"]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "frame-benchmarking-cli/runtime-benchmarks",
@@ -364,7 +375,7 @@ runtime-benchmarks = [
 ]
 
 # Only build a "ci" runtime.
-ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
+ci-runtime = ["polymesh-runtime-develop/ci-runtime"]
 
 metadata-hash = [
     "polymesh-runtime-develop/metadata-hash",

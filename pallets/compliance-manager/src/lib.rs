@@ -581,7 +581,7 @@ impl<T: Config> Pallet<T> {
         issuer: TrustedIssuer,
     ) -> DispatchResult {
         ensure!(
-            <Identity<T>>::is_identity_exists(&issuer.issuer),
+            <Identity<T>>::is_did_active(issuer.issuer),
             Error::<T>::DidNotExist
         );
 

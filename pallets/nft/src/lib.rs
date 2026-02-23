@@ -379,10 +379,8 @@ pub mod pallet {
         InvalidNFTTransferNFTIsLocked,
         /// The sender identity can't be the same as the receiver identity.
         InvalidNFTTransferSenderIdMatchesReceiverId,
-        /// The receiver has an invalid CDD.
-        InvalidNFTTransferInvalidReceiverCDD,
-        /// The sender has an invalid CDD.
-        InvalidNFTTransferInvalidSenderCDD,
+        /// The receiver has an invalid DID.
+        InvalidNFTTransferInvalidReceiverDID,
         /// There's no asset associated to the given asset_id.
         InvalidAssetId,
         /// The NFT is locked.
@@ -697,16 +695,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
 
-        // Verifies if the receiver has a valid CDD claim.
+        // Verifies if the receiver has an active DID.
         ensure!(
-            IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did),
-            Error::<T>::InvalidNFTTransferInvalidReceiverCDD
-        );
-
-        // Verifies if the sender has a valid CDD claim.
-        ensure!(
-            IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did),
-            Error::<T>::InvalidNFTTransferInvalidSenderCDD
+            IdentityPallet::<T>::is_did_active(receiver_portfolio.did),
+            Error::<T>::InvalidNFTTransferInvalidReceiverDID
         );
 
         // Verifies that all compliance rules are being respected
@@ -863,12 +855,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        if !IdentityPallet::<T>::has_valid_cdd(receiver_portfolio.did) {
-            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidReceiverCDD.into());
-        }
-
-        if !IdentityPallet::<T>::has_valid_cdd(sender_portfolio.did) {
-            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidSenderCDD.into());
+        if !IdentityPallet::<T>::is_did_active(receiver_portfolio.did) {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferInvalidReceiverDID.into());
         }
 
         if NumberOfNFTs::<T>::get(nfts.asset_id(), &receiver_portfolio.did)

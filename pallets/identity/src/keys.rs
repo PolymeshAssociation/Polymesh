@@ -14,10 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, CddAuthForPrimaryKeyRotation, ChildDid, Claim, Config,
-    CurrentAuthId, DidKeys, DidRecords, Error, Event, IsDidFrozen, KeyAssetPermissions,
-    KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords, MultiPurposeNonce,
-    OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
+    types, AccountKeyRefCount, ChildDid, Config, CurrentAuthId, DidKeys, DidRecords, Error, Event,
+    IsDidFrozen, KeyAssetPermissions, KeyExtrinsicPermissions, KeyPortfolioPermissions, KeyRecords,
+    MultiPurposeNonce, OffChainAuthorizationNonce, OutdatedAuthorizations, Pallet, ParentDid,
     PermissionedCallOriginData, RpcDidRecords,
 };
 use codec::Encode as _;
@@ -38,8 +37,8 @@ use polymesh_primitives::identity::limits::{
 };
 use polymesh_primitives::SystematicIssuers;
 use polymesh_primitives::{
-    extract_auth, traits::group::GroupTrait, AuthorizationData, CddId, DidRecord, ExtrinsicName,
-    ExtrinsicPermissions, IdentityId, KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
+    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::AccountIdConversion as _;
@@ -55,13 +54,8 @@ const MAX_NAME_LEN: usize = 60;
 const MAX_PERMISSION_COMPLEXITY: usize = 1_000_000;
 
 impl<T: Config> Pallet<T> {
-    /// Does the identity given by `did` exist?
-    pub fn is_identity_exists(did: &IdentityId) -> bool {
-        DidRecords::<T>::contains_key(did)
-    }
-
     pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
-        ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
+        ensure!(!Self::is_did_active(id), Error::<T>::DidAlreadyExists);
         Ok(())
     }
 
@@ -75,7 +69,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `Err(DidDoesNotExist)` unless `id` has an associated record.
     pub fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
-        ensure!(Self::is_identity_exists(&id), Error::<T>::DidDoesNotExist);
+        ensure!(Self::is_did_active(id), Error::<T>::DidDoesNotExist);
         Ok(())
     }
 
@@ -295,26 +289,23 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn accept_primary_key_rotation(
         origin: T::RuntimeOrigin,
         rotation_auth_id: u64,
-        optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         let signer = Signatory::Account(sender.clone());
         Self::accept_auth_with(&signer, rotation_auth_id, |data, target_did| {
             // Ensure Authorization is a `RotatePrimaryKey`.
             extract_auth!(data, RotatePrimaryKey);
-            Self::common_rotate_primary_key(target_did, sender, None, optional_cdd_auth_id)
+            Self::common_rotate_primary_key(target_did, sender, None)
         })
     }
 
     // Sets the new primary key and optionally removes it as a secondary key if it is one.
-    // Checks the cdd auth if this is required.
     // Old primary key will be added as a secondary key if `new_permissions` is not None
     // New primary key must either be unlinked, or linked to the `target_did`
     pub fn common_rotate_primary_key(
         target_did: IdentityId,
         new_primary_key: T::AccountId,
         new_permissions: Option<Permissions>,
-        optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let old_primary_key =
             Self::get_primary_key(target_did).ok_or(Error::<T>::InvalidAccountKey)?;
@@ -342,29 +333,6 @@ impl<T: Config> Pallet<T> {
 
         if new_permissions.is_none() {
             Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
-        }
-
-        let signer = Signatory::Account(new_primary_key.clone());
-
-        // Accept authorization from CDD service provider.
-        if CddAuthForPrimaryKeyRotation::<T>::get() {
-            let auth_id = optional_cdd_auth_id
-                .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
-
-            Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
-                let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
-                // Attestor must be a CDD service provider.
-                ensure!(
-                    T::CddServiceProviders::is_member(&auth_by),
-                    Error::<T>::NotCddProviderAttestation
-                );
-                // Ensure authorizations are for the same DID.
-                ensure!(
-                    target_did == attestation_for_did,
-                    Error::<T>::AuthorizationsNotForSameDids
-                );
-                Ok(())
-            })?;
         }
 
         // Replace primary key of the owner that initiated key rotation.
@@ -405,7 +373,6 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn base_rotate_primary_key_to_secondary(
         origin: T::RuntimeOrigin,
         rotation_auth_id: u64,
-        optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let new_primary_key = ensure_signed(origin)?;
         let new_primary_key_signer = Signatory::Account(new_primary_key.clone());
@@ -415,12 +382,7 @@ impl<T: Config> Pallet<T> {
             |data, target_did| {
                 let perms = extract_auth!(data, RotatePrimaryKeyToSecondary(p));
 
-                Self::common_rotate_primary_key(
-                    target_did,
-                    new_primary_key,
-                    Some(perms),
-                    optional_cdd_auth_id,
-                )
+                Self::common_rotate_primary_key(target_did, new_primary_key, Some(perms))
             },
         )
     }
@@ -712,8 +674,11 @@ impl<T: Config> Pallet<T> {
             // Ensure that the key is unlinked.
             Self::ensure_key_did_unlinked(&key)?;
 
-            // Check that the new Identity has a valid CDD claim.
-            ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+            ensure!(
+                !Self::is_did_locked(target_did),
+                Error::<T>::TargetDidInactive
+            );
+
             // Charge the protocol fee after all checks.
             T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)?;
 
@@ -830,17 +795,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// For testing/benchmarking only.
-    /// Registers a did with a self CDD claim.
+    /// Registers a DID.
     //#[cfg(feature = "runtime-benchmarks")]
-    pub fn testing_cdd_register_did(
-        sender: T::AccountId,
-        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = Self::register_did_without_cdd(sender, secondary_keys, None)?;
-        // Add a self CDD claim.
-        let cdd = Claim::CustomerDueDiligence(CddId::default());
-        Self::base_add_claim(did, cdd, did, None)?;
-        Ok(did)
+    pub fn testing_register_did(sender: T::AccountId) -> Result<IdentityId, DispatchError> {
+        Self::register_did_without_cdd(sender, vec![], None)
     }
 
     /// Registers the systematic issuer with its DID.
@@ -881,7 +839,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Ensures that `origin`'s key is the primary key of a DID and has a valid CDD claim.
+    /// Ensures that `origin`'s key is the primary key of a DID that exists.
     /// Returns the caller's account and DID.
     pub fn ensure_primary_key(
         origin: T::RuntimeOrigin,
@@ -891,13 +849,13 @@ impl<T: Config> Pallet<T> {
             .ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
         let did = key_rec.is_primary_key().ok_or(Error::<T>::KeyNotAllowed)?;
         ensure!(
-            Self::has_valid_cdd(did),
-            Error::<T>::UnauthorizedCallerDidMissingCdd
+            !Self::is_did_locked(did),
+            Error::<T>::UnauthorizedCallerDidInactive
         );
         Ok((sender, did))
     }
 
-    /// Ensures that `origin`'s key is linked to a DID and has a valid CDD claim.
+    /// Ensures that `origin`'s key is linked to a DID that exists.
     /// Returns the caller's account and DID.
     pub fn ensure_did(
         origin: T::RuntimeOrigin,
@@ -905,8 +863,8 @@ impl<T: Config> Pallet<T> {
         let sender = ensure_signed(origin)?;
         let did = Self::get_identity(&sender).ok_or(Error::<T>::MissingIdentity)?;
         ensure!(
-            Self::has_valid_cdd(did),
-            Error::<T>::UnauthorizedCallerDidMissingCdd
+            !Self::is_did_locked(did),
+            Error::<T>::UnauthorizedCallerDidInactive
         );
         Ok((sender, did))
     }
@@ -992,8 +950,8 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Pallet<T> {
             Self::ensure_valid_origin_permissions(who, false, pallet_name, function_name)?;
 
         ensure!(
-            Self::has_valid_cdd(account_call_permissions_data.primary_did),
-            Error::<T>::UnauthorizedCallerDidMissingCdd
+            !Self::is_did_locked(account_call_permissions_data.primary_did),
+            Error::<T>::UnauthorizedCallerDidInactive
         );
 
         Ok(account_call_permissions_data)

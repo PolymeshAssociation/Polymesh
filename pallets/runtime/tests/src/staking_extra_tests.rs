@@ -12,7 +12,7 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 fn updating_controller() {
     let charlie = vec![Sr25519Keyring::Charlie.to_account_id()];
     ExtBuilder::default()
-        .cdd_providers(charlie)
+        .did_registrars(charlie)
         .build()
         .execute_with(|| {
             let alice: User = User::new(Sr25519Keyring::Alice);
@@ -47,10 +47,8 @@ fn updating_controller() {
                 pallet_staking::ValidatorPrefs::default()
             ));
 
-            assert_ok!(pallet_identity::Pallet::<TestStorage>::revoke_claim(
-                Origin::signed(Sr25519Keyring::Charlie.to_account_id()),
-                alice.did,
-                polymesh_primitives::Claim::CustomerDueDiligence(Default::default())
+            assert!(pallet_identity::Pallet::<TestStorage>::is_did_active(
+                alice.did
             ));
 
             assert_ok!(
@@ -75,8 +73,7 @@ fn updating_controller() {
             assert_ok!(
                 pallet_identity::Pallet::<TestStorage>::rotate_primary_key_to_secondary(
                     eve.origin(),
-                    auth_id,
-                    None
+                    auth_id
                 )
             );
         });

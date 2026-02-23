@@ -61,8 +61,6 @@
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
 //! - `ms_signers` - Helper function that checks if someone is an authorized signer of a multisig or
 //! not.
-//! - `is_changing_signers_allowed` - Checks whether changing the list of signers is allowed in a
-//! multisig.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -83,7 +81,7 @@ use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
-use pallet_identity::{CddAuthForPrimaryKeyRotation, Config as IdentityConfig};
+use pallet_identity::Config as IdentityConfig;
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
@@ -686,8 +684,6 @@ pub mod pallet {
         IdentityNotAdmin,
         /// Identity provided is not the multisig's payer.
         IdentityNotPayer,
-        /// Changing multisig parameters not allowed since multisig is a primary key.
-        ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
         SignerAlreadyLinkedToMultisig,
         /// Signer is an account key that is already associated with an identity.
@@ -972,10 +968,6 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // Ensure `multisig` is a MultiSig and get it's DID.
         let ms_did = Self::ensure_ms_has_did(&multisig)?;
-        ensure!(
-            Self::is_changing_signers_allowed(&multisig),
-            Error::<T>::ChangeNotAllowed
-        );
         let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
 
         let pending_num_of_signers = NumberOfSigners::<T>::get(&multisig)
@@ -1244,11 +1236,6 @@ impl<T: Config> Pallet<T> {
                 let ms_identity = Self::ensure_ms_has_did(&multisig)?;
 
                 ensure!(
-                    Self::is_changing_signers_allowed(&multisig),
-                    Error::<T>::ChangeNotAllowed
-                );
-
-                ensure!(
                     !MultiSigSigners::<T>::get(&multisig, &signer),
                     Error::<T>::AlreadyASigner
                 );
@@ -1306,18 +1293,6 @@ impl<T: Config> Pallet<T> {
         MultiSigSigners::<T>::get(multi_sig, signer)
     }
 
-    /// Checks whether changing the list of signers is allowed in a multisig.
-    pub fn is_changing_signers_allowed(multisig: &T::AccountId) -> bool {
-        if CddAuthForPrimaryKeyRotation::<T>::get() {
-            if let Some(did) = IdentityPallet::<T>::get_identity(multisig) {
-                if IdentityPallet::<T>::is_primary_key(&did, multisig) {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
     // Changes the number of required signatures for the given `multisig` to `signatures_required`.
     fn base_change_multisig_required_signatures(
         caller_did: Option<IdentityId>,
@@ -1327,10 +1302,6 @@ impl<T: Config> Pallet<T> {
         let ms_did = Self::ensure_ms_get_did(&multisig)?;
         let num_signers = NumberOfSigners::<T>::get(multisig);
         Self::ensure_sigs_in_bounds(num_signers, signatures_required)?;
-        ensure!(
-            Self::is_changing_signers_allowed(multisig),
-            Error::<T>::ChangeNotAllowed
-        );
         MultiSigSignsRequired::<T>::insert(multisig, &signatures_required);
         Self::set_invalid_proposals(&multisig);
         Self::deposit_event(Event::MultiSigSignersRequiredChanged {

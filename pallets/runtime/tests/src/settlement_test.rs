@@ -288,17 +288,17 @@ fn venue_registration() {
     });
 }
 
-fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
-    let cdd = Sr25519Keyring::Eve.to_account_id();
+fn test_with_did_registrar(test: impl FnOnce(AccountId)) {
+    let registrar = Sr25519Keyring::Eve.to_account_id();
     ExtBuilder::default()
-        .cdd_providers(vec![cdd.clone()])
+        .did_registrars(vec![registrar.clone()])
         .build()
-        .execute_with(|| test(cdd));
+        .execute_with(|| test(registrar));
 }
 
 #[test]
 fn basic_settlement() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -345,7 +345,7 @@ fn basic_settlement() {
 
 #[test]
 fn create_and_affirm_instruction() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -445,7 +445,7 @@ fn overdraft_failure() {
 
 #[test]
 fn token_swap() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -572,7 +572,7 @@ fn token_swap() {
 
 #[test]
 fn settle_on_block() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -853,7 +853,7 @@ fn failed_execution() {
 
 #[test]
 fn venue_filtering() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -927,7 +927,7 @@ fn venue_filtering() {
 
 #[test]
 fn basic_fuzzing() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let charlie = User::new(Sr25519Keyring::Charlie);
@@ -1304,7 +1304,7 @@ fn claim_multiple_receipts_during_authorization() {
 
 #[test]
 fn overload_instruction() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -1370,7 +1370,7 @@ fn encode_receipt() {
 #[test]
 fn test_weights_for_settlement_transaction() {
     ExtBuilder::default()
-        .cdd_providers(vec![Sr25519Keyring::Eve.to_account_id()])
+        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             let alice = User::new(Sr25519Keyring::Alice);
@@ -1468,7 +1468,7 @@ fn test_weights_for_settlement_transaction() {
 
 #[test]
 fn cross_portfolio_settlement() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -1546,7 +1546,7 @@ fn cross_portfolio_settlement() {
 
 #[test]
 fn multiple_portfolio_settlement() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -1688,7 +1688,7 @@ fn multiple_portfolio_settlement() {
 
 #[test]
 fn multiple_custodian_settlement() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -1928,7 +1928,7 @@ fn reject_instruction() {
 
 #[test]
 fn dirty_storage_with_tx() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -2271,7 +2271,7 @@ fn assert_number_of_venue_signers() {
 
 #[test]
 fn reject_instruction_with_zero_amount() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -2307,7 +2307,7 @@ fn reject_instruction_with_zero_amount() {
 
 #[test]
 fn basic_settlement_with_memo() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -2386,7 +2386,7 @@ fn create_instruction(
 
 #[test]
 fn settle_manual_instruction() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -2490,7 +2490,7 @@ fn settle_manual_instruction() {
 
 #[test]
 fn settle_manual_instruction_with_portfolio() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let charlie = User::new(Sr25519Keyring::Charlie);
@@ -2715,7 +2715,7 @@ fn add_nft_instruction() {
 /// Successfully adds and affirms an instruction with non-fungible assets.
 #[test]
 fn add_and_affirm_nft_instruction() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
         let alice: User = User::new(Sr25519Keyring::Alice);
         let bob: User = User::new(Sr25519Keyring::Bob);
@@ -2825,7 +2825,7 @@ fn add_and_affirm_nft_instruction() {
 /// Only instructions with NFTS owned by the caller can be affirmed.
 #[test]
 fn add_and_affirm_nft_not_owned() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
         let alice: User = User::new(Sr25519Keyring::Alice);
         let bob: User = User::new(Sr25519Keyring::Bob);
@@ -2881,7 +2881,7 @@ fn add_and_affirm_nft_not_owned() {
 /// An NFT can only be included in one of the legs.
 #[test]
 fn add_same_nft_different_legs() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         // First we need to create a collection, mint two NFTs, and create a venue
         let alice: User = User::new(Sr25519Keyring::Alice);
         let bob: User = User::new(Sr25519Keyring::Bob);
@@ -2949,7 +2949,7 @@ fn add_same_nft_different_legs() {
 /// Receipts can only be used for offchain assets.
 #[test]
 fn add_and_affirm_with_receipts_nfts() {
-    test_with_cdd_provider(|_eve| {
+    test_with_did_registrar(|_eve| {
         // First we need to create a collection, mint one NFT, and create a venue
         let id = InstructionId(0);
         let ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
