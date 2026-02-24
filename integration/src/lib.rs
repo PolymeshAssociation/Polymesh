@@ -432,11 +432,7 @@ pub async fn sign_with_key<S: Signer, T: sp_core::Encode>(
         use crate::client::{BytesPayload, Encoded};
         use sp_core::Encode;
 
-        if cfg!(feature = "previous_release") {
-            message.encode()
-        } else {
-            BytesPayload(Encoded::from(message)).encode()
-        }
+        BytesPayload(Encoded::from(message)).encode()
     };
     Ok(signer.sign(&encoded[..]).await?)
 }
