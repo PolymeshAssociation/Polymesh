@@ -134,7 +134,7 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
         .call(
             contract.into(),
             0,
-            Weight::from_parts(10_500_000_000, 300_000),
+            Weight::from_parts(10_600_000_000, 300_000),
             None,
             encoded_call,
         )?
