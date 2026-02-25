@@ -16,7 +16,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{secondary_key::SecondaryKey, IdentityId};
+use crate::secondary_key::SecondaryKey;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H512;
