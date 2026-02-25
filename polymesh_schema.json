@@ -14,11 +14,39 @@
       "expiresAt": "PolymeshMoment",
       "message": "Message"
     },
-    "SecondaryKeyAuthMessage": "ChainScopedMessage<IdentityId>",
-    "CreateChildIdentityAuthMessage": "ChainScopedMessage<IdentityId>",
-    "FundraiserReceiptMessage": "ChainScopedMessage<FundraiserReceipt>",
-    "ReceiptMessage": "ChainScopedMessage<Receipt>",
-    "RelayTxMessage": "ChainScopedMessage<RuntimeCall>",
+    "ChainScopedMessageIdentityId": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "IdentityId"
+    },
+    "ChainScopedMessageReceipt": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "Receipt"
+    },
+    "ChainScopedMessageFundraiserReceipt": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "FundraiserReceipt"
+    },
+    "ChainScopedMessageRuntimeCall": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "RuntimeCall"
+    },
+    "SecondaryKeyAuthMessage": "ChainScopedMessageIdentityId",
+    "CreateChildIdentityAuthMessage": "ChainScopedMessageIdentityId",
+    "FundraiserReceiptMessage": "ChainScopedMessageFundraiserReceipt",
+    "ReceiptMessage": "ChainScopedMessageReceipt",
+    "RelayTxMessage": "ChainScopedMessageRuntimeCall",
     "Receipt": {
       "instructionId": "InstructionId",
       "legId": "LegId",
