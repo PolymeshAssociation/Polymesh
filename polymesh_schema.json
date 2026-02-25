@@ -434,7 +434,7 @@
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
         "BecomeAgent": "(PolymeshAssetId, AgentGroup)",
-        "AddRelayerPayingKey": "(AccountId32, AccountId32, u128)",
+        "OldAddRelayerPayingKey": "(AccountId32, AccountId32, u128)",
         "RotatePrimaryKeyToSecondary": "Permissions"
       }
     },
