@@ -255,6 +255,7 @@ pub mod pallet {
                     "Relayer storage migration: removed {} account key refs",
                     count * 2
                 );
+                STORAGE_VERSION.put::<Pallet<T>>();
                 let db_weight = DbWeight::get();
                 db_weight
                     .reads(count * 3)
