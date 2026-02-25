@@ -694,6 +694,14 @@ where
             // Debit the fee from the remaining POLYX of subsidy.
             subsidy.remaining = subsidy.remaining.saturating_sub(fee);
             Subsidies::<T>::insert(user_key, subsidy);
+
+            // Emit event.
+            Self::deposit_event(Event::SubsidyDebited {
+                user_key: user_key.clone(),
+                paying_key: paying_key.clone(),
+                amount: fee,
+            });
+
             Ok(Some(paying_key))
         } else {
             Ok(None)
