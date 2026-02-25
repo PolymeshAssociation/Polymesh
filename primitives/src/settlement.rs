@@ -289,7 +289,7 @@ pub struct ReceiptDetails<AccountId, OffChainSignature, Moment> {
     signer: AccountId,
     /// Signature confirming the receipt details.
     signature: OffChainSignature,
-    /// The moment at which the receipt expires and can no longer be used for a settlemenet.
+    /// The moment at which the receipt expires and can no longer be used for a settlement.
     expires_at: Moment,
     /// The [`ReceiptMetadata`] that can be used to attach messages to receipts.
     metadata: Option<ReceiptMetadata>,
