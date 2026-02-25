@@ -21,7 +21,6 @@ use sp_core::{
     sr25519::{Public, Signature},
     H512,
 };
-use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::AnySignature;
 use sp_runtime_interface::{
@@ -169,7 +168,7 @@ impl<T: frame_system::Config + pallet_timestamp::Config, M: Encode> ChainScopedM
 #[cfg(feature = "std")]
 impl<T: frame_system::Config + pallet_timestamp::Config, M: Encode> ChainScopedMessage<T, M> {
     /// Used by unit tests to sign a message with a test key from the sr25519 keyring. This is not meant to be used in production code.
-    pub fn sign(&self, key: &Sr25519Keyring) -> Option<Signature> {
+    pub fn sign(&self, key: &sp_keyring::Sr25519Keyring) -> Option<Signature> {
         let wrapped_message = BytesWrapped(self).encode();
         Some(key.sign(&wrapped_message))
     }
