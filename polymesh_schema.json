@@ -7,13 +7,19 @@
     "PalletName": "Text",
     "ExtrinsicName": "Text",
     "AuthorizationNonce": "u64",
-    "TargetIdAuthorization": {
-      "targetId": "IdentityId",
-      "nonce": "AuthorizationNonce",
-      "expiresAt": "PolymeshMoment"
+    "ChainScopedMessage<Message>": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "Message"
     },
+    "SecondaryKeyAuthMessage": "ChainScopedMessage<IdentityId>",
+    "CreateChildIdentityAuthMessage": "ChainScopedMessage<IdentityId>",
+    "FundraiserReceiptMessage": "ChainScopedMessage<FundraiserReceipt>",
+    "ReceiptMessage": "ChainScopedMessage<Receipt>",
+    "RelayTxMessage": "ChainScopedMessage<RuntimeCall>",
     "Receipt": {
-      "uid": "u64",
       "instructionId": "InstructionId",
       "legId": "LegId",
       "senderIdentity": "IdentityId",
@@ -23,7 +29,6 @@
     },
     "FundraiserId": "u64",
     "FundraiserReceipt": {
-      "uid": "u64",
       "fundraiserId": "FundraiserId",
       "legId": "LegId",
       "senderIdentity": "IdentityId",
