@@ -202,6 +202,8 @@ pub mod pallet {
                     Owner::<T>::insert(asset_id, nft_id, asset_holder);
                     n += 1;
                 }
+                // Update storage version after migration is done.
+                STORAGE_VERSION.put::<Pallet<T>>();
                 log::info!("Initialized Owner storage for {} items.", n);
                 let weight = DbWeight::get()
                     .reads(n)
