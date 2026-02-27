@@ -20,7 +20,6 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 
 node-rpc = { workspace = true }
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true }
 
@@ -39,6 +38,5 @@ std = [
     "frame-system/std",
     "polymesh-primitives/std",
     "node-rpc/std",
-    "polymesh-common-utilities/std",
     "pallet-protocol-fee-rpc-runtime-api/std"
 ]

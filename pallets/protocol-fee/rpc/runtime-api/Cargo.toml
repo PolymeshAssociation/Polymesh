@@ -8,7 +8,6 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # General
@@ -29,5 +28,4 @@ std = [
     "sp-runtime/std",
     "scale-info/std",
     "polymesh-primitives/std",
-    "polymesh-common-utilities/std",
 ]

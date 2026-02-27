@@ -22,7 +22,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
 
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 
 /// A capped version of `Balance` which is normally a `u128`, fit into `u64` which is a serializable
 /// type unlike `u128`. There are no fees that would not fit into `u64`.

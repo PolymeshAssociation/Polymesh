@@ -86,9 +86,6 @@ mod auth;
 mod claims;
 mod keys;
 
-mod context;
-pub use context::Context;
-
 pub mod types;
 pub use types::{
     Claim1stKey, Claim2ndKey, DidActiveStatus, DidStatus, PermissionedCallOriginData, RpcDidRecords,
@@ -105,17 +102,17 @@ use frame_support::traits::{
 };
 use frame_support::weights::Weight;
 use frame_support::Parameter;
-use polymesh_common_utilities::{
-    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-};
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
+    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+};
+use polymesh_primitives::{
     storage_migration_ver,
     traits::group::GroupTrait,
-    traits::{CddAndFeeDetails, IdentityFnTrait},
+    traits::{CurrentFeePayer, IdentityFnTrait},
     AssetPermissions, Authorization, AuthorizationData, AuthorizationType, Balance, CddId, Claim,
     ClaimType, CustomClaimTypeId, DidRecord, ExtrinsicPermissions, IdentityClaim, IdentityId,
     KeyRecord, Permissions, PortfolioPermissions, Scope, SecondaryKey, Signatory,
@@ -244,7 +241,7 @@ pub mod pallet {
             + Mutate<Self::AccountId>
             + MutateHold<Self::AccountId>;
         /// Used to check and update CDD
-        type CddHandler: CddAndFeeDetails<
+        type TxFeeHandler: CurrentFeePayer<
             Self::AccountId,
             <Self as frame_system::Config>::RuntimeCall,
         >;
@@ -395,10 +392,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type IsDidFrozen<T: Config> = StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
 
-    /// It stores the current gas fee payer for the current transaction.
-    #[pallet::storage]
-    pub type CurrentPayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
-
     /// (Target ID, claim type) (issuer,scope) -> Associated claims
     #[pallet::storage]
     #[pallet::unbounded]
@@ -499,7 +492,6 @@ pub mod pallet {
     /// Strong references will block a key from leaving it's identity.
     ///
     /// Pallets using "strong" references to account keys:
-    /// * Relayer: For `user_key` and `paying_key`
     /// * Assets: Updated when an account holds an asset with non-zero balance.
     /// * NFT: Updated when an account owns an NFT.
     ///
@@ -1101,20 +1093,6 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Pallet<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
-    }
-
-    /// Fetches the fee payer from the context.
-    fn current_payer() -> Option<T::AccountId> {
-        CurrentPayer::<T>::get()
-    }
-
-    /// Sets the fee payer in the context.
-    fn set_current_payer(payer: Option<T::AccountId>) {
-        if let Some(payer) = payer {
-            CurrentPayer::<T>::put(payer);
-        } else {
-            CurrentPayer::<T>::kill();
-        }
     }
 
     /// Returns true if the DID exists (is active).

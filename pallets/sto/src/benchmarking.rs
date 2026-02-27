@@ -7,7 +7,7 @@ use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_asset::BalanceOf;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_settlement::VenueCounter;
-use polymesh_primitives::crypto::BytesWrapped;
+use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
 use polymesh_primitives::settlement::VenueDetails;
 use polymesh_primitives::{Ticker, TrustedIssuer};
 
@@ -139,17 +139,22 @@ fn sign_receipt<T: Config>(
     investor_did: IdentityId,
     ticker: Ticker,
     amount: u128,
-) -> FundraiserReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let receipt = FundraiserReceipt::new(
+) -> FundraiserReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment> {
+    let expires_at = pallet_timestamp::Pallet::<T>::get() + 1000u32.into();
+    let receipt = ChainScopedMessage::<T, _>::new_unchecked(
         uid,
-        fundraiser_id,
-        investor_did,
-        fundraiser_did,
-        ticker,
-        amount,
+        STO_FUNDRAISER_RECEIPT_LABEL,
+        expires_at,
+        FundraiserReceipt::new(fundraiser_id, investor_did, fundraiser_did, ticker, amount),
     );
-    let signature = signer
-        .sign(&BytesWrapped(&receipt).encode())
+    let signature = receipt
+        .native_sign(
+            &signer
+                .secret
+                .as_ref()
+                .expect("User without secret key")
+                .to_bytes(),
+        )
         .expect("Failed to sign receipt");
     let encoded_signature = MultiSignature::from(signature).encode();
     let signature = T::OffChainSignature::decode(&mut &encoded_signature[..]).unwrap();
@@ -157,6 +162,7 @@ fn sign_receipt<T: Config>(
         uid,
         signer: signer.account(),
         signature: signature.into(),
+        expires_at,
         metadata: None,
     }
 }

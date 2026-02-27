@@ -26,7 +26,6 @@ use pallet_portfolio::{
     PortfolioLockedAssets,
 };
 use pallet_statistics::AssetStats;
-use polymesh_common_utilities::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
@@ -37,6 +36,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariableCalendarUnit};
+use polymesh_primitives::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,

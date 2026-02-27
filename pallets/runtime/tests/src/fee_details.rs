@@ -5,8 +5,8 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_primitives::{traits::CddAndFeeDetails, Signatory, TransactionError};
-use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
+use polymesh_primitives::{traits::CurrentFeePayer, Signatory, TransactionError};
+use polymesh_runtime_develop::runtime::{RuntimeCall, TxFeeHandler};
 
 use super::multisig::{create_multisig_default_perms, create_signers};
 use super::storage::{get_last_auth_id, make_account_without_cdd};
@@ -36,7 +36,7 @@ fn did_checks() {
             let charlie_signatory = Signatory::Account(charlie_account.clone());
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
                         sigs_required: 1
                     }),
@@ -47,7 +47,7 @@ fn did_checks() {
 
             // call to accept being a multisig signer should fail when invalid auth
             assert_noop!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer { auth_id: 0 }),
                     alice_account.clone()
                 ),
@@ -62,7 +62,7 @@ fn did_checks() {
 
             let alice_auth_id = get_last_auth_id(&alice_signatory);
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
@@ -72,7 +72,7 @@ fn did_checks() {
             );
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
@@ -84,7 +84,7 @@ fn did_checks() {
             );
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
@@ -104,7 +104,7 @@ fn did_checks() {
             let alice_auth_id = get_last_auth_id(&alice_signatory);
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
@@ -116,7 +116,7 @@ fn did_checks() {
             );
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_signatory.clone(),
                         auth_id: alice_auth_id,
@@ -136,7 +136,7 @@ fn did_checks() {
             let charlie_auth_id = get_last_auth_id(&charlie_signatory);
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_signatory.clone(),
                         auth_id: charlie_auth_id,
@@ -149,7 +149,7 @@ fn did_checks() {
 
             // call to remove authorisation with caller paying should succeed as caller has CDD
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_signatory,
                         auth_id: charlie_auth_id,
@@ -170,7 +170,7 @@ fn did_checks() {
             let alice_auth_id = get_last_auth_id(&alice_signatory);
 
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer {
                         auth_id: alice_auth_id
                     }),
@@ -181,7 +181,7 @@ fn did_checks() {
 
             // normal tx with cdd should succeed
             assert_eq!(
-                CddHandler::get_valid_payer(
+                TxFeeHandler::get_valid_payer(
                     &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
                         sigs_required: 1
                     }),

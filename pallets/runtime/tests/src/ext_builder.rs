@@ -12,8 +12,8 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::{constants::currency::POLY, SystematicIssuers, GC_DID};
 use polymesh_primitives::{AccountId, IdentityId, PosRatio, SecondaryKey};
 

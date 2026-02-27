@@ -74,7 +74,7 @@ use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::DidRecords;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
-use polymesh_primitives::crypto::verify_signature;
+use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
     Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
@@ -581,6 +581,8 @@ pub mod pallet {
         InvalidAccountId,
         /// TaskName cannot exceed 32 bytes.
         InvalidTaskName,
+        /// The receipt has expired and can no longer be claimed.
+        ReceiptExpired,
     }
 
     storage_migration_ver!(3);
@@ -870,7 +872,7 @@ pub mod pallet {
         pub fn affirm_with_receipts(
             origin: OriginFor<T>,
             id: InstructionId,
-            receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+            receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
             portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
         ) -> DispatchResultWithPostInfo {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(
@@ -1202,7 +1204,7 @@ pub mod pallet {
         pub fn affirm_with_receipts_with_count(
             origin: OriginFor<T>,
             id: InstructionId,
-            receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+            receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
             portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
             number_of_assets: Option<AffirmationCount>,
         ) -> DispatchResult {
@@ -2256,7 +2258,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_affirm_with_receipts(
         origin: OriginFor<T>,
         instruction_id: InstructionId,
-        receipts_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        receipts_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
         portfolios: BTreeSet<PortfolioId>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
@@ -2354,7 +2356,7 @@ impl<T: Config> Pallet<T> {
     pub fn affirm_with_receipts_and_maybe_schedule_instruction(
         origin: OriginFor<T>,
         id: InstructionId,
-        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
         portfolios: BTreeSet<PortfolioId>,
         affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
@@ -2424,7 +2426,7 @@ impl<T: Config> Pallet<T> {
     pub fn affirm_and_execute_instruction(
         origin: OriginFor<T>,
         id: InstructionId,
-        receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
         portfolios: BTreeSet<PortfolioId>,
         caller_did: IdentityId,
     ) -> DispatchResult {
@@ -2984,7 +2986,7 @@ impl<T: Config> Pallet<T> {
     fn ensure_valid_receipts_details(
         venue_id: VenueId,
         instruction_id: InstructionId,
-        receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature>],
+        receipts_details: &[ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>],
     ) -> DispatchResult {
         let mut unique_signers_uid_set = BTreeSet::new();
         let mut unique_legs = BTreeSet::new();
@@ -3019,23 +3021,23 @@ impl<T: Config> Pallet<T> {
                             == AffirmationStatus::Pending,
                         Error::<T>::UnexpectedAffirmationStatus
                     );
-                    let receipt = Receipt::new(
+                    let receipt = ChainScopedMessage::<T, _>::new(
                         receipt_details.uid(),
-                        instruction_id,
-                        receipt_details.leg_id(),
-                        sender_identity,
-                        receiver_identity,
-                        ticker,
-                        amount,
-                    );
+                        SETTLEMENT_RECEIPT_LABEL,
+                        *receipt_details.expires_at(),
+                        Receipt::new(
+                            instruction_id,
+                            receipt_details.leg_id(),
+                            sender_identity,
+                            receiver_identity,
+                            ticker,
+                            amount,
+                        ),
+                    )
+                    .ok_or(Error::<T>::ReceiptExpired)?;
                     let signature = receipt_details.signature();
                     ensure!(
-                        verify_signature::<T, T::OffChainSignature, _>(
-                            &receipt_details.signer(),
-                            &signature,
-                            &receipt,
-                            false,
-                        ),
+                        receipt.verify_signature(receipt_details.signer(), signature),
                         Error::<T>::InvalidSignature
                     );
                 }

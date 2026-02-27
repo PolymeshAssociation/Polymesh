@@ -315,6 +315,7 @@ pub mod pallet {
         IdentityConfig
         + ContractsConfig<Currency = Self::Balances>
         + frame_system::Config
+        + polymesh_transaction_payment::Config
         + AssetFnConfig
     {
         /// Max value that `in_len` can take, that is,

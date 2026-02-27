@@ -76,8 +76,8 @@ use sp_runtime::traits::Zero;
 use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
     constants::currency::ONE_UNIT, storage_migration_ver, traits::PortfolioSubTrait, Balance,
     EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,

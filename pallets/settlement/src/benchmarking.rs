@@ -27,6 +27,7 @@ use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
+use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::ReceiptMetadata;
 use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker, WeightMeter};
 
@@ -288,18 +289,29 @@ fn setup_receipt_details<T: Config>(
     amount: Balance,
     instruction_id: InstructionId,
     leg_id: u32,
-) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let receipt = Receipt::new(
+) -> ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment> {
+    let expires_at = pallet_timestamp::Pallet::<T>::get() + 1000u32.into();
+    let receipt = ChainScopedMessage::<T, _>::new_unchecked(
         leg_id as u64,
-        instruction_id,
-        LegId(leg_id as u64),
-        sender_identity,
-        receiver_identity,
-        Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes()),
-        amount,
+        SETTLEMENT_RECEIPT_LABEL,
+        expires_at,
+        Receipt::new(
+            instruction_id,
+            LegId(leg_id as u64),
+            sender_identity,
+            receiver_identity,
+            Ticker::from_slice_truncated(format!("OFFTICKER{}", leg_id).as_bytes()),
+            amount,
+        ),
     );
-    let signature = signer
-        .sign(&receipt.encode())
+    let signature = receipt
+        .native_sign(
+            &signer
+                .secret
+                .as_ref()
+                .expect("User without secret key")
+                .to_bytes(),
+        )
         .expect("Failed to sign receipt");
     let encoded_signature = MultiSignature::from(signature).encode();
     let signature = T::OffChainSignature::decode(&mut &encoded_signature[..]).unwrap();
@@ -309,6 +321,7 @@ fn setup_receipt_details<T: Config>(
         LegId(leg_id as u64),
         signer.account(),
         signature,
+        expires_at,
         Some(ReceiptMetadata::default()),
     )
 }

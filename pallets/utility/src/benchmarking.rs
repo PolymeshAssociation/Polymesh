@@ -21,10 +21,6 @@
 
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use sp_core::sr25519::Signature;
-use sp_runtime::MultiSignature;
-
-use pallet_identity::benchmarking::{user, User, UserBuilder};
 
 use super::*;
 
@@ -32,49 +28,6 @@ const SEED: u32 = 0;
 
 fn assert_last_event<T: Config>(generic_event: <T as frame_system::Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
-}
-
-/// Generate `c` no-op system remark calls.
-// POLYMESH:
-fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::RuntimeCall> {
-    let call: <T as Config>::RuntimeCall =
-        frame_system::Call::<T>::remark { remark: vec![] }.into();
-    vec![call; c as usize]
-}
-
-// POLYMESH:
-fn make_relay_tx_users<T: Config>() -> (User<T>, User<T>) {
-    let alice = UserBuilder::<T>::default()
-        .balance(1_000_000u32)
-        .generate_did()
-        .build("Caller");
-    let bob = UserBuilder::<T>::default()
-        .balance(1_000_000u32)
-        .generate_did()
-        .build("Target");
-
-    (alice, bob)
-}
-
-// POLYMESH:
-fn remark_call_builder<T: Config>(
-    signer: &User<T>,
-    _: T::AccountId,
-) -> (UniqueCall<<T as Config>::RuntimeCall>, Vec<u8>) {
-    let call = make_calls::<T>(1).pop().unwrap();
-    let nonce: AuthorizationNonce = Nonces::<T>::get(signer.account());
-    let call = UniqueCall::new(nonce, call);
-
-    // Signer signs the relay call.
-    // NB: Decode as T::OffChainSignature because there is not type constraints in
-    // `T::OffChainSignature` to limit it.
-    let raw_signature: [u8; 64] = signer
-        .sign(&call.encode())
-        .expect("Data cannot be signed")
-        .0;
-    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
-
-    (call, encoded)
 }
 
 benchmarks! {
@@ -127,30 +80,17 @@ benchmarks! {
     }
 
     // POLYMESH:
-    relay_tx {
-        let (caller, target) = make_relay_tx_users::<T>();
-        let (call, encoded) = remark_call_builder( &target, caller.account());
-
-        // Rebuild signature from `encoded`.
-        let signature = T::OffChainSignature::decode(&mut &encoded[..])
-            .expect("OffChainSignature cannot be decoded from a MultiSignature");
-
-    }: _(caller.origin.clone(), target.account(), signature, call)
-    verify {
-        // NB see comment at `batch` verify section.
-    }
-
-    // POLYMESH:
     ensure_root {
-        let u = UserBuilder::<T>::default().generate_did().build("ALICE");
+        let caller = account("caller", SEED, SEED);
+        let origin = RawOrigin::Signed(caller);
     }: {
-        assert!(Pallet::<T>::ensure_root(u.origin.into()).is_err());
+        assert!(Pallet::<T>::ensure_root(origin.into()).is_err());
     }
 
     // POLYMESH:
     as_derivative {
         let index = 1;
-        let alice = user::<T>("Alice", 0);
+        let caller = account("caller", SEED, SEED);
         let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-    }: _(alice.origin, index, call)
+    }: _(RawOrigin::Signed(caller), index, call)
 }

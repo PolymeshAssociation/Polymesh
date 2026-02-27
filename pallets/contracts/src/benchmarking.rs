@@ -27,7 +27,7 @@ use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
 use pallet_identity::benchmarking::{did_registrar, user, User, UserBuilder};
-use pallet_identity::ParentDid;
+use pallet_identity::{Config as IdentityConfig, ParentDid};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity::limits::{MAX_ASSETS, MAX_EXTRINSICS};
@@ -89,7 +89,7 @@ where
 
     fn register_did(account_id: T::AccountId) -> DispatchResult {
         let did_registrar_origin = {
-            match T::DidRegistrars::get_members().first() {
+            match <T as IdentityConfig>::DidRegistrars::get_members().first() {
                 Some(did_registrar) => {
                     let did_registrar_acc =
                         pallet_identity::Pallet::<T>::get_primary_key(*did_registrar).unwrap();

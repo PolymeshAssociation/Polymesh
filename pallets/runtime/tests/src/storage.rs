@@ -28,13 +28,12 @@ use sp_version::RuntimeVersion;
 
 use frame_system::{EnsureRoot, RawOrigin};
 use lazy_static::lazy_static;
-use pallet_identity::Context;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use pallet_utility;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::constants::currency::{DOLLARS, POLY};
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::traits::{group::GroupTrait, CddAndFeeDetails};
+use polymesh_primitives::traits::{group::GroupTrait, CurrentFeePayer};
 use polymesh_primitives::{AccountId, Authorization, AuthorizationData, BlockNumber};
 use polymesh_primitives::{Moment, Permissions as AuthPermissions};
 use polymesh_primitives::{PortfolioNumber, Scope, SecondaryKey, TrustedFor, TrustedIssuer};
@@ -576,22 +575,19 @@ thread_local! {
 pub type NegativeImbalance<T> =
     <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-type CddHandler = TestStorage;
-impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
+type TxFeeHandler = TestStorage;
+impl CurrentFeePayer<AccountId, RuntimeCall> for TestStorage {
     fn get_valid_payer(
         _: &RuntimeCall,
         caller: AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(Some(caller))
     }
-    fn clear_context() {
-        Context::set_current_payer::<Identity>(None);
-    }
     fn set_payer_context(payer: Option<AccountId>) {
-        Context::set_current_payer::<Identity>(payer);
+        PolymeshTransactionPayment::set_current_payer(payer);
     }
     fn get_payer_from_context() -> Option<AccountId> {
-        Context::current_payer::<Identity>()
+        PolymeshTransactionPayment::current_payer()
     }
     fn decrease_authorization_count(_caller: &AccountId, _auth_id: Option<u64>) {}
     fn get_authorization_id(_call: &RuntimeCall) -> Option<u64> {
@@ -674,7 +670,7 @@ impl pallet_identity::Config for TestStorage {
     type Proposal = RuntimeCall;
     type DidRegistrars = DidRegistrar;
     type Balances = balances::Pallet<TestStorage>;
-    type CddHandler = TestStorage;
+    type TxFeeHandler = TestStorage;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Pallet<TestStorage>;

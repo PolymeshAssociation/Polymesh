@@ -30,9 +30,9 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
@@ -44,7 +44,7 @@ use crate::constants::time::*;
 
 /// 100% goes to the block author.
 type DealWithFees = Author<Runtime>;
-type CddHandler = polymesh_runtime_common::fee_details::CddHandler<Runtime>;
+type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<Runtime>;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -199,7 +199,7 @@ impl pallet_identity::Config for Runtime {
     type Proposal = RuntimeCall;
     type DidRegistrars = DidRegistrars;
     type Balances = pallet_balances::Pallet<Runtime>;
-    type CddHandler = CddHandler;
+    type TxFeeHandler = TxFeeHandler;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = pallet_protocol_fee::Pallet<Runtime>;

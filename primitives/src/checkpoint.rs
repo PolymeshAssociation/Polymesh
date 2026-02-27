@@ -6,8 +6,8 @@ use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
-use polymesh_primitives::calendar::{CalendarPeriod, CheckpointSchedule};
-use polymesh_primitives::{impl_checked_inc, Moment};
+use crate::calendar::{CalendarPeriod, CheckpointSchedule};
+use crate::{impl_checked_inc, Moment};
 
 /// ID of a `StoredSchedule`.
 #[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]

@@ -92,7 +92,7 @@ use sp_std::prelude::*;
 
 use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{storage_migration_ver, Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
