@@ -235,8 +235,6 @@ pub struct Venue {
 #[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq)]
 #[derive(Clone, Debug, MaxEncodedLen, Ord, PartialOrd)]
 pub struct Receipt<Balance> {
-    /// Unique receipt number set by the signer for their receipts.
-    uid: u64,
     /// The [`InstructionId`] of the instruction for which the receipt is for.
     instruction_id: InstructionId,
     /// The [`LegId`] of the leg for which the receipt is for.
@@ -254,7 +252,6 @@ pub struct Receipt<Balance> {
 impl<Balance> Receipt<Balance> {
     /// Creates a new [`Receipt`].
     pub fn new(
-        uid: u64,
         instruction_id: InstructionId,
         leg_id: LegId,
         sender_identity: IdentityId,
@@ -263,7 +260,6 @@ impl<Balance> Receipt<Balance> {
         amount: Balance,
     ) -> Self {
         Receipt {
-            uid,
             instruction_id,
             leg_id,
             sender_identity,
@@ -282,7 +278,7 @@ pub struct ReceiptMetadata([u8; 32]);
 /// Details about an offchain transaction receipt.
 #[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct ReceiptDetails<AccountId, OffChainSignature> {
+pub struct ReceiptDetails<AccountId, OffChainSignature, Moment> {
     /// Unique receipt number set by the signer for their receipts
     uid: u64,
     /// The [`InstructionId`] of the instruction which contains the offchain transfer.
@@ -293,11 +289,13 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     signer: AccountId,
     /// Signature confirming the receipt details.
     signature: OffChainSignature,
+    /// The moment at which the receipt expires and can no longer be used for a settlement.
+    expires_at: Moment,
     /// The [`ReceiptMetadata`] that can be used to attach messages to receipts.
     metadata: Option<ReceiptMetadata>,
 }
 
-impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> {
+impl<AccountId, OffChainSignature, Moment> ReceiptDetails<AccountId, OffChainSignature, Moment> {
     /// Creates a new [`ReceiptDetails`].
     pub fn new(
         uid: u64,
@@ -305,6 +303,7 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
         leg_id: LegId,
         signer: AccountId,
         signature: OffChainSignature,
+        expires_at: Moment,
         metadata: Option<ReceiptMetadata>,
     ) -> Self {
         Self {
@@ -313,6 +312,7 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
             leg_id,
             signer,
             signature,
+            expires_at,
             metadata,
         }
     }
@@ -340,6 +340,11 @@ impl<AccountId, OffChainSignature> ReceiptDetails<AccountId, OffChainSignature> 
     /// Returns the signature of the receipt details.
     pub fn signature(&self) -> &OffChainSignature {
         &self.signature
+    }
+
+    /// Returns the expiration moment of the receipt details.
+    pub fn expires_at(&self) -> &Moment {
+        &self.expires_at
     }
 
     /// Returns the [`ReceiptMetadata`] of the receipt details.

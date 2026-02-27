@@ -49,10 +49,8 @@ pub enum AuthorizationData<AccountId> {
     PortfolioCustody(PortfolioId),
     /// Authorization to become an agent of the `AssetId` with the `AgentGroup`.
     BecomeAgent(AssetId, AgentGroup),
-    /// Add Relayer paying key to user key
-    /// Must be issued by the paying key.
-    /// `AddRelayerPayingKey(user_key, paying_key, polyx_limit)`
-    AddRelayerPayingKey(AccountId, AccountId, Balance),
+    /// Deprecated: Authorization to add a Relayer paying key.
+    OldAddRelayerPayingKey(AccountId, AccountId, Balance),
     /// Authorization to change primary key and leave it as a secondary key
     /// with the given permissions.
     RotatePrimaryKeyToSecondary(Permissions),
@@ -71,7 +69,7 @@ impl<AccountId> AuthorizationData<AccountId> {
             Self::TransferAssetOwnership(..) => AuthorizationType::TransferAssetOwnership,
             Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
             Self::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
-            Self::AddRelayerPayingKey(..) => AuthorizationType::AddRelayerPayingKey,
+            Self::OldAddRelayerPayingKey(..) => AuthorizationType::OldAddRelayerPayingKey,
             Self::RotatePrimaryKeyToSecondary(..) => AuthorizationType::RotatePrimaryKeyToSecondary,
         }
     }
@@ -98,8 +96,8 @@ pub enum AuthorizationType {
     PortfolioCustody,
     /// Authorization to become an agent of a ticker.
     BecomeAgent,
-    /// Authorization to add a Relayer paying key.
-    AddRelayerPayingKey,
+    /// Deprecated: Authorization to add a Relayer paying key.
+    OldAddRelayerPayingKey,
     /// Authorization to change primary key with an existing secondary key
     RotatePrimaryKeyToSecondary,
 }

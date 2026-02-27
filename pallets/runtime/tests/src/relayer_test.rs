@@ -2,21 +2,26 @@ use frame_support::dispatch::{DispatchInfo, Pays, PostDispatchInfo};
 use frame_support::weights::Weight;
 use frame_support::{assert_noop, assert_ok};
 use frame_system;
+use polymesh_primitives::crypto::{ChainScopedMessage, RELAY_TX_LABEL};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::{Dispatchable, TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::TransactionSource;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use sp_runtime::MultiAddress;
+use sp_runtime::MultiSignature;
 
-use pallet_relayer::Subsidy;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use pallet_balances::Call as BalancesCall;
+use pallet_relayer::{RelayTxNonces, Subsidy};
 use polymesh_primitives::constants::currency::POLY;
-use polymesh_primitives::traits::CddAndFeeDetails;
-use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
-use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
+use polymesh_primitives::protocol_fee::ProtocolOp;
+use polymesh_primitives::traits::CurrentFeePayer;
+use polymesh_primitives::{AccountId, Balance, Ticker, TransactionError};
+use polymesh_runtime_develop::runtime::{RuntimeCall as DevRuntimeCall, TxFeeHandler};
 use polymesh_transaction_payment::Val;
 
-use super::storage::{get_last_auth_id, make_account_without_cdd, RuntimeCall, TestStorage, User};
+use super::asset_test::set_timestamp;
+use super::pips_test::assert_balance;
+use super::storage::{register_keyring_account_with_balance, RuntimeCall, TestStorage, User};
 use super::ExtBuilder;
 
 type Relayer = pallet_relayer::Pallet<TestStorage>;
@@ -60,8 +65,8 @@ fn call_asset_register_ticker(name: &[u8]) -> RuntimeCall {
     RuntimeCall::Asset(pallet_asset::Call::register_unique_ticker { ticker })
 }
 
-fn call_relayer_remove_paying_key(user_key: AccountId, paying_key: AccountId) -> RuntimeCall {
-    RuntimeCall::Relayer(pallet_relayer::Call::remove_paying_key {
+fn call_relayer_remove_subsidy(user_key: AccountId, paying_key: AccountId) -> RuntimeCall {
+    RuntimeCall::Relayer(pallet_relayer::Call::remove_subsidy {
         user_key,
         paying_key,
     })
@@ -80,11 +85,6 @@ fn post_info_from_weight(w: u64) -> PostDispatchInfo {
         actual_weight: Some(Weight::from_parts(w, 0)),
         pays_fee: Pays::Yes,
     }
-}
-
-#[track_caller]
-fn assert_key_usage(user: User, usage: u64) {
-    assert_eq!(AccountKeyRefCount::get(&user.acc()), usage);
 }
 
 fn get_subsidy(user: User) -> Option<Subsidy<AccountId>> {
@@ -136,54 +136,42 @@ fn assert_invalid_subsidy_call(caller: &AccountId, call: &RuntimeCall) {
 /// Setup a subsidy with the `payer` paying for the `user`.
 #[track_caller]
 fn setup_subsidy(user: User, payer: User, limit: Balance) {
-    // Add authorization for using `payer` as the paying key for `user`.
-    assert_ok!(Relayer::set_paying_key(payer.origin(), user.acc(), limit));
+    // Add a subsidy for `user` with `payer` as the paying key.
+    assert_ok!(Relayer::approve_subsidy(payer.origin(), user.acc(), limit));
 
     // No subsidy yet.
     assert_subsidy(user, None);
 
     // `user` accepts the paying key.
-    let auth_id = get_last_auth_id(&Signatory::Account(user.acc()));
-    assert_ok!(Relayer::accept_paying_key(user.origin(), auth_id));
+    assert_ok!(Relayer::accept_subsidy(user.origin(), payer.acc()));
 
     // `user` now has a subsidy of `limit` POLYX.
     assert_subsidy(user, Some((payer, limit)));
 }
 
 #[test]
-fn basic_relayer_paying_key_test() {
+fn basic_relayer_subsidy_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&do_basic_relayer_paying_key_test);
+        .execute_with(&do_basic_relayer_subsidy_test);
 }
-fn do_basic_relayer_paying_key_test() {
+fn do_basic_relayer_subsidy_test() {
     let bob = User::new(Sr25519Keyring::Bob);
     let alice = User::new(Sr25519Keyring::Alice);
     let dave = User::new(Sr25519Keyring::Dave);
 
     // Add authorization for using Alice as the paying key for Bob.
-    assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(), 10u128));
-
-    // The keys are not used yet.
-    assert_key_usage(alice, 0);
-    assert_key_usage(dave, 0);
-    assert_key_usage(bob, 0);
+    assert_ok!(Relayer::approve_subsidy(alice.origin(), bob.acc(), 10u128));
 
     // No subsidy yet.
     assert_subsidy(bob, None);
 
     // Bob accepts the paying key.
-    let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
-    assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
+    assert_ok!(Relayer::accept_subsidy(bob.origin(), alice.acc()));
 
     // Bob now has a subsidy of 10 POLYX.
     assert_subsidy(bob, Some((alice, 10u128)));
-
-    // Alice's and Bob's keys are now used, but Dave's key is still unused.
-    assert_key_usage(alice, 1);
-    assert_key_usage(bob, 1);
-    assert_key_usage(dave, 0);
 
     // Bob tries to increase his Polyx limit.  Not allowed
     assert_noop!(
@@ -203,18 +191,18 @@ fn do_basic_relayer_paying_key_test() {
 
     // Dave tries to remove the paying key from Bob's key.  Not allowed.
     assert_noop!(
-        Relayer::remove_paying_key(dave.origin(), bob.acc(), alice.acc()),
-        Error::NotAuthorizedForUserKey
+        Relayer::remove_subsidy(dave.origin(), bob.acc(), alice.acc()),
+        Error::NotAuthorized
     );
 
     // Dave tries to remove the wrong paying key from Bob's key.  Not allowed.
     assert_noop!(
-        Relayer::remove_paying_key(dave.origin(), bob.acc(), dave.acc()),
+        Relayer::remove_subsidy(dave.origin(), bob.acc(), dave.acc()),
         Error::NotPayingKey
     );
 
     // Alice tries to remove the paying key from Bob's key.  Allowed.
-    assert_ok!(Relayer::remove_paying_key(
+    assert_ok!(Relayer::remove_subsidy(
         alice.origin(),
         bob.acc(),
         alice.acc(),
@@ -222,9 +210,6 @@ fn do_basic_relayer_paying_key_test() {
 
     // Bob no longer has a subsidy.
     assert_subsidy(bob, None);
-
-    // Check alice's key is not used any more.
-    assert_key_usage(alice, 0);
 
     // Alice tries to update the poly limit for Bob,
     // but Bob no longer has a subsidy.
@@ -236,7 +221,7 @@ fn do_basic_relayer_paying_key_test() {
     // Alice tries to remove the paying key a second time,
     // but Bob no longer has a subsidy.
     assert_noop!(
-        Relayer::remove_paying_key(alice.origin(), bob.acc(), alice.acc()),
+        Relayer::remove_subsidy(alice.origin(), bob.acc(), alice.acc()),
         Error::NoPayingKey
     );
 }
@@ -298,62 +283,53 @@ fn do_update_polyx_limit_test() {
 }
 
 #[test]
-fn accept_new_paying_key_test() {
+fn accept_new_subsidy_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&do_accept_new_paying_key_test);
+        .execute_with(&do_accept_new_subsidy_test);
 }
-fn do_accept_new_paying_key_test() {
+fn do_accept_new_subsidy_test() {
     let bob = User::new(Sr25519Keyring::Bob);
     let alice = User::new(Sr25519Keyring::Alice);
     let dave = User::new(Sr25519Keyring::Dave);
 
-    let assert_usages = |bob_cnt, alice_cnt, dave_cnt| {
-        assert_key_usage(bob, bob_cnt);
-        assert_key_usage(alice, alice_cnt);
-        assert_key_usage(dave, dave_cnt);
-    };
-
     setup_subsidy(bob, alice, 10);
-    assert_usages(1, 1, 0);
 
     // Bob now has a subsidy of 10 POLYX from Alice.
     assert_subsidy(bob, Some((alice, 10u128)));
 
     // Add authorization for using Dave as the paying key for Bob.
-    assert_ok!(Relayer::set_paying_key(dave.origin(), bob.acc(), 200u128));
+    assert_ok!(Relayer::approve_subsidy(dave.origin(), bob.acc(), 200u128));
 
     // Bob accepts Dave as his new subsidiser replacing Alice as the subsidiser.
-    let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
-    assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
+    assert_ok!(Relayer::accept_subsidy(bob.origin(), dave.acc()));
 
-    assert_usages(1, 0, 1);
     // Bob now has a subsidy of 200 POLYX from Dave.
     assert_subsidy(bob, Some((dave, 200u128)));
 
     // Alice tries to remove the paying key from Bob's key.  Not allowed.
     assert_noop!(
-        Relayer::remove_paying_key(alice.origin(), bob.acc(), dave.acc()),
-        Error::NotAuthorizedForUserKey
+        Relayer::remove_subsidy(alice.origin(), bob.acc(), dave.acc()),
+        Error::NotAuthorized
     );
 }
 
 #[test]
-fn user_remove_paying_key_test() {
+fn user_remove_subsidy_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&do_user_remove_paying_key_test);
+        .execute_with(&do_user_remove_subsidy_test);
 }
-fn do_user_remove_paying_key_test() {
+fn do_user_remove_subsidy_test() {
     let bob = User::new(Sr25519Keyring::Bob);
     let alice = User::new(Sr25519Keyring::Alice);
 
     setup_subsidy(bob, alice, 2000);
 
     // Bob (user key) tries to remove the paying key from Bob's key.  Allowed.
-    assert_ok!(Relayer::remove_paying_key(
+    assert_ok!(Relayer::remove_subsidy(
         bob.origin(),
         bob.acc(),
         alice.acc(),
@@ -361,67 +337,17 @@ fn do_user_remove_paying_key_test() {
 
     // Bob no longer has a subsidy.
     assert_subsidy(bob, None);
-
-    // Check alice's key is not used any more.
-    assert_key_usage(alice, 0);
-    // Check bob's key is not used any more.
-    assert_key_usage(bob, 0);
 }
 
 #[test]
-fn relayer_user_key_without_cdd_test() {
-    ExtBuilder::default()
-        .monied(true)
-        .build()
-        .execute_with(&do_relayer_user_key_without_cdd_test);
-}
-fn do_relayer_user_key_without_cdd_test() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let bob_acc = Sr25519Keyring::Bob.to_account_id();
-    let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
-
-    // Add authorization for using Alice as the paying key for Bob.
-    assert_ok!(Relayer::set_paying_key(
-        alice.origin(),
-        bob_acc.clone(),
-        10u128
-    ));
-
-    // Bob tries to accept the paying key, without having a DID.
-    let auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
-    assert_ok!(Relayer::accept_paying_key(bob_sign, auth_id),);
-}
-
-#[test]
-fn relayer_paying_key_without_cdd_test() {
-    ExtBuilder::default()
-        .monied(true)
-        .build()
-        .execute_with(&do_relayer_paying_key_without_cdd_test);
-}
-fn do_relayer_paying_key_without_cdd_test() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let bob_acc = Sr25519Keyring::Bob.to_account_id();
-    let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
-
-    // Add authorization for using Bob as the paying key for Alice.
-    assert_ok!(Relayer::set_paying_key(bob_sign, alice.acc(), 10u128));
-
-    // Alice tries to accept the paying key, but the paying key
-    // is without a DID.
-    let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
-    assert_ok!(Relayer::accept_paying_key(alice.origin(), auth_id),);
-}
-
-#[test]
-fn user_remove_paying_key_transaction_fee_test() {
+fn user_remove_subsidy_transaction_fee_test() {
     ExtBuilder::default()
         .monied(true)
         .transaction_fees(5, 1, 1)
         .build()
-        .execute_with(&do_user_remove_paying_key_transaction_fee_test);
+        .execute_with(&do_user_remove_subsidy_transaction_fee_test);
 }
-fn do_user_remove_paying_key_transaction_fee_test() {
+fn do_user_remove_subsidy_transaction_fee_test() {
     let bob = User::new(Sr25519Keyring::Bob);
     let alice = User::new(Sr25519Keyring::Alice);
 
@@ -444,7 +370,7 @@ fn do_user_remove_paying_key_transaction_fee_test() {
     //
     // Bob removes alice's key from the subsidy.
     //
-    let call = call_relayer_remove_paying_key(bob.acc(), alice.acc());
+    let call = call_relayer_remove_subsidy(bob.acc(), alice.acc());
     let call_info = info_from_weight(5);
     // 0. Calculate fees for registering an asset ticker.
     let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
@@ -740,18 +666,106 @@ fn relayer_accept_cdd_and_fees_test() {
 fn do_relayer_accept_cdd_and_fees_test() {
     let alice = User::new(Sr25519Keyring::Alice);
     let bob = User::new(Sr25519Keyring::Bob);
-    let bob_sign = Signatory::Account(bob.acc());
 
-    // Alice creates authoration to subsidise for Bob.
-    assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(), 0u128));
-    let auth_id = get_last_auth_id(&bob_sign);
+    // Alice creates a subsidy for Bob.
+    assert_ok!(Relayer::approve_subsidy(alice.origin(), bob.acc(), 0u128));
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
-        CddHandler::get_valid_payer(
-            &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }),
+        TxFeeHandler::get_valid_payer(
+            &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_subsidy {
+                paying_key: alice.acc()
+            }),
             bob.acc()
         ),
         Ok(Some(alice.acc()))
+    );
+}
+
+#[test]
+fn relay_happy_case() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(_relay_happy_case);
+}
+
+fn _relay_happy_case() {
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
+
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
+
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Charlie, 1_000).unwrap();
+
+    // 41 Extra for registering a DID
+    assert_balance(bob.clone(), 1041, 0);
+    assert_balance(charlie.clone(), 1041, 0);
+
+    let origin = RuntimeOrigin::signed(alice);
+    let nonce = RelayTxNonces::<TestStorage>::get(bob.clone());
+    let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+        dest: charlie.clone().into(),
+        value: 50,
+    }));
+    let expires_at = 100u64;
+    let scoped_call =
+        ChainScopedMessage::<TestStorage, _>::new(nonce, RELAY_TX_LABEL, expires_at, &call)
+            .expect("Shouldn't be expired");
+    let signature = scoped_call.sign(&Sr25519Keyring::Bob).expect("Should sign");
+
+    assert_ok!(Relayer::relay_tx(
+        origin,
+        bob.clone(),
+        signature.into(),
+        call,
+        expires_at
+    ));
+
+    assert_balance(bob, 991, 0);
+    assert_balance(charlie, 1_091, 0);
+}
+
+#[test]
+fn relay_unhappy_cases() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(_relay_unhappy_cases);
+}
+
+fn _relay_unhappy_cases() {
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Alice, 1_000).unwrap();
+
+    let bob = Sr25519Keyring::Bob.to_account_id();
+
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+    let origin = RuntimeOrigin::signed(alice);
+    let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+        dest: charlie.clone().into(),
+        value: 59,
+    }));
+    let expires_at = 100u64;
+    let signature = MultiSignature::Sr25519(Default::default());
+    assert_noop!(
+        Relayer::relay_tx(
+            origin.clone(),
+            bob.clone(),
+            signature.clone(),
+            call.clone(),
+            expires_at,
+        ),
+        Error::InvalidSignature
+    );
+
+    let _ = register_keyring_account_with_balance(Sr25519Keyring::Bob, 1_000).unwrap();
+
+    set_timestamp(expires_at);
+
+    assert_noop!(
+        Relayer::relay_tx(origin.clone(), bob, signature, call, expires_at),
+        Error::ExpiredRelayTx
     );
 }

@@ -7,13 +7,47 @@
     "PalletName": "Text",
     "ExtrinsicName": "Text",
     "AuthorizationNonce": "u64",
-    "TargetIdAuthorization": {
-      "targetId": "IdentityId",
-      "nonce": "AuthorizationNonce",
-      "expiresAt": "PolymeshMoment"
+    "ChainScopedMessage<Message>": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "Message"
     },
+    "ChainScopedMessageIdentityId": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "IdentityId"
+    },
+    "ChainScopedMessageReceipt": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "Receipt"
+    },
+    "ChainScopedMessageFundraiserReceipt": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "FundraiserReceipt"
+    },
+    "ChainScopedMessageRuntimeCall": {
+      "genesisHash": "Hash",
+      "nonceOrId": "u64",
+      "label": "Text",
+      "expiresAt": "PolymeshMoment",
+      "message": "RuntimeCall"
+    },
+    "SecondaryKeyAuthMessage": "ChainScopedMessageIdentityId",
+    "CreateChildIdentityAuthMessage": "ChainScopedMessageIdentityId",
+    "FundraiserReceiptMessage": "ChainScopedMessageFundraiserReceipt",
+    "ReceiptMessage": "ChainScopedMessageReceipt",
+    "RelayTxMessage": "ChainScopedMessageRuntimeCall",
     "Receipt": {
-      "uid": "u64",
       "instructionId": "InstructionId",
       "legId": "LegId",
       "senderIdentity": "IdentityId",
@@ -23,7 +57,6 @@
     },
     "FundraiserId": "u64",
     "FundraiserReceipt": {
-      "uid": "u64",
       "fundraiserId": "FundraiserId",
       "legId": "LegId",
       "senderIdentity": "IdentityId",
@@ -429,7 +462,7 @@
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
         "BecomeAgent": "(PolymeshAssetId, AgentGroup)",
-        "AddRelayerPayingKey": "(AccountId32, AccountId32, u128)",
+        "OldAddRelayerPayingKey": "(AccountId32, AccountId32, u128)",
         "RotatePrimaryKeyToSecondary": "Permissions"
       }
     },

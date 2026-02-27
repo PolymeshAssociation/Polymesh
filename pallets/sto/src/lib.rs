@@ -68,7 +68,7 @@ use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::crypto::verify_signature;
+use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
 use polymesh_primitives::traits::PortfolioSubTrait;
@@ -106,14 +106,14 @@ pub enum FundraiserStatus {
 #[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub enum FundingMethod<AccountId, OffChainSignature> {
+pub enum FundingMethod<AccountId, OffChainSignature, Moment> {
     /// On-chain asset.
     OnChain(PortfolioId),
     /// Off-chain receipt.
-    OffChain(FundraiserReceiptDetails<AccountId, OffChainSignature>),
+    OffChain(FundraiserReceiptDetails<AccountId, OffChainSignature, Moment>),
 }
 
-impl<AccountId, OffChainSignature> FundingMethod<AccountId, OffChainSignature> {
+impl<AccountId, OffChainSignature, Moment> FundingMethod<AccountId, OffChainSignature, Moment> {
     pub fn is_onchain(&self) -> bool {
         matches!(self, FundingMethod::OnChain(_))
     }
@@ -376,6 +376,8 @@ pub mod pallet {
         InvalidSignature,
         /// Off-chain funding has not been enabled for this fundraiser.
         OffchainFundingNotAllowed,
+        /// The off-chain receipt has expired and can no longer be used for investment.
+        ReceiptExpired,
     }
 
     #[pallet::pallet]
@@ -616,7 +618,7 @@ pub mod pallet {
             offering_asset: AssetId,
             fundraiser_id: FundraiserId,
             investment_portfolio: PortfolioId,
-            funding: FundingMethod<T::AccountId, T::OffChainSignature>,
+            funding: FundingMethod<T::AccountId, T::OffChainSignature, T::Moment>,
             purchase_amount: Balance,
             max_price: Option<Balance>,
         ) -> DispatchResult {
@@ -865,7 +867,7 @@ impl<T: Config> Pallet<T> {
         offering_asset: AssetId,
         fundraiser_id: FundraiserId,
         investment_portfolio: PortfolioId,
-        funding: FundingMethod<T::AccountId, T::OffChainSignature>,
+        funding: FundingMethod<T::AccountId, T::OffChainSignature, T::Moment>,
         purchase_amount: Balance,
         max_price: Option<Balance>,
     ) -> DispatchResult {
@@ -988,21 +990,21 @@ impl<T: Config> Pallet<T> {
                     &receipt_details.signer,
                     receipt_details.uid,
                 )?;
-                let receipt = FundraiserReceipt::new(
+                let receipt = ChainScopedMessage::<T, _>::new(
                     receipt_details.uid,
-                    fundraiser_id,
-                    investor_did,
-                    fundraiser.raising_portfolio.did,
-                    ticker,
-                    cost,
-                );
-                ensure!(
-                    verify_signature::<T, T::OffChainSignature, _>(
-                        &receipt_details.signer,
-                        &receipt_details.signature,
-                        &receipt,
-                        true,
+                    STO_FUNDRAISER_RECEIPT_LABEL,
+                    receipt_details.expires_at,
+                    FundraiserReceipt::new(
+                        fundraiser_id,
+                        investor_did,
+                        fundraiser.raising_portfolio.did,
+                        ticker,
+                        cost,
                     ),
+                )
+                .ok_or(Error::<T>::ReceiptExpired)?;
+                ensure!(
+                    receipt.verify_signature(&receipt_details.signer, &receipt_details.signature),
                     Error::<T>::InvalidSignature
                 );
                 FundingAsset::OffChain(ticker)

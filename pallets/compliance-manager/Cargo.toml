@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 # Common
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Our pallets
@@ -59,7 +58,6 @@ std = [
     "pallet-external-agents/std",
     "pallet-timestamp/std",
     "polymesh-primitives/std",
-    "polymesh-common-utilities/std",
 ]
 
 runtime-benchmarks = [

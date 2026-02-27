@@ -24,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 
 #[rpc(client, server)]
 pub trait ProtocolFeeApi<BlockHash> {

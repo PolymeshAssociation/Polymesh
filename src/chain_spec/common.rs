@@ -14,11 +14,11 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::Perbill;
 
 use pallet_asset::TickerRegistrationConfig;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::asset_metadata::{AssetMetadataName, AssetMetadataSpec};
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit};
 use polymesh_primitives::constants::currency::ONE_POLY;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
+use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::{AccountId, Balance, BlockNumber, IdentityId, Moment, Signature, Ticker};
 use polymesh_primitives::{MaybeBlock, PosRatio};
 

@@ -38,8 +38,6 @@ impl_checked_inc!(FundraiserId);
     Ord
 )]
 pub struct FundraiserReceipt<Balance> {
-    /// Unique receipt number set by the signer for their receipts.
-    uid: u64,
     /// The [`FundraiserId`] of the STO fundraiser for which the receipt is for.
     fundraiser_id: FundraiserId,
     /// The [`IdentityId`] of the sender.
@@ -55,7 +53,6 @@ pub struct FundraiserReceipt<Balance> {
 impl<Balance> FundraiserReceipt<Balance> {
     /// Creates a new [`FundraiserReceipt`].
     pub fn new(
-        uid: u64,
         fundraiser_id: FundraiserId,
         sender_identity: IdentityId,
         receiver_identity: IdentityId,
@@ -63,7 +60,6 @@ impl<Balance> FundraiserReceipt<Balance> {
         amount: Balance,
     ) -> Self {
         Self {
-            uid,
             fundraiser_id,
             sender_identity,
             receiver_identity,
@@ -76,29 +72,35 @@ impl<Balance> FundraiserReceipt<Balance> {
 /// Details about an offchain transaction receipt.
 #[derive(Decode, DecodeWithMemTracking, Encode, Ord, PartialOrd)]
 #[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
-pub struct FundraiserReceiptDetails<AccountId, OffChainSignature> {
+pub struct FundraiserReceiptDetails<AccountId, OffChainSignature, Moment> {
     /// Unique receipt number set by the signer for their receipts
     pub uid: u64,
     /// The [`AccountId`] of the Signer for this receipt.
     pub signer: AccountId,
     /// Signature confirming the receipt details.
     pub signature: OffChainSignature,
+    /// The moment at which the receipt expires and can no longer be used for a STO.
+    pub expires_at: Moment,
     /// The [`ReceiptMetadata`] that can be used to attach messages to receipts.
     pub metadata: Option<ReceiptMetadata>,
 }
 
-impl<AccountId, OffChainSignature> FundraiserReceiptDetails<AccountId, OffChainSignature> {
+impl<AccountId, OffChainSignature, Moment>
+    FundraiserReceiptDetails<AccountId, OffChainSignature, Moment>
+{
     /// Creates a new [`FundraiserReceiptDetails`].
     pub fn new(
         uid: u64,
         signer: AccountId,
         signature: OffChainSignature,
+        expires_at: Moment,
         metadata: Option<ReceiptMetadata>,
     ) -> Self {
         Self {
             uid,
             signer,
             signature,
+            expires_at,
             metadata,
         }
     }

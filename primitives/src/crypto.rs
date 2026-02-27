@@ -14,6 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Encode, Output};
+use frame_support::pallet_prelude::Zero;
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::{
     crypto::ByteArray,
     sr25519::{Public, Signature},
@@ -74,44 +76,125 @@ impl<'a, T: Encode> Encode for BytesWrapped<'a, T> {
     }
 }
 
+/// Label for signing identity secondary key addition authorization.
+pub const IDENTITY_ADD_SECONDARY_KEY_LABEL: &[u8] = b"Polymesh Identity Add Secondary Key";
+
+/// Label for signing relay transactions.
+pub const RELAY_TX_LABEL: &[u8] = b"Polymesh Relay Transaction";
+
+/// Label for signing STO fundraiser receipts.
+pub const STO_FUNDRAISER_RECEIPT_LABEL: &[u8] = b"Polymesh STO Fundraiser Receipt";
+
+/// Label for signing settlement receipts.
+pub const SETTLEMENT_RECEIPT_LABEL: &[u8] = b"Polymesh Settlement Receipt";
+
+/// Chain scoped message for signing and verifying signatures. This is used to prevent signature replay attacks across different chains.
+#[derive(Encode)]
+pub struct ChainScopedMessage<T: frame_system::Config + pallet_timestamp::Config, M: Encode> {
+    genesis_hash: T::Hash,
+    nonce_or_id: u64,
+    label: &'static [u8],
+    expires_at: T::Moment,
+    message: M,
+}
+
+impl<T: frame_system::Config + pallet_timestamp::Config, M: Encode> ChainScopedMessage<T, M> {
+    /// Creates a new [`ChainScopedMessage`].
+    pub fn new(
+        nonce_or_id: u64,
+        label: &'static [u8],
+        expires_at: T::Moment,
+        message: M,
+    ) -> Option<ChainScopedMessage<T, M>> {
+        // Check expiration
+        let now = <pallet_timestamp::Pallet<T>>::get();
+        if expires_at <= now {
+            return None;
+        }
+
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+        Some(ChainScopedMessage {
+            genesis_hash,
+            nonce_or_id,
+            label,
+            expires_at,
+            message,
+        })
+    }
+
+    /// Create a new [`ChainScopedMessage`] unchecked.
+    pub fn new_unchecked(
+        nonce_or_id: u64,
+        label: &'static [u8],
+        expires_at: T::Moment,
+        message: M,
+    ) -> ChainScopedMessage<T, M> {
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+        ChainScopedMessage {
+            genesis_hash,
+            nonce_or_id,
+            label,
+            expires_at,
+            message,
+        }
+    }
+
+    /// Verify a signature using the given public key and this chain scoped message.
+    pub fn verify_signature<V>(
+        &self,
+        key: &<<V as Verify>::Signer as IdentifyAccount>::AccountId,
+        signature: &V,
+    ) -> bool
+    where
+        V: Verify,
+    {
+        verify_signature_common(key, signature, self)
+    }
+
+    /// Verify any signature (sr25519 or ed25519) using the given public key and this chain scoped message.
+    pub fn verify_any_signature(&self, key: &T::AccountId, signature: H512) -> bool {
+        verify_any_signature::<T, _>(key, signature, self)
+    }
+}
+
+impl<T: frame_system::Config + pallet_timestamp::Config, M: Encode> ChainScopedMessage<T, M> {
+    /// Used by benchmarks to sign a chain scoped message with the native schnorrkel implementation. This is not meant to be used in production code.
+    pub fn native_sign(&self, raw_sk: &[u8]) -> Option<Signature> {
+        let wrapped_message = BytesWrapped(self).encode();
+        native_schnorrkel::sign(raw_sk, wrapped_message.as_slice())
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: frame_system::Config + pallet_timestamp::Config, M: Encode> ChainScopedMessage<T, M> {
+    /// Used by unit tests to sign a message with a test key from the sr25519 keyring. This is not meant to be used in production code.
+    pub fn sign(&self, key: &sp_keyring::Sr25519Keyring) -> Option<Signature> {
+        let wrapped_message = BytesWrapped(self).encode();
+        Some(key.sign(&wrapped_message))
+    }
+}
+
 /// Verify any signature using the given public key and message.
 /// This will try to verify the signature using both the sr25519 and ed25519 algorithms.
 pub fn verify_any_signature<T: frame_system::Config, M: Encode>(
     key: &T::AccountId,
     signature: H512,
     message: &M,
-    only_wrapped: bool,
 ) -> bool {
     let signature = AnySignature::from(Signature::from_h512(signature));
 
     if let Some(key) = Public::from_slice(&key.encode()).ok() {
-        verify_signature_common(&key, &signature, message, only_wrapped)
+        verify_signature_common(&key, &signature, message)
     } else {
         // It shouldn't be possible to fail to convert an `AccountId` to a `Public` key.
         false
     }
 }
 
-/// Verify a signature using the given public key and message.
-pub fn verify_signature<T, V, M>(
-    key: &T::AccountId,
-    signature: &V,
-    message: &M,
-    only_wrapped: bool,
-) -> bool
-where
-    T: frame_system::Config,
-    V: Verify<Signer: IdentifyAccount<AccountId = T::AccountId>>,
-    M: Encode,
-{
-    verify_signature_common(key, signature, message, only_wrapped)
-}
-
 fn verify_signature_common<V, M>(
     key: &<<V as Verify>::Signer as IdentifyAccount>::AccountId,
     signature: &V,
     message: &M,
-    only_wrapped: bool,
 ) -> bool
 where
     V: Verify,
@@ -119,14 +202,5 @@ where
 {
     // Try to verify the signature with a wrapped message.
     let wrapped_message = BytesWrapped(message).encode();
-    if signature.verify(wrapped_message.as_slice(), key) {
-        true
-    } else if only_wrapped {
-        // We only accept wrapped messages.
-        false
-    } else {
-        // Try old legacy verification with the raw message.
-        let encoded = message.encode();
-        signature.verify(encoded.as_slice(), key)
-    }
+    signature.verify(wrapped_message.as_slice(), key)
 }

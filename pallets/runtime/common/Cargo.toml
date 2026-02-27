@@ -5,17 +5,16 @@ authors = ["PolymeshAssociation"]
 edition = "2021"
 
 [dependencies]
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
-pallet-balances = { workspace = true, default-features = false  }
 pallet-committee = { workspace = true, default-features = false }
-pallet-identity = { workspace = true, default-features = false  }
+pallet-identity = { workspace = true, default-features = false }
 pallet-multisig = { workspace = true, default-features = false }
 pallet-relayer = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # RPC
-pallet-group-rpc-runtime-api = { workspace = true, default-features = false}
+pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
 
 # General
 smallvec = "1.4.0"
@@ -26,6 +25,7 @@ codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 sp-genesis-builder = { workspace = true, default-features = false }
@@ -50,7 +50,7 @@ std = [
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",
-    "polymesh-common-utilities/std",
+    "polymesh-transaction-payment/std",
     "polymesh-primitives/std",
     "sp-genesis-builder/std",
     "sp-io/std",
@@ -67,6 +67,7 @@ runtime-benchmarks = [
     "pallet-identity/runtime-benchmarks",
     "pallet-multisig/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
+    "polymesh-transaction-payment/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

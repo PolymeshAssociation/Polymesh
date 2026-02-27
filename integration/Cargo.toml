@@ -23,8 +23,14 @@ edition = "2021"
 [features]
 default = []
 
-previous_release = []
-current_release = ["polymesh-api/polymesh_v8", "polymesh-api-tester/polymesh_v8"]
+previous_release = [
+    "polymesh-api/polymesh_v7",
+    "polymesh-api-tester/polymesh_v7",
+]
+current_release = [
+    "polymesh-api/polymesh_v8",
+    "polymesh-api-tester/polymesh_v8",
+]
 
 [dependencies]
 anyhow = "1"
@@ -38,8 +44,18 @@ sp-core = "36.1"
 sp-runtime = "41.1"
 sp-keyring = "41.0"
 sp-weights = "31.1"
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", features = [
+    "derive",
+    "max-encoded-len",
+] }
 
-polymesh-api = { version = "3.13.1", features = ["download_metadata"] }
-polymesh-api-client-extras = { version = "3.6.2" }
-polymesh-api-tester = { version = "0.10.1", features = ["download_metadata"] }
+polymesh-api = { version = "3.13.1", default-features = false, features = [
+    "download_metadata",
+] }
+polymesh-api-client-extras = { version = "3.6.3", default-features = false, features = [
+    "std",
+    "serde",
+] }
+polymesh-api-tester = { version = "0.10.1", default-features = false, features = [
+    "download_metadata",
+] }

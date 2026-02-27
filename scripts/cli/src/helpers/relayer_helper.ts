@@ -6,42 +6,42 @@ import { sendTx, ApiSingleton } from "../util/init";
  * @description creates an authorization to allow a `user_key`
  * to accept a `paying_key` as their subsidiser.
  */
-export async function setPayingKey(
+export async function approveSubsidy(
 	signer: KeyringPair,
 	userKey: string | Uint8Array | AccountId,
 	polyLimit: number
 ) {
 	const api = await ApiSingleton.getInstance();
-	const transaction = api.tx.relayer.setPayingKey(userKey, polyLimit);
+	const transaction = api.tx.relayer.approveSubsidy(userKey, polyLimit);
 	await sendTx(signer, transaction);
 }
 
 /**
  * @description accepts a `paying_key` authorization.
  */
-export async function acceptPayingKey(signer: KeyringPair, authId: number) {
+export async function acceptSubsidy(signer: KeyringPair, payingKey: string | Uint8Array | AccountId) {
 	const api = await ApiSingleton.getInstance();
-	const transaction = api.tx.relayer.acceptPayingKey(authId);
+	const transaction = api.tx.relayer.acceptSubsidy(payingKey);
 	await sendTx(signer, transaction);
 }
 
 /**
  * @description removes the `paying_key` from a `user_key`.
  */
-export async function removePayingKey(
+export async function removeSubsidy(
 	payingKey: KeyringPair,
 	userKey: KeyringPair,
-    keyType: "userKey" | "payingKey"
+	keyType: "userKey" | "payingKey"
 ) {
 	const api = await ApiSingleton.getInstance();
-    let signer = userKey;
-		if (keyType === "payingKey") {
-			signer = payingKey;
-		}
-		const transaction = api.tx.relayer.removePayingKey(
-			userKey.publicKey,
-			payingKey.publicKey
-		);
+	let signer = userKey;
+	if (keyType === "payingKey") {
+		signer = payingKey;
+	}
+	const transaction = api.tx.relayer.removeSubsidy(
+		userKey.publicKey,
+		payingKey.publicKey
+	);
 	await sendTx(signer, transaction);
 }
 

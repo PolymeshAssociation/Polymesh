@@ -108,7 +108,6 @@ use pallet_base::{
 use pallet_external_agents::Config as EAConfig;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_portfolio::Error as PortfolioError;
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
@@ -118,6 +117,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::constants::*;
+use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{
     AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,

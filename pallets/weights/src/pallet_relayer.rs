@@ -21,30 +21,29 @@
 //! DATE: 2024-11-03, STEPS: `100`, REPEAT: 5, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: None, DB CACHE: 512
 //! HOSTNAME: `ubuntu-8gb-nbg1-1-bench2`, CPU: `AMD EPYC-Milan Processor`
-//! HOSTNAME: `ubuntu-8gb-nbg1-1-bench2`, CPU: `AMD EPYC-Milan Processor`
 
 // Executed Command:
-// ./polymesh
+// target/release/polymesh
 // benchmark
 // pallet
 // -s
-// 100
+// 10
 // -r
-// 5
-// -p=*
+// 3
+// -p=pallet_relayer
 // -e=*
-// --heap-pages
-// 4096
 // --db-cache
 // 512
+// --heap-pages
+// 4096
 // --execution
 // wasm
 // --wasm-execution
 // compiled
 // --output
-// ./Polymesh/pallets/weights/src/
+// ./
 // --template
-// ./Polymesh/.maintain/frame-weight-template.hbs
+// .maintain/frame-weight-template.hbs
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -54,88 +53,78 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_relayer using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
 impl pallet_relayer::WeightInfo for SubstrateWeight {
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity NumberOfGivenAuths (r:1 w:1)
-    // Proof Skipped: Identity NumberOfGivenAuths (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity CurrentAuthId (r:1 w:1)
-    // Proof Skipped: Identity CurrentAuthId (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity AuthorizationsGiven (r:0 w:1)
-    // Proof Skipped: Identity AuthorizationsGiven (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity Authorizations (r:0 w:1)
-    // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
-    fn set_paying_key() -> Weight {
-        // Minimum execution time: 34_151 nanoseconds.
-        Weight::from_parts(35_943_000, 0)
-            .saturating_add(DbWeight::get().reads(3))
-            .saturating_add(DbWeight::get().writes(4))
+    // Storage: `Relayer::PendingSubsidies` (r:0 w:1)
+    // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+    fn approve_subsidy() -> Weight {
+        // Minimum execution time: 8_311 nanoseconds.
+        Weight::from_parts(8_311_000, 0).saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Relayer::PendingSubsidies` (r:0 w:1)
+    // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+    fn revoke_subsidy() -> Weight {
+        // Minimum execution time: 8_311 nanoseconds.
+        Weight::from_parts(8_311_000, 0).saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Relayer::PendingSubsidies` (r:1 w:1)
+    // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+    // Storage: `Relayer::Subsidies` (r:1 w:1)
+    // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
+    fn accept_subsidy() -> Weight {
+        // Minimum execution time: 14_248 nanoseconds.
+        Weight::from_parts(15_435_000, 0)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(2))
+    }
+    // Storage: `Relayer::Subsidies` (r:1 w:1)
+    // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
+    fn remove_subsidy() -> Weight {
+        // Minimum execution time: 11_873 nanoseconds.
+        Weight::from_parts(13_060_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Relayer::Subsidies` (r:1 w:1)
+    // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
+    fn update_polyx_limit() -> Weight {
+        // Minimum execution time: 13_060 nanoseconds.
+        Weight::from_parts(14_248_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Relayer::Subsidies` (r:1 w:1)
+    // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
+    fn increase_polyx_limit() -> Weight {
+        // Minimum execution time: 11_873 nanoseconds.
+        Weight::from_parts(13_061_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Relayer::Subsidies` (r:1 w:1)
+    // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
+    fn decrease_polyx_limit() -> Weight {
+        // Minimum execution time: 11_873 nanoseconds.
+        Weight::from_parts(13_060_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity Authorizations (r:1 w:1)
-    // Proof Skipped: Identity Authorizations (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity OutdatedAuthorizations (r:1 w:0)
-    // Proof Skipped: Identity OutdatedAuthorizations (max_values: None, max_size: None, mode: Measured)
+    // Storage: Utility Nonces (r:1 w:1)
+    // Proof: Utility Nonces (max_values: None, max_size: Some(48), added: 2523, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
     // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Proof Skipped: Instance2Group ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:4 w:0)
+    // Storage: Identity Claims (r:2 w:0)
     // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    // Storage: Relayer Subsidies (r:1 w:1)
-    // Proof Skipped: Relayer Subsidies (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity AccountKeyRefCount (r:2 w:2)
-    // Proof Skipped: Identity AccountKeyRefCount (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity NumberOfGivenAuths (r:1 w:1)
-    // Proof Skipped: Identity NumberOfGivenAuths (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity AuthorizationsGiven (r:0 w:1)
-    // Proof Skipped: Identity AuthorizationsGiven (max_values: None, max_size: None, mode: Measured)
-    fn accept_paying_key() -> Weight {
-        // Minimum execution time: 93_059 nanoseconds.
-        Weight::from_parts(94_542_000, 0)
-            .saturating_add(DbWeight::get().reads(14))
-            .saturating_add(DbWeight::get().writes(6))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Relayer Subsidies (r:1 w:1)
-    // Proof Skipped: Relayer Subsidies (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity AccountKeyRefCount (r:2 w:2)
-    // Proof Skipped: Identity AccountKeyRefCount (max_values: None, max_size: None, mode: Measured)
-    fn remove_paying_key() -> Weight {
-        // Minimum execution time: 36_174 nanoseconds.
-        Weight::from_parts(38_248_000, 0)
-            .saturating_add(DbWeight::get().reads(4))
+    // Storage: Permissions CurrentPalletName (r:1 w:1)
+    // Proof Skipped: Permissions CurrentPalletName (max_values: Some(1), max_size: None, mode: Measured)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
+    // Proof Skipped: Permissions CurrentDispatchableName (max_values: Some(1), max_size: None, mode: Measured)
+    fn relay_tx() -> Weight {
+        // Minimum execution time: 128_001 nanoseconds.
+        Weight::from_parts(138_117_000, 0)
+            .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(3))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Relayer Subsidies (r:1 w:1)
-    // Proof Skipped: Relayer Subsidies (max_values: None, max_size: None, mode: Measured)
-    fn update_polyx_limit() -> Weight {
-        // Minimum execution time: 26_390 nanoseconds.
-        Weight::from_parts(28_032_000, 0)
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Relayer Subsidies (r:1 w:1)
-    // Proof Skipped: Relayer Subsidies (max_values: None, max_size: None, mode: Measured)
-    fn increase_polyx_limit() -> Weight {
-        // Minimum execution time: 26_720 nanoseconds.
-        Weight::from_parts(27_942_000, 0)
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Relayer Subsidies (r:1 w:1)
-    // Proof Skipped: Relayer Subsidies (max_values: None, max_size: None, mode: Measured)
-    fn decrease_polyx_limit() -> Weight {
-        // Minimum execution time: 26_670 nanoseconds.
-        Weight::from_parts(28_093_000, 0)
-            .saturating_add(DbWeight::get().reads(2))
-            .saturating_add(DbWeight::get().writes(1))
     }
 }

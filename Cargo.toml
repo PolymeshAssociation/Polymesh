@@ -53,7 +53,6 @@ members = [
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
-    "pallets/common",
 ]
 exclude = ["contracts", "integration", "metadata-tools"]
 
@@ -86,7 +85,6 @@ polymesh-contracts = { path = "pallets/contracts", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
-polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-primitives-derive = { path = "primitives_derive", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
@@ -249,7 +247,6 @@ pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
-polymesh-common-utilities = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 

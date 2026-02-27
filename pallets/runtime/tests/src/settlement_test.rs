@@ -31,6 +31,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
+use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{
     AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
     Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType,
@@ -1212,9 +1213,25 @@ fn claim_multiple_receipts_during_authorization() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        let msg1 = Receipt::new(0, id, LegId(0), alice.did, bob.did, ticker, amount);
-        let msg2 = Receipt::new(0, id, LegId(1), alice.did, bob.did, ticker2, amount);
-        let msg3 = Receipt::new(1, id, LegId(1), alice.did, bob.did, ticker2, amount);
+        let expires_at = 100u64;
+        let msg1 = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(0), alice.did, bob.did, ticker, amount),
+        );
+        let msg2 = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(1), alice.did, bob.did, ticker2, amount),
+        );
+        let msg3 = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            1,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(1), alice.did, bob.did, ticker2, amount),
+        );
 
         assert_noop!(
             Settlement::affirm_with_receipts(
@@ -1226,7 +1243,10 @@ fn claim_multiple_receipts_during_authorization() {
                         id,
                         LegId(0),
                         Sr25519Keyring::Alice.to_account_id(),
-                        Sr25519Keyring::Alice.sign(&msg1.encode()).into(),
+                        msg1.sign(&Sr25519Keyring::Alice)
+                            .expect("Failed to sign message")
+                            .into(),
+                        expires_at,
                         None
                     ),
                     ReceiptDetails::new(
@@ -1234,7 +1254,10 @@ fn claim_multiple_receipts_during_authorization() {
                         id,
                         LegId(0),
                         Sr25519Keyring::Alice.to_account_id(),
-                        Sr25519Keyring::Alice.sign(&msg2.encode()).into(),
+                        msg2.sign(&Sr25519Keyring::Alice)
+                            .expect("Failed to sign message")
+                            .into(),
+                        expires_at,
                         None
                     ),
                 ],
@@ -1252,7 +1275,10 @@ fn claim_multiple_receipts_during_authorization() {
                     id,
                     LegId(0),
                     Sr25519Keyring::Alice.to_account_id(),
-                    Sr25519Keyring::Alice.sign(&msg1.encode()).into(),
+                    msg1.sign(&Sr25519Keyring::Alice)
+                        .expect("Failed to sign message")
+                        .into(),
+                    expires_at,
                     None
                 ),
                 ReceiptDetails::new(
@@ -1260,7 +1286,10 @@ fn claim_multiple_receipts_during_authorization() {
                     id,
                     LegId(1),
                     Sr25519Keyring::Alice.to_account_id(),
-                    Sr25519Keyring::Alice.sign(&msg3.encode()).into(),
+                    msg3.sign(&Sr25519Keyring::Alice)
+                        .expect("Failed to sign message")
+                        .into(),
+                    expires_at,
                     None
                 ),
             ],
@@ -1354,14 +1383,19 @@ fn encode_receipt() {
             "did:poly:0600000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap();
-        let msg1 = Receipt::new(
+        let expires_at = 100u64;
+        let msg1 = ChainScopedMessage::<TestStorage, _>::new_unchecked(
             0,
-            id,
-            LegId(0),
-            identity_id,
-            identity_id,
-            Ticker::from_slice_truncated(b"TICKER".as_ref()),
-            100,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(
+                id,
+                LegId(0),
+                identity_id,
+                identity_id,
+                Ticker::from_slice_truncated(b"TICKER".as_ref()),
+                100,
+            ),
         );
         println!("{:?}", Sr25519Keyring::Alice.sign(&msg1.encode()));
     });
@@ -2996,6 +3030,13 @@ fn add_and_affirm_with_receipts_nfts() {
             legs,
             Some(Memo::default()),
         ));
+        let expires_at = 100u64;
+        let msg1 = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(0), alice.did, bob.did, ticker, 1),
+        );
         assert_noop!(
             Settlement::affirm_with_receipts(
                 alice.origin(),
@@ -3005,11 +3046,10 @@ fn add_and_affirm_with_receipts_nfts() {
                     id,
                     LegId(0),
                     Sr25519Keyring::Alice.to_account_id(),
-                    Sr25519Keyring::Alice
-                        .sign(
-                            &Receipt::new(0, id, LegId(0), alice.did, bob.did, ticker, 1).encode()
-                        )
+                    msg1.sign(&Sr25519Keyring::Alice)
+                        .expect("Failed to sign message")
                         .into(),
+                    expires_at,
                     None
                 )],
                 Default::default(),
@@ -3092,13 +3132,23 @@ fn add_and_execute_offchain_instruction() {
             ticker,
             amount,
         }];
-        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, ticker, amount);
+        let expires_at = 100u64;
+        let receipt = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(0), charlie.did, bob.did, ticker, amount),
+        );
         let receipts_details = vec![ReceiptDetails::new(
             0,
             id,
             LegId(0),
             Sr25519Keyring::Alice.to_account_id(),
-            Sr25519Keyring::Alice.sign(&receipt.encode()).into(),
+            receipt
+                .sign(&Sr25519Keyring::Alice)
+                .expect("Failed to sign receipt")
+                .into(),
+            expires_at,
             None,
         )];
 
@@ -3606,13 +3656,23 @@ fn affirm_with_receipts_cost() {
             ticker,
             amount,
         }];
-        let receipt = Receipt::new(0, id, LegId(0), charlie.did, bob.did, ticker, amount);
+        let expires_at = 100u64;
+        let receipt = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(0), charlie.did, bob.did, ticker, amount),
+        );
         let receipts_details = vec![ReceiptDetails::new(
             0,
             id,
             LegId(0),
             Sr25519Keyring::Alice.to_account_id(),
-            Sr25519Keyring::Alice.sign(&receipt.encode()).into(),
+            receipt
+                .sign(&Sr25519Keyring::Alice)
+                .expect("Failed to sign receipt")
+                .into(),
+            expires_at,
             None,
         )];
         assert_ok!(Settlement::add_instruction(

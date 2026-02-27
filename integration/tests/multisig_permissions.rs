@@ -740,20 +740,17 @@ async fn ms_subsidy_payer() -> Result<()> {
         .api
         .call()
         .relayer()
-        .set_paying_key(did.primary_key.account(), 10 * ONE_POLYX)?
+        .approve_subsidy(did.primary_key.account(), 10 * ONE_POLYX)?
         .execute(&mut subsidizer)
         .await?;
-    // Get the authorization ID of the new subsidy.
-    let auth_id = get_auth_id(&mut res)
-        .await?
-        .expect("Missing SetPayingKey auth id");
+    res.ok().await?;
 
     // Accept the subsidy authorization as the primary key.
     let mut res = tester
         .api
         .call()
         .relayer()
-        .accept_paying_key(auth_id)?
+        .accept_subsidy(subsidizer.account())?
         .execute(&mut did.primary_key)
         .await?;
     res.ok().await?;
@@ -804,16 +801,17 @@ async fn ms_subsidy() -> Result<()> {
         .api
         .call()
         .relayer()
-        .set_paying_key(ms.account.clone(), 0)?
+        .approve_subsidy(ms.account.clone(), 0)?
         .execute(&mut subsidizer)
         .await?;
-    // Get the authorization ID of the new subsidy.
-    let auth_id = get_auth_id(&mut res)
-        .await?
-        .expect("Missing SetPayingKey auth id");
+    res.ok().await?;
 
     // Accept the subsidy authorization as the MS.
-    let accept_subsidy_call = tester.api.call().relayer().accept_paying_key(auth_id)?;
+    let accept_subsidy_call = tester
+        .api
+        .call()
+        .relayer()
+        .accept_subsidy(subsidizer.account())?;
     let mut res = ms.run_proposal(accept_subsidy_call).await?;
     res.ok().await?;
 

@@ -30,13 +30,13 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - `set_paying_key` creates an authorization to allow a `user_key`
-//!   to accept a `paying_key` as their subsidiser.
-//! - `accept_paying_key` accepts a `paying_key` authorization.
-//! - `remove_paying_key` removes the `paying_key` from a `user_key`.
+//! - `approve_subsidy` approves a subsidy for a `user_key`.
+//! - `accept_subsidy` accepts a subsidy from a `paying_key`.
+//! - `remove_subsidy` removes a subsidy between a `user_key` and a `paying_key`.
 //! - `update_polyx_limit` updates the available POLYX for a `user_key`.
 //! - `increase_polyx_limit` increases the available POLYX for a `user_key`.
 //! - `decrease_polyx_limit` decreases the available POLYX for a `user_key`.
+//! - `relay_tx` relays a transaction on behalf of a target account.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -44,30 +44,32 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::dispatch::DispatchResult;
-use frame_support::pallet_prelude::DispatchError;
+use frame_support::dispatch::{extract_actual_weight, DispatchResult, GetDispatchInfo};
+use frame_support::pallet_prelude::{DispatchError, DispatchResultWithPostInfo};
 use frame_support::traits::{Contains, GetCallMetadata};
 use frame_support::weights::Weight;
 use frame_support::{ensure, fail};
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_std::prelude::*;
 use sp_std::vec;
 
+use polymesh_primitives::crypto::{ChainScopedMessage, RELAY_TX_LABEL};
+use polymesh_primitives::identity::AuthorizationNonce;
 use polymesh_primitives::traits::SubsidiserTrait;
-use polymesh_primitives::{
-    extract_auth, AuthorizationData, Balance, EventDid, IdentityId, Signatory, TransactionError,
-};
-
-type Identity<T> = pallet_identity::Pallet<T>;
+use polymesh_primitives::{Balance, TransactionError};
 
 pub trait WeightInfo {
-    fn set_paying_key() -> Weight;
-    fn accept_paying_key() -> Weight;
-    fn remove_paying_key() -> Weight;
+    fn approve_subsidy() -> Weight;
+    fn accept_subsidy() -> Weight;
+    fn revoke_subsidy() -> Weight;
+    fn remove_subsidy() -> Weight;
     fn update_polyx_limit() -> Weight;
     fn increase_polyx_limit() -> Weight;
     fn decrease_polyx_limit() -> Weight;
+
+    fn relay_tx() -> Weight;
 }
 
 pub use pallet::*;
@@ -78,35 +80,88 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_identity::Config {
+    pub trait Config:
+        frame_system::Config + pallet_identity::Config + pallet_utility::Config
+    {
         /// Subsidy pallet weights.
         type WeightInfo: WeightInfo;
         /// Subsidy call filter.
-        type SubsidyCallFilter: frame_support::traits::Contains<Self::RuntimeCall>;
+        type SubsidyCallFilter: frame_support::traits::Contains<
+            <Self as frame_system::Config>::RuntimeCall,
+        >;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// Authorization given for `paying_key` to `user_key`.
-        ///
-        /// (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
-        AuthorizedPayingKey(EventDid, T::AccountId, T::AccountId, Balance, u64),
+        /// A `paying_key` has approved subsidy for a `user_key`.
+        ApprovedSubsidy {
+            /// The user key to be subsidised.
+            user_key: T::AccountId,
+            /// The paying key that will subsidise the `user_key`.
+            paying_key: T::AccountId,
+            /// The initial POLYX limit for this subsidy.
+            initial_polyx_limit: Balance,
+        },
 
-        /// Accepted paying key.
-        ///
-        /// (Caller DID, User Key, Paying Key)
-        AcceptedPayingKey(EventDid, T::AccountId, T::AccountId),
+        /// Accepted subsidy.
+        AcceptedSubsidy {
+            /// The user key being subsidised.
+            user_key: T::AccountId,
+            /// The paying key that is subsidising the `user_key`.
+            paying_key: T::AccountId,
+            /// The initial POLYX limit for this subsidy.
+            initial_polyx_limit: Balance,
+        },
 
-        /// Removed paying key.
-        ///
-        /// (Caller DID, User Key, Paying Key)
-        RemovedPayingKey(EventDid, T::AccountId, T::AccountId),
+        /// Removed subsidy.
+        RemovedSubsidy {
+            /// The user key that was being subsidised.
+            user_key: T::AccountId,
+            /// The paying key that was subsidising the `user_key`.
+            paying_key: T::AccountId,
+            /// The remaining POLYX for this subsidy.
+            remaining: Balance,
+        },
+
+        /// Removed pending subsidy.
+        RemovedPendingSubsidy {
+            /// The user key that was being subsidised.
+            user_key: T::AccountId,
+            /// The paying key that was subsidising the `user_key`.
+            paying_key: T::AccountId,
+            /// The initial POLYX limit for this subsidy.
+            initial_polyx_limit: Balance,
+        },
 
         /// Updated polyx limit.
-        ///
-        /// (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
-        UpdatedPolyxLimit(EventDid, T::AccountId, T::AccountId, Balance, Balance),
+        UpdatedPolyxLimit {
+            /// The user key being subsidised.
+            user_key: T::AccountId,
+            /// The paying key that is subsidising the `user_key`.
+            paying_key: T::AccountId,
+            /// The new remaining POLYX for this subsidy.
+            remaining: Balance,
+            /// The old remaining POLYX for this subsidy.
+            old_remaining: Balance,
+        },
+
+        /// The subsidy fee has been used to pay for a transaction or protocol fee.
+        SubsidyDebited {
+            /// The user key being subsidised.
+            user_key: T::AccountId,
+            /// The paying key that is subsidising the `user_key`.
+            paying_key: T::AccountId,
+            /// The amount of POLYX debited.
+            amount: Balance,
+        },
+
+        /// Relayed transaction.
+        RelayedTx {
+            caller: T::AccountId,
+            target: T::AccountId,
+            result: DispatchResult,
+        },
     }
 
     /// A Subsidy for transaction and protocol fees.
@@ -144,81 +199,130 @@ pub mod pallet {
         Sub,
     }
 
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     /// The subsidy for a `user_key` if they are being subsidised,
     /// as a map `user_key` => `Subsidy`.
     ///
-    /// A key can only have one subsidy at a time.  To change subsidisers
-    /// a key needs to call `remove_paying_key` to remove the current subsidy,
-    /// before they can accept a new subsidiser.
+    /// A key can only have one subsidy at a time.  Accepting a new subsidy
+    /// will replace any existing subsidy.
     #[pallet::storage]
     pub type Subsidies<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Subsidy<T::AccountId>, OptionQuery>;
 
+    /// Pending subsidies for a `user_key` from a `paying_key`.
+    ///
+    /// This is used to track subsidies that have been authorised but not yet accepted.
+    ///
+    /// The paying key can update or cancel the subsidy before it is accepted.
+    #[pallet::storage]
+    pub type PendingSubsidies<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // user_key
+        Blake2_128Concat,
+        T::AccountId, // paying_key
+        Balance,      // initial POLYX limit
+        OptionQuery,
+    >;
+
+    /// Nonce for `relay_tx`.
+    #[pallet::storage]
+    pub type RelayTxNonces<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
+
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
+            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::in_code_storage_version() {
+                let mut count = 0u64;
+                // Remove account key ref counts for all paying keys and user keys in Subsidies.
+                for (user_key, subsidy) in Subsidies::<T>::iter() {
+                    count += 1;
+                    // Decrease paying key usage.
+                    pallet_identity::Pallet::<T>::remove_account_key_ref_count(&subsidy.paying_key);
+                    // Decrease user key usage.
+                    pallet_identity::Pallet::<T>::remove_account_key_ref_count(&user_key);
+                }
+
+                log::info!(
+                    target: "relayer",
+                    "Relayer storage migration: removed {} account key refs",
+                    count * 2
+                );
+                STORAGE_VERSION.put::<Pallet<T>>();
+                let db_weight = DbWeight::get();
+                db_weight
+                    .reads(count * 3)
+                    .saturating_add(db_weight.writes(count * 2))
+            } else {
+                Weight::zero()
+            }
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Creates an authorization to allow `user_key` to accept the caller (`origin == paying_key`) as their subsidiser.
+        /// Approve a subsidy for a `user_key`.
         ///
         /// # Arguments
         /// - `user_key` the user key to subsidise.
         /// - `polyx_limit` the initial POLYX limit for this subsidy.
         ///
-        /// # Errors
-        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_paying_key())]
-        pub fn set_paying_key(
+        #[pallet::weight(<T as Config>::WeightInfo::approve_subsidy())]
+        pub fn approve_subsidy(
             origin: OriginFor<T>,
             user_key: T::AccountId,
             polyx_limit: Balance,
         ) -> DispatchResult {
-            Self::base_set_paying_key(origin, user_key, polyx_limit)
+            Self::base_approve_subsidy(origin, user_key, polyx_limit)
         }
 
-        /// Accepts a `paying_key` authorization.
+        /// Revoke a previously approved subsidy.
         ///
         /// # Arguments
-        /// - `auth_id` the authorization id to accept a `paying_key`.
-        ///
-        /// # Errors
-        /// - `Error::InvalidAuthorization` if `auth_id` does not exist for the given caller.
-        /// - `Error::AuthorizationExpired` if `auth_id` the authorization has expired.
-        /// - `Error::BadAuthorizationType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
-        /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
-        /// - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
-        /// - `UserKeyDidMissing` if the `user_key` is not attached to an active identity.
-        /// - `PayingKeyDidMissing` if the `paying_key` is not attached to an active identity.
-        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        /// - `user_key` the user key to revoke the subsidy for.
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::accept_paying_key())]
-        pub fn accept_paying_key(origin: OriginFor<T>, auth_id: u64) -> DispatchResult {
-            Self::base_accept_paying_key(origin, auth_id)
+        #[pallet::weight(<T as Config>::WeightInfo::revoke_subsidy())]
+        pub fn revoke_subsidy(origin: OriginFor<T>, user_key: T::AccountId) -> DispatchResult {
+            Self::base_revoke_subsidy(origin, user_key)
+        }
+
+        /// Accepts a subsidy from a `paying_key`.
+        ///
+        /// # Arguments
+        /// - `paying_key` the paying key that is subsidising the caller's `user_key`.
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as Config>::WeightInfo::accept_subsidy())]
+        pub fn accept_subsidy(origin: OriginFor<T>, paying_key: T::AccountId) -> DispatchResult {
+            Self::base_accept_subsidy(origin, paying_key)
         }
 
         /// Removes the `paying_key` from a `user_key`.
+        ///
+        /// This can only be called by either the `user_key` or the `paying_key`.
         ///
         /// # Arguments
         /// - `user_key` the user key to remove the subsidy from.
         /// - `paying_key` the paying key that was subsidising the `user_key`.
         ///
         /// # Errors
-        /// - `NotAuthorizedForUserKey` if `origin` is not authorized to remove the subsidy for the `user_key`.
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if the `paying_key` doesn't match the current `paying_key`.
-        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_paying_key())]
-        pub fn remove_paying_key(
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_subsidy())]
+        pub fn remove_subsidy(
             origin: OriginFor<T>,
             user_key: T::AccountId,
             paying_key: T::AccountId,
         ) -> DispatchResult {
-            Self::base_remove_paying_key(origin, user_key, paying_key)
+            Self::base_remove_subsidy(origin, user_key, paying_key)
         }
 
         /// Updates the available POLYX for a `user_key`.
@@ -230,8 +334,7 @@ pub mod pallet {
         /// # Errors
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
-        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        #[pallet::call_index(3)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::update_polyx_limit())]
         pub fn update_polyx_limit(
             origin: OriginFor<T>,
@@ -250,9 +353,8 @@ pub mod pallet {
         /// # Errors
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
-        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         /// - `Overlow` if the subsidy's remaining POLYX would have overflowed `u128::MAX`.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_polyx_limit())]
         pub fn increase_polyx_limit(
             origin: OriginFor<T>,
@@ -271,9 +373,8 @@ pub mod pallet {
         /// # Errors
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
-        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         /// - `Overlow` if the subsidy has less then `amount` POLYX remaining.
-        #[pallet::call_index(5)]
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::decrease_polyx_limit())]
         pub fn decrease_polyx_limit(
             origin: OriginFor<T>,
@@ -282,109 +383,185 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, UpdateAction::Sub, amount)
         }
+
+        /// Relay a call for a target from an origin
+        ///
+        /// Relaying in this context refers to the ability of origin to make a call on behalf of
+        /// target.
+        ///
+        /// Transaction and protocol fees are charged to origin.
+        ///
+        /// # Parameters
+        /// - `target`: Account to be relayed
+        /// - `signature`: Signature from target authorizing the relay
+        /// - `call`: Call to be relayed on behalf of target
+        #[pallet::call_index(7)]
+        #[pallet::weight({
+                let dispatch_info = call.get_dispatch_info();
+                (
+                    <T as Config>::WeightInfo::relay_tx()
+                        .saturating_add(dispatch_info.call_weight),
+                    dispatch_info.class,
+                )
+            })]
+        pub fn relay_tx(
+            origin: OriginFor<T>,
+            target: T::AccountId,
+            signature: T::OffChainSignature,
+            call: Box<<T as pallet_utility::Config>::RuntimeCall>,
+            expires_at: T::Moment,
+        ) -> DispatchResultWithPostInfo {
+            let caller = ensure_signed(origin)?;
+
+            // Get the current nonce for the target and increment it.
+            let nonce = RelayTxNonces::<T>::mutate(&target, |nonce| {
+                let current_nonce = *nonce;
+                *nonce = current_nonce + 1;
+                current_nonce
+            });
+            // Create the chain scoped message that the target needs to have signed.
+            let scoped_call =
+                ChainScopedMessage::<T, _>::new(nonce, RELAY_TX_LABEL, expires_at, &call)
+                    .ok_or(Error::<T>::ExpiredRelayTx)?;
+
+            ensure!(
+                scoped_call.verify_signature(&target, &signature),
+                Error::<T>::InvalidSignature
+            );
+
+            let info = call.get_dispatch_info();
+            // Dispatch the call with the `target` as the signed origin.
+            let result = pallet_utility::Pallet::<T>::dispatch_call(
+                RawOrigin::Signed(target.clone()).into(),
+                false,
+                *call,
+            );
+            // Get the actual weight of this call.
+            let weight = extract_actual_weight(&result, &info);
+
+            Self::deposit_event(Event::<T>::RelayedTx {
+                caller,
+                target,
+                result: result.map(|_| ()).map_err(|e| e.error),
+            });
+
+            let base_weight = <T as Config>::WeightInfo::relay_tx();
+            Ok(Some(base_weight.saturating_add(weight)).into())
+        }
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The `user_key` is not attached to an active DID.
-        UserKeyDidInactive,
-        /// The `paying_key` is not attached to an active DID.
-        PayingKeyDidInactive,
         /// The `user_key` doesn't have a `paying_key`.
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
         NotPayingKey,
-        /// The signer is not authorized for `paying_key`.
-        NotAuthorizedForPayingKey,
-        /// The signer is not authorized for `user_key`.
-        NotAuthorizedForUserKey,
+        /// The signer is not the `paying_key` or the `user_key`.
+        NotAuthorized,
         /// The remaining POLYX for `user_key` overflowed.
         Overflow,
-        /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
-        BadAuthorizationType,
-        /// The caller's identity was not found.
-        IdentityNotFound,
+        /// There is no pending subsidy from the `paying_key` for the `user_key`.
+        NoPendingSubsidy,
+        /// Offchain signature is invalid
+        InvalidSignature,
+        /// The relay transaction has expired.
+        ExpiredRelayTx,
     }
 }
 
 impl<T: Config> Pallet<T> {
-    fn base_set_paying_key(
+    fn base_approve_subsidy(
         origin: T::RuntimeOrigin,
         user_key: T::AccountId,
-        polyx_limit: Balance,
+        initial_polyx_limit: Balance,
     ) -> DispatchResult {
-        let (paying_key, paying_did) = Identity::<T>::ensure_valid_origin(origin, false)?;
+        let paying_key = ensure_signed(origin)?;
 
-        // Create authorization for `paying_key` to subsidise the `user_key`, with `polyx_limit` POLYX.
-        Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, polyx_limit)?;
+        // Set or update pending subsidy.
+        PendingSubsidies::<T>::insert(&user_key, &paying_key, initial_polyx_limit);
+
+        Self::deposit_event(Event::ApprovedSubsidy {
+            user_key,
+            paying_key,
+            initial_polyx_limit,
+        });
         Ok(())
     }
 
-    fn base_accept_paying_key(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
-        let caller_key = ensure_signed(origin)?;
-        let user_did =
-            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::IdentityNotFound)?;
-        let signer = Signatory::Account(caller_key.clone());
+    fn base_revoke_subsidy(origin: T::RuntimeOrigin, user_key: T::AccountId) -> DispatchResult {
+        let paying_key = ensure_signed(origin)?;
 
-        <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
-            let (user_key, paying_key, polyx_limit) =
-                extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
+        // Remove pending subsidy.
+        let initial_polyx_limit = PendingSubsidies::<T>::take(&user_key, &paying_key)
+            .ok_or(Error::<T>::NoPendingSubsidy)?;
 
-            // Allow: `origin == user_key`.
-            ensure!(user_key == caller_key, Error::<T>::NotAuthorizedForUserKey);
-
-            Self::auth_accept_paying_key(
-                user_did,
-                auth_by,
-                user_key.clone(),
-                paying_key.clone(),
-                polyx_limit,
-            )?;
-
-            Self::deposit_event(Event::AcceptedPayingKey(
-                user_did.for_event(),
-                user_key,
-                paying_key,
-            ));
-
-            Ok(())
-        })
+        // Emit event.
+        Self::deposit_event(Event::RemovedPendingSubsidy {
+            user_key,
+            paying_key,
+            initial_polyx_limit,
+        });
+        Ok(())
     }
 
-    fn base_remove_paying_key(
+    fn base_accept_subsidy(origin: T::RuntimeOrigin, paying_key: T::AccountId) -> DispatchResult {
+        let user_key = ensure_signed(origin)?;
+
+        // Get the pending subsidy.
+        let initial_polyx_limit = PendingSubsidies::<T>::take(&user_key, &paying_key)
+            .ok_or(Error::<T>::NoPendingSubsidy)?;
+
+        // Remove existing subsidy for the user_key, if it exists.
+        if let Some(subsidy) = Subsidies::<T>::get(&user_key) {
+            Self::deposit_event(Event::RemovedSubsidy {
+                user_key: user_key.clone(),
+                paying_key: subsidy.paying_key,
+                remaining: subsidy.remaining,
+            });
+        }
+
+        // All checks passed.
+        Subsidies::<T>::insert(
+            &user_key,
+            Subsidy {
+                paying_key: paying_key.clone(),
+                remaining: initial_polyx_limit,
+            },
+        );
+
+        Self::deposit_event(Event::AcceptedSubsidy {
+            user_key,
+            paying_key,
+            initial_polyx_limit,
+        });
+
+        Ok(())
+    }
+
+    fn base_remove_subsidy(
         origin: T::RuntimeOrigin,
         user_key: T::AccountId,
         paying_key: T::AccountId,
     ) -> DispatchResult {
         let caller_key = ensure_signed(origin)?;
-        let caller_did =
-            Identity::<T>::get_identity(&caller_key).ok_or(Error::<T>::IdentityNotFound)?;
 
         // Allow: `origin == user_key` or `origin == paying_key`.
-        if caller_key != user_key && caller_key != paying_key {
-            // Allow: `origin == primary key of user_key's identity`.
-            ensure!(
-                Identity::<T>::get_identity(&user_key) == Some(caller_did),
-                Error::<T>::NotAuthorizedForUserKey
-            );
-        }
+        ensure!(
+            caller_key == user_key || caller_key == paying_key,
+            Error::<T>::NotAuthorized
+        );
 
         // Check if the current paying key matches.
-        Self::ensure_is_paying_key(&user_key, &paying_key)?;
-
-        // Decrease paying key usage.
-        <Identity<T>>::remove_account_key_ref_count(&paying_key);
-        // Decrease user key usage.
-        <Identity<T>>::remove_account_key_ref_count(&user_key);
+        let subsidy = Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Remove paying key for user key.
-        <Subsidies<T>>::remove(&user_key);
+        Subsidies::<T>::remove(&user_key);
 
-        Self::deposit_event(Event::RemovedPayingKey(
-            caller_did.for_event(),
+        Self::deposit_event(Event::RemovedSubsidy {
             user_key,
             paying_key,
-        ));
+            remaining: subsidy.remaining,
+        });
         Ok(())
     }
 
@@ -394,12 +571,10 @@ impl<T: Config> Pallet<T> {
         action: UpdateAction,
         amount: Balance,
     ) -> DispatchResult {
-        let caller_key = ensure_signed(origin)?;
-        let caller_did =
-            Identity::<T>::get_identity(&caller_key).ok_or(Error::<T>::IdentityNotFound)?;
+        let paying_key = ensure_signed(origin)?;
 
         // Check if the current paying key matches.
-        let mut subsidy = Self::ensure_is_paying_key(&user_key, &caller_key)?;
+        let mut subsidy = Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Update polyx limit.
         let old_remaining = subsidy.remaining;
@@ -413,43 +588,15 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::Overflow)?,
         };
         subsidy.remaining = new_remaining;
-        <Subsidies<T>>::insert(&user_key, subsidy);
+        Subsidies::<T>::insert(&user_key, subsidy);
 
-        Self::deposit_event(Event::UpdatedPolyxLimit(
-            caller_did.for_event(),
-            user_key,
-            caller_key,
-            new_remaining,
-            old_remaining,
-        ));
-        Ok(())
-    }
-
-    /// Adds an authorization to add a `paying_key` to the `user_key`.
-    pub fn unverified_add_auth_for_paying_key(
-        from: IdentityId,
-        user_key: T::AccountId,
-        paying_key: T::AccountId,
-        polyx_limit: Balance,
-    ) -> Result<u64, DispatchError> {
-        let auth_id = <Identity<T>>::add_auth(
-            from,
-            Signatory::Account(user_key.clone()),
-            AuthorizationData::AddRelayerPayingKey(
-                user_key.clone(),
-                paying_key.clone(),
-                polyx_limit,
-            ),
-            None,
-        )?;
-        Self::deposit_event(Event::AuthorizedPayingKey(
-            from.for_event(),
+        Self::deposit_event(Event::UpdatedPolyxLimit {
             user_key,
             paying_key,
-            polyx_limit,
-            auth_id,
-        ));
-        Ok(auth_id)
+            remaining: new_remaining,
+            old_remaining,
+        });
+        Ok(())
     }
 
     /// Ensure that `paying_key` is the paying key for `user_key`.
@@ -458,7 +605,7 @@ impl<T: Config> Pallet<T> {
         paying_key: &T::AccountId,
     ) -> Result<Subsidy<T::AccountId>, DispatchError> {
         // Check if the current paying key matches.
-        match <Subsidies<T>>::get(user_key) {
+        match Subsidies::<T>::get(user_key) {
             // There was no subsidy.
             None => fail!(Error::<T>::NoPayingKey),
             // Paying key doesn't match.
@@ -467,66 +614,12 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Validate and accept a `paying_key` for the `user_key`.
-    pub(crate) fn auth_accept_paying_key(
-        user_did: IdentityId,
-        from: IdentityId,
-        user_key: T::AccountId,
-        paying_key: T::AccountId,
-        polyx_limit: Balance,
-    ) -> DispatchResult {
-        // Ensure that the authorization came from the DID of the paying_key.
-        ensure!(
-            <Identity<T>>::get_identity(&paying_key) == Some(from),
-            Error::<T>::NotAuthorizedForPayingKey
-        );
-
-        // Ensure both user_key and paying_key are attached to active DIDs.
-        ensure!(
-            !<Identity<T>>::is_did_locked(user_did),
-            Error::<T>::UserKeyDidInactive
-        );
-        ensure!(
-            !<Identity<T>>::is_did_locked(from),
-            Error::<T>::PayingKeyDidInactive
-        );
-
-        // Remove existing subsidy for the user_key, if it exists.
-        if let Some(subsidy) = <Subsidies<T>>::get(&user_key) {
-            // Decrease old paying key usage.
-            <Identity<T>>::remove_account_key_ref_count(&subsidy.paying_key);
-
-            Self::deposit_event(Event::RemovedPayingKey(
-                user_did.for_event(),
-                user_key.clone(),
-                subsidy.paying_key,
-            ));
-        } else {
-            // Increase user key usage.
-            <Identity<T>>::add_account_key_ref_count(&user_key);
-        }
-
-        // Increase paying key usage.
-        <Identity<T>>::add_account_key_ref_count(&paying_key);
-
-        // All checks passed.
-        <Subsidies<T>>::insert(
-            user_key,
-            Subsidy {
-                paying_key,
-                remaining: polyx_limit,
-            },
-        );
-
-        Ok(())
-    }
-
     fn get_subsidy(
         user_key: &T::AccountId,
         fee: Balance,
     ) -> Result<Option<Subsidy<T::AccountId>>, InvalidTransaction> {
         // Get the Subsidy for `user_key`.
-        match <Subsidies<T>>::get(user_key) {
+        match Subsidies::<T>::get(user_key) {
             // There was no subsidy.
             None => Ok(None),
             // Has subsidy, but not enough remaining POLYX.
@@ -534,6 +627,11 @@ impl<T: Config> Pallet<T> {
             // Has subsidy and enough POLYX.
             Some(s) => Ok(Some(s)),
         }
+    }
+
+    /// Check if the `user_key` has a pending subsidy from `paying_key`.
+    pub fn has_pending_subsidy(user_key: &T::AccountId, paying_key: &T::AccountId) -> bool {
+        PendingSubsidies::<T>::contains_key(user_key, paying_key)
     }
 }
 
@@ -550,7 +648,7 @@ where
         } else {
             let metadata = call.get_call_metadata();
             if metadata.pallet_name == "Relayer" {
-                // The user key needs to pay for `remove_paying_key` call.
+                // The user key needs to pay for `remove_subsidy` call.
                 Ok(false)
             } else {
                 Err(InvalidTransaction::Custom(
@@ -596,7 +694,15 @@ where
             let paying_key = subsidy.paying_key.clone();
             // Debit the fee from the remaining POLYX of subsidy.
             subsidy.remaining = subsidy.remaining.saturating_sub(fee);
-            <Subsidies<T>>::insert(user_key, subsidy);
+            Subsidies::<T>::insert(user_key, subsidy);
+
+            // Emit event.
+            Self::deposit_event(Event::SubsidyDebited {
+                user_key: user_key.clone(),
+                paying_key: paying_key.clone(),
+                amount: fee,
+            });
+
             Ok(Some(paying_key))
         } else {
             Ok(None)
