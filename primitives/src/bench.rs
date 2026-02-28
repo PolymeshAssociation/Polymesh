@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 
 use crate::{
-    asset::{AssetId, AssetName, AssetType},
+    asset::{AssetHolderKind, AssetId, AssetName, AssetType},
     constants::currency::POLY,
     traits::{AssetFnConfig, AssetFnTrait},
-    PortfolioKind, Ticker,
+    Ticker,
 };
 use sp_std::vec;
 
@@ -47,7 +47,7 @@ pub fn create_and_issue_sample_asset<T: AssetFnConfig>(
             asset_owner,
             asset_id,
             (1_000_000 * POLY).into(),
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         )
         .unwrap();
     }

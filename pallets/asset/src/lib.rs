@@ -107,10 +107,10 @@ use pallet_base::{
 };
 use pallet_external_agents::Config as EAConfig;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_portfolio::Error as PortfolioError;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
-    AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId, FundingRoundName,
+    AssetHolder, AssetHolderKind, AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId,
+    FundingRoundName,
 };
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
@@ -124,8 +124,8 @@ use polymesh_primitives::traits::{
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, Memo, PortfolioId, PortfolioKind,
-    PortfolioUpdateReason, Ticker, WeightMeter,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, Memo, PortfolioUpdateReason,
+    Ticker, WeightMeter,
 };
 
 pub use types::{
@@ -136,7 +136,7 @@ pub use types::{
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
-type Portfolio<T> = pallet_portfolio::Pallet<T>;
+type PortfolioPallet<T> = pallet_portfolio::Pallet<T>;
 type Statistics<T> = pallet_statistics::Pallet<T>;
 
 /// Combinded config traits of the asset and checkpoint pallets.
@@ -253,7 +253,7 @@ pub mod pallet {
         DocumentRemoved(IdentityId, AssetId, DocumentId),
         /// Event for when a forced transfer takes place.
         /// caller DID/ controller DID, ExtensionRemoved, Portfolio of token holder, value.
-        ControllerTransfer(IdentityId, AssetId, PortfolioId, Balance),
+        ControllerTransfer(IdentityId, AssetId, AssetHolder, Balance),
         /// A custom asset type already exists on-chain.
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeExists(IdentityId, CustomAssetTypeId, Vec<u8>),
@@ -298,13 +298,13 @@ pub mod pallet {
         MetadataValueDeleted(IdentityId, AssetId, AssetMetadataKey),
         /// Emitted when Tokens were issued, redeemed or transferred.
         /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetId`] for the token, the balance that was issued/transferred/redeemed,
-        /// the [`PortfolioId`] of the source, the [`PortfolioId`] of the destination and the [`PortfolioUpdateReason`].
+        /// the [`AssetHolder`] of the source, the [`AssetHolder`] of the destination and the [`PortfolioUpdateReason`].
         AssetBalanceUpdated(
             IdentityId,
             AssetId,
             Balance,
-            Option<PortfolioId>,
-            Option<PortfolioId>,
+            Option<AssetHolder>,
+            Option<AssetHolder>,
             PortfolioUpdateReason,
         ),
         /// An asset has been added to the list of pre aprroved receivement (valid for all identities).
@@ -852,7 +852,7 @@ pub mod pallet {
         /// * `origin`: A signer that has permissions to act as an agent of `ticker`.
         /// * `asset_id`: the [`AssetId`] associated to the asset.
         /// * `amount`: The amount of tokens that will be issued.
-        /// * `portfolio_kind`: The [`PortfolioKind`] of the portfolio that will receive the minted tokens.
+        /// * `asset_holder_kind`: The [`AssetHolderKind`] of the portfolio that will receive the minted tokens.
         ///
         /// # Permissions
         /// * Asset
@@ -871,9 +871,9 @@ pub mod pallet {
             origin: OriginFor<T>,
             asset_id: AssetId,
             amount: Balance,
-            portfolio_kind: PortfolioKind,
+            asset_holder_kind: AssetHolderKind,
         ) -> DispatchResult {
-            Self::base_issue(origin, asset_id, amount, portfolio_kind)
+            Self::base_issue(origin, asset_id, amount, asset_holder_kind)
         }
 
         /// Redeems (i.e burns) existing tokens by reducing the balance of the caller's portfolio and the total supply of the asset.
@@ -884,7 +884,7 @@ pub mod pallet {
         /// * `origin`: is a signer that has permissions to act as an agent of `asset_id`.
         /// * `asset_id`: the [`AssetId`] associated to the asset.
         /// * `value`: amount of tokens to redeem.
-        /// * `portfolio_kind`: the [`PortfolioKind`] that will have its balance reduced.
+        /// * `asset_holder_kind`: the [`AssetHolderKind`] that will have its balance reduced.
         ///
         /// # Permissions
         /// * Asset
@@ -903,10 +903,16 @@ pub mod pallet {
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
-            portfolio_kind: PortfolioKind,
+            asset_holder_kind: AssetHolderKind,
         ) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            Self::base_redeem(origin, asset_id, value, portfolio_kind, &mut weight_meter)
+            Self::base_redeem(
+                origin,
+                asset_id,
+                value,
+                asset_holder_kind,
+                &mut weight_meter,
+            )
         }
 
         /// If the asset associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
@@ -1038,7 +1044,7 @@ pub mod pallet {
             Self::base_update_identifiers(origin, asset_id, asset_identifiers)
         }
 
-        /// Forces a transfer of tokens from `from_portfolio` to the caller's default portfolio.
+        /// Forces a transfer of tokens from `asset_holder` to the caller's default portfolio.
         ///
         /// This function allows the asset issuer or an external agent to force a transfer of tokens from one portfolio to another.
         ///
@@ -1046,7 +1052,7 @@ pub mod pallet {
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
         /// * `asset_id` - The [`AssetId`] associated to the asset.
         /// * `value` - The [`Balance`] of tokens that will be transferred.
-        /// * `from_portfolio` - The [`PortfolioId`] that will have its balance reduced.
+        /// * `asset_holder` - The [`AssetHolder`] that will have its balance reduced.
         ///
         /// # Permissions
         /// * Asset
@@ -1065,16 +1071,10 @@ pub mod pallet {
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
-            from_portfolio: PortfolioId,
+            asset_holder: AssetHolder,
         ) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            Self::base_controller_transfer(
-                origin,
-                asset_id,
-                value,
-                from_portfolio,
-                &mut weight_meter,
-            )
+            Self::base_controller_transfer(origin, asset_id, value, asset_holder, &mut weight_meter)
         }
 
         /// Registers a custom asset type.
@@ -1816,6 +1816,12 @@ pub mod pallet {
         TickerIsNotLinkedToTheAsset,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// The sender identity can't be the same as the receiver identity.
+        InvalidTransferSenderDidMatchesReceiverDid,
+        /// The key does not have permission to access the account.
+        UnauthorizedHolderKey,
+        /// No key was found for the Identity
+        KeyNotFoundForDid,
     }
 
     pub trait WeightInfo {
@@ -2008,98 +2014,88 @@ impl<T: AssetConfig> Pallet<T> {
         Self::ensure_valid_asset_name(&asset_name)?;
         Self::ensure_asset_exists(&asset_id)?;
 
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
 
         AssetNames::<T>::insert(asset_id, asset_name.clone());
         Self::deposit_event(Event::AssetRenamed(caller_did, asset_id, asset_name));
         Ok(())
     }
 
-    /// Issues `amount_to_issue` tokens for `asset_id` into the caller's portfolio.
+    /// Issues `amount_to_issue` tokens of `asset_id` into the caller's account/portfolio.
     fn base_issue(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
         amount_to_issue: Balance,
-        portfolio_kind: PortfolioKind,
+        asset_holder_kind: AssetHolderKind,
     ) -> DispatchResult {
-        let caller_portfolio = Self::ensure_origin_asset_and_portfolio_permissions(
-            origin,
-            asset_id,
-            portfolio_kind,
-            false,
-        )?;
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        let caller_holding_ctx =
+            Self::ensure_asset_and_holding_permissions(origin, asset_id, asset_holder_kind, false)?;
         let mut asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::validate_issuance_rules(&asset_details, amount_to_issue)?;
         Self::unverified_issue_tokens(
             asset_id,
             &mut asset_details,
-            caller_portfolio,
+            caller_holding_ctx,
             amount_to_issue,
             true,
-            &mut weight_meter,
+            &mut WeightMeter::max_limit_no_minimum(),
         )?;
         Ok(())
     }
 
-    /// Reduces `value` tokens from `portfolio_kind` and [`AssetDetails::total_supply`].
+    /// Reduces `value` tokens from `asset_holder_kind` and [`AssetDetails::total_supply`].
     fn base_redeem(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
         value: Balance,
-        portfolio_kind: PortfolioKind,
+        asset_holder_kind: AssetHolderKind,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let portfolio = Self::ensure_origin_asset_and_portfolio_permissions(
-            origin,
-            asset_id,
-            portfolio_kind,
-            true,
-        )?;
+        let caller_holding_ctx =
+            Self::ensure_asset_and_holding_permissions(origin, asset_id, asset_holder_kind, true)?;
 
         let mut asset_details = Self::try_get_asset_details(&asset_id)?;
-        Self::ensure_asset_granular(&asset_details, &value)?;
-
-        // Ensures the asset is fungible
         ensure!(
             asset_details.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        Portfolio::<T>::reduce_portfolio_balance(&portfolio, asset_id, value)?;
+        let new_balance = Self::ensure_sufficient_balance(&caller_holding_ctx, &asset_id, value)?;
+        Self::set_holders_balance(caller_holding_ctx.clone(), asset_id, new_balance)?;
 
         asset_details.total_supply = asset_details
             .total_supply
             .checked_sub(value)
             .ok_or(Error::<T>::TotalSupplyOverflow)?;
 
-        <Checkpoint<T>>::advance_update_balances(
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding_ctx)?;
+        Checkpoint::<T>::advance_update_balances(
             &asset_id,
-            &[(portfolio.did, BalanceOf::<T>::get(asset_id, portfolio.did))],
+            &[(holder_did, BalanceOf::<T>::get(asset_id, holder_did))],
         )?;
 
-        let updated_balance = BalanceOf::<T>::get(asset_id, portfolio.did) - value;
+        let updated_did_balance = BalanceOf::<T>::get(asset_id, holder_did) - value;
 
         // Update identity balances and total supply
-        BalanceOf::<T>::insert(asset_id, &portfolio.did, updated_balance);
+        BalanceOf::<T>::insert(asset_id, holder_did, updated_did_balance);
         Assets::<T>::insert(asset_id, asset_details);
 
         // Update statistic info.
         Statistics::<T>::update_asset_stats(
             asset_id,
-            Some(&portfolio.did),
+            Some(&holder_did),
             None,
-            Some(updated_balance),
+            Some(updated_did_balance),
             None,
             value,
             weight_meter,
         )?;
 
         Self::deposit_event(Event::AssetBalanceUpdated(
-            portfolio.did,
+            holder_did,
             asset_id,
             value,
-            Some(portfolio),
+            Some(caller_holding_ctx),
             None,
             PortfolioUpdateReason::Redeemed,
         ));
@@ -2107,7 +2103,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     fn base_make_divisible(origin: T::RuntimeOrigin, asset_id: AssetId) -> DispatchResult {
-        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
 
         Assets::<T>::try_mutate(&asset_id, |asset_details| -> DispatchResult {
             let asset_details = asset_details.as_mut().ok_or(Error::<T>::NoSuchAsset)?;
@@ -2200,41 +2196,41 @@ impl<T: AssetConfig> Pallet<T> {
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
         transfer_value: Balance,
-        sender_portfolio: PortfolioId,
+        sender: AssetHolder,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let caller_portfolio = Self::ensure_origin_asset_and_portfolio_permissions(
+        let caller_holding_ctx = Self::ensure_asset_and_holding_permissions(
             origin,
             asset_id,
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
             false,
         )?;
 
         Self::validate_asset_transfer(
             asset_id,
-            &sender_portfolio,
-            &caller_portfolio,
+            &sender,
+            &caller_holding_ctx,
             transfer_value,
             true,
             weight_meter,
         )?;
 
-        let callers_did = caller_portfolio.did;
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding_ctx)?;
         Self::unverified_transfer_asset(
-            sender_portfolio.clone(),
-            caller_portfolio,
+            sender.clone(),
+            caller_holding_ctx,
             asset_id,
             transfer_value,
             None,
             None,
-            callers_did,
+            holder_did,
             weight_meter,
         )?;
 
         Self::deposit_event(Event::ControllerTransfer(
-            callers_did,
+            holder_did,
             asset_id,
-            sender_portfolio,
+            sender,
             transfer_value,
         ));
         Ok(())
@@ -2569,8 +2565,8 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// Transfers an asset from one identity portfolio to another
     pub fn base_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
+        from: AssetHolder,
+        to: AssetHolder,
         asset_id: AssetId,
         transfer_value: Balance,
         instruction_id: Option<InstructionId>,
@@ -2583,18 +2579,11 @@ impl<T: AssetConfig> Pallet<T> {
         // The only place this function is used right now is the settlement engine and the settlement engine
         // checks custodial permissions when the instruction is authorized.
 
-        Self::validate_asset_transfer(
-            asset_id,
-            &from_portfolio,
-            &to_portfolio,
-            transfer_value,
-            false,
-            weight_meter,
-        )?;
+        Self::validate_asset_transfer(asset_id, &from, &to, transfer_value, false, weight_meter)?;
 
         Self::unverified_transfer_asset(
-            from_portfolio,
-            to_portfolio,
+            from,
+            to,
             asset_id,
             transfer_value,
             instruction_id,
@@ -2954,27 +2943,58 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
-    /// Ensures that `origin` is a permissioned agent for `asset_id`, that the portfolio is valid and that calller
-    /// has the access to the portfolio. If `ensure_custody` is `true`, also enforces the caller to have custody
-    /// of the portfolio.
-    pub fn ensure_origin_asset_and_portfolio_permissions(
+    /// Returns `Ok` if:
+    ///  - `origin` is a permissioned agent for `asset_id`;
+    ///  - If [`AssetHolderKind::DefaultPortfolio`], ensures the caller has permissions over the default portfolio;
+    ///  - If [`AssetHolderKind::UserPortfolio`], ensures the portfolio exists and the caller has permissions over it;
+    ///  - If `ensure_custody` is `true`, also ensures the caller has custody of the portfolio.
+    ///  - If [`AssetHolderKind::Account`], ensures the caller has permissions over the account.
+    pub fn ensure_asset_and_holding_permissions(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
-        portfolio_kind: PortfolioKind,
+        asset_holder_kind: AssetHolderKind,
         ensure_custody: bool,
-    ) -> Result<PortfolioId, DispatchError> {
-        let origin_data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, &asset_id)?;
-        let portfolio_id = PortfolioId::new(origin_data.primary_did, portfolio_kind);
-        Portfolio::<T>::ensure_portfolio_validity(&portfolio_id)?;
-        if ensure_custody {
-            Portfolio::<T>::ensure_portfolio_custody(&portfolio_id, origin_data.primary_did)?;
-        }
-        Portfolio::<T>::ensure_user_portfolio_permission(
-            origin_data.secondary_key.as_ref(),
-            &portfolio_id,
+    ) -> Result<AssetHolder, DispatchError> {
+        let origin_data = ExternalAgents::<T>::ensure_agent_asset_perms(origin, &asset_id)?;
+
+        let holder = AssetHolder::try_from((
             origin_data.primary_did,
-        )?;
-        Ok(portfolio_id)
+            origin_data.sender.encode(),
+            asset_holder_kind,
+        ))?;
+
+        match &holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::ensure_portfolio_validity(portfolio_id)?;
+
+                if ensure_custody {
+                    PortfolioPallet::<T>::ensure_portfolio_custody(portfolio_id, portfolio_id.did)?;
+                }
+
+                PortfolioPallet::<T>::ensure_user_portfolio_permission(
+                    origin_data.secondary_key.as_ref(),
+                    &portfolio_id,
+                )?;
+
+                Ok(holder)
+            }
+            AssetHolder::Account(account_id) => {
+                let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
+
+                if let Some(sk) = origin_data.secondary_key {
+                    ensure!(sk.key == account_id, Error::<T>::UnauthorizedHolderKey);
+                    return Ok(holder);
+                }
+
+                let primary_key =
+                    pallet_identity::Pallet::<T>::get_primary_key(origin_data.primary_did)
+                        .ok_or(Error::<T>::KeyNotFoundForDid)?;
+
+                ensure!(primary_key == account_id, Error::<T>::UnauthorizedHolderKey);
+
+                Ok(holder)
+            }
+        }
     }
 
     /// Returns `Ok` if all rules for creating a custom type are satisfied.
@@ -3067,8 +3087,8 @@ impl<T: AssetConfig> Pallet<T> {
 
     pub fn validate_asset_transfer(
         asset_id: AssetId,
-        sender_portfolio: &PortfolioId,
-        receiver_portfolio: &PortfolioId,
+        sender: &AssetHolder,
+        receiver: &AssetHolder,
         transfer_value: Balance,
         is_controller_transfer: bool,
         weight_meter: &mut WeightMeter,
@@ -3079,21 +3099,26 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
+
         ensure!(
-            BalanceOf::<T>::get(asset_id, &sender_portfolio.did) >= transfer_value,
+            BalanceOf::<T>::get(asset_id, &sender_did) >= transfer_value,
             Error::<T>::InsufficientBalance
         );
         ensure!(
-            BalanceOf::<T>::get(asset_id, &receiver_portfolio.did)
+            BalanceOf::<T>::get(asset_id, &receiver_did)
                 .checked_add(transfer_value)
                 .is_some(),
             Error::<T>::BalanceOverflow
         );
 
         // Verifies that both portfolios exist an that the sender portfolio has sufficient balance
-        Portfolio::<T>::ensure_portfolio_transfer_validity(
-            sender_portfolio,
-            receiver_portfolio,
+        Self::ensure_valid_holdings(
+            sender,
+            &sender_did,
+            receiver,
+            &receiver_did,
             &asset_id,
             transfer_value,
         )?;
@@ -3110,29 +3135,24 @@ impl<T: AssetConfig> Pallet<T> {
         );
 
         ensure!(
-            IdentityPallet::<T>::is_did_active(receiver_portfolio.did),
+            IdentityPallet::<T>::is_did_active(receiver_did),
             Error::<T>::InvalidTransferInvalidReceiverDID
         );
 
         // Verifies that the statistics restrictions are satisfied
         Statistics::<T>::verify_transfer_restrictions(
             asset_id,
-            &sender_portfolio.did,
-            &receiver_portfolio.did,
-            BalanceOf::<T>::get(asset_id, sender_portfolio.did),
-            BalanceOf::<T>::get(asset_id, receiver_portfolio.did),
+            &sender_did,
+            &receiver_did,
+            BalanceOf::<T>::get(asset_id, &sender_did),
+            BalanceOf::<T>::get(asset_id, &receiver_did),
             transfer_value,
             asset_details.total_supply,
             weight_meter,
         )?;
 
         // Verifies that all compliance rules are being respected
-        if !T::ComplianceManager::is_compliant(
-            &asset_id,
-            sender_portfolio.did,
-            receiver_portfolio.did,
-            weight_meter,
-        )? {
+        if !T::ComplianceManager::is_compliant(&asset_id, sender_did, receiver_did, weight_meter)? {
             return Err(Error::<T>::InvalidTransferComplianceFailure.into());
         }
 
@@ -3141,8 +3161,8 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
     pub fn asset_transfer_report(
-        sender_portfolio: &PortfolioId,
-        receiver_portfolio: &PortfolioId,
+        sender: &AssetHolder,
+        receiver: &AssetHolder,
         asset_id: &AssetId,
         transfer_value: Balance,
         skip_locked_check: bool,
@@ -3161,16 +3181,30 @@ impl<T: AssetConfig> Pallet<T> {
             return vec![Error::<T>::UnexpectedNonFungibleToken.into()];
         }
 
+        let sender_did = {
+            match pallet_identity::Pallet::<T>::asset_holder_did(sender) {
+                Ok(did) => did,
+                Err(e) => return vec![e.into()],
+            }
+        };
+
+        let receiver_did = {
+            match pallet_identity::Pallet::<T>::asset_holder_did(receiver) {
+                Ok(did) => did,
+                Err(e) => return vec![e.into()],
+            }
+        };
+
         if let Err(e) = Self::ensure_asset_granular(&asset_details, &transfer_value) {
             asset_transfer_errors.push(e);
         }
 
-        let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_portfolio.did);
+        let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_did);
         if sender_current_balance < transfer_value {
             asset_transfer_errors.push(Error::<T>::InsufficientBalance.into());
         }
 
-        let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_portfolio.did);
+        let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_did);
         if receiver_current_balance
             .checked_add(transfer_value)
             .is_none()
@@ -3178,35 +3212,34 @@ impl<T: AssetConfig> Pallet<T> {
             asset_transfer_errors.push(Error::<T>::BalanceOverflow.into());
         }
 
-        if sender_portfolio.did == receiver_portfolio.did {
+        if sender_did == receiver_did {
             asset_transfer_errors
-                .push(PortfolioError::<T>::InvalidTransferSenderIdMatchesReceiverId.into());
+                .push(Error::<T>::InvalidTransferSenderDidMatchesReceiverDid.into());
         }
 
-        if let Err(e) = Portfolio::<T>::ensure_portfolio_validity(sender_portfolio) {
-            asset_transfer_errors.push(e);
-        }
-
-        if let Err(e) = Portfolio::<T>::ensure_portfolio_validity(receiver_portfolio) {
-            asset_transfer_errors.push(e);
-        }
-
-        if skip_locked_check {
-            if Portfolio::<T>::get_asset_balance(sender_portfolio, asset_id) < transfer_value {
-                asset_transfer_errors
-                    .push(PortfolioError::<T>::InsufficientPortfolioBalance.into());
-            }
-        } else {
-            if let Err(e) = Portfolio::<T>::ensure_sufficient_balance(
-                sender_portfolio,
-                asset_id,
-                transfer_value,
-            ) {
+        if let AssetHolder::Portfolio(sender_portfolio_id) = sender {
+            if let Err(e) = PortfolioPallet::<T>::ensure_portfolio_validity(sender_portfolio_id) {
                 asset_transfer_errors.push(e);
             }
         }
 
-        if !IdentityPallet::<T>::is_did_active(receiver_portfolio.did) {
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = receiver {
+            if let Err(e) = PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id) {
+                asset_transfer_errors.push(e);
+            }
+        }
+
+        if skip_locked_check {
+            if Self::get_holders_balance(sender, asset_id) < transfer_value {
+                asset_transfer_errors.push(Error::<T>::InsufficientBalance.into());
+            }
+        } else {
+            if let Err(e) = Self::ensure_sufficient_balance(sender, asset_id, transfer_value) {
+                asset_transfer_errors.push(e);
+            }
+        }
+
+        if !IdentityPallet::<T>::is_did_active(receiver_did) {
             asset_transfer_errors.push(Error::<T>::InvalidTransferInvalidReceiverDID.into());
         }
 
@@ -3216,8 +3249,8 @@ impl<T: AssetConfig> Pallet<T> {
 
         if let Err(e) = Statistics::<T>::verify_transfer_restrictions(
             *asset_id,
-            &sender_portfolio.did,
-            &receiver_portfolio.did,
+            &sender_did,
+            &receiver_did,
             sender_current_balance,
             receiver_current_balance,
             transfer_value,
@@ -3227,12 +3260,7 @@ impl<T: AssetConfig> Pallet<T> {
             asset_transfer_errors.push(e);
         }
 
-        match T::ComplianceManager::is_compliant(
-            asset_id,
-            sender_portfolio.did,
-            receiver_portfolio.did,
-            weight_meter,
-        ) {
+        match T::ComplianceManager::is_compliant(asset_id, sender_did, receiver_did, weight_meter) {
             Ok(is_compliant) => {
                 if !is_compliant {
                     asset_transfer_errors.push(Error::<T>::InvalidTransferComplianceFailure.into());
@@ -3335,6 +3363,130 @@ impl<T: AssetConfig> Pallet<T> {
 
         nonce
     }
+
+    /// Returns `Ok` if:
+    /// - The transfer is between different DIDs;
+    /// - If [`AssetHolder::Portfolio`], it must exist;
+    /// - The sender has sufficient balance for the transfer (taking into account locks).
+    fn ensure_valid_holdings(
+        sender: &AssetHolder,
+        sender_did: &IdentityId,
+        receiver: &AssetHolder,
+        receiver_did: &IdentityId,
+        asset_id: &AssetId,
+        value: Balance,
+    ) -> DispatchResult {
+        ensure!(
+            sender_did != receiver_did,
+            Error::<T>::InvalidTransferSenderDidMatchesReceiverDid
+        );
+
+        if let AssetHolder::Portfolio(sender_portfolio_id) = sender {
+            PortfolioPallet::<T>::ensure_portfolio_validity(sender_portfolio_id)?;
+        }
+
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = receiver {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        }
+
+        let _ = Self::ensure_sufficient_balance(sender, asset_id, value)?;
+
+        Ok(())
+    }
+
+    /// If the asset is granular (see: [`Pallet::ensure_asset_granular`]) and the holder has at least
+    /// `value` balance that is not locked, returns what would be the new balance of `holder` after a transfer of `value`.
+    fn ensure_sufficient_balance(
+        holder: &AssetHolder,
+        asset_id: &AssetId,
+        value: Balance,
+    ) -> Result<Balance, DispatchError> {
+        Self::ensure_granular(asset_id, value)?;
+
+        let current_balance = Self::get_holder_balance(holder, asset_id);
+        let locked_balance = Self::get_holder_locked_balance(holder, asset_id);
+
+        let final_balance = current_balance
+            .checked_sub(value)
+            .ok_or(Error::<T>::InsufficientBalance)?;
+
+        ensure!(
+            final_balance >= locked_balance,
+            Error::<T>::InsufficientBalance
+        );
+
+        Ok(final_balance)
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
+    /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
+    fn get_holder_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
+            }
+            AssetHolder::Account(account_id) => Self::get_account_balance(account_id, asset_id),
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns the locked balance from the portfolio pallet.
+    /// If [`AssetHolder::Account`], returns the locked balance from the asset pallet.
+    fn get_holder_locked_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_locked_balance(portfolio_id, asset_id)
+            }
+            AssetHolder::Account(account_id) => {
+                Self::get_account_locked_balance(account_id, asset_id)
+            }
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
+    /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
+    fn get_holders_balance(asset_holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
+            }
+            AssetHolder::Account(account_id) => Self::get_account_balance(account_id, asset_id),
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], updates the balance in the portfolio pallet.
+    /// If [`AssetHolder::Account`], updates the balance in the asset pallet.
+    fn set_holders_balance(
+        asset_holder: AssetHolder,
+        asset_id: AssetId,
+        new_balance: Balance,
+    ) -> DispatchResult {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::set_portfolio_balance(&portfolio_id, asset_id, new_balance);
+                Ok(())
+            }
+            AssetHolder::Account(account_id) => {
+                Self::set_account_balance(account_id, asset_id, new_balance)
+            }
+        }
+    }
+
+    /// Transfers `value` of `asset_id` from `sender` to `receiver`.
+    pub fn transfer_holders_balance(
+        sender: AssetHolder,
+        receiver: AssetHolder,
+        asset_id: AssetId,
+        value: Balance,
+    ) -> DispatchResult {
+        let sender_old_balance = Self::get_holders_balance(&sender, &asset_id);
+        let sender_new_balance = sender_old_balance.saturating_sub(value);
+        Self::set_holders_balance(sender, asset_id, sender_new_balance)?;
+
+        let rcv_old_balance = Self::get_holders_balance(&receiver, &asset_id);
+        let rcv_new_balance = rcv_old_balance.saturating_add(value);
+        Self::set_holders_balance(receiver, asset_id, rcv_new_balance)?;
+        Ok(())
+    }
 }
 
 //==========================================================================
@@ -3432,7 +3584,7 @@ impl<T: AssetConfig> Pallet<T> {
     fn unverified_issue_tokens(
         asset_id: AssetId,
         asset_details: &mut AssetDetails,
-        issuer_portfolio: PortfolioId,
+        issuer: AssetHolder,
         amount_to_issue: Balance,
         charge_fee: bool,
         weight_meter: &mut WeightMeter,
@@ -3441,32 +3593,30 @@ impl<T: AssetConfig> Pallet<T> {
             T::ProtocolFee::charge_fee(ProtocolOp::AssetIssue)?;
         }
 
-        let current_issuer_balance = BalanceOf::<T>::get(&asset_id, &issuer_portfolio.did);
-        <Checkpoint<T>>::advance_update_balances(
+        let issuer_did = pallet_identity::Pallet::<T>::asset_holder_did(&issuer)?;
+
+        let current_issuer_balance = BalanceOf::<T>::get(&asset_id, &issuer_did);
+        Checkpoint::<T>::advance_update_balances(
             &asset_id,
-            &[(issuer_portfolio.did, current_issuer_balance)],
+            &[(issuer_did, current_issuer_balance)],
         )?;
 
         let new_issuer_balance = current_issuer_balance + amount_to_issue;
-        BalanceOf::<T>::insert(asset_id, issuer_portfolio.did, new_issuer_balance);
+        BalanceOf::<T>::insert(asset_id, issuer_did, new_issuer_balance);
 
         asset_details.total_supply += amount_to_issue;
         Assets::<T>::insert(asset_id, asset_details);
 
         // No check since the total balance is always <= the total supply
-        let current_balance = Portfolio::<T>::get_asset_balance(&issuer_portfolio, &asset_id);
-        let new_issuer_portfolio_balance = current_balance.saturating_add(amount_to_issue);
+        let current_balance = Self::get_holders_balance(&issuer, &asset_id);
+        let new_holder_balance = current_balance.saturating_add(amount_to_issue);
 
-        Portfolio::<T>::set_portfolio_balance(
-            &issuer_portfolio,
-            asset_id,
-            new_issuer_portfolio_balance,
-        )?;
+        Self::set_holders_balance(issuer.clone(), asset_id, new_holder_balance)?;
 
         Statistics::<T>::update_asset_stats(
             asset_id,
             None,
-            Some(&issuer_portfolio.did),
+            Some(&issuer_did),
             None,
             Some(new_issuer_balance),
             amount_to_issue,
@@ -3479,11 +3629,11 @@ impl<T: AssetConfig> Pallet<T> {
         });
 
         Self::deposit_event(Event::AssetBalanceUpdated(
-            issuer_portfolio.did,
+            issuer_did,
             asset_id,
             amount_to_issue,
             None,
-            Some(issuer_portfolio),
+            Some(issuer),
             PortfolioUpdateReason::Issued {
                 funding_round_name: Some(funding_round_name),
             },
@@ -3491,10 +3641,10 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
-    // Transfers `transfer_value` from `sender_portfolio` to `receiver_portfolio`.
+    // Transfers `transfer_value` from `sender` to `receiver`.
     pub fn unverified_transfer_asset(
-        sender_portfolio: PortfolioId,
-        receiver_portfolio: PortfolioId,
+        sender: AssetHolder,
+        receiver: AssetHolder,
         asset_id: AssetId,
         transfer_value: Balance,
         instruction_id: Option<InstructionId>,
@@ -3503,35 +3653,33 @@ impl<T: AssetConfig> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Gets the current balance and advances the checkpoint
-        let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_portfolio.did);
-        let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_portfolio.did);
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
+
+        let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_did);
+        let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_did);
         <Checkpoint<T>>::advance_update_balances(
             &asset_id,
             &[
-                (sender_portfolio.did, sender_current_balance),
-                (receiver_portfolio.did, receiver_current_balance),
+                (sender_did, sender_current_balance),
+                (receiver_did, receiver_current_balance),
             ],
         )?;
 
         // Updates the balance in the asset pallet
         let sender_new_balance = sender_current_balance.saturating_sub(transfer_value);
         let receiver_new_balance = receiver_current_balance.saturating_add(transfer_value);
-        BalanceOf::<T>::insert(asset_id, sender_portfolio.did, sender_new_balance);
-        BalanceOf::<T>::insert(asset_id, receiver_portfolio.did, receiver_new_balance);
+        BalanceOf::<T>::insert(asset_id, sender_did, sender_new_balance);
+        BalanceOf::<T>::insert(asset_id, receiver_did, receiver_new_balance);
 
         // Updates the balances in the portfolio pallet
-        Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            &sender_portfolio,
-            &receiver_portfolio,
-            asset_id,
-            transfer_value,
-        )?;
+        Self::transfer_holders_balance(sender.clone(), receiver.clone(), asset_id, transfer_value)?;
 
         // Update statistics info.
         Statistics::<T>::update_asset_stats(
             asset_id,
-            Some(&sender_portfolio.did),
-            Some(&receiver_portfolio.did),
+            Some(&sender_did),
+            Some(&receiver_did),
             Some(sender_new_balance),
             Some(receiver_new_balance),
             transfer_value,
@@ -3542,8 +3690,8 @@ impl<T: AssetConfig> Pallet<T> {
             caller_did,
             asset_id,
             transfer_value,
-            Some(sender_portfolio),
-            Some(receiver_portfolio),
+            Some(sender),
+            Some(receiver),
             PortfolioUpdateReason::Transferred {
                 instruction_id,
                 instruction_memo,
@@ -3687,24 +3835,30 @@ impl<T: AssetConfig> Pallet<T> {
     /// Note: This functions skips all compliance and statistics checks, only checking for balance.
     pub fn simplified_fungible_transfer(
         asset_id: AssetId,
-        sender_pid: PortfolioId,
-        receiver_pid: PortfolioId,
+        sender: AssetHolder,
+        receiver: AssetHolder,
         transfer_value: Balance,
         inst_id: InstructionId,
         inst_memo: Option<Memo>,
         caller_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
+
         ensure!(
-            BalanceOf::<T>::get(&asset_id, &sender_pid.did) >= transfer_value,
+            BalanceOf::<T>::get(&asset_id, &sender_did) >= transfer_value,
             Error::<T>::InsufficientBalance
         );
-        Portfolio::<T>::ensure_portfolio_validity(&receiver_pid)?;
-        Portfolio::<T>::ensure_sufficient_balance(&sender_pid, &asset_id, transfer_value)?;
+
+        if let AssetHolder::Portfolio(receiver_pid) = &receiver {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?;
+        }
+
+        Self::ensure_sufficient_balance(&sender, &asset_id, transfer_value)?;
 
         Self::unverified_transfer_asset(
-            sender_pid,
-            receiver_pid,
+            sender,
+            receiver,
             asset_id,
             transfer_value,
             Some(inst_id),
@@ -3754,12 +3908,12 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
         Self::generate_asset_id(caller_acc, false)
     }
 
-    fn set_balance_of_account(
+    fn set_account_balance(
         acc_id: AccountId32,
         asset_id: AssetId,
         new_balance: Balance,
     ) -> DispatchResult {
-        let old_balance = AssetBalance::<T>::get(&acc_id, &asset_id);
+        let old_balance = Self::get_account_balance(&acc_id, &asset_id);
 
         if new_balance.is_zero() {
             AssetBalance::<T>::remove(&acc_id, &asset_id);
@@ -3782,11 +3936,15 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
         AssetBalance::<T>::get(acc_id, asset_id)
     }
 
-    fn get_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance {
+    fn get_account_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance {
         LockedBalance::<T>::get(account, asset_id)
     }
 
-    fn set_locked_balance(account: AccountId32, asset_id: AssetId, new_locked_balance: Balance) {
+    fn set_account_locked_balance(
+        account: AccountId32,
+        asset_id: AssetId,
+        new_locked_balance: Balance,
+    ) {
         if new_locked_balance.is_zero() {
             LockedBalance::<T>::remove(&account, &asset_id);
             return;
@@ -3826,10 +3984,10 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
         caller: T::AccountId,
         asset_id: AssetId,
         amount: Balance,
-        portfolio_kind: PortfolioKind,
+        asset_holder_kind: AssetHolderKind,
     ) -> DispatchResult {
         let origin = RawOrigin::Signed(caller);
-        Self::issue(origin.into(), asset_id, amount, portfolio_kind)
+        Self::issue(origin.into(), asset_id, amount, asset_holder_kind)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
