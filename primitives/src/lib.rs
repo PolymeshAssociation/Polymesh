@@ -244,6 +244,7 @@ pub mod crypto;
 
 /// Asset type definitions.
 pub mod asset;
+pub use asset::{AssetHolder, AssetHolderKind, HoldingsUpdateReason};
 
 /// Asset Metadata type definitions.
 pub mod asset_metadata;
@@ -266,7 +267,7 @@ pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, N
 
 /// Portfolio type definitions.
 pub mod portfolio;
-pub use portfolio::{Fund, FundDescription, PortfolioUpdateReason};
+pub use portfolio::{Fund, FundDescription};
 
 /// Custom WeightMeter definitions.
 pub mod weight_meter;

@@ -16,8 +16,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-use crate::asset::{AssetId, FundingRoundName};
-use crate::settlement::InstructionId;
+use crate::asset::AssetId;
 use crate::{Balance, Memo, NFTs};
 
 /// Describes what should be moved between portfolios. It can be either fungible or non-fungible tokens.
@@ -43,26 +42,4 @@ pub enum FundDescription {
     },
     /// Non Fungible token.
     NonFungible(NFTs),
-}
-
-/// Reason for the portfolio update.
-#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
-#[derive(Clone, Debug)]
-pub enum PortfolioUpdateReason {
-    /// Tokens were issued.
-    Issued {
-        /// If the asset is fungible the [`FundingRoundName`] of the minted tokens.
-        funding_round_name: Option<FundingRoundName>,
-    },
-    /// Tokens were redeemed.
-    Redeemed,
-    /// Tokens were transferred.
-    Transferred {
-        /// The [`InstructionId`] of the instruction which originated the transfer.
-        instruction_id: Option<InstructionId>,
-        /// The [`Memo`] of the instruction.
-        instruction_memo: Option<Memo>,
-    },
-    /// Tokens were transferred via a controller call.
-    ControllerTransfer,
 }
