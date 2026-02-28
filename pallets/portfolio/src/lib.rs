@@ -966,13 +966,13 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        Self::remove_nft_from_owner(&sender_portfolio, nfts.asset_id(), nft_id);
-                        Self::add_nft_to_owner(
+                        Self::remove_nft_from_portfolio(&sender_portfolio, nfts.asset_id(), nft_id);
+                        Self::add_nft_to_portfolio(
                             receiver_portfolio.clone(),
                             *nfts.asset_id(),
                             *nft_id,
                         );
-                        T::NFT::move_nft_owner(
+                        T::NFT::update_nft_owner(
                             *nfts.asset_id(),
                             *nft_id,
                             receiver_portfolio.clone(),
@@ -1124,12 +1124,16 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Removes the nft from the owner's portfolio.
-    pub fn remove_nft_from_owner(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) {
+    pub fn remove_nft_from_portfolio(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+    ) {
         PortfolioNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
     }
 
     /// Adds the nft to the owner's portfolio.
-    pub fn add_nft_to_owner(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
+    pub fn add_nft_to_portfolio(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
         PortfolioNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
     }
 }

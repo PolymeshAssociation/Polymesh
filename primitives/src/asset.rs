@@ -21,9 +21,10 @@ use sp_std::prelude::Vec;
 
 use polymesh_primitives_derive::VecU8StrongTyped;
 
+use crate::settlement::InstructionId;
 use crate::ticker::Ticker;
 use crate::{impl_checked_inc, PortfolioId, PortfolioKind, PortfolioNumber};
-use crate::{AccountId as AccountId32, IdentityId};
+use crate::{AccountId as AccountId32, IdentityId, Memo};
 
 /// An unique asset identifier.
 #[derive(Serialize, Deserialize)]
@@ -247,4 +248,26 @@ impl From<AssetHolder> for AssetHolderKind {
             AssetHolder::Account(_) => AssetHolderKind::Account,
         }
     }
+}
+
+/// Reason for the holdings update.
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
+pub enum HoldingsUpdateReason {
+    /// Tokens were issued.
+    Issued {
+        /// If the asset is fungible the [`FundingRoundName`] of the minted tokens.
+        funding_round_name: Option<FundingRoundName>,
+    },
+    /// Tokens were redeemed.
+    Redeemed,
+    /// Tokens were transferred.
+    Transferred {
+        /// The [`InstructionId`] of the instruction which originated the transfer.
+        instruction_id: Option<InstructionId>,
+        /// The [`Memo`] of the instruction.
+        instruction_memo: Option<Memo>,
+    },
+    /// Tokens were transferred via a controller call.
+    ControllerTransfer,
 }

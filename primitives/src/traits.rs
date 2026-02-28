@@ -21,7 +21,7 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use crate::asset::AssetId;
 use crate::asset_metadata::AssetMetadataKey;
 use crate::secondary_key::SecondaryKey;
-use crate::{AccountId as AccountId32, Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
+use crate::{Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{asset::NonFungibleType, NFTCollectionKeys};
@@ -169,21 +169,8 @@ pub trait ComplianceFnConfig {
 pub trait NFTTrait<Origin> {
     /// Returns `true` if the given `metadata_key` is a mandatory key for the `asset_id` NFT collection.
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
-    /// Updates the Owner storage after moving funds.
-    fn move_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
-    /// Returns `true` if the `key` is the holder of the `nft_id` of the `asset_id` collection.
-    fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
-    /// Adds the `nft_id` of the `asset_id` collection to the `key` holder.
-    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
-    /// Removes the `nft_id` of the `asset_id` collection from the `key` holder.
-    fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId)
-        -> DispatchResult;
-    /// Locks the NFT.
-    fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
-    /// Unlocks the NFT.
-    fn unlock_nft(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId);
-    /// Returns `true` if the NFT is locked.
-    fn is_nft_locked(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
+    /// Updates the Owner storage after moving funds between portfolios.
+    fn update_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(

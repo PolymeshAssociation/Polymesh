@@ -124,8 +124,8 @@ use polymesh_primitives::traits::{
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, Memo, PortfolioUpdateReason,
-    Ticker, WeightMeter,
+    AssetIdentifier, Balance, Document, DocumentId, HoldingsUpdateReason, IdentityId, Memo, Ticker,
+    WeightMeter,
 };
 
 pub use types::{
@@ -298,14 +298,14 @@ pub mod pallet {
         MetadataValueDeleted(IdentityId, AssetId, AssetMetadataKey),
         /// Emitted when Tokens were issued, redeemed or transferred.
         /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetId`] for the token, the balance that was issued/transferred/redeemed,
-        /// the [`AssetHolder`] of the source, the [`AssetHolder`] of the destination and the [`PortfolioUpdateReason`].
+        /// the [`AssetHolder`] of the source, the [`AssetHolder`] of the destination and the [`HoldingsUpdateReason`].
         AssetBalanceUpdated(
             IdentityId,
             AssetId,
             Balance,
             Option<AssetHolder>,
             Option<AssetHolder>,
-            PortfolioUpdateReason,
+            HoldingsUpdateReason,
         ),
         /// An asset has been added to the list of pre aprroved receivement (valid for all identities).
         /// Parameters: [`AssetId`] of the pre approved asset.
@@ -2097,7 +2097,7 @@ impl<T: AssetConfig> Pallet<T> {
             value,
             Some(caller_holding_ctx),
             None,
-            PortfolioUpdateReason::Redeemed,
+            HoldingsUpdateReason::Redeemed,
         ));
         Ok(())
     }
@@ -3634,7 +3634,7 @@ impl<T: AssetConfig> Pallet<T> {
             amount_to_issue,
             None,
             Some(issuer),
-            PortfolioUpdateReason::Issued {
+            HoldingsUpdateReason::Issued {
                 funding_round_name: Some(funding_round_name),
             },
         ));
@@ -3692,7 +3692,7 @@ impl<T: AssetConfig> Pallet<T> {
             transfer_value,
             Some(sender),
             Some(receiver),
-            PortfolioUpdateReason::Transferred {
+            HoldingsUpdateReason::Transferred {
                 instruction_id,
                 instruction_memo,
             },
