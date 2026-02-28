@@ -23,7 +23,7 @@ use pallet_identity::benchmarking::{user, User, UserBuilder};
 use pallet_portfolio::NextPortfolioNumber;
 use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_primitives::agent::AgentGroup;
-use polymesh_primitives::asset::{AssetName, NonFungibleType};
+use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetName, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue, AssetMetadataValueDetail,
@@ -31,10 +31,10 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::bench::reg_unique_ticker;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::ticker::TICKER_LEN;
+use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
-    traits::{ComplianceFnConfig, NFTTrait},
-    AuthorizationData, Fund, FundDescription, IdentityId, NFTCollectionKeys, PortfolioKind,
-    PortfolioName, PortfolioNumber, Signatory, Ticker, Url, WeightMeter,
+    AuthorizationData, Fund, FundDescription, IdentityId, NFTCollectionKeys, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, Url, WeightMeter,
 };
 
 use crate::*;
@@ -124,11 +124,12 @@ pub(crate) fn create_sample_asset<T: AssetConfig>(
 
 pub(crate) fn create_and_issue_sample_asset<T: AssetConfig>(asset_owner: &User<T>) -> AssetId {
     let asset_id = create_sample_asset::<T>(asset_owner, true);
+
     Pallet::<T>::issue(
         asset_owner.origin().into(),
         asset_id,
         (ONE_UNIT * POLY).into(),
-        PortfolioKind::Default,
+        AssetHolderKind::DefaultPortfolio,
     )
     .unwrap();
 
@@ -147,13 +148,12 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     n_mediators: u8,
     move_to_sender_portfolio: bool,
     use_account_portfolio: bool,
-) -> (PortfolioId, PortfolioId, Vec<User<T>>, AssetId) {
-    let (sender_portfolio, receiver_portfolio) = {
+) -> (AssetHolder, AssetHolder, Vec<User<T>>, AssetId) {
+    let (sender_holdings, receiver_holdings) = {
         if use_account_portfolio {
             (
-                PortfolioId::account_portfolio(sender.did(), sender.account().encode()).unwrap(),
-                PortfolioId::account_portfolio(receiver.did(), receiver.account().encode())
-                    .unwrap(),
+                AssetHolder::try_from(sender.account().encode()).unwrap(),
+                AssetHolder::try_from(receiver.account().encode()).unwrap(),
             )
         } else {
             (
@@ -166,13 +166,14 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     // Creates the asset
     let asset_id = create_and_issue_sample_asset::<T>(sender);
     if move_to_sender_portfolio {
-        // Moves some asset to the sender portfolio
-        move_from_default_portfolio::<T>(
-            sender,
-            asset_id,
-            ONE_UNIT * POLY,
-            sender_portfolio.clone(),
-        );
+        if let AssetHolder::Portfolio(sender_portfolio) = &sender_holdings {
+            move_from_default_portfolio::<T>(
+                sender,
+                asset_id,
+                ONE_UNIT * POLY,
+                sender_portfolio.clone(),
+            );
+        }
     }
 
     // Sets mandatory mediators
@@ -210,27 +211,27 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     );
 
     (
-        sender_portfolio,
-        receiver_portfolio,
+        sender_holdings,
+        receiver_holdings,
         asset_mediators,
         asset_id,
     )
 }
 
-/// Creates a user portfolio for `user`.
-pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
+/// Returns a [`AssetHolder::Portfolio`] of [`PortfolioKind::User`] with the given name.
+pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> AssetHolder {
     let portfolio_number = NextPortfolioNumber::<T>::get(user.did()).0;
 
-    Portfolio::<T>::create_portfolio(
+    pallet_portfolio::Pallet::<T>::create_portfolio(
         user.origin().clone().into(),
         PortfolioName(portofolio_name.as_bytes().to_vec()),
     )
     .unwrap();
 
-    PortfolioId {
-        did: user.did(),
-        kind: PortfolioKind::User(PortfolioNumber(portfolio_number)),
-    }
+    AssetHolder::from(PortfolioId::new(
+        user.did(),
+        PortfolioKind::User(PortfolioNumber(portfolio_number)),
+    ))
 }
 
 /// Moves `amount` from the user's default portfolio to `destination_portfolio`.
@@ -240,7 +241,7 @@ fn move_from_default_portfolio<T: Config>(
     amount: Balance,
     destination_portfolio: PortfolioId,
 ) {
-    Portfolio::<T>::move_portfolio_funds(
+    pallet_portfolio::Pallet::<T>::move_portfolio_funds(
         user.origin().clone().into(),
         PortfolioId {
             did: user.did(),
@@ -406,8 +407,8 @@ benchmarks! {
     issue {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        let portfolio_id = create_portfolio::<T>(&alice, "MyPortfolio");
-    }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), portfolio_id.kind)
+        let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
+    }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), alice_holdings.into())
     verify {
         assert_eq!(
             Assets::<T>::get(&asset_id).unwrap().total_supply,
@@ -418,16 +419,17 @@ benchmarks! {
     redeem {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        let portfolio_id = create_portfolio::<T>(&alice, "MyPortfolio");
+        let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
 
         Pallet::<T>::issue(
             alice.origin.clone().into(),
             asset_id,
             (1_000_000 * POLY).into(),
-            PortfolioKind::User(PortfolioNumber(1))
+            alice_holdings.clone().into()
         )
         .unwrap();
-    }: _(alice.origin, asset_id, (600_000 * POLY).into(), portfolio_id.kind)
+
+    }: _(alice.origin, asset_id, (600_000 * POLY).into(), alice_holdings.into())
     verify {
         assert_eq!(
             Assets::<T>::get(&asset_id).unwrap().total_supply,
@@ -517,11 +519,13 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
 
+        let alice_holdings = AssetHolder::from(PortfolioId::default_portfolio(alice.did()));
+
         Pallet::<T>::issue(
             alice.origin.clone().into(),
             asset_id,
             1_000_000,
-            PortfolioKind::Default
+            alice_holdings.clone().into()
         )
         .unwrap();
 
@@ -533,7 +537,7 @@ benchmarks! {
         )
         .unwrap();
         pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
-    }: _(bob.origin.clone(), asset_id, 1_000,  PortfolioId::default_portfolio(alice.did()))
+    }: _(bob.origin.clone(), asset_id, 1_000,  alice_holdings)
     verify {
         assert_eq!(
             BalanceOf::<T>::get(asset_id, bob.did()),

@@ -26,6 +26,7 @@ use frame_support::traits::{Currency as _, Get as _, Randomness as _};
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use pallet_permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
+use polymesh_primitives::asset::AssetHolder;
 use polymesh_primitives::constants::did::USER;
 use polymesh_primitives::crypto::{ChainScopedMessage, IDENTITY_ADD_SECONDARY_KEY_LABEL};
 use polymesh_primitives::identity::limits::{
@@ -934,6 +935,24 @@ impl<T: Config> Pallet<T> {
             must_be_primary_key,
         )?;
         Ok((caller_acc, account_data.primary_did))
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns [`IdentityId`] directly from [`PortfolioId::did`].
+    /// If [`AssetHolder::Account`], looks up the account's key record and returns the linked IdentityId if it exists.
+    pub fn asset_holder_did(asset_holder: &AssetHolder) -> Result<IdentityId, DispatchError> {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => Ok(portfolio_id.did),
+            AssetHolder::Account(acc_id) => {
+                if let Ok(acc_id) = pallet_base::pallet_account_id::<T>(acc_id) {
+                    if let Some(key_record) = KeyRecords::<T>::get(acc_id) {
+                        if let Some(did) = key_record.as_did() {
+                            return Ok(did);
+                        }
+                    }
+                }
+                return Err(Error::<T>::IdentityNotFoundForAccountPortfolio.into());
+            }
+        }
     }
 }
 

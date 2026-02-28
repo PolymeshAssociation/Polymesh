@@ -20,7 +20,7 @@ use crate::{
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
 use frame_system::ensure_signed;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, PortfolioKind, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
@@ -55,12 +55,6 @@ impl<T: Config> Pallet<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
     ) -> Result<u64, DispatchError> {
-        if let AuthorizationData::PortfolioCustody(portfolio_id) = &authorization_data {
-            if let PortfolioKind::AccountId(_) = &portfolio_id.kind {
-                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
-            }
-        }
-
         let number_of_given_auths = NumberOfGivenAuths::<T>::get(from);
         ensure!(
             number_of_given_auths < T::MaxGivenAuths::get(),

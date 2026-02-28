@@ -28,7 +28,7 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
-use crate::asset::AssetId;
+use crate::asset::{AssetHolder, AssetId};
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
@@ -171,10 +171,10 @@ pub struct Instruction<Moment, BlockNumber> {
 pub enum Leg {
     /// Fungible token
     Fungible {
-        /// The [`PortfolioId`] of the sender.
-        sender: PortfolioId,
-        /// The [`PortfolioId`] of the receiver.
-        receiver: PortfolioId,
+        /// The [`AssetHolder`] of the sender.
+        sender: AssetHolder,
+        /// The [`AssetHolder`] of the receiver.
+        receiver: AssetHolder,
         /// The [`AssetId`] of the fungible token.
         asset_id: AssetId,
         /// The amount being transferred.
@@ -182,10 +182,10 @@ pub enum Leg {
     },
     /// Non Fungible token.
     NonFungible {
-        /// The [`PortfolioId`] of the sender.
-        sender: PortfolioId,
-        /// The [`PortfolioId`] of the receiver.
-        receiver: PortfolioId,
+        /// The [`AssetHolder`] of the sender.
+        sender: AssetHolder,
+        /// The [`AssetHolder`] of the receiver.
+        receiver: AssetHolder,
         /// The [`NFTs`] being transferred.
         nfts: NFTs,
     },
@@ -580,10 +580,10 @@ impl SenderSideInfo {
 }
 
 impl FilteredLegs {
-    /// Returns [`FilteredLegs`] where [`SenderSideInfo::sender_subset`] contain legs from a sender that belong to the specified `portfolio_set`.
+    /// Returns [`FilteredLegs`] where [`SenderSideInfo::sender_subset`] contain legs from a sender that belong to the specified `asset_holder_set`.
     pub fn filter_sender(
         original_set: Vec<(LegId, Leg)>,
-        portfolio_set: &BTreeSet<PortfolioId>,
+        asset_holder_set: &BTreeSet<AssetHolder>,
     ) -> Self {
         let unfiltered_asset_count = AssetCount::from_legs(&original_set);
         let mut sender_asset_count = AssetCount::default();
@@ -597,10 +597,10 @@ impl FilteredLegs {
                     ref receiver,
                     ..
                 } => {
-                    if portfolio_set.contains(sender) {
+                    if asset_holder_set.contains(sender) {
                         sender_subset.push((leg_id, leg));
                         sender_asset_count.add_fungible();
-                    } else if portfolio_set.contains(receiver) {
+                    } else if asset_holder_set.contains(receiver) {
                         receiver_asset_count.add_fungible();
                     }
                 }
@@ -609,10 +609,10 @@ impl FilteredLegs {
                     ref receiver,
                     ref nfts,
                 } => {
-                    if portfolio_set.contains(sender) {
+                    if asset_holder_set.contains(sender) {
                         sender_asset_count.add_non_fungible(&nfts);
                         sender_subset.push((leg_id, leg));
-                    } else if portfolio_set.contains(receiver) {
+                    } else if asset_holder_set.contains(receiver) {
                         receiver_asset_count.add_non_fungible(&nfts);
                     }
                 }
