@@ -226,13 +226,21 @@ impl TryFrom<Vec<u8>> for AssetHolder {
 /// The kind of holder, without the owner information.
 ///
 /// Note: Used only for input parameters where the owner is the caller and can be retrieved from the origin.
-#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(
+    Decode,
+    Default,
+    DecodeWithMemTracking,
+    Encode,
+    MaxEncodedLen,
+    TypeInfo
+)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[derive(Deserialize, Serialize)]
 pub enum AssetHolderKind {
     /// The asset is held by the key.
     Account,
     /// The asset is held in the default portfolio.
+    #[default]
     DefaultPortfolio,
     /// The asset is held in a user-defined portfolio.
     UserPortfolio(PortfolioNumber),

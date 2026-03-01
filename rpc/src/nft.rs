@@ -24,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
-use polymesh_primitives::{NFTs, AssetHolder};
+use polymesh_primitives::{AssetHolder, NFTs};
 
 #[rpc(client, server)]
 pub trait NFTApi<BlockHash> {

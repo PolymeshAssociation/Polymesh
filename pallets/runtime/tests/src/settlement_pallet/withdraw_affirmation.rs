@@ -2,11 +2,10 @@ use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 
 use polymesh_primitives::settlement::{InstructionId, SettlementType};
-use polymesh_primitives::PortfolioId;
 use polymesh_runtime_common::Weight;
 
 use super::setup::add_and_affirm_simple_instruction;
-use crate::storage::{vec_to_btreeset, User};
+use crate::storage::{default_asset_holder_set, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Error = pallet_settlement::Error<TestStorage>;
@@ -34,7 +33,7 @@ fn withdraw_after_locking() {
             Settlement::withdraw_affirmation(
                 bob.origin(),
                 InstructionId(0),
-                vec_to_btreeset(vec![PortfolioId::default_portfolio(bob.did)]),
+                default_asset_holder_set(bob.did),
             ),
             Error::InvalidInstructionStatusForWithdrawal
         );
@@ -43,7 +42,7 @@ fn withdraw_after_locking() {
             Settlement::withdraw_affirmation(
                 dave.origin(),
                 InstructionId(0),
-                vec_to_btreeset(vec![PortfolioId::default_portfolio(dave.did)]),
+                default_asset_holder_set(dave.did),
             ),
             Error::InvalidInstructionStatusForWithdrawal
         );
@@ -52,7 +51,7 @@ fn withdraw_after_locking() {
             Settlement::withdraw_affirmation(
                 alice.origin(),
                 InstructionId(0),
-                vec_to_btreeset(vec![PortfolioId::default_portfolio(alice.did)]),
+                default_asset_holder_set(alice.did),
             ),
             Error::InvalidInstructionStatusForWithdrawal
         );

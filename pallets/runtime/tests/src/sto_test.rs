@@ -115,8 +115,8 @@ fn raise_happy_path() {
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unverified_transfer_asset(
-        alice_portfolio.clone(),
-        bob_portfolio.clone(),
+        alice_portfolio.clone().into(),
+        bob_portfolio.clone().into(),
         raise_asset,
         RAISE_SUPPLY,
         None,
@@ -357,8 +357,8 @@ fn raise_unhappy_path() {
 
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unverified_transfer_asset(
-        alice_portfolio.clone(),
-        bob_portfolio.clone(),
+        alice_portfolio.clone().into(),
+        bob_portfolio.clone().into(),
         raise_asset,
         1_000_000,
         None,

@@ -38,10 +38,11 @@ use polymesh_primitives::settlement::{
     VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
-    AccountId, AuthorizationData, Balance, Claim, ClaimType, Condition, ConditionType, CountryCode,
-    Fund, FundDescription, IdentityId, Memo, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, Signatory, Ticker,
-    TrustedFor, TrustedIssuer, WeightMeter,
+    AccountId, AssetHolder, AssetHolderKind, AuthorizationData, Balance, Claim, ClaimType,
+    Condition, ConditionType, CountryCode, Fund, FundDescription, IdentityId, Memo,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Scope, Signatory, Ticker, TrustedFor, TrustedIssuer,
+    WeightMeter,
 };
 use sp_keyring::Sr25519Keyring;
 
@@ -50,8 +51,8 @@ use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
 use super::settlement_pallet::setup::create_and_issue_sample_asset_with_venue;
 use super::storage::{
-    default_portfolio_btreeset, make_account_with_balance, user_portfolio_btreeset,
-    vec_to_btreeset, TestStorage, User,
+    default_asset_holder_set, make_account_with_balance, user_asset_holder_set, vec_to_btreeset,
+    TestStorage, User,
 };
 use super::{next_block, ExtBuilder};
 
@@ -84,7 +85,7 @@ macro_rules! assert_affirm_instruction {
         assert_ok!(Settlement::affirm_instruction(
             $signer,
             $instruction_id,
-            default_portfolio_btreeset($did),
+            default_asset_holder_set($did),
         ));
     };
 }
@@ -145,8 +146,8 @@ impl UserWithBalance {
     #[track_caller]
     fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
-            Portfolio::get_asset_balance(
-                &PortfolioId::new(self.user.did, PortfolioKind::User(num)),
+            Asset::get_holders_balance(
+                &PortfolioId::new(self.user.did, PortfolioKind::User(num)).into(),
                 &asset_id
             ),
             balance,
@@ -156,8 +157,8 @@ impl UserWithBalance {
     #[track_caller]
     fn assert_default_portfolio_bal(&self, balance: Balance, asset_id: &AssetId) {
         assert_eq!(
-            Portfolio::get_asset_balance(
-                &PortfolioId::new(self.user.did, PortfolioKind::Default),
+            Asset::get_holders_balance(
+                &PortfolioId::new(self.user.did, PortfolioKind::Default).into(),
                 &asset_id
             ),
             balance,
@@ -319,8 +320,8 @@ fn basic_settlement() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount
             }],
@@ -366,8 +367,8 @@ fn create_and_affirm_instruction() {
                 None,
                 None,
                 vec![Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(alice.did),
-                    receiver: PortfolioId::default_portfolio(bob.did),
+                    sender: PortfolioId::default_portfolio(alice.did).into(),
+                    receiver: PortfolioId::default_portfolio(bob.did).into(),
                     asset_id,
                     amount,
                 }],
@@ -379,11 +380,11 @@ fn create_and_affirm_instruction() {
         // If affirmation fails, the instruction should be rolled back.
         // i.e. this tx should be a no-op.
         assert_noop!(
-            add_and_affirm_tx(user_portfolio_btreeset(alice.did, 1u64.into())),
+            add_and_affirm_tx(user_asset_holder_set(alice.did, 1u64.into())),
             Error::UnexpectedAffirmationStatus
         );
 
-        assert_ok!(add_and_affirm_tx(default_portfolio_btreeset(alice.did)));
+        assert_ok!(add_and_affirm_tx(default_asset_holder_set(alice.did)));
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -422,8 +423,8 @@ fn overdraft_failure() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount
             }],
@@ -435,9 +436,9 @@ fn overdraft_failure() {
             Settlement::affirm_instruction(
                 alice.origin(),
                 instruction_id,
-                default_portfolio_btreeset(alice.did),
+                default_asset_holder_set(alice.did),
             ),
-            PortfolioError::InsufficientPortfolioBalance
+            AssetError::InsufficientBalance
         );
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -462,14 +463,14 @@ fn token_swap() {
 
         let legs = vec![
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount,
             },
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(bob.did),
-                receiver: PortfolioId::default_portfolio(alice.did),
+                sender: PortfolioId::default_portfolio(bob.did).into(),
+                receiver: PortfolioId::default_portfolio(alice.did).into(),
                 asset_id: asset_id2,
                 amount,
             },
@@ -532,7 +533,7 @@ fn token_swap() {
         assert_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
             instruction_id,
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
         ));
 
         assert_affirms_pending(instruction_id, 2);
@@ -590,14 +591,14 @@ fn settle_on_block() {
 
         let legs = vec![
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount,
             },
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(bob.did),
-                receiver: PortfolioId::default_portfolio(alice.did),
+                sender: PortfolioId::default_portfolio(bob.did).into(),
+                receiver: PortfolioId::default_portfolio(alice.did).into(),
                 asset_id: asset_id2,
                 amount,
             },
@@ -726,14 +727,14 @@ fn failed_execution() {
 
         let legs = vec![
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount,
             },
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(bob.did),
-                receiver: PortfolioId::default_portfolio(alice.did),
+                sender: PortfolioId::default_portfolio(bob.did).into(),
+                receiver: PortfolioId::default_portfolio(alice.did).into(),
                 asset_id: asset_id2,
                 amount,
             },
@@ -862,8 +863,8 @@ fn venue_filtering() {
         let instruction_id = InstructionCounter::<TestStorage>::get();
 
         let legs = vec![Leg::Fungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             asset_id,
             amount: 10,
         }];
@@ -905,7 +906,7 @@ fn venue_filtering() {
             None,
             None,
             legs.clone(),
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
             None,
         ));
 
@@ -999,8 +1000,8 @@ fn basic_fuzzing() {
                             .entry((users[user_id].did, assets[i * 4 + user_id]))
                             .or_insert(0) += 1;
                         legs.push(Leg::Fungible {
-                            sender: PortfolioId::default_portfolio(users[user_id].did),
-                            receiver: PortfolioId::default_portfolio(users[k].did),
+                            sender: PortfolioId::default_portfolio(users[user_id].did).into(),
+                            receiver: PortfolioId::default_portfolio(users[k].did).into(),
                             asset_id: assets[i * 4 + user_id],
                             amount: 1,
                         });
@@ -1040,7 +1041,7 @@ fn basic_fuzzing() {
                     assert_ok!(Settlement::withdraw_affirmation(
                         user.origin(),
                         instruction_id,
-                        default_portfolio_btreeset(user.did),
+                        default_asset_holder_set(user.did),
                     ));
                 }
             }
@@ -1086,7 +1087,7 @@ fn basic_fuzzing() {
             assert_ok!(Settlement::withdraw_affirmation(
                 users[failed_user].origin(),
                 instruction_id,
-                default_portfolio_btreeset(users[failed_user].did),
+                default_asset_holder_set(users[failed_user].did),
             ));
             locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
         }
@@ -1148,7 +1149,7 @@ fn basic_fuzzing() {
             assert_ok!(Settlement::reject_instruction(
                 users[0].origin(),
                 instruction_id,
-                PortfolioId::default_portfolio(users[0].did),
+                PortfolioId::default_portfolio(users[0].did).into(),
             ));
             assert_eq!(
                 InstructionStatuses::<TestStorage>::get(instruction_id),
@@ -1342,8 +1343,8 @@ fn overload_instruction() {
 
         let mut legs = vec![
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount: 1,
             };
@@ -1468,8 +1469,8 @@ fn test_weights_for_settlement_transaction() {
 
             // Create instruction
             let legs = vec![Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob_did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob_did).into(),
                 asset_id,
                 amount: 100,
             }];
@@ -1491,8 +1492,8 @@ fn test_weights_for_settlement_transaction() {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
             assert_ok!(Asset::validate_asset_transfer(
                 asset_id,
-                &PortfolioId::default_portfolio(alice.did),
-                &PortfolioId::default_portfolio(bob_did),
+                &PortfolioId::default_portfolio(alice.did).into(),
+                &PortfolioId::default_portfolio(bob_did).into(),
                 100,
                 false,
                 &mut weight_meter
@@ -1526,8 +1527,8 @@ fn cross_portfolio_settlement() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::user_portfolio(bob.did, num),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::user_portfolio(bob.did, num).into(),
                 asset_id,
                 amount,
             }],
@@ -1554,7 +1555,7 @@ fn cross_portfolio_settlement() {
             Settlement::affirm_instruction(
                 bob.origin(),
                 instruction_id,
-                default_portfolio_btreeset(bob.did),
+                default_asset_holder_set(bob.did),
             ),
             Error::UnexpectedAffirmationStatus
         );
@@ -1564,7 +1565,7 @@ fn cross_portfolio_settlement() {
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            user_portfolio_btreeset(bob.did, num),
+            user_asset_holder_set(bob.did, num),
         ));
 
         // Instruction should've settled
@@ -1607,14 +1608,14 @@ fn multiple_portfolio_settlement() {
             None,
             vec![
                 Leg::Fungible {
-                    sender: PortfolioId::user_portfolio(alice.did, alice_num),
-                    receiver: PortfolioId::default_portfolio(bob.did),
+                    sender: PortfolioId::user_portfolio(alice.did, alice_num).into(),
+                    receiver: PortfolioId::default_portfolio(bob.did).into(),
                     asset_id,
                     amount,
                 },
                 Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(alice.did),
-                    receiver: PortfolioId::user_portfolio(bob.did, bob_num),
+                    sender: PortfolioId::default_portfolio(alice.did).into(),
+                    receiver: PortfolioId::user_portfolio(bob.did, bob_num).into(),
                     asset_id,
                     amount,
                 }
@@ -1656,9 +1657,9 @@ fn multiple_portfolio_settlement() {
             Settlement::affirm_instruction(
                 alice.origin(),
                 instruction_id,
-                user_portfolio_btreeset(alice.did, alice_num),
+                user_asset_holder_set(alice.did, alice_num),
             ),
-            PortfolioError::InsufficientPortfolioBalance
+            AssetError::InsufficientBalance
         );
 
         // Alice moves her funds to the correct portfolio
@@ -1676,7 +1677,7 @@ fn multiple_portfolio_settlement() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
-            user_portfolio_btreeset(alice.did, alice_num),
+            user_asset_holder_set(alice.did, alice_num),
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1695,8 +1696,8 @@ fn multiple_portfolio_settlement() {
 
         // Bob approves the instruction with both of his portfolios in a single transaction
         let portfolios_set: BoundedBTreeSet<_, _> = [
-            PortfolioId::default_portfolio(bob.did),
-            PortfolioId::user_portfolio(bob.did, bob_num),
+            PortfolioId::default_portfolio(bob.did).into(),
+            PortfolioId::user_portfolio(bob.did, bob_num).into(),
         ]
         .into_iter()
         .try_collect()
@@ -1772,14 +1773,14 @@ fn multiple_custodian_settlement() {
             None,
             vec![
                 Leg::Fungible {
-                    sender: PortfolioId::user_portfolio(alice.did, alice_num),
-                    receiver: PortfolioId::default_portfolio(bob.did),
+                    sender: PortfolioId::user_portfolio(alice.did, alice_num).into(),
+                    receiver: PortfolioId::default_portfolio(bob.did).into(),
                     asset_id,
                     amount,
                 },
                 Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(alice.did),
-                    receiver: PortfolioId::user_portfolio(bob.did, bob_num),
+                    sender: PortfolioId::default_portfolio(alice.did).into(),
+                    receiver: PortfolioId::user_portfolio(bob.did, bob_num).into(),
                     asset_id,
                     amount,
                 }
@@ -1795,8 +1796,8 @@ fn multiple_custodian_settlement() {
 
         // Alice approves the instruction from both of her portfolios
         let portfolios_set: BoundedBTreeSet<_, _> = [
-            PortfolioId::default_portfolio(alice.did),
-            PortfolioId::user_portfolio(alice.did, alice_num),
+            PortfolioId::default_portfolio(alice.did).into(),
+            PortfolioId::user_portfolio(alice.did, alice_num).into(),
         ]
         .into_iter()
         .try_collect()
@@ -1833,8 +1834,8 @@ fn multiple_custodian_settlement() {
 
         // Bob fails to approve the instruction with both of his portfolios since he doesn't have custody for the second one
         let portfolios_bob: BoundedBTreeSet<_, _> = [
-            PortfolioId::default_portfolio(bob.did),
-            PortfolioId::user_portfolio(bob.did, bob_num),
+            PortfolioId::default_portfolio(bob.did).into(),
+            PortfolioId::user_portfolio(bob.did, bob_num).into(),
         ]
         .into_iter()
         .try_collect()
@@ -1859,14 +1860,14 @@ fn multiple_custodian_settlement() {
         assert_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
             instruction_id,
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
         ));
         assert_locked_assets(&asset_id, &alice, 0);
 
         // Alice can authorize instruction from remaining portfolios since she has the custody
         let portfolios_final: BoundedBTreeSet<_, _> = [
-            PortfolioId::default_portfolio(alice.did),
-            PortfolioId::user_portfolio(bob.did, bob_num),
+            PortfolioId::default_portfolio(alice.did).into(),
+            PortfolioId::user_portfolio(bob.did, bob_num).into(),
         ]
         .into_iter()
         .try_collect()
@@ -1903,21 +1904,21 @@ fn reject_instruction() {
             Settlement::reject_instruction(
                 user.origin(),
                 instruction_id,
-                PortfolioId::default_portfolio(user.did),
+                PortfolioId::default_portfolio(user.did).into(),
             )
         };
 
         let assert_user_affirmations = |instruction_id, alice_status, bob_status| {
             assert_eq!(
                 UserAffirmations::<TestStorage>::get(
-                    PortfolioId::default_portfolio(alice.did),
+                    AssetHolder::from(PortfolioId::default_portfolio(alice.did)),
                     instruction_id
                 ),
                 alice_status
             );
             assert_eq!(
                 UserAffirmations::<TestStorage>::get(
-                    PortfolioId::default_portfolio(bob.did),
+                    AssetHolder::from(PortfolioId::default_portfolio(bob.did)),
                     instruction_id
                 ),
                 bob_status
@@ -1983,14 +1984,14 @@ fn dirty_storage_with_tx() {
             None,
             vec![
                 Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(alice.did),
-                    receiver: PortfolioId::default_portfolio(bob.did),
+                    sender: PortfolioId::default_portfolio(alice.did).into(),
+                    receiver: PortfolioId::default_portfolio(bob.did).into(),
                     asset_id,
                     amount: amount1,
                 },
                 Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(alice.did),
-                    receiver: PortfolioId::default_portfolio(bob.did),
+                    sender: PortfolioId::default_portfolio(alice.did).into(),
+                    receiver: PortfolioId::default_portfolio(bob.did).into(),
                     asset_id,
                     amount: amount2,
                 }
@@ -2037,7 +2038,7 @@ fn reject_failed_instruction() {
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            default_portfolio_btreeset(bob.did),
+            default_asset_holder_set(bob.did),
         ));
 
         // Resume compliance to cause transfer failure.
@@ -2074,7 +2075,7 @@ fn reject_failed_instruction() {
         assert_ok!(Settlement::reject_instruction(
             bob.origin(),
             instruction_id,
-            PortfolioId::default_portfolio(bob.did),
+            PortfolioId::default_portfolio(bob.did).into(),
         ));
 
         // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.
@@ -2325,8 +2326,8 @@ fn reject_instruction_with_zero_amount() {
                 None,
                 None,
                 vec![Leg::Fungible {
-                    sender: PortfolioId::default_portfolio(alice.did),
-                    receiver: PortfolioId::default_portfolio(bob.did),
+                    sender: PortfolioId::default_portfolio(alice.did).into(),
+                    receiver: PortfolioId::default_portfolio(bob.did).into(),
                     asset_id,
                     amount,
                 }],
@@ -2360,8 +2361,8 @@ fn basic_settlement_with_memo() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount,
             }],
@@ -2407,12 +2408,12 @@ fn create_instruction(
         None,
         None,
         vec![Leg::Fungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             asset_id,
             amount
         }],
-        default_portfolio_btreeset(alice.did),
+        default_asset_holder_set(alice.did),
         None,
     ));
     instruction_id
@@ -2434,8 +2435,8 @@ fn settle_manual_instruction() {
         bob.refresh_init_balances();
 
         let legs = vec![Leg::Fungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             asset_id,
             amount,
         }];
@@ -2543,8 +2544,8 @@ fn settle_manual_instruction_with_portfolio() {
         bob.refresh_init_balances();
 
         let legs = vec![Leg::Fungible {
-            sender: alice_portfolio.clone(),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: alice_portfolio.clone().into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             asset_id,
             amount,
         }];
@@ -2572,7 +2573,7 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                Some(alice_portfolio.clone()),
+                Some(alice_portfolio.clone().into()),
                 1,
                 0,
                 0,
@@ -2586,7 +2587,7 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 charlie.origin(),
                 instruction_id,
-                Some(charlie_portfolio),
+                Some(charlie_portfolio.into()),
                 1,
                 0,
                 0,
@@ -2602,7 +2603,7 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                Some(alice_portfolio.clone()),
+                Some(alice_portfolio.clone().into()),
                 0,
                 0,
                 0,
@@ -2617,7 +2618,7 @@ fn settle_manual_instruction_with_portfolio() {
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
             instruction_id,
-            Some(alice_portfolio),
+            Some(alice_portfolio.into()),
             1,
             0,
             0,
@@ -2657,8 +2658,8 @@ fn add_nft_instruction_with_duplicated_nfts() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1), NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_noop!(
@@ -2701,8 +2702,8 @@ fn add_nft_instruction_exceeding_nfts() {
             ],
         );
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_noop!(
@@ -2730,8 +2731,8 @@ fn add_nft_instruction() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction(
@@ -2768,7 +2769,7 @@ fn add_and_affirm_nft_instruction() {
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         ComplianceManager::pause_asset_compliance(alice.origin(), asset_id).unwrap();
         let venue_id = VenueCounter::<TestStorage>::get();
@@ -2784,8 +2785,8 @@ fn add_and_affirm_nft_instruction() {
         let instruction_id = InstructionCounter::<TestStorage>::get();
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_and_affirm_instruction(
@@ -2795,7 +2796,7 @@ fn add_and_affirm_nft_instruction() {
             None,
             None,
             legs,
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
             Some(Memo::default()),
         ));
 
@@ -2820,7 +2821,7 @@ fn add_and_affirm_nft_instruction() {
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            default_portfolio_btreeset(bob.did),
+            default_asset_holder_set(bob.did),
         ));
         next_block();
         assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, alice.did), 0);
@@ -2878,7 +2879,7 @@ fn add_and_affirm_nft_not_owned() {
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
@@ -2892,8 +2893,8 @@ fn add_and_affirm_nft_not_owned() {
         // Adds and affirms the instruction
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(2)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_noop!(
@@ -2904,10 +2905,10 @@ fn add_and_affirm_nft_not_owned() {
                 None,
                 None,
                 legs,
-                default_portfolio_btreeset(alice.did),
+                default_asset_holder_set(alice.did),
                 Some(Memo::default()),
             ),
-            PortfolioError::NFTNotFoundInPortfolio
+            NFTError::NFTNotFound
         );
     });
 }
@@ -2934,13 +2935,13 @@ fn add_same_nft_different_legs() {
             alice.clone(),
             asset_id,
             nfts_metadata.clone(),
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         mint_nft(
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
@@ -2954,13 +2955,13 @@ fn add_same_nft_different_legs() {
         // Adds and affirms the instruction
         let legs: Vec<Leg> = vec![
             Leg::NonFungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             },
             Leg::NonFungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             },
         ];
@@ -2972,10 +2973,10 @@ fn add_same_nft_different_legs() {
                 None,
                 None,
                 legs,
-                default_portfolio_btreeset(alice.did),
+                default_asset_holder_set(alice.did),
                 Some(Memo::default()),
             ),
-            PortfolioError::NFTAlreadyLocked
+            NFTError::NFTIsLocked
         );
     });
 }
@@ -3004,7 +3005,7 @@ fn add_and_affirm_with_receipts_nfts() {
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         let venue_id = VenueCounter::<TestStorage>::get();
         Settlement::create_venue(
@@ -3017,8 +3018,8 @@ fn add_and_affirm_with_receipts_nfts() {
 
         // Adds the instruction and fails to use a receipt
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
         }];
         assert_ok!(Settlement::add_instruction(
@@ -3076,8 +3077,8 @@ fn add_instruction_unexpected_offchain_asset() {
 
         let nfts = NFTs::new_unverified([0; 16].into(), vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_noop!(
@@ -3094,8 +3095,8 @@ fn add_instruction_unexpected_offchain_asset() {
         );
 
         let legs: Vec<Leg> = vec![Leg::Fungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             asset_id: [0; 16].into(),
             amount: 1,
         }];
@@ -3230,7 +3231,7 @@ fn affirm_offchain_asset_without_receipt() {
             Settlement::affirm_instruction(
                 alice.origin(),
                 InstructionId(0),
-                default_portfolio_btreeset(alice.did),
+                default_asset_holder_set(alice.did),
             ),
             Error::UnexpectedAffirmationStatus
         );
@@ -3257,8 +3258,8 @@ fn add_instruction_with_offchain_assets() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3323,14 +3324,14 @@ fn add_instruction_with_pre_affirmed_tickers() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_user_porfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_user_porfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3393,14 +3394,14 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_user_porfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_user_porfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3456,14 +3457,14 @@ fn add_instruction_with_pre_affirmed_portfolio() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_user_porfolio.clone(),
-                receiver: bob_user_porfolio.clone(),
+                sender: alice_user_porfolio.clone().into(),
+                receiver: bob_user_porfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3519,14 +3520,14 @@ fn add_instruction_with_single_pre_affirmed() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id: asset_id2,
                 amount: ONE_UNIT,
             },
@@ -3573,14 +3574,14 @@ fn manually_execute_failed_instruction() {
         // Creates and affirms an instruction and force a failed execution
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: 1,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id: asset_id2,
                 amount: 1,
             },
@@ -3592,13 +3593,13 @@ fn manually_execute_failed_instruction() {
             None,
             None,
             legs.clone(),
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
             instruction_memo.clone(),
         ));
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             InstructionId(0),
-            default_portfolio_btreeset(bob.did),
+            default_asset_holder_set(bob.did),
         ));
         assert_ok!(Asset::freeze(alice.origin(), asset_id));
         next_block();
@@ -3717,14 +3718,14 @@ fn affirm_instruction_cost() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_user_porfolio.clone(),
-                receiver: bob_user_porfolio.clone(),
+                sender: alice_user_porfolio.clone().into(),
+                receiver: bob_user_porfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ONE_UNIT,
             },
@@ -3776,8 +3777,8 @@ fn withdraw_affirmation_cost() {
         let instruction_memo = Some(Memo::default());
 
         let legs: Vec<Leg> = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
+            sender: alice_default_portfolio.into(),
+            receiver: bob_default_portfolio.into(),
             asset_id,
             amount: 1,
         }];
@@ -3796,7 +3797,7 @@ fn withdraw_affirmation_cost() {
         assert_ok!(Settlement::affirm_instruction_with_count(
             alice.origin(),
             InstructionId(0),
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
             Some(affirmation_count)
         ),);
         let affirmation_count =
@@ -3805,7 +3806,7 @@ fn withdraw_affirmation_cost() {
             Settlement::withdraw_affirmation_with_count(
                 alice.origin(),
                 InstructionId(0),
-                default_portfolio_btreeset(alice.did),
+                default_asset_holder_set(alice.did),
                 Some(affirmation_count)
             ),
             Error::NumberOfFungibleTransfersUnderestimated
@@ -3833,19 +3834,19 @@ fn reject_instruction_cost() {
             alice.clone(),
             asset_id2,
             Default::default(),
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: 1,
             },
             Leg::NonFungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 nfts: NFTs::new_unverified(asset_id2, vec![NFTId(1)]),
             },
         ];
@@ -3863,7 +3864,7 @@ fn reject_instruction_cost() {
             Settlement::reject_instruction_with_count(
                 bob.origin(),
                 InstructionId(0),
-                bob_default_portfolio.clone(),
+                bob_default_portfolio.clone().into(),
                 Some(AssetCount::new(1, 0, 0))
             ),
             Error::NumberOfTransferredNFTsUnderestimated
@@ -3871,7 +3872,7 @@ fn reject_instruction_cost() {
         assert_ok!(Settlement::reject_instruction_with_count(
             bob.origin(),
             InstructionId(0),
-            bob_default_portfolio,
+            bob_default_portfolio.into(),
             Some(AssetCount::new(1, 1, 0))
         ),);
     });
@@ -3899,8 +3900,8 @@ fn add_instruction_with_mediators() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         let instruction_mediators = BTreeSet::from([charlie.did]);
@@ -3943,8 +3944,8 @@ fn affirm_as_mediator_invalid_mediator() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -3978,8 +3979,8 @@ fn affirm_as_mediator() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -4027,8 +4028,8 @@ fn withdraw_as_mediator_invalid_mediator() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -4060,8 +4061,8 @@ fn withdraw_as_mediator_invalid_status() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -4095,8 +4096,8 @@ fn withdraw_affirmation_as_mediator() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -4148,8 +4149,8 @@ fn expired_affirmation_execution() {
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let legs: Vec<Leg> = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
+            sender: alice_default_portfolio.into(),
+            receiver: bob_default_portfolio.into(),
             asset_id,
             amount: 1,
         }];
@@ -4166,12 +4167,12 @@ fn expired_affirmation_execution() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             InstructionId(0),
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
         ),);
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             InstructionId(0),
-            default_portfolio_btreeset(bob.did),
+            default_asset_holder_set(bob.did),
         ),);
         assert_ok!(Settlement::affirm_instruction_as_mediator(
             charlie.origin(),
@@ -4217,8 +4218,8 @@ fn reject_instruction_as_mediator() {
 
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::default_portfolio(alice.did).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_instruction_with_mediators(
@@ -4258,8 +4259,8 @@ fn missing_venue_for_offchain_asset() {
 
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount: 1_000_000,
             },
@@ -4301,17 +4302,21 @@ fn assert_add_instruction_storage(
 ) {
     portfolios_pending_approval.iter().for_each(|portfolio_id| {
         assert_eq!(
-            UserAffirmations::<TestStorage>::get(portfolio_id, instruction_id),
+            UserAffirmations::<TestStorage>::get(
+                AssetHolder::from(portfolio_id.clone()),
+                instruction_id
+            ),
             AffirmationStatus::Pending
         )
     });
     portfolios_pre_approved.iter().for_each(|portfolio_id| {
+        let asset_holder = AssetHolder::from(portfolio_id.clone());
         assert_eq!(
-            UserAffirmations::<TestStorage>::get(portfolio_id, instruction_id),
+            UserAffirmations::<TestStorage>::get(&asset_holder, instruction_id),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            AffirmsReceived::<TestStorage>::get(instruction_id, portfolio_id),
+            AffirmsReceived::<TestStorage>::get(instruction_id, &asset_holder),
             AffirmationStatus::Affirmed
         )
     });
@@ -4387,7 +4392,7 @@ fn assert_balance(asset_id: &AssetId, user: &User, balance: Balance) {
 fn assert_user_affirms(instruction_id: InstructionId, user: &User, status: AffirmationStatus) {
     assert_eq!(
         UserAffirmations::<TestStorage>::get(
-            PortfolioId::default_portfolio(user.did),
+            AssetHolder::from(PortfolioId::default_portfolio(user.did)),
             instruction_id
         ),
         status
@@ -4402,7 +4407,7 @@ fn assert_user_affirms(instruction_id: InstructionId, user: &User, status: Affir
     assert_eq!(
         AffirmsReceived::<TestStorage>::get(
             instruction_id,
-            PortfolioId::default_portfolio(user.did)
+            AssetHolder::from(PortfolioId::default_portfolio(user.did))
         ),
         affirms_received_status
     );

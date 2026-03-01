@@ -9,12 +9,12 @@ use pallet_settlement::{InstructionMediatorsAffirmations, InstructionStatuses};
 use pallet_settlement::{OffChainAffirmations, UserAffirmations, VenueInstructions};
 use polymesh_primitives::settlement::{AffirmationStatus, Instruction, InstructionId};
 use polymesh_primitives::settlement::{InstructionStatus, Leg, LegId, SettlementType};
-use polymesh_primitives::PortfolioId;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
+use polymesh_primitives::{AssetHolder, PortfolioId};
 
 use super::setup::{add_and_affirm_simple_instruction, create_and_issue_sample_asset_with_venue};
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
-use crate::storage::{default_portfolio_btreeset, User};
+use crate::storage::{default_asset_holder_set, User};
 use crate::{next_block, ExtBuilder, TestStorage};
 
 type Settlement = pallet_settlement::Pallet<TestStorage>;
@@ -89,14 +89,14 @@ fn storage_rollback() {
         let asset_id2 = create_and_issue_sample_asset(&alice);
         let legs: Vec<Leg> = vec![
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id,
                 amount: 1_000,
             },
             Leg::Fungible {
-                sender: PortfolioId::default_portfolio(alice.did),
-                receiver: PortfolioId::default_portfolio(bob.did),
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
                 asset_id: asset_id2,
                 amount: 1_000,
             },
@@ -113,12 +113,12 @@ fn storage_rollback() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
         ));
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
-            default_portfolio_btreeset(bob.did),
+            default_asset_holder_set(bob.did),
         ));
         // Removes asset_id2 balance to force an error
         BalanceOf::<TestStorage>::insert(asset_id2, alice.did, 0);
@@ -133,11 +133,17 @@ fn storage_rollback() {
             1_000
         );
         assert_eq!(
-            UserAffirmations::<TestStorage>::get(&alice_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(
+                &AssetHolder::from(alice_default_portfolio),
+                instruction_id
+            ),
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            UserAffirmations::<TestStorage>::get(&bob_default_portfolio, instruction_id),
+            UserAffirmations::<TestStorage>::get(
+                &AssetHolder::from(bob_default_portfolio),
+                instruction_id
+            ),
             AffirmationStatus::Affirmed
         );
         assert_eq!(

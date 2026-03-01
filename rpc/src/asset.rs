@@ -25,7 +25,7 @@ use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::asset::AssetApi as AssetRuntimeApi;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{Balance, AssetHolder};
+use polymesh_primitives::{AssetHolder, Balance};
 
 #[rpc(client, server)]
 pub trait AssetApi<BlockHash> {

@@ -6,12 +6,13 @@ use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType};
 use polymesh_primitives::{
-    Claim, ClaimType, Condition, ConditionType, CountryCode, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Scope, TrustedFor, TrustedIssuer, WeightMeter,
+    AssetHolder, AssetHolderKind, Claim, ClaimType, Condition, ConditionType, CountryCode,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, TrustedFor, TrustedIssuer,
+    WeightMeter,
 };
 
 use super::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft, ISSUE_AMOUNT};
-use crate::storage::{default_portfolio_btreeset, User};
+use crate::storage::{default_asset_holder_set, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -43,8 +44,8 @@ fn base_transfer() {
         ),);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ok!(Asset::base_transfer(
-            alice_default_portfolio.clone(),
-            bob_user_portfolio.clone(),
+            alice_default_portfolio.clone().into(),
+            bob_user_portfolio.clone().into(),
             asset_id,
             ISSUE_AMOUNT,
             None,
@@ -90,8 +91,8 @@ fn base_transfer_invalid_token_type() {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_default_portfolio,
+                alice_default_portfolio.into(),
+                bob_default_portfolio.into(),
                 asset_id,
                 1,
                 None,
@@ -132,14 +133,14 @@ fn base_transfer_invalid_granularity() {
             alice.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            PortfolioKind::Default
+            AssetHolderKind::DefaultPortfolio
         ));
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_default_portfolio,
+                alice_default_portfolio.into(),
+                bob_default_portfolio.into(),
                 asset_id,
                 1,
                 None,
@@ -178,8 +179,8 @@ fn base_transfer_insufficient_balance() {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_default_portfolio,
+                alice_default_portfolio.into(),
+                bob_default_portfolio.into(),
                 asset_id,
                 1,
                 None,
@@ -221,19 +222,19 @@ fn base_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
             None,
         ));
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_default_portfolio,
+                alice_default_portfolio.into(),
+                bob_default_portfolio.into(),
                 asset_id,
                 1,
                 None,
@@ -241,7 +242,7 @@ fn base_transfer_locked_asset() {
                 alice.did,
                 &mut weight_meter
             ),
-            PortfolioError::InsufficientPortfolioBalance
+            AssetError::InsufficientBalance
         );
     })
 }
@@ -264,8 +265,8 @@ fn base_transfer_invalid_portfolio() {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_user_portfolio,
+                alice_default_portfolio.into(),
+                bob_user_portfolio.into(),
                 asset_id,
                 1_000,
                 None,
@@ -316,8 +317,8 @@ fn base_transfer_invalid_compliance() {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_user_portfolio,
+                alice_default_portfolio.into(),
+                bob_user_portfolio.into(),
                 asset_id,
                 1_000,
                 None,
@@ -353,8 +354,8 @@ fn base_transfer_frozen_asset() {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_noop!(
             Asset::base_transfer(
-                alice_default_portfolio,
-                bob_user_portfolio,
+                alice_default_portfolio.into(),
+                bob_user_portfolio.into(),
                 asset_id,
                 1_000,
                 None,
@@ -372,9 +373,6 @@ fn base_acc_transfer() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(Sr25519Keyring::Bob);
         let alice = User::new(Sr25519Keyring::Alice);
-        let alice_acc_portfolio =
-            PortfolioId::new(alice.did, PortfolioKind::AccountId(alice.acc()));
-        let bob_acc_portfolio = PortfolioId::new(bob.did, PortfolioKind::AccountId(bob.acc()));
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
@@ -390,7 +388,7 @@ fn base_acc_transfer() {
             alice.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            alice_acc_portfolio.kind.clone()
+            AssetHolderKind::Account
         ));
         assert_ok!(ComplianceManager::pause_asset_compliance(
             alice.origin(),
@@ -399,8 +397,8 @@ fn base_acc_transfer() {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         assert_ok!(Asset::base_transfer(
-            alice_acc_portfolio.clone(),
-            bob_acc_portfolio.clone(),
+            AssetHolder::Account(alice.acc()),
+            AssetHolder::Account(bob.acc()),
             asset_id,
             ISSUE_AMOUNT,
             None,
@@ -414,21 +412,10 @@ fn base_acc_transfer() {
             AssetBalance::<TestStorage>::get(&bob.acc(), &asset_id),
             ISSUE_AMOUNT
         );
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, &alice.did), 0);
         assert_eq!(
-            BalanceOf::<TestStorage>::get(&asset_id, &alice_acc_portfolio.did),
-            0
-        );
-        assert_eq!(
-            PortfolioAssetBalances::<TestStorage>::get(&alice_acc_portfolio, &asset_id),
-            0
-        );
-        assert_eq!(
-            BalanceOf::<TestStorage>::get(&asset_id, &bob_acc_portfolio.did),
+            BalanceOf::<TestStorage>::get(&asset_id, &bob.did),
             ISSUE_AMOUNT
-        );
-        assert_eq!(
-            PortfolioAssetBalances::<TestStorage>::get(&bob_acc_portfolio, &asset_id),
-            0
         );
     })
 }
