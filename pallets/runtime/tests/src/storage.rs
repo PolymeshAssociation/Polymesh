@@ -224,7 +224,7 @@ parameter_types! {
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
     pub const MaxNumberOfOffChainAssets: u32 = 10;
-    pub const MaxNumberOfPortfolios: u32 = (10 + 100) * 2;
+    pub const MaxNumberOfAssetHolders: u32 = (10 + 100) * 2;
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaxAssetMediators: u32 = 4;
@@ -929,7 +929,7 @@ pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
 /// Returns a btreeset that contains default portfolio for the identity.
 pub fn default_portfolio_btreeset(
     did: IdentityId,
-) -> BoundedBTreeSet<PortfolioId, MaxNumberOfPortfolios> {
+) -> BoundedBTreeSet<PortfolioId, MaxNumberOfAssetHolders> {
     [PortfolioId::default_portfolio(did)]
         .into_iter()
         .try_collect()
@@ -952,7 +952,7 @@ pub fn default_portfolio_vec(did: IdentityId) -> Vec<PortfolioId> {
 pub fn user_portfolio_btreeset(
     did: IdentityId,
     num: PortfolioNumber,
-) -> BoundedBTreeSet<PortfolioId, MaxNumberOfPortfolios> {
+) -> BoundedBTreeSet<PortfolioId, MaxNumberOfAssetHolders> {
     [PortfolioId::user_portfolio(did, num)]
         .into_iter()
         .try_collect()

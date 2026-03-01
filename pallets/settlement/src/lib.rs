@@ -81,11 +81,11 @@ use polymesh_primitives::settlement::{
     MediatorAffirmationStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, Venue,
     VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::traits::{AssetOrNft, PortfolioSubTrait, SettlementFnTrait};
+use polymesh_primitives::traits::{AssetOrNft, SettlementFnTrait};
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId, SecondaryKey, WeightMeter,
+    storage_migration_ver, AssetHolder, Balance, IdentityId, Memo, NFTs, SecondaryKey, WeightMeter,
 };
 
 type System<T> = frame_system::Pallet<T>;
@@ -117,10 +117,10 @@ pub mod pallet {
         VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
         /// An existing venue's type has been updated (did, venue_id, type)
         VenueTypeUpdated(IdentityId, VenueId, VenueType),
-        /// An instruction has been affirmed (did, portfolio, instruction_id)
-        InstructionAffirmed(IdentityId, PortfolioId, InstructionId),
-        /// An affirmation has been withdrawn (did, portfolio, instruction_id)
-        AffirmationWithdrawn(IdentityId, PortfolioId, InstructionId),
+        /// An instruction has been affirmed (did, asset_holder, instruction_id)
+        InstructionAffirmed(IdentityId, AssetHolder, InstructionId),
+        /// An affirmation has been withdrawn (did, asset_holder, instruction_id)
+        AffirmationWithdrawn(IdentityId, AssetHolder, InstructionId),
         /// An instruction has been rejected (did, instruction_id)
         InstructionRejected(IdentityId, InstructionId),
         /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
@@ -168,8 +168,8 @@ pub mod pallet {
         /// Failed to execute instruction.
         FailedToExecuteInstruction(InstructionId, DispatchError),
         /// An instruction has been automatically affirmed.
-        /// Parameters: [`IdentityId`] of the caller, [`PortfolioId`] of the receiver, and [`InstructionId`] of the instruction.
-        InstructionAutomaticallyAffirmed(IdentityId, PortfolioId, InstructionId),
+        /// Parameters: [`IdentityId`] of the caller, [`AssetHolder`] of the receiver, and [`InstructionId`] of the instruction.
+        InstructionAutomaticallyAffirmed(IdentityId, AssetHolder, InstructionId),
         /// An instruction has affirmed by a mediator.
         /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
         MediatorAffirmationReceived(IdentityId, InstructionId, Option<T::Moment>),
@@ -431,9 +431,6 @@ pub mod pallet {
             Hasher = Self::Hashing,
         >;
 
-        /// Portfolio module.
-        type Portfolio: PortfolioSubTrait<Self::AccountId>;
-
         /// Maximum number of fungible assets that can be in a single instruction.
         #[pallet::constant]
         type MaxNumberOfFungibleAssets: Get<u32>;
@@ -455,7 +452,7 @@ pub mod pallet {
 
         /// Maximum number of portfolios.
         #[pallet::constant]
-        type MaxNumberOfPortfolios: Get<u32>;
+        type MaxNumberOfAssetHolders: Get<u32>;
 
         /// Maximum number of venue signers.
         #[pallet::constant]
@@ -655,7 +652,7 @@ pub mod pallet {
         Twox64Concat,
         InstructionId,
         Twox64Concat,
-        PortfolioId,
+        AssetHolder,
         AffirmationStatus,
         ValueQuery,
     >;
@@ -666,7 +663,7 @@ pub mod pallet {
     pub type UserAffirmations<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        PortfolioId,
+        AssetHolder,
         Twox64Concat,
         InstructionId,
         AffirmationStatus,
@@ -863,23 +860,23 @@ pub mod pallet {
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being affirmed.
         /// * `receipt_details` - a vector of [`ReceiptDetails`], which contain the details about the offchain transfer.
-        /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `holder_set` - a vector of [`AssetHolder`] under the caller's control and intended for affirmation.
         ///
         /// # Permissions
-        /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::affirm_with_receipts_input(None, portfolios.len() as u32))]
+        /// * Portfolio/Account
+        #[pallet::weight(<T as Config>::WeightInfo::affirm_with_receipts_input(None, holder_set.len() as u32))]
         #[pallet::call_index(3)]
         pub fn affirm_with_receipts(
             origin: OriginFor<T>,
             id: InstructionId,
             receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
         ) -> DispatchResultWithPostInfo {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(
                 origin,
                 id,
                 receipt_details,
-                portfolios.into_inner(),
+                holder_set.into_inner(),
                 None,
             )
         }
@@ -975,7 +972,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `id`: The [`InstructionId`] of the instruction to be executed.
-        /// * `portfolio`:  One of the caller's [`PortfolioId`] which is also a counter patry in the instruction.
+        /// * `asset_holder`:  One of the caller's [`AssetHolder`] which is also a counter patry in the instruction.
         /// If None, the caller must be the venue creator or a counter party in a [`Leg::OffChain`].
         /// * `fungible_transfers`: The number of fungible legs in the instruction.
         /// * `nfts_transfers`: The number of nfts being transferred in the instruction.
@@ -989,7 +986,7 @@ pub mod pallet {
         pub fn execute_manual_instruction(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolio: Option<PortfolioId>,
+            asset_holder: Option<AssetHolder>,
             fungible_transfers: u32,
             nfts_transfers: u32,
             offchain_transfers: u32,
@@ -1012,7 +1009,7 @@ pub mod pallet {
             Self::base_manual_execution(
                 origin,
                 id,
-                portfolio.as_ref(),
+                asset_holder.as_ref(),
                 &input_cost,
                 false,
                 &mut weight_meter,
@@ -1065,12 +1062,12 @@ pub mod pallet {
         /// * `trade_date`: Optional date from which people can interact with this instruction.
         /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
         /// * `legs`: A vector of all [`Leg`] included in this instruction.
-        /// * `portfolios`: A vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `holder_set`: A set of [`AssetHolder`] under the caller's control and intended for affirmation.
         /// * `memo`: An optional [`Memo`] field for this instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs, portfolios.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs, holder_set.len() as u32))]
         #[pallet::call_index(10)]
         pub fn add_and_affirm_instruction(
             origin: OriginFor<T>,
@@ -1079,7 +1076,7 @@ pub mod pallet {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
             instruction_memo: Option<Memo>,
         ) -> DispatchResult {
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin.clone())?;
@@ -1096,7 +1093,7 @@ pub mod pallet {
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 instruction_id,
-                portfolios.into_inner(),
+                holder_set.into_inner(),
                 None,
             )
             .map_err(|e| e.error)?;
@@ -1107,43 +1104,43 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being affirmed.
-        /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `holder_set` - a set of [`AssetHolder`] under the caller's control and intended for affirmation.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::affirm_instruction_input(None, portfolios.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::affirm_instruction_input(None, holder_set.len() as u32))]
         #[pallet::call_index(11)]
         pub fn affirm_instruction(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
         ) -> DispatchResultWithPostInfo {
-            Self::affirm_and_maybe_schedule_instruction(origin, id, portfolios.into_inner(), None)
+            Self::affirm_and_maybe_schedule_instruction(origin, id, holder_set.into_inner(), None)
         }
 
         /// Withdraw an affirmation for a given instruction.
         ///
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction getting an affirmation withdrawn.
-        /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation withdrawal.
+        /// * `holder_set` - a set of [`AssetHolder`] under the caller's control and intended for affirmation withdrawal.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_input(None, portfolios.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_input(None, holder_set.len() as u32))]
         #[pallet::call_index(12)]
         pub fn withdraw_affirmation(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_withdraw_affirmation(origin, id, portfolios.into_inner(), None)
+            Self::base_withdraw_affirmation(origin, id, holder_set.into_inner(), None)
         }
 
         /// Rejects an existing instruction.
         ///
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being rejected.
-        /// * `portfolio` - the [`PortfolioId`] that belongs to the instruction and is rejecting it.
+        /// * `asset_holder` - the [`AssetHolder`] that belongs to the instruction and is rejecting it.
         ///
         /// # Permissions
         /// * Portfolio
@@ -1152,7 +1149,7 @@ pub mod pallet {
         pub fn reject_instruction(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolio: PortfolioId,
+            asset_holder: AssetHolder,
         ) -> DispatchResultWithPostInfo {
             let mut weight_meter = Self::ensure_valid_weight_meter(
                 Self::reject_instruction_minimum_weight(),
@@ -1161,7 +1158,7 @@ pub mod pallet {
             Self::base_reject_instruction(
                 origin,
                 id,
-                Some(portfolio),
+                Some(asset_holder),
                 None,
                 false,
                 &mut weight_meter,
@@ -1192,27 +1189,27 @@ pub mod pallet {
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being affirmed.
         /// * `receipt_details` - a vector of [`ReceiptDetails`], which contain the details about the offchain transfer.
-        /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `holder_set` - a vector of [`AssetHolder`] under the caller's control and intended for affirmation.
         /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
         /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::affirm_with_receipts_input(*number_of_assets, portfolios.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::affirm_with_receipts_input(*number_of_assets, holder_set.len() as u32))]
         #[pallet::call_index(15)]
         pub fn affirm_with_receipts_with_count(
             origin: OriginFor<T>,
             id: InstructionId,
             receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
             number_of_assets: Option<AffirmationCount>,
         ) -> DispatchResult {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(
                 origin,
                 id,
                 receipt_details,
-                portfolios.into_inner(),
+                holder_set.into_inner(),
                 number_of_assets,
             )
             .map_err(|e| e.error)?;
@@ -1223,25 +1220,25 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being affirmed.
-        /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `holder_set` - a vector of [`AssetHolder`] under the caller's control and intended for affirmation.
         /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
         /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::affirm_instruction_input(*number_of_assets, portfolios.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::affirm_instruction_input(*number_of_assets, holder_set.len() as u32))]
         #[pallet::call_index(16)]
         pub fn affirm_instruction_with_count(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
             number_of_assets: Option<AffirmationCount>,
         ) -> DispatchResult {
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 id,
-                portfolios.into_inner(),
+                holder_set.into_inner(),
                 number_of_assets,
             )
             .map_err(|e| e.error)?;
@@ -1252,7 +1249,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction being rejected.
-        /// * `portfolio` - the [`PortfolioId`] that belongs to the instruction and is rejecting it.
+        /// * `asset_holder` - the [`AssetHolder`] that belongs to the instruction and is rejecting it.
         /// * `number_of_assets` - an optional [`AssetCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
         /// Note: calling the rpc method `get_execute_instruction_info` returns an instance of [`ExecuteInstructionInfo`], which contain the asset count.
@@ -1264,7 +1261,7 @@ pub mod pallet {
         pub fn reject_instruction_with_count(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolio: PortfolioId,
+            asset_holder: AssetHolder,
             number_of_assets: Option<AssetCount>,
         ) -> DispatchResult {
             let mut weight_meter = Self::ensure_valid_weight_meter(
@@ -1276,7 +1273,7 @@ pub mod pallet {
             Self::base_reject_instruction(
                 origin,
                 id,
-                Some(portfolio),
+                Some(asset_holder),
                 number_of_assets,
                 false,
                 &mut weight_meter,
@@ -1290,22 +1287,22 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `id` - the [`InstructionId`] of the instruction getting an affirmation withdrawn.
-        /// * `portfolios` - a vector of [`PortfolioId`] under the caller's control and intended for affirmation withdrawal.
+        /// * `holder_set` - a set of [`AssetHolder`] under the caller's control and intended for affirmation withdrawal.
         /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
         ///
         /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets, portfolios.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets, holder_set.len() as u32))]
         #[pallet::call_index(18)]
         pub fn withdraw_affirmation_with_count(
             origin: OriginFor<T>,
             id: InstructionId,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
             number_of_assets: Option<AffirmationCount>,
         ) -> DispatchResult {
-            Self::base_withdraw_affirmation(origin, id, portfolios.into_inner(), number_of_assets)
+            Self::base_withdraw_affirmation(origin, id, holder_set.into_inner(), number_of_assets)
                 .map_err(|e| e.error)?;
             Ok(())
         }
@@ -1354,13 +1351,13 @@ pub mod pallet {
         /// * `trade_date`: Optional date from which people can interact with this instruction.
         /// * `value_date`: Optional date after which the instruction should be settled (not enforced).
         /// * `legs`: A vector of all [`Leg`] included in this instruction.
-        /// * `portfolios`: A vector of [`PortfolioId`] under the caller's control and intended for affirmation.
+        /// * `holder_set`: A set of [`AssetHolder`] under the caller's control and intended for affirmation.
         /// * `instruction_memo`: An optional [`Memo`] field for this instruction.
         /// * `mediators`: A set of [`IdentityId`] of all the mandatory mediators for the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, portfolios.len() as u32, mediators.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::add_and_affirm_with_mediators_legs(legs, holder_set.len() as u32, mediators.len() as u32))]
         #[pallet::call_index(20)]
         pub fn add_and_affirm_with_mediators(
             origin: OriginFor<T>,
@@ -1369,7 +1366,7 @@ pub mod pallet {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
-            portfolios: BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios>,
+            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
             instruction_memo: Option<Memo>,
             mediators: BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>,
         ) -> DispatchResult {
@@ -1387,7 +1384,7 @@ pub mod pallet {
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 instruction_id,
-                portfolios.into_inner(),
+                holder_set.into_inner(),
                 None,
             )
             .map_err(|e| e.error)?;
@@ -1490,17 +1487,17 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn lock_via_leg(leg: &Leg) -> DispatchResult {
+    fn lock_asset(leg: &Leg) -> DispatchResult {
         match leg {
             Leg::Fungible {
                 sender,
                 asset_id,
                 amount,
                 ..
-            } => T::Portfolio::lock_tokens(sender.clone(), *asset_id, *amount),
+            } => Asset::<T>::add_locked_balance(sender.clone(), *asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::lock_nft(sender.clone(), *nfts.asset_id(), *nft_id)?;
+                    Nft::<T>::lock_nft(sender.clone(), *nfts.asset_id(), *nft_id)?;
                 }
                 Ok(())
             }
@@ -1508,17 +1505,17 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn unlock_via_leg(leg: &Leg) -> DispatchResult {
+    fn unlock_asset(leg: &Leg) -> DispatchResult {
         match leg {
             Leg::Fungible {
                 sender,
                 asset_id,
                 amount,
                 ..
-            } => T::Portfolio::unlock_tokens(sender.clone(), *asset_id, *amount),
+            } => Asset::<T>::remove_locked_balance(sender.clone(), *asset_id, *amount),
             Leg::NonFungible { sender, nfts, .. } => {
                 for nft_id in nfts.ids() {
-                    T::Portfolio::unlock_nft(sender, nfts.asset_id(), nft_id)?;
+                    Nft::<T>::unlock_nft(&sender, nfts.asset_id(), nft_id)?;
                 }
                 Ok(())
             }
@@ -1592,8 +1589,8 @@ impl<T: Config> Pallet<T> {
         // All checks have been made - Write data to storage.
         InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
 
-        for portfolio_id in instruction_info.portfolios_pending_approval() {
-            UserAffirmations::<T>::insert(portfolio_id, instruction_id, AffirmationStatus::Pending);
+        for asset_holder in instruction_info.holders_pending_approval() {
+            UserAffirmations::<T>::insert(asset_holder, instruction_id, AffirmationStatus::Pending);
         }
 
         for mediator_id in instruction_info.mediators() {
@@ -1649,16 +1646,16 @@ impl<T: Config> Pallet<T> {
             memo,
         ));
 
-        for portfolio_id in instruction_info.portfolios_pre_approved_difference() {
+        for asset_holder in instruction_info.holders_pre_approved_difference() {
             UserAffirmations::<T>::insert(
-                portfolio_id,
+                asset_holder,
                 instruction_id,
                 AffirmationStatus::Affirmed,
             );
-            AffirmsReceived::<T>::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::<T>::insert(instruction_id, asset_holder, AffirmationStatus::Affirmed);
             Self::deposit_event(Event::InstructionAutomaticallyAffirmed(
                 did,
-                portfolio_id.clone(),
+                asset_holder.clone(),
                 instruction_id,
             ));
         }
@@ -1690,10 +1687,10 @@ impl<T: Config> Pallet<T> {
     ) -> Result<InstructionInfo, DispatchError> {
         // Tracks the number of fungible, non-fungible and offchain assets across the legs
         let mut instruction_asset_count = AssetCount::default();
-        // Tracks all portfolios that have not been pre-affirmed
-        let mut portfolios_pending_approval = BTreeSet::new();
-        // Tracks all portfolios that have pre-approved the transfer.
-        let mut portfolios_pre_approved = BTreeSet::new();
+        // Tracks all asset holders that have not been pre-affirmed
+        let mut holders_pending_approval = BTreeSet::new();
+        // Tracks all asset holders that have pre-approved the transfer.
+        let mut holders_pre_approved = BTreeSet::new();
         // Tracks all mediators that have to affirm the instruction.
         let mut mediators = BTreeSet::new();
         // Tracks all tickers that have been checked for filtering
@@ -1719,16 +1716,15 @@ impl<T: Config> Pallet<T> {
                     Leg::OffChain { .. } => continue,
                 }
             };
-            pallet_identity::Pallet::<T>::ensure_id_record_exists(sender.did)?;
-            pallet_identity::Pallet::<T>::ensure_id_record_exists(receiver.did)?;
-            T::Portfolio::ensure_portfolio_validity(sender)?;
-            T::Portfolio::ensure_portfolio_validity(receiver)?;
 
-            portfolios_pending_approval.insert(sender.clone());
-            if T::Portfolio::skip_portfolio_affirmation(receiver, asset_id) {
-                portfolios_pre_approved.insert(receiver.clone());
+            Asset::<T>::ensure_valid_holder(&sender)?;
+            Asset::<T>::ensure_valid_holder(&receiver)?;
+
+            holders_pending_approval.insert(sender.clone());
+            if Asset::<T>::skip_asset_holder_affirmation(receiver, asset_id) {
+                holders_pre_approved.insert(receiver.clone());
             } else {
-                portfolios_pending_approval.insert(receiver.clone());
+                holders_pending_approval.insert(receiver.clone());
             }
 
             let asset_mediators = MandatoryMediators::<T>::get(asset_id);
@@ -1739,8 +1735,8 @@ impl<T: Config> Pallet<T> {
 
         Ok(InstructionInfo::new(
             instruction_asset_count,
-            portfolios_pending_approval,
-            portfolios_pre_approved,
+            holders_pending_approval,
+            holders_pre_approved,
             mediators,
         ))
     }
@@ -1748,7 +1744,7 @@ impl<T: Config> Pallet<T> {
     fn unsafe_withdraw_instruction_affirmation(
         did: IdentityId,
         id: InstructionId,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
@@ -1757,15 +1753,15 @@ impl<T: Config> Pallet<T> {
         }
 
         // checks custodianship of portfolios and affirmation status
-        Self::ensure_portfolios_and_affirmation_status(
+        Self::ensure_permissions_and_affirmation_status(
             id,
-            &portfolios,
+            &holder_set,
             did,
             secondary_key,
             &[AffirmationStatus::Affirmed],
         )?;
         // Unlock tokens that were previously locked during the affirmation
-        let filtered_legs = Self::filtered_legs(id, &portfolios);
+        let filtered_legs = Self::filtered_legs(id, &holder_set);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
         if let Some(affirmation_count) = affirmation_count {
             Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?;
@@ -1776,21 +1772,21 @@ impl<T: Config> Pallet<T> {
                     return Err(Error::<T>::UnexpectedLegStatus.into())
                 }
                 LegStatus::ExecutionPending => {
-                    Self::unlock_via_leg(&leg)?;
+                    Self::unlock_asset(&leg)?;
                 }
                 LegStatus::PendingTokenLock => {
                     return Err(Error::<T>::InstructionNotAffirmed.into());
                 }
             };
-            <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::PendingTokenLock);
+            InstructionLegStatus::<T>::insert(id, leg_id, LegStatus::PendingTokenLock);
         }
 
         // Updates storage.
-        let n_portfolios = portfolios.len();
-        for portfolio in portfolios {
-            UserAffirmations::<T>::insert(&portfolio, id, AffirmationStatus::Pending);
-            AffirmsReceived::<T>::remove(id, &portfolio);
-            Self::deposit_event(Event::AffirmationWithdrawn(did, portfolio, id));
+        let n_portfolios = holder_set.len();
+        for asset_holder in holder_set {
+            UserAffirmations::<T>::insert(&asset_holder, id, AffirmationStatus::Pending);
+            AffirmsReceived::<T>::remove(id, &asset_holder);
+            Self::deposit_event(Event::AffirmationWithdrawn(did, asset_holder, id));
         }
 
         InstructionAffirmsPending::<T>::mutate(id, |affirms_pending| {
@@ -2148,41 +2144,41 @@ impl<T: Config> Pallet<T> {
     pub fn unsafe_affirm_instruction(
         did: IdentityId,
         id: InstructionId,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
-        Self::ensure_portfolios_and_affirmation_status(
+        Self::ensure_permissions_and_affirmation_status(
             id,
-            &portfolios,
+            &holder_set,
             did,
             secondary_key,
             &[AffirmationStatus::Pending],
         )?;
 
-        let filtered_legs = Self::filtered_legs(id, &portfolios);
+        let filtered_legs = Self::filtered_legs(id, &holder_set);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
         if let Some(affirmation_count) = affirmation_count {
             Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?
         }
         for (leg_id, leg) in filtered_legs.sender_subset() {
-            Self::lock_via_leg(&leg)?;
+            Self::lock_asset(&leg)?;
             <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
         }
 
         let affirms_pending = InstructionAffirmsPending::<T>::get(id);
 
         // Updates storage
-        let n_porfolios = portfolios.len();
-        for portfolio in portfolios {
-            UserAffirmations::<T>::insert(&portfolio, id, AffirmationStatus::Affirmed);
-            AffirmsReceived::<T>::insert(id, &portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(Event::InstructionAffirmed(did, portfolio, id));
+        let n_holders = holder_set.len();
+        for asset_holder in holder_set {
+            UserAffirmations::<T>::insert(&asset_holder, id, AffirmationStatus::Affirmed);
+            AffirmsReceived::<T>::insert(id, &asset_holder, AffirmationStatus::Affirmed);
+            Self::deposit_event(Event::InstructionAffirmed(did, asset_holder, id));
         }
         InstructionAffirmsPending::<T>::insert(
             id,
-            affirms_pending.saturating_sub(u64::try_from(n_porfolios).unwrap_or_default()),
+            affirms_pending.saturating_sub(u64::try_from(n_holders).unwrap_or_default()),
         );
         Ok(filtered_legs)
     }
@@ -2190,7 +2186,7 @@ impl<T: Config> Pallet<T> {
     fn release_locks(id: &InstructionId, instruction_legs: &[(LegId, Leg)]) -> DispatchResult {
         for (leg_id, leg) in instruction_legs {
             if let LegStatus::ExecutionPending = InstructionLegStatus::<T>::get(id, leg_id) {
-                Self::unlock_via_leg(&leg)?;
+                Self::unlock_asset(&leg)?;
             }
         }
         Ok(())
@@ -2259,7 +2255,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         instruction_id: InstructionId,
         receipts_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         ensure!(
@@ -2276,9 +2272,9 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::OffChainAssetsMustHaveAVenue)?;
 
         // Verify portfolio custodianship and check if it is a counter party with a pending affirmation.
-        Self::ensure_portfolios_and_affirmation_status(
+        Self::ensure_permissions_and_affirmation_status(
             instruction_id,
-            &portfolios,
+            &holder_set,
             did,
             secondary_key.as_ref(),
             &[AffirmationStatus::Pending],
@@ -2287,25 +2283,25 @@ impl<T: Config> Pallet<T> {
         Self::ensure_valid_receipts_details(venue_id, instruction_id, &receipts_details)?;
 
         // Lock tokens for all legs that are not of type [`Leg::OffChain`]
-        let filtered_legs = Self::filtered_legs(instruction_id, &portfolios);
+        let filtered_legs = Self::filtered_legs(instruction_id, &holder_set);
         // If the fee was estimated in advance, the input values must be at least equal to the actual values
         if let Some(affirmation_count) = affirmation_count {
             Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?
         }
         for (leg_id, leg) in filtered_legs.sender_subset() {
-            Self::lock_via_leg(&leg)?;
-            <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
+            Self::lock_asset(&leg)?;
+            InstructionLegStatus::<T>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
         }
 
         // Casting is safe since `Self::ensure_portfolios_and_affirmation_status` is called
         let affirms_pending = InstructionAffirmsPending::<T>::get(instruction_id)
-            .saturating_sub(portfolios.len() as u64)
+            .saturating_sub(holder_set.len() as u64)
             .saturating_sub(receipts_details.len() as u64);
         InstructionAffirmsPending::<T>::insert(instruction_id, affirms_pending);
 
         // Update storage
         for receipt_detail in receipts_details {
-            <InstructionLegStatus<T>>::insert(
+            InstructionLegStatus::<T>::insert(
                 instruction_id,
                 receipt_detail.leg_id(),
                 LegStatus::ExecutionToBeSkipped(
@@ -2318,7 +2314,7 @@ impl<T: Config> Pallet<T> {
                 receipt_detail.leg_id(),
                 AffirmationStatus::Affirmed,
             );
-            <ReceiptsUsed<T>>::insert(receipt_detail.signer(), receipt_detail.uid(), true);
+            ReceiptsUsed::<T>::insert(receipt_detail.signer(), receipt_detail.uid(), true);
             Self::deposit_event(Event::ReceiptClaimed(
                 did,
                 instruction_id,
@@ -2329,10 +2325,22 @@ impl<T: Config> Pallet<T> {
             ));
         }
 
-        for portfolio in portfolios {
-            UserAffirmations::<T>::insert(&portfolio, instruction_id, AffirmationStatus::Affirmed);
-            AffirmsReceived::<T>::insert(instruction_id, &portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(Event::InstructionAffirmed(did, portfolio, instruction_id));
+        for asset_holder in holder_set {
+            UserAffirmations::<T>::insert(
+                &asset_holder,
+                instruction_id,
+                AffirmationStatus::Affirmed,
+            );
+            AffirmsReceived::<T>::insert(
+                instruction_id,
+                &asset_holder,
+                AffirmationStatus::Affirmed,
+            );
+            Self::deposit_event(Event::InstructionAffirmed(
+                did,
+                asset_holder,
+                instruction_id,
+            ));
         }
 
         Ok(filtered_legs)
@@ -2341,12 +2349,12 @@ impl<T: Config> Pallet<T> {
     pub fn base_affirm_instruction(
         origin: OriginFor<T>,
         id: InstructionId,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, id, portfolios, sk.as_ref(), affirmation_count)
+        Self::unsafe_affirm_instruction(did, id, holder_set, sk.as_ref(), affirmation_count)
     }
 
     /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
@@ -2357,14 +2365,14 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
         let filtered_legs = Self::base_affirm_with_receipts(
             origin,
             id,
             receipt_details,
-            portfolios,
+            holder_set,
             affirmation_count,
         )?;
         let instruction_asset_count = filtered_legs.unfiltered_asset_count();
@@ -2395,11 +2403,11 @@ impl<T: Config> Pallet<T> {
     pub fn affirm_and_maybe_schedule_instruction(
         origin: OriginFor<T>,
         id: InstructionId,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
         let filtered_legs =
-            Self::base_affirm_instruction(origin, id, portfolios, affirmation_count)?;
+            Self::base_affirm_instruction(origin, id, holder_set, affirmation_count)?;
         let instruction_asset_count = filtered_legs.unfiltered_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
@@ -2427,14 +2435,14 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         id: InstructionId,
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature, T::Moment>>,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         caller_did: IdentityId,
     ) -> DispatchResult {
         match receipt {
             Some(receipt) => {
-                Self::base_affirm_with_receipts(origin, id, vec![receipt], portfolios, None)?
+                Self::base_affirm_with_receipts(origin, id, vec![receipt], holder_set, None)?
             }
-            None => Self::base_affirm_instruction(origin, id, portfolios, None)?,
+            None => Self::base_affirm_instruction(origin, id, holder_set, None)?,
         };
         Self::execute_settle_on_affirmation_instruction(
             id,
@@ -2467,20 +2475,16 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn ensure_portfolios_and_affirmation_status(
+    fn ensure_permissions_and_affirmation_status(
         id: InstructionId,
-        portfolios: &BTreeSet<PortfolioId>,
+        holder_set: &BTreeSet<AssetHolder>,
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         expected_statuses: &[AffirmationStatus],
     ) -> DispatchResult {
-        for portfolio in portfolios {
-            T::Portfolio::ensure_portfolio_custody_and_permission(
-                portfolio,
-                custodian,
-                secondary_key,
-            )?;
-            let user_affirmation = UserAffirmations::<T>::get(portfolio, id);
+        for asset_holder in holder_set {
+            Asset::<T>::ensure_holder_permissions(asset_holder, custodian, secondary_key)?;
+            let user_affirmation = UserAffirmations::<T>::get(asset_holder, id);
             ensure!(
                 expected_statuses.contains(&user_affirmation),
                 Error::<T>::UnexpectedAffirmationStatus
@@ -2490,10 +2494,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns [`FilteredLegs`] where the orginal set is all legs in the instruction of the given
-    /// `id` and the subset of legs are all legs where the sender is in the given `portfolio`.
-    fn filtered_legs(id: InstructionId, portfolio: &BTreeSet<PortfolioId>) -> FilteredLegs {
+    /// `id` and the subset of legs are all legs where the sender is in the given `AssetHolder` set.
+    fn filtered_legs(id: InstructionId, holder_set: &BTreeSet<AssetHolder>) -> FilteredLegs {
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::<T>::iter_prefix(&id).collect();
-        FilteredLegs::filter_sender(instruction_legs, portfolio)
+        FilteredLegs::filter_sender(instruction_legs, holder_set)
     }
 
     /// Returns the [`AssetCount`] for the given `inst_id`.
@@ -2560,22 +2564,19 @@ impl<T: Config> Pallet<T> {
     fn base_reject_instruction(
         origin: OriginFor<T>,
         inst_id: InstructionId,
-        caller_pid: Option<PortfolioId>,
+        asset_holder: Option<AssetHolder>,
         input_asset_count: Option<AssetCount>,
-        use_account_portfolio: bool,
+        use_account_holding: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
         let caller_did = origin_data.primary_did;
 
-        let caller_pid = {
-            if use_account_portfolio {
-                let acc_portfolio =
-                    PortfolioId::account_portfolio(caller_did, origin_data.sender.encode())
-                        .map_err(|_| Error::<T>::InvalidAccountId)?;
-                Some(acc_portfolio)
+        let caller = {
+            if use_account_holding {
+                Some(AssetHolder::try_from(origin_data.sender.encode())?)
             } else {
-                caller_pid
+                asset_holder
             }
         };
 
@@ -2601,7 +2602,7 @@ impl<T: Config> Pallet<T> {
                 Self::ensure_valid_caller(
                     caller_did,
                     origin_data.secondary_key.as_ref(),
-                    caller_pid.as_ref(),
+                    caller.as_ref(),
                     inst_details.venue_id,
                     &inst_id,
                     &inst_legs,
@@ -2613,7 +2614,7 @@ impl<T: Config> Pallet<T> {
                     Self::ensure_valid_caller(
                         caller_did,
                         origin_data.secondary_key.as_ref(),
-                        caller_pid.as_ref(),
+                        caller.as_ref(),
                         inst_details.venue_id,
                         &inst_id,
                         &inst_legs,
@@ -2733,7 +2734,9 @@ impl<T: Config> Pallet<T> {
                 asset_id,
                 amount,
             } => {
-                ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
+                let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(sender)?;
+                let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(receiver)?;
+                ensure!(sender_did != receiver_did, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_fungible_leg(tickers, *asset_id, *amount, venue_id)?;
                 instruction_asset_count
                     .try_add_fungible()
@@ -2745,7 +2748,9 @@ impl<T: Config> Pallet<T> {
                 receiver,
                 nfts,
             } => {
-                ensure!(sender.did != receiver.did, Error::<T>::SameSenderReceiver);
+                let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(sender)?;
+                let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(receiver)?;
+                ensure!(sender_did != receiver_did, Error::<T>::SameSenderReceiver);
                 Self::ensure_valid_nft_leg(tickers, &nfts, venue_id)?;
                 instruction_asset_count
                     .try_add_non_fungible(&nfts)
@@ -2844,7 +2849,7 @@ impl<T: Config> Pallet<T> {
     fn base_manual_execution(
         origin: OriginFor<T>,
         inst_id: InstructionId,
-        caller_pid: Option<&PortfolioId>,
+        caller_holding: Option<&AssetHolder>,
         input_asset_count: &AssetCount,
         skip_caller_check: bool,
         weight_meter: &mut WeightMeter,
@@ -2864,7 +2869,7 @@ impl<T: Config> Pallet<T> {
             Self::ensure_valid_caller(
                 caller_did,
                 caller_sk,
-                caller_pid,
+                caller_holding,
                 inst_details.venue_id,
                 &inst_id,
                 &inst_legs,
@@ -3066,7 +3071,7 @@ impl<T: Config> Pallet<T> {
     fn base_withdraw_affirmation(
         origin: OriginFor<T>,
         inst_id: InstructionId,
-        portfolios: BTreeSet<PortfolioId>,
+        holder_set: BTreeSet<AssetHolder>,
         affirmation_count: Option<AffirmationCount>,
     ) -> DispatchResultWithPostInfo {
         let (did, secondary_key, details) =
@@ -3074,7 +3079,7 @@ impl<T: Config> Pallet<T> {
         let filtered_legs = Self::unsafe_withdraw_instruction_affirmation(
             did,
             inst_id,
-            portfolios,
+            holder_set,
             secondary_key.as_ref(),
             affirmation_count,
         )?;
@@ -3230,16 +3235,14 @@ impl<T: Config> Pallet<T> {
     fn ensure_valid_caller(
         caller_did: IdentityId,
         caller_sk: Option<&SecondaryKey<T::AccountId>>,
-        caller_pid: Option<&PortfolioId>,
+        caller_holding: Option<&AssetHolder>,
         venue_id: Option<VenueId>,
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
     ) -> DispatchResult {
-        if let Some(caller_pid) = caller_pid {
-            T::Portfolio::ensure_portfolio_custody_and_permission(
-                caller_pid, caller_did, caller_sk,
-            )?;
-            Self::ensure_portfolio_belongs_to_instruction(&inst_id, caller_pid)?;
+        if let Some(caller_holding) = caller_holding {
+            Asset::<T>::ensure_holder_permissions(caller_holding, caller_did, caller_sk)?;
+            Self::ensure_holder_belongs_to_instruction(&inst_id, caller_holding)?;
             return Ok(());
         }
 
@@ -3260,12 +3263,12 @@ impl<T: Config> Pallet<T> {
         Err(Error::<T>::CallerIsNotAParty.into())
     }
 
-    /// Returns `Ok` if the `pid` is a party in the instruction of the given `inst_id`.
-    fn ensure_portfolio_belongs_to_instruction(
+    /// Returns `Ok` if the `asset_holder` is a party in the instruction of the given `inst_id`.
+    fn ensure_holder_belongs_to_instruction(
         inst_id: &InstructionId,
-        pid: &PortfolioId,
+        asset_holder: &AssetHolder,
     ) -> DispatchResult {
-        match UserAffirmations::<T>::get(pid, inst_id) {
+        match UserAffirmations::<T>::get(asset_holder, inst_id) {
             AffirmationStatus::Unknown => Err(Error::<T>::CallerIsNotAParty.into()),
             AffirmationStatus::Pending | AffirmationStatus::Affirmed => Ok(()),
         }
@@ -3491,23 +3494,23 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_actual_weight(call: &Call<T>) -> Option<Weight> {
         match call {
-            Call::affirm_instruction { id, portfolios } => {
-                let filtered_legs = Self::filtered_legs(*id, &portfolios);
+            Call::affirm_instruction { id, holder_set } => {
+                let filtered_legs = Self::filtered_legs(*id, &holder_set);
                 Some(Self::affirm_instruction_actual_weight(
                     *filtered_legs.sender_asset_count(),
                     *filtered_legs.receiver_asset_count(),
                 ))
             }
-            Call::affirm_with_receipts { id, portfolios, .. } => {
-                let filtered_legs = Self::filtered_legs(*id, &portfolios);
+            Call::affirm_with_receipts { id, holder_set, .. } => {
+                let filtered_legs = Self::filtered_legs(*id, &holder_set);
                 Some(Self::affirm_with_receipts_actual_weight(
                     *filtered_legs.sender_asset_count(),
                     *filtered_legs.receiver_asset_count(),
                     filtered_legs.unfiltered_asset_count().off_chain(),
                 ))
             }
-            Call::withdraw_affirmation { id, portfolios } => {
-                let filtered_legs = Self::filtered_legs(*id, &portfolios);
+            Call::withdraw_affirmation { id, holder_set } => {
+                let filtered_legs = Self::filtered_legs(*id, &holder_set);
                 Some(Self::withdraw_affirmation_actual_weight(
                     *filtered_legs.sender_asset_count(),
                     *filtered_legs.receiver_asset_count(),
@@ -3527,10 +3530,10 @@ impl<T: Config> Pallet<T> {
     /// Returns an instance of [`AffirmationCount`].
     pub fn affirmation_count(
         instruction_id: InstructionId,
-        portfolios: Vec<PortfolioId>,
+        holder_set: Vec<AssetHolder>,
     ) -> AffirmationCount {
-        let portfolios = portfolios.into_iter().collect::<BTreeSet<_>>();
-        let filtered_legs = Self::filtered_legs(instruction_id, &portfolios);
+        let holder_set = holder_set.into_iter().collect::<BTreeSet<_>>();
+        let filtered_legs = Self::filtered_legs(instruction_id, &holder_set);
         AffirmationCount::new(
             filtered_legs.sender_asset_count().clone(),
             filtered_legs.receiver_asset_count().clone(),
@@ -3708,20 +3711,15 @@ impl<T: Config> Pallet<T> {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
 
-        let from_portfolio =
-            PortfolioId::account_portfolio(origin_data.primary_did, origin_data.sender.encode())
-                .map_err(|_| Error::<T>::InvalidAccountId)?;
-        let to_did = pallet_identity::Pallet::<T>::get_identity(&to)
-            .ok_or(Error::<T>::ReceiverIdentityNotFound)?;
-        let to_portfolio = PortfolioId::account_portfolio(to_did, to.encode())
-            .map_err(|_| Error::<T>::InvalidAccountId)?;
+        let from = AssetHolder::try_from(origin_data.sender.encode())?;
+        let to = AssetHolder::try_from(to.encode())?;
 
         // Prepare the leg depending on whether it's a fungible or non-fungible transfer
         let (leg, is_fungible) = match asset_or_nft {
             AssetOrNft::Asset { asset_id, amount } => (
                 Leg::Fungible {
-                    sender: from_portfolio.clone(),
-                    receiver: to_portfolio,
+                    sender: from.clone(),
+                    receiver: to,
                     asset_id,
                     amount,
                 },
@@ -3729,8 +3727,8 @@ impl<T: Config> Pallet<T> {
             ),
             AssetOrNft::Nft { asset_id, nft_id } => (
                 Leg::NonFungible {
-                    sender: from_portfolio.clone(),
-                    receiver: to_portfolio,
+                    sender: from.clone(),
+                    receiver: to,
                     nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
                 },
                 false,
@@ -3763,7 +3761,7 @@ impl<T: Config> Pallet<T> {
         Self::unsafe_affirm_instruction(
             origin_data.primary_did,
             instruction_id,
-            [from_portfolio].into(),
+            [from].into(),
             origin_data.secondary_key.as_ref(),
             None,
         )?;
@@ -3792,9 +3790,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
-        let to_portfolio =
-            PortfolioId::account_portfolio(origin_data.primary_did, origin_data.sender.encode())
-                .map_err(|_| Error::<T>::InvalidAccountId)?;
+        let to = AssetHolder::try_from(origin_data.sender.encode())?;
 
         // Consume weight for the receiver affirmation
         Self::check_accrue(
@@ -3824,7 +3820,7 @@ impl<T: Config> Pallet<T> {
         Self::base_affirm_instruction(
             origin.clone(),
             instruction_id,
-            [to_portfolio].into(),
+            [to].into(),
             Some(affirmation_count),
         )?;
 

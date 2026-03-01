@@ -350,6 +350,8 @@ pub mod pallet {
         NFTIsLocked,
         /// The number of keys in the collection is greater than the input.
         NumberOfKeysIsLessThanExpected,
+        /// The NFT is not locked.
+        NFTIsNotLocked,
     }
 }
 
@@ -994,6 +996,52 @@ impl<T: Config> Pallet<T> {
                 PortfolioPallet::<T>::is_nft_locked(portfolio_id, asset_id, nft_id)
             }
         }
+    }
+
+    /// Locks the given NFT
+    pub fn lock_nft(asset_holder: AssetHolder, asset_id: AssetId, nft_id: NFTId) -> DispatchResult {
+        ensure!(
+            Self::is_holder_of_nft(&asset_id, &nft_id, &asset_holder),
+            Error::<T>::NFTNotFound
+        );
+        ensure!(
+            !Self::is_nft_locked(&asset_id, &nft_id, &asset_holder),
+            Error::<T>::NFTIsLocked
+        );
+
+        match asset_holder {
+            AssetHolder::Account(acc_id) => {
+                NFTHolder::<T>::insert(acc_id, (asset_id, nft_id), NFTOwnerStatus::OwnerLocked);
+            }
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::lock_nft(portfolio_id, asset_id, nft_id);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Unlocks the given NFT.
+    pub fn unlock_nft(
+        asset_holder: &AssetHolder,
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+    ) -> DispatchResult {
+        ensure!(
+            Self::is_nft_locked(asset_id, nft_id, asset_holder),
+            Error::<T>::NFTIsNotLocked
+        );
+
+        match asset_holder {
+            AssetHolder::Account(acc_id) => {
+                NFTHolder::<T>::insert(acc_id, (asset_id, nft_id), NFTOwnerStatus::Owner);
+            }
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::unlock_nft(portfolio_id, asset_id, nft_id);
+            }
+        }
+
+        Ok(())
     }
 }
 

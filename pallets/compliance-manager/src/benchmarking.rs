@@ -21,7 +21,7 @@ use pallet_identity::Config as IdentityConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
-    asset::AssetType, AuthorizationData, ClaimType, CountryCode, PortfolioKind, Scope,
+    asset::AssetType, AssetHolderKind, AuthorizationData, ClaimType, CountryCode, Scope,
     TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
@@ -133,7 +133,7 @@ pub fn create_and_issue_sample_asset<T: Config>(
         asset_owner.account(),
         asset_id,
         1_000_000 as u128,
-        PortfolioKind::Default,
+        AssetHolderKind::DefaultPortfolio,
     )
     .unwrap();
 
