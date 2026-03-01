@@ -79,8 +79,8 @@ use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{
-    constants::currency::ONE_UNIT, storage_migration_ver, traits::PortfolioSubTrait, Balance,
-    EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,
+    constants::currency::ONE_UNIT, storage_migration_ver, Balance, EventDid, IdentityId, Moment,
+    PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,
 };
 
 use crate as ca;
@@ -579,8 +579,8 @@ impl<T: Config> Pallet<T> {
         let to = PortfolioId::default_portfolio(holder);
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         Asset::<T>::base_transfer(
-            dist.from.clone(),
-            to,
+            dist.from.clone().into(),
+            to.into(),
             dist.currency,
             gain,
             None,
@@ -606,7 +606,7 @@ impl<T: Config> Pallet<T> {
 
     /// Unlock `amount` of `dist.currency` in the `dist.from` portfolio.
     fn unlock(dist: &Distribution, amount: Balance) -> DispatchResult {
-        Portfolio::<T>::unlock_tokens(dist.from.clone(), dist.currency, amount)
+        Portfolio::<T>::unlock_asset_balance(dist.from.clone(), dist.currency, amount)
     }
 
     // Compute `balance * per_share`, i.e. DID's benefit.

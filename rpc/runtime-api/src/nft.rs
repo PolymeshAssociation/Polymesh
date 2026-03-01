@@ -18,7 +18,7 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::{NFTs, PortfolioId};
+use polymesh_primitives::{NFTs, AssetHolder};
 
 sp_api::decl_runtime_apis! {
 
@@ -40,8 +40,8 @@ sp_api::decl_runtime_apis! {
         /// }'
         /// ```
         fn transfer_report(
-            sender_portfolio: PortfolioId,
-            receiver_portfolio: PortfolioId,
+            sender: AssetHolder,
+            receiver: AssetHolder,
             nfts: NFTs,
             skip_locked_check: bool,
         ) -> Vec<DispatchError>;

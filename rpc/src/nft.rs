@@ -24,15 +24,15 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
-use polymesh_primitives::{NFTs, PortfolioId};
+use polymesh_primitives::{NFTs, AssetHolder};
 
 #[rpc(client, server)]
 pub trait NFTApi<BlockHash> {
     #[method(name = "nft_transferReport")]
     fn transfer_report(
         &self,
-        sender_portfolio: PortfolioId,
-        receiver_portfolio: PortfolioId,
+        sender: AssetHolder,
+        receiver: AssetHolder,
         nfts: NFTs,
         skip_locked_check: bool,
         at: Option<BlockHash>,
@@ -63,8 +63,8 @@ where
 {
     fn transfer_report(
         &self,
-        sender_portfolio: PortfolioId,
-        receiver_portfolio: PortfolioId,
+        sender: AssetHolder,
+        receiver: AssetHolder,
         nfts: NFTs,
         skip_locked_check: bool,
         at: Option<<Block as BlockT>::Hash>,
@@ -74,8 +74,8 @@ where
             at,
             |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.transfer_report(
                 at,
-                sender_portfolio,
-                receiver_portfolio,
+                sender,
+                receiver,
                 nfts,
                 skip_locked_check,
             ),

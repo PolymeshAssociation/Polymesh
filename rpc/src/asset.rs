@@ -25,15 +25,15 @@ use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::asset::AssetApi as AssetRuntimeApi;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{Balance, PortfolioId};
+use polymesh_primitives::{Balance, AssetHolder};
 
 #[rpc(client, server)]
 pub trait AssetApi<BlockHash> {
     #[method(name = "asset_transferReport")]
     fn transfer_report(
         &self,
-        sender_portfolio: PortfolioId,
-        receiver_portfolio: PortfolioId,
+        sender: AssetHolder,
+        receiver: AssetHolder,
         asset_id: AssetId,
         transfer_value: Balance,
         skip_locked_check: bool,
@@ -65,8 +65,8 @@ where
 {
     fn transfer_report(
         &self,
-        sender_portfolio: PortfolioId,
-        receiver_portfolio: PortfolioId,
+        sender: AssetHolder,
+        receiver: AssetHolder,
         asset_id: AssetId,
         transfer_value: Balance,
         skip_locked_check: bool,
@@ -77,8 +77,8 @@ where
             at,
             |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.transfer_report(
                 at,
-                sender_portfolio,
-                receiver_portfolio,
+                sender,
+                receiver,
                 asset_id,
                 transfer_value,
                 skip_locked_check
