@@ -38,7 +38,7 @@ fn invalid_caller() {
             Settlement::reject_instruction(
                 bob.origin(),
                 InstructionId(0),
-                PortfolioId::user_portfolio(bob.did, PortfolioNumber(1))
+                PortfolioId::user_portfolio(bob.did, PortfolioNumber(1)).into()
             ),
             Error::<TestStorage>::CallerIsNotAParty
         );
@@ -70,7 +70,7 @@ fn invalid_caller_locked_for_execution() {
             Settlement::reject_instruction_with_count(
                 bob.origin(),
                 InstructionId(0),
-                PortfolioId::default_portfolio(bob.did),
+                PortfolioId::default_portfolio(bob.did).into(),
                 Some(AssetCount::new(1, 1, 0))
             ),
             Error::<TestStorage>::CallerIsNotAMediator
@@ -184,7 +184,7 @@ fn success_expired_lock() {
         assert_ok!(Settlement::reject_instruction_with_count(
             bob.origin(),
             InstructionId(0),
-            PortfolioId::default_portfolio(bob.did),
+            PortfolioId::default_portfolio(bob.did).into(),
             Some(AssetCount::new(1, 1, 0))
         ));
     });

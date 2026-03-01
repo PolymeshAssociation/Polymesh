@@ -1,11 +1,12 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 
-use pallet_asset::{AssetBalance, Assets, BalanceOf, LockedBalance};
+use pallet_asset::{AssetBalance, Assets, BalanceOf};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioAssetCount, PortfolioLockedAssets};
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::{
-    AuthorizationData, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Signatory,
+    AssetHolderKind, AuthorizationData, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    Signatory,
 };
 
 use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
@@ -77,7 +78,7 @@ fn issue_tokens_user_portfolio() {
             alice.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            PortfolioKind::User(PortfolioNumber(1))
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1))
         ));
 
         assert_eq!(
@@ -103,7 +104,6 @@ fn issue_tokens_user_portfolio() {
 fn issue_tokens_invalid_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
-        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
@@ -116,7 +116,12 @@ fn issue_tokens_invalid_portfolio() {
         ));
 
         assert_noop!(
-            Asset::issue(alice.origin(), asset_id, 1_000, alice_user_portfolio),
+            Asset::issue(
+                alice.origin(),
+                asset_id,
+                1_000,
+                AssetHolderKind::UserPortfolio(PortfolioNumber(1))
+            ),
             PortfolioError::PortfolioDoesNotExist
         );
     })
@@ -127,8 +132,7 @@ fn issue_tokens_assigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(Sr25519Keyring::Bob);
         let alice = User::new(Sr25519Keyring::Alice);
-        let portfolio_kind = PortfolioKind::User(PortfolioNumber(1));
-        let portfolio_id = PortfolioId::new(alice.did, portfolio_kind.clone());
+        let portfolio_id = PortfolioId::new(alice.did, PortfolioKind::User(PortfolioNumber(1)));
 
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
@@ -160,7 +164,7 @@ fn issue_tokens_assigned_custody() {
             alice.origin(),
             asset_id,
             1_000,
-            portfolio_kind
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1))
         ));
         assert_eq!(BalanceOf::<TestStorage>::get(asset_id, alice.did), 1_000);
         assert_eq!(
@@ -183,7 +187,7 @@ fn issue_tokens_no_asset() {
                 alice.origin(),
                 [0; 16].into(),
                 1_000,
-                PortfolioKind::Default
+                AssetHolderKind::DefaultPortfolio
             ),
             ExternalAgentsError::UnauthorizedAgent
         );
@@ -206,7 +210,12 @@ fn issue_tokens_no_auth() {
             None,
         ));
         assert_noop!(
-            Asset::issue(bob.origin(), asset_id, 1_000, PortfolioKind::Default),
+            Asset::issue(
+                bob.origin(),
+                asset_id,
+                1_000,
+                AssetHolderKind::DefaultPortfolio
+            ),
             ExternalAgentsError::UnauthorizedAgent
         );
     })
@@ -227,7 +236,12 @@ fn issue_tokens_not_granular() {
             None,
         ));
         assert_noop!(
-            Asset::issue(alice.origin(), asset_id, 1_000, PortfolioKind::Default),
+            Asset::issue(
+                alice.origin(),
+                asset_id,
+                1_000,
+                AssetHolderKind::DefaultPortfolio
+            ),
             AssetError::InvalidGranularity
         );
     })
@@ -249,7 +263,12 @@ fn issue_tokens_invalid_token_type() {
         ));
 
         assert_noop!(
-            Asset::issue(alice.origin(), asset_id, 1_000, PortfolioKind::Default),
+            Asset::issue(
+                alice.origin(),
+                asset_id,
+                1_000,
+                AssetHolderKind::DefaultPortfolio
+            ),
             AssetError::UnexpectedNonFungibleToken
         );
     })
@@ -259,8 +278,6 @@ fn issue_tokens_invalid_token_type() {
 fn issue_tokens_account_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
-        let alice_portfolio_kind = PortfolioKind::AccountId(alice.acc());
-        let alice_acc_portfolio = PortfolioId::new(alice.did, alice_portfolio_kind);
 
         let asset_id = Asset::generate_asset_id(alice.acc(), false);
         assert_ok!(Asset::create_asset(
@@ -276,24 +293,12 @@ fn issue_tokens_account_portfolio() {
             alice.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            alice_acc_portfolio.kind.clone()
+            AssetHolderKind::Account
         ));
 
         assert_eq!(
             AssetBalance::<TestStorage>::get(&alice.acc(), &asset_id),
             ISSUE_AMOUNT
-        );
-        assert_eq!(
-            PortfolioAssetBalances::<TestStorage>::get(&alice_acc_portfolio, &asset_id),
-            0
-        );
-        assert_eq!(
-            PortfolioLockedAssets::<TestStorage>::get(&alice_acc_portfolio, &asset_id),
-            0
-        );
-        assert_eq!(
-            LockedBalance::<TestStorage>::get(&alice.acc(), &asset_id),
-            0
         );
         assert_eq!(
             BalanceOf::<TestStorage>::get(&asset_id, &alice.did),
@@ -302,10 +307,6 @@ fn issue_tokens_account_portfolio() {
         assert_eq!(
             Assets::<TestStorage>::get(&asset_id).unwrap().total_supply,
             ISSUE_AMOUNT
-        );
-        assert_eq!(
-            PortfolioAssetCount::<TestStorage>::get(&alice_acc_portfolio),
-            0
         );
     });
 }

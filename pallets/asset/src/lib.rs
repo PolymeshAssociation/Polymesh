@@ -3408,7 +3408,7 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
     /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
-    fn get_holders_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+    pub fn get_holders_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
         match holder {
             AssetHolder::Portfolio(portfolio_id) => {
                 PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
@@ -3512,7 +3512,7 @@ impl<T: AssetConfig> Pallet<T> {
     /// - The transfer is between different DIDs;
     /// - If [`AssetHolder::Portfolio`], it must exist;
     /// - The sender has sufficient balance for the transfer (taking into account locks).
-    fn ensure_valid_holdings(
+    pub fn ensure_valid_holdings(
         sender: &AssetHolder,
         sender_did: &IdentityId,
         receiver: &AssetHolder,

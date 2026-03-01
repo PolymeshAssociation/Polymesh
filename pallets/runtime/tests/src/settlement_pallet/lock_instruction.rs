@@ -6,14 +6,13 @@ use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioAssetBalances;
 use pallet_settlement::{Error, Event, InstructionStatuses, LockedTimestamp};
 use polymesh_primitives::settlement::{InstructionId, InstructionStatus, Leg, SettlementType};
-use polymesh_primitives::traits::PortfolioSubTrait;
 use polymesh_primitives::TrustedFor;
 use polymesh_primitives::{Claim, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
 use polymesh_primitives::{ClaimType, Condition, ConditionType, CountryCode, Scope, TrustedIssuer};
 use polymesh_runtime_common::Weight;
 
 use super::setup::{add_and_affirm_simple_instruction, create_and_issue_sample_asset_with_venue};
-use crate::storage::{EventTest, User};
+use crate::storage::{default_asset_holder_set, EventTest, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -41,8 +40,8 @@ fn invalid_caller() {
 
         let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
+            sender: alice_default_portfolio.into(),
+            receiver: bob_default_portfolio.into(),
             asset_id,
             amount: 1_000,
         }];
@@ -78,8 +77,8 @@ fn mediator_has_not_affirmed() {
 
         let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
+            sender: alice_default_portfolio.into(),
+            receiver: bob_default_portfolio.into(),
             asset_id,
             amount: 1_000,
         }];
@@ -115,8 +114,8 @@ fn invalid_type() {
 
         let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
+            sender: alice_default_portfolio.into(),
+            receiver: bob_default_portfolio.into(),
             asset_id,
             amount: 1_000,
         }];
@@ -154,8 +153,8 @@ fn missing_affirmation() {
 
         let (asset_id, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio,
-            receiver: bob_default_portfolio,
+            sender: alice_default_portfolio.into(),
+            receiver: bob_default_portfolio.into(),
             asset_id,
             amount: 1_000,
         }];
@@ -269,8 +268,8 @@ fn receivers_missing_portfolio() {
         Portfolio::create_portfolio(bob.origin(), PortfolioName(b"MyPid".into())).unwrap();
 
         let legs = vec![Leg::Fungible {
-            sender: alice_default_portfolio.clone(),
-            receiver: bob_portfolio.clone(),
+            sender: alice_default_portfolio.clone().into(),
+            receiver: bob_portfolio.clone().into(),
             asset_id,
             amount: 1_000,
         }];
@@ -290,16 +289,14 @@ fn receivers_missing_portfolio() {
         Settlement::affirm_instruction(
             bob.origin(),
             inst_id,
-            BTreeSet::from([bob_portfolio]).try_into().unwrap(),
+            BTreeSet::from([bob_portfolio.into()]).try_into().unwrap(),
         )
         .unwrap();
 
         Settlement::affirm_instruction(
             alice.origin(),
             inst_id,
-            BTreeSet::from([alice_default_portfolio])
-                .try_into()
-                .unwrap(),
+            default_asset_holder_set(alice.did),
         )
         .unwrap();
 
@@ -358,11 +355,16 @@ fn sender_tokens_are_locked() {
         let (asset_id, _) =
             add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
 
-        Portfolio::unlock_tokens(PortfolioId::default_portfolio(alice.did), asset_id, 1).unwrap();
+        Asset::remove_locked_balance(
+            PortfolioId::default_portfolio(alice.did).into(),
+            asset_id,
+            1,
+        )
+        .unwrap();
 
         assert_noop!(
             Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
-            PortfolioError::InsufficientTokensLocked
+            AssetError::InsufficientTokensLocked
         );
     });
 }

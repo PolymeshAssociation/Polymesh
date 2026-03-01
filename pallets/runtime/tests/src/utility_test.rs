@@ -276,8 +276,8 @@ fn batch_secondary_with_permissions() {
             name: high_risk_name.clone(),
         }),
         RuntimeCall::Portfolio(PortfolioCall::rename_portfolio {
-            num: 1u64.into(),
-            to_name: high_risk_name.clone(),
+            portfolio_number: 1u64.into(),
+            new_portfolio_name: high_risk_name.clone(),
         }),
     ];
     let expected_error: DispatchError =

@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use scale_info::prelude::{format};
+use scale_info::prelude::format;
 
 use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_identity::Config as IdentityConfig;

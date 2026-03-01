@@ -8,7 +8,7 @@ use polymesh_primitives::settlement::{
 use polymesh_primitives::{AuthorizationData, PortfolioId, PortfolioKind, Signatory};
 
 use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
-use crate::storage::{default_portfolio_btreeset, User};
+use crate::storage::{default_asset_holder_set, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -17,7 +17,6 @@ type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
 type Portfolio = pallet_portfolio::Pallet<TestStorage>;
-type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
@@ -61,8 +60,8 @@ fn controller_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio.clone(),
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.clone().into(),
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],
@@ -71,13 +70,13 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             InstructionId(0),
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
         ),);
 
         // Controller transfer should fail since the tokens are locked
         assert_noop!(
-            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio),
-            PortfolioError::InsufficientPortfolioBalance
+            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio.into()),
+            AssetError::InsufficientBalance
         );
     });
 }

@@ -18,7 +18,7 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::{NFTs, AssetHolder};
+use polymesh_primitives::{AssetHolder, NFTs};
 
 sp_api::decl_runtime_apis! {
 

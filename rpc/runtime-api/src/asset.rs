@@ -18,7 +18,7 @@ use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{Balance, AssetHolder};
+use polymesh_primitives::{AssetHolder, Balance};
 
 /// The maximum number of DIDs allowed in a `balance_at` RPC query.
 pub const MAX_BALANCE_AT_QUERY_SIZE: usize = 100;
