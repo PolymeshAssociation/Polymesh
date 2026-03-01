@@ -72,7 +72,6 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
-    "frame-benchmarking/std",
     "pallet-identity/runtime-benchmarks",
     "pallet-external-agents/runtime-benchmarks",
     "pallet-permissions/runtime-benchmarks",
