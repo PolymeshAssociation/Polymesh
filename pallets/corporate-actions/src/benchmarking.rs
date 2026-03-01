@@ -21,7 +21,7 @@ use pallet_asset::benchmarking::make_document;
 use pallet_identity::benchmarking::{user, User};
 use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::bench::create_and_issue_sample_asset;
-use polymesh_primitives::PortfolioKind;
+use polymesh_primitives::AssetHolderKind;
 
 use crate::*;
 
@@ -151,7 +151,7 @@ pub(crate) fn currency<T: Config>(owner: &User<T>) -> AssetId {
         owner.origin().into(),
         asset_id,
         1_000_000u32.into(),
-        PortfolioKind::Default,
+        AssetHolderKind::DefaultPortfolio,
     )
     .unwrap();
 

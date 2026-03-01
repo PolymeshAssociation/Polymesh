@@ -1161,4 +1161,19 @@ impl<T: Config> Pallet<T> {
         }
         PreApprovedPortfolios::<T>::get(portfolio_id, asset_id)
     }
+
+    /// Adds `amount` of locked balance of `asset_id` in `portfolio`, if the portfolio has sufficient free balance.
+    pub fn lock_asset_balance(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
+        Self::ensure_sufficient_balance(&portfolio, &asset_id, amount)?;
+        Self::unchecked_lock_tokens(portfolio, asset_id, amount);
+        Ok(())
+    }
+
+    /// Subtracts `amount` of locked balance of `asset_id` from `portfolio`, if there is enough locked balance.
+    pub fn unlock_asset_balance(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult{
+        let current_locked = Self::get_portfolio_locked_balance(&portfolio, &asset_id);
+        ensure!(current_locked >= amount, Error::<T>::InsufficientTokensLocked);
+        Self::set_portfolio_locked_balance(portfolio, asset_id, current_locked - amount);
+        Ok(())
+    }
 }

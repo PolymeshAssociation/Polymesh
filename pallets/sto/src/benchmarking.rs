@@ -76,10 +76,10 @@ where
     .unwrap();
 
     SetupPortfolios {
-        fundraiser_offering_portfolio,
-        investor_offering_portfolio,
-        fundraiser_raising_portfolio,
-        investor_raising_portfolio,
+        fundraiser_offering_portfolio: fundraiser_offering_portfolio.try_into().unwrap(),
+        investor_offering_portfolio: investor_offering_portfolio.try_into().unwrap(),
+        fundraiser_raising_portfolio: fundraiser_raising_portfolio.try_into().unwrap(),
+        investor_raising_portfolio: investor_raising_portfolio.try_into().unwrap(),
         offering_asset_id,
         raising_asset_id,
     }

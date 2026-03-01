@@ -295,6 +295,12 @@ pub enum PortfolioKind {
     User(PortfolioNumber),
 }
 
+impl From<Option<PortfolioNumber>> for PortfolioKind {
+    fn from(num: Option<PortfolioNumber>) -> Self {
+        num.map_or(Self::Default, Self::User)
+    }
+}
+
 impl TryFrom<AssetHolder> for PortfolioId {
     type Error = &'static str;
 
