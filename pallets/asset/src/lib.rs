@@ -124,8 +124,8 @@ use polymesh_primitives::traits::{
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
-    AssetIdentifier, Balance, Document, DocumentId, HoldingsUpdateReason, IdentityId, Memo, Ticker,
-    WeightMeter,
+    AssetIdentifier, Balance, Document, DocumentId, HoldingsUpdateReason, IdentityId, Memo,
+    SecondaryKey, Ticker, WeightMeter,
 };
 
 pub use types::{
@@ -1822,6 +1822,8 @@ pub mod pallet {
         UnauthorizedHolderKey,
         /// No key was found for the Identity
         KeyNotFoundForDid,
+        /// Insufficient tokens are locked.
+        InsufficientTokensLocked,
     }
 
     pub trait WeightInfo {
@@ -2979,19 +2981,11 @@ impl<T: AssetConfig> Pallet<T> {
                 Ok(holder)
             }
             AssetHolder::Account(account_id) => {
-                let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
-
-                if let Some(sk) = origin_data.secondary_key {
-                    ensure!(sk.key == account_id, Error::<T>::UnauthorizedHolderKey);
-                    return Ok(holder);
-                }
-
-                let primary_key =
-                    pallet_identity::Pallet::<T>::get_primary_key(origin_data.primary_did)
-                        .ok_or(Error::<T>::KeyNotFoundForDid)?;
-
-                ensure!(primary_key == account_id, Error::<T>::UnauthorizedHolderKey);
-
+                Self::ensure_account_permissions(
+                    account_id,
+                    origin_data.secondary_key.as_ref(),
+                    origin_data.primary_did,
+                )?;
                 Ok(holder)
             }
         }
@@ -3364,6 +3358,156 @@ impl<T: AssetConfig> Pallet<T> {
         nonce
     }
 
+    /// Returns the balance of `acc_id` for `asset_id`.
+    fn get_account_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {
+        AssetBalance::<T>::get(acc_id, asset_id)
+    }
+
+    /// Returns the locked balance of `acc_id` for `asset_id`.
+    fn get_account_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance {
+        LockedBalance::<T>::get(account, asset_id)
+    }
+
+    /// Sets [`AssetBalance`] for `acc_id` and `asset_id` to `new_balance`.
+    fn set_account_balance(
+        acc_id: AccountId32,
+        asset_id: AssetId,
+        new_balance: Balance,
+    ) -> DispatchResult {
+        let old_balance = Self::get_account_balance(&acc_id, &asset_id);
+
+        if new_balance.is_zero() {
+            AssetBalance::<T>::remove(&acc_id, &asset_id);
+            if old_balance > 0 {
+                let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
+                IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
+            }
+            return Ok(());
+        }
+
+        if old_balance.is_zero() {
+            let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
+            IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
+        }
+        AssetBalance::<T>::insert(acc_id, asset_id, new_balance);
+        Ok(())
+    }
+
+    /// Sets [`LockedBalance`] for `acc_id` and `asset_id` to `new_locked_balance`.
+    fn set_account_locked_balance(
+        acc_id: AccountId32,
+        asset_id: AssetId,
+        new_locked_balance: Balance,
+    ) {
+        if new_locked_balance.is_zero() {
+            LockedBalance::<T>::remove(&acc_id, &asset_id);
+        } else {
+            LockedBalance::<T>::insert(acc_id, asset_id, new_locked_balance);
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
+    /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
+    fn get_holders_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
+            }
+            AssetHolder::Account(account_id) => Self::get_account_balance(account_id, asset_id),
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns the locked balance from the portfolio pallet.
+    /// If [`AssetHolder::Account`], returns the locked balance from the asset pallet.
+    fn get_holders_locked_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_locked_balance(portfolio_id, asset_id)
+            }
+            AssetHolder::Account(account_id) => {
+                Self::get_account_locked_balance(account_id, asset_id)
+            }
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], updates the balance in the portfolio pallet.
+    /// If [`AssetHolder::Account`], updates the balance in the asset pallet.
+    fn set_holders_balance(
+        asset_holder: AssetHolder,
+        asset_id: AssetId,
+        new_balance: Balance,
+    ) -> DispatchResult {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::set_portfolio_balance(&portfolio_id, asset_id, new_balance);
+                Ok(())
+            }
+            AssetHolder::Account(account_id) => {
+                Self::set_account_balance(account_id, asset_id, new_balance)
+            }
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], updates the locked balance in the portfolio pallet.
+    /// If [`AssetHolder::Account`], updates the locked balance in the asset pallet.
+    fn set_holders_locked_balance(
+        asset_holder: AssetHolder,
+        asset_id: AssetId,
+        new_locked_balance: Balance,
+    ) {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::set_portfolio_locked_balance(
+                    portfolio_id,
+                    asset_id,
+                    new_locked_balance,
+                );
+            }
+            AssetHolder::Account(account_id) => {
+                Self::set_account_locked_balance(account_id, asset_id, new_locked_balance);
+            }
+        }
+    }
+
+    /// Adds `balance_to_add` to the locked balance of `asset_holder` for `asset_id`.
+    pub fn add_locked_balance(
+        asset_holder: AssetHolder,
+        asset_id: AssetId,
+        balance_to_add: Balance,
+    ) -> DispatchResult {
+        let _ = Self::ensure_sufficient_balance(&asset_holder, &asset_id, balance_to_add)?;
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::unchecked_lock_tokens(portfolio_id, asset_id, balance_to_add);
+            }
+            AssetHolder::Account(account_id) => {
+                LockedBalance::<T>::mutate(account_id, asset_id, |l| {
+                    *l = l.saturating_add(balance_to_add)
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Subtracts `balance_to_remove` from the locked balance of `asset_holder` for `asset_id`.
+    pub fn remove_locked_balance(
+        asset_holder: AssetHolder,
+        asset_id: AssetId,
+        balance_to_remove: Balance,
+    ) -> DispatchResult {
+        let current_locked_balance = Self::get_holders_locked_balance(&asset_holder, &asset_id);
+        ensure!(
+            current_locked_balance >= balance_to_remove,
+            Error::<T>::InsufficientTokensLocked
+        );
+        Self::set_holders_locked_balance(
+            asset_holder,
+            asset_id,
+            current_locked_balance - balance_to_remove,
+        );
+        Ok(())
+    }
+
     /// Returns `Ok` if:
     /// - The transfer is between different DIDs;
     /// - If [`AssetHolder::Portfolio`], it must exist;
@@ -3403,8 +3547,8 @@ impl<T: AssetConfig> Pallet<T> {
     ) -> Result<Balance, DispatchError> {
         Self::ensure_granular(asset_id, value)?;
 
-        let current_balance = Self::get_holder_balance(holder, asset_id);
-        let locked_balance = Self::get_holder_locked_balance(holder, asset_id);
+        let current_balance = Self::get_holders_balance(holder, asset_id);
+        let locked_balance = Self::get_holders_locked_balance(holder, asset_id);
 
         let final_balance = current_balance
             .checked_sub(value)
@@ -3416,59 +3560,6 @@ impl<T: AssetConfig> Pallet<T> {
         );
 
         Ok(final_balance)
-    }
-
-    /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
-    /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
-    fn get_holder_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
-        match holder {
-            AssetHolder::Portfolio(portfolio_id) => {
-                PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
-            }
-            AssetHolder::Account(account_id) => Self::get_account_balance(account_id, asset_id),
-        }
-    }
-
-    /// If [`AssetHolder::Portfolio`], returns the locked balance from the portfolio pallet.
-    /// If [`AssetHolder::Account`], returns the locked balance from the asset pallet.
-    fn get_holder_locked_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
-        match holder {
-            AssetHolder::Portfolio(portfolio_id) => {
-                PortfolioPallet::<T>::get_portfolio_locked_balance(portfolio_id, asset_id)
-            }
-            AssetHolder::Account(account_id) => {
-                Self::get_account_locked_balance(account_id, asset_id)
-            }
-        }
-    }
-
-    /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
-    /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
-    fn get_holders_balance(asset_holder: &AssetHolder, asset_id: &AssetId) -> Balance {
-        match asset_holder {
-            AssetHolder::Portfolio(portfolio_id) => {
-                PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
-            }
-            AssetHolder::Account(account_id) => Self::get_account_balance(account_id, asset_id),
-        }
-    }
-
-    /// If [`AssetHolder::Portfolio`], updates the balance in the portfolio pallet.
-    /// If [`AssetHolder::Account`], updates the balance in the asset pallet.
-    fn set_holders_balance(
-        asset_holder: AssetHolder,
-        asset_id: AssetId,
-        new_balance: Balance,
-    ) -> DispatchResult {
-        match asset_holder {
-            AssetHolder::Portfolio(portfolio_id) => {
-                PortfolioPallet::<T>::set_portfolio_balance(&portfolio_id, asset_id, new_balance);
-                Ok(())
-            }
-            AssetHolder::Account(account_id) => {
-                Self::set_account_balance(account_id, asset_id, new_balance)
-            }
-        }
     }
 
     /// Transfers `value` of `asset_id` from `sender` to `receiver`.
@@ -3485,6 +3576,71 @@ impl<T: AssetConfig> Pallet<T> {
         let rcv_old_balance = Self::get_holders_balance(&receiver, &asset_id);
         let rcv_new_balance = rcv_old_balance.saturating_add(value);
         Self::set_holders_balance(receiver, asset_id, rcv_new_balance)?;
+        Ok(())
+    }
+
+    /// Returns `Ok` if:
+    /// - Asset holder is a portfolio and the caller has permissions and custody over it; or
+    /// - Asset holder is an account and the caller has permissions over it.
+    pub fn ensure_holder_permissions(
+        asset_holder: &AssetHolder,
+        custodian_did: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::ensure_portfolio_custody_and_permission(
+                    portfolio_id,
+                    custodian_did,
+                    secondary_key,
+                )
+            }
+            AssetHolder::Account(account_id) => {
+                Self::ensure_account_permissions(account_id, secondary_key, custodian_did)
+            }
+        }
+    }
+
+    /// Returns `Ok` if:
+    /// - secondary key is provided and matches the account_id; or
+    /// - the primary key of the DID matches the account_id.
+    fn ensure_account_permissions(
+        account_id: &AccountId32,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        primary_did: IdentityId,
+    ) -> DispatchResult {
+        let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
+
+        if let Some(sk) = secondary_key {
+            ensure!(sk.key == account_id, Error::<T>::UnauthorizedHolderKey);
+            return Ok(());
+        }
+
+        let primary_key = pallet_identity::Pallet::<T>::get_primary_key(primary_did)
+            .ok_or(Error::<T>::KeyNotFoundForDid)?;
+
+        ensure!(primary_key == account_id, Error::<T>::UnauthorizedHolderKey);
+        Ok(())
+    }
+
+    /// Returns `true` if the affirmation of the asset holder can be skipped for the given `asset_id`.
+    pub fn skip_asset_holder_affirmation(asset_holder: &AssetHolder, asset_id: &AssetId) -> bool {
+        if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
+            return PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id);
+        }
+
+        false
+    }
+
+    /// Returns `Ok` if:
+    /// - The DID associated to the asset holder exists, and
+    /// - If the asset holder is a portfolio and it is valid.
+    pub fn ensure_valid_holder(asset_holder: &AssetHolder) -> DispatchResult {
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(asset_holder)?;
+        pallet_identity::Pallet::<T>::ensure_id_record_exists(holder_did)?;
+        if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
+            PortfolioPallet::<T>::ensure_portfolio_validity(portfolio_id)?;
+        }
         Ok(())
     }
 }
@@ -3906,51 +4062,6 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn generate_asset_id(caller_acc: T::AccountId) -> AssetId {
         Self::generate_asset_id(caller_acc, false)
-    }
-
-    fn set_account_balance(
-        acc_id: AccountId32,
-        asset_id: AssetId,
-        new_balance: Balance,
-    ) -> DispatchResult {
-        let old_balance = Self::get_account_balance(&acc_id, &asset_id);
-
-        if new_balance.is_zero() {
-            AssetBalance::<T>::remove(&acc_id, &asset_id);
-            if old_balance > 0 {
-                let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
-                IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
-            }
-            return Ok(());
-        }
-
-        if old_balance.is_zero() {
-            let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
-            IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
-        }
-        AssetBalance::<T>::insert(acc_id, asset_id, new_balance);
-        Ok(())
-    }
-
-    fn get_account_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {
-        AssetBalance::<T>::get(acc_id, asset_id)
-    }
-
-    fn get_account_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance {
-        LockedBalance::<T>::get(account, asset_id)
-    }
-
-    fn set_account_locked_balance(
-        account: AccountId32,
-        asset_id: AssetId,
-        new_locked_balance: Balance,
-    ) {
-        if new_locked_balance.is_zero() {
-            LockedBalance::<T>::remove(&account, &asset_id);
-            return;
-        }
-
-        LockedBalance::<T>::insert(account, asset_id, new_locked_balance);
     }
 
     #[cfg(feature = "runtime-benchmarks")]

@@ -30,7 +30,7 @@ use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use crate::asset::{AssetHolder, AssetId};
 use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
-use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
+use crate::{impl_checked_inc, Balance, IdentityId, NFTs, Ticker};
 
 /// A global and unique venue ID.
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
@@ -476,15 +476,15 @@ impl AssetCount {
     }
 }
 
-/// Stores the [`AssetCount`] for the instruction, all portfolio that have pre-affirmed the transfer
-/// all portfolios that still have to approve the transfer, and the identity of all mediators.
+/// Stores the [`AssetCount`] for the instruction, all asset holders that have pre-affirmed the transfer
+/// all asset holders that still have to approve the transfer, and the identity of all mediators.
 pub struct InstructionInfo {
     /// The number of fungible, non fungible and off-chain transfers in the instruction.
     instruction_asset_count: AssetCount,
-    /// All portfolios that still need to affirm the instruction.
-    portfolios_pending_approval: BTreeSet<PortfolioId>,
-    /// All portfolios that have pre-approved the transfer of an asset.
-    portfolios_pre_approved: BTreeSet<PortfolioId>,
+    /// All asset holders that still need to affirm the instruction.
+    holders_pending_approval: BTreeSet<AssetHolder>,
+    /// All asset holders that have pre-approved the transfer of an asset.
+    holders_pre_approved: BTreeSet<AssetHolder>,
     /// All mediators that need to affirm the instruction.
     mediators: BTreeSet<IdentityId>,
 }
@@ -493,27 +493,27 @@ impl InstructionInfo {
     /// Creates an instance of [`InstructionInfo`].
     pub fn new(
         instruction_asset_count: AssetCount,
-        portfolios_pending_approval: BTreeSet<PortfolioId>,
-        portfolios_pre_approved: BTreeSet<PortfolioId>,
+        holders_pending_approval: BTreeSet<AssetHolder>,
+        holders_pre_approved: BTreeSet<AssetHolder>,
         mediators: BTreeSet<IdentityId>,
     ) -> Self {
         Self {
             instruction_asset_count,
-            portfolios_pending_approval,
-            portfolios_pre_approved,
+            holders_pending_approval,
+            holders_pre_approved,
             mediators,
         }
     }
 
-    /// Returns a slice of all portfolios that still have to affirm the instruction.
-    pub fn portfolios_pending_approval(&self) -> &BTreeSet<PortfolioId> {
-        &self.portfolios_pending_approval
+    /// Returns a slice of all asset holders that still have to affirm the instruction.
+    pub fn holders_pending_approval(&self) -> &BTreeSet<AssetHolder> {
+        &self.holders_pending_approval
     }
 
-    /// Returns a [`BTreeSet<&PortfolioId>`] of all portfolios that are in `self.portfolios_pre_approved`, but not in `self.portfolios_pending_approval`.
-    pub fn portfolios_pre_approved_difference(&self) -> BTreeSet<&PortfolioId> {
-        self.portfolios_pre_approved
-            .difference(&self.portfolios_pending_approval)
+    /// Returns a [`BTreeSet<&AssetHolder>`] of all asset holders that are in `self.holders_pre_approved`, but not in `self.holders_pending_approval`.
+    pub fn holders_pre_approved_difference(&self) -> BTreeSet<&AssetHolder> {
+        self.holders_pre_approved
+            .difference(&self.holders_pending_approval)
             .collect()
     }
 
@@ -523,9 +523,9 @@ impl InstructionInfo {
     }
 
     /// Returns the number of pending affirmations for the instruction.
-    /// The value must be equal to all unique portfolio that have not pre-approved the transfer + the number of offchain legs + the number of mediators.
+    /// The value must be equal to all unique asset holders that have not pre-approved the transfer + the number of offchain legs + the number of mediators.
     pub fn number_of_pending_affirmations(&self) -> u64 {
-        self.portfolios_pending_approval.len() as u64
+        self.holders_pending_approval.len() as u64
             + self.instruction_asset_count.off_chain() as u64
             + self.mediators.len() as u64
     }

@@ -745,7 +745,7 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
             type MaxNumberOfOffChainAssets = MaxNumberOfOffChainAssets;
-            type MaxNumberOfPortfolios = MaxNumberOfPortfolios;
+            type MaxNumberOfAssetHolders = MaxNumberOfAssetHolders;
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
             type MaxInstructionMediators = MaxInstructionMediators;
             type MaximumLockPeriod = MaximumLockPeriod;

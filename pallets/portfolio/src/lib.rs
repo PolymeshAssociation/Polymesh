@@ -57,7 +57,7 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait};
+use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
@@ -1101,7 +1101,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets the locked balance of `asset_id` in `portfolio` to `new_locked_balance`.
-    fn set_portfolio_locked_balance(
+    pub fn set_portfolio_locked_balance(
         portfolio: PortfolioId,
         asset_id: AssetId,
         new_locked_balance: Balance,
@@ -1136,68 +1136,19 @@ impl<T: Config> Pallet<T> {
     pub fn add_nft_to_portfolio(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
         PortfolioNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
     }
-}
 
-impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
-    fn lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
-        Self::ensure_sufficient_balance(&portfolio, &asset_id, amount)?;
-        Self::unchecked_lock_tokens(portfolio, asset_id, amount);
-        Ok(())
-    }
-
-    fn unlock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
-        let locked = Self::get_portfolio_locked_balance(&portfolio, &asset_id);
-        ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
-        Self::set_portfolio_locked_balance(portfolio, asset_id, locked - amount);
-        Ok(())
-    }
-
-    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
-        Self::ensure_portfolio_validity(portfolio)
-    }
-
-    fn ensure_portfolio_custody(portfolio: &PortfolioId, custodian: IdentityId) -> DispatchResult {
-        Self::ensure_portfolio_custody(portfolio, custodian)
-    }
-
-    fn ensure_portfolio_custody_and_permission(
-        portfolio: &PortfolioId,
-        custodian: IdentityId,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> DispatchResult {
-        Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
-    }
-
-    fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) -> DispatchResult {
-        ensure!(
-            Self::is_nft_owner(&portfolio_id, &asset_id, &nft_id),
-            Error::<T>::NFTNotFoundInPortfolio
-        );
-
-        ensure!(
-            !Self::is_nft_locked(&portfolio_id, &asset_id, &nft_id),
-            Error::<T>::NFTAlreadyLocked
-        );
-
+    /// Locks the given nft.
+    pub fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
         PortfolioLockedNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
-        Ok(())
     }
 
-    fn unlock_nft(
-        portfolio_id: &PortfolioId,
-        asset_id: &AssetId,
-        nft_id: &NFTId,
-    ) -> DispatchResult {
-        ensure!(
-            Self::is_nft_locked(portfolio_id, asset_id, nft_id),
-            Error::<T>::NFTNotLocked
-        );
-
+    /// Unlocks the given nft.
+    pub fn unlock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) {
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
-        Ok(())
     }
 
-    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
+    /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
+    pub fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
         if PortfolioCustodian::<T>::get(portfolio_id).is_some() {
             if T::AssetFn::asset_affirmation_exemption(asset_id) {
                 return true;

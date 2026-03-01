@@ -12,7 +12,7 @@ use crate::{
 };
 
 use crate::asset::AssetId;
-use crate::{AccountId as AccountId32, Balance, IdentityId};
+use crate::{Balance, IdentityId};
 
 pub trait AssetFnConfig: frame_system::Config {
     type AssetFn: AssetFnTrait<Self::AccountId>;
@@ -36,26 +36,6 @@ pub trait AssetFnTrait<AccountId> {
 
     /// Returns the next [`AssetID`] for the `caller_acc`.
     fn generate_asset_id(caller_acc: AccountId) -> AssetId;
-
-    /// Sets the account's balance for the given `asset_id`.
-    fn set_account_balance(
-        account: AccountId32,
-        asset_id: AssetId,
-        new_balance: Balance,
-    ) -> DispatchResult;
-
-    /// Returns the account's balance for the given `asset_id`.
-    fn get_account_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;
-
-    /// Returns the account's locked balance for the given `asset_id`.
-    fn get_account_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;
-
-    /// Sets the account's locked balance for the given `asset_id`.
-    fn set_account_locked_balance(
-        account: AccountId32,
-        asset_id: AssetId,
-        new_locked_balance: Balance,
-    );
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(caller: AccountId, ticker: Ticker) -> DispatchResult;
