@@ -3,7 +3,7 @@
 
 import type { BTreeMap, BTreeSet, Bytes, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u128, u32, u64 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
-import type { AccountId, AccountId32, Balance, Permill, Weight } from '@polkadot/types/interfaces/runtime';
+import type { AccountId, AccountId32, Balance, Hash, Permill, RuntimeCall, Weight } from '@polkadot/types/interfaces/runtime';
 import type { DispatchError } from '@polkadot/types/interfaces/system';
 
 /** @name AffirmationCount */
@@ -86,11 +86,11 @@ export interface AuthorizationData extends Enum {
   readonly asPortfolioCustody: PortfolioId;
   readonly isBecomeAgent: boolean;
   readonly asBecomeAgent: ITuple<[PolymeshAssetId, AgentGroup]>;
-  readonly isAddRelayerPayingKey: boolean;
-  readonly asAddRelayerPayingKey: ITuple<[AccountId32, AccountId32, u128]>;
+  readonly isOldAddRelayerPayingKey: boolean;
+  readonly asOldAddRelayerPayingKey: ITuple<[AccountId32, AccountId32, u128]>;
   readonly isRotatePrimaryKeyToSecondary: boolean;
   readonly asRotatePrimaryKeyToSecondary: Permissions;
-  readonly type: 'AttestPrimaryKeyRotation' | 'RotatePrimaryKey' | 'TransferTicker' | 'AddMultiSigSigner' | 'TransferAssetOwnership' | 'JoinIdentity' | 'PortfolioCustody' | 'BecomeAgent' | 'AddRelayerPayingKey' | 'RotatePrimaryKeyToSecondary';
+  readonly type: 'AttestPrimaryKeyRotation' | 'RotatePrimaryKey' | 'TransferTicker' | 'AddMultiSigSigner' | 'TransferAssetOwnership' | 'JoinIdentity' | 'PortfolioCustody' | 'BecomeAgent' | 'OldAddRelayerPayingKey' | 'RotatePrimaryKeyToSecondary';
 }
 
 /** @name AuthorizationNonce */
@@ -125,6 +125,51 @@ export interface CappedFee extends u64 {}
 
 /** @name CddId */
 export interface CddId extends U8aFixed {}
+
+/** @name ChainScopedMessage<Message> */
+export interface ChainScopedMessage<Message> extends Struct {
+  readonly genesisHash: Hash;
+  readonly nonceOrId: u64;
+  readonly label: Text;
+  readonly expiresAt: PolymeshMoment;
+  readonly message: Message;
+}
+
+/** @name ChainScopedMessageFundraiserReceipt */
+export interface ChainScopedMessageFundraiserReceipt extends Struct {
+  readonly genesisHash: Hash;
+  readonly nonceOrId: u64;
+  readonly label: Text;
+  readonly expiresAt: PolymeshMoment;
+  readonly message: FundraiserReceipt;
+}
+
+/** @name ChainScopedMessageIdentityId */
+export interface ChainScopedMessageIdentityId extends Struct {
+  readonly genesisHash: Hash;
+  readonly nonceOrId: u64;
+  readonly label: Text;
+  readonly expiresAt: PolymeshMoment;
+  readonly message: IdentityId;
+}
+
+/** @name ChainScopedMessageReceipt */
+export interface ChainScopedMessageReceipt extends Struct {
+  readonly genesisHash: Hash;
+  readonly nonceOrId: u64;
+  readonly label: Text;
+  readonly expiresAt: PolymeshMoment;
+  readonly message: Receipt;
+}
+
+/** @name ChainScopedMessageRuntimeCall */
+export interface ChainScopedMessageRuntimeCall extends Struct {
+  readonly genesisHash: Hash;
+  readonly nonceOrId: u64;
+  readonly label: Text;
+  readonly expiresAt: PolymeshMoment;
+  readonly message: RuntimeCall;
+}
 
 /** @name Claim */
 export interface Claim extends Enum {
@@ -470,6 +515,9 @@ export interface CountryCode extends Enum {
   readonly type: 'Af' | 'Ax' | 'Al' | 'Dz' | 'As' | 'Ad' | 'Ao' | 'Ai' | 'Aq' | 'Ag' | 'Ar' | 'Am' | 'Aw' | 'Au' | 'At' | 'Az' | 'Bs' | 'Bh' | 'Bd' | 'Bb' | 'By' | 'Be' | 'Bz' | 'Bj' | 'Bm' | 'Bt' | 'Bo' | 'Ba' | 'Bw' | 'Bv' | 'Br' | 'Vg' | 'Io' | 'Bn' | 'Bg' | 'Bf' | 'Bi' | 'Kh' | 'Cm' | 'Ca' | 'Cv' | 'Ky' | 'Cf' | 'Td' | 'Cl' | 'Cn' | 'Hk' | 'Mo' | 'Cx' | 'Cc' | 'Co' | 'Km' | 'Cg' | 'Cd' | 'Ck' | 'Cr' | 'Ci' | 'Hr' | 'Cu' | 'Cy' | 'Cz' | 'Dk' | 'Dj' | 'Dm' | 'Do' | 'Ec' | 'Eg' | 'Sv' | 'Gq' | 'Er' | 'Ee' | 'Et' | 'Fk' | 'Fo' | 'Fj' | 'Fi' | 'Fr' | 'Gf' | 'Pf' | 'Tf' | 'Ga' | 'Gm' | 'Ge' | 'De' | 'Gh' | 'Gi' | 'Gr' | 'Gl' | 'Gd' | 'Gp' | 'Gu' | 'Gt' | 'Gg' | 'Gn' | 'Gw' | 'Gy' | 'Ht' | 'Hm' | 'Va' | 'Hn' | 'Hu' | 'Is' | 'In' | 'Id' | 'Ir' | 'Iq' | 'Ie' | 'Im' | 'Il' | 'It' | 'Jm' | 'Jp' | 'Je' | 'Jo' | 'Kz' | 'Ke' | 'Ki' | 'Kp' | 'Kr' | 'Kw' | 'Kg' | 'La' | 'Lv' | 'Lb' | 'Ls' | 'Lr' | 'Ly' | 'Li' | 'Lt' | 'Lu' | 'Mk' | 'Mg' | 'Mw' | 'My' | 'Mv' | 'Ml' | 'Mt' | 'Mh' | 'Mq' | 'Mr' | 'Mu' | 'Yt' | 'Mx' | 'Fm' | 'Md' | 'Mc' | 'Mn' | 'Me' | 'Ms' | 'Ma' | 'Mz' | 'Mm' | 'Na' | 'Nr' | 'Np' | 'Nl' | 'An' | 'Nc' | 'Nz' | 'Ni' | 'Ne' | 'Ng' | 'Nu' | 'Nf' | 'Mp' | 'No' | 'Om' | 'Pk' | 'Pw' | 'Ps' | 'Pa' | 'Pg' | 'Py' | 'Pe' | 'Ph' | 'Pn' | 'Pl' | 'Pt' | 'Pr' | 'Qa' | 'Re' | 'Ro' | 'Ru' | 'Rw' | 'Bl' | 'Sh' | 'Kn' | 'Lc' | 'Mf' | 'Pm' | 'Vc' | 'Ws' | 'Sm' | 'St' | 'Sa' | 'Sn' | 'Rs' | 'Sc' | 'Sl' | 'Sg' | 'Sk' | 'Si' | 'Sb' | 'So' | 'Za' | 'Gs' | 'Ss' | 'Es' | 'Lk' | 'Sd' | 'Sr' | 'Sj' | 'Sz' | 'Se' | 'Ch' | 'Sy' | 'Tw' | 'Tj' | 'Tz' | 'Th' | 'Tl' | 'Tg' | 'Tk' | 'To' | 'Tt' | 'Tn' | 'Tr' | 'Tm' | 'Tc' | 'Tv' | 'Ug' | 'Ua' | 'Ae' | 'Gb' | 'Us' | 'Um' | 'Uy' | 'Uz' | 'Vu' | 'Ve' | 'Vn' | 'Vi' | 'Wf' | 'Eh' | 'Ye' | 'Zm' | 'Zw' | 'Bq' | 'Cw' | 'Sx';
 }
 
+/** @name CreateChildIdentityAuthMessage */
+export interface CreateChildIdentityAuthMessage extends ChainScopedMessageIdentityId {}
+
 /** @name CustomClaimTypeId */
 export interface CustomClaimTypeId extends u32 {}
 
@@ -527,7 +575,6 @@ export interface FundraiserId extends u64 {}
 
 /** @name FundraiserReceipt */
 export interface FundraiserReceipt extends Struct {
-  readonly uid: u64;
   readonly fundraiserId: FundraiserId;
   readonly legId: LegId;
   readonly senderIdentity: IdentityId;
@@ -535,6 +582,9 @@ export interface FundraiserReceipt extends Struct {
   readonly ticker: Ticker;
   readonly amount: Balance;
 }
+
+/** @name FundraiserReceiptMessage */
+export interface FundraiserReceiptMessage extends ChainScopedMessageFundraiserReceipt {}
 
 /** @name FungibleLeg */
 export interface FungibleLeg extends Struct {
@@ -665,7 +715,9 @@ export interface PortfolioKind extends Enum {
   readonly isDefault: boolean;
   readonly isUser: boolean;
   readonly asUser: PortfolioNumber;
-  readonly type: 'Default' | 'User';
+  readonly isAccountId: boolean;
+  readonly asAccountId: AccountId32;
+  readonly type: 'Default' | 'User' | 'AccountId';
 }
 
 /** @name PortfolioNumber */
@@ -713,7 +765,6 @@ export interface ProtocolOp extends Enum {
 
 /** @name Receipt */
 export interface Receipt extends Struct {
-  readonly uid: u64;
   readonly instructionId: InstructionId;
   readonly legId: LegId;
   readonly senderIdentity: IdentityId;
@@ -721,6 +772,12 @@ export interface Receipt extends Struct {
   readonly ticker: Ticker;
   readonly amount: Balance;
 }
+
+/** @name ReceiptMessage */
+export interface ReceiptMessage extends ChainScopedMessageReceipt {}
+
+/** @name RelayTxMessage */
+export interface RelayTxMessage extends ChainScopedMessageRuntimeCall {}
 
 /** @name RequirementReport */
 export interface RequirementReport extends Struct {
@@ -762,6 +819,9 @@ export interface SecondaryKey extends Struct {
   readonly permissions: Permissions;
 }
 
+/** @name SecondaryKeyAuthMessage */
+export interface SecondaryKeyAuthMessage extends ChainScopedMessageIdentityId {}
+
 /** @name Signatory */
 export interface Signatory extends Enum {
   readonly isIdentity: boolean;
@@ -780,13 +840,6 @@ export interface StatClaim extends Enum {
   readonly isJurisdiction: boolean;
   readonly asJurisdiction: Option<CountryCode>;
   readonly type: 'Accredited' | 'Affiliate' | 'Jurisdiction';
-}
-
-/** @name TargetIdAuthorization */
-export interface TargetIdAuthorization extends Struct {
-  readonly targetId: IdentityId;
-  readonly nonce: AuthorizationNonce;
-  readonly expiresAt: PolymeshMoment;
 }
 
 /** @name TargetIdentity */
