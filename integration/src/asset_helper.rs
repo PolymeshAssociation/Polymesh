@@ -2,7 +2,11 @@ use anyhow::Result;
 use std::collections::BTreeSet;
 
 #[cfg(feature = "current_release")]
-use polymesh_api::types::polymesh_primitives::settlement::InstructionId;
+use polymesh_api::types::polymesh_primitives::{
+    asset::{AssetHolder, AssetHolderKind},
+    settlement::InstructionId,
+};
+
 use polymesh_api::types::polymesh_primitives::{
     asset::{AssetName, AssetType},
     identity_id::{PortfolioId, PortfolioKind},
@@ -61,7 +65,8 @@ impl AssetHelper {
         mint: u128,
         signers: Vec<AccountId>,
         need_venue: bool,
-        portfolio_kind: Option<PortfolioKind>,
+        #[cfg(feature = "current_release")] kind: Option<AssetHolderKind>,
+        #[cfg(feature = "previous_release")] kind: Option<PortfolioKind>,
     ) -> Result<Self> {
         // Create a new venue.
         let venue_res = if need_venue {
@@ -100,14 +105,15 @@ impl AssetHelper {
             .expect("Asset ID not found");
 
         // Mint some tokens.
+        #[cfg(feature = "current_release")]
+        let kind = kind.unwrap_or(AssetHolderKind::DefaultPortfolio);
+        #[cfg(feature = "previous_release")]
+        let kind = kind.unwrap_or(PortfolioKind::Default);
+
         let mut mint_res = api
             .call()
             .asset()
-            .issue(
-                asset_id,
-                mint,
-                portfolio_kind.unwrap_or(PortfolioKind::Default),
-            )?
+            .issue(asset_id, mint, kind)?
             .submit_and_watch(issuer)
             .await?;
 
@@ -136,12 +142,17 @@ impl AssetHelper {
 
     /// Mint some more tokens.
     pub async fn mint(&mut self, amount: u128) -> Result<()> {
+        #[cfg(feature = "current_release")]
+        let kind = AssetHolderKind::DefaultPortfolio;
+        #[cfg(feature = "previous_release")]
+        let kind = PortfolioKind::Default;
+
         // Mint some tokens.
         let mut mint_res = self
             .api
             .call()
             .asset()
-            .issue(self.asset_id, amount, PortfolioKind::Default)?
+            .issue(self.asset_id, amount, kind)?
             .submit_and_watch(&mut self.issuer)
             .await?;
 
@@ -161,12 +172,18 @@ impl AssetHelper {
         let total = amount * investors.len() as u128;
         self.mint(total).await?;
 
-        // Issuer portfolios.
         let issuer_portfolio = PortfolioId {
             did: self.issuer_did,
             kind: PortfolioKind::Default,
         };
-        let issuer_portfolios = [issuer_portfolio].into_iter().collect::<BTreeSet<_>>();
+
+        // Issuer.
+        #[cfg(feature = "current_release")]
+        let issuer = AssetHolder::Portfolio(issuer_portfolio);
+        #[cfg(feature = "previous_release")]
+        let issuer = issuer_portfolio;
+
+        let issuer_holdings = [issuer.clone()].into_iter().collect::<BTreeSet<_>>();
 
         let mut pending_settlements = Vec::new();
         for batch in investors.chunks_mut(10) {
@@ -181,10 +198,15 @@ impl AssetHelper {
                     kind: PortfolioKind::Default,
                 };
 
+                #[cfg(feature = "current_release")]
+                let investor = AssetHolder::Portfolio(investor_portfolio);
+                #[cfg(feature = "previous_release")]
+                let investor = investor_portfolio;
+
                 // Create a simple Settlement to transfer tokens from the issuer to the investor.
                 legs.push(Leg::Fungible {
-                    sender: issuer_portfolio,
-                    receiver: investor_portfolio,
+                    sender: issuer.clone(),
+                    receiver: investor,
                     asset_id: self.asset_id,
                     amount,
                 });
@@ -202,7 +224,7 @@ impl AssetHelper {
                     None,
                     None,
                     legs.clone(),
-                    issuer_portfolios.clone(),
+                    issuer_holdings.clone(),
                     None,
                 )?
                 .submit_and_watch(&mut self.issuer)
@@ -216,19 +238,21 @@ impl AssetHelper {
             // The investors need to affirm the settlement.
             let mut pending_affirms = Vec::new();
             for investor in batch.iter_mut() {
+                let investor_portfolio = PortfolioId {
+                    did: investor.did.expect("Investor DID"),
+                    kind: PortfolioKind::Default,
+                };
+
+                #[cfg(feature = "current_release")]
+                let inv_holding = AssetHolder::Portfolio(investor_portfolio);
+                #[cfg(feature = "previous_release")]
+                let inv_holding = investor_portfolio;
+
                 let affirm_res = self
                     .api
                     .call()
                     .settlement()
-                    .affirm_instruction(
-                        settlement_id,
-                        vec![PortfolioId {
-                            did: investor.did.expect("Investor DID"),
-                            kind: PortfolioKind::Default,
-                        }]
-                        .into_iter()
-                        .collect(),
-                    )?
+                    .affirm_instruction(settlement_id, vec![inv_holding].into_iter().collect())?
                     .submit_and_watch(*investor)
                     .await?;
                 pending_affirms.push(affirm_res);

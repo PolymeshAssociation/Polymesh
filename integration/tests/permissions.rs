@@ -125,8 +125,11 @@ async fn secondary_keys_permissions() -> Result<()> {
 
     // Prepare a POLYX transfer to one user.
     let user0_pk = users[0].account();
-    let balance_transfer_call =
-        Arc::new(tester.api.call().balances().transfer_with_memo(user0_pk.into(), 1, None)?);
+    let balance_transfer_call = Arc::new(tester.api.call().balances().transfer_with_memo(
+        user0_pk.into(),
+        1,
+        None,
+    )?);
     // Prepare `system.remark` call.
     let remark_call = Arc::new(tester.api.call().system().remark(vec![])?);
     // Prepare `settlement.create_venue` call.
@@ -242,8 +245,11 @@ async fn secondary_key_change_identity() -> Result<()> {
         .expect("Missing JoinIdentity auth id");
 
     // Prepare a POLYX transfer to one user.
-    let balance_transfer_call =
-        Arc::new(tester.api.call().balances().transfer_with_memo(user0_pk.into(), 1, None)?);
+    let balance_transfer_call = Arc::new(tester.api.call().balances().transfer_with_memo(
+        user0_pk.into(),
+        1,
+        None,
+    )?);
     // Prepare `system.remark` call.
     let remark_call = Arc::new(tester.api.call().system().remark(vec![])?);
     // Prepare `settlement.create_venue` call.

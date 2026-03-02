@@ -7,6 +7,9 @@ use polymesh_api::types::polymesh_primitives::{
     settlement::{Leg, LegId, ReceiptDetails, SettlementType, VenueDetails, VenueType},
 };
 
+#[cfg(feature = "current_release")]
+use polymesh_api::types::polymesh_primitives::asset::{AssetHolder, AssetHolderKind};
+
 /// Test the asset helper.
 #[tokio::test]
 async fn asset_helper() -> Result<()> {
@@ -62,6 +65,17 @@ async fn simple_settlement() -> Result<()> {
         kind: PortfolioKind::Default,
     };
 
+    #[cfg(feature = "current_release")]
+    let issuer = AssetHolder::Portfolio(issuer_portfolio);
+    #[cfg(feature = "previous_release")]
+    let issuer = issuer_portfolio;
+
+    #[cfg(feature = "current_release")]
+    let investor_holding = AssetHolder::Portfolio(investor_portfolio);
+    #[cfg(feature = "previous_release")]
+    let investor_holding = investor_portfolio;
+
+
     // Create a new venue.
     let mut venue_res = tester
         .api
@@ -96,12 +110,17 @@ async fn simple_settlement() -> Result<()> {
         .await?
         .expect("Asset ID not found");
 
+    #[cfg(feature = "current_release")]
+    let kind = AssetHolderKind::DefaultPortfolio;
+    #[cfg(feature = "previous_release")]
+    let kind = PortfolioKind::Default;
+
     // Mint some tokens.
     let mut mint_res = tester
         .api
         .call()
         .asset()
-        .issue(asset_id, 1_000_000 * ONE_POLYX, PortfolioKind::Default)?
+        .issue(asset_id, 1_000_000 * ONE_POLYX, kind)?
         .submit_and_watch(&mut asset_issuer)
         .await?;
 
@@ -125,8 +144,8 @@ async fn simple_settlement() -> Result<()> {
             None,
             None,
             vec![Leg::Fungible {
-                sender: issuer_portfolio,
-                receiver: investor_portfolio,
+                sender: issuer.clone(),
+                receiver: investor_holding.clone(),
                 asset_id,
                 amount: 10 * ONE_POLYX,
             }],
@@ -149,7 +168,7 @@ async fn simple_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .affirm_instruction(settlement_id, vec![issuer_portfolio].into_iter().collect())?
+        .affirm_instruction(settlement_id, vec![issuer].into_iter().collect())?
         .submit_and_watch(&mut asset_issuer)
         .await?;
 
@@ -160,7 +179,7 @@ async fn simple_settlement() -> Result<()> {
         .settlement()
         .affirm_instruction(
             settlement_id,
-            vec![investor_portfolio].into_iter().collect(),
+            vec![investor_holding].into_iter().collect(),
         )?
         .submit_and_watch(&mut investor)
         .await?;
@@ -222,6 +241,16 @@ async fn offchain_settlement() -> Result<()> {
         kind: PortfolioKind::Default,
     };
 
+    #[cfg(feature = "current_release")]
+    let issuer_holding = AssetHolder::Portfolio(issuer_portfolio);
+    #[cfg(feature = "previous_release")]
+    let issuer_holding = issuer_portfolio;
+
+    #[cfg(feature = "current_release")]
+    let investor_holding = AssetHolder::Portfolio(investor_portfolio);
+    #[cfg(feature = "previous_release")]
+    let investor_holding = investor_portfolio;
+
     let ticker = Ticker(*b"OFFCHAIN0000");
     let amount = 10u128;
 
@@ -237,8 +266,8 @@ async fn offchain_settlement() -> Result<()> {
             None,
             vec![
                 Leg::Fungible {
-                    sender: issuer_portfolio,
-                    receiver: investor_portfolio,
+                    sender: issuer_holding.clone(),
+                    receiver: investor_holding.clone(),
                     asset_id: asset_helper.asset_id,
                     amount: 10 * ONE_POLYX,
                 },
@@ -249,7 +278,7 @@ async fn offchain_settlement() -> Result<()> {
                     amount,
                 },
             ],
-            [issuer_portfolio].into(),
+            [issuer_holding].into(),
             None,
         )?
         .submit_and_watch(&mut venue)
@@ -319,7 +348,7 @@ async fn offchain_settlement() -> Result<()> {
         .affirm_with_receipts(
             instruction_id,
             vec![receipt_details],
-            [investor_portfolio].into(),
+            [investor_holding].into(),
         )?
         .submit_and_watch(&mut investor1)
         .await?;
