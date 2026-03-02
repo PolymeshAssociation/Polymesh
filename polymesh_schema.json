@@ -635,14 +635,14 @@
       "ids": "Vec<NFTId>"
     },
     "FungibleLeg": {
-      "sender": "PortfolioId",
-      "receiver": "PortfolioId",
+      "sender": "AssetHolder",
+      "receiver": "AssetHolder",
       "assetId": "PolymeshAssetId",
       "amount": "Balance"
     },
     "NonFungibleLeg": {
-      "sender": "PortfolioId",
-      "receiver": "PortfolioId",
+      "sender": "AssetHolder",
+      "receiver": "AssetHolder",
       "nfts": "NFTs"
     },
     "OffChainLeg": {
@@ -689,6 +689,19 @@
     "ConditionReport": {
       "satisfied": "bool",
       "condition": "Condition"
+    },
+    "AssetHolderKind": {
+      "_enum": {
+        "Account": "",
+        "DefaultPortfolio": "",
+        "UserPortfolio": "PortfolioNumber"
+      }
+    },
+    "AssetHolder": {
+      "_enum": {
+        "Portfolio": "PortfolioId",
+        "Account": "AccountId32"
+      }
     }
   },
   "rpc": {
@@ -854,13 +867,13 @@
         "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
         "params": [
           {
-            "name": "sender_portfolio",
-            "type": "PortfolioId",
+            "name": "sender",
+            "type": "AssetHolder",
             "isOptional": false
           },
           {
-            "name": "receiver_portfolio",
-            "type": "PortfolioId",
+            "name": "receiver",
+            "type": "AssetHolder",
             "isOptional": false
           },
           {
@@ -916,13 +929,13 @@
         "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
         "params": [
           {
-            "name": "sender_portfolio",
-            "type": "PortfolioId",
+            "name": "sender",
+            "type": "AssetHolder",
             "isOptional": false
           },
           {
-            "name": "receiver_portfolio",
-            "type": "PortfolioId",
+            "name": "receiver",
+            "type": "AssetHolder",
             "isOptional": false
           },
           {
@@ -970,8 +983,8 @@
             "isOptional": false
           },
           {
-            "name": "portfolios",
-            "type": "Vec<PortfolioId>",
+            "name": "holder_set",
+            "type": "Vec<AssetHolder>",
             "isOptional": false
           },
           {
@@ -1036,12 +1049,12 @@
             "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
             "params": [
               {
-                "name": "sender_portfolio",
-                "type": "PortfolioId"
+                "name": "sender",
+                "type": "AssetHolder"
               },
               {
-                "name": "receiver_portfolio",
-                "type": "PortfolioId"
+                "name": "receiver",
+                "type": "AssetHolder"
               },
               {
                 "name": "asset_id",
@@ -1141,12 +1154,12 @@
             "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
             "params": [
               {
-                "name": "sender_portfolio",
-                "type": "PortfolioId"
+                "name": "sender",
+                "type": "AssetHolder"
               },
               {
-                "name": "receiver_portfolio",
-                "type": "PortfolioId"
+                "name": "receiver",
+                "type": "AssetHolder"
               },
               {
                 "name": "nfts",
@@ -1184,8 +1197,8 @@
                 "type": "InstructionId"
               },
               {
-                "name": "portfolios",
-                "type": "Vec<PortfolioId>"
+                "name": "holder_set",
+                "type": "Vec<AssetHolder>"
               }
             ],
             "type": "AffirmationCount"
