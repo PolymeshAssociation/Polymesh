@@ -89,6 +89,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InsufficientBalance: AugmentedError<ApiType>;
       /**
+       * Insufficient tokens are locked.
+       **/
+      InsufficientTokensLocked: AugmentedError<ApiType>;
+      /**
        * Some `AssetIdentifier` was invalid.
        **/
       InvalidAssetIdentifier: AugmentedError<ApiType>;
@@ -125,9 +129,17 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidTransferInvalidReceiverDID: AugmentedError<ApiType>;
       /**
+       * The sender identity can't be the same as the receiver identity.
+       **/
+      InvalidTransferSenderDidMatchesReceiverDid: AugmentedError<ApiType>;
+      /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
+      /**
+       * No key was found for the Identity
+       **/
+      KeyNotFoundForDid: AugmentedError<ApiType>;
       /**
        * Maximum length of asset name has been exceeded.
        **/
@@ -204,6 +216,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The user is not authorized.
        **/
       Unauthorized: AugmentedError<ApiType>;
+      /**
+       * The key does not have permission to access the account.
+       **/
+      UnauthorizedHolderKey: AugmentedError<ApiType>;
       /**
        * Attempt to call an extrinsic that is only permitted for fungible tokens.
        **/
@@ -987,10 +1003,6 @@ declare module '@polkadot/api-base/types/errors' {
     };
     identity: {
       /**
-       * Account based portfolios cannot have custodians.
-       **/
-      AccountBasedPortfoliosCannotHaveCustodians: AugmentedError<ApiType>;
-      /**
        * The account key is being used, it can't be unlinked.
        **/
       AccountKeyIsBeingUsed: AugmentedError<ApiType>;
@@ -1064,6 +1076,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       FailedToChargeFee: AugmentedError<ApiType>;
       /**
+       * No did was found for the account key.
+       **/
+      IdentityNotFoundForAccountPortfolio: AugmentedError<ApiType>;
+      /**
        * Account Id cannot be extracted from signer
        **/
       InvalidAccountKey: AugmentedError<ApiType>;
@@ -1120,10 +1136,6 @@ declare module '@polkadot/api-base/types/errors' {
        * The secondary keys contain the primary key.
        **/
       SecondaryKeysContainPrimaryKey: AugmentedError<ApiType>;
-      /**
-       * Secondary keys are no longer allowed in DID registration.
-       **/
-      SecondaryKeysNotAllowed: AugmentedError<ApiType>;
       /**
        * The target DID does not exist or is locked.
        **/
@@ -1376,7 +1388,7 @@ declare module '@polkadot/api-base/types/errors' {
       /**
        * The sender identity can't be the same as the receiver identity.
        **/
-      InvalidNFTTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
+      InvalidNFTTransferSenderDidMatchesReceiverDid: AugmentedError<ApiType>;
       /**
        * The maximum number of metadata keys was exceeded.
        **/
@@ -1389,6 +1401,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The NFT is locked.
        **/
       NFTIsLocked: AugmentedError<ApiType>;
+      /**
+       * The NFT is not locked.
+       **/
+      NFTIsNotLocked: AugmentedError<ApiType>;
       /**
        * The NFT does not exist.
        **/
@@ -1619,10 +1635,6 @@ declare module '@polkadot/api-base/types/errors' {
     };
     portfolio: {
       /**
-       * Account based portfolios cannot have custodians.
-       **/
-      AccountBasedPortfoliosCannotHaveCustodians: AugmentedError<ApiType>;
-      /**
        * The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
        **/
       BadAuthorizationType: AugmentedError<ApiType>;
@@ -1665,7 +1677,7 @@ declare module '@polkadot/api-base/types/errors' {
       /**
        * The sender identity can't be the same as the receiver identity.
        **/
-      InvalidTransferSenderIdMatchesReceiverId: AugmentedError<ApiType>;
+      InvalidTransferSenderDidMatchesReceiverDid: AugmentedError<ApiType>;
       /**
        * Key not found for caller.
        **/
@@ -1781,25 +1793,25 @@ declare module '@polkadot/api-base/types/errors' {
     };
     relayer: {
       /**
-       * The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
+       * The relay transaction has expired.
        **/
-      BadAuthorizationType: AugmentedError<ApiType>;
+      ExpiredRelayTx: AugmentedError<ApiType>;
       /**
-       * The caller's identity was not found.
+       * Offchain signature is invalid
        **/
-      IdentityNotFound: AugmentedError<ApiType>;
+      InvalidSignature: AugmentedError<ApiType>;
       /**
        * The `user_key` doesn't have a `paying_key`.
        **/
       NoPayingKey: AugmentedError<ApiType>;
       /**
-       * The signer is not authorized for `paying_key`.
+       * There is no pending subsidy from the `paying_key` for the `user_key`.
        **/
-      NotAuthorizedForPayingKey: AugmentedError<ApiType>;
+      NoPendingSubsidy: AugmentedError<ApiType>;
       /**
-       * The signer is not authorized for `user_key`.
+       * The signer is not the `paying_key` or the `user_key`.
        **/
-      NotAuthorizedForUserKey: AugmentedError<ApiType>;
+      NotAuthorized: AugmentedError<ApiType>;
       /**
        * The `user_key` has a different `paying_key`.
        **/
@@ -1808,14 +1820,6 @@ declare module '@polkadot/api-base/types/errors' {
        * The remaining POLYX for `user_key` overflowed.
        **/
       Overflow: AugmentedError<ApiType>;
-      /**
-       * The `paying_key` is not attached to an active DID.
-       **/
-      PayingKeyDidInactive: AugmentedError<ApiType>;
-      /**
-       * The `user_key` is not attached to an active DID.
-       **/
-      UserKeyDidInactive: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -2018,6 +2022,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Receipt already used.
        **/
       ReceiptAlreadyClaimed: AugmentedError<ApiType>;
+      /**
+       * The receipt has expired and can no longer be claimed.
+       **/
+      ReceiptExpired: AugmentedError<ApiType>;
       /**
        * Off-chain receipts can only be used for off-chain leg type.
        **/
@@ -2326,6 +2334,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       Overflow: AugmentedError<ApiType>;
       /**
+       * The off-chain receipt has expired and can no longer be used for investment.
+       **/
+      ReceiptExpired: AugmentedError<ApiType>;
+      /**
        * Sender does not have required permissions for the requested operation.
        **/
       Unauthorized: AugmentedError<ApiType>;
@@ -2555,18 +2567,6 @@ declare module '@polkadot/api-base/types/errors' {
       [key: string]: AugmentedError<ApiType>;
     };
     utility: {
-      /**
-       * Provided nonce was invalid
-       * If the provided nonce < current nonce, the call was already executed
-       * If the provided nonce > current nonce, the call(s) before the current failed to execute
-       * POLYMESH error
-       **/
-      InvalidNonce: AugmentedError<ApiType>;
-      /**
-       * Offchain signature is invalid
-       * POLYMESH error
-       **/
-      InvalidSignature: AugmentedError<ApiType>;
       /**
        * Too many calls batched.
        **/

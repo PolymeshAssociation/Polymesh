@@ -54,7 +54,7 @@ export async function mintingAsset(
   ticker: Ticker
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.asset.issue(ticker, 100, { Default: "" });
+  const transaction = api.tx.asset.issue(ticker, 100, { DefaultPortfolio: "" });
   await sendTx(signer, transaction);
 }
 
