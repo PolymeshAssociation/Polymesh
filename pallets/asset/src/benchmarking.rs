@@ -122,14 +122,17 @@ pub(crate) fn create_sample_asset<T: AssetConfig>(
     asset_id
 }
 
-pub(crate) fn create_and_issue_sample_asset<T: AssetConfig>(asset_owner: &User<T>) -> AssetId {
+pub(crate) fn create_and_issue_sample_asset<T: AssetConfig>(
+    asset_owner: &User<T>,
+    asset_holder_kind: Option<AssetHolderKind>,
+) -> AssetId {
     let asset_id = create_sample_asset::<T>(asset_owner, true);
 
     Pallet::<T>::issue(
         asset_owner.origin().into(),
         asset_id,
         (ONE_UNIT * POLY).into(),
-        AssetHolderKind::DefaultPortfolio,
+        asset_holder_kind.unwrap_or_default(),
     )
     .unwrap();
 
@@ -164,7 +167,10 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     };
 
     // Creates the asset
-    let asset_id = create_and_issue_sample_asset::<T>(sender);
+    let asset_id = create_and_issue_sample_asset::<T>(
+        sender,
+        use_account_portfolio.then_some(AssetHolderKind::Account),
+    );
     if move_to_sender_portfolio {
         if let AssetHolder::Portfolio(sender_portfolio) = &sender_holdings {
             move_from_default_portfolio::<T>(
