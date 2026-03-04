@@ -177,9 +177,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::current_storage_version() {
+            if Pallet::<T>::on_chain_storage_version() <= STORAGE_VERSION {
                 migrations::migrate_to_v7::<T>();
-                StorageVersion::put(&StorageVersion::new(7));
+                STORAGE_VERSION.put::<Pallet<T>>();
             }
             Weight::zero()
         }

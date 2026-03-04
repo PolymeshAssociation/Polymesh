@@ -34,7 +34,7 @@ pub fn migrate_to_v7<T: Config>() -> Weight {
 
     if let Some(cursor) = result.maybe_cursor {
         log::info!("nft::migrations second clear call");
-        frame_support::migration::clear_storage_prefix(
+        let _ = frame_support::migration::clear_storage_prefix(
             Pallet::<T>::name().as_bytes(),
             b"NFTOwner",
             b"",
