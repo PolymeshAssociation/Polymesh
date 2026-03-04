@@ -43,6 +43,8 @@ pub trait WeightInfo {
 
 pub use pallet::*;
 
+mod migrations;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -65,7 +67,7 @@ pub mod pallet {
         type MaxNumberOfNFTsCount: Get<u32>;
     }
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -175,7 +177,11 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            unimplemented!()
+            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::current_storage_version() {
+                migrations::migrate_to_v7::<T>();
+                StorageVersion::put(&StorageVersion::new(7));
+            }
+            Weight::zero()
         }
     }
 

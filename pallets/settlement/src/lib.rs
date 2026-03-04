@@ -104,6 +104,8 @@ type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
 // Move imports to pallet module
 pub use pallet::*;
 
+mod migrations;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -582,7 +584,7 @@ pub mod pallet {
         ReceiptExpired,
     }
 
-    storage_migration_ver!(3);
+    storage_migration_ver!(4);
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -765,7 +767,17 @@ pub mod pallet {
         fn build(&self) {
             VenueCounter::<T>::put(VenueId(1));
             InstructionCounter::<T>::put(InstructionId(1));
-            StorageVersion::<T>::put(Version::new(3));
+            StorageVersion::<T>::put(Version::new(4));
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            polymesh_primitives::storage_migrate_on!(StorageVersion::<T>, 4, {
+                migrations::migrate_to_v4::<T>();
+            });
+            Weight::zero()
         }
     }
 
