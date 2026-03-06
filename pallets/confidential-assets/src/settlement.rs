@@ -1,8 +1,6 @@
-use codec::{Decode, Encode};
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use frame_support::pallet_prelude::DispatchError;
+use frame_support::{dispatch::DispatchResult, ensure};
 use scale_info::TypeInfo;
 
 use polymesh_dart::{
@@ -23,7 +21,17 @@ pub struct PendingCounts {
 }
 
 /// Leg affirmation party.
-#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
 pub enum LegAffirmParty {
     Sender,
     Receiver,
@@ -37,7 +45,17 @@ impl LegAffirmParty {
 }
 
 /// The affirmation status for each party in a confidential settlement leg.
-#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
 pub enum AffirmationStatus {
     /// The leg is pending affirmation.
     Pending,
@@ -50,7 +68,17 @@ pub enum AffirmationStatus {
 }
 
 /// Settlement status for a confidential settlement.
-#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
 pub enum SettlementStatus {
     Pending,
     Executed,

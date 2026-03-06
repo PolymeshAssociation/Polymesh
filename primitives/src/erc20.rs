@@ -21,7 +21,7 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 use polymesh_primitives_derive::StringStrongTyped;
@@ -36,7 +36,7 @@ pub const MAX_SYMBOL_LEN: usize = 20;
 pub const MAX_DECIMALS: u8 = 8;
 
 /// ERC-20 token name.
-#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Name(pub String);
@@ -49,7 +49,7 @@ impl Name {
 }
 
 /// ERC-20 token symbol.
-#[derive(Encode, Decode, TypeInfo, StringStrongTyped)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, StringStrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Symbol(pub String);
