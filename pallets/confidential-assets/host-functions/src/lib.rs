@@ -258,7 +258,7 @@ impl WorkRequest {
                 // Execute the work request in the runtime (WASM).
                 let result = self.execute(execution.req_hash);
                 // Push the result back to the batch.
-                native_dart_assets::batch_push_result(id, &execution, result)?;
+                native_dart_assets::batch_push_result(id, execution.clone(), result)?;
             }
             Ok(execution)
         }
@@ -321,34 +321,41 @@ impl From<polymesh_dart::Error> for Error {
 /// Native interface for runtime module for DART Assets
 #[runtime_interface]
 pub trait NativeDARTAssets {
-    fn verify_proof(request: PassFatPointerAndDecode<VerifyDartAssetRequest>) -> AllocateAndReturnByCodec<Result<VerifyDartProofResponse, Error>> {
+    fn verify_proof(
+        request: PassFatPointerAndDecode<VerifyDartAssetRequest>,
+    ) -> AllocateAndReturnByCodec<Result<VerifyDartProofResponse, Error>> {
         request.verify()
     }
 
+    #[cfg(feature = "testing")]
     fn generate_proof(
-        _request: PassFatPointerAndDecode<GenerateDartProofRequest>,
+        request: PassFatPointerAndDecode<GenerateDartProofRequest>,
     ) -> AllocateAndReturnByCodec<Result<GenerateDartProofResponse, Error>> {
-        #[cfg(feature = "testing")]
-        {
-            _request.generate()
-        }
-        #[cfg(not(feature = "testing"))]
-        Err(Error::GenerateProofFailed)
+        request.generate()
     }
 
     fn create_batch(use_cache: bool, use_pool: bool) -> BatchId {
         batch::BatchVerifiers::create_batch(use_cache, use_pool)
     }
 
-    fn batch_use_thread_pool(id: BatchId, use_pool: bool) -> AllocateAndReturnByCodec<Result<(), Error>> {
+    fn batch_use_thread_pool(
+        id: BatchId,
+        use_pool: bool,
+    ) -> AllocateAndReturnByCodec<Result<(), Error>> {
         batch::BatchVerifiers::use_thread_pool(id, use_pool)
     }
 
-    fn batch_use_cache(id: BatchId, use_cache: bool) -> AllocateAndReturnByCodec<Result<(), Error>> {
+    fn batch_use_cache(
+        id: BatchId,
+        use_cache: bool,
+    ) -> AllocateAndReturnByCodec<Result<(), Error>> {
         batch::BatchVerifiers::use_cache(id, use_cache)
     }
 
-    fn batch_submit(id: BatchId, req: PassFatPointerAndDecode<WorkRequest>) -> AllocateAndReturnByCodec<Result<WorkRequestExecution, Error>> {
+    fn batch_submit(
+        id: BatchId,
+        req: PassFatPointerAndDecode<WorkRequest>,
+    ) -> AllocateAndReturnByCodec<Result<WorkRequestExecution, Error>> {
         batch::BatchVerifiers::submit(id, req)
     }
 
@@ -369,13 +376,15 @@ pub trait NativeDARTAssets {
 
     fn batch_next_result(
         id: BatchId,
-    ) -> AllocateAndReturnByCodec<Result<Option<(WorkRequestId, Result<WorkResponse, Error>)>, Error>> {
+    ) -> AllocateAndReturnByCodec<Result<Option<(WorkRequestId, Result<WorkResponse, Error>)>, Error>>
+    {
         batch::BatchVerifiers::next_result(id)
     }
 
     fn batch_finish(
         id: BatchId,
-    ) -> AllocateAndReturnByCodec<Result<BTreeMap<WorkRequestId, Result<WorkResponse, Error>>, Error>> {
+    ) -> AllocateAndReturnByCodec<Result<BTreeMap<WorkRequestId, Result<WorkResponse, Error>>, Error>>
+    {
         let batch = batch::BatchVerifiers::finish(id).ok_or(Error::VerifyFailed)?;
         batch.finalize()
     }
@@ -390,24 +399,32 @@ pub trait NativeDARTAssets {
     }
 
     fn asset_tree_update_inner_node(
-        req: PassFatPointerAndDecode<UpdateTreeNodeRequest<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>>,
+        req: PassFatPointerAndDecode<
+            UpdateTreeNodeRequest<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>,
+        >,
     ) -> AllocateAndReturnByCodec<Result<UpdateTreeNodeResult<ASSET_TREE_M>, Error>> {
         req.update()
     }
 
     fn account_tree_update_inner_node(
-        req: PassFatPointerAndDecode<UpdateTreeNodeRequest<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>>,
+        req: PassFatPointerAndDecode<
+            UpdateTreeNodeRequest<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>,
+        >,
     ) -> AllocateAndReturnByCodec<Result<UpdateTreeNodeResult<ACCOUNT_TREE_M>, Error>> {
         req.update()
     }
 
     fn fee_account_tree_update_inner_node(
-        req: PassFatPointerAndDecode<UpdateTreeNodeRequest<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>>,
+        req: PassFatPointerAndDecode<
+            UpdateTreeNodeRequest<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>,
+        >,
     ) -> AllocateAndReturnByCodec<Result<UpdateTreeNodeResult<FEE_ACCOUNT_TREE_M>, Error>> {
         req.update()
     }
 
-    fn update_asset_state(req: PassFatPointerAndDecode<UpdateAssetStateRequest>) -> AllocateAndReturnByCodec<Result<UpdateAssetStateResult, Error>> {
+    fn update_asset_state(
+        req: PassFatPointerAndDecode<UpdateAssetStateRequest>,
+    ) -> AllocateAndReturnByCodec<Result<UpdateAssetStateResult, Error>> {
         req.update()
     }
 }

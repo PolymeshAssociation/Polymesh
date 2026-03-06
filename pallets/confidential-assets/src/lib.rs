@@ -15,12 +15,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Compact, Decode, Encode};
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::{
-    dispatch::{
-        DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
-    },
+    dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::{Currency, ExistenceRequirement, Get},
+    traits::{
+        fungible::{Inspect, Mutate},
+        tokens::Preservation::Expendable,
+        Get,
+    },
     weights::{Weight, WeightToFee},
     BoundedVec, PalletId,
 };
@@ -56,9 +59,8 @@ use polymesh_dart_host_functions::{
     native_dart_assets, BatchId, UpdateAssetStateRequest, VerifyDartAssetRequest,
 };
 
-pub type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub type BalanceOf<T> =
+    <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type AuditorKeys =
     BoundedBTreeSet<EncryptionPublicKey, <PolymeshPrivateLimits as DartLimits>::MaxAssetAuditors>;
@@ -286,11 +288,11 @@ pub mod pallet {
         + pallet_transaction_payment::Config
         + DartLimits
     {
-        /// Pallet's events.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// Confidential asset pallet weights.
         type WeightInfo: WeightInfo;
+
+        /// Currency used for fee payments.
+        type Currency: Mutate<Self::AccountId, Balance = <<Self as pallet_transaction_payment::Config>::WeightToFee as WeightToFee>::Balance>;
 
         /// Maximum total supply.
         #[pallet::constant]
@@ -772,14 +774,14 @@ pub mod pallet {
     /// The map key is the block number and the value is the root of the assets curve tree.
     #[pallet::storage]
     pub(super) type AssetCurveTreeRoots<T: Config> =
-        StorageMap<_, Identity, T::BlockNumber, AssetTreeRoot, OptionQuery>;
+        StorageMap<_, Identity, BlockNumberFor<T>, AssetTreeRoot, OptionQuery>;
 
     /// The block number of the last asset curve tree root update.
     ///
     /// This is used to track the last time the asset curve tree was updated.
     #[pallet::storage]
     pub(crate) type AssetCurveTreeLastUpdate<T: Config> =
-        StorageValue<_, T::BlockNumber, ValueQuery>;
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Leaf storage for Confidential accounts curve tree.
     ///
@@ -817,14 +819,14 @@ pub mod pallet {
     /// The map key is the block number and the value is the root of the accounts curve tree.
     #[pallet::storage]
     pub(super) type AccountCurveTreeRoots<T: Config> =
-        StorageMap<_, Identity, T::BlockNumber, AccountTreeRoot, OptionQuery>;
+        StorageMap<_, Identity, BlockNumberFor<T>, AccountTreeRoot, OptionQuery>;
 
     /// The block number of the last account curve tree root update.
     ///
     /// This is used to track the last time the account curve tree was updated.
     #[pallet::storage]
     pub(crate) type AccountCurveTreeLastUpdate<T: Config> =
-        StorageValue<_, T::BlockNumber, ValueQuery>;
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Nullifiers for Confidential account state commitments.
     ///
@@ -876,14 +878,14 @@ pub mod pallet {
     /// The map key is the block number and the value is the root of the fee accounts curve tree.
     #[pallet::storage]
     pub(super) type FeeAccountCurveTreeRoots<T: Config> =
-        StorageMap<_, Identity, T::BlockNumber, FeeAccountTreeRoot, OptionQuery>;
+        StorageMap<_, Identity, BlockNumberFor<T>, FeeAccountTreeRoot, OptionQuery>;
 
     /// The block number of the last fee account curve tree root update.
     ///
     /// This is used to track the last time the fee account curve tree was updated.
     #[pallet::storage]
     pub(crate) type FeeAccountCurveTreeLastUpdate<T: Config> =
-        StorageValue<_, T::BlockNumber, ValueQuery>;
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Nullifiers for Confidential fee account state commitments.
     ///
@@ -955,11 +957,14 @@ pub mod pallet {
     pub(crate) type CurrentBatchId<T: Config> = StorageValue<_, BatchId, OptionQuery>;
 
     #[pallet::genesis_config]
-    #[derive(Default)]
-    pub struct GenesisConfig {}
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T> {
+        #[serde(skip)]
+        pub _config: sp_std::marker::PhantomData<T>,
+    }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             // Generate the asset curve tree parameters.
             let params = WrappedCurveTreeParameters::new::<AssetTreeConfig>()
@@ -2592,22 +2597,13 @@ impl<T: Config> Pallet<T> {
         CurrentBatchId::<T>::get().ok_or(Error::<T>::NoCurrentBatch.into())
     }
 
-    pub fn fee_account_balance() -> BalanceOf<T> {
-        T::Currency::free_balance(&Self::fee_account_id())
-    }
-
     /// Transfer funds to the fee account.
     pub fn fee_account_deposit(
         sender: T::AccountId,
         amount: BalanceOf<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         // Transfer the amount to the fee account.
-        T::Currency::transfer(
-            &sender,
-            &Self::fee_account_id(),
-            amount,
-            ExistenceRequirement::KeepAlive,
-        )?;
+        T::Currency::transfer(&sender, &Self::fee_account_id(), amount, Expendable)?;
 
         // Emit an event for the fee account deposit.
         Self::deposit_event(Event::<T>::FeeAccountDeposited { sender, amount });
@@ -2621,12 +2617,7 @@ impl<T: Config> Pallet<T> {
         amount: BalanceOf<T>,
     ) -> Result<(), DispatchError> {
         // Transfer the amount from the fee account.
-        T::Currency::transfer(
-            &Self::fee_account_id(),
-            &receiver,
-            amount,
-            ExistenceRequirement::AllowDeath,
-        )?;
+        T::Currency::transfer(&Self::fee_account_id(), &receiver, amount, Expendable)?;
 
         // Emit an event for the fee account withdrawal.
         Self::deposit_event(Event::<T>::FeeAccountWithdrawn { receiver, amount });

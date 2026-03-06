@@ -269,7 +269,7 @@ impl<T: Config> CurveTreeBackend<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConf
         &mut self,
         root: CompressedCurveTreeRoot<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>,
     ) -> Result<BlockNumber, Self::Error> {
-        let block_number: BlockNumberFor<T> = get_block_number::<T>()?.into();
+        let block_number = get_block_number::<T>()?;
         // Store the root in the storage.
         AccountCurveTreeRoots::<T>::insert(block_number, &root);
 
@@ -417,7 +417,7 @@ impl<T: Config> CurveTreeBackend<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAcco
         &mut self,
         root: CompressedCurveTreeRoot<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>,
     ) -> Result<BlockNumber, Self::Error> {
-        let block_number: BlockNumberFor<T> = get_block_number::<T>()?.into();
+        let block_number = get_block_number::<T>()?;
         // Store the root in the storage.
         FeeAccountCurveTreeRoots::<T>::insert(block_number, &root);
 
