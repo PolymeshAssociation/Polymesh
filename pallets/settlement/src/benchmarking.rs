@@ -120,6 +120,10 @@ fn setup_legs<T>(
 where
     T: Config,
 {
+    // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+    pallet_asset::Pallet::<T>::set_mandatory_receiver_affirmation(receiver.origin().into(), true)
+        .unwrap();
+
     let mut asset_holders = AssetHolders::default();
     let mut asset_mediators = Vec::new();
 

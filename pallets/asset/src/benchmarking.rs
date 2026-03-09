@@ -202,6 +202,9 @@ pub fn setup_asset_transfer<T: AssetConfig>(
         .unwrap();
     }
 
+    // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+    Pallet::<T>::set_mandatory_receiver_affirmation(receiver.origin().into(), true).unwrap();
+
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.
     T::ComplianceManager::setup_asset_compliance(sender.did(), asset_id, 50, pause_compliance);

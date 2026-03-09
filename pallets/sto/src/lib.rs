@@ -1030,12 +1030,12 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Remove portfolios that were already auto-affirmed
-        let is_pending = |p: &AssetHolder| {
+        let is_not_affirmed = |p: &AssetHolder| {
             pallet_settlement::AffirmsReceived::<T>::get(instruction_id, p)
-                == AffirmationStatus::Pending
+                != AffirmationStatus::Affirmed
         };
-        fundraiser_portfolios.retain(is_pending);
-        investor_portfolios.retain(is_pending);
+        fundraiser_portfolios.retain(is_not_affirmed);
+        investor_portfolios.retain(is_not_affirmed);
 
         if !fundraiser_portfolios.is_empty() {
             Settlement::<T>::unsafe_affirm_instruction(
