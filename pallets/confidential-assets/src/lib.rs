@@ -978,27 +978,28 @@ pub mod pallet {
             // Store the account curve tree parameters in the storage.
             CachedAccountCurveTreeParameters::<T>::put(params);
 
-            // Initialize the Asset Curve Tree.
-            {
-                let mut tree = Pallet::<T>::get_asset_curve_tree()
-                    .expect("Asset curve tree should be initialized; qed");
-                tree.init_root()
-                    .expect("Asset curve tree should be able to init root; qed");
-            }
-            // Initialize the Account Curve Tree.
-            {
-                let mut tree = Pallet::<T>::get_account_curve_tree()
-                    .expect("Account curve tree should be initialized; qed");
-                tree.init_root()
-                    .expect("Account curve tree should be able to init root; qed");
-            }
-            // Initialize the Fee Account Curve Tree.
-            {
-                let mut tree = Pallet::<T>::get_fee_account_curve_tree()
-                    .expect("Fee account curve tree should be initialized; qed");
-                tree.init_root()
-                    .expect("Fee account curve tree should be able to init root; qed");
-            }
+            // The host functions are not available in the genesis build, so we cannot initialize the curve trees here.
+            // // Initialize the Asset Curve Tree.
+            // {
+            //     let mut tree = Pallet::<T>::get_asset_curve_tree()
+            //         .expect("Asset curve tree should be initialized; qed");
+            //     tree.init_root()
+            //         .expect("Asset curve tree should be able to init root; qed");
+            // }
+            // // Initialize the Account Curve Tree.
+            // {
+            //     let mut tree = Pallet::<T>::get_account_curve_tree()
+            //         .expect("Account curve tree should be initialized; qed");
+            //     tree.init_root()
+            //         .expect("Account curve tree should be able to init root; qed");
+            // }
+            // // Initialize the Fee Account Curve Tree.
+            // {
+            //     let mut tree = Pallet::<T>::get_fee_account_curve_tree()
+            //         .expect("Fee account curve tree should be initialized; qed");
+            //     tree.init_root()
+            //         .expect("Fee account curve tree should be able to init root; qed");
+            // }
         }
     }
 
