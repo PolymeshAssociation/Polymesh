@@ -343,6 +343,9 @@ pub mod pallet {
             memo: Option<Memo>,
             pending_transfer_id: Option<InstructionId>,
         },
+        /// An identity has set or cleared mandatory receiver affirmation for incoming transfers.
+        /// Parameters: [`IdentityId`] of caller, whether affirmation is now required.
+        MandatoryReceiverAffirmationSet(IdentityId, bool),
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -522,6 +525,13 @@ pub mod pallet {
     #[pallet::storage]
     pub type PreApprovedAsset<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
+    /// Identities that require receiver affirmation for all incoming transfers.
+    /// When `true`, the identity has opted in to mandatory receiver affirmation.
+    /// Default is `false` (no affirmation required).
+    #[pallet::storage]
+    pub type MandatoryReceiverAffirmation<T: Config> =
+        StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
 
     /// The list of mandatory mediators for every ticker.
     #[pallet::storage]
@@ -1714,6 +1724,27 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::base_reject_asset_transfer(origin, transfer_id)
         }
+
+        /// Sets whether the caller's identity requires receiver affirmation for all incoming transfers.
+        ///
+        /// When `require` is `true`, the identity opts in to mandatory receiver affirmation — all incoming
+        /// transfers must be explicitly affirmed. When `false` (the default), transfers are
+        /// auto-affirmed for this identity.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `require` - Whether to require mandatory receiver affirmation.
+        ///
+        /// # Events
+        /// * `MandatoryReceiverAffirmationSet` - When the mandatory receiver affirmation flag is updated.
+        #[pallet::call_index(37)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_mandatory_receiver_affirmation())]
+        pub fn set_mandatory_receiver_affirmation(
+            origin: OriginFor<T>,
+            require: bool,
+        ) -> DispatchResult {
+            Self::base_set_mandatory_receiver_affirmation(origin, require)
+        }
     }
 
     #[pallet::error]
@@ -1861,6 +1892,7 @@ pub mod pallet {
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
         fn update_global_metadata_spec() -> Weight;
+        fn set_mandatory_receiver_affirmation() -> Weight;
         fn transfer_asset_base_weight() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
     }
@@ -2514,6 +2546,21 @@ impl<T: AssetConfig> Pallet<T> {
         let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
         PreApprovedAsset::<T>::remove(&caller_did, &asset_id);
         Self::deposit_event(Event::RemovePreApprovedAsset(caller_did, asset_id));
+        Ok(())
+    }
+
+    /// Sets whether the caller's identity requires mandatory receiver affirmation for incoming transfers.
+    fn base_set_mandatory_receiver_affirmation(
+        origin: T::RuntimeOrigin,
+        require: bool,
+    ) -> DispatchResult {
+        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
+        if require {
+            MandatoryReceiverAffirmation::<T>::insert(&caller_did, true);
+        } else {
+            MandatoryReceiverAffirmation::<T>::remove(&caller_did);
+        }
+        Self::deposit_event(Event::MandatoryReceiverAffirmationSet(caller_did, require));
         Ok(())
     }
 
@@ -3624,12 +3671,26 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Returns `true` if the affirmation of the asset holder can be skipped for the given `asset_id`.
+    ///
+    /// Default is `true` (skip affirmation) unless:
+    /// - The identity has opted in to mandatory receiver affirmation via [`MandatoryReceiverAffirmation`], AND
+    /// - The asset is not globally exempt, AND
+    /// - The identity has not pre-approved this specific asset.
     pub fn skip_asset_holder_affirmation(asset_holder: &AssetHolder, asset_id: &AssetId) -> bool {
         if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
             return PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id);
         }
 
-        false
+        // For Account holders: default is to skip affirmation (no affirmation required).
+        // Only require affirmation if the identity has opted in via MandatoryReceiverAffirmation.
+        if let Ok(did) = IdentityPallet::<T>::asset_holder_did(asset_holder) {
+            if Self::identity_requires_affirmation(&did) {
+                return Self::skip_asset_affirmation(&did, asset_id);
+            }
+        }
+
+        // Default: no affirmation required.
+        true
     }
 
     /// Returns `Ok` if:
@@ -4050,6 +4111,10 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn asset_affirmation_exemption(asset_id: &AssetId) -> bool {
         AssetsExemptFromAffirmation::<T>::get(asset_id)
+    }
+
+    fn identity_requires_affirmation(identity_id: &IdentityId) -> bool {
+        MandatoryReceiverAffirmation::<T>::get(identity_id)
     }
 
     fn asset_balance(asset_id: &AssetId, did: &IdentityId) -> Balance {

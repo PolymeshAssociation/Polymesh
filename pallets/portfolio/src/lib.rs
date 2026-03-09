@@ -1148,7 +1148,12 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
+    ///
+    /// For custodial portfolios: existing behavior is preserved (custodian must have pre-approved).
+    /// For non-custodial portfolios: default is to skip affirmation (no affirmation required),
+    /// unless the identity has opted in via `MandatoryReceiverAffirmation`.
     pub fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
+        // Custodial portfolios: preserve existing behavior.
         if PortfolioCustodian::<T>::get(portfolio_id).is_some() {
             if T::AssetFn::asset_affirmation_exemption(asset_id) {
                 return true;
@@ -1156,6 +1161,17 @@ impl<T: Config> Pallet<T> {
             return PreApprovedPortfolios::<T>::get(portfolio_id, asset_id);
         }
 
+        // Non-custodial portfolios: check if asset is globally exempt.
+        if T::AssetFn::asset_affirmation_exemption(asset_id) {
+            return true;
+        }
+
+        // If identity has NOT opted in to mandatory receiver affirmation, skip (new default).
+        if !T::AssetFn::identity_requires_affirmation(&portfolio_id.did) {
+            return true;
+        }
+
+        // Identity opted in — check per-identity and per-portfolio pre-approvals.
         if T::AssetFn::skip_asset_affirmation(&portfolio_id.did, asset_id) {
             return true;
         }

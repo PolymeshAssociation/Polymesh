@@ -28,6 +28,9 @@ pub trait AssetFnTrait<AccountId> {
     /// Returns `true` if the receivement of `asset_id` is exempt from being affirmed, otherwise returns `false`.
     fn asset_affirmation_exemption(asset_id: &AssetId) -> bool;
 
+    /// Returns `true` if the given identity has opted in to mandatory receiver affirmation for all incoming transfers.
+    fn identity_requires_affirmation(identity_id: &IdentityId) -> bool;
+
     /// Returns the `did` balance for the given `asset_id`.
     fn asset_balance(asset_id: &AssetId, did: &IdentityId) -> Balance;
 

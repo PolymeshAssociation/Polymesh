@@ -731,6 +731,10 @@ benchmarks! {
         Pallet::<T>::pre_approve_asset(alice.clone().origin().into(), asset_id).unwrap();
     }: _(alice.origin, asset_id)
 
+    set_mandatory_receiver_affirmation {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+    }: _(alice.origin, true)
+
     add_mandatory_mediators {
         let n in 1 .. T::MaxAssetMediators::get() as u32;
 

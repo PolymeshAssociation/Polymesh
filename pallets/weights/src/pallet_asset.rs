@@ -685,6 +685,16 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
+    // Storage: Asset MandatoryReceiverAffirmation (r:0 w:1)
+    // Proof Skipped: Asset MandatoryReceiverAffirmation (max_values: None, max_size: None, mode: Measured)
+    fn set_mandatory_receiver_affirmation() -> Weight {
+        // Minimum execution time: 20_762 nanoseconds.
+        Weight::from_parts(22_614_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Proof Skipped: ExternalAgents GroupOfAgent (max_values: None, max_size: None, mode: Measured)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
