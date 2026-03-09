@@ -148,6 +148,7 @@ std = [
     "pallet-im-online/std",
     "pallet-indices/std",
     "pallet-multisig/std",
+    "pallet-nft/std",
     "pallet-offences/std",
     "pallet-permissions/std",
     "pallet-preimage/std",
