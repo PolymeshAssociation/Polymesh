@@ -15,27 +15,27 @@ sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk
 
 # DART
 # Curve tree dependencies
-curve_tree_bulletproofs = { package = "bulletproofs", path = "../curve-trees/bulletproofs" }
-curve_tree_relations = { package = "relations", path = "../curve-trees/relations" }
-ark-ec-divisors = { package = "ark-ec-divisors", path = "../curve-trees/ark-ec-divisors"}
-ark-dlog-gadget = { package = "ark-dlog-gadget", path = "../curve-trees/ark-dlog-gadget"}
+#curve_tree_bulletproofs = { package = "bulletproofs", path = "../curve-trees/bulletproofs" }
+#curve_tree_relations = { package = "relations", path = "../curve-trees/relations" }
+#ark-ec-divisors = { package = "ark-ec-divisors", path = "../curve-trees/ark-ec-divisors"}
+#ark-dlog-gadget = { package = "ark-dlog-gadget", path = "../curve-trees/ark-dlog-gadget"}
 # If want to pull code for curve-trees from git, comment above 2 relations and uncomment below 2
-#curve_tree_bulletproofs = { package = "bulletproofs", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
-#curve_tree_relations = { package = "relations", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
-#ark-ec-divisors = { package = "ark-ec-divisors", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
-#ark-dlog-gadget = { package = "ark-dlog-gadget", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+curve_tree_bulletproofs = { package = "bulletproofs", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+curve_tree_relations = { package = "relations", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+ark-ec-divisors = { package = "ark-ec-divisors", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+ark-dlog-gadget = { package = "ark-dlog-gadget", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
 
 #dock_crypto_utils = { path = "../crypto/utils" }
 #schnorr_pok = { path = "../crypto/schnorr_pok" }
 dock_crypto_utils = { git = "https://github.com/PolymeshAssociation/crypto", branch = "main" }
 schnorr_pok = { git = "https://github.com/PolymeshAssociation/crypto", branch = "main" }
 
-polymesh-dart = { path = "../polymesh-dart" }
-polymesh-dart-bp = { path = "../polymesh-dart/dart-bp" }
-polymesh-dart-common = { path = "../polymesh-dart/dart-common" }
-#polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
-#polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
-#polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+#polymesh-dart = { path = "../polymesh-dart" }
+#polymesh-dart-bp = { path = "../polymesh-dart/dart-bp" }
+#polymesh-dart-common = { path = "../polymesh-dart/dart-common" }
+polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
 
 # Polymesh changes to Arkworks.
 #ark-serialize = { path = "../arkworks-algebra/serialize" }
