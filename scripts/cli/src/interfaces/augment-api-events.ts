@@ -120,6 +120,11 @@ declare module '@polkadot/api-base/types/events' {
        **/
       LocalMetadataKeyDeleted: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetId, u64]>;
       /**
+       * An identity has set or cleared mandatory receiver affirmation for incoming transfers.
+       * Parameters: [`IdentityId`] of caller, whether affirmation is now required.
+       **/
+      MandatoryReceiverAffirmationSet: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, bool]>;
+      /**
        * An event emitted when a local metadata value has been removed.
        * Parameters: caller AssetId, Local type name
        **/

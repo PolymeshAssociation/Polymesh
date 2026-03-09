@@ -1414,7 +1414,9 @@ declare module '@polkadot/types/lookup' {
       readonly memo: Option<PolymeshPrimitivesMemo>;
       readonly pendingTransferId: Option<u64>;
     } & Struct;
-    readonly type: 'AssetCreated' | 'IdentifiersUpdated' | 'DivisibilityChanged' | 'TickerRegistered' | 'TickerTransferred' | 'AssetOwnershipTransferred' | 'AssetFrozen' | 'AssetUnfrozen' | 'AssetRenamed' | 'FundingRoundSet' | 'DocumentAdded' | 'DocumentRemoved' | 'ControllerTransfer' | 'CustomAssetTypeExists' | 'CustomAssetTypeRegistered' | 'SetAssetMetadataValue' | 'SetAssetMetadataValueDetails' | 'RegisterAssetMetadataLocalType' | 'RegisterAssetMetadataGlobalType' | 'AssetTypeChanged' | 'LocalMetadataKeyDeleted' | 'MetadataValueDeleted' | 'AssetBalanceUpdated' | 'AssetAffirmationExemption' | 'RemoveAssetAffirmationExemption' | 'PreApprovedAsset' | 'RemovePreApprovedAsset' | 'AssetMediatorsAdded' | 'AssetMediatorsRemoved' | 'TickerLinkedToAsset' | 'TickerUnlinkedFromAsset' | 'GlobalMetadataSpecUpdated' | 'CreatedAssetTransfer';
+    readonly isMandatoryReceiverAffirmationSet: boolean;
+    readonly asMandatoryReceiverAffirmationSet: ITuple<[PolymeshPrimitivesIdentityId, bool]>;
+    readonly type: 'AssetCreated' | 'IdentifiersUpdated' | 'DivisibilityChanged' | 'TickerRegistered' | 'TickerTransferred' | 'AssetOwnershipTransferred' | 'AssetFrozen' | 'AssetUnfrozen' | 'AssetRenamed' | 'FundingRoundSet' | 'DocumentAdded' | 'DocumentRemoved' | 'ControllerTransfer' | 'CustomAssetTypeExists' | 'CustomAssetTypeRegistered' | 'SetAssetMetadataValue' | 'SetAssetMetadataValueDetails' | 'RegisterAssetMetadataLocalType' | 'RegisterAssetMetadataGlobalType' | 'AssetTypeChanged' | 'LocalMetadataKeyDeleted' | 'MetadataValueDeleted' | 'AssetBalanceUpdated' | 'AssetAffirmationExemption' | 'RemoveAssetAffirmationExemption' | 'PreApprovedAsset' | 'RemovePreApprovedAsset' | 'AssetMediatorsAdded' | 'AssetMediatorsRemoved' | 'TickerLinkedToAsset' | 'TickerUnlinkedFromAsset' | 'GlobalMetadataSpecUpdated' | 'CreatedAssetTransfer' | 'MandatoryReceiverAffirmationSet';
   }
 
   /** @name PolymeshPrimitivesAssetAssetType (126) */
@@ -3891,7 +3893,11 @@ declare module '@polkadot/types/lookup' {
     readonly asRejectAssetTransfer: {
       readonly transferId: u64;
     } & Struct;
-    readonly type: 'RegisterUniqueTicker' | 'AcceptTickerTransfer' | 'AcceptAssetOwnershipTransfer' | 'CreateAsset' | 'Freeze' | 'Unfreeze' | 'RenameAsset' | 'Issue' | 'Redeem' | 'MakeDivisible' | 'AddDocuments' | 'RemoveDocuments' | 'SetFundingRound' | 'UpdateIdentifiers' | 'ControllerTransfer' | 'RegisterCustomAssetType' | 'CreateAssetWithCustomType' | 'SetAssetMetadata' | 'SetAssetMetadataDetails' | 'RegisterAndSetLocalAssetMetadata' | 'RegisterAssetMetadataLocalType' | 'RegisterAssetMetadataGlobalType' | 'UpdateAssetType' | 'RemoveLocalMetadataKey' | 'RemoveMetadataValue' | 'ExemptAssetAffirmation' | 'RemoveAssetAffirmationExemption' | 'PreApproveAsset' | 'RemoveAssetPreApproval' | 'AddMandatoryMediators' | 'RemoveMandatoryMediators' | 'LinkTickerToAssetId' | 'UnlinkTickerFromAssetId' | 'UpdateGlobalMetadataSpec' | 'TransferAsset' | 'ReceiverAffirmAssetTransfer' | 'RejectAssetTransfer';
+    readonly isSetMandatoryReceiverAffirmation: boolean;
+    readonly asSetMandatoryReceiverAffirmation: {
+      readonly require: bool;
+    } & Struct;
+    readonly type: 'RegisterUniqueTicker' | 'AcceptTickerTransfer' | 'AcceptAssetOwnershipTransfer' | 'CreateAsset' | 'Freeze' | 'Unfreeze' | 'RenameAsset' | 'Issue' | 'Redeem' | 'MakeDivisible' | 'AddDocuments' | 'RemoveDocuments' | 'SetFundingRound' | 'UpdateIdentifiers' | 'ControllerTransfer' | 'RegisterCustomAssetType' | 'CreateAssetWithCustomType' | 'SetAssetMetadata' | 'SetAssetMetadataDetails' | 'RegisterAndSetLocalAssetMetadata' | 'RegisterAssetMetadataLocalType' | 'RegisterAssetMetadataGlobalType' | 'UpdateAssetType' | 'RemoveLocalMetadataKey' | 'RemoveMetadataValue' | 'ExemptAssetAffirmation' | 'RemoveAssetAffirmationExemption' | 'PreApproveAsset' | 'RemoveAssetPreApproval' | 'AddMandatoryMediators' | 'RemoveMandatoryMediators' | 'LinkTickerToAssetId' | 'UnlinkTickerFromAssetId' | 'UpdateGlobalMetadataSpec' | 'TransferAsset' | 'ReceiverAffirmAssetTransfer' | 'RejectAssetTransfer' | 'SetMandatoryReceiverAffirmation';
   }
 
   /** @name PolymeshPrimitivesAssetAssetHolderKind (444) */

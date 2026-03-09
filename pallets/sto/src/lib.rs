@@ -69,7 +69,7 @@ use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::VenueInfo;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
-use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
+use polymesh_primitives::settlement::{AffirmationStatus, Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
 use polymesh_primitives::{
     storage_migration_ver, AssetHolder, Balance, EventDid, IdentityId, PortfolioId, Ticker,
@@ -1029,13 +1029,23 @@ impl<T: Config> Pallet<T> {
             None,
         )?;
 
-        Settlement::<T>::unsafe_affirm_instruction(
-            fundraiser.creator,
-            instruction_id,
-            fundraiser_portfolios,
-            None,
-            None,
-        )?;
+        // Remove portfolios that were already auto-affirmed
+        let is_pending = |p: &AssetHolder| {
+            pallet_settlement::AffirmsReceived::<T>::get(instruction_id, p)
+                == AffirmationStatus::Pending
+        };
+        fundraiser_portfolios.retain(is_pending);
+        investor_portfolios.retain(is_pending);
+
+        if !fundraiser_portfolios.is_empty() {
+            Settlement::<T>::unsafe_affirm_instruction(
+                fundraiser.creator,
+                instruction_id,
+                fundraiser_portfolios,
+                None,
+                None,
+            )?;
+        }
 
         Settlement::<T>::affirm_and_execute_instruction(
             origin,

@@ -1011,6 +1011,13 @@ fn pre_approve_portfolio() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         let asset_id = AssetId::new([0; 16]);
+
+        // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
+        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            true
+        ));
+
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
             .unwrap();
 
@@ -1042,6 +1049,13 @@ fn remove_portfolio_pre_approval() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         let asset_id = AssetId::new([0; 16]);
+
+        // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
+        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            true
+        ));
+
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
             .unwrap();
         Portfolio::remove_portfolio_pre_approval(

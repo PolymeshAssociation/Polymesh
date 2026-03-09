@@ -645,6 +645,21 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       setFundingRound: AugmentedSubmittable<(assetId: PolymeshPrimitivesAssetAssetId | string | Uint8Array, fundingRoundName: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesAssetAssetId, Bytes]>;
       /**
+       * Sets whether the caller's identity requires receiver affirmation for all incoming transfers.
+       * 
+       * When `require` is `true`, the identity opts in to mandatory receiver affirmation — all incoming
+       * transfers must be explicitly affirmed. When `false` (the default), transfers are
+       * auto-affirmed for this identity.
+       * 
+       * # Arguments
+       * * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+       * * `require` - Whether to require mandatory receiver affirmation.
+       * 
+       * # Events
+       * * `MandatoryReceiverAffirmationSet` - When the mandatory receiver affirmation flag is updated.
+       **/
+      setMandatoryReceiverAffirmation: AugmentedSubmittable<(require: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [bool]>;
+      /**
        * Transfer assets from the caller's default portfolio to the target address's default portfolio.
        * 
        * The settlement engine is used to perform the asset transfer.

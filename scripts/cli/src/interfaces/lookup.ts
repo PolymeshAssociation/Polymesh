@@ -1063,8 +1063,9 @@ export default {
         to: 'AccountId32',
         amount: 'u128',
         memo: 'Option<PolymeshPrimitivesMemo>',
-        pendingTransferId: 'Option<u64>'
-      }
+        pendingTransferId: 'Option<u64>',
+      },
+      MandatoryReceiverAffirmationSet: '(PolymeshPrimitivesIdentityId,bool)'
     }
   },
   /**
@@ -3342,7 +3343,10 @@ export default {
         transferId: 'u64',
       },
       reject_asset_transfer: {
-        transferId: 'u64'
+        transferId: 'u64',
+      },
+      set_mandatory_receiver_affirmation: {
+        require: 'bool'
       }
     }
   },

@@ -133,6 +133,12 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       mandatoryMediators: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => Observable<BTreeSet<PolymeshPrimitivesIdentityId>>, [PolymeshPrimitivesAssetAssetId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesAssetAssetId]>;
       /**
+       * Identities that require receiver affirmation for all incoming transfers.
+       * When `true`, the identity has opted in to mandatory receiver affirmation.
+       * Default is `false` (no affirmation required).
+       **/
+      mandatoryReceiverAffirmation: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId]>;
+      /**
        * All assets that don't need an affirmation to be received by an identity.
        **/
       preApprovedAsset: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetId]>;
@@ -1093,6 +1099,10 @@ declare module '@polkadot/api-base/types/storage' {
        * Latest MMR Root hash.
        **/
       rootHash: AugmentedQuery<ApiType, () => Observable<H256>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Helper flag used in the runtime benchmarks for the initial setup.
+       **/
+      useLocalStorage: AugmentedQuery<ApiType, () => Observable<bool>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Generic query
        **/

@@ -49,7 +49,7 @@ async fn simple_settlement() -> Result<()> {
         .into_iter();
     let mut venue = users.next().expect("Venue user");
     let mut asset_issuer = users.next().expect("Asset issuer");
-    let mut investor = users.next().expect("Investor");
+    let investor = users.next().expect("Investor");
 
     // Get the DIDs of the users.
     let issuer_did = asset_issuer.did.expect("Asset issuer DID");
@@ -74,7 +74,6 @@ async fn simple_settlement() -> Result<()> {
     let investor_holding = AssetHolder::Portfolio(investor_portfolio);
     #[cfg(feature = "previous_release")]
     let investor_holding = investor_portfolio;
-
 
     // Create a new venue.
     let mut venue_res = tester
@@ -172,21 +171,8 @@ async fn simple_settlement() -> Result<()> {
         .submit_and_watch(&mut asset_issuer)
         .await?;
 
-    // The investor needs to affirm the settlement.
-    let mut affirm_res2 = tester
-        .api
-        .call()
-        .settlement()
-        .affirm_instruction(
-            settlement_id,
-            vec![investor_holding].into_iter().collect(),
-        )?
-        .submit_and_watch(&mut investor)
-        .await?;
-
-    // Wait for the affirmations to complete.
+    // Wait for the issuer affirmation to complete.
     affirm_res.ok().await?;
-    affirm_res2.ok().await?;
 
     // Execute the settlement
     let mut execute_res = tester
@@ -345,11 +331,7 @@ async fn offchain_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .affirm_with_receipts(
-            instruction_id,
-            vec![receipt_details],
-            [investor_holding].into(),
-        )?
+        .affirm_with_receipts(instruction_id, vec![receipt_details], [].into())?
         .submit_and_watch(&mut investor1)
         .await?;
 

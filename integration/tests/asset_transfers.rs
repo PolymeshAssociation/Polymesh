@@ -40,6 +40,15 @@ mod asset_transfer_tests {
         .await?;
         let asset_id = asset_helper.asset_id;
 
+        // Investor opts in to mandatory receiver affirmation.
+        tester
+            .api
+            .call()
+            .asset()
+            .set_mandatory_receiver_affirmation(true)?
+            .execute(&mut investor)
+            .await?;
+
         // Create an asset transfer from the asset issuer to the investor.
         let mut transfer_res = tester
             .api
@@ -98,6 +107,15 @@ mod asset_transfer_tests {
         .await?;
         let asset_id = asset_helper.asset_id;
 
+        // Investor opts in to mandatory receiver affirmation.
+        tester
+            .api
+            .call()
+            .asset()
+            .set_mandatory_receiver_affirmation(true)?
+            .execute(&mut investor)
+            .await?;
+
         // Create an asset transfer from the asset issuer to the investor.
         let mut transfer_res = tester
             .api
@@ -136,7 +154,7 @@ mod asset_transfer_tests {
             .await?
             .into_iter();
         let mut asset_issuer = users.next().expect("Asset issuer");
-        let investor = users.next().expect("Investor");
+        let mut investor = users.next().expect("Investor");
 
         #[cfg(feature = "current_release")]
         let kind = AssetHolderKind::Account;
@@ -155,6 +173,15 @@ mod asset_transfer_tests {
         )
         .await?;
         let asset_id = asset_helper.asset_id;
+
+        // Investor opts in to mandatory receiver affirmation.
+        tester
+            .api
+            .call()
+            .asset()
+            .set_mandatory_receiver_affirmation(true)?
+            .execute(&mut investor)
+            .await?;
 
         // Create an asset transfer from the asset issuer to the investor.
         let mut transfer_res = tester
