@@ -49,10 +49,8 @@ macro_rules! rpc_forward_call {
     }};
 }
 
-pub mod asset;
 pub mod compliance;
 pub mod identity;
-pub mod nft;
 pub mod pips;
 pub mod settlement;
 pub mod transaction_payment;

@@ -26,25 +26,10 @@ pub const MAX_BALANCE_AT_QUERY_SIZE: usize = 100;
 pub type Error = Vec<u8>;
 
 sp_api::decl_runtime_apis! {
-    #[api_version(4)]
+    #[api_version(5)]
     pub trait AssetApi {
 
         /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
-        ///
-        /// ```ignore
-        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
-        ///     "id":1,
-        ///     "jsonrpc":"2.0",
-        ///     "method": "asset_transferReport",
-        ///     "params": [
-        ///        { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///        { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ///        1,
-        ///        false
-        ///     ]
-        /// }'
-        /// ```
         fn transfer_report(
             sender: AssetHolder,
             receiver: AssetHolder,

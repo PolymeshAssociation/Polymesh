@@ -774,9 +774,12 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            polymesh_primitives::storage_migrate_on!(StorageVersion::<T>, 4, {
-                migrations::migrate_to_v4::<T>();
-            });
+            if StorageVersion::<T>::get() < Version::new(4) {
+                let weight = migrations::migrate_to_v4::<T>();
+                StorageVersion::<T>::put(Version::new(4));
+                return weight;
+            }
+
             Weight::zero()
         }
     }
