@@ -235,6 +235,32 @@ impl AssetHelper {
                 .await?
                 .expect("Settlement ID not found");
 
+            // On the previous release, investors need to affirm the settlement.
+            #[cfg(feature = "previous_release")]
+            {
+                let mut pending_affirms = Vec::new();
+                for investor in batch.iter_mut() {
+                    let inv_holding = PortfolioId {
+                        did: investor.did.expect("Investor DID"),
+                        kind: PortfolioKind::Default,
+                    };
+
+                    let affirm_res = self
+                        .api
+                        .call()
+                        .settlement()
+                        .affirm_instruction(settlement_id, vec![inv_holding].into_iter().collect())?
+                        .submit_and_watch(*investor)
+                        .await?;
+                    pending_affirms.push(affirm_res);
+                }
+
+                // Wait for investors affirmations to complete.
+                for mut affirm_res in pending_affirms {
+                    affirm_res.ok().await?;
+                }
+            }
+
             // Execute the settlement
             let execute_res = self
                 .api

@@ -41,6 +41,7 @@ async fn asset_helper() -> Result<()> {
 
 /// Test for a simple settlement.
 #[tokio::test]
+#[allow(unused_mut)]
 async fn simple_settlement() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -49,7 +50,7 @@ async fn simple_settlement() -> Result<()> {
         .into_iter();
     let mut venue = users.next().expect("Venue user");
     let mut asset_issuer = users.next().expect("Asset issuer");
-    let investor = users.next().expect("Investor");
+    let mut investor = users.next().expect("Investor");
 
     // Get the DIDs of the users.
     let issuer_did = asset_issuer.did.expect("Asset issuer DID");
@@ -173,6 +174,19 @@ async fn simple_settlement() -> Result<()> {
 
     // Wait for the issuer affirmation to complete.
     affirm_res.ok().await?;
+
+    // On the previous release, the investor needs to affirm the settlement.
+    #[cfg(feature = "previous_release")]
+    {
+        let mut affirm_res2 = tester
+            .api
+            .call()
+            .settlement()
+            .affirm_instruction(settlement_id, vec![investor_holding].into_iter().collect())?
+            .submit_and_watch(&mut investor)
+            .await?;
+        affirm_res2.ok().await?;
+    }
 
     // Execute the settlement
     let mut execute_res = tester
@@ -331,7 +345,16 @@ async fn offchain_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .affirm_with_receipts(instruction_id, vec![receipt_details], [].into())?
+        .affirm_with_receipts(instruction_id, vec![receipt_details], {
+            #[cfg(feature = "previous_release")]
+            {
+                [investor_holding].into()
+            }
+            #[cfg(feature = "current_release")]
+            {
+                [].into()
+            }
+        })?
         .submit_and_watch(&mut investor1)
         .await?;
 
