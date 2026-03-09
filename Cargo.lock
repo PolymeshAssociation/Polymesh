@@ -276,7 +276,7 @@ dependencies = [
  "ruint",
  "rustc-hash 2.1.2",
  "serde",
- "sha3",
+ "sha3 0.10.8",
 ]
 
 [[package]]
@@ -339,7 +339,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "sha3",
+ "sha3 0.10.8",
  "syn 2.0.117",
  "syn-solidity",
 ]
@@ -455,7 +455,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -466,7 +466,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -530,8 +530,7 @@ dependencies = [
 [[package]]
 name = "ark-bls12-381"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3df4dcc01ff89867cd86b0da835f23c3f02738353aaee7dde7495af71363b8d5"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -542,13 +541,80 @@ dependencies = [
 [[package]]
 name = "ark-bn254"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d69eab57e8d2663efa5c63135b2af4f396d66424f88954c21104125ab6b3e6bc"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
  "ark-r1cs-std",
  "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-crypto-primitives"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e0c292754729c8a190e50414fd1a37093c786c709899f29c9f7daccecfa855e"
+dependencies = [
+ "ahash 0.8.12",
+ "ark-crypto-primitives-macros",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-relations",
+ "ark-serialize 0.5.0",
+ "ark-snark",
+ "ark-std 0.5.0",
+ "blake2 0.10.6",
+ "derivative",
+ "digest 0.10.7",
+ "fnv",
+ "sha2 0.10.9",
+]
+
+[[package]]
+name = "ark-crypto-primitives-macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7e89fe77d1f0f4fe5b96dfc940923d88d17b6a773808124f21e764dfb063c6a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "ark-curve25519"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-dlog-gadget"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+dependencies = [
+ "ark-curve25519",
+ "ark-ec 0.5.0",
+ "ark-ec-divisors",
+ "ark-ff 0.5.0",
+ "ark-helios",
+ "ark-pallas",
+ "ark-selene",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
+ "ark-wei25519",
+ "bulletproofs",
+ "dock_crypto_utils",
+ "generic-array 1.3.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "subtle 2.6.1",
+ "thiserror 2.0.18",
+ "zeroize",
 ]
 
 [[package]]
@@ -571,21 +637,47 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43d68f2d516162846c1238e755a7c4d131b892b70cc70c471a8e3ca3ed818fce"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "ahash 0.8.12",
  "ark-ff 0.5.0",
- "ark-poly 0.5.0",
+ "ark-poly 0.5.0 (git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master)",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "educe",
  "fnv",
- "hashbrown 0.15.5",
- "itertools 0.13.0",
+ "hashbrown 0.16.1",
+ "itertools 0.14.0",
  "num-bigint",
  "num-integer",
  "num-traits",
+ "rayon",
+ "zeroize",
+]
+
+[[package]]
+name = "ark-ec-divisors"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+dependencies = [
+ "ark-curve25519",
+ "ark-ec 0.5.0",
+ "ark-ed25519",
+ "ark-ff 0.5.0",
+ "ark-helios",
+ "ark-pallas",
+ "ark-selene",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
+ "ark-wei25519",
+ "dock_crypto_utils",
+ "generic-array 1.3.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "spin 0.9.8",
+ "subtle 2.6.1",
+ "thiserror 2.0.18",
  "zeroize",
 ]
 
@@ -596,6 +688,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1786b2e3832f6f0f7c8d62d5d5a282f6952a1ab99981c54cd52b6ac1d8f02df5"
 dependencies = [
  "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-ed25519"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-curve25519",
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
  "ark-std 0.5.0",
@@ -642,20 +745,17 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a177aba0ed1e0fbb62aa9f6d0502e9b46dad8c2eab04c14258a1212d2557ea70"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "ark-ff-asm 0.5.0",
  "ark-ff-macros 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
- "arrayvec 0.7.6",
  "digest 0.10.7",
  "educe",
- "itertools 0.13.0",
  "num-bigint",
  "num-traits",
- "paste",
+ "rayon",
  "zeroize",
 ]
 
@@ -682,8 +782,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62945a2f7e6de02a31fe400aa489f0e0f5b2502e69f95f853adb82a96c7a6b60"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -717,14 +816,36 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09be120733ee33f7693ceaa202ca41accd5653b779563608f1234f78ae07c4b3"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "num-bigint",
  "num-traits",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "ark-helios"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-selene",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-pallas"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -753,6 +874,21 @@ dependencies = [
  "educe",
  "fnv",
  "hashbrown 0.15.5",
+ "rayon",
+]
+
+[[package]]
+name = "ark-poly"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ahash 0.8.12",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "educe",
+ "fnv",
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
@@ -785,6 +921,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-selene"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-curve25519",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
 name = "ark-serialize"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -809,14 +957,15 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f4d068aaf107ebcd7dfb52bc748f8030e0fc930ac8e360146ca54c1203088f7"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "ark-serialize-derive 0.5.0",
  "ark-std 0.5.0",
- "arrayvec 0.7.6",
  "digest 0.10.7",
  "num-bigint",
+ "parity-scale-codec",
+ "rayon",
+ "serde_with",
 ]
 
 [[package]]
@@ -833,12 +982,23 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "213888f660fddcca0d257e88e54ac05bca01885f258ccdf695bafd77031bb69d"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "ark-snark"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d368e2848c2d4c129ce7679a7d0d2d612b6a274d3ea6a13bad4445d61b381b88"
+dependencies = [
+ "ark-ff 0.5.0",
+ "ark-relations",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -869,6 +1029,7 @@ checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
+ "rayon",
 ]
 
 [[package]]
@@ -882,7 +1043,19 @@ dependencies = [
  "ark-std 0.5.0",
  "digest 0.10.7",
  "rand_core 0.6.4",
- "sha3",
+ "sha3 0.10.8",
+]
+
+[[package]]
+name = "ark-vesta"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -902,6 +1075,18 @@ dependencies = [
  "sha2 0.10.9",
  "w3f-ring-proof",
  "zeroize",
+]
+
+[[package]]
+name = "ark-wei25519"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
+dependencies = [
+ "ark-curve25519",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -1483,6 +1668,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
+ "block-padding",
  "generic-array 0.14.7",
 ]
 
@@ -1494,6 +1680,12 @@ checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array 0.14.7",
 ]
+
+[[package]]
+name = "block-padding"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blocking"
@@ -1583,6 +1775,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bdce191bf3fa4995ce948c8c83b4640a1745457a149e73c6db75b4ffe36aad5f"
 dependencies = [
  "semver 0.6.0",
+]
+
+[[package]]
+name = "bulletproofs"
+version = "2.0.0"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+dependencies = [
+ "ahash 0.8.12",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-helios",
+ "ark-pallas",
+ "ark-selene",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
+ "ark-wei25519",
+ "byteorder",
+ "digest 0.9.0",
+ "dock_crypto_utils",
+ "hashbrown 0.16.1",
+ "log",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "sha2 0.10.9",
+ "sha3 0.9.1",
+ "thiserror 2.0.18",
+ "zeroize",
 ]
 
 [[package]]
@@ -1747,6 +1968,17 @@ name = "cfg_aliases"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
+
+[[package]]
+name = "cfg_eval"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45565fc9416b9896014f5732ac776f810ee53a66730c17e4020c3ec064a8f88f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "chacha"
@@ -2302,6 +2534,19 @@ name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
+
+[[package]]
+name = "crossbeam"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
+dependencies = [
+ "crossbeam-channel",
+ "crossbeam-deque",
+ "crossbeam-epoch",
+ "crossbeam-queue",
+ "crossbeam-utils",
+]
 
 [[package]]
 name = "crossbeam-channel"
@@ -3045,6 +3290,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock_crypto_utils"
+version = "0.22.0"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#71fe0e595bd0317a3486e2d84118835ddc1019e0"
+dependencies = [
+ "aead",
+ "ahash 0.8.12",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "cfg_eval",
+ "digest 0.10.7",
+ "dock_merlin",
+ "hashbrown 0.16.1",
+ "hkdf",
+ "integer-sqrt",
+ "itertools 0.14.0",
+ "num",
+ "rayon",
+ "serde",
+ "sha2 0.10.9",
+ "zeroize",
+]
+
+[[package]]
+name = "dock_merlin"
+version = "3.0.0"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#71fe0e595bd0317a3486e2d84118835ddc1019e0"
+dependencies = [
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "byteorder",
+ "keccak",
+ "rand_core 0.6.4",
+ "zeroize",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3320,7 +3604,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4199,6 +4483,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array"
+version = "1.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf57c49a95fd1fe24b90b3033bee6dc7e8f1288d51494cb44e627c295e38542"
+dependencies = [
+ "rustversion",
+ "typenum",
+]
+
+[[package]]
 name = "gethostname"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4507,6 +4801,7 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.2.0",
+ "rustc-std-workspace-alloc",
  "serde",
  "serde_core",
 ]
@@ -5256,7 +5551,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6824,7 +7119,7 @@ dependencies = [
  "digest 0.10.7",
  "multihash-derive",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "unsigned-varint 0.7.2",
 ]
 
@@ -7231,7 +7526,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 3.5.0",
+ "proc-macro-crate 1.1.3",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -7630,6 +7925,30 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "pallet-confidential-assets"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "lazy_static",
+ "log",
+ "pallet-identity",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-dart",
+ "polymesh-dart-host-functions",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -9448,6 +9767,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-committee",
+ "pallet-confidential-assets",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-group",
@@ -9472,6 +9792,7 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-contracts",
+ "polymesh-dart-host-functions",
  "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -9559,6 +9880,103 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "wasm-instrument 0.3.0",
+]
+
+[[package]]
+name = "polymesh-dart"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#7e6d7f88ef8766642293f99f07a8e3fd0f2e7504"
+dependencies = [
+ "ark-dlog-gadget",
+ "ark-ec 0.5.0",
+ "ark-ec-divisors",
+ "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
+ "blake2 0.10.6",
+ "bounded-collections",
+ "bulletproofs",
+ "digest 0.10.7",
+ "dock_crypto_utils",
+ "hex",
+ "lazy_static",
+ "log",
+ "parity-scale-codec",
+ "polymesh-dart-bp",
+ "polymesh-dart-common",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "rayon",
+ "relations",
+ "scale-info",
+ "schnorr_pok",
+ "serde",
+ "serde_arrays",
+ "serde_json",
+ "sp-io",
+ "thiserror 2.0.18",
+ "zeroize",
+]
+
+[[package]]
+name = "polymesh-dart-bp"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#7e6d7f88ef8766642293f99f07a8e3fd0f2e7504"
+dependencies = [
+ "ark-dlog-gadget",
+ "ark-ec 0.5.0",
+ "ark-ec-divisors",
+ "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "blake2 0.10.6",
+ "bulletproofs",
+ "digest 0.10.7",
+ "dock_crypto_utils",
+ "hex",
+ "itertools 0.14.0",
+ "lazy_static",
+ "log",
+ "polymesh-dart-common",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "rayon",
+ "relations",
+ "schnorr_pok",
+ "thiserror 2.0.18",
+ "zeroize",
+]
+
+[[package]]
+name = "polymesh-dart-common"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#7e6d7f88ef8766642293f99f07a8e3fd0f2e7504"
+
+[[package]]
+name = "polymesh-dart-host-functions"
+version = "0.1.0"
+dependencies = [
+ "ark-ec 0.5.0",
+ "crossbeam",
+ "lazy_static",
+ "log",
+ "parity-scale-codec",
+ "polymesh-dart",
+ "polymesh-dart-common",
+ "polymesh-primitives",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "rayon",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime-interface",
+ "sp-std",
 ]
 
 [[package]]
@@ -9702,6 +10120,7 @@ dependencies = [
  "pallet-beefy-mmr",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-assets",
  "pallet-contracts",
  "pallet-corporate-actions",
  "pallet-election-provider-multi-phase",
@@ -9743,6 +10162,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-contracts",
+ "polymesh-dart",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -10450,8 +10870,8 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
- "itertools 0.14.0",
+ "heck 0.4.1",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -10470,8 +10890,8 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "343d3bd7056eda839b03204e68deff7d1b13aba7af2b2fd16890697274262ee7"
 dependencies = [
- "heck 0.5.0",
- "itertools 0.14.0",
+ "heck 0.4.1",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "petgraph 0.8.3",
@@ -10503,7 +10923,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -10516,7 +10936,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -10981,6 +11401,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
+name = "relations"
+version = "0.1.0"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+dependencies = [
+ "ark-crypto-primitives",
+ "ark-dlog-gadget",
+ "ark-ec 0.5.0",
+ "ark-ec-divisors",
+ "ark-ff 0.5.0",
+ "ark-helios",
+ "ark-pallas",
+ "ark-selene",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
+ "blake2 0.10.6",
+ "bulletproofs",
+ "digest 0.10.7",
+ "dock_crypto_utils",
+ "log",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "rayon",
+ "sha3 0.10.8",
+ "thiserror 2.0.18",
+ "zeroize",
+]
+
+[[package]]
 name = "resolv-conf"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11389,6 +11839,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
+name = "rustc-std-workspace-alloc"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9d441c3b2ebf55cebf796bfdc265d67fa09db17b7bb6bd4be75c509e1e8fec3"
+
+[[package]]
 name = "rustc_version"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11438,7 +11894,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -12987,6 +13443,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "schnorr_pok"
+version = "0.22.0"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#71fe0e595bd0317a3486e2d84118835ddc1019e0"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "cfg_eval",
+ "digest 0.10.7",
+ "dock_crypto_utils",
+ "rayon",
+ "serde",
+ "zeroize",
+]
+
+[[package]]
 name = "schnorrkel"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13222,6 +13695,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_arrays"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94a16b99c5ea4fe3daccd14853ad260ec00ea043b2708d1fd1da3106dcd8d9df"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_bytes"
 version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13360,6 +13842,16 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
+ "sha2-asm",
+]
+
+[[package]]
+name = "sha2-asm"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b845214d6175804686b2bd482bcffe96651bb2d1200742b712003504a2dac1ab"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -13367,6 +13859,18 @@ name = "sha2-const-stable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f179d4e11094a893b82fff208f74d448a7512f99f5a0acbd5c679b705f83ed9"
+
+[[package]]
+name = "sha3"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f81199417d4e5de3f04b1e871023acea7389672c4135918f05aa9cbf2f2fa809"
+dependencies = [
+ "block-buffer 0.9.0",
+ "digest 0.9.0",
+ "keccak",
+ "opaque-debug 0.3.1",
+]
 
 [[package]]
 name = "sha3"
@@ -13544,7 +14048,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "siphasher 1.0.2",
  "slab",
  "smallvec",
@@ -13631,7 +14135,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -13908,7 +14412,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.7",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "twox-hash 1.6.3",
 ]
 
@@ -15238,7 +15742,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -15257,7 +15761,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.4",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -16018,7 +16522,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "sha2 0.10.9",
- "sha3",
+ "sha3 0.10.8",
  "zeroize",
 ]
 
@@ -16030,7 +16534,7 @@ checksum = "fbe7a8d5c914b69392ab3b267f679a2e546fe29afaddce47981772ac71bd02e1"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
- "ark-poly 0.5.0",
+ "ark-poly 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "merlin",
@@ -16044,7 +16548,7 @@ checksum = "1aca389e494fe08c5c108b512e2328309036ee1c0bc7bdfdb743fef54d448c8c"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
- "ark-poly 0.5.0",
+ "ark-poly 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "getrandom_or_panic",
@@ -16060,7 +16564,7 @@ checksum = "8a639379402ad51504575dbd258740383291ac8147d3b15859bdf1ea48c677de"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
- "ark-poly 0.5.0",
+ "ark-poly 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "ark-transcript",
@@ -16790,7 +17294,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -17670,3 +18174,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "ark-bls12-377"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#803ce96604d1ac35ad33572bf82dda52d013f663"
