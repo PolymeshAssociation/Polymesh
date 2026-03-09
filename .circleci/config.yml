@@ -549,6 +549,9 @@ jobs:
               --pool-limit 100000
           background: true
       - run:
+          name: Wait for chain build the genesis config and start producing blocks
+          command: sleep 15
+      - run:
           name: install and build integration tests
           command: yarn install && yarn build:types && yarn build
           working_directory: ./scripts/cli
