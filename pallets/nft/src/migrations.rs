@@ -24,24 +24,25 @@ pub mod v6 {
 }
 
 pub fn migrate_to_v7<T: Config>() -> Weight {
-    let result = frame_support::migration::clear_storage_prefix(
-        Pallet::<T>::name().as_bytes(),
-        b"NFTOwner",
-        b"",
-        None,
-        None,
-    );
+    let mut cursor = None;
+    let mut count = 0;
 
-    if let Some(cursor) = result.maybe_cursor {
-        log::info!("nft::migrations second clear call");
-        let _ = frame_support::migration::clear_storage_prefix(
+    loop {
+        let result = frame_support::migration::clear_storage_prefix(
             Pallet::<T>::name().as_bytes(),
-            b"NFTOwner",
+            b"NFTOwners",
             b"",
             None,
-            Some(cursor.as_ref()),
+            cursor.as_deref(),
         );
+
+        if result.maybe_cursor.is_none() {
+            break;
+        };
+
+        cursor = result.maybe_cursor.clone();
+        count += result.unique;
     }
 
-    Weight::zero()
+    T::DbWeight::get().writes(count.into())
 }

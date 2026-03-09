@@ -22,23 +22,9 @@ use polymesh_primitives::{AssetHolder, NFTs};
 
 sp_api::decl_runtime_apis! {
 
-    #[api_version(2)]
+    #[api_version(3)]
     pub trait NFTApi {
         /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
-        ///
-        /// ```ignore
-        /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
-        ///     "id":1,
-        ///     "jsonrpc":"2.0",
-        ///     "method": "nft_transferReport",
-        ///     "params": [
-        ///        { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///        { "did": "0x0100000000000000000000000000000000000000000000000000000000000000", "kind": "Default"},
-        ///        { "asset_id": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "ids": [1]},
-        ///        false
-        ///     ]
-        /// }'
-        /// ```
         fn transfer_report(
             sender: AssetHolder,
             receiver: AssetHolder,

@@ -480,7 +480,7 @@ jobs:
           no_output_timeout: 30m
       - run:
           name: Upgrade chain to current version.
-          command: cargo run --features current_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
+          command: cargo run --features previous_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
