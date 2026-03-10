@@ -9,15 +9,14 @@ build = "build.rs"
 
 [dependencies]
 # Common
-polymesh-runtime-common = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
+polymesh-runtime-common = { workspace = true, default-features = false }
 polymesh-weights = { workspace = true, default-features = false }
 
 # Our pallets
 pallet-asset = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-base = { workspace = true, default-features = false }
-pallet-sto = { workspace = true, default-features = false }
 pallet-committee = { workspace = true, default-features = false }
 pallet-compliance-manager = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
@@ -34,10 +33,10 @@ pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 pallet-statistics = { workspace = true, default-features = false }
+pallet-sto = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
-pallet-sudo = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
@@ -136,7 +135,6 @@ std = [
     "pallet-beefy/std",
     "pallet-beefy-mmr/std",
     "pallet-mmr/std",
-    "pallet-sto/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
@@ -166,11 +164,13 @@ std = [
     "pallet-staking/std",
     "pallet-validators/std",
     "pallet-statistics/std",
+    "pallet-sto/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "polymesh-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
+    "polymesh-contracts/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
@@ -191,9 +191,9 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    "polymesh-contracts/std",
     "sp-genesis-builder/std",
 ]
+
 runtime-benchmarks = [
     "frame-election-provider-support/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
