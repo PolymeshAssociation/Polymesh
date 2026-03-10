@@ -49,7 +49,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::dispatch::{
     DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
@@ -85,7 +85,7 @@ use polymesh_primitives::traits::{AssetOrNft, SettlementFnTrait};
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    storage_migration_ver, AssetHolder, Balance, IdentityId, Memo, NFTs, SecondaryKey, WeightMeter,
+    AssetHolder, Balance, IdentityId, Memo, NFTs, SecondaryKey, WeightMeter,
 };
 
 type System<T> = frame_system::Pallet<T>;
@@ -584,9 +584,10 @@ pub mod pallet {
         ReceiptExpired,
     }
 
-    storage_migration_ver!(4);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
@@ -751,10 +752,6 @@ pub mod pallet {
     pub type LockedTimestamp<T: Config> =
         StorageMap<_, Twox64Concat, InstructionId, T::Moment, OptionQuery>;
 
-    /// Storage version.
-    #[pallet::storage]
-    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
-
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
@@ -767,16 +764,16 @@ pub mod pallet {
         fn build(&self) {
             VenueCounter::<T>::put(VenueId(1));
             InstructionCounter::<T>::put(InstructionId(1));
-            StorageVersion::<T>::put(Version::new(4));
+            STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() < Version::new(4) {
+            if Pallet::<T>::on_chain_storage_version() < Pallet::<T>::in_code_storage_version() {
                 let weight = migrations::migrate_to_v4::<T>();
-                StorageVersion::<T>::put(Version::new(4));
+                STORAGE_VERSION.put::<Pallet<T>>();
                 return weight;
             }
 

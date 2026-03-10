@@ -116,6 +116,8 @@ pub fn migrate_user_affirmations<T: Config>() -> Weight {
         count += 1;
     }
 
+    log::info!("UserAffirmations migrated: {count}");
+
     T::DbWeight::get().reads_writes(count, count)
 }
 
@@ -126,6 +128,8 @@ pub fn migrate_instruction_legs<T: Config>() -> Weight {
         crate::InstructionLegs::<T>::insert(instruction_id, leg_id, Leg::from(leg));
         count += 1;
     }
+
+    log::info!("InstructionLegs migrated: {count}");
 
     T::DbWeight::get().reads_writes(count, count)
 }
