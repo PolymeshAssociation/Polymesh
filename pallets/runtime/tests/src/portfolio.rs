@@ -290,17 +290,6 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         ),
         Error::DestinationIsSamePortfolio
     );
-    assert_noop!(
-        Asset::ensure_valid_holdings(
-            &owner_default_portfolio.clone().into(),
-            &owner.did,
-            &owner_default_portfolio.clone().into(),
-            &owner.did,
-            &asset_id,
-            1,
-        ),
-        AssetError::InvalidTransferSenderDidMatchesReceiverDid
-    );
 
     // Attempt to move to a non-existent portfolio.
     assert_noop!(

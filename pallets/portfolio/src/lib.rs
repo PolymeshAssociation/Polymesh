@@ -375,8 +375,6 @@ pub mod pallet {
         EmptyTransfer,
         /// The caller doesn't have permission to create portfolios on the owner's behalf.
         MissingOwnersPermission,
-        /// The sender identity can't be the same as the receiver identity.
-        InvalidTransferSenderDidMatchesReceiverDid,
         /// Adding itself as an AllowedCustodian is not permitted.
         SelfAdditionNotAllowed,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.

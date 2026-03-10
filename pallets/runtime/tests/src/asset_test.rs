@@ -278,10 +278,6 @@ fn valid_transfers_pass() {
         // Should fail as sender matches receiver.
         let transfer = |from, to| transfer(asset_id, from, to, 500);
 
-        assert_noop!(
-            transfer(owner, owner),
-            AssetError::InvalidTransferSenderDidMatchesReceiverDid
-        );
         assert_ok!(transfer(owner, alice));
 
         assert_eq!(
@@ -408,12 +404,6 @@ fn controller_transfer() {
         let alice = User::new(Sr25519Keyring::Alice);
 
         let asset_id = create_and_issue_sample_asset(&owner);
-
-        // Should fail as sender matches receiver.
-        assert_noop!(
-            transfer(asset_id, owner, owner, 500),
-            AssetError::InvalidTransferSenderDidMatchesReceiverDid
-        );
 
         assert_ok!(transfer(asset_id, owner, alice, 500));
 

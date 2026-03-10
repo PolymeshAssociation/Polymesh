@@ -1847,8 +1847,6 @@ pub mod pallet {
         TickerIsNotLinkedToTheAsset,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
-        /// The sender identity can't be the same as the receiver identity.
-        InvalidTransferSenderDidMatchesReceiverDid,
         /// The key does not have permission to access the account.
         UnauthorizedHolderKey,
         /// No key was found for the Identity
@@ -2108,7 +2106,7 @@ impl<T: AssetConfig> Pallet<T> {
             &[(holder_did, BalanceOf::<T>::get(asset_id, holder_did))],
         )?;
 
-        let updated_did_balance = BalanceOf::<T>::get(asset_id, holder_did) - value;
+        let updated_did_balance = BalanceOf::<T>::get(asset_id, holder_did).saturating_sub(value);
 
         // Update identity balances and total supply
         BalanceOf::<T>::insert(asset_id, holder_did, updated_did_balance);
@@ -3155,14 +3153,7 @@ impl<T: AssetConfig> Pallet<T> {
         );
 
         // Verifies that both portfolios exist an that the sender portfolio has sufficient balance
-        Self::ensure_valid_holdings(
-            sender,
-            &sender_did,
-            receiver,
-            &receiver_did,
-            &asset_id,
-            transfer_value,
-        )?;
+        Self::ensure_valid_holdings(sender, receiver, &asset_id, transfer_value)?;
 
         // Controllers are exempt from statistics, compliance and frozen rules.
         if is_controller_transfer {
@@ -3251,11 +3242,6 @@ impl<T: AssetConfig> Pallet<T> {
             .is_none()
         {
             asset_transfer_errors.push(Error::<T>::BalanceOverflow.into());
-        }
-
-        if sender_did == receiver_did {
-            asset_transfer_errors
-                .push(Error::<T>::InvalidTransferSenderDidMatchesReceiverDid.into());
         }
 
         if let AssetHolder::Portfolio(sender_portfolio_id) = sender {
@@ -3561,17 +3547,10 @@ impl<T: AssetConfig> Pallet<T> {
     /// - The sender has sufficient balance for the transfer (taking into account locks).
     pub fn ensure_valid_holdings(
         sender: &AssetHolder,
-        sender_did: &IdentityId,
         receiver: &AssetHolder,
-        receiver_did: &IdentityId,
         asset_id: &AssetId,
         value: Balance,
     ) -> DispatchResult {
-        ensure!(
-            sender_did != receiver_did,
-            Error::<T>::InvalidTransferSenderDidMatchesReceiverDid
-        );
-
         if let AssetHolder::Portfolio(sender_portfolio_id) = sender {
             PortfolioPallet::<T>::ensure_portfolio_validity(sender_portfolio_id)?;
         }
@@ -3818,10 +3797,10 @@ impl<T: AssetConfig> Pallet<T> {
             &[(issuer_did, current_issuer_balance)],
         )?;
 
-        let new_issuer_balance = current_issuer_balance + amount_to_issue;
+        let new_issuer_balance = current_issuer_balance.saturating_add(amount_to_issue);
         BalanceOf::<T>::insert(asset_id, issuer_did, new_issuer_balance);
 
-        asset_details.total_supply += amount_to_issue;
+        asset_details.total_supply = asset_details.total_supply.saturating_add(amount_to_issue);
         Assets::<T>::insert(asset_id, asset_details);
 
         // No check since the total balance is always <= the total supply
