@@ -3603,12 +3603,19 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Returns `true` if the affirmation of the asset holder can be skipped for the given `asset_id`.
-    pub fn skip_asset_holder_affirmation(asset_holder: &AssetHolder, asset_id: &AssetId) -> bool {
-        if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
-            return PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id);
+    pub fn skip_asset_holder_affirmation(
+        asset_holder: &AssetHolder,
+        asset_id: &AssetId,
+    ) -> Result<bool, DispatchError> {
+        match asset_holder {
+            AssetHolder::Account(_) => {
+                let acc_did = pallet_identity::Pallet::<T>::asset_holder_did(asset_holder)?;
+                Ok(Self::skip_asset_affirmation(&acc_did, asset_id))
+            }
+            AssetHolder::Portfolio(portfolio_id) => Ok(
+                PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id),
+            ),
         }
-
-        false
     }
 
     /// Returns `Ok` if:

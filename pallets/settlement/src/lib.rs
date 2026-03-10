@@ -1736,7 +1736,7 @@ impl<T: Config> Pallet<T> {
             Asset::<T>::ensure_valid_holder(&receiver)?;
 
             holders_pending_approval.insert(sender.clone());
-            if Asset::<T>::skip_asset_holder_affirmation(receiver, asset_id) {
+            if Asset::<T>::skip_asset_holder_affirmation(receiver, asset_id)? {
                 holders_pre_approved.insert(receiver.clone());
             } else {
                 holders_pending_approval.insert(receiver.clone());
