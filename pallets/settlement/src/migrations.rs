@@ -2,6 +2,7 @@ use frame_support::pallet_prelude::*;
 
 use polymesh_primitives::asset::AssetHolder;
 use polymesh_primitives::settlement::Leg;
+use polymesh_primitives::{PortfolioId, PortfolioKind};
 
 use crate::Config;
 
@@ -12,9 +13,25 @@ pub mod v3 {
 
     use polymesh_primitives::asset::AssetId;
     use polymesh_primitives::settlement::{AffirmationStatus, InstructionId, LegId};
-    use polymesh_primitives::{Balance, IdentityId, NFTs, PortfolioId, Ticker};
+    use polymesh_primitives::{AccountId, Balance, IdentityId, NFTs, PortfolioNumber, Ticker};
 
     use crate::{Config, Pallet};
+
+    #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
+    #[derive(Clone, PartialEq, Eq)]
+    #[derive(Serialize, Deserialize)]
+    pub struct PortfolioId {
+        pub did: IdentityId,
+        pub kind: PortfolioKind,
+    }
+
+    #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
+    #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub enum PortfolioKind {
+        Default,
+        User(PortfolioNumber),
+        AccountId(AccountId),
+    }
 
     #[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
     #[derive(Deserialize, Serialize)]
@@ -78,7 +95,7 @@ pub fn migrate_affirms_received<T: Config>() -> Weight {
     for (instruction_id, portfolio_id, status) in v3::AffirmsReceived::<T>::drain() {
         crate::AffirmsReceived::<T>::insert(
             instruction_id,
-            AssetHolder::Portfolio(portfolio_id),
+            AssetHolder::from(portfolio_id),
             status,
         );
         count += 1;
@@ -92,7 +109,7 @@ pub fn migrate_user_affirmations<T: Config>() -> Weight {
 
     for (portfolio_id, instruction_id, status) in v3::UserAffirmations::<T>::drain() {
         crate::UserAffirmations::<T>::insert(
-            AssetHolder::Portfolio(portfolio_id),
+            AssetHolder::from(portfolio_id),
             instruction_id,
             status,
         );
@@ -128,8 +145,8 @@ impl From<v3::Leg> for Leg {
                 asset_id,
                 amount,
             } => Leg::Fungible {
-                sender: AssetHolder::Portfolio(sender),
-                receiver: AssetHolder::Portfolio(receiver),
+                sender: sender.into(),
+                receiver: receiver.into(),
                 asset_id,
                 amount,
             },
@@ -138,8 +155,8 @@ impl From<v3::Leg> for Leg {
                 receiver,
                 nfts,
             } => Leg::NonFungible {
-                sender: AssetHolder::Portfolio(sender),
-                receiver: AssetHolder::Portfolio(receiver),
+                sender: sender.into(),
+                receiver: receiver.into(),
                 nfts,
             },
             v3::Leg::OffChain {
@@ -153,6 +170,22 @@ impl From<v3::Leg> for Leg {
                 ticker,
                 amount,
             },
+        }
+    }
+}
+
+impl From<v3::PortfolioId> for AssetHolder {
+    fn from(portfolio_id: v3::PortfolioId) -> Self {
+        match portfolio_id.kind {
+            v3::PortfolioKind::Default => AssetHolder::Portfolio(PortfolioId {
+                did: portfolio_id.did,
+                kind: PortfolioKind::Default,
+            }),
+            v3::PortfolioKind::User(portfolio_number) => AssetHolder::Portfolio(PortfolioId {
+                did: portfolio_id.did,
+                kind: PortfolioKind::User(portfolio_number),
+            }),
+            v3::PortfolioKind::AccountId(account_id) => AssetHolder::Account(account_id),
         }
     }
 }

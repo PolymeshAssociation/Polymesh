@@ -18,7 +18,7 @@ use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{AssetHolder, Balance};
+use polymesh_primitives::{AssetHolder, Balance, PortfolioId};
 
 /// The maximum number of DIDs allowed in a `balance_at` RPC query.
 pub const MAX_BALANCE_AT_QUERY_SIZE: usize = 100;
@@ -28,6 +28,15 @@ pub type Error = Vec<u8>;
 sp_api::decl_runtime_apis! {
     #[api_version(5)]
     pub trait AssetApi {
+        /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
+        #[changed_in(5)]
+        fn transfer_report(
+            sender_portfolio: PortfolioId,
+            receiver_portfolio: PortfolioId,
+            asset_id: AssetId,
+            transfer_value: Balance,
+            skip_locked_check: bool,
+        ) -> Vec<DispatchError>;
 
         /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
         fn transfer_report(
