@@ -36,4 +36,4 @@ HEALTHCHECK \
     --start-period=120s \
     --timeout=5s \
     --retries=6 \
-    CMD /usr/local/bin/check liveness
+    CMD [ "/usr/local/bin/check", "liveness" ]
