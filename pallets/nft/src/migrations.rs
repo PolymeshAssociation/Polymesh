@@ -30,7 +30,7 @@ pub fn migrate_to_v7<T: Config>() -> Weight {
     loop {
         let result = frame_support::migration::clear_storage_prefix(
             Pallet::<T>::name().as_bytes(),
-            b"NFTOwners",
+            b"NFTOwner",
             b"",
             None,
             cursor.as_deref(),
@@ -44,7 +44,7 @@ pub fn migrate_to_v7<T: Config>() -> Weight {
         count += result.unique;
     }
 
-    log::info!("NFTOwners storage deleted");
+    log::info!("NFTOwner storage deleted");
 
     T::DbWeight::get().writes(count.into())
 }
