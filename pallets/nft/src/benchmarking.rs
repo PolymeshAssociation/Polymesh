@@ -5,14 +5,14 @@ use sp_std::vec::Vec;
 
 use pallet_asset::benchmarking::create_portfolio;
 use pallet_identity::benchmarking::{user, User, UserBuilder};
-use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
 use polymesh_primitives::traits::{AssetFnTrait, ComplianceFnConfig};
-use polymesh_primitives::{with_transaction, IdentityId, PortfolioKind, WeightMeter};
+use polymesh_primitives::{with_transaction, IdentityId, WeightMeter};
 
 use crate::*;
 
@@ -61,7 +61,7 @@ fn create_collection_issue_nfts<T: Config>(
     collection_owner: &User<T>,
     n_keys: u32,
     n_nfts: u32,
-    portfolio_kind: PortfolioKind,
+    asset_holder_kind: AssetHolderKind,
 ) -> AssetId {
     let (asset_id, _) = create_collection::<T>(collection_owner, n_keys);
 
@@ -76,7 +76,7 @@ fn create_collection_issue_nfts<T: Config>(
             collection_owner.origin.clone().into(),
             asset_id,
             metadata_attributes.clone(),
-            portfolio_kind.clone(),
+            asset_holder_kind.clone(),
         )
         .expect("failed to mint nft");
     }
@@ -94,17 +94,17 @@ pub fn setup_nft_transfer<T>(
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     n_mediators: u8,
-) -> (AssetId, PortfolioId, PortfolioId, Vec<User<T>>)
+) -> (AssetId, AssetHolder, AssetHolder, Vec<User<T>>)
 where
     T: Config,
 {
-    let sender_portfolio =
+    let sender_holdings =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
-    let receiver_portfolio =
+    let receiver_holdings =
         create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
     let asset_id =
-        create_collection_issue_nfts::<T>(sender, 0, n_nfts, sender_portfolio.kind.clone());
+        create_collection_issue_nfts::<T>(sender, 0, n_nfts, sender_holdings.clone().into());
 
     // Sets mandatory mediators
     let mut asset_mediators = Vec::new();
@@ -127,8 +127,8 @@ where
 
     (
         asset_id,
-        sender_portfolio,
-        receiver_portfolio,
+        sender_holdings,
+        receiver_holdings,
         asset_mediators,
     )
 }
@@ -159,7 +159,7 @@ benchmarks! {
                 }
             })
             .collect();
-    }: _(user.origin, asset_id, metadata_attributes, PortfolioKind::Default)
+    }: _(user.origin, asset_id, metadata_attributes, AssetHolderKind::DefaultPortfolio)
     verify {
         for i in 1..n + 1 {
             assert!(
@@ -175,9 +175,9 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let asset_id = create_collection_issue_nfts::<T>(&user, n, 1, PortfolioKind::Default);
+        let asset_id = create_collection_issue_nfts::<T>(&user, n, 1, AssetHolderKind::DefaultPortfolio);
 
-    }: _(user.origin, asset_id, NFTId(1), PortfolioKind::Default, None)
+    }: _(user.origin, asset_id, NFTId(1), AssetHolderKind::DefaultPortfolio, None)
     verify {
         for i in 1..n + 1 {
             assert!(
@@ -200,14 +200,14 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (asset_id, sender_portfolio, receiver_portfolio, _) =
+        let (asset_id, sender, receiver, _) =
             setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
             Pallet::<T>::base_nft_transfer(
-                sender_portfolio,
-                receiver_portfolio,
+                sender,
+                receiver,
                 nfts,
                 InstructionId(1),
                 None,
@@ -225,13 +225,13 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        let (asset_id, alice_user_portfolio, bob_user_portfolio, _) =
+        let (asset_id, alice_holdings, bob_holdings, _) =
             setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {
             Pallet::<T>::base_nft_transfer(
-                alice_user_portfolio.clone(),
-                bob_user_portfolio.clone(),
+                alice_holdings.clone(),
+                bob_holdings.clone(),
                 nfts.clone(),
                 InstructionId(1),
                 None,
@@ -243,13 +243,13 @@ benchmarks! {
         // Before the controller transfer all NFTs belong to bob
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), n as u64);
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), 0);
-    }: _(alice.origin.clone(), nfts.clone(), bob_user_portfolio.clone(), alice_user_portfolio.kind.clone())
+    }: _(alice.origin.clone(), nfts.clone(), bob_holdings.clone(), alice_holdings.clone().into())
     verify {
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), 0);
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), n as u64);
         for i in 1..n + 1 {
-            assert!(Portfolio::<T>::is_nft_owner(&alice_user_portfolio, &asset_id, &NFTId(i.into())));
-            assert!(!Portfolio::<T>::is_nft_owner(&bob_user_portfolio, &asset_id, &NFTId(i.into())));
+            assert!(Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &alice_holdings));
+            assert!(!Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &bob_holdings));
         }
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }

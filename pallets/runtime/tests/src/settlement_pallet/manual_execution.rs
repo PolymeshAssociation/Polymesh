@@ -2,12 +2,12 @@ use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_s
 use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::BalanceOf;
-use pallet_nft::{NFTOwner, NumberOfNFTs};
+use pallet_nft::{NumberOfNFTs, Owner};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioLockedNFT};
 use pallet_portfolio::{PortfolioLockedAssets, PortfolioNFT};
 use pallet_settlement::Error;
 use polymesh_primitives::settlement::{InstructionId, SettlementType};
-use polymesh_primitives::{NFTId, NFTs, PortfolioId, PortfolioKind, PortfolioNumber};
+use polymesh_primitives::{AssetHolderKind, NFTId, NFTs, PortfolioId, PortfolioNumber};
 use polymesh_runtime_common::Weight;
 
 use super::setup::add_and_affirm_simple_instruction;
@@ -53,7 +53,7 @@ fn invalid_caller() {
             Settlement::execute_manual_instruction(
                 eve.origin(),
                 InstructionId(0),
-                Some(PortfolioId::user_portfolio(eve.did, PortfolioNumber(1))),
+                Some(PortfolioId::user_portfolio(eve.did, PortfolioNumber(1)).into()),
                 1,
                 1,
                 0,
@@ -66,7 +66,7 @@ fn invalid_caller() {
             Settlement::execute_manual_instruction(
                 bob.origin(),
                 InstructionId(0),
-                Some(PortfolioId::user_portfolio(bob.did, PortfolioNumber(1))),
+                Some(PortfolioId::user_portfolio(bob.did, PortfolioNumber(1)).into()),
                 1,
                 1,
                 0,
@@ -91,7 +91,7 @@ fn execute_settle_after_lock_before_lock() {
             Settlement::execute_manual_instruction(
                 eve.origin(),
                 InstructionId(0),
-                Some(PortfolioId::user_portfolio(eve.did, PortfolioNumber(1))),
+                Some(PortfolioId::user_portfolio(eve.did, PortfolioNumber(1)).into()),
                 1,
                 1,
                 0,
@@ -104,7 +104,7 @@ fn execute_settle_after_lock_before_lock() {
             Settlement::execute_manual_instruction(
                 bob.origin(),
                 InstructionId(0),
-                Some(PortfolioId::user_portfolio(bob.did, PortfolioNumber(1))),
+                Some(PortfolioId::user_portfolio(bob.did, PortfolioNumber(1)).into()),
                 1,
                 1,
                 0,
@@ -172,8 +172,8 @@ fn controller_transfer_nft_is_locked() {
             Nft::controller_transfer(
                 dave.origin(),
                 NFTs::new_unverified(asset_id, vec![NFTId(1)]),
-                PortfolioId::default_portfolio(alice.did),
-                PortfolioKind::Default,
+                PortfolioId::default_portfolio(alice.did).into(),
+                AssetHolderKind::DefaultPortfolio,
             ),
             NFTError::InvalidNFTTransferNFTIsLocked
         );
@@ -197,9 +197,9 @@ fn controller_transfer_insufficient_balance() {
                 dave.origin(),
                 asset_id,
                 1_000,
-                PortfolioId::default_portfolio(alice.did),
+                PortfolioId::default_portfolio(alice.did).into(),
             ),
-            PortfolioError::InsufficientPortfolioBalance
+            AssetError::InsufficientBalance
         );
     });
 }
@@ -332,8 +332,8 @@ fn successfully_execute_after_locking() {
             false
         );
         assert_eq!(
-            NFTOwner::<TestStorage>::get(nft_asset_id, NFTId(1)),
-            Some(bob_default_portfolio)
+            Owner::<TestStorage>::get(nft_asset_id, NFTId(1)),
+            Some(bob_default_portfolio.into())
         );
 
         // Alls locks must have been removed

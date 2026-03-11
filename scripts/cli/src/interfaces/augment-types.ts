@@ -74,7 +74,7 @@ import type { ClassDetails, ClassId, ClassMetadata, DepositBalance, DepositBalan
 import type { Multisig, Timepoint } from '@polkadot/types/interfaces/utility';
 import type { VestingInfo } from '@polkadot/types/interfaces/vesting';
 import type { AssetInstance, AssetInstanceV0, AssetInstanceV1, AssetInstanceV2, BodyId, BodyPart, DoubleEncodedCall, Fungibility, FungibilityV0, FungibilityV1, FungibilityV2, InboundStatus, InstructionV2, InteriorMultiLocation, Junction, JunctionV0, JunctionV1, JunctionV2, Junctions, JunctionsV1, JunctionsV2, MultiAsset, MultiAssetFilter, MultiAssetFilterV1, MultiAssetFilterV2, MultiAssetV0, MultiAssetV1, MultiAssetV2, MultiAssets, MultiAssetsV1, MultiAssetsV2, MultiLocation, MultiLocationV0, MultiLocationV1, MultiLocationV2, NetworkId, OriginKindV0, OriginKindV1, OriginKindV2, OutboundStatus, Outcome, QueryId, QueryStatus, QueueConfigData, Response, ResponseV0, ResponseV1, ResponseV2, ResponseV2Error, ResponseV2Result, VersionMigrationStage, VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse, VersionedXcm, WeightLimitV2, WildFungibility, WildFungibilityV0, WildFungibilityV1, WildFungibilityV2, WildMultiAsset, WildMultiAssetV1, WildMultiAssetV2, Xcm, XcmAssetId, XcmError, XcmErrorV0, XcmErrorV1, XcmErrorV2, XcmOrder, XcmOrderV0, XcmOrderV1, XcmOrderV2, XcmOrigin, XcmOriginKind, XcmV0, XcmV1, XcmV2, XcmVersion, XcmpMessageFormat } from '@polkadot/types/interfaces/xcm';
-import type { AGId, AffirmationCount, AgentGroup, AssetComplianceResult, AssetCount, AssetDidResult, AssetPermissions, Authorization, AuthorizationData, AuthorizationNonce, AuthorizationType, CanTransferGranularReturn, CappedFee, CddId, Claim, ClaimType, ComplianceReport, ComplianceRequirementResult, Condition, ConditionReport, ConditionResult, ConditionType, CountryCode, CustomClaimTypeId, DidActiveStatus, DidStatus, ExecuteInstructionInfo, ExtrinsicName, ExtrinsicNames, ExtrinsicPermissions, FundraiserId, FundraiserReceipt, FungibleLeg, GranularCanTransferResult, IdentityClaim, IdentityId, InstructionId, KeyIdentityData, Leg, LegId, Member, NFTId, NFTs, NonFungibleLeg, OffChainLeg, PalletName, PalletPermissions, Percentage, Permissions, PipId, PolymeshAssetId, PolymeshMoment, PortfolioId, PortfolioKind, PortfolioNumber, PortfolioPermissions, PortfolioValidityResult, ProtocolOp, Receipt, RequirementReport, RpcDidRecords, RpcDidRecordsSuccess, Scope, SecondaryKey, Signatory, StatClaim, TargetIdAuthorization, TargetIdentity, Ticker, TransferCondition, TransferConditionResult, TrustedFor, TrustedIssuer, VoteCount, VoteCountProposalFound } from 'polymesh-types/default';
+import type { AGId, AffirmationCount, AgentGroup, AssetComplianceResult, AssetCount, AssetDidResult, AssetPermissions, Authorization, AuthorizationData, AuthorizationNonce, AuthorizationType, CanTransferGranularReturn, CappedFee, CddId, ChainScopedMessageFundraiserReceipt, ChainScopedMessageIdentityId, ChainScopedMessageReceipt, ChainScopedMessageRuntimeCall, Claim, ClaimType, ComplianceReport, ComplianceRequirementResult, Condition, ConditionReport, ConditionResult, ConditionType, CountryCode, CreateChildIdentityAuthMessage, CustomClaimTypeId, DidActiveStatus, DidStatus, ExecuteInstructionInfo, ExtrinsicName, ExtrinsicNames, ExtrinsicPermissions, FundraiserId, FundraiserReceipt, FundraiserReceiptMessage, FungibleLeg, GranularCanTransferResult, IdentityClaim, IdentityId, InstructionId, KeyIdentityData, Leg, LegId, Member, NFTId, NFTs, NonFungibleLeg, OffChainLeg, PalletName, PalletPermissions, Percentage, Permissions, PipId, PolymeshAssetId, PolymeshMoment, PortfolioId, PortfolioKind, PortfolioNumber, PortfolioPermissions, PortfolioValidityResult, ProtocolOp, Receipt, ReceiptMessage, RelayTxMessage, RequirementReport, RpcDidRecords, RpcDidRecordsSuccess, Scope, SecondaryKey, SecondaryKeyAuthMessage, Signatory, StatClaim, TargetIdentity, Ticker, TransferCondition, TransferConditionResult, TrustedFor, TrustedIssuer, VoteCount, VoteCountProposalFound } from 'polymesh-types/default';
 
 declare module '@polkadot/types/types/registry' {
   interface InterfaceTypes {
@@ -240,6 +240,11 @@ declare module '@polkadot/types/types/registry' {
     CddId: CddId;
     ChainId: ChainId;
     ChainProperties: ChainProperties;
+    ChainScopedMessage<Message>: ChainScopedMessage<Message>;
+    ChainScopedMessageFundraiserReceipt: ChainScopedMessageFundraiserReceipt;
+    ChainScopedMessageIdentityId: ChainScopedMessageIdentityId;
+    ChainScopedMessageReceipt: ChainScopedMessageReceipt;
+    ChainScopedMessageRuntimeCall: ChainScopedMessageRuntimeCall;
     ChainType: ChainType;
     ChangesTrieConfiguration: ChangesTrieConfiguration;
     ChangesTrieSignal: ChangesTrieSignal;
@@ -360,6 +365,7 @@ declare module '@polkadot/types/types/registry' {
     CoreState: CoreState;
     CountryCode: CountryCode;
     CrateVersion: CrateVersion;
+    CreateChildIdentityAuthMessage: CreateChildIdentityAuthMessage;
     CreatedBlock: CreatedBlock;
     CustomClaimTypeId: CustomClaimTypeId;
     CustomMetadata15: CustomMetadata15;
@@ -559,6 +565,7 @@ declare module '@polkadot/types/types/registry' {
     FundInfo: FundInfo;
     FundraiserId: FundraiserId;
     FundraiserReceipt: FundraiserReceipt;
+    FundraiserReceiptMessage: FundraiserReceiptMessage;
     Fungibility: Fungibility;
     FungibilityV0: FungibilityV0;
     FungibilityV1: FungibilityV1;
@@ -945,6 +952,7 @@ declare module '@polkadot/types/types/registry' {
     ReadySolution: ReadySolution;
     Reasons: Reasons;
     Receipt: Receipt;
+    ReceiptMessage: ReceiptMessage;
     RecoveryConfig: RecoveryConfig;
     RefCount: RefCount;
     RefCountTo259: RefCountTo259;
@@ -964,6 +972,7 @@ declare module '@polkadot/types/types/registry' {
     RelayChainHash: RelayChainHash;
     RelayerId: RelayerId;
     RelayHash: RelayHash;
+    RelayTxMessage: RelayTxMessage;
     Releases: Releases;
     Remark: Remark;
     Renouncing: Renouncing;
@@ -1020,6 +1029,7 @@ declare module '@polkadot/types/types/registry' {
     SealV0: SealV0;
     SeatHolder: SeatHolder;
     SecondaryKey: SecondaryKey;
+    SecondaryKeyAuthMessage: SecondaryKeyAuthMessage;
     SeedOf: SeedOf;
     ServiceQuality: ServiceQuality;
     SessionIndex: SessionIndex;
@@ -1181,7 +1191,6 @@ declare module '@polkadot/types/types/registry' {
     SystemInherentData: SystemInherentData;
     SystemOrigin: SystemOrigin;
     Tally: Tally;
-    TargetIdAuthorization: TargetIdAuthorization;
     TargetIdentity: TargetIdentity;
     TaskAddress: TaskAddress;
     TAssetBalance: TAssetBalance;

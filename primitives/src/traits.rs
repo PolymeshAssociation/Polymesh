@@ -14,17 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::DispatchError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 use crate::asset::AssetId;
 use crate::asset_metadata::AssetMetadataKey;
-use crate::secondary_key::SecondaryKey;
-use crate::{AccountId as AccountId32, Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
+use crate::{Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{asset::NonFungibleType, NFTCollectionKeys};
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::pallet_prelude::DispatchResult;
 
 mod asset;
 pub mod group;
@@ -82,71 +83,6 @@ pub trait SubsidiserTrait<AccountId, RuntimeCall> {
     ) -> Result<Option<AccountId>, InvalidTransaction>;
 }
 
-/// This trait is used to accept custody of a portfolio
-pub trait PortfolioSubTrait<AccountId> {
-    /// Checks that the custodian is authorized for the portfolio
-    ///
-    /// # Arguments
-    /// * `portfolio` - Portfolio to check
-    /// * `custodian` - DID of the custodian
-    fn ensure_portfolio_custody(portfolio: &PortfolioId, custodian: IdentityId) -> DispatchResult;
-
-    /// Ensure that the `portfolio` exists.
-    ///
-    /// # Arguments
-    /// * `portfolio` - Portfolio to check
-    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult;
-
-    /// Locks some tokens of a portfolio
-    ///
-    /// # Arguments
-    /// * `portfolio` - Portfolio to lock tokens
-    /// * `asset_id` - [`AssetId`] of the token to lock
-    /// * `amount` - Amount of tokens to lock
-    fn lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult;
-
-    /// Unlocks some tokens of a portfolio
-    ///
-    /// # Arguments
-    /// * `portfolio` - Portfolio to unlock tokens
-    /// * asset_id` - [`AssetId`] of the token to unlock
-    /// * `amount` - Amount of tokens to unlock
-    fn unlock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult;
-
-    /// Ensures that the portfolio's custody is with the provided identity
-    /// And the secondary key has the relevant portfolio permission
-    ///
-    /// # Arguments
-    /// * `portfolio` - PortfolioId of the portfolio to check
-    /// * `custodian` - Identity of the custodian
-    /// * `secondary_key` - Secondary key that is accessing the portfolio
-    fn ensure_portfolio_custody_and_permission(
-        portfolio: &PortfolioId,
-        custodian: IdentityId,
-        secondary_key: Option<&SecondaryKey<AccountId>>,
-    ) -> DispatchResult;
-
-    /// Locks the given nft. This prevents transfering the same NFT more than once.
-    ///
-    /// # Arguments
-    /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
-    /// asset_id` - [`AssetId`] of the NFT.
-    /// * `nft_id` - the id of the nft to be unlocked.
-    fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
-
-    /// Unlocks the given nft.
-    ///
-    /// # Arguments
-    /// * `portfolio_id` - PortfolioId that contains the locked nft.
-    /// asset_id` - [`AssetId`] of the NFT.
-    /// * `nft_id` - the id of the nft to be unlocked.
-    fn unlock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId)
-        -> DispatchResult;
-
-    /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
-    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool;
-}
-
 pub trait ComplianceFnConfig {
     /// Returns `true` if there are no requirements or if any requirement is satisfied.
     /// Otherwise, returns `false`.
@@ -169,21 +105,8 @@ pub trait ComplianceFnConfig {
 pub trait NFTTrait<Origin> {
     /// Returns `true` if the given `metadata_key` is a mandatory key for the `asset_id` NFT collection.
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
-    /// Updates the Owner storage after moving funds.
-    fn move_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
-    /// Returns `true` if the `key` is the holder of the `nft_id` of the `asset_id` collection.
-    fn is_nft_holder(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
-    /// Adds the `nft_id` of the `asset_id` collection to the `key` holder.
-    fn add_nft_to_key(key: AccountId32, asset_id: AssetId, nft_id: NFTId) -> DispatchResult;
-    /// Removes the `nft_id` of the `asset_id` collection from the `key` holder.
-    fn remove_nft_from_key(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId)
-        -> DispatchResult;
-    /// Locks the NFT.
-    fn lock_nft(key: AccountId32, asset_id: AssetId, nft_id: NFTId);
-    /// Unlocks the NFT.
-    fn unlock_nft(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId);
-    /// Returns `true` if the NFT is locked.
-    fn is_nft_locked(key: &AccountId32, asset_id: &AssetId, nft_id: &NFTId) -> bool;
+    /// Updates the Owner storage after moving funds between portfolios.
+    fn update_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(

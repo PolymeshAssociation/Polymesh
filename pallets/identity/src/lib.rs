@@ -1063,8 +1063,8 @@ pub mod pallet {
         UnauthorizedCallerDidInactive,
         /// The key does not have permissions to execute the extrinsic.
         UnauthorizedCallerMissingPermissions,
-        /// Account based portfolios cannot have custodians.
-        AccountBasedPortfoliosCannotHaveCustodians,
+        /// No did was found for the account key.
+        IdentityNotFoundForAccountPortfolio,
     }
 }
 

@@ -13,17 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use serde::{Deserialize, Serialize};
-
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_128;
 use sp_std::prelude::Vec;
 
 use polymesh_primitives_derive::VecU8StrongTyped;
 
+use crate::settlement::InstructionId;
 use crate::ticker::Ticker;
-use crate::{impl_checked_inc, AccountId as AccountId32, PortfolioId};
+use crate::{impl_checked_inc, PortfolioId, PortfolioKind, PortfolioNumber};
+use crate::{AccountId as AccountId32, IdentityId, Memo};
 
 /// An unique asset identifier.
 #[derive(Serialize, Deserialize)]
@@ -177,11 +178,97 @@ impl AssetType {
 pub struct FundingRoundName(pub Vec<u8>);
 
 /// Represents the holder of an asset, which can be either a portfolio or an account.
-#[derive(Clone, Debug, PartialEq)]
-#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, Ord, PartialOrd, TypeInfo)]
+#[derive(Clone, Debug, DecodeWithMemTracking, Eq, PartialEq)]
+#[derive(Deserialize, Serialize)]
 pub enum AssetHolder {
     /// The asset is held in a portfolio.
     Portfolio(PortfolioId),
-    /// The asset is held byt the key.
+    /// The asset is held by the key.
     Account(AccountId32),
+}
+
+impl From<PortfolioId> for AssetHolder {
+    fn from(portfolio_id: PortfolioId) -> Self {
+        AssetHolder::Portfolio(portfolio_id)
+    }
+}
+
+impl TryFrom<(IdentityId, Vec<u8>, AssetHolderKind)> for AssetHolder {
+    type Error = &'static str;
+
+    fn try_from(
+        (did, acc_owner, kind): (IdentityId, Vec<u8>, AssetHolderKind),
+    ) -> Result<Self, Self::Error> {
+        match kind {
+            AssetHolderKind::Account => AssetHolder::try_from(acc_owner),
+            AssetHolderKind::DefaultPortfolio => {
+                Ok(AssetHolder::Portfolio(PortfolioId::default_portfolio(did)))
+            }
+            AssetHolderKind::UserPortfolio(number) => Ok(AssetHolder::Portfolio(
+                PortfolioId::user_portfolio(did, number),
+            )),
+        }
+    }
+}
+
+impl TryFrom<Vec<u8>> for AssetHolder {
+    type Error = &'static str;
+
+    fn try_from(encoded_account_id: Vec<u8>) -> Result<Self, Self::Error> {
+        let account_id: [u8; 32] = encoded_account_id
+            .try_into()
+            .map_err(|_| "AccountId must be 32 bytes long")?;
+        Ok(AssetHolder::Account(account_id.into()))
+    }
+}
+
+/// The kind of holder, without the owner information.
+///
+/// Note: Used only for input parameters where the owner is the caller and can be retrieved from the origin.
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Deserialize, Serialize)]
+pub enum AssetHolderKind {
+    /// The asset is held by the key.
+    Account,
+    /// The asset is held in the default portfolio.
+    #[default]
+    DefaultPortfolio,
+    /// The asset is held in a user-defined portfolio.
+    UserPortfolio(PortfolioNumber),
+}
+
+impl From<AssetHolder> for AssetHolderKind {
+    fn from(asset_holder: AssetHolder) -> Self {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => match portfolio_id.kind {
+                PortfolioKind::Default => AssetHolderKind::DefaultPortfolio,
+                PortfolioKind::User(number) => AssetHolderKind::UserPortfolio(number),
+            },
+            AssetHolder::Account(_) => AssetHolderKind::Account,
+        }
+    }
+}
+
+/// Reason for the holdings update.
+#[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug)]
+pub enum HoldingsUpdateReason {
+    /// Tokens were issued.
+    Issued {
+        /// If the asset is fungible the [`FundingRoundName`] of the minted tokens.
+        funding_round_name: Option<FundingRoundName>,
+    },
+    /// Tokens were redeemed.
+    Redeemed,
+    /// Tokens were transferred.
+    Transferred {
+        /// The [`InstructionId`] of the instruction which originated the transfer.
+        instruction_id: Option<InstructionId>,
+        /// The [`Memo`] of the instruction.
+        instruction_memo: Option<Memo>,
+    },
+    /// Tokens were transferred via a controller call.
+    ControllerTransfer,
 }

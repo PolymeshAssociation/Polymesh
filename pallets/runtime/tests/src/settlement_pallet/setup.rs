@@ -53,8 +53,8 @@ pub fn add_and_affirm_simple_instruction(
     let nft_asset_id = create_and_issue_sample_nft(&mediator);
     Asset::simplified_fungible_transfer(
         asset_id,
-        med_default_portfolio.clone(),
-        sender_default_portfolio.clone(),
+        med_default_portfolio.clone().into(),
+        sender_default_portfolio.clone().into(),
         1_000,
         InstructionId(0),
         None,
@@ -63,8 +63,8 @@ pub fn add_and_affirm_simple_instruction(
     )
     .unwrap();
     Nft::simplified_nft_transfer(
-        med_default_portfolio.clone(),
-        sender_default_portfolio.clone(),
+        med_default_portfolio.clone().into(),
+        sender_default_portfolio.clone().into(),
         NFTs::new_unverified(nft_asset_id, vec![NFTId(1)]),
         InstructionId(0),
         None,
@@ -74,14 +74,14 @@ pub fn add_and_affirm_simple_instruction(
 
     let legs = vec![
         Leg::Fungible {
-            sender: sender_default_portfolio.clone(),
-            receiver: rcv_default_portfolio.clone(),
+            sender: sender_default_portfolio.clone().into(),
+            receiver: rcv_default_portfolio.clone().into(),
             asset_id,
             amount: 1_000,
         },
         Leg::NonFungible {
-            sender: sender_default_portfolio.clone(),
-            receiver: rcv_default_portfolio.clone(),
+            sender: sender_default_portfolio.clone().into(),
+            receiver: rcv_default_portfolio.clone().into(),
             nfts: NFTs::new_unverified(nft_asset_id, vec![NFTId(1)]),
         },
     ];
@@ -100,14 +100,16 @@ pub fn add_and_affirm_simple_instruction(
     Settlement::affirm_instruction(
         receiver.origin(),
         InstructionId(0),
-        BTreeSet::from([rcv_default_portfolio]).try_into().unwrap(),
+        BTreeSet::from([rcv_default_portfolio.clone().into()])
+            .try_into()
+            .unwrap(),
     )
     .unwrap();
 
     Settlement::affirm_instruction(
         sender.origin(),
         InstructionId(0),
-        BTreeSet::from([sender_default_portfolio])
+        BTreeSet::from([sender_default_portfolio.clone().into()])
             .try_into()
             .unwrap(),
     )

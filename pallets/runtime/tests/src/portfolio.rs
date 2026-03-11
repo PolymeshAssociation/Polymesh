@@ -1,7 +1,7 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 
-use pallet_nft::NFTOwner;
+use pallet_nft::Owner;
 use pallet_portfolio::{
     AllowedCustodians, Event, NameToNumber, NextPortfolioNumber, PortfolioAssetBalances,
     PortfolioCustodian, PortfolioLockedAssets, PortfolioNFT, Portfolios, PortfoliosInCustody,
@@ -14,18 +14,19 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::settlement::{Leg, SettlementType};
 use polymesh_primitives::{
-    traits::PortfolioSubTrait, AuthorizationData, Fund, FundDescription, Memo, NFTCollectionKeys,
-    NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    AssetHolderKind, AuthorizationData, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
+    NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
     Signatory,
 };
 
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
-use super::storage::{user_portfolio_btreeset, EventTest, System, TestStorage, User};
+use super::storage::{user_asset_holder_set, EventTest, System, TestStorage, User};
 use super::ExtBuilder;
 
 type Asset = pallet_asset::Pallet<TestStorage>;
+type AssetError = pallet_asset::Error<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
 type IdentityError = pallet_identity::Error<TestStorage>;
@@ -182,11 +183,11 @@ fn cannot_delete_portfolio_with_asset() {
             let default_portfolio = PortfolioId::new(owner.did, PortfolioKind::Default);
             let user_portfolio = PortfolioId::new(owner.did, PortfolioKind::User(num));
             assert_eq!(
-                Portfolio::get_asset_balance(&default_portfolio, &asset_id),
+                Portfolio::get_portfolio_balance(&default_portfolio, &asset_id),
                 default_portfolio_balance
             );
             assert_eq!(
-                Portfolio::get_asset_balance(&user_portfolio, &asset_id),
+                Portfolio::get_portfolio_balance(&user_portfolio, &asset_id),
                 user_portfolio_balance
             );
         };
@@ -239,14 +240,14 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     let asset_id = create_and_issue_sample_asset(&owner);
 
     assert_eq!(
-        Portfolio::get_asset_balance(
+        Portfolio::get_portfolio_balance(
             &PortfolioId::new(owner.did, PortfolioKind::Default),
             &asset_id
         ),
         ISSUE_AMOUNT,
     );
     assert_eq!(
-        Portfolio::get_asset_balance(
+        Portfolio::get_portfolio_balance(
             &PortfolioId::new(owner.did, PortfolioKind::User(num)),
             &asset_id
         ),
@@ -289,21 +290,12 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         ),
         Error::DestinationIsSamePortfolio
     );
-    assert_noop!(
-        Portfolio::ensure_portfolio_transfer_validity(
-            &owner_default_portfolio,
-            &owner_default_portfolio,
-            &asset_id,
-            1,
-        ),
-        Error::InvalidTransferSenderIdMatchesReceiverId
-    );
 
     // Attempt to move to a non-existent portfolio.
     assert_noop!(
-        Portfolio::ensure_portfolio_transfer_validity(
-            &owner_default_portfolio,
-            &PortfolioId::user_portfolio(bob.did, PortfolioNumber(666)),
+        Asset::ensure_valid_holdings(
+            &owner_default_portfolio.clone().into(),
+            &PortfolioId::user_portfolio(bob.did, PortfolioNumber(666)).into(),
             &asset_id,
             1,
         ),
@@ -355,14 +347,14 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         System::events().last().unwrap().event,
     );
     assert_eq!(
-        Portfolio::get_asset_balance(
+        Portfolio::get_portfolio_balance(
             &PortfolioId::new(owner.did, PortfolioKind::Default),
             &asset_id
         ),
         ISSUE_AMOUNT - move_amount,
     );
     assert_eq!(
-        Portfolio::get_asset_balance(
+        Portfolio::get_portfolio_balance(
             &PortfolioId::new(owner.did, PortfolioKind::User(num)),
             &asset_id
         ),
@@ -376,7 +368,7 @@ fn can_lock_unlock_assets() {
         let (owner, num) = create_portfolio();
         let asset_id = create_and_issue_sample_asset(&owner);
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::Default),
                 &asset_id
             ),
@@ -388,14 +380,14 @@ fn can_lock_unlock_assets() {
 
         // Lock half of the tokens
         let lock_amount = ISSUE_AMOUNT / 2;
-        assert_ok!(Portfolio::lock_tokens(
+        assert_ok!(Portfolio::lock_asset_balance(
             owner_default_portfolio.clone(),
             asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::Default),
                 &asset_id
             ),
@@ -436,14 +428,14 @@ fn can_lock_unlock_assets() {
             }]
         ));
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::Default),
                 &asset_id
             ),
             ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::User(num)),
                 &asset_id
             ),
@@ -472,21 +464,21 @@ fn can_lock_unlock_assets() {
         );
 
         // Unlock tokens
-        assert_ok!(Portfolio::unlock_tokens(
+        assert_ok!(Portfolio::unlock_asset_balance(
             owner_default_portfolio.clone(),
             asset_id,
             lock_amount
         ));
 
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::Default),
                 &asset_id
             ),
             ISSUE_AMOUNT - lock_amount,
         );
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::User(num)),
                 &asset_id
             ),
@@ -511,14 +503,14 @@ fn can_lock_unlock_assets() {
             }]
         ));
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::Default),
                 &asset_id
             ),
             0,
         );
         assert_eq!(
-            Portfolio::get_asset_balance(
+            Portfolio::get_portfolio_balance(
                 &PortfolioId::new(owner.did, PortfolioKind::User(num)),
                 &asset_id
             ),
@@ -667,7 +659,7 @@ fn delete_portfolio_with_nfts() {
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::User(PortfolioNumber(1)),
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1)),
         );
 
         assert_noop!(
@@ -704,7 +696,7 @@ fn delete_portfolio_with_locked_nfts() {
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::User(PortfolioNumber(1)),
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1)),
         );
         let venue_id = VenueCounter::<TestStorage>::get();
         assert_ok!(Settlement::create_venue(
@@ -716,8 +708,8 @@ fn delete_portfolio_with_locked_nfts() {
         // Locks the NFT - Adds and affirms the instruction
         let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
         let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
-            receiver: PortfolioId::default_portfolio(bob.did),
+            sender: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)).into(),
+            receiver: PortfolioId::default_portfolio(bob.did).into(),
             nfts,
         }];
         assert_ok!(Settlement::add_and_affirm_instruction(
@@ -727,7 +719,7 @@ fn delete_portfolio_with_locked_nfts() {
             None,
             None,
             legs,
-            user_portfolio_btreeset(alice.did, PortfolioNumber(1)),
+            user_asset_holder_set(alice.did, PortfolioNumber(1)),
             Some(Memo::default()),
         ));
 
@@ -767,7 +759,7 @@ fn move_nft_not_in_portfolio() {
             alice.clone(),
             asset_id,
             nfts_metadata.clone(),
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
             .unwrap();
@@ -818,13 +810,13 @@ fn move_portfolio_nfts() {
             alice.clone(),
             asset_id,
             nfts_metadata.clone(),
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         mint_nft(
             alice.clone(),
             asset_id,
             nfts_metadata,
-            PortfolioKind::Default,
+            AssetHolderKind::DefaultPortfolio,
         );
         Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
             .unwrap();
@@ -866,12 +858,12 @@ fn move_portfolio_nfts() {
             true
         );
         assert_eq!(
-            NFTOwner::<TestStorage>::get(asset_id, NFTId(1)),
-            Some(alice_custom_portfolio.clone())
+            Owner::<TestStorage>::get(asset_id, NFTId(1)),
+            Some(alice_custom_portfolio.clone().into())
         );
         assert_eq!(
-            NFTOwner::<TestStorage>::get(asset_id, NFTId(2)),
-            Some(alice_custom_portfolio)
+            Owner::<TestStorage>::get(asset_id, NFTId(2)),
+            Some(alice_custom_portfolio.into())
         );
     });
 }

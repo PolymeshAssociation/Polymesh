@@ -29,7 +29,7 @@ use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, Ticker, WeightMeter};
+use polymesh_primitives::{AssetHolder, IdentityId, Memo, NFTId, NFTs, Ticker, WeightMeter};
 
 use crate::*;
 
@@ -54,23 +54,23 @@ impl<T: Config> From<&User<T>> for UserData<T> {
 
 pub struct Parameters<T: Config> {
     pub legs: Vec<Leg>,
-    pub portfolios: Portfolios,
+    pub asset_holders: AssetHolders,
     pub asset_mediators: Vec<User<T>>,
 }
 
 impl<T: Config> Parameters<T> {
-    pub fn sdr_portfolios(&self) -> BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios> {
-        self.portfolios
-            .sdr_portfolios
+    pub fn sdr_holdings(&self) -> BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders> {
+        self.asset_holders
+            .senders
             .clone()
             .into_iter()
             .try_collect()
             .expect("shouldn't be too many")
     }
 
-    pub fn rcv_portfolios(&self) -> BoundedBTreeSet<PortfolioId, T::MaxNumberOfPortfolios> {
-        self.portfolios
-            .rcv_portfolios
+    pub fn rcv_holdings(&self) -> BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders> {
+        self.asset_holders
+            .receivers
             .clone()
             .into_iter()
             .try_collect()
@@ -79,9 +79,9 @@ impl<T: Config> Parameters<T> {
 }
 
 #[derive(Default)]
-pub struct Portfolios {
-    pub sdr_portfolios: Vec<PortfolioId>,
-    pub rcv_portfolios: Vec<PortfolioId>,
+pub struct AssetHolders {
+    pub senders: Vec<AssetHolder>,
+    pub receivers: Vec<AssetHolder>,
 }
 
 fn creator<T: Config>() -> User<T> {
@@ -120,7 +120,7 @@ fn setup_legs<T>(
 where
     T: Config,
 {
-    let mut portfolios = Portfolios::default();
+    let mut asset_holders = AssetHolders::default();
     let mut asset_mediators = Vec::new();
 
     // Creates offchain legs and new portfolios for each leg
@@ -141,7 +141,7 @@ where
         .map(|i| {
             let sdr_portfolio_name = format!("SdrPortfolioTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioTicker{}", i);
-            let (sdr_portfolio, rvc_portfolio, mut mediators, asset_id) = setup_asset_transfer(
+            let (sdr_holding, rvc_holding, mut mediators, asset_id) = setup_asset_transfer(
                 sender,
                 receiver,
                 Some(&sdr_portfolio_name),
@@ -153,11 +153,11 @@ where
                 false,
             );
             asset_mediators.append(&mut mediators);
-            portfolios.sdr_portfolios.push(sdr_portfolio.clone());
-            portfolios.rcv_portfolios.push(rvc_portfolio.clone());
+            asset_holders.senders.push(sdr_holding.clone());
+            asset_holders.receivers.push(rvc_holding.clone());
             Leg::Fungible {
-                sender: sdr_portfolio,
-                receiver: rvc_portfolio,
+                sender: sdr_holding,
+                receiver: rvc_holding,
                 asset_id,
                 amount: ONE_UNIT,
             }
@@ -169,7 +169,7 @@ where
         .map(|i| {
             let sdr_portfolio_name = format!("SdrPortfolioNFTTicker{}", i);
             let rcv_portfolio_name = format!("RcvPortfolioNFTTicker{}", i);
-            let (asset_id, sdr_portfolio, rcv_portfolio, mut mediators) = setup_nft_transfer(
+            let (asset_id, sdr_holding, rcv_holding, mut mediators) = setup_nft_transfer(
                 sender,
                 receiver,
                 1,
@@ -179,11 +179,11 @@ where
                 4,
             );
             asset_mediators.append(&mut mediators);
-            portfolios.sdr_portfolios.push(sdr_portfolio.clone());
-            portfolios.rcv_portfolios.push(rcv_portfolio.clone());
+            asset_holders.senders.push(sdr_holding.clone());
+            asset_holders.receivers.push(rcv_holding.clone());
             Leg::NonFungible {
-                sender: sdr_portfolio,
-                receiver: rcv_portfolio,
+                sender: sdr_holding,
+                receiver: rcv_holding,
                 nfts: NFTs::new_unverified(asset_id, vec![NFTId(1)]),
             }
         })
@@ -191,7 +191,7 @@ where
 
     Parameters {
         legs: [offchain_legs, fungible_legs, nft_legs].concat(),
-        portfolios,
+        asset_holders,
         asset_mediators,
     }
 }
@@ -249,20 +249,20 @@ where
             )
         })
         .collect();
-    let sdr_portfolios = parameters.sdr_portfolios();
+    let sdr_holdings = parameters.sdr_holdings();
     Pallet::<T>::affirm_with_receipts(
         sender.origin.clone().into(),
         InstructionId(1),
         receipt_details.clone(),
-        sdr_portfolios,
+        sdr_holdings,
     )
     .unwrap();
-    let rcv_portfolios = parameters.rcv_portfolios();
+    let rcv_holdings = parameters.rcv_holdings();
     Pallet::<T>::affirm_with_receipts(
         receiver.origin.clone().into(),
         InstructionId(1),
         Vec::new(),
-        rcv_portfolios,
+        rcv_holdings,
     )
     .unwrap();
     // All mediators must affirm the instruction
@@ -458,7 +458,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-        let portfolios = parameters.sdr_portfolios();
+        let sdr_holdings = parameters.sdr_holdings();
         Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -481,7 +481,7 @@ benchmarks! {
                 )
             })
             .collect();
-    }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
+    }: _(alice.origin, InstructionId(1), receipt_details, sdr_holdings)
 
     execute_manual_instruction {
         let f in 0..T::MaxNumberOfFungibleAssets::get();
@@ -534,8 +534,8 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-        let portfolios = parameters.sdr_portfolios();
-    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, portfolios, memo)
+        let sdr_holdings = parameters.sdr_holdings();
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, sdr_holdings, memo)
 
     affirm_instruction {
         // Number of fungible and non-fungible assets in the portfolios
@@ -548,7 +548,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
-        let portfolios = parameters.sdr_portfolios();
+        let sdr_holdings = parameters.sdr_holdings();
         Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -558,7 +558,7 @@ benchmarks! {
             parameters.legs,
             memo,
         ).unwrap();
-    }: _(alice.origin, InstructionId(1), portfolios)
+    }: _(alice.origin, InstructionId(1), sdr_holdings)
 
     withdraw_affirmation {
         // Number of fungible, non-fungible and offchain LEGS in the portfolios
@@ -574,8 +574,8 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let portfolios = parameters.sdr_portfolios();
-    }: _(alice.origin, InstructionId(1),  portfolios)
+        let sdr_holdings = parameters.sdr_holdings();
+    }: _(alice.origin, InstructionId(1),  sdr_holdings)
 
     execute_instruction_paused {
         // Number of fungible, non-fungible and offchain assets in the instruction
@@ -624,7 +624,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-        let portfolios = parameters.rcv_portfolios();
+        let rcv_holdings = parameters.rcv_holdings();
         Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -647,7 +647,7 @@ benchmarks! {
                 )
             })
             .collect();
-    }: affirm_with_receipts(bob.origin, InstructionId(1), receipt_details, portfolios)
+    }: affirm_with_receipts(bob.origin, InstructionId(1), receipt_details, rcv_holdings)
 
     affirm_instruction_rcv {
         // Number of fungible and non-fungible assets in the portfolios
@@ -660,7 +660,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
-        let portfolios = parameters.rcv_portfolios();
+        let rcv_holdings = parameters.rcv_holdings();
         Pallet::<T>::add_instruction(
             alice.origin.clone().into(),
             Some(venue_id),
@@ -670,7 +670,7 @@ benchmarks! {
             parameters.legs,
             memo,
         ).unwrap();
-    }: affirm_instruction(bob.origin, InstructionId(1), portfolios)
+    }: affirm_instruction(bob.origin, InstructionId(1), rcv_holdings)
 
     withdraw_affirmation_rcv {
         // Number of fungible, non-fungible and offchain LEGS in the portfolios
@@ -686,8 +686,8 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let portfolios = parameters.rcv_portfolios();
-    }: withdraw_affirmation(bob.origin, InstructionId(1),  portfolios)
+        let rcv_holdings = parameters.rcv_holdings();
+    }: withdraw_affirmation(bob.origin, InstructionId(1),  rcv_holdings)
 
     add_instruction_with_mediators {
         // Number of fungible, non-fungible, offchain legs and mediators
@@ -721,8 +721,8 @@ benchmarks! {
         let mediators: BTreeSet<IdentityId> = (0..m).map(|i| IdentityId::from(i as u128)).collect();
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-        let portfolios = parameters.sdr_portfolios();
-    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, portfolios, memo, mediators.try_into().unwrap())
+        let sdr_holdings = parameters.sdr_holdings();
+    }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, sdr_holdings, memo, mediators.try_into().unwrap())
 
     affirm_instruction_as_mediator {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");

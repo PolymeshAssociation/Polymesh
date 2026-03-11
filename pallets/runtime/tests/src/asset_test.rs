@@ -45,8 +45,8 @@ use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
 use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
-    AssetIdentifier, AssetPermissions, AuthorizationData, Document, DocumentId, Fund,
-    FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
+    AssetHolderKind, AssetIdentifier, AssetPermissions, AuthorizationData, Document, DocumentId,
+    Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
 use sp_keyring::Sr25519Keyring;
@@ -58,7 +58,7 @@ use crate::asset_pallet::setup::{
 use crate::ext_builder::ExtBuilder;
 use crate::nft::create_nft_collection;
 use crate::storage::{
-    add_secondary_key, add_secondary_key_with_perms, default_portfolio_btreeset,
+    add_secondary_key, add_secondary_key_with_perms, default_asset_holder_set,
     register_keyring_account, root, Checkpoint, TestStorage, User,
 };
 
@@ -152,8 +152,8 @@ pub(crate) fn transfer(
 ) -> DispatchResult {
     let mut weight_meter = WeightMeter::max_limit_no_minimum();
     Asset::base_transfer(
-        PortfolioId::default_portfolio(sender.did),
-        PortfolioId::default_portfolio(receiver.did),
+        PortfolioId::default_portfolio(sender.did).into(),
+        PortfolioId::default_portfolio(receiver.did).into(),
         asset_id,
         amount,
         None,
@@ -223,7 +223,14 @@ fn issuers_can_create_and_rename_tokens() {
         ));
         enable_investor_count(asset_id, owner);
 
-        let issue = |supply| Asset::issue(owner.origin(), asset_id, supply, PortfolioKind::Default);
+        let issue = |supply| {
+            Asset::issue(
+                owner.origin(),
+                asset_id,
+                supply,
+                AssetHolderKind::DefaultPortfolio,
+            )
+        };
 
         assert_noop!(
             issue(1_000_000_000_000_000_000_000_000),
@@ -271,10 +278,6 @@ fn valid_transfers_pass() {
         // Should fail as sender matches receiver.
         let transfer = |from, to| transfer(asset_id, from, to, 500);
 
-        assert_noop!(
-            transfer(owner, owner),
-            PortfolioError::InvalidTransferSenderIdMatchesReceiverId
-        );
         assert_ok!(transfer(owner, alice));
 
         assert_eq!(
@@ -302,7 +305,12 @@ fn issuers_can_redeem_tokens() {
         );
 
         assert_noop!(
-            Asset::redeem(bob.origin(), asset_id, ISSUE_AMOUNT, PortfolioKind::Default),
+            Asset::redeem(
+                bob.origin(),
+                asset_id,
+                ISSUE_AMOUNT,
+                AssetHolderKind::DefaultPortfolio
+            ),
             EAError::UnauthorizedAgent
         );
 
@@ -311,16 +319,16 @@ fn issuers_can_redeem_tokens() {
                 owner.origin(),
                 asset_id,
                 ISSUE_AMOUNT + 1,
-                PortfolioKind::Default
+                AssetHolderKind::DefaultPortfolio
             ),
-            PortfolioError::InsufficientBalance
+            AssetError::InsufficientBalance
         );
 
         assert_ok!(Asset::redeem(
             owner.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            PortfolioKind::Default
+            AssetHolderKind::DefaultPortfolio
         ));
 
         assert_eq!(
@@ -331,8 +339,13 @@ fn issuers_can_redeem_tokens() {
         assert_eq!(get_asset_details(&asset_id).total_supply, 0);
 
         assert_noop!(
-            Asset::redeem(owner.origin(), asset_id, 1, PortfolioKind::Default),
-            PortfolioError::InsufficientBalance
+            Asset::redeem(
+                owner.origin(),
+                asset_id,
+                1,
+                AssetHolderKind::DefaultPortfolio
+            ),
+            AssetError::InsufficientBalance
         );
     })
 }
@@ -392,12 +405,6 @@ fn controller_transfer() {
 
         let asset_id = create_and_issue_sample_asset(&owner);
 
-        // Should fail as sender matches receiver.
-        assert_noop!(
-            transfer(asset_id, owner, owner, 500),
-            PortfolioError::InvalidTransferSenderIdMatchesReceiverId
-        );
-
         assert_ok!(transfer(asset_id, owner, alice, 500));
 
         let balance_of = |did| BalanceOf::<TestStorage>::get(&asset_id, did);
@@ -410,7 +417,7 @@ fn controller_transfer() {
             owner.origin(),
             asset_id,
             100,
-            PortfolioId::default_portfolio(alice.did),
+            PortfolioId::default_portfolio(alice.did).into(),
         ));
         assert_eq!(balance_of(owner.did), balance_owner + 100);
         assert_eq!(balance_of(alice.did), balance_alice - 100);
@@ -975,7 +982,12 @@ fn secondary_key_not_authorized_for_asset_test() {
             StoreCallMetadata::set_call_metadata("pallet_asset".into(), "issuer".into());
 
             assert_noop!(
-                Asset::issue(eve.origin(), asset_id, 1_000, PortfolioKind::Default),
+                Asset::issue(
+                    eve.origin(),
+                    asset_id,
+                    1_000,
+                    AssetHolderKind::DefaultPortfolio
+                ),
                 pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
             );
 
@@ -983,7 +995,7 @@ fn secondary_key_not_authorized_for_asset_test() {
                 bob.origin(),
                 asset_id,
                 1_000,
-                PortfolioKind::Default
+                AssetHolderKind::DefaultPortfolio
             ));
 
             assert_eq!(
@@ -998,7 +1010,12 @@ fn invalid_granularity_test() {
     test_with_owner(|owner| {
         let asset_id = create_asset(&owner, None, Some(false), None, None, None, false, None);
         assert_noop!(
-            Asset::issue(owner.origin(), asset_id, 10_000, PortfolioKind::Default),
+            Asset::issue(
+                owner.origin(),
+                asset_id,
+                10_000,
+                AssetHolderKind::DefaultPortfolio
+            ),
             AssetError::InvalidGranularity
         );
     })
@@ -1041,7 +1058,7 @@ fn create_asset_errors() {
                 alice.origin().clone(),
                 asset_id,
                 1_000,
-                PortfolioKind::Default
+                AssetHolderKind::DefaultPortfolio
             ),
             AssetError::InvalidGranularity,
         );
@@ -1052,7 +1069,7 @@ fn create_asset_errors() {
                 alice.origin().clone(),
                 asset_id,
                 u128::MAX,
-                PortfolioKind::Default
+                AssetHolderKind::DefaultPortfolio
             ),
             AssetError::TotalSupplyAboveLimit,
         );
@@ -1262,7 +1279,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     bob.origin(),
                     asset_id,
                     ISSUE_AMOUNT,
-                    PortfolioKind::User(next_portfolio_num)
+                    AssetHolderKind::UserPortfolio(next_portfolio_num)
                 ),
                 EAError::UnauthorizedAgent
             );
@@ -1272,16 +1289,16 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     owner.origin(),
                     asset_id,
                     ISSUE_AMOUNT + 1,
-                    PortfolioKind::User(next_portfolio_num)
+                    AssetHolderKind::UserPortfolio(next_portfolio_num)
                 ),
-                PortfolioError::InsufficientBalance
+                AssetError::InsufficientBalance
             );
 
             assert_ok!(Asset::redeem(
                 owner.origin(),
                 asset_id,
                 ISSUE_AMOUNT / 2,
-                PortfolioKind::User(next_portfolio_num)
+                AssetHolderKind::UserPortfolio(next_portfolio_num)
             ));
 
             assert_eq!(
@@ -1313,7 +1330,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     owner.origin(),
                     asset_id,
                     ISSUE_AMOUNT,
-                    PortfolioKind::User(next_portfolio_num)
+                    AssetHolderKind::UserPortfolio(next_portfolio_num)
                 ),
                 PortfolioError::UnauthorizedCustodian
             );
@@ -1328,7 +1345,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 owner.origin(),
                 asset_id,
                 ISSUE_AMOUNT / 2,
-                PortfolioKind::User(next_portfolio_num)
+                AssetHolderKind::UserPortfolio(next_portfolio_num)
             ));
 
             // Adds Bob as an external agent for the asset
@@ -1351,7 +1368,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     owner.origin(),
                     asset_id,
                     1,
-                    PortfolioKind::User(next_portfolio_num)
+                    AssetHolderKind::UserPortfolio(next_portfolio_num)
                 ),
                 EAError::UnauthorizedAgent
             );
@@ -1677,7 +1694,6 @@ fn issue_token_unassigned_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let issued_amount = ONE_UNIT;
         let alice = User::new(Sr25519Keyring::Alice);
-        let alice_user_portfolio = PortfolioKind::User(PortfolioNumber(1));
 
         assert_ok!(Portfolio::create_portfolio(
             alice.origin(),
@@ -1697,7 +1713,7 @@ fn issue_token_unassigned_custody() {
             alice.origin(),
             asset_id,
             issued_amount,
-            alice_user_portfolio
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1))
         ));
         assert_eq!(
             BalanceOf::<TestStorage>::get(asset_id, alice.did),
@@ -1715,7 +1731,7 @@ fn redeem_token_unassigned_custody() {
             alice.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            PortfolioKind::Default
+            AssetHolderKind::DefaultPortfolio
         ));
         assert_eq!(BalanceOf::<TestStorage>::get(asset_id, alice.did), 0);
     })
@@ -1749,7 +1765,12 @@ fn redeem_token_assigned_custody() {
         ));
 
         assert_noop!(
-            Asset::redeem(alice.origin(), asset_id, ISSUE_AMOUNT, portfolio_kind),
+            Asset::redeem(
+                alice.origin(),
+                asset_id,
+                ISSUE_AMOUNT,
+                AssetHolderKind::UserPortfolio(PortfolioNumber(1))
+            ),
             PortfolioError::UnauthorizedCustodian
         );
     })
@@ -1976,8 +1997,8 @@ fn controller_transfer_locked_asset() {
             None,
             None,
             vec![Leg::Fungible {
-                sender: alice_default_portfolio.clone(),
-                receiver: bob_default_portfolio,
+                sender: alice_default_portfolio.clone().into(),
+                receiver: bob_default_portfolio.into(),
                 asset_id,
                 amount: ISSUE_AMOUNT,
             }],
@@ -1986,13 +2007,13 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
             InstructionId(0),
-            default_portfolio_btreeset(alice.did),
+            default_asset_holder_set(alice.did),
         ),);
 
         // Controller transfer should fail since the tokens are locked
         assert_noop!(
-            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio),
-            PortfolioError::InsufficientPortfolioBalance
+            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio.into()),
+            AssetError::InsufficientBalance
         );
     });
 }
@@ -2022,7 +2043,7 @@ fn issue_tokens_user_portfolio() {
             None,
             None,
             true,
-            Some(PortfolioKind::User(PortfolioNumber(1))),
+            Some(AssetHolderKind::UserPortfolio(PortfolioNumber(1))),
         );
 
         assert_eq!(

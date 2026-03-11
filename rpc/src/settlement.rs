@@ -27,7 +27,7 @@ use sp_runtime::traits::Block as BlockT;
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
 use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo};
 use polymesh_primitives::settlement::{InstructionId, Leg};
-use polymesh_primitives::PortfolioId;
+use polymesh_primitives::AssetHolder;
 
 #[rpc(client, server)]
 pub trait SettlementApi<BlockHash> {
@@ -42,7 +42,7 @@ pub trait SettlementApi<BlockHash> {
     fn get_affirmation_count(
         &self,
         instruction_id: InstructionId,
-        portfolios: Vec<PortfolioId>,
+        holder_set: Vec<AssetHolder>,
         at: Option<BlockHash>,
     ) -> RpcResult<AffirmationCount>;
 
@@ -101,7 +101,7 @@ where
     fn get_affirmation_count(
         &self,
         instruction_id: InstructionId,
-        portfolios: Vec<PortfolioId>,
+        holder_set: Vec<AssetHolder>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<AffirmationCount> {
         rpc_forward_call!(
@@ -110,7 +110,7 @@ where
             |api: ApiRef<<T as ProvideRuntimeApi<Block>>::Api>, at| api.get_affirmation_count(
                 at,
                 instruction_id,
-                portfolios,
+                holder_set,
             ),
             "Unable to query `get_affirmation_count`."
         )

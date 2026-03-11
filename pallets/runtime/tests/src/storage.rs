@@ -13,7 +13,6 @@ use frame_support::weights::Weight;
 use frame_support::{assert_ok, parameter_types, BoundedBTreeSet};
 use sp_core::crypto::{key_types, Pair as PairTrait};
 use sp_core::sr25519::Pair;
-use sp_core::Get;
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::curve::PiecewiseLinear;
@@ -24,6 +23,7 @@ use sp_runtime::traits::{NumberFor, OpaqueKeys, StaticLookup, Verify};
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionPriority};
 use sp_runtime::{AnySignature, Cow, KeyTypeId, Perbill, Permill};
 use sp_staking::{EraIndex, SessionIndex};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_version::RuntimeVersion;
 
 use frame_system::{EnsureRoot, RawOrigin};
@@ -224,7 +224,7 @@ parameter_types! {
     pub const MaxNumberOfFungibleMoves: u32 = 10;
     pub const MaxNumberOfNFTsMoves: u32 = 100;
     pub const MaxNumberOfOffChainAssets: u32 = 10;
-    pub const MaxNumberOfPortfolios: u32 = (10 + 100) * 2;
+    pub const MaxNumberOfAssetHolders: u32 = (10 + 100) * 2;
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaxAssetMediators: u32 = 4;
@@ -927,18 +927,19 @@ pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
 }
 
 /// Returns a btreeset that contains default portfolio for the identity.
-pub fn default_portfolio_btreeset(
+pub fn default_asset_holder_set(
     did: IdentityId,
-) -> BoundedBTreeSet<PortfolioId, MaxNumberOfPortfolios> {
-    [PortfolioId::default_portfolio(did)]
-        .into_iter()
-        .try_collect()
-        .expect("One portfolio shouldn't be too much")
+) -> BoundedBTreeSet<AssetHolder, MaxNumberOfAssetHolders> {
+    let asset_holder = AssetHolder::from(PortfolioId::default_portfolio(did));
+    BTreeSet::from([asset_holder]).try_into().unwrap()
 }
 
 /// Returns a Bounded btreeset from an unbounded Vec.
-pub fn vec_to_btreeset<T: Ord, S: Get<u32>>(vec: Vec<T>) -> BoundedBTreeSet<T, S> {
+pub fn vec_to_btreeset(
+    vec: Vec<PortfolioId>,
+) -> BoundedBTreeSet<AssetHolder, MaxNumberOfAssetHolders> {
     vec.into_iter()
+        .map(AssetHolder::from)
         .try_collect()
         .expect("Vec has too many items")
 }
@@ -949,14 +950,12 @@ pub fn default_portfolio_vec(did: IdentityId) -> Vec<PortfolioId> {
 }
 
 /// Returns a btreeset that contains a portfolio for the identity.
-pub fn user_portfolio_btreeset(
+pub fn user_asset_holder_set(
     did: IdentityId,
     num: PortfolioNumber,
-) -> BoundedBTreeSet<PortfolioId, MaxNumberOfPortfolios> {
-    [PortfolioId::user_portfolio(did, num)]
-        .into_iter()
-        .try_collect()
-        .expect("One portfolio shouldn't be too much")
+) -> BoundedBTreeSet<AssetHolder, MaxNumberOfAssetHolders> {
+    let asset_holder = AssetHolder::from(PortfolioId::user_portfolio(did, num));
+    BTreeSet::from([asset_holder]).try_into().unwrap()
 }
 
 /// Returns a vector that contains a portfolio for the identity.

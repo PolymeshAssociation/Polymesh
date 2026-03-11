@@ -71,9 +71,8 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
-use polymesh_primitives::traits::PortfolioSubTrait;
 use polymesh_primitives::{
-    storage_migration_ver, Balance, EventDid, IdentityId, PortfolioId, Ticker,
+    storage_migration_ver, AssetHolder, Balance, EventDid, IdentityId, PortfolioId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -544,7 +543,7 @@ pub mod pallet {
             let mut seq = FundraiserCount::<T>::get(&offering_asset);
             let fundraiser_id = try_next_post::<T, _>(&mut seq)?;
 
-            Portfolio::<T>::lock_tokens(
+            Portfolio::<T>::lock_asset_balance(
                 offering_portfolio.clone(),
                 offering_asset,
                 offering_amount,
@@ -791,7 +790,7 @@ pub mod pallet {
                 .map(|t| t.remaining)
                 .fold(0, |remaining, x| remaining + x);
 
-            Portfolio::<T>::unlock_tokens(
+            Portfolio::<T>::unlock_asset_balance(
                 fundraiser.offering_portfolio.clone(),
                 fundraiser.offering_asset,
                 remaining_amount,
@@ -955,28 +954,30 @@ impl<T: Config> Pallet<T> {
 
         let mut fundraiser_portfolios = [fundraiser.offering_portfolio.clone()]
             .into_iter()
-            .collect::<BTreeSet<_>>();
+            .map(Into::into)
+            .collect::<BTreeSet<AssetHolder>>();
         let mut investor_portfolios = [investment_portfolio.clone()]
             .into_iter()
-            .collect::<BTreeSet<_>>();
+            .map(Into::into)
+            .collect::<BTreeSet<AssetHolder>>();
         let mut legs = vec![Leg::Fungible {
-            sender: fundraiser.offering_portfolio.clone(),
-            receiver: investment_portfolio,
+            sender: fundraiser.offering_portfolio.clone().into(),
+            receiver: investment_portfolio.into(),
             asset_id: fundraiser.offering_asset,
             amount: purchase_amount,
         }];
         let funding_asset = match funding {
             FundingMethod::OnChain(funding_portfolio) => {
-                <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+                Portfolio::<T>::ensure_portfolio_custody_and_permission(
                     &funding_portfolio,
                     investor_did,
                     secondary_key.as_ref(),
                 )?;
-                fundraiser_portfolios.insert(fundraiser.raising_portfolio.clone());
-                investor_portfolios.insert(funding_portfolio.clone());
+                fundraiser_portfolios.insert(fundraiser.raising_portfolio.clone().into());
+                investor_portfolios.insert(funding_portfolio.clone().into());
                 legs.push(Leg::Fungible {
-                    sender: funding_portfolio,
-                    receiver: fundraiser.raising_portfolio.clone(),
+                    sender: funding_portfolio.into(),
+                    receiver: fundraiser.raising_portfolio.clone().into(),
                     asset_id: fundraiser.raising_asset,
                     amount: cost,
                 });
@@ -1011,7 +1012,7 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        Portfolio::<T>::unlock_tokens(
+        Portfolio::<T>::unlock_asset_balance(
             fundraiser.offering_portfolio.clone(),
             fundraiser.offering_asset,
             purchase_amount,

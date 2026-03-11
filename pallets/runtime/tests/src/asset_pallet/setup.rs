@@ -1,7 +1,7 @@
 use frame_support::assert_ok;
 
 use polymesh_primitives::asset::{AssetId, AssetType, FundingRoundName, NonFungibleType};
-use polymesh_primitives::{AssetIdentifier, Balance, PortfolioKind, Ticker};
+use polymesh_primitives::{AssetHolderKind, AssetIdentifier, Balance, Ticker};
 
 use crate::storage::User;
 use crate::TestStorage;
@@ -35,7 +35,7 @@ pub fn create_and_issue_sample_asset(asset_owner: &User) -> AssetId {
         asset_owner.origin(),
         asset_id,
         ISSUE_AMOUNT,
-        PortfolioKind::Default
+        AssetHolderKind::DefaultPortfolio
     ));
 
     asset_id
@@ -82,7 +82,7 @@ pub fn create_and_issue_sample_nft(asset_owner: &User) -> AssetId {
         asset_owner.origin(),
         asset_id,
         Vec::new(),
-        PortfolioKind::Default
+        AssetHolderKind::DefaultPortfolio
     ));
 
     asset_id
@@ -98,7 +98,7 @@ pub fn create_asset(
     asset_identifiers: Option<Vec<AssetIdentifier>>,
     funding_round_name: Option<FundingRoundName>,
     issue_tokens: bool,
-    issue_portfolio: Option<PortfolioKind>,
+    issuer_holder_kind: Option<AssetHolderKind>,
 ) -> AssetId {
     let asset_id = Asset::generate_asset_id(asset_owner.acc(), false);
 
@@ -116,7 +116,7 @@ pub fn create_asset(
             asset_owner.origin(),
             asset_id,
             ISSUE_AMOUNT,
-            issue_portfolio.unwrap_or_default()
+            issuer_holder_kind.unwrap_or_default()
         ));
     }
 

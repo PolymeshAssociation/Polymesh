@@ -6,12 +6,13 @@ use frame_support::pallet_prelude::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
-    asset::{AssetName, AssetType, FundingRoundName},
+    asset::{AssetHolderKind, AssetName, AssetType, FundingRoundName},
     asset_metadata::{AssetMetadataName, AssetMetadataSpec},
-    AssetIdentifier, PortfolioKind, Ticker,
+    AssetIdentifier, Ticker,
 };
 
-use crate::{asset::AssetId, AccountId as AccountId32, Balance, IdentityId};
+use crate::asset::AssetId;
+use crate::{Balance, IdentityId};
 
 pub trait AssetFnConfig: frame_system::Config {
     type AssetFn: AssetFnTrait<Self::AccountId>;
@@ -36,22 +37,6 @@ pub trait AssetFnTrait<AccountId> {
     /// Returns the next [`AssetID`] for the `caller_acc`.
     fn generate_asset_id(caller_acc: AccountId) -> AssetId;
 
-    /// Sets the account's balance for the given `asset_id`.
-    fn set_balance_of_account(
-        account: AccountId32,
-        asset_id: AssetId,
-        new_balance: Balance,
-    ) -> DispatchResult;
-
-    /// Returns the account's balance for the given `asset_id`.
-    fn get_account_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;
-
-    /// Returns the account's locked balance for the given `asset_id`.
-    fn get_locked_balance(account: &AccountId32, asset_id: &AssetId) -> Balance;
-
-    /// Sets the account's locked balance for the given `asset_id`.
-    fn set_locked_balance(account: AccountId32, asset_id: AssetId, new_locked_balance: Balance);
-
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(caller: AccountId, ticker: Ticker) -> DispatchResult;
 
@@ -70,7 +55,7 @@ pub trait AssetFnTrait<AccountId> {
         caller: AccountId,
         asset_id: AssetId,
         amount: Balance,
-        portfolio_kind: PortfolioKind,
+        portfolio_kind: AssetHolderKind,
     ) -> DispatchResult;
 
     #[cfg(feature = "runtime-benchmarks")]

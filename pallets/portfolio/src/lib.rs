@@ -57,7 +57,7 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait, PortfolioSubTrait};
+use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
@@ -375,8 +375,6 @@ pub mod pallet {
         EmptyTransfer,
         /// The caller doesn't have permission to create portfolios on the owner's behalf.
         MissingOwnersPermission,
-        /// The sender identity can't be the same as the receiver identity.
-        InvalidTransferSenderIdMatchesReceiverId,
         /// Adding itself as an AllowedCustodian is not permitted.
         SelfAdditionNotAllowed,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
@@ -387,8 +385,6 @@ pub mod pallet {
         UnauthorizedPortfolioKey,
         /// Key not found for caller.
         KeyNotFoundForCaller,
-        /// Account based portfolios cannot have custodians.
-        AccountBasedPortfoliosCannotHaveCustodians,
         /// Insufficient balance (tokens might not exist or are locked).
         InsufficientBalance,
     }
@@ -406,22 +402,24 @@ pub mod pallet {
         /// Deletes a user portfolio. A portfolio can be deleted only if it has no funds.
         ///
         /// # Errors
-        /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
+        /// * `PortfolioDoesNotExist` if `portfolio_number` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
         ///
         /// # Permissions
         /// * Portfolio
         #[pallet::weight(<T as Config>::WeightInfo::delete_portfolio())]
         #[pallet::call_index(1)]
-        pub fn delete_portfolio(origin: OriginFor<T>, num: PortfolioNumber) -> DispatchResult {
+        pub fn delete_portfolio(
+            origin: OriginFor<T>,
+            portfolio_number: PortfolioNumber,
+        ) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
                 ..
             } = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
 
-            let pid = PortfolioId::user_portfolio(primary_did, num);
-
+            let pid = PortfolioId::user_portfolio(primary_did, portfolio_number);
             // Ensure the portfolio is empty. Otherwise we would end up with unreachable assets.
             ensure!(
                 PortfolioAssetCount::<T>::get(&pid) == 0,
@@ -433,7 +431,7 @@ pub mod pallet {
             );
 
             // Check that the portfolio exists and the secondary key has access to it.
-            let portfolio = Self::ensure_user_portfolio_validity(primary_did, num)?;
+            let portfolio = Self::ensure_user_portfolio_validity(primary_did, portfolio_number)?;
             Self::ensure_portfolio_custody_and_permission(
                 &pid,
                 primary_did,
@@ -441,7 +439,7 @@ pub mod pallet {
             )?;
 
             // Delete from storage.
-            Portfolios::<T>::remove(&primary_did, &num);
+            Portfolios::<T>::remove(&primary_did, &portfolio_number);
             NameToNumber::<T>::remove(&primary_did, &portfolio);
             PortfolioAssetCount::<T>::remove(&pid);
             #[allow(deprecated)]
@@ -452,23 +450,23 @@ pub mod pallet {
             PortfolioCustodian::<T>::remove(&pid);
 
             // Emit event.
-            Self::deposit_event(Event::PortfolioDeleted(primary_did, num));
+            Self::deposit_event(Event::PortfolioDeleted(primary_did, portfolio_number));
             Ok(())
         }
 
         /// Renames a non-default portfolio.
         ///
         /// # Errors
-        /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
+        /// * `PortfolioDoesNotExist` if `portfolio_number` doesn't reference a valid portfolio.
         ///
         /// # Permissions
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::rename_portfolio(to_name.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::rename_portfolio(new_portfolio_name.len() as u32))]
         #[pallet::call_index(2)]
         pub fn rename_portfolio(
             origin: OriginFor<T>,
-            num: PortfolioNumber,
-            to_name: PortfolioName,
+            portfolio_number: PortfolioNumber,
+            new_portfolio_name: PortfolioName,
         ) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
@@ -479,24 +477,27 @@ pub mod pallet {
             // Enforce custody & validty of portfolio.
             Self::ensure_user_portfolio_permission(
                 secondary_key.as_ref(),
-                &PortfolioId::user_portfolio(primary_did, num),
-                primary_did,
+                &PortfolioId::user_portfolio(primary_did, portfolio_number),
             )?;
-            let old_name = Self::ensure_user_portfolio_validity(primary_did, num)?;
+            let old_name = Self::ensure_user_portfolio_validity(primary_did, portfolio_number)?;
 
             // Enforce new name uniqueness.
             // A side-effect of the ordering here is that you cannot rename e.g., "foo" to "foo".
             // You would first need to rename to "bar" and then back to "foo".
-            Self::ensure_name_unique(&primary_did, &to_name)?;
+            Self::ensure_name_unique(&primary_did, &new_portfolio_name)?;
 
             // Remove old name.
             NameToNumber::<T>::remove(&primary_did, old_name);
             // Change the name in storage.
-            Portfolios::<T>::insert(&primary_did, &num, &to_name);
-            NameToNumber::<T>::insert(&primary_did, &to_name, num);
+            Portfolios::<T>::insert(&primary_did, &portfolio_number, &new_portfolio_name);
+            NameToNumber::<T>::insert(&primary_did, &new_portfolio_name, portfolio_number);
 
             // Emit Event.
-            Self::deposit_event(Event::PortfolioRenamed(primary_did, num, to_name));
+            Self::deposit_event(Event::PortfolioRenamed(
+                primary_did,
+                portfolio_number,
+                new_portfolio_name,
+            ));
             Ok(())
         }
 
@@ -511,10 +512,6 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::quit_portfolio_custody())]
         #[pallet::call_index(3)]
         pub fn quit_portfolio_custody(origin: OriginFor<T>, pid: PortfolioId) -> DispatchResult {
-            if let PortfolioKind::AccountId(_) = pid.kind {
-                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
-            }
-
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
             let custodian = Self::custodian(&pid);
             ensure!(did == custodian, Error::<T>::UnauthorizedCustodian);
@@ -566,7 +563,7 @@ pub mod pallet {
             Self::ensure_valid_funds(&from, &funds)?;
 
             // Updates the portfolio of the sender and receiver
-            Self::unchecked_move_funds(primary_did, from, to, funds)?;
+            Self::unchecked_move_funds(primary_did, from, to, funds);
 
             Ok(())
         }
@@ -684,17 +681,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets the asset balance of the specified portfolio to `new_balance`.
-    pub fn set_portfolio_balance(
-        pid: &PortfolioId,
-        asset_id: AssetId,
-        new_balance: Balance,
-    ) -> DispatchResult {
-        if let PortfolioKind::AccountId(acc_id) = &pid.kind {
-            T::AssetFn::set_balance_of_account(acc_id.clone(), asset_id, new_balance)?;
-            return Ok(());
-        }
-
-        let current_balance = PortfolioAssetBalances::<T>::get(pid, &asset_id);
+    pub fn set_portfolio_balance(pid: &PortfolioId, asset_id: AssetId, new_balance: Balance) {
+        let current_balance = Self::get_portfolio_balance(pid, &asset_id);
 
         if new_balance.is_zero() {
             PortfolioAssetBalances::<T>::remove(pid, &asset_id);
@@ -703,7 +691,6 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::transition_asset_count(pid, current_balance, new_balance);
-        Ok(())
     }
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
@@ -729,18 +716,17 @@ impl<T: Config> Pallet<T> {
         to: &PortfolioId,
         asset_id: AssetId,
         amount: Balance,
-    ) -> DispatchResult {
+    ) {
         // Subtracts the amount from the sender
-        let sender_old_balance = Self::get_asset_balance(from, &asset_id);
+        let sender_old_balance = Self::get_portfolio_balance(from, &asset_id);
         let sender_new_balance = sender_old_balance.saturating_sub(amount);
 
-        Self::set_portfolio_balance(from, asset_id, sender_new_balance)?;
+        Self::set_portfolio_balance(from, asset_id, sender_new_balance);
 
         // Adds the amount to the receiver
-        let rcv_old_balance = Self::get_asset_balance(to, &asset_id);
+        let rcv_old_balance = Self::get_portfolio_balance(to, &asset_id);
         let rcv_new_balance = rcv_old_balance.saturating_add(amount);
-        Self::set_portfolio_balance(to, asset_id, rcv_new_balance)?;
-        Ok(())
+        Self::set_portfolio_balance(to, asset_id, rcv_new_balance);
     }
 
     /// Handle cases where the balance for an asset goes to and from 0.
@@ -775,37 +761,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensures that the caller has permission to access the specified portfolio.
-    ///
-    /// 1. **Account-based portfolios** (`PortfolioKind::AccountId`):
-    ///    - keys (primary or secondary) must match the account ID embedded in the portfolio.
-    ///
-    /// 2. **Standard portfolios** (Default or User portfolios):
+    /// **Standard portfolios** (Default or User portfolios):
     ///    - Primary keys have automatic full permissions.
     ///    - Secondary keys must have explicit portfolio permissions via `has_portfolio_permission()`.
     pub fn ensure_user_portfolio_permission(
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio_id: &PortfolioId,
-        callers_did: IdentityId,
     ) -> DispatchResult {
-        if let PortfolioKind::AccountId(account_id) = &portfolio_id.kind {
-            let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
-
-            if let Some(sk) = secondary_key {
-                ensure!(sk.key == account_id, Error::<T>::UnauthorizedPortfolioKey);
-                return Ok(());
-            }
-
-            let primary_key = pallet_identity::Pallet::<T>::get_primary_key(callers_did)
-                .ok_or(Error::<T>::KeyNotFoundForCaller)?;
-
-            ensure!(
-                primary_key == account_id,
-                Error::<T>::UnauthorizedPortfolioKey
-            );
-
-            return Ok(());
-        }
-
         // If `sk` is None, caller is primary key and has full permissions.
         if let Some(sk) = secondary_key {
             // Check that the secondary signer is allowed to work with this portfolio.
@@ -832,50 +794,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Makes sure that a portfolio transfer is valid. Portfolio access is not checked.
-    pub fn ensure_portfolio_transfer_validity(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
-        asset_id: &AssetId,
-        amount: Balance,
-    ) -> DispatchResult {
-        // Transfers between the same identity should call move_portfolio_funds
-        ensure!(
-            from_portfolio.did != to_portfolio.did,
-            Error::<T>::InvalidTransferSenderIdMatchesReceiverId
-        );
-
-        // 2. Ensure that the portfolios exist
-        Self::ensure_portfolio_validity(from_portfolio)?;
-        Self::ensure_portfolio_validity(to_portfolio)?;
-
-        // 3. Ensure sender has enough free balance
-        Self::ensure_sufficient_balance(&from_portfolio, asset_id, amount)
-    }
-
-    /// Reduces the balance of a portfolio.
-    /// Throws an error if enough free balance is not available.
-    pub fn reduce_portfolio_balance(
-        pid: &PortfolioId,
-        asset_id: AssetId,
-        amount: Balance,
-    ) -> DispatchResult {
-        let current_balance = Self::get_asset_balance(pid, &asset_id);
-        let locked_balance = Self::get_asset_locked_balance(pid, &asset_id);
-
-        let final_balance = current_balance
-            .checked_sub(amount)
-            .ok_or(Error::<T>::InsufficientBalance)?;
-
-        ensure!(
-            final_balance >= locked_balance,
-            Error::<T>::InsufficientBalance
-        );
-
-        Self::set_portfolio_balance(pid, asset_id, final_balance)?;
-        Ok(())
-    }
-
     /// Ensures that the portfolio's custody is with the provided identity
     /// And the secondary key has the relevant portfolio permission
     pub fn ensure_portfolio_custody_and_permission(
@@ -884,7 +802,7 @@ impl<T: Config> Pallet<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)?;
-        Self::ensure_user_portfolio_permission(secondary_key, portfolio, custodian)
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
     }
 
     /// Ensure `portfolio` has sufficient balance of `asset_id` to lock/withdraw `amount`.
@@ -895,8 +813,8 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         T::AssetFn::ensure_granular(asset_id, amount)?;
 
-        let current_balance = Self::get_asset_balance(portfolio, asset_id);
-        let locked_balance = Self::get_asset_locked_balance(portfolio, asset_id);
+        let current_balance = Self::get_portfolio_balance(portfolio, asset_id);
+        let locked_balance = Self::get_portfolio_locked_balance(portfolio, asset_id);
 
         ensure!(
             current_balance.saturating_sub(locked_balance) >= amount,
@@ -909,13 +827,6 @@ impl<T: Config> Pallet<T> {
     ///
     /// Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
     pub fn unchecked_lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) {
-        if let PortfolioKind::AccountId(acc_id) = portfolio.kind {
-            let current_locked_balance = T::AssetFn::get_locked_balance(&acc_id, &asset_id);
-            let new_locked_balance = current_locked_balance.saturating_add(amount);
-            T::AssetFn::set_locked_balance(acc_id, asset_id, new_locked_balance);
-            return;
-        }
-
         PortfolioLockedAssets::<T>::mutate(&portfolio, &asset_id, |l| {
             *l = l.saturating_add(amount)
         });
@@ -930,10 +841,6 @@ impl<T: Config> Pallet<T> {
                 pid.kind != PortfolioKind::Default,
                 Error::<T>::DefaultPortfoliosCannotHaveCustodians
             );
-
-            if let PortfolioKind::AccountId(_) = pid.kind {
-                return Err(Error::<T>::AccountBasedPortfoliosCannotHaveCustodians.into());
-            }
 
             let curr = Self::custodian(&pid);
             pallet_identity::Pallet::<T>::ensure_auth_by(from, curr)?;
@@ -984,11 +891,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Ensures the secondary key has access to the receiver's portfolio.
-        Self::ensure_user_portfolio_permission(
-            origin_data.secondary_key.as_ref(),
-            to,
-            origin_data.primary_did,
-        )?;
+        Self::ensure_user_portfolio_permission(origin_data.secondary_key.as_ref(), to)?;
         Ok(origin_data.primary_did)
     }
 
@@ -1041,7 +944,7 @@ impl<T: Config> Pallet<T> {
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
         funds: Vec<Fund>,
-    ) -> DispatchResult {
+    ) {
         for fund in funds {
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
@@ -1050,7 +953,7 @@ impl<T: Config> Pallet<T> {
                         &receiver_portfolio,
                         asset_id,
                         amount,
-                    )?;
+                    );
                     Self::deposit_event(Event::FundsMovedBetweenPortfolios(
                         origin_did,
                         sender_portfolio.clone(),
@@ -1061,13 +964,13 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        Self::remove_nft_from_owner(&sender_portfolio, nfts.asset_id(), nft_id)?;
-                        Self::add_nft_to_owner(
+                        Self::remove_nft_from_portfolio(&sender_portfolio, nfts.asset_id(), nft_id);
+                        Self::add_nft_to_portfolio(
                             receiver_portfolio.clone(),
                             *nfts.asset_id(),
                             *nft_id,
-                        )?;
-                        T::NFT::move_nft_owner(
+                        );
+                        T::NFT::update_nft_owner(
                             *nfts.asset_id(),
                             *nft_id,
                             receiver_portfolio.clone(),
@@ -1083,8 +986,6 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
-
-        Ok(())
     }
 
     fn base_pre_approve_portfolio(
@@ -1188,34 +1089,21 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the balance of `asset_id` in `portfolio`.
-    pub fn get_asset_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
-            return T::AssetFn::get_account_balance(acc_id, asset_id);
-        }
-
+    pub fn get_portfolio_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         PortfolioAssetBalances::<T>::get(portfolio, asset_id)
     }
 
     /// Returns the locked balance of `asset_id` in `portfolio`.
-    pub fn get_asset_locked_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio.kind {
-            return T::AssetFn::get_locked_balance(acc_id, asset_id);
-        }
-
+    pub fn get_portfolio_locked_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         PortfolioLockedAssets::<T>::get(portfolio, asset_id)
     }
 
     /// Sets the locked balance of `asset_id` in `portfolio` to `new_locked_balance`.
-    fn set_asset_locked_balance(
+    pub fn set_portfolio_locked_balance(
         portfolio: PortfolioId,
         asset_id: AssetId,
         new_locked_balance: Balance,
     ) {
-        if let PortfolioKind::AccountId(acc_id) = portfolio.kind {
-            T::AssetFn::set_locked_balance(acc_id, asset_id, new_locked_balance);
-            return;
-        }
-
         if new_locked_balance.is_zero() {
             PortfolioLockedAssets::<T>::remove(&portfolio, &asset_id);
         } else {
@@ -1225,123 +1113,40 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `true` if the given portfolio owns the `nft_id` of `asset_id` collection.
     pub fn is_nft_owner(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> bool {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
-            return T::NFT::is_nft_holder(acc_id, asset_id, nft_id);
-        }
-
         PortfolioNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id))
     }
 
     /// Returns `true` if the nft is locked.
     pub fn is_nft_locked(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> bool {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
-            return T::NFT::is_nft_locked(acc_id, asset_id, nft_id);
-        }
-
         PortfolioLockedNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id))
     }
 
     /// Removes the nft from the owner's portfolio.
-    pub fn remove_nft_from_owner(
+    pub fn remove_nft_from_portfolio(
         portfolio_id: &PortfolioId,
         asset_id: &AssetId,
         nft_id: &NFTId,
-    ) -> DispatchResult {
-        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
-            T::NFT::remove_nft_from_key(acc_id, asset_id, nft_id)?;
-            return Ok(());
-        }
-
+    ) {
         PortfolioNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
-        Ok(())
     }
 
     /// Adds the nft to the owner's portfolio.
-    pub fn add_nft_to_owner(
-        portfolio_id: PortfolioId,
-        asset_id: AssetId,
-        nft_id: NFTId,
-    ) -> DispatchResult {
-        if let PortfolioKind::AccountId(acc_id) = portfolio_id.kind {
-            T::NFT::add_nft_to_key(acc_id, asset_id, nft_id)?;
-            return Ok(());
-        }
-
+    pub fn add_nft_to_portfolio(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
         PortfolioNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
-        Ok(())
-    }
-}
-
-impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
-    fn lock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
-        Self::ensure_sufficient_balance(&portfolio, &asset_id, amount)?;
-        Self::unchecked_lock_tokens(portfolio, asset_id, amount);
-        Ok(())
     }
 
-    fn unlock_tokens(portfolio: PortfolioId, asset_id: AssetId, amount: Balance) -> DispatchResult {
-        let locked = Self::get_asset_locked_balance(&portfolio, &asset_id);
-        ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
-        Self::set_asset_locked_balance(portfolio, asset_id, locked - amount);
-        Ok(())
-    }
-
-    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
-        Self::ensure_portfolio_validity(portfolio)
-    }
-
-    fn ensure_portfolio_custody(portfolio: &PortfolioId, custodian: IdentityId) -> DispatchResult {
-        Self::ensure_portfolio_custody(portfolio, custodian)
-    }
-
-    fn ensure_portfolio_custody_and_permission(
-        portfolio: &PortfolioId,
-        custodian: IdentityId,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> DispatchResult {
-        Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
-    }
-
-    fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) -> DispatchResult {
-        ensure!(
-            Self::is_nft_owner(&portfolio_id, &asset_id, &nft_id),
-            Error::<T>::NFTNotFoundInPortfolio
-        );
-
-        ensure!(
-            !Self::is_nft_locked(&portfolio_id, &asset_id, &nft_id),
-            Error::<T>::NFTAlreadyLocked
-        );
-
-        if let PortfolioKind::AccountId(acc_id) = portfolio_id.kind {
-            T::NFT::lock_nft(acc_id, asset_id, nft_id);
-            return Ok(());
-        }
-
+    /// Locks the given nft.
+    pub fn lock_nft(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
         PortfolioLockedNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
-        Ok(())
     }
 
-    fn unlock_nft(
-        portfolio_id: &PortfolioId,
-        asset_id: &AssetId,
-        nft_id: &NFTId,
-    ) -> DispatchResult {
-        ensure!(
-            Self::is_nft_locked(portfolio_id, asset_id, nft_id),
-            Error::<T>::NFTNotLocked
-        );
-
-        if let PortfolioKind::AccountId(acc_id) = &portfolio_id.kind {
-            T::NFT::unlock_nft(acc_id, asset_id, nft_id);
-            return Ok(());
-        }
-
+    /// Unlocks the given nft.
+    pub fn unlock_nft(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) {
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
-        Ok(())
     }
 
-    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
+    /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
+    pub fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
         if PortfolioCustodian::<T>::get(portfolio_id).is_some() {
             if T::AssetFn::asset_affirmation_exemption(asset_id) {
                 return true;
@@ -1353,5 +1158,31 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Pallet<T> {
             return true;
         }
         PreApprovedPortfolios::<T>::get(portfolio_id, asset_id)
+    }
+
+    /// Adds `amount` of locked balance of `asset_id` in `portfolio`, if the portfolio has sufficient free balance.
+    pub fn lock_asset_balance(
+        portfolio: PortfolioId,
+        asset_id: AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        Self::ensure_sufficient_balance(&portfolio, &asset_id, amount)?;
+        Self::unchecked_lock_tokens(portfolio, asset_id, amount);
+        Ok(())
+    }
+
+    /// Subtracts `amount` of locked balance of `asset_id` from `portfolio`, if there is enough locked balance.
+    pub fn unlock_asset_balance(
+        portfolio: PortfolioId,
+        asset_id: AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        let current_locked = Self::get_portfolio_locked_balance(&portfolio, &asset_id);
+        ensure!(
+            current_locked >= amount,
+            Error::<T>::InsufficientTokensLocked
+        );
+        Self::set_portfolio_locked_balance(portfolio, asset_id, current_locked - amount);
+        Ok(())
     }
 }

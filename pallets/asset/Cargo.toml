@@ -71,7 +71,7 @@ std = [
     "sp-arithmetic/std"
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+    "frame-benchmarking/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
     "pallet-external-agents/runtime-benchmarks",
     "pallet-permissions/runtime-benchmarks",

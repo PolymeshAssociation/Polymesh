@@ -38,8 +38,8 @@ macro_rules! assert_invalid_transfer {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert!(Asset::validate_asset_transfer(
             $asset_id,
-            &PortfolioId::default_portfolio($from),
-            &PortfolioId::default_portfolio($to),
+            &PortfolioId::default_portfolio($from).into(),
+            &PortfolioId::default_portfolio($to).into(),
             $amount,
             false,
             &mut weight_meter
@@ -53,8 +53,8 @@ macro_rules! assert_valid_transfer {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ok!(Asset::validate_asset_transfer(
             $asset_id,
-            &PortfolioId::default_portfolio($from),
-            &PortfolioId::default_portfolio($to),
+            &PortfolioId::default_portfolio($from).into(),
+            &PortfolioId::default_portfolio($to).into(),
             $amount,
             false,
             &mut weight_meter

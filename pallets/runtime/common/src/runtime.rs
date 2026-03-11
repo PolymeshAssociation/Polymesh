@@ -740,12 +740,11 @@ macro_rules! misc_pallet_impls {
             type SchedulerCall = RuntimeCall;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::SubstrateWeight;
-            type Portfolio = Portfolio;
             type MaxNumberOfFungibleAssets = MaxNumberOfFungibleAssets;
             type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
             type MaxNumberOfOffChainAssets = MaxNumberOfOffChainAssets;
-            type MaxNumberOfPortfolios = MaxNumberOfPortfolios;
+            type MaxNumberOfAssetHolders = MaxNumberOfAssetHolders;
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
             type MaxInstructionMediators = MaxInstructionMediators;
             type MaximumLockPeriod = MaximumLockPeriod;
@@ -977,7 +976,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::asset::{AssetId, CheckpointId};
+        use polymesh_primitives::asset::{AssetId, CheckpointId, AssetHolder};
         use polymesh_primitives::settlement::{ AssetCount, AffirmationCount};
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::transfer_compliance::TransferCondition;
@@ -1381,16 +1380,16 @@ macro_rules! runtime_apis {
 
             impl rpc_api_asset::AssetApi<Block> for Runtime {
                 fn transfer_report(
-                    sender_portfolio: PortfolioId,
-                    receiver_portfolio: PortfolioId,
+                    sender: AssetHolder,
+                    receiver: AssetHolder,
                     asset_id: AssetId,
                     transfer_value: Balance,
                     skip_locked_check: bool,
                 ) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Asset::asset_transfer_report(
-                        &sender_portfolio,
-                        &receiver_portfolio,
+                        &sender,
+                        &receiver,
                         &asset_id,
                         transfer_value,
                         skip_locked_check,
@@ -1416,15 +1415,15 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::nft::NFTApi<Block> for Runtime {
                 #[inline]
                 fn transfer_report(
-                    sender_portfolio: PortfolioId,
-                    receiver_portfolio: PortfolioId,
+                    sender: AssetHolder,
+                    receiver: AssetHolder,
                     nfts: NFTs,
                     skip_locked_check: bool,
                 ) -> Vec<DispatchError> {
                     let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Nft::nft_transfer_report(
-                        &sender_portfolio,
-                        &receiver_portfolio,
+                        &sender,
+                        &receiver,
                         &nfts,
                         skip_locked_check,
                         &mut weight_meter
@@ -1443,9 +1442,9 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn get_affirmation_count(
                     instruction_id: InstructionId,
-                    portfolios: Vec<PortfolioId>,
+                    holder_set: Vec<AssetHolder>,
                 ) -> AffirmationCount {
-                    Settlement::affirmation_count(instruction_id, portfolios)
+                    Settlement::affirmation_count(instruction_id, holder_set)
                 }
 
                 #[inline]

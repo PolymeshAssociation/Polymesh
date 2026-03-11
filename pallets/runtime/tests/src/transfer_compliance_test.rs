@@ -12,7 +12,7 @@ use polymesh_primitives::asset::{AssetId, AssetType};
 use polymesh_primitives::jurisdiction::CountryCode;
 use polymesh_primitives::statistics::*;
 use polymesh_primitives::transfer_compliance::*;
-use polymesh_primitives::{AccountId, PortfolioKind, Scope, WeightMeter};
+use polymesh_primitives::{AccountId, AssetHolderKind, Scope, WeightMeter};
 use polymesh_primitives::{Balance, Claim, ClaimType, IdentityId, PortfolioId};
 
 use super::storage::{account_from, make_account, TestStorage, User};
@@ -219,7 +219,7 @@ impl AssetTracker {
             self.owner_origin(),
             self.asset_id,
             amount,
-            PortfolioKind::Default
+            AssetHolderKind::DefaultPortfolio
         ));
         self.total_supply += amount;
         self.owner_mut().balance += amount;
@@ -446,8 +446,8 @@ impl AssetTracker {
     fn do_transfer(&mut self, from: u64, to: u64, amount: u128) -> DispatchResult {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         Asset::base_transfer(
-            self.get_investor_portfolio(from),
-            self.get_investor_portfolio(to),
+            self.get_investor_portfolio(from).into(),
+            self.get_investor_portfolio(to).into(),
             self.asset_id,
             amount,
             None,
