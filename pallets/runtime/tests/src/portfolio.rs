@@ -295,9 +295,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     assert_noop!(
         Asset::ensure_valid_holdings(
             &owner_default_portfolio.clone().into(),
-            &owner.did,
             &PortfolioId::user_portfolio(bob.did, PortfolioNumber(666)).into(),
-            &bob.did,
             &asset_id,
             1,
         ),

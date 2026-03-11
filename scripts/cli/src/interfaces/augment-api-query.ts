@@ -1100,10 +1100,6 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       rootHash: AugmentedQuery<ApiType, () => Observable<H256>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * Helper flag used in the runtime benchmarks for the initial setup.
-       **/
-      useLocalStorage: AugmentedQuery<ApiType, () => Observable<bool>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * Generic query
        **/
       [key: string]: QueryableStorageEntry<ApiType>;

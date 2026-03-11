@@ -44,5 +44,7 @@ pub fn migrate_to_v7<T: Config>() -> Weight {
         count += result.unique;
     }
 
+    log::info!("NFTOwners storage deleted");
+
     T::DbWeight::get().writes(count.into())
 }

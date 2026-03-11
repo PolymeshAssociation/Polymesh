@@ -21,11 +21,14 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo};
 use polymesh_primitives::settlement::{AssetCount, InstructionId, Leg};
-use polymesh_primitives::AssetHolder;
+use polymesh_primitives::{AssetHolder, PortfolioId};
 
 sp_api::decl_runtime_apis! {
     #[api_version(2)]
     pub trait SettlementApi {
+        #[changed_in(2)]
+        fn get_affirmation_count(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> AffirmationCount;
+
         /// Returns an [`ExecuteInstructionInfo`] instance containing the consumed weight and the number of fungible and non fungible
         /// tokens in the instruction. Executing an instruction includes verifying the compliance and transfer restrictions of all assets
         /// in the instruction, unlocking all assets, pruning the instruction, updating the statistics for each asset and more.

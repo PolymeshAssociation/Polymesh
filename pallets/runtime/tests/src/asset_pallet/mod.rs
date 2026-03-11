@@ -1,5 +1,6 @@
 mod accept_ticker_transfer;
 mod asset_ownership_transfer;
+mod asset_transfer;
 mod base_transfer;
 mod controller_transfer;
 mod issue;

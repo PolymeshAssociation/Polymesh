@@ -9,7 +9,7 @@ mod asset_transfer_tests {
     use polymesh_api::types::polymesh_primitives::identity_id::PortfolioKind;
 
     #[cfg(feature = "current_release")]
-    use polymesh_api::types::polymesh_primitives::asset::{AssetHolderKind};
+    use polymesh_api::types::polymesh_primitives::asset::AssetHolderKind;
 
     /// Test for an asset transfer requiring receiver affirmation.
     #[tokio::test]

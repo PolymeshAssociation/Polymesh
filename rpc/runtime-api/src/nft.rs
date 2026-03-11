@@ -18,12 +18,20 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::{AssetHolder, NFTs};
+use polymesh_primitives::{AssetHolder, NFTs, PortfolioId};
 
 sp_api::decl_runtime_apis! {
 
     #[api_version(3)]
     pub trait NFTApi {
+        #[changed_in(3)]
+        fn transfer_report(
+            sender_portfolio: PortfolioId,
+            receiver_portfolio: PortfolioId,
+            nfts: NFTs,
+            skip_locked_check: bool,
+        ) -> Vec<DispatchError>;
+
         /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
         fn transfer_report(
             sender: AssetHolder,

@@ -3542,8 +3542,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Returns `Ok` if:
-    /// - The transfer is between different DIDs;
-    /// - If [`AssetHolder::Portfolio`], it must exist;
+    /// - If the receiver portfolio exists;
     /// - The sender has sufficient balance for the transfer (taking into account locks).
     pub fn ensure_valid_holdings(
         sender: &AssetHolder,
@@ -3551,12 +3550,13 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: &AssetId,
         value: Balance,
     ) -> DispatchResult {
-        if let AssetHolder::Portfolio(sender_portfolio_id) = sender {
-            PortfolioPallet::<T>::ensure_portfolio_validity(sender_portfolio_id)?;
-        }
-
-        if let AssetHolder::Portfolio(receiver_portfolio_id) = receiver {
-            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        match receiver {
+            AssetHolder::Portfolio(receiver_portfolio_id) => {
+                PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+            }
+            AssetHolder::Account(_) => {
+                let _ = pallet_identity::Pallet::<T>::asset_holder_did(receiver)?;
+            }
         }
 
         let _ = Self::ensure_sufficient_balance(sender, asset_id, value)?;
@@ -4046,8 +4046,13 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::InsufficientBalance
         );
 
-        if let AssetHolder::Portfolio(receiver_pid) = &receiver {
-            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?;
+        match &receiver {
+            AssetHolder::Portfolio(receiver_pid) => {
+                PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?
+            }
+            AssetHolder::Account(_) => {
+                let _ = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
+            }
         }
 
         Self::ensure_sufficient_balance(&sender, &asset_id, transfer_value)?;

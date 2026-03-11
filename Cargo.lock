@@ -8495,7 +8495,6 @@ dependencies = [
  "pallet-staking-runtime-api",
  "pallet-statistics",
  "pallet-sto",
- "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
