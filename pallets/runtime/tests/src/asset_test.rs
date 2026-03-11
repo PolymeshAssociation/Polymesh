@@ -45,9 +45,9 @@ use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
 use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
-    AssetHolder, AssetHolderKind, AssetIdentifier, AssetPermissions, AuthorizationData, Document, DocumentId,
-    Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
+    AssetHolder, AssetHolderKind, AssetIdentifier, AssetPermissions, AuthorizationData, Document,
+    DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
 use sp_keyring::Sr25519Keyring;
 
