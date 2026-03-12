@@ -64,13 +64,13 @@ tokio = { version = "1.45.0", default-features = false, features = ["full"] }
 env_logger = { version = "0.11.2" }
 pallet-revive-fixtures = { default-features = true, workspace = true }
 pretty_assertions = { version = "1.3.0" }
-#revive-dev-node = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
+#revive-dev-node = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
 polymesh = { path = "../", default-features = true }
 sp-io = { default-features = true, workspace = true }
 
 [build-dependencies]
 git2 = { version = "0.20.0", default-features = false }
-#revive-dev-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = true }
+#revive-dev-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = true }
 polymesh-runtime-develop = { workspace = true, default-features = true }
 sp-io.default-features = true
 sp-io.workspace = true

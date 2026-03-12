@@ -112,8 +112,10 @@ parameter_types! {
     /// Max length of (instrumented) contract code in bytes.
     pub const ContractsMaxCodeSize: u32 = 100 * 1024;
 
-    pub RuntimeBlockLength: BlockLength =
-        BlockLength::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+    pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+        .max_length(10 * 1024 * 1024)
+        .modify_max_length_for_class(DispatchClass::Normal, |m| *m = NORMAL_DISPATCH_RATIO * *m)
+        .build();
 
     pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
         .base_block(BlockExecutionWeight::get())

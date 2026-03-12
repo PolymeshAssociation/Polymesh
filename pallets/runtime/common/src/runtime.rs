@@ -654,7 +654,6 @@ macro_rules! misc_pallet_impls {
             type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
             type RuntimeMemory = frame_support::traits::ConstU32<{ 128 * 1024 * 1024 }>;
             type PVFMemory = frame_support::traits::ConstU32<{ 512 * 1024 * 1024 }>;
-            type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;
             type UploadOrigin = frame_system::EnsureSigned<Self::AccountId>;
             type InstantiateOrigin = frame_system::EnsureSigned<Self::AccountId>;
             type RuntimeHoldReason = RuntimeHoldReason;
@@ -1377,8 +1376,8 @@ macro_rules! runtime_apis {
             }
 
             impl sp_session::SessionKeys<Block> for Runtime {
-                fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-                    SessionKeys::generate(seed)
+                fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+                    SessionKeys::generate(&owner, seed).into()
                 }
 
                 fn decode_session_keys(
