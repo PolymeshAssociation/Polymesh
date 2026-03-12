@@ -144,7 +144,7 @@ pub trait AssetConfig: Config + checkpoint::Config {}
 
 impl<T: Config + checkpoint::Config> AssetConfig for T {}
 
-storage_migration_ver!(6);
+storage_migration_ver!(7);
 
 pub use pallet::*;
 
@@ -608,11 +608,17 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
+            let mut weight = Weight::zero();
+
             storage_migrate_on!(StorageVersion::<T>, 6, {
                 migrations::migrate_to_v6::<T>();
             });
 
-            Weight::zero()
+            storage_migrate_on!(StorageVersion::<T>, 7, {
+                weight = weight.saturating_add(migrations::migrate_to_v7::<T>());
+            });
+
+            weight
         }
     }
 
@@ -632,7 +638,7 @@ pub mod pallet {
         T: AssetConfig,
     {
         fn build(&self) {
-            StorageVersion::<T>::put(Version::new(6));
+            StorageVersion::<T>::put(Version::new(7));
 
             // Set ticker registratoin config.
             TickerConfig::<T>::put(TickerRegistrationConfig {
@@ -3655,21 +3661,28 @@ impl<T: AssetConfig> Pallet<T> {
     /// - The identity has opted in to mandatory receiver affirmation via [`MandatoryReceiverAffirmation`], AND
     /// - The asset is not globally exempt, AND
     /// - The identity has not pre-approved this specific asset.
-    pub fn skip_asset_holder_affirmation(asset_holder: &AssetHolder, asset_id: &AssetId) -> bool {
+    ///
+    /// Returns an error if the asset holder does not have a valid identity.
+    pub fn skip_asset_holder_affirmation(
+        asset_holder: &AssetHolder,
+        asset_id: &AssetId,
+    ) -> Result<bool, DispatchError> {
         if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
-            return PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id);
+            return Ok(PortfolioPallet::<T>::skip_portfolio_affirmation(
+                portfolio_id,
+                asset_id,
+            ));
         }
 
         // For Account holders: default is to skip affirmation (no affirmation required).
         // Only require affirmation if the identity has opted in via MandatoryReceiverAffirmation.
-        if let Ok(did) = IdentityPallet::<T>::asset_holder_did(asset_holder) {
-            if Self::identity_requires_affirmation(&did) {
-                return Self::skip_asset_affirmation(&did, asset_id);
-            }
+        let did = IdentityPallet::<T>::asset_holder_did(asset_holder)?;
+        if Self::identity_requires_affirmation(&did) {
+            return Ok(Self::skip_asset_affirmation(&did, asset_id));
         }
 
         // Default: no affirmation required.
-        true
+        Ok(true)
     }
 
     /// Returns `Ok` if:

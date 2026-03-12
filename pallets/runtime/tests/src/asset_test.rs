@@ -1813,10 +1813,7 @@ fn set_mandatory_receiver_affirmation() {
         // Default: no mandatory receiver affirmation.
         assert!(!Asset::identity_requires_affirmation(&alice.did));
         // Receiver affirmation is skipped by default.
-        assert!(Asset::skip_asset_holder_affirmation(
-            &alice_holder,
-            &asset_id
-        ));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
 
         // Opt-in to mandatory receiver affirmation.
         assert_ok!(Asset::set_mandatory_receiver_affirmation(
@@ -1825,31 +1822,19 @@ fn set_mandatory_receiver_affirmation() {
         ));
         assert!(Asset::identity_requires_affirmation(&alice.did));
         // Now receiver affirmation is required.
-        assert!(!Asset::skip_asset_holder_affirmation(
-            &alice_holder,
-            &asset_id
-        ));
+        assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
 
         // Pre-approve a specific asset — overrides mandatory receiver affirmation.
         assert_ok!(Asset::pre_approve_asset(alice.origin(), asset_id));
-        assert!(Asset::skip_asset_holder_affirmation(
-            &alice_holder,
-            &asset_id
-        ));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
 
         // Remove pre-approval — mandatory receiver affirmation works.
         assert_ok!(Asset::remove_asset_pre_approval(alice.origin(), asset_id));
-        assert!(!Asset::skip_asset_holder_affirmation(
-            &alice_holder,
-            &asset_id
-        ));
+        assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
 
         // Global asset exemption overrides mandatory receiver affirmation.
         assert_ok!(Asset::exempt_asset_affirmation(root(), asset_id));
-        assert!(Asset::skip_asset_holder_affirmation(
-            &alice_holder,
-            &asset_id
-        ));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
         assert_ok!(Asset::remove_asset_affirmation_exemption(root(), asset_id));
 
         // Opt out of mandatory receiver affirmation.
@@ -1859,10 +1844,7 @@ fn set_mandatory_receiver_affirmation() {
         ));
         assert!(!Asset::identity_requires_affirmation(&alice.did));
         // Affirmation is skipped again.
-        assert!(Asset::skip_asset_holder_affirmation(
-            &alice_holder,
-            &asset_id
-        ));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
     });
 }
 

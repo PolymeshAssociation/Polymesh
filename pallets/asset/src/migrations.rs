@@ -1,3 +1,4 @@
+use frame_support::pallet_prelude::*;
 use sp_runtime::runtime_logger::RuntimeLogger;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -45,4 +46,24 @@ pub(crate) fn migrate_to_v6<T: Config>() {
     }
 
     log::info!("Migration has finished running.");
+}
+
+/// Pre-fills `MandatoryReceiverAffirmation` with `true` for all existing identities.
+/// New identities created after this migration will default to `false`.
+pub(crate) fn migrate_to_v7<T: Config>() -> Weight {
+    RuntimeLogger::init();
+
+    log::info!(
+        "Running migration to pre-fill MandatoryReceiverAffirmation for existing identities."
+    );
+
+    let mut count: u64 = 0;
+    for (did, _) in pallet_identity::DidRecords::<T>::iter() {
+        MandatoryReceiverAffirmation::<T>::insert(did, true);
+        count += 1;
+    }
+
+    log::info!("MandatoryReceiverAffirmation set for {count} existing identities.");
+
+    T::DbWeight::get().reads_writes(count, count)
 }

@@ -1710,10 +1710,6 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       receiptsUsed: AugmentedQuery<ApiType, (arg1: AccountId32 | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<bool>, [AccountId32, u64]> & QueryableStorageEntry<ApiType, [AccountId32, u64]>;
       /**
-       * Storage version.
-       **/
-      storageVersion: AugmentedQuery<ApiType, () => Observable<u8>, []> & QueryableStorageEntry<ApiType, []>;
-      /**
        * Helps a user track their pending instructions and affirmations (only needed for UI).
        * (counter_party, instruction_id) -> AffirmationStatus
        **/
