@@ -32,7 +32,6 @@ use frame_support::traits::Get;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_debug_derive::RuntimeDebug;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 use sp_std::prelude::Vec;
 
@@ -378,7 +377,7 @@ impl ExtrinsicName {
     Eq,
     Clone,
     Copy,
-    RuntimeDebug,
+    Debug,
     Default,
     MaxEncodedLen,
     TypeInfo

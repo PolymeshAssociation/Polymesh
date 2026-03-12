@@ -16,7 +16,7 @@ use frame_support::dispatch::PostDispatchInfo;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, DispatchResult};
 use frame_support::pallet_prelude::*;
 use frame_support::weights::Weight;
-use frame_support::RuntimeDebugNoBound;
+use frame_support::DebugNoBound;
 use frame_system::pallet_prelude::OriginFor;
 use scale_info::TypeInfo;
 use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf};
@@ -306,7 +306,7 @@ where
 }
 
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
     Charge {
         tip: BalanceOf<T>,
