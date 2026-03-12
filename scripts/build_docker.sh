@@ -98,7 +98,7 @@ usage() {
     echo "  --arch      amd64|arm64        (default: amd64)"
     echo "  --branch    branch name        (default: current git branch)"
     echo "  --help"
-    exit 0
+    exit "${1:-0}"
 }
 
 # Derive the builder image tag from rust-toolchain.toml so it stays in sync
@@ -118,16 +118,20 @@ check_dependencies() {
         exit 1
     fi
 
+    # Host arch 
     local host_arch
-    host_arch=$(uname -m)
-    local need_emulation=false
-    [[ "$ARCH" == "arm64" && "$host_arch" == "x86_64" ]] && need_emulation=true
-    [[ "$ARCH" == "amd64" && "$host_arch" == "aarch64" ]] && need_emulation=true
+    host_arch=$(docker info --format '{{.Architecture}}' 2>/dev/null || uname -m)
+    case "$host_arch" in
+        aarch64|arm64) host_arch="arm64" ;;
+        x86_64|amd64)  host_arch="amd64" ;;
+    esac
 
-    if [[ "$need_emulation" == "true" ]]; then
-        if ! docker run --rm --platform "linux/${ARCH}" busybox true 2>/dev/null; then
+    if [[ "$ARCH" != "$host_arch" ]]; then
+        if ! docker buildx inspect 2>/dev/null | grep -q "linux/${ARCH}"; then
             print_error "Cross-platform emulation is required to build ${ARCH} on ${host_arch}."
-            print_info "Enable it with: docker run --privileged --rm tonistiigi/binfmt --install all"
+            print_info "Enable it with one of:"
+            echo "  docker run --privileged --userns=host --rm tonistiigi/binfmt --install all"
+            echo "  sudo apt-get install -y qemu-user-static binfmt-support  (Debian/Ubuntu)"
             exit 1
         fi
     fi
@@ -164,10 +168,12 @@ build_rust_binary() {
         "$builder_image" \
         cargo build --locked --release
 
+    # Using already pulled builder image to extract the binary
     print_info "Extracting binary..."
     docker run --rm \
+        --platform "$platform" \
         -v "${target_volume}:/target:ro" \
-        busybox \
+        "$builder_image" \
         cat /target/release/polymesh >| "$BINARY"
     chmod +x "$BINARY"
 
@@ -177,7 +183,9 @@ build_rust_binary() {
 # Build the Docker image
 build_docker_image() {
     print_info "Building Docker image..."
-    docker build \
+    docker buildx build \
+        --platform "linux/${ARCH}" \
+        --load \
         -f "$REPO_ROOT/$DOCKERFILE" \
         --tag "$TAG_LATEST" \
         --tag "$TAG_VERSION" \
@@ -197,7 +205,7 @@ while [[ $# -gt 0 ]]; do
         --arch)    ARCH="$2";    shift 2 ;;
         --branch)  BRANCH="$2";  shift 2 ;;
         --help)    usage ;;
-        *) print_error "Unknown option: $1"; usage ;;
+        *) print_error "Unknown option: $1"; usage 1 ;;
     esac
 done
 
@@ -246,22 +254,15 @@ clear
 print_banner "Polymesh Docker Image Build"
 echo ""
 
-# Select builder image for summary display
-if [[ "$ARCH" == "arm64" ]]; then
-    BUILDER_IMAGE_DISPLAY="$RUST_BUILDER_IMAGE_ARM64"
-else
-    BUILDER_IMAGE_DISPLAY="$RUST_BUILDER_IMAGE_AMD64"
-fi
-
 # Print build summary
 echo -e "  ${BOLD}Variant:${NC}    ${CYAN}${VARIANT}${NC}"
 echo -e "  ${BOLD}Arch:${NC}       ${CYAN}${ARCH}${NC}"
 echo -e "  ${BOLD}Branch:${NC}     ${CYAN}${BRANCH}${NC}"
 echo -e "  ${BOLD}Version:${NC}    ${CYAN}${VERSION}${NC}"
-echo -e "  ${BOLD}Builder:${NC}    ${CYAN}${BUILDER_IMAGE_DISPLAY}${NC}"
+echo -e "  ${BOLD}Builder:${NC}    ${CYAN}$([[ "$ARCH" == "arm64" ]] && echo "$RUST_BUILDER_IMAGE_ARM64" || echo "$RUST_BUILDER_IMAGE_AMD64")${NC}"
 echo -e "  ${BOLD}Dockerfile:${NC} ${CYAN}${DOCKERFILE}${NC}"
 echo -e "  ${BOLD}Tags:${NC}       ${CYAN}${TAG_LATEST}${NC}"
-echo -e "           ${CYAN}${TAG_VERSION}${NC}"
+echo -e "              ${CYAN}${TAG_VERSION}${NC}"
 echo ""
 
 # Check dependencies
