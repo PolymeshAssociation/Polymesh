@@ -17,46 +17,50 @@
 use std::{fs, process::Command};
 
 fn main() {
-    generate_git_revision();
-    generate_metadata_file();
+	generate_git_revision();
+	generate_metadata_file();
 }
 
 fn generate_git_revision() {
-    let output = Command::new("rustc")
-        .arg("--version")
-        .output()
-        .expect("cannot get the current rustc version");
-    // Exports the default rustc --version output:
-    // e.g. rustc 1.83.0 (90b35a623 2024-11-26)
-    // into the usual Ethereum web3_clientVersion format
-    // e.g. rustc1.83.0
-    let rustc_version = String::from_utf8_lossy(&output.stdout)
-        .split_whitespace()
-        .take(2)
-        .collect::<Vec<_>>()
-        .join("");
-    let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
+	let output = Command::new("rustc")
+		.arg("--version")
+		.output()
+		.expect("cannot get the current rustc version");
+	// Exports the default rustc --version output:
+	// e.g. rustc 1.83.0 (90b35a623 2024-11-26)
+	// into the usual Ethereum web3_clientVersion format
+	// e.g. rustc1.83.0
+	let rustc_version = String::from_utf8_lossy(&output.stdout)
+		.split_whitespace()
+		.take(2)
+		.collect::<Vec<_>>()
+		.join("");
+	let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
 
-    let (branch, id) = if let Ok(repo) = git2::Repository::open("../../../..") {
-        let head = repo.head().expect("should have head");
-        let commit = head.peel_to_commit().expect("should have commit");
-        let branch = head.shorthand().unwrap_or("unknown").to_string();
-        let id = &commit.id().to_string()[..7];
-        (branch, id.to_string())
-    } else {
-        ("unknown".to_string(), "unknown".to_string())
-    };
+	let (branch, id) = if let Ok(repo) = git2::Repository::open("../../../..") {
+		let head = repo.head().expect("should have head");
+		let commit = head.peel_to_commit().expect("should have commit");
+		let branch = head.shorthand().unwrap_or("unknown").to_string();
+		let id = &commit.id().to_string()[..7];
+		(branch, id.to_string())
+	} else {
+		("unknown".to_string(), "unknown".to_string())
+	};
 
-    println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
-    println!("cargo:rustc-env=TARGET={target}");
-    println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
+	println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
+	println!("cargo:rustc-env=TARGET={target}");
+	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }
 
 fn generate_metadata_file() {
-    let mut ext = sp_io::TestExternalities::new(Default::default());
-    ext.execute_with(|| {
-        let metadata = polymesh_runtime_develop::Runtime::metadata_at_version(16).unwrap();
-        let bytes: &[u8] = &metadata;
-        fs::write("revive_chain.scale", bytes).unwrap();
-    });
+	let mut ext = sp_io::TestExternalities::new(Default::default());
+	ext.execute_with(|| {
+    // POLYMESH CHANGE
+		//let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
+		let metadata = polymesh_runtime_develop::Runtime::metadata_at_version(16).unwrap();
+		let bytes: &[u8] = &metadata;
+		let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
+		let out_path = std::path::Path::new(&out_dir).join("revive_chain.scale");
+		fs::write(out_path, bytes).unwrap();
+	});
 }

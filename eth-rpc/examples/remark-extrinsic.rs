@@ -20,24 +20,24 @@ use subxt_signer::sr25519::dev;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = OnlineClient::<SrcChainConfig>::new().await?;
-    let tx_payload = subxt_client::tx().system().remark(b"bonjour".to_vec());
-    let res = client
-        .tx()
-        .sign_and_submit_then_watch_default(&tx_payload, &dev::alice())
-        .await?
-        .wait_for_finalized()
-        .await?;
+	let client = OnlineClient::<SrcChainConfig>::new().await?;
+	let tx_payload = subxt_client::tx().system().remark(b"bonjour".to_vec());
+	let res = client
+		.tx()
+		.sign_and_submit_then_watch_default(&tx_payload, &dev::alice())
+		.await?
+		.wait_for_finalized()
+		.await?;
 
-    println!("Transaction finalized: {:?}", res.extrinsic_hash());
-    let block_hash = res.block_hash();
-    let block = client.blocks().at(block_hash).await.unwrap();
-    let extrinsics = block.extrinsics().await.unwrap();
-    let remarks = extrinsics
-        .find::<Remark>()
-        .map(|remark| remark.unwrap().value)
-        .collect::<Vec<_>>();
+	println!("Transaction finalized: {:?}", res.extrinsic_hash());
+	let block_hash = res.block_hash();
+	let block = client.blocks().at(block_hash).await.unwrap();
+	let extrinsics = block.extrinsics().await.unwrap();
+	let remarks = extrinsics
+		.find::<Remark>()
+		.map(|remark| remark.unwrap().value)
+		.collect::<Vec<_>>();
 
-    dbg!(remarks);
-    Ok(())
+	dbg!(remarks);
+	Ok(())
 }

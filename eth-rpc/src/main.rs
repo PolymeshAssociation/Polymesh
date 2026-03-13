@@ -19,6 +19,6 @@ use clap::Parser;
 use pallet_revive_eth_rpc::cli;
 
 fn main() -> anyhow::Result<()> {
-    let cmd = cli::CliCommand::parse();
-    cli::run(cmd)
+	let cmd = cli::CliCommand::parse();
+	cli::run(cmd)
 }

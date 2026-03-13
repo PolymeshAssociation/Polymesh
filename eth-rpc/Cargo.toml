@@ -1,8 +1,8 @@
 [package]
 name = "pallet-revive-eth-rpc"
-version = "0.12.0"
+version = "0.1.0"
 authors.workspace = true
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
@@ -27,33 +27,22 @@ futures = { version = "0.3.31", features = ["thread-pool"] }
 hex = { version = "0.4.3", default-features = false }
 jsonrpsee = { version = "0.24.10", features = ["full"] }
 log = { version = "0.4.22", default-features = false }
-pallet-revive.default-features = true
-pallet-revive.workspace = true
-prometheus-endpoint.default-features = true
-prometheus-endpoint.workspace = true
+pallet-revive = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 rlp = { version = "0.6.1", default-features = false }
-sc-cli.default-features = true
-sc-cli.workspace = true
-sc-rpc.default-features = true
-sc-rpc.workspace = true
-sc-rpc-api.default-features = true
-sc-rpc-api.workspace = true
-sc-service.default-features = true
-sc-service.workspace = true
+sc-cli = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 serde = { version = "1.0.214", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.132", default-features = false }
-sp-arithmetic.default-features = true
-sp-arithmetic.workspace = true
-sp-core.default-features = true
-sp-core.workspace = true
-sp-crypto-hashing.workspace = true
-sp-rpc.default-features = true
-sp-rpc.workspace = true
-sp-runtime.default-features = true
-sp-runtime.workspace = true
-sp-timestamp.workspace = true
-sp-weights.default-features = true
-sp-weights.workspace = true
+sp-arithmetic = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true }
+sp-weights = { workspace = true, default-features = true }
 sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { version = "0.43", default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { version = "0.43", features = ["unstable-eth"] }
@@ -62,17 +51,17 @@ tokio = { version = "1.45.0", default-features = false, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { version = "0.11.2" }
-pallet-revive-fixtures = { default-features = true, workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { version = "1.3.0" }
-#revive-dev-node = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
+# POLYMESH CHANGE
+#revive-dev-node = { workspace = true }
 polymesh = { path = "../", default-features = true }
-sp-io = { default-features = true, workspace = true }
+sp-io = { workspace = true, default-features = true }
 
 [build-dependencies]
 git2 = { version = "0.20.0", default-features = false }
-#revive-dev-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = true }
+# POLYMESH CHANGE
+#revive-dev-runtime = { workspace = true, default-features = true }
 polymesh-runtime-develop = { workspace = true, default-features = true }
-sp-io.default-features = true
-sp-io.workspace = true
-sp-runtime.default-features = true
-sp-runtime.workspace = true
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
