@@ -155,6 +155,7 @@ pallet-revive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", b
 pallet-revive-fixtures = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
 pallet-scheduler = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
 pallet-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
+pallet-session-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
 pallet-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
 pallet-staking-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-rc2", default-features = false }

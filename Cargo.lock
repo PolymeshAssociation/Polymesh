@@ -8324,6 +8324,7 @@ dependencies = [
  "pallet-relayer",
  "pallet-scheduler",
  "pallet-session",
+ "pallet-session-benchmarking",
  "pallet-settlement",
  "pallet-staking",
  "pallet-staking-reward-curve",

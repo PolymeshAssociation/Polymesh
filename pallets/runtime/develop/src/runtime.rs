@@ -543,13 +543,18 @@ polymesh_runtime_common::runtime_apis! {
             use frame_benchmarking::{baseline, BenchmarkBatch};
             use frame_support::traits::TrackedStorageKey;
 
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
             impl baseline::Config for Runtime {}
-            impl crate::benchmarks::pallet_session::Config for Runtime {}
+            impl pallet_session_benchmarking::Config for Runtime {
+                fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+                    let keys = SessionKeys::generate(&owner.encode(), None);
+                    (keys.keys, keys.proof.encode())
+                }
+            }
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -579,7 +584,7 @@ polymesh_runtime_common::runtime_apis! {
             use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 

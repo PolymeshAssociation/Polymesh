@@ -84,6 +84,7 @@ pallet-preimage = { workspace = true, default-features = false }
 pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false }
+pallet-session-benchmarking = { workspace = true, default-features = false, optional = true }
 pallet-staking = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
@@ -178,6 +179,7 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "pallet-session-benchmarking/runtime-benchmarks",
     "frame-system-benchmarking/runtime-benchmarks",
     "frame-election-provider-support/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
