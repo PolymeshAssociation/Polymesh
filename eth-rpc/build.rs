@@ -55,8 +55,8 @@ fn generate_git_revision() {
 fn generate_metadata_file() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {
-    // POLYMESH CHANGE
-		//let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
+		// POLYMESH CHANGE
+		// let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
 		let metadata = polymesh_runtime_develop::Runtime::metadata_at_version(16).unwrap();
 		let bytes: &[u8] = &metadata;
 		let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");

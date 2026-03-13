@@ -71,8 +71,8 @@ impl SharedResources {
 	fn start() -> Self {
 		// Start revive-dev-node
 		let _node_handle = thread::spawn(move || {
-      // POLYMESH CHANGE
-			//if let Err(e) = revive_dev_node::command::run_with_args(vec![
+			// POLYMESH CHANGE
+			// if let Err(e) = revive_dev_node::command::run_with_args(vec![
 			if let Err(e) = polymesh::command::run_with_args(vec![
 				"--dev".to_string(),
 				"--rpc-port=45789".to_string(),
