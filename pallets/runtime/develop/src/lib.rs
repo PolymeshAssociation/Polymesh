@@ -9,9 +9,6 @@ extern crate frame_benchmarking;
 pub mod constants;
 pub mod runtime;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarks;
-
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 
