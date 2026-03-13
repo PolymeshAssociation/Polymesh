@@ -16,83 +16,67 @@
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
-    create1,
-    evm::{Account, BlockTag, ReceiptInfo, U256},
+	create1,
+	evm::{Account, BlockTag, ReceiptInfo, U256},
 };
 use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
-    let account = Account::default();
+	env_logger::init();
+	let account = Account::default();
 
-    let data = vec![];
-    let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
-    let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
+	let data = vec![];
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 
-    println!("Account:");
-    println!("- address: {:?}", account.address());
-    println!("- substrate: {}", account.substrate_account());
-    let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
+	println!("Account:");
+	println!("- address: {:?}", account.address());
+	println!("- substrate: {}", account.substrate_account());
+	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
-    println!("\n\n=== Deploying contract ===\n\n");
+	println!("\n\n=== Deploying contract ===\n\n");
 
-    let nonce = client
-        .get_transaction_count(account.address(), BlockTag::Latest.into())
-        .await?;
-    let tx = TransactionBuilder::new(&client)
-        .value(5_000_000_000_000u128.into())
-        .input(input)
-        .send()
-        .await?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(5_000_000_000_000u128.into())
+		.input(input)
+		.send()
+		.await?;
 
-    println!("Deploy Tx hash: {:?}", tx.hash());
-    let ReceiptInfo {
-        block_number,
-        gas_used,
-        contract_address,
-        ..
-    } = tx.wait_for_receipt().await?;
+	println!("Deploy Tx hash: {:?}", tx.hash());
+	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
+		tx.wait_for_receipt().await?;
 
-    let contract_address = contract_address.unwrap();
-    assert_eq!(
-        contract_address,
-        create1(&account.address(), nonce.try_into().unwrap())
-    );
+	let contract_address = contract_address.unwrap();
+	assert_eq!(contract_address, create1(&account.address(), nonce.try_into().unwrap()));
 
-    println!("Receipt:");
-    println!("- Block number:     {block_number}");
-    println!("- Gas estimated:    {}", tx.gas());
-    println!("- Gas used:         {gas_used}");
-    println!("- Contract address: {contract_address:?}");
-    let balance = client
-        .get_balance(contract_address, BlockTag::Latest.into())
-        .await?;
-    println!("- Contract balance: {balance:?}");
+	println!("Receipt:");
+	println!("- Block number:     {block_number}");
+	println!("- Gas estimated:    {}", tx.gas());
+	println!("- Gas used:         {gas_used}");
+	println!("- Contract address: {contract_address:?}");
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	println!("- Contract balance: {balance:?}");
 
-    if std::env::var("SKIP_CALL").is_ok() {
-        return Ok(());
-    }
+	if std::env::var("SKIP_CALL").is_ok() {
+		return Ok(());
+	}
 
-    println!("\n\n=== Calling contract ===\n\n");
-    let tx = TransactionBuilder::new(&client)
-        .value(U256::from(1_000_000u32))
-        .to(contract_address)
-        .send()
-        .await?;
+	println!("\n\n=== Calling contract ===\n\n");
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(1_000_000u32))
+		.to(contract_address)
+		.send()
+		.await?;
 
-    println!("Contract call tx hash: {:?}", tx.hash());
-    let ReceiptInfo {
-        block_number,
-        gas_used,
-        to,
-        ..
-    } = tx.wait_for_receipt().await?;
-    println!("Receipt:");
-    println!("- Block number:  {block_number}");
-    println!("- Gas used:      {gas_used}");
-    println!("- Gas estimated: {}", tx.gas());
-    println!("- To:            {to:?}");
-    Ok(())
+	println!("Contract call tx hash: {:?}", tx.hash());
+	let ReceiptInfo { block_number, gas_used, to, .. } = tx.wait_for_receipt().await?;
+	println!("Receipt:");
+	println!("- Block number:  {block_number}");
+	println!("- Gas used:      {gas_used}");
+	println!("- Gas estimated: {}", tx.gas());
+	println!("- To:            {to:?}");
+	Ok(())
 }

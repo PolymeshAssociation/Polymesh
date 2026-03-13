@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use pallet_revive::evm::Account;
+use pallet_revive_eth_rpc::example::{TransactionBuilder, TransactionType};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -24,35 +24,27 @@ async fn main() -> anyhow::Result<()> {
 	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
 	let alith = Account::default();
-	let alith_address = alith.address();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = 1_000_000_000_000_000_000_000u128.into();
 
-	let print_balance = || async {
-		let balance = client.get_balance(alith_address, BlockTag::Latest.into()).await?;
-		println!("Alith     {alith_address:?} balance: {balance:?}");
-		let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
-		println!("ethan {:?} balance: {balance:?}", ethan.address());
-		anyhow::Result::<()>::Ok(())
-	};
+	for tx_type in [
+		TransactionType::Legacy,
+		TransactionType::Eip2930,
+		TransactionType::Eip1559,
+		TransactionType::Eip4844,
+	] {
+		println!("\n\n=== TransactionType {tx_type:?}  ===\n\n",);
 
-	print_balance().await?;
-	println!("\n\n=== Transferring  ===\n\n");
+		let tx = TransactionBuilder::new(client.clone())
+			.signer(alith.clone())
+			.value(value)
+			.to(ethan.address())
+			.send_with_type(tx_type)
+			.await?;
+		println!("Transaction hash: {:?}", tx.hash());
 
-	let tx = TransactionBuilder::new(client.clone())
-		.signer(alith)
-		.value(value)
-		.to(ethan.address())
-		.send()
-		.await?;
-	println!("Transaction hash: {:?}", tx.hash());
-
-	let ReceiptInfo { block_number, gas_used, status, .. } = tx.wait_for_receipt().await?;
-	println!("Receipt: ");
-	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
-	println!("- Success: {status:?}");
-
-	print_balance().await?;
+		let receipt = tx.wait_for_receipt().await?;
+		println!("Receipt: {receipt:#?}");
+	}
 	Ok(())
 }

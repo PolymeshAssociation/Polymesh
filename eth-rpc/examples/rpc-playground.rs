@@ -21,28 +21,22 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let account = Account::default();
-    println!("Account address: {:?}", account.address());
+	let account = Account::default();
+	println!("Account address: {:?}", account.address());
 
-    let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
+	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
-    let block = client
-        .get_block_by_number(BlockTag::Latest.into(), false)
-        .await?;
-    println!("Latest block: {block:#?}");
+	let block = client.get_block_by_number(BlockTag::Latest.into(), false).await?;
+	println!("Latest block: {block:#?}");
 
-    let nonce = client
-        .get_transaction_count(account.address(), BlockTag::Latest.into())
-        .await?;
-    println!("Account nonce: {nonce:?}");
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	println!("Account nonce: {nonce:?}");
 
-    let balance = client
-        .get_balance(account.address(), BlockTag::Latest.into())
-        .await?;
-    println!("Account balance: {balance:?}");
+	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
+	println!("Account balance: {balance:?}");
 
-    let sync_state = client.syncing().await?;
-    println!("Sync state: {sync_state:?}");
+	let sync_state = client.syncing().await?;
+	println!("Sync state: {sync_state:?}");
 
-    Ok(())
+	Ok(())
 }
