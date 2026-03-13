@@ -22,39 +22,34 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let tx_payload: Vec<u8> = vec![
-        0x00, // System pallet index.
-        0x07, // Remark With Event call index.
-        0x10, // Compact-encoded length of the remark (16).
-        0x54, 0x45, 0x53, 0x54, // Remark 'T', 'E', 'S', 'T'
-    ];
+	let tx_payload: Vec<u8> = vec![
+		0x00, // System pallet index.
+		0x07, // Remark With Event call index.
+		0x10, // Compact-encoded length of the remark (16).
+		0x54, 0x45, 0x53, 0x54, // Remark 'T', 'E', 'S', 'T'
+	];
 
-    let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
+	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
-    let alith = Account::default();
-    // Revive pallet address.
-    let dest = H160::from_slice(&hex::decode("6d6f646c70792f70616464720000000000000000")?);
+	let alith = Account::default();
+	// Revive pallet address.
+	let dest = H160::from_slice(&hex::decode("6d6f646c70792f70616464720000000000000000")?);
 
-    println!("\n\n=== Eth calling System.Remark  ===\n\n");
+	println!("\n\n=== Eth calling System.Remark  ===\n\n");
 
-    let tx = TransactionBuilder::new(&client)
-        .signer(alith)
-        .input(tx_payload)
-        .to(dest)
-        .send()
-        .await?;
-    println!("Transaction hash: {:?}", tx.hash());
+	let tx = TransactionBuilder::new(&client)
+		.signer(alith)
+		.input(tx_payload)
+		.to(dest)
+		.send()
+		.await?;
+	println!("Transaction hash: {:?}", tx.hash());
 
-    let ReceiptInfo {
-        block_number,
-        gas_used,
-        status,
-        ..
-    } = tx.wait_for_receipt().await?;
-    println!("Receipt: ");
-    println!("- Block number: {block_number}");
-    println!("- Gas used: {gas_used}");
-    println!("- Success: {status:?}");
+	let ReceiptInfo { block_number, gas_used, status, .. } = tx.wait_for_receipt().await?;
+	println!("Receipt: ");
+	println!("- Block number: {block_number}");
+	println!("- Gas used: {gas_used}");
+	println!("- Success: {status:?}");
 
-    Ok(())
+	Ok(())
 }
