@@ -489,7 +489,7 @@ mod runtime {
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 mod benches {
-    define_benchmarks!(
+    frame_benchmarking::define_benchmarks!(
         [frame_benchmarking, BaselineBench::<Runtime>]
         [pallet_asset, Asset]
         [pallet_balances, Balances]
