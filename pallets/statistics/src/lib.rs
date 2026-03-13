@@ -26,7 +26,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_system::pallet_prelude::*;
-use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use pallet_external_agents::Config as EAConfig;
 use polymesh_primitives::asset::AssetId;

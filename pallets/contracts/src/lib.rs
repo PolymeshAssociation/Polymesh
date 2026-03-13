@@ -69,7 +69,7 @@ use pallet_contracts::Determinism;
 use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
-use sp_std::{vec, vec::Vec};
+use sp_std::vec::Vec;
 
 pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::weights::WeightInfo as FrameWeightInfo;

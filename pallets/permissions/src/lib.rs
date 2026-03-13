@@ -33,9 +33,9 @@ use frame_support::traits::{CallMetadata, GetCallMetadata};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension};
 use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
+use sp_std::fmt;
 use sp_std::marker::PhantomData;
 use sp_std::result::Result;
-use sp_std::{fmt, vec};
 
 use polymesh_primitives::{ExtrinsicName, IdentityId, PalletName, SecondaryKey};
 
