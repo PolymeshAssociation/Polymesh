@@ -50,9 +50,11 @@ use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
 use super::settlement_pallet::setup::create_and_issue_sample_asset_with_venue;
+use polymesh_primitives::traits::AffirmationFnTrait;
+
 use super::storage::{
-    default_asset_holder_set, make_account_with_balance, user_asset_holder_set, vec_to_btreeset,
-    TestStorage, User,
+    default_asset_holder_set, make_account_with_balance, root, user_asset_holder_set,
+    vec_to_btreeset, TestStorage, User,
 };
 use super::{next_block, ExtBuilder};
 
@@ -4446,4 +4448,49 @@ fn assert_locked_assets(asset_id: &AssetId, user: &User, num_of_assets: Balance)
         ),
         num_of_assets
     );
+}
+
+#[test]
+fn set_mandatory_receiver_affirmation() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = AssetId::new([0; 16]);
+        let alice_holder: AssetHolder = PortfolioId::default_portfolio(alice.did).into();
+
+        // Default: no mandatory receiver affirmation.
+        assert!(!Settlement::identity_requires_affirmation(&alice.did));
+        // Receiver affirmation is skipped by default.
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Opt-in to mandatory receiver affirmation.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Required
+        ));
+        assert!(Settlement::identity_requires_affirmation(&alice.did));
+        // Now receiver affirmation is required.
+        assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Pre-approve a specific asset — overrides mandatory receiver affirmation.
+        assert_ok!(Asset::pre_approve_asset(alice.origin(), asset_id));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Remove pre-approval — mandatory receiver affirmation applies again.
+        assert_ok!(Asset::remove_asset_pre_approval(alice.origin(), asset_id));
+        assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Global asset exemption overrides mandatory receiver affirmation.
+        assert_ok!(Asset::exempt_asset_affirmation(root(), asset_id));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+        assert_ok!(Asset::remove_asset_affirmation_exemption(root(), asset_id));
+
+        // Opt out of mandatory receiver affirmation.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Automatic
+        ));
+        assert!(!Settlement::identity_requires_affirmation(&alice.did));
+        // Affirmation is skipped again.
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+    });
 }
