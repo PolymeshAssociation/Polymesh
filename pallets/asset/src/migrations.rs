@@ -46,4 +46,3 @@ pub(crate) fn migrate_to_v6<T: Config>() {
 
     log::info!("Migration has finished running.");
 }
-

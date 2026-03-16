@@ -12,7 +12,7 @@ use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{Leg, SettlementType};
+use polymesh_primitives::settlement::{AffirmationRequirement, Leg, SettlementType};
 use polymesh_primitives::{
     AssetHolderKind, AuthorizationData, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
@@ -1002,7 +1002,7 @@ fn pre_approve_portfolio() {
         // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
-            true
+            AffirmationRequirement::Required
         ));
 
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
@@ -1040,7 +1040,7 @@ fn remove_portfolio_pre_approval() {
         // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
-            true
+            AffirmationRequirement::Required
         ));
 
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())

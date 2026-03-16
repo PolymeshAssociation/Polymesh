@@ -76,10 +76,10 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{
-    AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
-    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
-    MediatorAffirmationStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, Venue,
-    VenueDetails, VenueId, VenueType,
+    AffirmationCount, AffirmationRequirement, AffirmationStatus, AssetCount,
+    ExecuteInstructionInfo, FilteredLegs, Instruction, InstructionId, InstructionInfo,
+    InstructionStatus, Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails,
+    ReceiptMetadata, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::traits::{AffirmationFnTrait, AssetOrNft, SettlementFnTrait};
 use polymesh_primitives::with_transaction;
@@ -187,8 +187,8 @@ pub mod pallet {
         /// - `IdentityId`: The [`IdentityId`] of the caller.
         /// - `InstructionId`: The [`InstructionId`] of the instruction.
         InstructionLocked(IdentityId, InstructionId),
-        /// An identity's mandatory receiver affirmation setting has been updated (did, require).
-        MandatoryReceiverAffirmationSet(IdentityId, bool),
+        /// An identity's mandatory receiver affirmation policy has been updated.
+        MandatoryReceiverAffirmationSet(IdentityId, AffirmationRequirement),
     }
 
     pub trait WeightInfo {
@@ -1516,15 +1516,18 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::set_mandatory_receiver_affirmation())]
         pub fn set_mandatory_receiver_affirmation(
             origin: OriginFor<T>,
-            require: bool,
+            requirement: AffirmationRequirement,
         ) -> DispatchResult {
             let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
-            if require {
+            if requirement == AffirmationRequirement::Required {
                 MandatoryReceiverAffirmation::<T>::insert(&caller_did, true);
             } else {
                 MandatoryReceiverAffirmation::<T>::remove(&caller_did);
             }
-            Self::deposit_event(Event::MandatoryReceiverAffirmationSet(caller_did, require));
+            Self::deposit_event(Event::MandatoryReceiverAffirmationSet(
+                caller_did,
+                requirement,
+            ));
             Ok(())
         }
     }
@@ -3980,7 +3983,7 @@ impl<T: Config> AffirmationFnTrait for Pallet<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn set_mandatory_receiver_affirmation(did: IdentityId, value: bool) {
-        MandatoryReceiverAffirmation::<T>::set(did, value);
+    fn set_mandatory_receiver_affirmation(did: IdentityId, policy: AffirmationRequirement) {
+        MandatoryReceiverAffirmation::<T>::set(did, policy.into());
     }
 }

@@ -57,7 +57,9 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::traits::{AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait};
+use polymesh_primitives::traits::{
+    AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait,
+};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
@@ -1149,22 +1151,19 @@ impl<T: Config> Pallet<T> {
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
     }
 
-    /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
+    /// Returns `true` if the portfolio should skip receiver affirmation for `asset_id`.
     ///
-    /// For custodial portfolios: existing behavior is preserved (custodian must have pre-approved).
-    /// For non-custodial portfolios: default is to skip affirmation (no affirmation required),
-    /// unless the identity has opted in via `MandatoryReceiverAffirmation`.
+    /// The governing identity is the custodian (for custodial portfolios) or the portfolio
+    /// owner (for non-custodial portfolios). If the governing identity has not opted in to
+    /// mandatory receiver affirmation, affirmation is skipped. If opted in, asset-level and
+    /// portfolio+asset pre-approvals can still override.
     pub fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
-        // Custodial portfolios: preserve existing behavior.
-        if PortfolioCustodian::<T>::get(portfolio_id).is_some() {
-            if T::AssetFn::asset_affirmation_exemption(asset_id) {
-                return true;
-            }
-            return PreApprovedPortfolios::<T>::get(portfolio_id, asset_id);
-        }
+        // For custodial portfolios, the custodian's policy governs; otherwise the owner's.
+        let affirmation_did =
+            PortfolioCustodian::<T>::get(portfolio_id).unwrap_or(portfolio_id.did);
 
-        // Non-custodial portfolios: check mandatory affirmation opt-in
-        if !T::AffirmationFn::identity_requires_affirmation(&portfolio_id.did) {
+        // If the governing identity hasn't opted in to mandatory receiver affirmation, skip.
+        if !T::AffirmationFn::identity_requires_affirmation(&affirmation_did) {
             return true;
         }
 
@@ -1174,7 +1173,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Check per-identity and per-portfolio pre-approvals.
-        if T::AssetFn::skip_asset_affirmation(&portfolio_id.did, asset_id) {
+        if T::AssetFn::skip_asset_affirmation(&affirmation_did, asset_id) {
             return true;
         }
         PreApprovedPortfolios::<T>::get(portfolio_id, asset_id)

@@ -2,16 +2,20 @@ use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostI
 use frame_support::weights::Weight;
 use frame_system::{pallet_prelude::OriginFor, Config};
 
-use crate::{asset::AssetId, settlement::InstructionId, Balance, IdentityId, Memo, NFTId, WeightMeter};
+#[cfg(feature = "runtime-benchmarks")]
+use crate::settlement::AffirmationRequirement;
+use crate::{
+    asset::AssetId, settlement::InstructionId, Balance, IdentityId, Memo, NFTId, WeightMeter,
+};
 
 /// Trait for querying affirmation settings stored in the settlement pallet.
 pub trait AffirmationFnTrait {
     /// Returns `true` if the given identity has opted in to mandatory receiver affirmation.
     fn identity_requires_affirmation(did: &IdentityId) -> bool;
 
-    /// Sets the mandatory receiver affirmation flag for benchmarks.
+    /// Sets the mandatory receiver affirmation requirement for benchmarks.
     #[cfg(feature = "runtime-benchmarks")]
-    fn set_mandatory_receiver_affirmation(did: IdentityId, value: bool);
+    fn set_mandatory_receiver_affirmation(did: IdentityId, requirement: AffirmationRequirement);
 }
 
 /// Supertrait config for pallets that need affirmation queries.

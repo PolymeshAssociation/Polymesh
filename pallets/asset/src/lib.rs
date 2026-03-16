@@ -120,7 +120,8 @@ use polymesh_primitives::constants::*;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{
-    AffirmationFnTrait, AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
+    AffirmationFnTrait, AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait,
+    SettlementFnTrait,
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
@@ -1717,7 +1718,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::base_reject_asset_transfer(origin, transfer_id)
         }
-
     }
 
     #[pallet::error]

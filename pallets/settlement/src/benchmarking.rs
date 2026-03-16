@@ -28,7 +28,7 @@ use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
-use polymesh_primitives::settlement::ReceiptMetadata;
+use polymesh_primitives::settlement::{AffirmationRequirement, ReceiptMetadata};
 use polymesh_primitives::{AssetHolder, IdentityId, Memo, NFTId, NFTs, Ticker, WeightMeter};
 
 use crate::*;
@@ -121,7 +121,11 @@ where
     T: Config,
 {
     // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
-    Pallet::<T>::set_mandatory_receiver_affirmation(receiver.origin().into(), true).unwrap();
+    Pallet::<T>::set_mandatory_receiver_affirmation(
+        receiver.origin().into(),
+        AffirmationRequirement::Required,
+    )
+    .unwrap();
 
     let mut asset_holders = AssetHolders::default();
     let mut asset_mediators = Vec::new();
@@ -928,5 +932,5 @@ benchmarks! {
 
     set_mandatory_receiver_affirmation {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-    }: _(alice.origin, true)
+    }: _(alice.origin, AffirmationRequirement::Required)
 }

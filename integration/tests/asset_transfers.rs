@@ -11,6 +11,9 @@ mod asset_transfer_tests {
     #[cfg(feature = "current_release")]
     use polymesh_api::types::polymesh_primitives::asset::AssetHolderKind;
 
+    #[cfg(feature = "current_release")]
+    use polymesh_api::types::polymesh_primitives::settlement::AffirmationRequirement;
+
     /// Test for an asset transfer requiring receiver affirmation.
     #[tokio::test]
     async fn asset_transfer_with_receiver_affirm() -> Result<()> {
@@ -45,7 +48,7 @@ mod asset_transfer_tests {
             .api
             .call()
             .settlement()
-            .set_mandatory_receiver_affirmation(true)?
+            .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
             .execute(&mut investor)
             .await?;
 
@@ -112,7 +115,7 @@ mod asset_transfer_tests {
             .api
             .call()
             .settlement()
-            .set_mandatory_receiver_affirmation(true)?
+            .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
             .execute(&mut investor)
             .await?;
 
@@ -179,7 +182,7 @@ mod asset_transfer_tests {
             .api
             .call()
             .settlement()
-            .set_mandatory_receiver_affirmation(true)?
+            .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
             .execute(&mut investor)
             .await?;
 

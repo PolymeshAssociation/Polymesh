@@ -33,9 +33,9 @@ use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{
-    AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
-    Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType,
-    VenueDetails, VenueId, VenueType,
+    AffirmationCount, AffirmationRequirement, AffirmationStatus, AssetCount, Instruction,
+    InstructionId, InstructionStatus, Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt,
+    ReceiptDetails, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
     AccountId, AssetHolder, AssetHolderKind, AuthorizationData, Balance, Claim, ClaimType,
@@ -852,7 +852,7 @@ fn venue_filtering() {
         // Opt-in so Bob must explicitly affirm
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let block_number = System::block_number() + 1;
@@ -1412,7 +1412,7 @@ fn test_weights_for_settlement_transaction() {
             // Opt-in so Bob must explicitly affirm
             assert_ok!(Settlement::set_mandatory_receiver_affirmation(
                 bob_signed.clone(),
-                true
+                AffirmationRequirement::Required
             ));
 
             let dave = Sr25519Keyring::Dave.to_account_id();
@@ -1510,7 +1510,7 @@ fn cross_portfolio_settlement() {
         // Opt-in so Bob must explicitly affirm
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -1593,7 +1593,7 @@ fn multiple_portfolio_settlement() {
         // Opt-in so Bob must explicitly affirm
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -1737,10 +1737,15 @@ fn multiple_custodian_settlement() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
-        // Opt-in so Bob must explicitly affirm
+        // Both opt-in: Bob governs his default portfolio; Alice will be assigned custodian of
+        // Bob's user portfolio, so her opt-in governs that portfolio's affirmation requirement.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
+        ));
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Required
         ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
@@ -2754,7 +2759,7 @@ fn add_and_affirm_nft_instruction() {
         // Opt-in so Bob must explicitly affirm
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
@@ -3416,10 +3421,11 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
             legs.clone(),
             instruction_memo.clone(),
         ));
-        // Both the sender and the custodian have to affirm the instruction
-        let portfolios_pending_approval =
-            BTreeSet::from([alice_default_portfolio, bob_user_porfolio]);
-        let portfolios_pre_approved = BTreeSet::from([bob_default_portfolio]);
+        // The sender must affirm. Bob's default portfolio is pre-approved (Bob pre-approved
+        // the asset). Bob's user portfolio is also auto-approved because the custodian
+        // (Charlie) has not opted in to mandatory receiver affirmation.
+        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
+        let portfolios_pre_approved = BTreeSet::from([bob_default_portfolio, bob_user_porfolio]);
         let instruction_id = InstructionId(0);
         assert_add_instruction_storage(
             &instruction_id,
@@ -3453,7 +3459,7 @@ fn add_instruction_with_pre_affirmed_portfolio() {
         // Bob opts in to mandatory receiver affirmation so pre-approval is exercised.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
 
         // Both users have pre-affirmed their user portfolios
@@ -3523,7 +3529,7 @@ fn add_instruction_with_single_pre_affirmed() {
         // Bob opts in to mandatory receiver affirmation so pre-approval is exercised.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
 
         // Bob has pre-affirmed asset_id but not asset_id2
@@ -3720,7 +3726,7 @@ fn affirm_instruction_cost() {
         // Opt-in so Bob must explicitly affirm
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
-            true
+            AffirmationRequirement::Required
         ));
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));

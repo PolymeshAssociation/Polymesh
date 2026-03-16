@@ -39,7 +39,7 @@ use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit, FixedOrVariabl
 use polymesh_primitives::checkpoint::{NextCheckpoints, ScheduleCheckpoints, ScheduleId};
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::settlement::{
-    InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
+    AffirmationRequirement, InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
@@ -1818,7 +1818,7 @@ fn set_mandatory_receiver_affirmation() {
         // Opt-in to mandatory receiver affirmation.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
-            true
+            AffirmationRequirement::Required
         ));
         assert!(Settlement::identity_requires_affirmation(&alice.did));
         // Now receiver affirmation is required.
@@ -1840,7 +1840,7 @@ fn set_mandatory_receiver_affirmation() {
         // Opt out of mandatory receiver affirmation.
         assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
-            false
+            AffirmationRequirement::Automatic
         ));
         assert!(!Settlement::identity_requires_affirmation(&alice.did));
         // Affirmation is skipped again.

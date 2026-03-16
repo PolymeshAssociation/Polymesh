@@ -981,7 +981,7 @@ macro_rules! runtime_apis {
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
         use polymesh_primitives::asset::{AssetId, CheckpointId, AssetHolder};
-        use polymesh_primitives::settlement::{ AssetCount, AffirmationCount};
+        use polymesh_primitives::settlement::{AffirmationRequirement, AssetCount, AffirmationCount};
         use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::transfer_compliance::TransferCondition;
         use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceReport};
@@ -1470,6 +1470,20 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn instruction_asset_count(instruction_id: InstructionId) -> AssetCount {
                     Settlement::instruction_asset_count(&instruction_id)
+                }
+
+                #[inline]
+                fn get_receiver_affirmation_requirement(
+                    receiver: AssetHolder,
+                    asset_id: AssetId,
+                ) -> AffirmationRequirement {
+                    let skip = Asset::skip_asset_holder_affirmation(&receiver, &asset_id)
+                        .unwrap_or(true);
+                    if skip {
+                        AffirmationRequirement::Automatic
+                    } else {
+                        AffirmationRequirement::Required
+                    }
                 }
             }
 
