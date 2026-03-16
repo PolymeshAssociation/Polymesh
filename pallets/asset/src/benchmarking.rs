@@ -203,7 +203,7 @@ pub fn setup_asset_transfer<T: AssetConfig>(
     }
 
     // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
-    Pallet::<T>::set_mandatory_receiver_affirmation(receiver.origin().into(), true).unwrap();
+    T::AffirmationFn::set_mandatory_receiver_affirmation(receiver.did(), true);
 
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.
@@ -733,10 +733,6 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&alice, true);
         Pallet::<T>::pre_approve_asset(alice.clone().origin().into(), asset_id).unwrap();
     }: _(alice.origin, asset_id)
-
-    set_mandatory_receiver_affirmation {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-    }: _(alice.origin, true)
 
     add_mandatory_mediators {
         let n in 1 .. T::MaxAssetMediators::get() as u32;

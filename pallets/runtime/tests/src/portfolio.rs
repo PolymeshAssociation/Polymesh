@@ -1000,7 +1000,7 @@ fn pre_approve_portfolio() {
         let asset_id = AssetId::new([0; 16]);
 
         // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
             true
         ));
@@ -1038,7 +1038,7 @@ fn remove_portfolio_pre_approval() {
         let asset_id = AssetId::new([0; 16]);
 
         // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
             true
         ));

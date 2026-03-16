@@ -850,7 +850,7 @@ fn venue_filtering() {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         // Opt-in so Bob must explicitly affirm
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -1410,7 +1410,7 @@ fn test_weights_for_settlement_transaction() {
             let bob = Sr25519Keyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_with_balance(bob, 10_000).unwrap();
             // Opt-in so Bob must explicitly affirm
-            assert_ok!(Asset::set_mandatory_receiver_affirmation(
+            assert_ok!(Settlement::set_mandatory_receiver_affirmation(
                 bob_signed.clone(),
                 true
             ));
@@ -1508,7 +1508,7 @@ fn cross_portfolio_settlement() {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         // Opt-in so Bob must explicitly affirm
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -1591,7 +1591,7 @@ fn multiple_portfolio_settlement() {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         // Opt-in so Bob must explicitly affirm
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -1738,7 +1738,7 @@ fn multiple_custodian_settlement() {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         // Opt-in so Bob must explicitly affirm
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -2752,7 +2752,7 @@ fn add_and_affirm_nft_instruction() {
         let alice: User = User::new(Sr25519Keyring::Alice);
         let bob: User = User::new(Sr25519Keyring::Bob);
         // Opt-in so Bob must explicitly affirm
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -3451,7 +3451,7 @@ fn add_instruction_with_pre_affirmed_portfolio() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         // Bob opts in to mandatory receiver affirmation so pre-approval is exercised.
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -3521,7 +3521,7 @@ fn add_instruction_with_single_pre_affirmed() {
         let asset_id2 = create_and_issue_sample_asset(&alice);
 
         // Bob opts in to mandatory receiver affirmation so pre-approval is exercised.
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));
@@ -3718,7 +3718,7 @@ fn affirm_instruction_cost() {
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         let bob = User::new(Sr25519Keyring::Bob);
         // Opt-in so Bob must explicitly affirm
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             bob.origin(),
             true
         ));

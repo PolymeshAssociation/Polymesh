@@ -120,7 +120,7 @@ use polymesh_primitives::constants::*;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{
-    AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
+    AffirmationFnTrait, AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
@@ -144,7 +144,7 @@ pub trait AssetConfig: Config + checkpoint::Config {}
 
 impl<T: Config + checkpoint::Config> AssetConfig for T {}
 
-storage_migration_ver!(7);
+storage_migration_ver!(6);
 
 pub use pallet::*;
 
@@ -343,9 +343,6 @@ pub mod pallet {
             memo: Option<Memo>,
             pending_transfer_id: Option<InstructionId>,
         },
-        /// An identity has set or cleared mandatory receiver affirmation for incoming transfers.
-        /// Parameters: [`IdentityId`] of caller, whether affirmation is now required.
-        MandatoryReceiverAffirmationSet(IdentityId, bool),
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -527,12 +524,6 @@ pub mod pallet {
         StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
     /// Identities that require receiver affirmation for all incoming transfers.
-    /// When `true`, the identity has opted in to mandatory receiver affirmation.
-    /// Default is `false` (no affirmation required).
-    #[pallet::storage]
-    pub type MandatoryReceiverAffirmation<T: Config> =
-        StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
-
     /// The list of mandatory mediators for every ticker.
     #[pallet::storage]
     pub type MandatoryMediators<T: Config> = StorageMap<
@@ -608,14 +599,10 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let mut weight = Weight::zero();
+            let weight = Weight::zero();
 
             storage_migrate_on!(StorageVersion::<T>, 6, {
                 migrations::migrate_to_v6::<T>();
-            });
-
-            storage_migrate_on!(StorageVersion::<T>, 7, {
-                weight = weight.saturating_add(migrations::migrate_to_v7::<T>());
             });
 
             weight
@@ -638,7 +625,7 @@ pub mod pallet {
         T: AssetConfig,
     {
         fn build(&self) {
-            StorageVersion::<T>::put(Version::new(7));
+            StorageVersion::<T>::put(Version::new(6));
 
             // Set ticker registratoin config.
             TickerConfig::<T>::put(TickerRegistrationConfig {
@@ -1731,26 +1718,6 @@ pub mod pallet {
             Self::base_reject_asset_transfer(origin, transfer_id)
         }
 
-        /// Sets whether the caller's identity requires receiver affirmation for all incoming transfers.
-        ///
-        /// When `require` is `true`, the identity opts in to mandatory receiver affirmation — all incoming
-        /// transfers must be explicitly affirmed. When `false` (the default), transfers are
-        /// auto-affirmed for this identity.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
-        /// * `require` - Whether to require mandatory receiver affirmation.
-        ///
-        /// # Events
-        /// * `MandatoryReceiverAffirmationSet` - When the mandatory receiver affirmation flag is updated.
-        #[pallet::call_index(37)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_mandatory_receiver_affirmation())]
-        pub fn set_mandatory_receiver_affirmation(
-            origin: OriginFor<T>,
-            require: bool,
-        ) -> DispatchResult {
-            Self::base_set_mandatory_receiver_affirmation(origin, require)
-        }
     }
 
     #[pallet::error]
@@ -1896,7 +1863,6 @@ pub mod pallet {
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
         fn update_global_metadata_spec() -> Weight;
-        fn set_mandatory_receiver_affirmation() -> Weight;
         fn transfer_asset_base_weight() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
     }
@@ -2550,21 +2516,6 @@ impl<T: AssetConfig> Pallet<T> {
         let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
         PreApprovedAsset::<T>::remove(&caller_did, &asset_id);
         Self::deposit_event(Event::RemovePreApprovedAsset(caller_did, asset_id));
-        Ok(())
-    }
-
-    /// Sets whether the caller's identity requires mandatory receiver affirmation for incoming transfers.
-    fn base_set_mandatory_receiver_affirmation(
-        origin: T::RuntimeOrigin,
-        require: bool,
-    ) -> DispatchResult {
-        let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
-        if require {
-            MandatoryReceiverAffirmation::<T>::insert(&caller_did, true);
-        } else {
-            MandatoryReceiverAffirmation::<T>::remove(&caller_did);
-        }
-        Self::deposit_event(Event::MandatoryReceiverAffirmationSet(caller_did, require));
         Ok(())
     }
 
@@ -3677,7 +3628,7 @@ impl<T: AssetConfig> Pallet<T> {
         // For Account holders: default is to skip affirmation (no affirmation required).
         // Only require affirmation if the identity has opted in via MandatoryReceiverAffirmation.
         let did = IdentityPallet::<T>::asset_holder_did(asset_holder)?;
-        if Self::identity_requires_affirmation(&did) {
+        if T::AffirmationFn::identity_requires_affirmation(&did) {
             return Ok(Self::skip_asset_affirmation(&did, asset_id));
         }
 
@@ -4108,10 +4059,6 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn asset_affirmation_exemption(asset_id: &AssetId) -> bool {
         AssetsExemptFromAffirmation::<T>::get(asset_id)
-    }
-
-    fn identity_requires_affirmation(identity_id: &IdentityId) -> bool {
-        MandatoryReceiverAffirmation::<T>::get(identity_id)
     }
 
     fn asset_balance(asset_id: &AssetId, did: &IdentityId) -> Balance {

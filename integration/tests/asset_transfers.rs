@@ -44,7 +44,7 @@ mod asset_transfer_tests {
         tester
             .api
             .call()
-            .asset()
+            .settlement()
             .set_mandatory_receiver_affirmation(true)?
             .execute(&mut investor)
             .await?;
@@ -111,7 +111,7 @@ mod asset_transfer_tests {
         tester
             .api
             .call()
-            .asset()
+            .settlement()
             .set_mandatory_receiver_affirmation(true)?
             .execute(&mut investor)
             .await?;
@@ -178,7 +178,7 @@ mod asset_transfer_tests {
         tester
             .api
             .call()
-            .asset()
+            .settlement()
             .set_mandatory_receiver_affirmation(true)?
             .execute(&mut investor)
             .await?;

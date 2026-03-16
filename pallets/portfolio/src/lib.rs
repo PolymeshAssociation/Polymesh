@@ -57,7 +57,7 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait};
+use polymesh_primitives::traits::{AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait};
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
@@ -107,7 +107,11 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + pallet_permissions::Config + pallet_identity::Config + AssetFnConfig
+        frame_system::Config
+        + pallet_permissions::Config
+        + pallet_identity::Config
+        + AssetFnConfig
+        + AffirmationFnConfig
     {
         type WeightInfo: WeightInfo;
         /// Maximum number of fungible assets that can be moved in a single transfer call.
@@ -1159,17 +1163,17 @@ impl<T: Config> Pallet<T> {
             return PreApprovedPortfolios::<T>::get(portfolio_id, asset_id);
         }
 
-        // Non-custodial portfolios: check if asset is globally exempt.
+        // Non-custodial portfolios: check mandatory affirmation opt-in
+        if !T::AffirmationFn::identity_requires_affirmation(&portfolio_id.did) {
+            return true;
+        }
+
+        // Identity opted in — check if asset is globally exempt.
         if T::AssetFn::asset_affirmation_exemption(asset_id) {
             return true;
         }
 
-        // If identity has NOT opted in to mandatory receiver affirmation, skip (new default).
-        if !T::AssetFn::identity_requires_affirmation(&portfolio_id.did) {
-            return true;
-        }
-
-        // Identity opted in — check per-identity and per-portfolio pre-approvals.
+        // Check per-identity and per-portfolio pre-approvals.
         if T::AssetFn::skip_asset_affirmation(&portfolio_id.did, asset_id) {
             return true;
         }

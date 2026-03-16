@@ -551,6 +551,10 @@ macro_rules! misc_pallet_impls {
             type AssetFn = Asset;
         }
 
+        impl polymesh_primitives::traits::AffirmationFnConfig for Runtime {
+            type AffirmationFn = pallet_settlement::Pallet<Runtime>;
+        }
+
         impl pallet_asset::checkpoint::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
         }

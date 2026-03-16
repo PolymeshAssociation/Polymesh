@@ -43,7 +43,7 @@ use polymesh_primitives::settlement::{
 };
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::statistics::{Stat1stKey, Stat2ndKey};
-use polymesh_primitives::traits::AssetFnTrait;
+use polymesh_primitives::traits::{AffirmationFnTrait, AssetFnTrait};
 use polymesh_primitives::{
     AssetHolder, AssetHolderKind, AssetIdentifier, AssetPermissions, AuthorizationData, Document,
     DocumentId, Fund, FundDescription, IdentityId, Memo, Moment, NFTCollectionKeys, Permissions,
@@ -1811,16 +1811,16 @@ fn set_mandatory_receiver_affirmation() {
         let alice_holder: AssetHolder = PortfolioId::default_portfolio(alice.did).into();
 
         // Default: no mandatory receiver affirmation.
-        assert!(!Asset::identity_requires_affirmation(&alice.did));
+        assert!(!Settlement::identity_requires_affirmation(&alice.did));
         // Receiver affirmation is skipped by default.
         assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
 
         // Opt-in to mandatory receiver affirmation.
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
             true
         ));
-        assert!(Asset::identity_requires_affirmation(&alice.did));
+        assert!(Settlement::identity_requires_affirmation(&alice.did));
         // Now receiver affirmation is required.
         assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
 
@@ -1838,11 +1838,11 @@ fn set_mandatory_receiver_affirmation() {
         assert_ok!(Asset::remove_asset_affirmation_exemption(root(), asset_id));
 
         // Opt out of mandatory receiver affirmation.
-        assert_ok!(Asset::set_mandatory_receiver_affirmation(
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
             alice.origin(),
             false
         ));
-        assert!(!Asset::identity_requires_affirmation(&alice.did));
+        assert!(!Settlement::identity_requires_affirmation(&alice.did));
         // Affirmation is skipped again.
         assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
     });
