@@ -2,8 +2,6 @@ use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::Allowances;
-use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::Balance;
 
 use super::setup::create_and_issue_sample_asset;
 use crate::storage::{account_from, EventTest, User};

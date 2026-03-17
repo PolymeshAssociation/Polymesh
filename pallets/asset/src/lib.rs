@@ -2658,6 +2658,32 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
+    /// Check and decrement spender allowance for a fungible transfer.
+    ///
+    /// - `Balance::MAX` (infinite allowance): no storage write.
+    /// - Depletes to zero: removes the storage entry.
+    /// - No `Approval` event is emitted on spend.
+    pub fn spend_allowance(
+        owner: &T::AccountId,
+        spender: &T::AccountId,
+        asset_id: AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        let key = (owner.clone(), spender.clone(), asset_id);
+        let current = Allowances::<T>::get(&key);
+        ensure!(current >= amount, Error::<T>::InsufficientAllowance);
+
+        if current != Balance::MAX {
+            let new_allowance = current.saturating_sub(amount);
+            if new_allowance == 0 {
+                Allowances::<T>::remove(&key);
+            } else {
+                Allowances::<T>::insert(&key, new_allowance);
+            }
+        }
+        Ok(())
+    }
+
     pub fn base_link_ticker_to_asset_id(
         origin: T::RuntimeOrigin,
         ticker: Ticker,

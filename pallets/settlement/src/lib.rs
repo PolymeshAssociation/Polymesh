@@ -49,7 +49,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
@@ -85,7 +85,8 @@ use polymesh_primitives::traits::{AssetOrNft, SettlementFnTrait};
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    AssetHolder, Balance, IdentityId, Memo, NFTs, SecondaryKey, WeightMeter,
+    AccountId as AccountId32, AssetHolder, Balance, Fund, FundDescription, IdentityId, Memo, NFTs,
+    SecondaryKey, WeightMeter,
 };
 
 type System<T> = frame_system::Pallet<T>;
@@ -217,6 +218,7 @@ pub mod pallet {
         fn lock_instruction_extrinsic(f: u32, n: u32, o: u32) -> Weight;
         fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
+        fn transfer_funds() -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -582,6 +584,10 @@ pub mod pallet {
         InvalidTaskName,
         /// The receipt has expired and can no longer be claimed.
         ReceiptExpired,
+        /// Source and destination are the exact same AssetHolder.
+        SenderSameAsReceiver,
+        /// Spender allowances are not supported for non-fungible token transfers.
+        AllowancesNotSupportedForNFTs,
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -1495,10 +1501,123 @@ pub mod pallet {
 
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
+
+        /// Transfer assets between accounts and portfolios.
+        ///
+        /// Currently supports two modes:
+        /// - Direct (owner, same-identity): `from` and `to` resolve to the same DID.
+        ///   Transfers immediately via `base_transfer` — no settlement instruction, no affirmation.
+        /// - Direct (spender): Caller differs from source owner. Spender-approval mode.
+        ///   Allowance is checked and decremented. Spender mode is only available for
+        ///   `AssetHolder::Account` sources with fungible funds.
+        ///
+        /// When `from` is `None`, defaults to `AssetHolder::Account(caller)`.
+        ///
+        /// # Spender-mode allowance behavior
+        /// - Finite allowance: decremented by transfer amount. Removed when depleted to zero.
+        /// - Unlimited allowance (`Balance::MAX`): never decremented, no storage write.
+        /// - No `Approval` event emitted on spend. Use the `allowance` Runtime API to query
+        ///   remaining allowance.
+        ///
+        /// # Arguments
+        /// * `origin` — Signed origin. Caller must have a registered DID.
+        /// * `from` — Source. `None` defaults to caller's account. When set to a different
+        ///   account, spender-approval mode activates.
+        /// * `to` — Destination account or portfolio.
+        /// * `fund` — Asset and amount (fungible) or NFT IDs (non-fungible), plus optional memo.
+        #[pallet::call_index(25)]
+        #[pallet::weight(<T as Config>::WeightInfo::transfer_funds())]
+        pub fn transfer_funds(
+            origin: OriginFor<T>,
+            from: Option<AssetHolder>,
+            to: AssetHolder,
+            fund: Fund,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_transfer_funds(origin, from, to, fund)
+        }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn base_transfer_funds(
+        origin: T::RuntimeOrigin,
+        from: Option<AssetHolder>,
+        to: AssetHolder,
+        fund: Fund,
+    ) -> DispatchResultWithPostInfo {
+        let caller_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
+        let caller = caller_data.sender;
+        let caller_did = caller_data.primary_did;
+
+        // Resolve source: None defaults to caller's account.
+        let caller_acc32 = AccountId32::decode(&mut &caller.encode()[..])
+            .map_err(|_| Error::<T>::InvalidAccountId)?;
+        let resolved_from = from.unwrap_or_else(|| AssetHolder::Account(caller_acc32.clone()));
+
+        // Self-transfer guard.
+        ensure!(resolved_from != to, Error::<T>::SenderSameAsReceiver);
+
+        let is_spender = if let AssetHolder::Account(owner) = &resolved_from {
+            owner != &caller_acc32
+        } else {
+            false
+        };
+
+        // Spender: check and decrement allowance.
+        if is_spender {
+            let owner_acc = match &resolved_from {
+                AssetHolder::Account(acc) => pallet_base::pallet_account_id::<T>(acc)?,
+                _ => return Err(Error::<T>::InvalidAccountId.into()),
+            };
+            match &fund.description {
+                FundDescription::Fungible { asset_id, amount } => {
+                    Asset::<T>::spend_allowance(&owner_acc, &caller, *asset_id, *amount)?;
+                }
+                FundDescription::NonFungible(_) => {
+                    return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
+                }
+            }
+        }
+
+        // TODO: Implement portfolio custody check for portfolio sources.
+
+        // Resolve DIDs and determine transfer path.
+        let from_did = pallet_identity::Pallet::<T>::asset_holder_did(&resolved_from)?;
+        let to_did = pallet_identity::Pallet::<T>::asset_holder_did(&to)?;
+
+        let mut weight_meter = WeightMeter::max_limit(<T as Config>::WeightInfo::transfer_funds());
+
+        // Spender or same-identity: transfer directly. Otherwise: use settlement engine.
+        if is_spender || from_did == to_did {
+            match fund.description {
+                FundDescription::Fungible { asset_id, amount } => {
+                    Asset::<T>::base_transfer(
+                        resolved_from,
+                        to,
+                        asset_id,
+                        amount,
+                        None,
+                        fund.memo,
+                        caller_did,
+                        &mut weight_meter,
+                    )?;
+                }
+                // TODO: Implement NFT direct transfers.
+                FundDescription::NonFungible(_) => {
+                    return Err(DispatchError::from(
+                        pallet_asset::Error::<T>::UnexpectedNonFungibleToken,
+                    )
+                    .into());
+                }
+            }
+        } else {
+            // TODO: Implement cross-identity settlement path.
+            return Err(DispatchError::from(pallet_asset::Error::<T>::InvalidTransfer).into());
+        }
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+    }
+
     fn lock_asset(leg: &Leg) -> DispatchResult {
         match leg {
             Leg::Fungible {

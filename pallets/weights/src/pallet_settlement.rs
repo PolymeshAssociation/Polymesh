@@ -1333,4 +1333,11 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((17_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
+    // TODO: Replace with generated weights after benchmark run.
+    // Based on base_transfer (21r/5w) + origin check (1r) + allowance (1r/1w) + DID resolution (2r).
+    fn transfer_funds() -> Weight {
+        Weight::from_parts(200_000_000, 0)
+            .saturating_add(DbWeight::get().reads(25))
+            .saturating_add(DbWeight::get().writes(6))
+    }
 }
