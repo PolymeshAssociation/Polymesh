@@ -799,4 +799,12 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         // Minimum execution time: 24_004 nanoseconds.
         Weight::from_parts(26_399_000, 0).saturating_add(DbWeight::get().reads(5))
     }
+    // TODO: Replace with generated weights after benchmark run.
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Asset Allowances (r:0 w:1)
+    fn approve() -> Weight {
+        Weight::from_parts(50_000_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

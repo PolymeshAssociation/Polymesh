@@ -857,4 +857,21 @@ benchmarks! {
         )
         .expect("Receiver affirm must work");
     }
+
+    approve {
+        let caller = UserBuilder::<T>::default().generate_did().build("Caller");
+        let spender = UserBuilder::<T>::default().generate_did().build("Spender");
+        let asset_id = create_sample_asset::<T>(&caller, true);
+        // Pre-insert an allowance to benchmark the overwrite path (worst case).
+        Allowances::<T>::insert(
+            (&caller.account(), &spender.account(), &asset_id),
+            1000u128,
+        );
+    }: _(RawOrigin::Signed(caller.account()), asset_id, spender.account(), 500u128)
+    verify {
+        assert_eq!(
+            Allowances::<T>::get((&caller.account(), &spender.account(), &asset_id)),
+            500u128
+        );
+    }
 }

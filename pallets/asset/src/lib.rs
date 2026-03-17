@@ -343,6 +343,13 @@ pub mod pallet {
             memo: Option<Memo>,
             pending_transfer_id: Option<InstructionId>,
         },
+        /// A spender allowance was set for an asset.
+        Approval {
+            owner: T::AccountId,
+            spender: T::AccountId,
+            asset_id: AssetId,
+            amount: Balance,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -590,6 +597,14 @@ pub mod pallet {
         Balance,
         ValueQuery,
     >;
+
+    /// Maps (owner, spender, asset_id) to the approved allowance amount.
+    ///
+    /// A non-existent entry returns 0 (via `ValueQuery`), matching ERC-20 behavior.
+    /// When an allowance is revoked (set to 0), the entry is removed to bound storage growth.
+    #[pallet::storage]
+    pub type Allowances<T: Config> =
+        StorageMap<_, Blake2_128Concat, (T::AccountId, T::AccountId, AssetId), Balance, ValueQuery>;
 
     /// Storage version.
     #[pallet::storage]
@@ -1714,6 +1729,51 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::base_reject_asset_transfer(origin, transfer_id)
         }
+
+        /// Set the allowance for `spender` to transfer up to `amount` of `asset_id` from
+        /// the caller's account.
+        ///
+        /// Replaces any existing allowance for this (owner, spender, asset_id) combination.
+        /// Setting `amount` to 0 revokes the allowance (removes the storage entry).
+        /// Setting `amount` to `Balance::MAX` grants an unlimited allowance that is never
+        /// decremented on spend.
+        ///
+        /// # Arguments
+        /// * `origin` — Signed origin. Caller must have a registered DID.
+        /// * `asset_id` — The asset for which the allowance is set.
+        /// * `spender` — The AccountId authorized to spend.
+        /// * `amount` — Maximum amount the spender may transfer. 0 = revoke. Balance::MAX = unlimited.
+        ///
+        /// # Errors
+        /// * `BadOrigin` — Unsigned origin.
+        /// * `MissingIdentity` — Caller's key is not linked to a DID.
+        #[pallet::call_index(37)]
+        #[pallet::weight(<T as Config>::WeightInfo::approve())]
+        pub fn approve(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            spender: T::AccountId,
+            amount: Balance,
+        ) -> DispatchResult {
+            let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+            let owner = caller_data.sender;
+
+            let key = (owner.clone(), spender.clone(), asset_id);
+            if amount == 0 {
+                Allowances::<T>::remove(&key);
+            } else {
+                Allowances::<T>::insert(&key, amount);
+            }
+
+            Self::deposit_event(Event::Approval {
+                owner,
+                spender,
+                asset_id,
+                amount,
+            });
+
+            Ok(())
+        }
     }
 
     #[pallet::error]
@@ -1822,6 +1882,8 @@ pub mod pallet {
         KeyNotFoundForDid,
         /// Insufficient tokens are locked.
         InsufficientTokensLocked,
+        /// The spender's allowance for this asset is insufficient for the requested transfer amount.
+        InsufficientAllowance,
     }
 
     pub trait WeightInfo {
@@ -1861,6 +1923,7 @@ pub mod pallet {
         fn update_global_metadata_spec() -> Weight;
         fn transfer_asset_base_weight() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
+        fn approve() -> Weight;
     }
 }
 

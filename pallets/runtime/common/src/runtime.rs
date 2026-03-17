@@ -1396,6 +1396,14 @@ macro_rules! runtime_apis {
                         &mut weight_meter
                     )
                 }
+
+                fn allowance(
+                    owner: polymesh_primitives::AccountId,
+                    spender: polymesh_primitives::AccountId,
+                    asset_id: AssetId,
+                ) -> Balance {
+                    pallet_asset::Allowances::<Runtime>::get((&owner, &spender, &asset_id))
+                }
             }
 
             impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {

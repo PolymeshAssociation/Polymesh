@@ -18,7 +18,7 @@ use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{AssetHolder, Balance, PortfolioId};
+use polymesh_primitives::{AccountId, AssetHolder, Balance, PortfolioId};
 
 /// The maximum number of DIDs allowed in a `balance_at` RPC query.
 pub const MAX_BALANCE_AT_QUERY_SIZE: usize = 100;
@@ -46,5 +46,14 @@ sp_api::decl_runtime_apis! {
             transfer_value: Balance,
             skip_locked_check: bool,
         ) -> Vec<DispatchError>;
+
+        /// Returns the remaining allowance that `spender` can transfer from `owner`
+        /// for the given `asset_id`. Returns 0 if no allowance exists.
+        /// `Balance::MAX` (u128::MAX) indicates an unlimited allowance.
+        fn allowance(
+            owner: AccountId,
+            spender: AccountId,
+            asset_id: AssetId,
+        ) -> Balance;
     }
 }
