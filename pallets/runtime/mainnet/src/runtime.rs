@@ -74,6 +74,9 @@ parameter_types! {
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
     pub const SS58Prefix: u8 = 12;
 
+    // Revive/EVM
+    pub const EvmChainId: u64 = 1_641_820;
+
     // Base:
     pub const MaxLen: u32 = ENSURED_MAX_LEN;
 

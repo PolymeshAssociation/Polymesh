@@ -658,7 +658,7 @@ macro_rules! misc_pallet_impls {
             type InstantiateOrigin = frame_system::EnsureSigned<Self::AccountId>;
             type RuntimeHoldReason = RuntimeHoldReason;
             type CodeHashLockupDepositPercent = polymesh_runtime_common::CodeHashLockupDepositPercent;
-            type ChainId = frame_support::traits::ConstU64<420_420_420>;
+            type ChainId = EvmChainId;
             type NativeToEthRatio = frame_support::traits::ConstU64<1_000_000_000_000>; // 10^(18 - 6) Eth is 10^18, Native is 10^6.
             type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
             type AllowEVMBytecode = frame_support::traits::ConstBool<true>;
