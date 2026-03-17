@@ -2673,13 +2673,16 @@ impl<T: AssetConfig> Pallet<T> {
         let current = Allowances::<T>::get(&key);
         ensure!(current >= amount, Error::<T>::InsufficientAllowance);
 
-        if current != Balance::MAX {
-            let new_allowance = current.saturating_sub(amount);
-            if new_allowance == 0 {
-                Allowances::<T>::remove(&key);
-            } else {
-                Allowances::<T>::insert(&key, new_allowance);
-            }
+        // Infinite allowance — no deduction.
+        if current == Balance::MAX {
+            return Ok(());
+        }
+
+        let new_allowance = current.saturating_sub(amount);
+        if new_allowance == 0 {
+            Allowances::<T>::remove(&key);
+        } else {
+            Allowances::<T>::insert(&key, new_allowance);
         }
         Ok(())
     }
