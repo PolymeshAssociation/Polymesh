@@ -287,13 +287,6 @@ fn receivers_missing_portfolio() {
         .unwrap();
 
         Settlement::affirm_instruction(
-            bob.origin(),
-            inst_id,
-            BTreeSet::from([bob_portfolio.into()]).try_into().unwrap(),
-        )
-        .unwrap();
-
-        Settlement::affirm_instruction(
             alice.origin(),
             inst_id,
             default_asset_holder_set(alice.did),

@@ -103,6 +103,24 @@ pub enum AffirmationStatus {
     Affirmed,
 }
 
+/// Controls whether an identity requires explicit receiver affirmation for incoming transfers.
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum AffirmationRequirement {
+    /// Incoming transfers are affirmed automatically; no explicit receiver action required.
+    #[default]
+    Automatic,
+    /// The receiver must explicitly affirm each incoming transfer instruction.
+    Required,
+}
+
+impl From<AffirmationRequirement> for bool {
+    fn from(requirement: AffirmationRequirement) -> bool {
+        requirement == AffirmationRequirement::Required
+    }
+}
+
 /// Type of settlement
 #[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]

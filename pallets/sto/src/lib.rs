@@ -80,6 +80,7 @@ storage_migration_ver!(1);
 
 pub const MAX_TIERS: usize = 10;
 
+type Asset<T> = pallet_asset::Pallet<T>;
 type ExternalAgents<T> = pallet_external_agents::Pallet<T>;
 type Identity<T> = pallet_identity::Pallet<T>;
 type Portfolio<T> = pallet_portfolio::Pallet<T>;
@@ -956,10 +957,15 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Into::into)
             .collect::<BTreeSet<AssetHolder>>();
-        let mut investor_portfolios = [investment_portfolio.clone()]
-            .into_iter()
-            .map(Into::into)
-            .collect::<BTreeSet<AssetHolder>>();
+        let mut investor_portfolios = BTreeSet::<AssetHolder>::new();
+        // Check if investment_portfolio (receiver) requires affirmation.
+        let investment_holder: AssetHolder = investment_portfolio.clone().into();
+        if !Asset::<T>::skip_asset_holder_affirmation(
+            &investment_holder,
+            &fundraiser.offering_asset,
+        )? {
+            investor_portfolios.insert(investment_holder);
+        }
         let mut legs = vec![Leg::Fungible {
             sender: fundraiser.offering_portfolio.clone().into(),
             receiver: investment_portfolio.into(),
@@ -973,8 +979,15 @@ impl<T: Config> Pallet<T> {
                     investor_did,
                     secondary_key.as_ref(),
                 )?;
-                fundraiser_portfolios.insert(fundraiser.raising_portfolio.clone().into());
                 investor_portfolios.insert(funding_portfolio.clone().into());
+                // Check if raising_portfolio (receiver) requires affirmation.
+                let raising_holder: AssetHolder = fundraiser.raising_portfolio.clone().into();
+                if !Asset::<T>::skip_asset_holder_affirmation(
+                    &raising_holder,
+                    &fundraiser.raising_asset,
+                )? {
+                    fundraiser_portfolios.insert(raising_holder);
+                }
                 legs.push(Leg::Fungible {
                     sender: funding_portfolio.into(),
                     receiver: fundraiser.raising_portfolio.clone().into(),
@@ -1029,13 +1042,15 @@ impl<T: Config> Pallet<T> {
             None,
         )?;
 
-        Settlement::<T>::unsafe_affirm_instruction(
-            fundraiser.creator,
-            instruction_id,
-            fundraiser_portfolios,
-            None,
-            None,
-        )?;
+        if !fundraiser_portfolios.is_empty() {
+            Settlement::<T>::unsafe_affirm_instruction(
+                fundraiser.creator,
+                instruction_id,
+                fundraiser_portfolios,
+                None,
+                None,
+            )?;
+        }
 
         Settlement::<T>::affirm_and_execute_instruction(
             origin,

@@ -76,12 +76,12 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{
-    AffirmationCount, AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs,
-    Instruction, InstructionId, InstructionInfo, InstructionStatus, Leg, LegId, LegStatus,
-    MediatorAffirmationStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, Venue,
-    VenueDetails, VenueId, VenueType,
+    AffirmationCount, AffirmationRequirement, AffirmationStatus, AssetCount,
+    ExecuteInstructionInfo, FilteredLegs, Instruction, InstructionId, InstructionInfo,
+    InstructionStatus, Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails,
+    ReceiptMetadata, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::traits::{AssetOrNft, SettlementFnTrait};
+use polymesh_primitives::traits::{AffirmationFnTrait, AssetOrNft, SettlementFnTrait};
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
@@ -188,6 +188,8 @@ pub mod pallet {
         /// - `IdentityId`: The [`IdentityId`] of the caller.
         /// - `InstructionId`: The [`InstructionId`] of the instruction.
         InstructionLocked(IdentityId, InstructionId),
+        /// An identity's mandatory receiver affirmation policy has been updated.
+        MandatoryReceiverAffirmationSet(IdentityId, AffirmationRequirement),
     }
 
     pub trait WeightInfo {
@@ -218,6 +220,7 @@ pub mod pallet {
         fn lock_instruction_extrinsic(f: u32, n: u32, o: u32) -> Weight;
         fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
+        fn set_mandatory_receiver_affirmation() -> Weight;
         fn transfer_funds() -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
@@ -665,6 +668,12 @@ pub mod pallet {
         AffirmationStatus,
         ValueQuery,
     >;
+
+    /// When `true`, the identity has opted in to mandatory receiver affirmation.
+    /// Default is `false` (no affirmation required).
+    #[pallet::storage]
+    pub type MandatoryReceiverAffirmation<T: Config> =
+        StorageMap<_, Identity, IdentityId, bool, ValueQuery>;
 
     /// Helps a user track their pending instructions and affirmations (only needed for UI).
     /// (counter_party, instruction_id) -> AffirmationStatus
@@ -1502,6 +1511,32 @@ pub mod pallet {
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
+        /// Sets whether the caller's identity requires mandatory receiver affirmation for incoming transfers.
+        ///
+        /// When `require` is `true`, the caller's identity must explicitly affirm any incoming asset transfer.
+        /// When `require` is `false` (default), incoming transfers are auto-affirmed.
+        ///
+        /// # Events
+        /// * `MandatoryReceiverAffirmationSet` - When the mandatory receiver affirmation flag is updated.
+        #[pallet::call_index(25)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_mandatory_receiver_affirmation())]
+        pub fn set_mandatory_receiver_affirmation(
+            origin: OriginFor<T>,
+            requirement: AffirmationRequirement,
+        ) -> DispatchResult {
+            let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
+            if requirement == AffirmationRequirement::Required {
+                MandatoryReceiverAffirmation::<T>::insert(&caller_did, true);
+            } else {
+                MandatoryReceiverAffirmation::<T>::remove(&caller_did);
+            }
+            Self::deposit_event(Event::MandatoryReceiverAffirmationSet(
+                caller_did,
+                requirement,
+            ));
+            Ok(())
+        }
+
         /// Transfer assets between accounts and portfolios.
         ///
         /// Currently supports two modes:
@@ -1525,7 +1560,7 @@ pub mod pallet {
         ///   account, spender-approval mode activates.
         /// * `to` — Destination account or portfolio.
         /// * `fund` — Asset and amount (fungible) or NFT IDs (non-fungible), plus optional memo.
-        #[pallet::call_index(25)]
+        #[pallet::call_index(26)]
         #[pallet::weight(<T as Config>::WeightInfo::transfer_funds())]
         pub fn transfer_funds(
             origin: OriginFor<T>,
@@ -1550,9 +1585,9 @@ impl<T: Config> Pallet<T> {
         let caller_did = caller_data.primary_did;
 
         // Resolve source: None defaults to caller's account.
-        let caller_acc32: AccountId32 = caller.using_encoded(|b| {
-            AccountId32::decode(&mut &b[..])
-        }).map_err(|_| Error::<T>::InvalidAccountId)?;
+        let caller_acc32: AccountId32 = caller
+            .using_encoded(|b| AccountId32::decode(&mut &b[..]))
+            .map_err(|_| Error::<T>::InvalidAccountId)?;
         let resolved_from = from.unwrap_or_else(|| AssetHolder::Account(caller_acc32.clone()));
 
         // Self-transfer guard.
@@ -4058,5 +4093,16 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
             Self::reject_instruction_minimum_weight(),
             <T as Config>::WeightInfo::reject_instruction(Some(asset_count)),
         )
+    }
+}
+
+impl<T: Config> AffirmationFnTrait for Pallet<T> {
+    fn identity_requires_affirmation(did: &IdentityId) -> bool {
+        MandatoryReceiverAffirmation::<T>::get(did)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_mandatory_receiver_affirmation(did: IdentityId, policy: AffirmationRequirement) {
+        MandatoryReceiverAffirmation::<T>::set(did, policy.into());
     }
 }

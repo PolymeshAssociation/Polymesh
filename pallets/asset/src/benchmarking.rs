@@ -30,6 +30,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::bench::reg_unique_ticker;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
+use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
@@ -201,6 +202,12 @@ pub fn setup_asset_transfer<T: AssetConfig>(
         )
         .unwrap();
     }
+
+    // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+    T::AffirmationFn::set_mandatory_receiver_affirmation(
+        receiver.did(),
+        AffirmationRequirement::Required,
+    );
 
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.

@@ -120,7 +120,8 @@ use polymesh_primitives::constants::*;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{
-    AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
+    AffirmationFnTrait, AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait,
+    SettlementFnTrait,
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
@@ -530,6 +531,7 @@ pub mod pallet {
     pub type PreApprovedAsset<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
+    /// Identities that require receiver affirmation for all incoming transfers.
     /// The list of mandatory mediators for every ticker.
     #[pallet::storage]
     pub type MandatoryMediators<T: Config> = StorageMap<
@@ -613,11 +615,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
+            let weight = Weight::zero();
+
             storage_migrate_on!(StorageVersion::<T>, 6, {
                 migrations::migrate_to_v6::<T>();
             });
 
-            Weight::zero()
+            weight
         }
     }
 
@@ -3695,19 +3699,33 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Returns `true` if the affirmation of the asset holder can be skipped for the given `asset_id`.
+    ///
+    /// Default is `true` (skip affirmation) unless:
+    /// - The identity has opted in to mandatory receiver affirmation via [`MandatoryReceiverAffirmation`], AND
+    /// - The asset is not globally exempt, AND
+    /// - The identity has not pre-approved this specific asset.
+    ///
+    /// Returns an error if the asset holder does not have a valid identity.
     pub fn skip_asset_holder_affirmation(
         asset_holder: &AssetHolder,
         asset_id: &AssetId,
     ) -> Result<bool, DispatchError> {
-        match asset_holder {
-            AssetHolder::Account(_) => {
-                let acc_did = pallet_identity::Pallet::<T>::asset_holder_did(asset_holder)?;
-                Ok(Self::skip_asset_affirmation(&acc_did, asset_id))
-            }
-            AssetHolder::Portfolio(portfolio_id) => Ok(
-                PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id),
-            ),
+        if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
+            return Ok(PortfolioPallet::<T>::skip_portfolio_affirmation(
+                portfolio_id,
+                asset_id,
+            ));
         }
+
+        // For Account holders: default is to skip affirmation (no affirmation required).
+        // Only require affirmation if the identity has opted in via MandatoryReceiverAffirmation.
+        let did = IdentityPallet::<T>::asset_holder_did(asset_holder)?;
+        if T::AffirmationFn::identity_requires_affirmation(&did) {
+            return Ok(Self::skip_asset_affirmation(&did, asset_id));
+        }
+
+        // Default: no affirmation required.
+        Ok(true)
     }
 
     /// Returns `Ok` if:

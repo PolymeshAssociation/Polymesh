@@ -98,15 +98,6 @@ pub fn add_and_affirm_simple_instruction(
     .unwrap();
 
     Settlement::affirm_instruction(
-        receiver.origin(),
-        InstructionId(0),
-        BTreeSet::from([rcv_default_portfolio.clone().into()])
-            .try_into()
-            .unwrap(),
-    )
-    .unwrap();
-
-    Settlement::affirm_instruction(
         sender.origin(),
         InstructionId(0),
         BTreeSet::from([sender_default_portfolio.clone().into()])

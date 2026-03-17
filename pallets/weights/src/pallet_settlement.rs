@@ -1333,6 +1333,14 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((17_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Settlement MandatoryReceiverAffirmation (r:0 w:1)
+    fn set_mandatory_receiver_affirmation() -> Weight {
+        // Minimum execution time: 20_762 nanoseconds.
+        Weight::from_parts(22_614_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
     // TODO: Replace with generated weights after benchmark run.
     // Based on base_transfer (21r/5w) + origin check (1r) + allowance (1r/1w) + DID resolution (2r).
     fn transfer_funds() -> Weight {

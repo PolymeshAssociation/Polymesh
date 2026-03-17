@@ -41,6 +41,7 @@ async fn asset_helper() -> Result<()> {
 
 /// Test for a simple settlement.
 #[tokio::test]
+#[allow(unused_mut)]
 async fn simple_settlement() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -74,7 +75,6 @@ async fn simple_settlement() -> Result<()> {
     let investor_holding = AssetHolder::Portfolio(investor_portfolio);
     #[cfg(feature = "previous_release")]
     let investor_holding = investor_portfolio;
-
 
     // Create a new venue.
     let mut venue_res = tester
@@ -172,21 +172,21 @@ async fn simple_settlement() -> Result<()> {
         .submit_and_watch(&mut asset_issuer)
         .await?;
 
-    // The investor needs to affirm the settlement.
-    let mut affirm_res2 = tester
-        .api
-        .call()
-        .settlement()
-        .affirm_instruction(
-            settlement_id,
-            vec![investor_holding].into_iter().collect(),
-        )?
-        .submit_and_watch(&mut investor)
-        .await?;
-
-    // Wait for the affirmations to complete.
+    // Wait for the issuer affirmation to complete.
     affirm_res.ok().await?;
-    affirm_res2.ok().await?;
+
+    // On the previous release, the investor needs to affirm the settlement.
+    #[cfg(feature = "previous_release")]
+    {
+        let mut affirm_res2 = tester
+            .api
+            .call()
+            .settlement()
+            .affirm_instruction(settlement_id, vec![investor_holding].into_iter().collect())?
+            .submit_and_watch(&mut investor)
+            .await?;
+        affirm_res2.ok().await?;
+    }
 
     // Execute the settlement
     let mut execute_res = tester
@@ -345,11 +345,16 @@ async fn offchain_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .affirm_with_receipts(
-            instruction_id,
-            vec![receipt_details],
-            [investor_holding].into(),
-        )?
+        .affirm_with_receipts(instruction_id, vec![receipt_details], {
+            #[cfg(feature = "previous_release")]
+            {
+                [investor_holding].into()
+            }
+            #[cfg(feature = "current_release")]
+            {
+                [].into()
+            }
+        })?
         .submit_and_watch(&mut investor1)
         .await?;
 
