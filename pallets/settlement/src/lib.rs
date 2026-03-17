@@ -1550,34 +1550,34 @@ impl<T: Config> Pallet<T> {
         let caller_did = caller_data.primary_did;
 
         // Resolve source: None defaults to caller's account.
-        let caller_acc32 = AccountId32::decode(&mut &caller.encode()[..])
-            .map_err(|_| Error::<T>::InvalidAccountId)?;
+        let caller_acc32: AccountId32 = caller.using_encoded(|b| {
+            AccountId32::decode(&mut &b[..])
+        }).map_err(|_| Error::<T>::InvalidAccountId)?;
         let resolved_from = from.unwrap_or_else(|| AssetHolder::Account(caller_acc32.clone()));
 
         // Self-transfer guard.
         ensure!(resolved_from != to, Error::<T>::SenderSameAsReceiver);
 
-        let is_spender = if let AssetHolder::Account(owner) = &resolved_from {
-            owner != &caller_acc32
+        // Spender mode: caller differs from the Account source owner.
+        // Check and decrement allowance before proceeding.
+        let is_spender = if let AssetHolder::Account(ref owner) = resolved_from {
+            if *owner != caller_acc32 {
+                let owner_acc = pallet_base::pallet_account_id::<T>(owner)?;
+                match &fund.description {
+                    FundDescription::Fungible { asset_id, amount } => {
+                        Asset::<T>::spend_allowance(&owner_acc, &caller, *asset_id, *amount)?;
+                    }
+                    FundDescription::NonFungible(_) => {
+                        return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
+                    }
+                }
+                true
+            } else {
+                false
+            }
         } else {
             false
         };
-
-        // Spender: check and decrement allowance.
-        if is_spender {
-            let owner_acc = match &resolved_from {
-                AssetHolder::Account(acc) => pallet_base::pallet_account_id::<T>(acc)?,
-                _ => return Err(Error::<T>::InvalidAccountId.into()),
-            };
-            match &fund.description {
-                FundDescription::Fungible { asset_id, amount } => {
-                    Asset::<T>::spend_allowance(&owner_acc, &caller, *asset_id, *amount)?;
-                }
-                FundDescription::NonFungible(_) => {
-                    return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
-                }
-            }
-        }
 
         // TODO: Implement portfolio custody check for portfolio sources.
 
