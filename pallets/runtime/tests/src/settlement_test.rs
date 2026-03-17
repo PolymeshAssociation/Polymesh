@@ -33,9 +33,9 @@ use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
 use polymesh_primitives::settlement::{
-    AffirmationCount, AffirmationStatus, AssetCount, Instruction, InstructionId, InstructionStatus,
-    Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails, SettlementType,
-    VenueDetails, VenueId, VenueType,
+    AffirmationCount, AffirmationRequirement, AffirmationStatus, AssetCount, Instruction,
+    InstructionId, InstructionStatus, Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt,
+    ReceiptDetails, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
     AccountId, AssetHolder, AssetHolderKind, AuthorizationData, Balance, Claim, ClaimType,
@@ -50,9 +50,11 @@ use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
 use super::settlement_pallet::setup::create_and_issue_sample_asset_with_venue;
+use polymesh_primitives::traits::AffirmationFnTrait;
+
 use super::storage::{
-    default_asset_holder_set, make_account_with_balance, user_asset_holder_set, vec_to_btreeset,
-    TestStorage, User,
+    default_asset_holder_set, make_account_with_balance, root, user_asset_holder_set,
+    vec_to_btreeset, TestStorage, User,
 };
 use super::{next_block, ExtBuilder};
 
@@ -330,13 +332,8 @@ fn basic_settlement() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
         set_current_block_number(5);
-        // Instruction get scheduled to next block.
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
+        assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
         // Advances the block no. to execute the instruction.
         next_block();
@@ -390,10 +387,6 @@ fn create_and_affirm_instruction() {
         bob.assert_all_balances_unchanged();
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-        set_current_block_number(5);
-
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Advances the block no.
         next_block();
@@ -858,6 +851,11 @@ fn venue_filtering() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        // Opt-in so Bob must explicitly affirm
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
         let block_number = System::block_number() + 1;
         let instruction_id = InstructionCounter::<TestStorage>::get();
@@ -1413,6 +1411,11 @@ fn test_weights_for_settlement_transaction() {
 
             let bob = Sr25519Keyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_with_balance(bob, 10_000).unwrap();
+            // Opt-in so Bob must explicitly affirm
+            assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+                bob_signed.clone(),
+                AffirmationRequirement::Required
+            ));
 
             let dave = Sr25519Keyring::Dave.to_account_id();
             let (dave_signed, dave_did) = make_account_with_balance(dave, 10_000).unwrap();
@@ -1506,6 +1509,11 @@ fn cross_portfolio_settlement() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        // Opt-in so Bob must explicitly affirm
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1584,6 +1592,11 @@ fn multiple_portfolio_settlement() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        // Opt-in so Bob must explicitly affirm
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1726,6 +1739,16 @@ fn multiple_custodian_settlement() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        // Both opt-in: Bob governs his default portfolio; Alice will be assigned custodian of
+        // Bob's user portfolio, so her opt-in governs that portfolio's affirmation requirement.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Required
+        ));
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
 
         let mut alice = UserWithBalance::new(alice, &[asset_id]);
@@ -1929,15 +1952,13 @@ fn reject_instruction() {
         assert_user_affirmations(
             instruction_id,
             AffirmationStatus::Affirmed,
-            AffirmationStatus::Pending,
+            AffirmationStatus::Affirmed,
         );
-        next_block();
         // Try rejecting the instruction from a non-party account.
         assert_noop!(
             reject_instruction(&charlie, instruction_id),
             Error::CallerIsNotAParty
         );
-        next_block();
         assert_ok!(reject_instruction(&alice, instruction_id,));
         next_block();
         // Instruction should've been deleted
@@ -2002,8 +2023,6 @@ fn dirty_storage_with_tx() {
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        set_current_block_number(5);
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Advances the block no. to execute the instruction.
         let total_amount = amount1 + amount2;
@@ -2034,12 +2053,6 @@ fn reject_failed_instruction() {
         let amount = 100u128;
 
         let instruction_id = create_instruction(&alice, &bob, venue_counter, asset_id, amount);
-
-        assert_ok!(Settlement::affirm_instruction(
-            bob.origin(),
-            instruction_id,
-            default_asset_holder_set(bob.did),
-        ));
 
         // Resume compliance to cause transfer failure.
         assert_ok!(ComplianceManager::resume_asset_compliance(
@@ -2377,13 +2390,8 @@ fn basic_settlement_with_memo() {
             Memo::default()
         );
 
-        assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
         set_current_block_number(5);
-        // Instruction get scheduled to next block.
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
+        assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
         // Advances the block no. to execute the instruction.
         next_block();
@@ -2453,11 +2461,9 @@ fn settle_manual_instruction() {
 
         // Ensure instruction is pending
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
 
-        // Affirm instruction for alice and bob
+        // Affirm instruction for alice
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
         assert_storage_noop!(assert_err_ignore_postinfo!(
@@ -2562,11 +2568,9 @@ fn settle_manual_instruction_with_portfolio() {
 
         // Ensure instruction is pending
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
 
-        // Affirm instruction for alice and bob
+        // Affirm instruction for alice
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
-        assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
         // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
         assert_storage_noop!(assert_err_ignore_postinfo!(
@@ -2754,6 +2758,11 @@ fn add_and_affirm_nft_instruction() {
         // First we need to create a collection, mint one NFT, and create a venue
         let alice: User = User::new(Sr25519Keyring::Alice);
         let bob: User = User::new(Sr25519Keyring::Bob);
+        // Opt-in so Bob must explicitly affirm
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         let asset_id = create_nft_collection(
@@ -3286,8 +3295,7 @@ fn add_instruction_with_offchain_assets() {
             instruction_memo.clone(),
         ));
         // Only the sender still has to approve the transfer
-        let portfolios_pending_approval =
-            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
         let portfolios_pre_approved = BTreeSet::new();
         let offchain_legs = BTreeSet::from([LegId(1), LegId(2)]);
         let instruction_id = InstructionId(0);
@@ -3415,10 +3423,11 @@ fn add_instruction_with_pre_affirmed_tickers_with_assigned_custodian() {
             legs.clone(),
             instruction_memo.clone(),
         ));
-        // Both the sender and the custodian have to affirm the instruction
-        let portfolios_pending_approval =
-            BTreeSet::from([alice_default_portfolio, bob_user_porfolio]);
-        let portfolios_pre_approved = BTreeSet::from([bob_default_portfolio]);
+        // The sender must affirm. Bob's default portfolio is pre-approved (Bob pre-approved
+        // the asset). Bob's user portfolio is also auto-approved because the custodian
+        // (Charlie) has not opted in to mandatory receiver affirmation.
+        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
+        let portfolios_pre_approved = BTreeSet::from([bob_default_portfolio, bob_user_porfolio]);
         let instruction_id = InstructionId(0);
         assert_add_instruction_storage(
             &instruction_id,
@@ -3448,6 +3457,12 @@ fn add_instruction_with_pre_affirmed_portfolio() {
         let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        // Bob opts in to mandatory receiver affirmation so pre-approval is exercised.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
 
         // Both users have pre-affirmed their user portfolios
         Portfolio::pre_approve_portfolio(bob.origin(), asset_id, bob_user_porfolio.clone())
@@ -3512,6 +3527,12 @@ fn add_instruction_with_single_pre_affirmed() {
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
         let instruction_memo = Some(Memo::default());
         let asset_id2 = create_and_issue_sample_asset(&alice);
+
+        // Bob opts in to mandatory receiver affirmation so pre-approval is exercised.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
 
         // Bob has pre-affirmed asset_id but not asset_id2
         Asset::pre_approve_asset(bob.origin(), asset_id).unwrap();
@@ -3595,11 +3616,6 @@ fn manually_execute_failed_instruction() {
             legs.clone(),
             default_asset_holder_set(alice.did),
             instruction_memo.clone(),
-        ));
-        assert_ok!(Settlement::affirm_instruction(
-            bob.origin(),
-            InstructionId(0),
-            default_asset_holder_set(bob.did),
         ));
         assert_ok!(Asset::freeze(alice.origin(), asset_id));
         next_block();
@@ -3709,6 +3725,11 @@ fn affirm_instruction_cost() {
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
         let alice_user_porfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         let bob = User::new(Sr25519Keyring::Bob);
+        // Opt-in so Bob must explicitly affirm
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            bob.origin(),
+            AffirmationRequirement::Required
+        ));
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
         let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
@@ -3885,7 +3906,6 @@ fn add_instruction_with_mediators() {
         let dave = User::new(Sr25519Keyring::Dave);
         let alice = User::new(Sr25519Keyring::Alice);
         let charlie = User::new(Sr25519Keyring::Charlie);
-        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -3916,8 +3936,7 @@ fn add_instruction_with_mediators() {
             instruction_mediators.try_into().unwrap()
         ));
 
-        let portfolios_pending_approval =
-            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
         let mediators_pending_approval = BTreeSet::from([dave.did, charlie.did]);
         assert_add_instruction_storage(
             &InstructionId(0),
@@ -3972,7 +3991,6 @@ fn affirm_as_mediator() {
         let bob = User::new(Sr25519Keyring::Bob);
         let alice = User::new(Sr25519Keyring::Alice);
         let charlie = User::new(Sr25519Keyring::Charlie);
-        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -4000,8 +4018,7 @@ fn affirm_as_mediator() {
             None
         ),);
 
-        let portfolios_pending_approval =
-            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
         let mediators_affirmed = BTreeSet::from([charlie.did]);
         assert_add_instruction_storage(
             &InstructionId(0),
@@ -4089,7 +4106,6 @@ fn withdraw_affirmation_as_mediator() {
         let bob = User::new(Sr25519Keyring::Bob);
         let alice = User::new(Sr25519Keyring::Alice);
         let charlie = User::new(Sr25519Keyring::Charlie);
-        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
 
         let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
@@ -4121,8 +4137,7 @@ fn withdraw_affirmation_as_mediator() {
             InstructionId(0),
         ),);
 
-        let portfolios_pending_approval =
-            BTreeSet::from([alice_default_portfolio, bob_default_portfolio]);
+        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
         let mediators_pending_approval = BTreeSet::from([charlie.did]);
         assert_add_instruction_storage(
             &InstructionId(0),
@@ -4168,11 +4183,6 @@ fn expired_affirmation_execution() {
             alice.origin(),
             InstructionId(0),
             default_asset_holder_set(alice.did),
-        ),);
-        assert_ok!(Settlement::affirm_instruction(
-            bob.origin(),
-            InstructionId(0),
-            default_asset_holder_set(bob.did),
         ),);
         assert_ok!(Settlement::affirm_instruction_as_mediator(
             charlie.origin(),
@@ -4438,4 +4448,49 @@ fn assert_locked_assets(asset_id: &AssetId, user: &User, num_of_assets: Balance)
         ),
         num_of_assets
     );
+}
+
+#[test]
+fn set_mandatory_receiver_affirmation() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = AssetId::new([0; 16]);
+        let alice_holder: AssetHolder = PortfolioId::default_portfolio(alice.did).into();
+
+        // Default: no mandatory receiver affirmation.
+        assert!(!Settlement::identity_requires_affirmation(&alice.did));
+        // Receiver affirmation is skipped by default.
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Opt-in to mandatory receiver affirmation.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Required
+        ));
+        assert!(Settlement::identity_requires_affirmation(&alice.did));
+        // Now receiver affirmation is required.
+        assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Pre-approve a specific asset — overrides mandatory receiver affirmation.
+        assert_ok!(Asset::pre_approve_asset(alice.origin(), asset_id));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Remove pre-approval — mandatory receiver affirmation applies again.
+        assert_ok!(Asset::remove_asset_pre_approval(alice.origin(), asset_id));
+        assert!(!Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+
+        // Global asset exemption overrides mandatory receiver affirmation.
+        assert_ok!(Asset::exempt_asset_affirmation(root(), asset_id));
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+        assert_ok!(Asset::remove_asset_affirmation_exemption(root(), asset_id));
+
+        // Opt out of mandatory receiver affirmation.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Automatic
+        ));
+        assert!(!Settlement::identity_requires_affirmation(&alice.did));
+        // Affirmation is skipped again.
+        assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
+    });
 }

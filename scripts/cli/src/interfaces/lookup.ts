@@ -1063,8 +1063,9 @@ export default {
         to: 'AccountId32',
         amount: 'u128',
         memo: 'Option<PolymeshPrimitivesMemo>',
-        pendingTransferId: 'Option<u64>'
-      }
+        pendingTransferId: 'Option<u64>',
+      },
+      MandatoryReceiverAffirmationSet: '(PolymeshPrimitivesIdentityId,bool)'
     }
   },
   /**
@@ -3342,7 +3343,10 @@ export default {
         transferId: 'u64',
       },
       reject_asset_transfer: {
-        transferId: 'u64'
+        transferId: 'u64',
+      },
+      set_mandatory_receiver_affirmation: {
+        require: 'bool'
       }
     }
   },
@@ -4802,7 +4806,7 @@ export default {
    * Lookup665: pallet_asset::pallet::Error<T>
    **/
   PalletAssetError: {
-    _enum: ['Unauthorized', 'AssetAlreadyCreated', 'TickerTooLong', 'TickerNotAlphanumeric', 'TickerAlreadyRegistered', 'TotalSupplyAboveLimit', 'NoSuchAsset', 'AlreadyFrozen', 'NotAnOwner', 'BalanceOverflow', 'TotalSupplyOverflow', 'InvalidGranularity', 'NotFrozen', 'InvalidTransfer', 'InsufficientBalance', 'AssetAlreadyDivisible', 'InvalidEthereumSignature', 'TickerRegistrationExpired', 'SenderSameAsReceiver', 'NoSuchDoc', 'MaxLengthOfAssetNameExceeded', 'FundingRoundNameMaxLengthExceeded', 'InvalidAssetIdentifier', 'InvestorUniquenessClaimNotAllowed', 'InvalidCustomAssetTypeId', 'AssetMetadataNameMaxLengthExceeded', 'AssetMetadataValueMaxLengthExceeded', 'AssetMetadataTypeDefMaxLengthExceeded', 'AssetMetadataKeyIsMissing', 'AssetMetadataValueIsLocked', 'AssetMetadataLocalKeyAlreadyExists', 'AssetMetadataGlobalKeyAlreadyExists', 'TickerFirstByteNotValid', 'UnexpectedNonFungibleToken', 'IncompatibleAssetTypeUpdate', 'AssetMetadataKeyBelongsToNFTCollection', 'AssetMetadataValueIsEmpty', 'NumberOfAssetMediatorsExceeded', 'InvalidTickerCharacter', 'InvalidTransferFrozenAsset', 'InvalidTransferComplianceFailure', 'InvalidTransferInvalidReceiverDID', 'TickerRegistrationNotFound', 'TickerIsAlreadyLinkedToAnAsset', 'AssetIdGenerationError', 'TickerNotRegisteredToCaller', 'AssetIsAlreadyLinkedToATicker', 'TickerIsNotLinkedToTheAsset', 'BadAuthorizationType', 'InvalidTransferSenderDidMatchesReceiverDid', 'UnauthorizedHolderKey', 'KeyNotFoundForDid', 'InsufficientTokensLocked']
+    _enum: ['Unauthorized', 'AssetAlreadyCreated', 'TickerTooLong', 'TickerNotAlphanumeric', 'TickerAlreadyRegistered', 'TotalSupplyAboveLimit', 'NoSuchAsset', 'AlreadyFrozen', 'NotAnOwner', 'BalanceOverflow', 'TotalSupplyOverflow', 'InvalidGranularity', 'NotFrozen', 'InvalidTransfer', 'InsufficientBalance', 'AssetAlreadyDivisible', 'InvalidEthereumSignature', 'TickerRegistrationExpired', 'SenderSameAsReceiver', 'NoSuchDoc', 'MaxLengthOfAssetNameExceeded', 'FundingRoundNameMaxLengthExceeded', 'InvalidAssetIdentifier', 'InvestorUniquenessClaimNotAllowed', 'InvalidCustomAssetTypeId', 'AssetMetadataNameMaxLengthExceeded', 'AssetMetadataValueMaxLengthExceeded', 'AssetMetadataTypeDefMaxLengthExceeded', 'AssetMetadataKeyIsMissing', 'AssetMetadataValueIsLocked', 'AssetMetadataLocalKeyAlreadyExists', 'AssetMetadataGlobalKeyAlreadyExists', 'TickerFirstByteNotValid', 'UnexpectedNonFungibleToken', 'IncompatibleAssetTypeUpdate', 'AssetMetadataKeyBelongsToNFTCollection', 'AssetMetadataValueIsEmpty', 'NumberOfAssetMediatorsExceeded', 'InvalidTickerCharacter', 'InvalidTransferFrozenAsset', 'InvalidTransferComplianceFailure', 'InvalidTransferInvalidReceiverDID', 'TickerRegistrationNotFound', 'TickerIsAlreadyLinkedToAnAsset', 'AssetIdGenerationError', 'TickerNotRegisteredToCaller', 'AssetIsAlreadyLinkedToATicker', 'TickerIsNotLinkedToTheAsset', 'BadAuthorizationType', 'UnauthorizedHolderKey', 'KeyNotFoundForDid', 'InsufficientTokensLocked']
   },
   /**
    * Lookup668: pallet_corporate_actions::distribution::pallet::Error<T>
@@ -4912,7 +4916,7 @@ export default {
    * Lookup706: pallet_portfolio::pallet::Error<T>
    **/
   PalletPortfolioError: {
-    _enum: ['PortfolioDoesNotExist', 'InsufficientPortfolioBalance', 'DestinationIsSamePortfolio', 'PortfolioNameAlreadyInUse', 'SecondaryKeyNotAuthorizedForPortfolio', 'UnauthorizedCustodian', 'InsufficientTokensLocked', 'PortfolioNotEmpty', 'DifferentIdentityPortfolios', 'NoDuplicateAssetsAllowed', 'NFTNotFoundInPortfolio', 'NFTAlreadyLocked', 'NFTNotLocked', 'InvalidTransferNFTNotOwned', 'InvalidTransferNFTIsLocked', 'EmptyTransfer', 'MissingOwnersPermission', 'InvalidTransferSenderDidMatchesReceiverDid', 'SelfAdditionNotAllowed', 'BadAuthorizationType', 'DefaultPortfoliosCannotHaveCustodians', 'UnauthorizedPortfolioKey', 'KeyNotFoundForCaller', 'InsufficientBalance']
+    _enum: ['PortfolioDoesNotExist', 'InsufficientPortfolioBalance', 'DestinationIsSamePortfolio', 'PortfolioNameAlreadyInUse', 'SecondaryKeyNotAuthorizedForPortfolio', 'UnauthorizedCustodian', 'InsufficientTokensLocked', 'PortfolioNotEmpty', 'DifferentIdentityPortfolios', 'NoDuplicateAssetsAllowed', 'NFTNotFoundInPortfolio', 'NFTAlreadyLocked', 'NFTNotLocked', 'InvalidTransferNFTNotOwned', 'InvalidTransferNFTIsLocked', 'EmptyTransfer', 'MissingOwnersPermission', 'SelfAdditionNotAllowed', 'BadAuthorizationType', 'DefaultPortfoliosCannotHaveCustodians', 'UnauthorizedPortfolioKey', 'KeyNotFoundForCaller', 'InsufficientBalance']
   },
   /**
    * Lookup707: pallet_protocol_fee::pallet::Error<T>
@@ -5029,76 +5033,76 @@ export default {
     }
   },
   /**
-   * Lookup732: pallet_settlement::pallet::Error<T>
+   * Lookup731: pallet_settlement::pallet::Error<T>
    **/
   PalletSettlementError: {
     _enum: ['InvalidVenue', 'Unauthorized', 'InstructionNotAffirmed', 'UnauthorizedSigner', 'ReceiptAlreadyClaimed', 'UnauthorizedVenue', 'InstructionDatesInvalid', 'InstructionSettleBlockPassed', 'InvalidSignature', 'SameSenderReceiver', 'SettleOnPastBlock', 'UnexpectedAffirmationStatus', 'FailedToSchedule', 'UnknownInstruction', 'SignerAlreadyExists', 'SignerDoesNotExist', 'ZeroAmount', 'InstructionSettleBlockNotReached', 'CallerIsNotAParty', 'MaxNumberOfNFTsExceeded', 'NumberOfTransferredNFTsUnderestimated', 'ReceiptForInvalidLegType', 'WeightLimitExceeded', 'MaxNumberOfFungibleAssetsExceeded', 'MaxNumberOfOffChainAssetsExceeded', 'NumberOfFungibleTransfersUnderestimated', 'UnexpectedOFFChainAsset', 'OffChainAssetCantBeLocked', 'NumberOfOffChainTransfersUnderestimated', 'LegNotFound', 'InputWeightIsLessThanMinimum', 'MaxNumberOfReceiptsExceeded', 'NotAllAffirmationsHaveBeenReceived', 'InvalidInstructionStatusForExecution', 'FailedToReleaseLockOrTransferAssets', 'DuplicateReceiptUid', 'ReceiptInstructionIdMissmatch', 'MultipleReceiptsForOneLeg', 'UnexpectedLegStatus', 'NumberOfVenueSignersExceeded', 'CallerIsNotAMediator', 'InvalidExpiryDate', 'MediatorAffirmationExpired', 'OffChainAssetsMustHaveAVenue', 'UnexpectedSettlementType', 'InvalidInstructionStatusForRejection', 'LockTimestampNotFound', 'ExceededMaximumLockingPeriod', 'FailedAssetTransferringConditions', 'InvalidInstructionStatusForWithdrawal', 'ReceiverIdentityNotFound', 'InvalidAccountId', 'InvalidTaskName', 'ReceiptExpired']
   },
   /**
-   * Lookup735: polymesh_primitives::statistics::Stat1stKey
+   * Lookup734: polymesh_primitives::statistics::Stat1stKey
    **/
   PolymeshPrimitivesStatisticsStat1stKey: {
     assetId: 'PolymeshPrimitivesAssetAssetId',
     statType: 'PolymeshPrimitivesStatisticsStatType'
   },
   /**
-   * Lookup736: polymesh_primitives::transfer_compliance::AssetTransferCompliance<S>
+   * Lookup735: polymesh_primitives::transfer_compliance::AssetTransferCompliance<S>
    **/
   PolymeshPrimitivesTransferComplianceAssetTransferCompliance: {
     paused: 'bool',
     requirements: 'BTreeSet<PolymeshPrimitivesTransferComplianceTransferCondition>'
   },
   /**
-   * Lookup740: pallet_statistics::pallet::Error<T>
+   * Lookup739: pallet_statistics::pallet::Error<T>
    **/
   PalletStatisticsError: {
     _enum: ['InvalidTransferStatisticsFailure', 'StatTypeMissing', 'StatTypeNeededByTransferCondition', 'CannotRemoveStatTypeInUse', 'StatTypeLimitReached', 'TransferConditionLimitReached', 'WeightLimitExceeded']
   },
   /**
-   * Lookup743: pallet_sto::pallet::Error<T>
+   * Lookup742: pallet_sto::pallet::Error<T>
    **/
   PalletStoError: {
     _enum: ['Unauthorized', 'Overflow', 'InsufficientTokensRemaining', 'FundraiserNotFound', 'FundraiserNotLive', 'FundraiserClosed', 'FundraiserExpired', 'InvalidVenue', 'InvalidPriceTiers', 'InvalidOfferingWindow', 'MaxPriceExceeded', 'InvestmentAmountTooLow', 'InvalidSignature', 'OffchainFundingNotAllowed', 'ReceiptExpired']
   },
   /**
-   * Lookup744: pallet_treasury::pallet::Error<T>
+   * Lookup743: pallet_treasury::pallet::Error<T>
    **/
   PalletTreasuryError: {
     _enum: ['InsufficientBalance', 'InvalidIdentity']
   },
   /**
-   * Lookup745: pallet_utility::pallet::Error<T>
+   * Lookup744: pallet_utility::pallet::Error<T>
    **/
   PalletUtilityError: {
     _enum: ['TooManyCalls', 'UnableToDeriveAccountId']
   },
   /**
-   * Lookup746: pallet_base::pallet::Error<T>
+   * Lookup745: pallet_base::pallet::Error<T>
    **/
   PalletBaseError: {
     _enum: ['TooLong', 'CounterOverflow', 'InvalidAccountId']
   },
   /**
-   * Lookup749: pallet_external_agents::pallet::Error<T>
+   * Lookup748: pallet_external_agents::pallet::Error<T>
    **/
   PalletExternalAgentsError: {
     _enum: ['NoSuchAG', 'UnauthorizedAgent', 'AlreadyAnAgent', 'NotAnAgent', 'RemovingLastFullAgent', 'SecondaryKeyNotAuthorizedForAsset', 'BadAuthorizationType', 'ExceptPermissionsNotAllowed']
   },
   /**
-   * Lookup750: pallet_relayer::pallet::Subsidy<sp_core::crypto::AccountId32>
+   * Lookup749: pallet_relayer::pallet::Subsidy<sp_core::crypto::AccountId32>
    **/
   PalletRelayerSubsidy: {
     payingKey: 'AccountId32',
     remaining: 'u128'
   },
   /**
-   * Lookup751: pallet_relayer::pallet::Error<T>
+   * Lookup750: pallet_relayer::pallet::Error<T>
    **/
   PalletRelayerError: {
     _enum: ['NoPayingKey', 'NotPayingKey', 'NotAuthorized', 'Overflow', 'NoPendingSubsidy', 'InvalidSignature', 'ExpiredRelayTx']
   },
   /**
-   * Lookup753: pallet_contracts::wasm::CodeInfo<T>
+   * Lookup752: pallet_contracts::wasm::CodeInfo<T>
    **/
   PalletContractsWasmCodeInfo: {
     owner: 'AccountId32',
@@ -5108,7 +5112,7 @@ export default {
     codeLen: 'u32'
   },
   /**
-   * Lookup754: pallet_contracts::storage::ContractInfo<T>
+   * Lookup753: pallet_contracts::storage::ContractInfo<T>
    **/
   PalletContractsStorageContractInfo: {
     trieId: 'Bytes',
@@ -5121,21 +5125,21 @@ export default {
     delegateDependencies: 'BTreeMap<H256, u128>'
   },
   /**
-   * Lookup759: pallet_contracts::storage::DeletionQueueManager<T>
+   * Lookup758: pallet_contracts::storage::DeletionQueueManager<T>
    **/
   PalletContractsStorageDeletionQueueManager: {
     insertCounter: 'u32',
     deleteCounter: 'u32'
   },
   /**
-   * Lookup761: pallet_contracts::schedule::Schedule<T>
+   * Lookup760: pallet_contracts::schedule::Schedule<T>
    **/
   PalletContractsSchedule: {
     limits: 'PalletContractsScheduleLimits',
     instructionWeights: 'PalletContractsScheduleInstructionWeights'
   },
   /**
-   * Lookup762: pallet_contracts::schedule::Limits
+   * Lookup761: pallet_contracts::schedule::Limits
    **/
   PalletContractsScheduleLimits: {
     eventTopics: 'u32',
@@ -5147,13 +5151,13 @@ export default {
     eventRefTime: 'u64'
   },
   /**
-   * Lookup763: pallet_contracts::schedule::InstructionWeights<T>
+   * Lookup762: pallet_contracts::schedule::InstructionWeights<T>
    **/
   PalletContractsScheduleInstructionWeights: {
     base: 'u32'
   },
   /**
-   * Lookup764: pallet_contracts::Environment<T>
+   * Lookup763: pallet_contracts::Environment<T>
    **/
   PalletContractsEnvironment: {
     _alias: {
@@ -5167,43 +5171,43 @@ export default {
     blockNumber: 'PalletContractsEnvironmentTypeU32'
   },
   /**
-   * Lookup765: pallet_contracts::EnvironmentType<sp_core::crypto::AccountId32>
+   * Lookup764: pallet_contracts::EnvironmentType<sp_core::crypto::AccountId32>
    **/
   PalletContractsEnvironmentTypeAccountId32: 'Null',
   /**
-   * Lookup766: pallet_contracts::EnvironmentType<T>
+   * Lookup765: pallet_contracts::EnvironmentType<T>
    **/
   PalletContractsEnvironmentTypeU128: 'Null',
   /**
-   * Lookup767: pallet_contracts::EnvironmentType<primitive_types::H256>
+   * Lookup766: pallet_contracts::EnvironmentType<primitive_types::H256>
    **/
   PalletContractsEnvironmentTypeH256: 'Null',
   /**
-   * Lookup768: pallet_contracts::EnvironmentType<sp_runtime::traits::BlakeTwo256>
+   * Lookup767: pallet_contracts::EnvironmentType<sp_runtime::traits::BlakeTwo256>
    **/
   PalletContractsEnvironmentTypeBlakeTwo256: 'Null',
   /**
-   * Lookup769: pallet_contracts::EnvironmentType<T>
+   * Lookup768: pallet_contracts::EnvironmentType<T>
    **/
   PalletContractsEnvironmentTypeU64: 'Null',
   /**
-   * Lookup770: pallet_contracts::EnvironmentType<T>
+   * Lookup769: pallet_contracts::EnvironmentType<T>
    **/
   PalletContractsEnvironmentTypeU32: 'Null',
   /**
-   * Lookup772: pallet_contracts::pallet::Error<T>
+   * Lookup771: pallet_contracts::pallet::Error<T>
    **/
   PalletContractsError: {
     _enum: ['InvalidSchedule', 'InvalidCallFlags', 'OutOfGas', 'OutputBufferTooSmall', 'TransferFailed', 'MaxCallDepthReached', 'ContractNotFound', 'CodeTooLarge', 'CodeNotFound', 'CodeInfoNotFound', 'OutOfBounds', 'DecodingFailed', 'ContractTrapped', 'ValueTooLarge', 'TerminatedWhileReentrant', 'InputForwarded', 'RandomSubjectTooLong', 'TooManyTopics', 'NoChainExtension', 'XCMDecodeFailed', 'DuplicateContract', 'TerminatedInConstructor', 'ReentranceDenied', 'StateChangeDenied', 'StorageDepositNotEnoughFunds', 'StorageDepositLimitExhausted', 'CodeInUse', 'ContractReverted', 'CodeRejected', 'Indeterministic', 'MigrationInProgress', 'NoMigrationPerformed', 'MaxDelegateDependenciesReached', 'DelegateDependencyNotFound', 'DelegateDependencyAlreadyExists', 'CannotAddSelfAsDelegateDependency', 'OutOfTransientStorage']
   },
   /**
-   * Lookup774: polymesh_contracts::pallet::Error<T>
+   * Lookup773: polymesh_contracts::pallet::Error<T>
    **/
   PolymeshContractsError: {
     _enum: ['InvalidFuncId', 'InvalidRuntimeCall', 'ReadStorageFailed', 'DataLeftAfterDecoding', 'InLenTooLarge', 'OutLenTooLarge', 'InstantiatorWithNoIdentity', 'RuntimeCallDenied', 'CallerNotAPrimaryKey', 'MissingKeyPermissions', 'InvalidChainVersion', 'NoUpgradesSupported']
   },
   /**
-   * Lookup775: pallet_preimage::OldRequestStatus<sp_core::crypto::AccountId32, Balance>
+   * Lookup774: pallet_preimage::OldRequestStatus<sp_core::crypto::AccountId32, Balance>
    **/
   PalletPreimageOldRequestStatus: {
     _enum: {
@@ -5219,7 +5223,7 @@ export default {
     }
   },
   /**
-   * Lookup777: pallet_preimage::RequestStatus<sp_core::crypto::AccountId32, frame_support::traits::tokens::fungible::HoldConsideration<A, F, R, D, Fp>>
+   * Lookup776: pallet_preimage::RequestStatus<sp_core::crypto::AccountId32, frame_support::traits::tokens::fungible::HoldConsideration<A, F, R, D, Fp>>
    **/
   PalletPreimageRequestStatus: {
     _enum: {
@@ -5235,32 +5239,32 @@ export default {
     }
   },
   /**
-   * Lookup782: pallet_preimage::pallet::Error<T>
+   * Lookup781: pallet_preimage::pallet::Error<T>
    **/
   PalletPreimageError: {
     _enum: ['TooBig', 'AlreadyNoted', 'NotAuthorized', 'NotNoted', 'Requested', 'NotRequested', 'TooMany', 'TooFew']
   },
   /**
-   * Lookup783: polymesh_primitives::nft::NFTCollection
+   * Lookup782: polymesh_primitives::nft::NFTCollection
    **/
   PolymeshPrimitivesNftNftCollection: {
     id: 'u64',
     assetId: 'PolymeshPrimitivesAssetAssetId'
   },
   /**
-   * Lookup788: polymesh_primitives::nft::NFTOwnerStatus
+   * Lookup787: polymesh_primitives::nft::NFTOwnerStatus
    **/
   PolymeshPrimitivesNftNftOwnerStatus: {
     _enum: ['NotOwned', 'Owner', 'OwnerLocked']
   },
   /**
-   * Lookup789: pallet_nft::pallet::Error<T>
+   * Lookup788: pallet_nft::pallet::Error<T>
    **/
   PalletNftError: {
     _enum: ['BalanceOverflow', 'BalanceUnderflow', 'CollectionAlredyRegistered', 'CollectionNotFound', 'DuplicateMetadataKey', 'DuplicatedNFTId', 'InvalidAssetType', 'InvalidMetadataAttribute', 'InvalidNFTTransferCollectionNotFound', 'InvalidNFTTransferSamePortfolio', 'InvalidNFTTransferNFTNotOwned', 'InvalidNFTTransferCountOverflow', 'InvalidNFTTransferComplianceFailure', 'InvalidNFTTransferFrozenAsset', 'InvalidNFTTransferInsufficientCount', 'MaxNumberOfKeysExceeded', 'MaxNumberOfNFTsPerLegExceeded', 'NFTNotFound', 'UnregisteredMetadataKey', 'ZeroCount', 'SupplyOverflow', 'SupplyUnderflow', 'InvalidNFTTransferNFTIsLocked', 'InvalidNFTTransferSenderDidMatchesReceiverDid', 'InvalidNFTTransferInvalidReceiverDID', 'InvalidAssetId', 'NFTIsLocked', 'NumberOfKeysIsLessThanExpected', 'NFTIsNotLocked']
   },
   /**
-   * Lookup790: pallet_election_provider_multi_phase::ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>
+   * Lookup789: pallet_election_provider_multi_phase::ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>
    **/
   PalletElectionProviderMultiPhaseReadySolution: {
     supports: 'FrameElectionProviderSupportBoundedSupports',
@@ -5268,25 +5272,25 @@ export default {
     compute: 'PalletElectionProviderMultiPhaseElectionCompute'
   },
   /**
-   * Lookup791: frame_election_provider_support::BoundedSupports<sp_core::crypto::AccountId32, BOuter, BInner>
+   * Lookup790: frame_election_provider_support::BoundedSupports<sp_core::crypto::AccountId32, BOuter, BInner>
    **/
   FrameElectionProviderSupportBoundedSupports: 'Vec<(AccountId32,FrameElectionProviderSupportBoundedSupport)>',
   /**
-   * Lookup794: frame_election_provider_support::BoundedSupport<sp_core::crypto::AccountId32, Bound>
+   * Lookup793: frame_election_provider_support::BoundedSupport<sp_core::crypto::AccountId32, Bound>
    **/
   FrameElectionProviderSupportBoundedSupport: {
     total: 'u128',
     voters: 'Vec<(AccountId32,u128)>'
   },
   /**
-   * Lookup797: pallet_election_provider_multi_phase::RoundSnapshot<sp_core::crypto::AccountId32, VoterType>
+   * Lookup796: pallet_election_provider_multi_phase::RoundSnapshot<sp_core::crypto::AccountId32, VoterType>
    **/
   PalletElectionProviderMultiPhaseRoundSnapshot: {
     voters: 'Vec<(AccountId32,u64,Vec<AccountId32>)>',
     targets: 'Vec<AccountId32>'
   },
   /**
-   * Lookup803: pallet_election_provider_multi_phase::signed::SignedSubmission<sp_core::crypto::AccountId32, Balance, polymesh_runtime_common::NposSolution16>
+   * Lookup802: pallet_election_provider_multi_phase::signed::SignedSubmission<sp_core::crypto::AccountId32, Balance, polymesh_runtime_common::NposSolution16>
    **/
   PalletElectionProviderMultiPhaseSignedSignedSubmission: {
     who: 'AccountId32',
@@ -5295,19 +5299,19 @@ export default {
     callFee: 'u128'
   },
   /**
-   * Lookup804: pallet_election_provider_multi_phase::pallet::Error<T>
+   * Lookup803: pallet_election_provider_multi_phase::pallet::Error<T>
    **/
   PalletElectionProviderMultiPhaseError: {
     _enum: ['PreDispatchEarlySubmission', 'PreDispatchWrongWinnerCount', 'PreDispatchWeakSubmission', 'SignedQueueFull', 'SignedCannotPayDeposit', 'SignedInvalidWitness', 'SignedTooMuchWeight', 'OcwCallWrongEra', 'MissingSnapshotMetadata', 'InvalidSubmissionIndex', 'CallNotAllowed', 'FallbackFailed', 'BoundNotMet', 'TooManyWinners', 'PreDispatchDifferentRound']
   },
   /**
-   * Lookup807: pallet_beefy::pallet::Error<T>
+   * Lookup806: pallet_beefy::pallet::Error<T>
    **/
   PalletBeefyError: {
     _enum: ['InvalidKeyOwnershipProof', 'InvalidDoubleVotingProof', 'InvalidForkVotingProof', 'InvalidFutureBlockVotingProof', 'InvalidEquivocationProofSession', 'InvalidEquivocationProofSessionMember', 'DuplicateOffenceReport', 'InvalidConfiguration']
   },
   /**
-   * Lookup808: sp_consensus_beefy::mmr::BeefyAuthoritySet<primitive_types::H256>
+   * Lookup807: sp_consensus_beefy::mmr::BeefyAuthoritySet<primitive_types::H256>
    **/
   SpConsensusBeefyMmrBeefyAuthoritySet: {
     id: 'u64',
@@ -5315,55 +5319,55 @@ export default {
     keysetCommitment: 'H256'
   },
   /**
-   * Lookup811: frame_system::extensions::authorize_call::AuthorizeCall<T>
+   * Lookup810: frame_system::extensions::authorize_call::AuthorizeCall<T>
    **/
   FrameSystemExtensionsAuthorizeCall: 'Null',
   /**
-   * Lookup812: frame_system::extensions::check_non_zero_sender::CheckNonZeroSender<T>
+   * Lookup811: frame_system::extensions::check_non_zero_sender::CheckNonZeroSender<T>
    **/
   FrameSystemExtensionsCheckNonZeroSender: 'Null',
   /**
-   * Lookup813: frame_system::extensions::check_spec_version::CheckSpecVersion<T>
+   * Lookup812: frame_system::extensions::check_spec_version::CheckSpecVersion<T>
    **/
   FrameSystemExtensionsCheckSpecVersion: 'Null',
   /**
-   * Lookup814: frame_system::extensions::check_tx_version::CheckTxVersion<T>
+   * Lookup813: frame_system::extensions::check_tx_version::CheckTxVersion<T>
    **/
   FrameSystemExtensionsCheckTxVersion: 'Null',
   /**
-   * Lookup815: frame_system::extensions::check_genesis::CheckGenesis<T>
+   * Lookup814: frame_system::extensions::check_genesis::CheckGenesis<T>
    **/
   FrameSystemExtensionsCheckGenesis: 'Null',
   /**
-   * Lookup818: frame_system::extensions::check_nonce::CheckNonce<T>
+   * Lookup817: frame_system::extensions::check_nonce::CheckNonce<T>
    **/
   FrameSystemExtensionsCheckNonce: 'Compact<u32>',
   /**
-   * Lookup819: frame_system::extensions::check_weight::CheckWeight<T>
+   * Lookup818: frame_system::extensions::check_weight::CheckWeight<T>
    **/
   FrameSystemExtensionsCheckWeight: 'Null',
   /**
-   * Lookup820: polymesh_transaction_payment::ChargeTransactionPayment<T>
+   * Lookup819: polymesh_transaction_payment::ChargeTransactionPayment<T>
    **/
   PolymeshTransactionPaymentChargeTransactionPayment: 'Compact<u128>',
   /**
-   * Lookup821: pallet_permissions::StoreCallMetadata<T>
+   * Lookup820: pallet_permissions::StoreCallMetadata<T>
    **/
   PalletPermissionsStoreCallMetadata: 'Null',
   /**
-   * Lookup822: frame_metadata_hash_extension::CheckMetadataHash<T>
+   * Lookup821: frame_metadata_hash_extension::CheckMetadataHash<T>
    **/
   FrameMetadataHashExtensionCheckMetadataHash: {
     mode: 'FrameMetadataHashExtensionMode'
   },
   /**
-   * Lookup823: frame_metadata_hash_extension::Mode
+   * Lookup822: frame_metadata_hash_extension::Mode
    **/
   FrameMetadataHashExtensionMode: {
     _enum: ['Disabled', 'Enabled']
   },
   /**
-   * Lookup824: frame_system::extensions::weight_reclaim::WeightReclaim<T>
+   * Lookup823: frame_system::extensions::weight_reclaim::WeightReclaim<T>
    **/
   FrameSystemExtensionsWeightReclaim: 'Null'
 };

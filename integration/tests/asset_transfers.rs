@@ -9,7 +9,10 @@ mod asset_transfer_tests {
     use polymesh_api::types::polymesh_primitives::identity_id::PortfolioKind;
 
     #[cfg(feature = "current_release")]
-    use polymesh_api::types::polymesh_primitives::asset::{AssetHolderKind};
+    use polymesh_api::types::polymesh_primitives::asset::AssetHolderKind;
+
+    #[cfg(feature = "current_release")]
+    use polymesh_api::types::polymesh_primitives::settlement::AffirmationRequirement;
 
     /// Test for an asset transfer requiring receiver affirmation.
     #[tokio::test]
@@ -39,6 +42,15 @@ mod asset_transfer_tests {
         )
         .await?;
         let asset_id = asset_helper.asset_id;
+
+        // Investor opts in to mandatory receiver affirmation.
+        tester
+            .api
+            .call()
+            .settlement()
+            .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
+            .execute(&mut investor)
+            .await?;
 
         // Create an asset transfer from the asset issuer to the investor.
         let mut transfer_res = tester
@@ -98,6 +110,15 @@ mod asset_transfer_tests {
         .await?;
         let asset_id = asset_helper.asset_id;
 
+        // Investor opts in to mandatory receiver affirmation.
+        tester
+            .api
+            .call()
+            .settlement()
+            .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
+            .execute(&mut investor)
+            .await?;
+
         // Create an asset transfer from the asset issuer to the investor.
         let mut transfer_res = tester
             .api
@@ -136,7 +157,7 @@ mod asset_transfer_tests {
             .await?
             .into_iter();
         let mut asset_issuer = users.next().expect("Asset issuer");
-        let investor = users.next().expect("Investor");
+        let mut investor = users.next().expect("Investor");
 
         #[cfg(feature = "current_release")]
         let kind = AssetHolderKind::Account;
@@ -155,6 +176,15 @@ mod asset_transfer_tests {
         )
         .await?;
         let asset_id = asset_helper.asset_id;
+
+        // Investor opts in to mandatory receiver affirmation.
+        tester
+            .api
+            .call()
+            .settlement()
+            .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
+            .execute(&mut investor)
+            .await?;
 
         // Create an asset transfer from the asset issuer to the investor.
         let mut transfer_res = tester

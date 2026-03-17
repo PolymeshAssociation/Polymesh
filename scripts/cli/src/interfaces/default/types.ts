@@ -50,6 +50,24 @@ export interface AssetDidResult extends Enum {
   readonly type: 'Ok' | 'Err';
 }
 
+/** @name AssetHolder */
+export interface AssetHolder extends Enum {
+  readonly isPortfolio: boolean;
+  readonly asPortfolio: PortfolioId;
+  readonly isAccount: boolean;
+  readonly asAccount: AccountId32;
+  readonly type: 'Portfolio' | 'Account';
+}
+
+/** @name AssetHolderKind */
+export interface AssetHolderKind extends Enum {
+  readonly isAccount: boolean;
+  readonly isDefaultPortfolio: boolean;
+  readonly isUserPortfolio: boolean;
+  readonly asUserPortfolio: PortfolioNumber;
+  readonly type: 'Account' | 'DefaultPortfolio' | 'UserPortfolio';
+}
+
 /** @name AssetPermissions */
 export interface AssetPermissions extends Enum {
   readonly isWhole: boolean;
@@ -588,8 +606,8 @@ export interface FundraiserReceiptMessage extends ChainScopedMessageFundraiserRe
 
 /** @name FungibleLeg */
 export interface FungibleLeg extends Struct {
-  readonly sender: PortfolioId;
-  readonly receiver: PortfolioId;
+  readonly sender: AssetHolder;
+  readonly receiver: AssetHolder;
   readonly assetId: PolymeshAssetId;
   readonly amount: Balance;
 }
@@ -664,8 +682,8 @@ export interface NFTs extends Struct {
 
 /** @name NonFungibleLeg */
 export interface NonFungibleLeg extends Struct {
-  readonly sender: PortfolioId;
-  readonly receiver: PortfolioId;
+  readonly sender: AssetHolder;
+  readonly receiver: AssetHolder;
   readonly nfts: NFTs;
 }
 
