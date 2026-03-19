@@ -596,6 +596,8 @@ pub mod pallet {
         NullifierAlreadyUsed,
         /// Encryption key for the Confidential account is missing.
         EncryptionKeyMissing,
+        /// Settlement already exists.
+        SettlementAlreadyExists,
         /// Settlement is missing legs.
         SettlementMissingLegs,
         /// Settlement has too many legs.
@@ -1835,6 +1837,12 @@ impl<T: Config> Pallet<T> {
             // Ensure the settlement has at least one leg.
             ensure!(proof.legs.len() > 0, Error::<T>::SettlementMissingLegs);
         }
+
+        // Ensure that the settlement does not exist.  This also prevents replay of the same settlement proof.
+        ensure!(
+            !SettlementState::<T>::contains_key(settlement_ref),
+            Error::<T>::SettlementAlreadyExists
+        );
 
         // Get details of the settlement.
         let memo = proof.memo.clone();
