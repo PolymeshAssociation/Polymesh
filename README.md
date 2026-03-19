@@ -1,4 +1,4 @@
-[![Discord](https://img.shields.io/badge/Discord-Join_our_server-blue.svg?style=social&logo=discord)](https://discord.com/invite/ud2deWAnyt) 
+[![Discord](https://img.shields.io/badge/Discord-Join_our_server-blue.svg?style=social&logo=discord)](https://polymesh.network/discord) 
 ![Twitter Follow](https://img.shields.io/twitter/follow/PolymeshNetwork?style=social)
 
 <img src="Polymesh-logo.svg" width="70%" alt="Polymesh"/>
