@@ -980,6 +980,8 @@ pub mod pallet {
             // Store the account curve tree parameters in the storage.
             CachedAccountCurveTreeParameters::<T>::put(params);
 
+            // ============================= TODO: This might not be needed.
+            //
             // The host functions are not available in the genesis build, so we cannot initialize the curve trees here.
             // // Initialize the Asset Curve Tree.
             // {
@@ -1002,6 +1004,7 @@ pub mod pallet {
             //     tree.init_root()
             //         .expect("Fee account curve tree should be able to init root; qed");
             // }
+            // =============================
         }
     }
 
