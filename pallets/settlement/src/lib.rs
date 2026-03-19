@@ -1580,7 +1580,8 @@ impl<T: Config> Pallet<T> {
         to: AssetHolder,
         fund: Fund,
     ) -> DispatchResultWithPostInfo {
-        let caller_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
+        let caller_data =
+            pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
         let caller = caller_data.sender;
         let caller_did = caller_data.primary_did;
 
@@ -1595,7 +1596,7 @@ impl<T: Config> Pallet<T> {
 
         // Spender mode: caller differs from the Account source owner.
         // Check and decrement allowance before proceeding.
-        let is_spender = if let AssetHolder::Account(ref owner) = resolved_from {
+        if let AssetHolder::Account(ref owner) = resolved_from {
             if *owner != caller_acc32 {
                 let owner_acc = pallet_base::pallet_account_id::<T>(owner)?;
                 match &fund.description {
@@ -1606,13 +1607,8 @@ impl<T: Config> Pallet<T> {
                         return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
                     }
                 }
-                true
-            } else {
-                false
             }
-        } else {
-            false
-        };
+        }
 
         // TODO: Implement portfolio custody check for portfolio sources.
 
@@ -1622,8 +1618,8 @@ impl<T: Config> Pallet<T> {
 
         let mut weight_meter = WeightMeter::max_limit(<T as Config>::WeightInfo::transfer_funds());
 
-        // Spender or same-identity: transfer directly. Otherwise: use settlement engine.
-        if is_spender || from_did == to_did {
+        if from_did == to_did {
+            // Same-identity: transfer directly.
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
                     Asset::<T>::base_transfer(
@@ -1646,8 +1642,32 @@ impl<T: Config> Pallet<T> {
                 }
             }
         } else {
-            // TODO: Implement cross-identity settlement path.
-            return Err(DispatchError::from(pallet_asset::Error::<T>::InvalidTransfer).into());
+            // Cross-identity: create a settlement instruction and try to execute.
+            let asset_or_nft = match fund.description {
+                FundDescription::Fungible { asset_id, amount } => {
+                    AssetOrNft::Asset { asset_id, amount }
+                }
+                // TODO: Implement NFT cross-identity transfers.
+                FundDescription::NonFungible(_) => {
+                    return Err(DispatchError::from(
+                        pallet_asset::Error::<T>::UnexpectedNonFungibleToken,
+                    )
+                    .into());
+                }
+            };
+
+            Self::base_transfer_and_try_execute(
+                origin,
+                Some(resolved_from),
+                Some(from_did),
+                to,
+                Some(to_did),
+                asset_or_nft,
+                fund.memo,
+                &mut weight_meter,
+                #[cfg(feature = "runtime-benchmarks")]
+                false,
+            )?;
         }
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
@@ -3866,9 +3886,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Initiates a transfer instruction for fungible or non-fungible assets.
+    /// When `from` is `None`, the sender is derived from origin.
+    /// When `from_did`/`to_did` are `None`, they are resolved internally.
     fn base_transfer_and_try_execute(
         origin: OriginFor<T>,
-        to: T::AccountId,
+        from: Option<AssetHolder>,
+        from_did: Option<IdentityId>,
+        to: AssetHolder,
+        to_did: Option<IdentityId>,
         asset_or_nft: AssetOrNft,
         memo: Option<Memo>,
         weight_meter: &mut WeightMeter,
@@ -3876,16 +3901,21 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Option<InstructionId>, DispatchError> {
         let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
+        let origin_did = origin_data.primary_did;
 
-        let from = AssetHolder::try_from(origin_data.sender.encode())?;
-        let to = AssetHolder::try_from(to.encode())?;
+        let from = match from {
+            Some(f) => f,
+            None => AssetHolder::try_from(origin_data.sender.encode())
+                .map_err(|_| Error::<T>::InvalidAccountId)?,
+        };
+        let from_did = from_did.unwrap_or(origin_did);
 
         // Prepare the leg depending on whether it's a fungible or non-fungible transfer
         let (leg, is_fungible) = match asset_or_nft {
             AssetOrNft::Asset { asset_id, amount } => (
                 Leg::Fungible {
                     sender: from.clone(),
-                    receiver: to,
+                    receiver: to.clone(),
                     asset_id,
                     amount,
                 },
@@ -3894,7 +3924,7 @@ impl<T: Config> Pallet<T> {
             AssetOrNft::Nft { asset_id, nft_id } => (
                 Leg::NonFungible {
                     sender: from.clone(),
-                    receiver: to,
+                    receiver: to.clone(),
                     nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
                 },
                 false,
@@ -3913,7 +3943,7 @@ impl<T: Config> Pallet<T> {
 
         // Create the instruction with the prepared leg
         let instruction_id = Self::base_add_instruction(
-            origin_data.primary_did,
+            from_did,
             None,
             SettlementType::SettleManual(System::<T>::block_number()),
             None,
@@ -3923,14 +3953,27 @@ impl<T: Config> Pallet<T> {
             None,
         )?;
 
+        // In spender mode (sender != caller), pass None to skip the caller's secondary key
+        // check and instead verify the sender's account via their DID's primary key.
+        let sender_sk = if from_did == origin_did {
+            origin_data.secondary_key.as_ref()
+        } else {
+            None
+        };
+
         // Affirm the instruction on behalf of the sender.
-        Self::unsafe_affirm_instruction(
-            origin_data.primary_did,
-            instruction_id,
-            [from].into(),
-            origin_data.secondary_key.as_ref(),
-            None,
-        )?;
+        Self::unsafe_affirm_instruction(from_did, instruction_id, [from].into(), sender_sk, None)?;
+
+        // Try affirming if caller is the receiver (spender mode) and receiver affirmation is needed.
+        if to_did == Some(origin_did) && InstructionAffirmsPending::<T>::get(instruction_id) > 0 {
+            Self::unsafe_affirm_instruction(
+                origin_did,
+                instruction_id,
+                [to].into(),
+                origin_data.secondary_key.as_ref(),
+                None,
+            )?;
+        }
 
         let instruction_id = if InstructionAffirmsPending::<T>::get(instruction_id) == 0 {
             // If there are no pending affirmations, execute the instruction immediately.
@@ -4007,9 +4050,17 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
         weight_meter: &mut WeightMeter,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
+        let to = AssetHolder::try_from(to.encode()).map_err(|_| DispatchErrorWithPostInfo {
+            post_info: Some(weight_meter.consumed()).into(),
+            error: Error::<T>::InvalidAccountId.into(),
+        })?;
+
         let instruction_id = Self::base_transfer_and_try_execute(
             origin,
+            None,
+            None,
             to,
+            None,
             asset_or_nft,
             memo,
             weight_meter,

@@ -68,6 +68,7 @@ fn same_identity_transfer_succeeds() {
             Asset::get_holders_balance(&from, &asset_id),
             ISSUE_AMOUNT - 100
         );
+        assert_eq!(Asset::get_holders_balance(&to, &asset_id), 100);
 
         // AssetBalanceUpdated emitted with instruction_id: None (direct transfer).
         let events = frame_system::Pallet::<TestStorage>::events();
@@ -84,7 +85,81 @@ fn same_identity_transfer_succeeds() {
 }
 
 #[test]
-fn spender_finite_allowance_decrements() {
+fn cross_identity_transfer_creates_settlement() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        frame_system::Pallet::<TestStorage>::set_block_number(1);
+
+        assert_ok!(Settlement::transfer_funds(
+            alice.origin(),
+            None,
+            AssetHolder::Account(bob.acc()),
+            fungible_fund(asset_id, 100),
+        ));
+
+        // Balance moved from alice to bob.
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            ISSUE_AMOUNT - 100
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(bob.acc()), &asset_id),
+            100
+        );
+
+        // Settlement instruction was created and executed.
+        let events = frame_system::Pallet::<TestStorage>::events();
+        assert!(events.iter().any(|record| {
+            matches!(
+                &record.event,
+                crate::storage::EventTest::Settlement(
+                    pallet_settlement::Event::InstructionExecuted(_, _)
+                )
+            )
+        }));
+    });
+}
+
+#[test]
+fn spender_same_identity_uses_direct_transfer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        // Bob has allowance to spend from alice's account.
+        assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
+
+        // Transfer from alice's account to alice's default portfolio (same DID).
+        let from = Some(AssetHolder::Account(alice.acc()));
+        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did));
+
+        assert_ok!(Settlement::transfer_funds(
+            bob.origin(),
+            from.clone(),
+            to.clone(),
+            fungible_fund(asset_id, 100),
+        ));
+
+        // Allowance decremented.
+        assert_eq!(
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            400
+        );
+        // Balance moved within alice's identity.
+        assert_eq!(
+            Asset::get_holders_balance(&from.unwrap(), &asset_id),
+            ISSUE_AMOUNT - 100
+        );
+        assert_eq!(Asset::get_holders_balance(&to, &asset_id), 100);
+    });
+}
+
+#[test]
+fn spender_as_receiver_affirms_both_sides() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
@@ -92,8 +167,9 @@ fn spender_finite_allowance_decrements() {
 
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
 
+        // Bob spends alice's allowance to transfer to himself.
         let from = Some(AssetHolder::Account(alice.acc()));
-        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(bob.did));
+        let to = AssetHolder::Account(bob.acc());
 
         assert_ok!(Settlement::transfer_funds(
             bob.origin(),
@@ -102,15 +178,18 @@ fn spender_finite_allowance_decrements() {
             fungible_fund(asset_id, 200),
         ));
 
-        // Allowance decremented.
         assert_eq!(
             Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
             300
         );
-        // Balance moved.
         assert_eq!(
             Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
             ISSUE_AMOUNT - 200
+        );
+        // Bob received the tokens (settlement executed immediately).
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(bob.acc()), &asset_id),
+            200
         );
     });
 }
@@ -120,6 +199,7 @@ fn spender_unlimited_allowance_not_decremented() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let asset_id = create_and_issue_to_account(&alice);
 
         assert_ok!(Asset::approve(
@@ -130,7 +210,7 @@ fn spender_unlimited_allowance_not_decremented() {
         ));
 
         let from = Some(AssetHolder::Account(alice.acc()));
-        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(bob.did));
+        let to = AssetHolder::Account(charlie.acc());
 
         assert_ok!(Settlement::transfer_funds(
             bob.origin(),
@@ -143,20 +223,25 @@ fn spender_unlimited_allowance_not_decremented() {
             Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
             Balance::MAX
         );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(charlie.acc()), &asset_id),
+            100
+        );
     });
 }
 
 #[test]
-fn insufficient_allowance_returns_error() {
+fn spender_insufficient_allowance_returns_error() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let asset_id = create_and_issue_to_account(&alice);
 
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 100));
 
         let from = Some(AssetHolder::Account(alice.acc()));
-        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(bob.did));
+        let to = AssetHolder::Account(charlie.acc());
 
         assert_noop!(
             Settlement::transfer_funds(bob.origin(), from, to, fungible_fund(asset_id, 150)),
@@ -166,16 +251,17 @@ fn insufficient_allowance_returns_error() {
 }
 
 #[test]
-fn zero_remaining_allowance_removes_entry() {
+fn spender_zero_allowance_removes_entry() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
         let asset_id = create_and_issue_to_account(&alice);
 
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 200));
 
         let from = Some(AssetHolder::Account(alice.acc()));
-        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(bob.did));
+        let to = AssetHolder::Account(charlie.acc());
 
         assert_ok!(Settlement::transfer_funds(
             bob.origin(),
@@ -221,7 +307,7 @@ fn spender_nft_rejected() {
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
 
         let from = Some(AssetHolder::Account(alice.acc()));
-        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(bob.did));
+        let to = AssetHolder::Account(bob.acc());
         let nft_fund = Fund {
             description: FundDescription::NonFungible(NFTs::new_unverified(
                 asset_id,
@@ -238,7 +324,7 @@ fn spender_nft_rejected() {
 }
 
 #[test]
-fn atomicity_failed_transfer_restores_allowance() {
+fn spender_atomicity_failed_transfer_restores_allowance() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
@@ -248,7 +334,7 @@ fn atomicity_failed_transfer_restores_allowance() {
         assert_ok!(Asset::freeze(alice.origin(), asset_id));
 
         let from = Some(AssetHolder::Account(alice.acc()));
-        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(bob.did));
+        let to = AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did));
 
         assert_noop!(
             Settlement::transfer_funds(bob.origin(), from, to, fungible_fund(asset_id, 100)),
