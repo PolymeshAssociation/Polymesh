@@ -814,27 +814,6 @@ benchmarks! {
         .unwrap();
     }: _(RawOrigin::Root, asset_metadata_name, asset_metadata_spec)
 
-    transfer_asset_base_weight {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-
-        // Setup the transfer with worse case conditions.
-        // Don't move the assets from the default portfolio.
-        let (_sender_portfolio, _receiver_portfolio, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, false);
-    }: {
-        Pallet::<T>::base_transfer_asset(
-            alice.origin.into(),
-            asset_id,
-            bob.account(),
-            ONE_UNIT,
-            None,
-            // Only benchmark the base cost.
-            true,
-        )
-        .unwrap();
-    }
-
     receiver_affirm_asset_transfer_base_weight {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");

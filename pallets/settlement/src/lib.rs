@@ -81,7 +81,9 @@ use polymesh_primitives::settlement::{
     InstructionStatus, Leg, LegId, LegStatus, MediatorAffirmationStatus, Receipt, ReceiptDetails,
     ReceiptMetadata, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::traits::{AffirmationFnTrait, AssetOrNft, SettlementFnTrait};
+use polymesh_primitives::traits::{
+    AffirmationFnTrait, AssetOrNft, PortfolioFnConfig, PortfolioFnTrait, SettlementFnTrait,
+};
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
@@ -424,6 +426,7 @@ pub mod pallet {
         + pallet_permissions::Config
         + pallet_nft::Config
         + pallet_timestamp::Config
+        + PortfolioFnConfig
     {
         /// A call type used by the scheduler.
         type SchedulerCall: From<Call<Self>>
@@ -1568,7 +1571,15 @@ pub mod pallet {
             to: AssetHolder,
             fund: Fund,
         ) -> DispatchResultWithPostInfo {
-            Self::base_transfer_funds(origin, from, to, fund)
+            let (_instruction_id, consumed) = Self::base_transfer_funds(
+                origin,
+                from,
+                to,
+                fund,
+                #[cfg(feature = "runtime-benchmarks")]
+                false,
+            )?;
+            Ok(PostDispatchInfo::from(Some(consumed)))
         }
     }
 }
@@ -1579,7 +1590,8 @@ impl<T: Config> Pallet<T> {
         from: Option<AssetHolder>,
         to: AssetHolder,
         fund: Fund,
-    ) -> DispatchResultWithPostInfo {
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> Result<(Option<InstructionId>, Weight), DispatchError> {
         let caller_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
         let caller = caller_data.sender;
@@ -1594,23 +1606,27 @@ impl<T: Config> Pallet<T> {
         // Self-transfer guard.
         ensure!(resolved_from != to, Error::<T>::SenderSameAsReceiver);
 
-        // Spender mode: caller differs from the Account source owner.
-        // Check and decrement allowance before proceeding.
-        if let AssetHolder::Account(ref owner) = resolved_from {
-            if *owner != caller_acc32 {
-                let owner_acc = pallet_base::pallet_account_id::<T>(owner)?;
-                match &fund.description {
-                    FundDescription::Fungible { asset_id, amount } => {
-                        Asset::<T>::spend_allowance(&owner_acc, &caller, *asset_id, *amount)?;
-                    }
-                    FundDescription::NonFungible(_) => {
-                        return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
+        // Authorization check based on source type.
+        match &resolved_from {
+            // Account source: if caller != owner, check spender allowance.
+            AssetHolder::Account(ref owner) => {
+                if *owner != caller_acc32 {
+                    let owner_acc = pallet_base::pallet_account_id::<T>(owner)?;
+                    match &fund.description {
+                        FundDescription::Fungible { asset_id, amount } => {
+                            Asset::<T>::spend_allowance(&owner_acc, &caller, *asset_id, *amount)?;
+                        }
+                        FundDescription::NonFungible(_) => {
+                            return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
+                        }
                     }
                 }
             }
+            // Portfolio source: caller must have custody.
+            AssetHolder::Portfolio(ref portfolio_id) => {
+                T::PortfolioFn::ensure_portfolio_custody(portfolio_id, caller_did)?;
+            }
         }
-
-        // TODO: Implement portfolio custody check for portfolio sources.
 
         // Resolve DIDs and determine transfer path.
         let from_did = pallet_identity::Pallet::<T>::asset_holder_did(&resolved_from)?;
@@ -1618,7 +1634,7 @@ impl<T: Config> Pallet<T> {
 
         let mut weight_meter = WeightMeter::max_limit(<T as Config>::WeightInfo::transfer_funds());
 
-        if from_did == to_did {
+        let instruction_id = if from_did == to_did {
             // Same-identity: transfer directly.
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
@@ -1635,12 +1651,10 @@ impl<T: Config> Pallet<T> {
                 }
                 // TODO: Implement NFT direct transfers.
                 FundDescription::NonFungible(_) => {
-                    return Err(DispatchError::from(
-                        pallet_asset::Error::<T>::UnexpectedNonFungibleToken,
-                    )
-                    .into());
+                    return Err(pallet_asset::Error::<T>::UnexpectedNonFungibleToken.into());
                 }
             }
+            None
         } else {
             // Cross-identity: create a settlement instruction and try to execute.
             let asset_or_nft = match fund.description {
@@ -1649,10 +1663,7 @@ impl<T: Config> Pallet<T> {
                 }
                 // TODO: Implement NFT cross-identity transfers.
                 FundDescription::NonFungible(_) => {
-                    return Err(DispatchError::from(
-                        pallet_asset::Error::<T>::UnexpectedNonFungibleToken,
-                    )
-                    .into());
+                    return Err(pallet_asset::Error::<T>::UnexpectedNonFungibleToken.into());
                 }
             };
 
@@ -1666,11 +1677,11 @@ impl<T: Config> Pallet<T> {
                 fund.memo,
                 &mut weight_meter,
                 #[cfg(feature = "runtime-benchmarks")]
-                false,
-            )?;
-        }
+                bench_base_weight,
+            )?
+        };
 
-        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+        Ok((instruction_id, weight_meter.consumed()))
     }
 
     fn lock_asset(leg: &Leg) -> DispatchResult {
@@ -4143,6 +4154,27 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
         WeightMeter::from_limit_unchecked(
             Self::reject_instruction_minimum_weight(),
             <T as Config>::WeightInfo::reject_instruction(Some(asset_count)),
+        )
+    }
+
+    fn transfer_funds_weight() -> Weight {
+        <T as Config>::WeightInfo::transfer_funds()
+    }
+
+    fn transfer_funds(
+        origin: OriginFor<T>,
+        from: Option<AssetHolder>,
+        to: AssetHolder,
+        fund: Fund,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> Result<(Option<InstructionId>, Weight), DispatchError> {
+        Self::base_transfer_funds(
+            origin,
+            from,
+            to,
+            fund,
+            #[cfg(feature = "runtime-benchmarks")]
+            bench_base_weight,
         )
     }
 }

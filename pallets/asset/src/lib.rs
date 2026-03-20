@@ -95,8 +95,8 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
+use frame_system::ensure_root;
 use frame_system::pallet_prelude::*;
-use frame_system::{ensure_root, ensure_signed};
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -117,6 +117,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::constants::*;
+use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{
@@ -1653,7 +1654,7 @@ pub mod pallet {
         /// * `UnexpectedOFFChainAsset` - If the asset could not be found on-chain.
         /// * `MissingIdentity` - The caller doesn't have an identity.
         #[pallet::call_index(34)]
-        #[pallet::weight(<T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::transfer_asset_base_weight(), true).limit())]
+        #[pallet::weight(<T as Config>::SettlementFn::transfer_funds_weight())]
         pub fn transfer_asset(
             origin: OriginFor<T>,
             asset_id: AssetId,
@@ -1925,7 +1926,6 @@ pub mod pallet {
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
         fn update_global_metadata_spec() -> Weight;
-        fn transfer_asset_base_weight() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
         fn approve() -> Weight;
     }
@@ -2804,25 +2804,25 @@ impl<T: AssetConfig> Pallet<T> {
         memo: Option<Memo>,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
-        let from = ensure_signed(origin.clone())?;
-        let mut weight_meter = <T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(
-            <T as Config>::WeightInfo::transfer_asset_base_weight(),
-            true,
-        );
+        let from =
+            pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?.sender;
 
-        // Create the transfer instruction via the settlement engine and affirm it as the sender.
-        let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
+        let to_holder = AssetHolder::try_from(to.encode())
+            .map_err(|_| DispatchError::Other("InvalidAccountId"))?;
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount },
+            memo: memo.clone(),
+        };
+
+        let (instruction_id, consumed) = T::SettlementFn::transfer_funds(
             origin,
-            to.clone(),
-            asset_id,
-            amount,
-            memo.clone(),
-            &mut weight_meter,
+            None,
+            to_holder,
+            fund,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
         )?;
 
-        // Emit a transfer event.
         Self::deposit_event(Event::CreatedAssetTransfer {
             asset_id,
             from,
@@ -2832,7 +2832,7 @@ impl<T: AssetConfig> Pallet<T> {
             pending_transfer_id: instruction_id,
         });
 
-        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+        Ok(PostDispatchInfo::from(Some(consumed)))
     }
 
     pub fn base_receiver_affirm_asset_transfer(

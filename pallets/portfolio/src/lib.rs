@@ -59,6 +59,7 @@ use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::traits::{
     AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait,
+    PortfolioFnTrait,
 };
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
@@ -1203,5 +1204,14 @@ impl<T: Config> Pallet<T> {
         );
         Self::set_portfolio_locked_balance(portfolio, asset_id, current_locked - amount);
         Ok(())
+    }
+}
+
+impl<T: Config> PortfolioFnTrait for Pallet<T> {
+    fn ensure_portfolio_custody(
+        portfolio: &PortfolioId,
+        custodian: IdentityId,
+    ) -> Result<(), DispatchError> {
+        Self::ensure_portfolio_custody(portfolio, custodian)
     }
 }
