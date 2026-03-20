@@ -28,6 +28,7 @@ use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
+use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::settlement::{AffirmationRequirement, ReceiptMetadata};
 use polymesh_primitives::{AssetHolder, IdentityId, Memo, NFTId, NFTs, Ticker, WeightMeter};
 
@@ -933,4 +934,47 @@ benchmarks! {
     set_mandatory_receiver_affirmation {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
     }: _(alice.origin, AffirmationRequirement::Required)
+
+    transfer_funds {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        // Worst case: spender allowance (read+write) + mandatory receiver affirmation
+        // + caller is receiver (two affirmations) + cross-DID settlement + immediate execution.
+        let (_sender_holding, _receiver_holding, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, true);
+
+        // Finite spender allowance (worst case: read + decrement + write).
+        pallet_asset::Pallet::<T>::approve(
+            alice.origin().into(),
+            asset_id,
+            bob.account(),
+            ONE_UNIT * 10,
+        )
+        .unwrap();
+
+        // Mandatory receiver affirmation + caller is receiver = two affirmations + execution.
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        )
+        .unwrap();
+
+        let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
+        let to = AssetHolder::try_from(bob.account().encode()).unwrap();
+        let fund = Fund {
+            description: FundDescription::Fungible {
+                asset_id,
+                amount: ONE_UNIT,
+            },
+            memo: None,
+        };
+    }: _(bob.origin.clone(), from, to, fund)
+    verify {
+        // Allowance decremented.
+        assert_eq!(
+            pallet_asset::Allowances::<T>::get((&alice.account(), &bob.account(), &asset_id)),
+            ONE_UNIT * 9
+        );
+    }
 }

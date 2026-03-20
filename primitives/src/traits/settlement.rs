@@ -1,11 +1,15 @@
 use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::weights::Weight;
 use frame_system::{pallet_prelude::OriginFor, Config};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::settlement::AffirmationRequirement;
 use crate::{
-    asset::AssetId, settlement::InstructionId, Balance, IdentityId, Memo, NFTId, WeightMeter,
+    asset::{AssetHolder, AssetId},
+    portfolio::Fund,
+    settlement::InstructionId,
+    Balance, IdentityId, Memo, NFTId, WeightMeter,
 };
 
 /// Trait for querying affirmation settings stored in the settlement pallet.
@@ -130,4 +134,17 @@ pub trait SettlementFnTrait<T: Config> {
 
     /// Get the reject transfer weight meter.
     fn reject_transfer_weight_meter(is_fungible: bool) -> WeightMeter;
+
+    /// Get the worst-case weight for `transfer_funds` / `base_transfer_funds`.
+    fn transfer_funds_weight() -> Weight;
+
+    /// Routes a transfer: same-identity direct, cross-identity settlement.
+    /// Returns the settlement instruction ID (None for same-identity) and consumed weight.
+    fn transfer_funds(
+        origin: OriginFor<T>,
+        from: Option<AssetHolder>,
+        to: AssetHolder,
+        fund: Fund,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> Result<(Option<InstructionId>, Weight), DispatchError>;
 }
