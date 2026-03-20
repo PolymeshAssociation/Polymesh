@@ -95,8 +95,8 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
-use frame_system::ensure_root;
 use frame_system::pallet_prelude::*;
+use frame_system::{ensure_root, ensure_signed};
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -2804,8 +2804,7 @@ impl<T: AssetConfig> Pallet<T> {
         memo: Option<Memo>,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
-        let from =
-            pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?.sender;
+        let from = ensure_signed(origin.clone())?;
 
         let to_holder = AssetHolder::try_from(to.encode())
             .map_err(|_| DispatchError::Other("InvalidAccountId"))?;
