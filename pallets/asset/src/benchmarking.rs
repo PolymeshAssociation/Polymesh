@@ -32,7 +32,7 @@ use polymesh_primitives::bench::reg_unique_ticker;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::ticker::TICKER_LEN;
-use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
+use polymesh_primitives::traits::{AssetOrNft, ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
     AuthorizationData, Fund, FundDescription, IdentityId, NFTCollectionKeys, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, Url, WeightMeter,
@@ -824,11 +824,10 @@ benchmarks! {
             setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, true);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
+        let instruction_id = T::SettlementFn::transfer_and_try_execute(
             alice.origin.into(),
             bob.account(),
-            asset_id,
-            ONE_UNIT,
+            AssetOrNft::Asset { asset_id, amount: ONE_UNIT },
             None,
             &mut weight_meter,
             false,

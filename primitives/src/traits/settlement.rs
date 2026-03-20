@@ -36,48 +36,6 @@ pub enum AssetOrNft {
 
 /// Trait defining settlement functions for transferring assets.
 pub trait SettlementFnTrait<T: Config> {
-    /// Creates a transfer instruction for a fungible asset and attempts to execute it (if no pending affirmations).
-    fn transfer_asset_and_try_execute(
-        origin: OriginFor<T>,
-        to: T::AccountId,
-        asset_id: AssetId,
-        amount: Balance,
-        memo: Option<Memo>,
-        weight_meter: &mut WeightMeter,
-        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
-        Self::transfer_and_try_execute(
-            origin,
-            to,
-            AssetOrNft::Asset { asset_id, amount },
-            memo,
-            weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            bench_base_weight,
-        )
-    }
-
-    /// Creates a transfer instruction for a non-fungible asset and attempts to execute it (if no pending affirmations).
-    fn transfer_nft_and_try_execute(
-        origin: OriginFor<T>,
-        to: T::AccountId,
-        asset_id: AssetId,
-        nft_id: NFTId,
-        memo: Option<Memo>,
-        weight_meter: &mut WeightMeter,
-        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
-        Self::transfer_and_try_execute(
-            origin,
-            to,
-            AssetOrNft::Nft { asset_id, nft_id },
-            memo,
-            weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            bench_base_weight,
-        )
-    }
-
     /// Creates a transfer instruction for fungible or non-fungible assets and attempts to execute it (if no pending affirmations).
     fn transfer_and_try_execute(
         origin: OriginFor<T>,

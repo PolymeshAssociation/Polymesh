@@ -1649,9 +1649,15 @@ impl<T: Config> Pallet<T> {
                         &mut weight_meter,
                     )?;
                 }
-                // TODO: Implement NFT direct transfers.
-                FundDescription::NonFungible(_) => {
-                    return Err(pallet_asset::Error::<T>::UnexpectedNonFungibleToken.into());
+                FundDescription::NonFungible(nfts) => {
+                    Nft::<T>::simplified_nft_transfer(
+                        resolved_from,
+                        to,
+                        nfts,
+                        None,
+                        fund.memo,
+                        caller_did,
+                    )?;
                 }
             }
             None
@@ -1661,12 +1667,14 @@ impl<T: Config> Pallet<T> {
                 FundDescription::Fungible { asset_id, amount } => {
                     AssetOrNft::Asset { asset_id, amount }
                 }
-                // TODO: Implement NFT cross-identity transfers.
-                FundDescription::NonFungible(_) => {
-                    return Err(pallet_asset::Error::<T>::UnexpectedNonFungibleToken.into());
+                FundDescription::NonFungible(nfts) => {
+                    Nft::<T>::ensure_within_nfts_transfer_limits(&nfts)?;
+                    AssetOrNft::Nft {
+                        asset_id: *nfts.asset_id(),
+                        nft_id: nfts.ids()[0],
+                    }
                 }
             };
-
             Self::base_transfer_and_try_execute(
                 origin,
                 Some(resolved_from),
@@ -3589,7 +3597,7 @@ impl<T: Config> Pallet<T> {
                         sender,
                         receiver,
                         nfts,
-                        inst_id,
+                        Some(inst_id),
                         inst_memo.clone(),
                         caller_did,
                     )?;

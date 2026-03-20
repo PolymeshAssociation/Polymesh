@@ -19,8 +19,9 @@ use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute,
     NFTOwnerStatus, NFTs,
 };
+use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::settlement::InstructionId;
-use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
+use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait, SettlementFnTrait};
 use polymesh_primitives::{
     AccountId as AccountId32, HoldingsUpdateReason, IdentityId, Memo, PortfolioId, WeightMeter,
 };
@@ -296,6 +297,29 @@ pub mod pallet {
             callers_holdings_kind: AssetHolderKind,
         ) -> DispatchResult {
             Self::base_controller_transfer(origin, nfts, source, callers_holdings_kind)
+        }
+
+        /// Transfer NFTs between accounts or portfolios.
+        ///
+        /// Same-identity transfers move NFTs directly. Cross-identity transfers
+        /// route through the settlement engine.
+        ///
+        /// # Arguments
+        /// * `origin` — Signed origin. Caller must have a registered DID.
+        /// * `nfts` — The NFTs to transfer.
+        /// * `from` — Source. `None` defaults to caller's account.
+        /// * `to` — Destination account or portfolio.
+        /// * `memo` — Optional memo attached to the transfer.
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as pallet_asset::Config>::SettlementFn::transfer_funds_weight())]
+        pub fn transfer_nft(
+            origin: OriginFor<T>,
+            nfts: NFTs,
+            from: Option<AssetHolder>,
+            to: AssetHolder,
+            memo: Option<Memo>,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_transfer_nft(origin, nfts, from, to, memo)
         }
     }
 
@@ -740,6 +764,33 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn base_transfer_nft(
+        origin: T::RuntimeOrigin,
+        nfts: NFTs,
+        from: Option<AssetHolder>,
+        to: AssetHolder,
+        memo: Option<Memo>,
+    ) -> DispatchResultWithPostInfo {
+        let _caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin.clone())?;
+
+        let fund = Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo,
+        };
+
+        let (_instruction_id, consumed) =
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds(
+                origin,
+                from,
+                to,
+                fund,
+                #[cfg(feature = "runtime-benchmarks")]
+                false,
+            )?;
+
+        Ok(PostDispatchInfo::from(Some(consumed)))
+    }
+
     pub fn base_controller_transfer(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
@@ -898,7 +949,7 @@ impl<T: Config> Pallet<T> {
         sender: AssetHolder,
         receiver: AssetHolder,
         nfts: NFTs,
-        inst_id: InstructionId,
+        inst_id: Option<InstructionId>,
         inst_memo: Option<Memo>,
         caller_did: IdentityId,
     ) -> DispatchResult {
@@ -915,7 +966,7 @@ impl<T: Config> Pallet<T> {
             Some(sender),
             Some(receiver),
             HoldingsUpdateReason::Transferred {
-                instruction_id: Some(inst_id),
+                instruction_id: inst_id,
                 instruction_memo: inst_memo,
             },
         ));
