@@ -1,5 +1,13 @@
+ARG BUILDER_IMAGE=polymeshassociation/rust:debian-nightly-2025-12-01
+FROM ${BUILDER_IMAGE} AS builder
+
+WORKDIR /polymesh
+COPY . /polymesh
+
+RUN cargo fetch
+RUN cargo build --workspace --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+
 FROM debian:trixie-slim
-ARG ETH_RPC_BIN=eth-rpc
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get upgrade -y && \
@@ -11,7 +19,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get clean && \
     find /var/lib/apt/lists/ -type f -not -name lock -delete
 
-COPY ./${ETH_RPC_BIN} /usr/local/bin/eth-rpc
+COPY --from=builder /polymesh/target/release/eth-rpc /usr/local/bin
 
 USER root
 RUN useradd -m -u 4001 -U -s /bin/sh -d /home/polymesh polymesh && \

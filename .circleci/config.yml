@@ -99,11 +99,18 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
+          name: Build eth-rpc
+          command: cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+          no_output_timeout: 30m
+      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
           name: Copy binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh
+      - run:
+          name: Copy eth-rpc binary to assets
+          command: cp ./target/release/eth-rpc ./assets/eth-rpc
       ## This has been commented out due to deterministic wasm build step added
       # - run:
       #     name: Copy wasm to assets
@@ -159,11 +166,18 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
+          name: Build eth-rpc
+          command: cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+          no_output_timeout: 30m
+      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
           name: Copy arm64 binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh-arm64
+      - run:
+          name: Copy arm64 eth-rpc binary to assets
+          command: cp ./target/release/eth-rpc ./assets/eth-rpc-arm64
       - persist_to_workspace:
           root: ./assets
           paths:
@@ -673,6 +687,55 @@ jobs:
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless
           docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless
+  build-docker-eth-rpc-amd64-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc-amd64
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker build -f ./.docker/eth-rpc/Dockerfile --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-eth-rpc-arm64-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker build -f ./.docker/eth-rpc/Dockerfile --build-arg ETH_RPC_BIN=eth-rpc-arm64 --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-eth-rpc-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc
+      IMAGE_AMD_NAME: polymeshassociation/polymesh-eth-rpc-amd64
+      IMAGE_ARM_NAME: polymeshassociation/polymesh-eth-rpc-arm64
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker manifest create $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:latest-$CIRCLE_BRANCH-debian
+          docker manifest create $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:$VERSION-$CIRCLE_BRANCH-debian
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian
+          docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian
   build-docker-rust-debian:
     environment:
       RUST_BASE: 1.75.0
@@ -776,14 +839,26 @@ jobs:
             zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64 ./polymesh-${VERSION}-arm64.sha256
             zip -T ./polymesh-${VERSION}-linux-arm64.zip
 
+            # eth-rpc x86_64
+            mv ./eth-rpc ./eth-rpc-${VERSION}
+            sha256sum ./eth-rpc-${VERSION} > ./eth-rpc-${VERSION}.sha256
+            zip -rm ./eth-rpc-${VERSION}.zip ./eth-rpc-${VERSION} ./eth-rpc-${VERSION}.sha256
+            zip -T ./eth-rpc-${VERSION}.zip
+
+            # eth-rpc arm64
+            mv ./eth-rpc-arm64 ./eth-rpc-${VERSION}-arm64
+            sha256sum ./eth-rpc-${VERSION}-arm64 > ./eth-rpc-${VERSION}-arm64.sha256
+            zip -rm ./eth-rpc-${VERSION}-linux-arm64.zip ./eth-rpc-${VERSION}-arm64 ./eth-rpc-${VERSION}-arm64.sha256
+            zip -T ./eth-rpc-${VERSION}-linux-arm64.zip
+
             # polymesh wasm
             for file in *.wasm; do sha256sum "$file" > "${file}.sha256"; done
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm ./*.wasm.sha256 ./*-srtool-digest.json
             zip -T ./polymesh-${VERSION}-wasm.zip
 
             # checksum file
-            sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
-            sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
+            sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip ./eth-rpc-${VERSION}.zip ./eth-rpc-${VERSION}-linux-arm64.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
+            sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip ./eth-rpc-${VERSION}.zip ./eth-rpc-${VERSION}-linux-arm64.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete v${VERSION} ./
 
 workflows:
@@ -889,6 +964,40 @@ workflows:
           requires:
             - build-docker-amd64-distroless
             - build-docker-arm64-distroless
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+                - develop_v8
+      - build-docker-eth-rpc-amd64-debian:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+                - develop_v8
+      - build-docker-eth-rpc-arm64-debian:
+          requires:
+            - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+                - develop_v8
+      - build-docker-eth-rpc-debian:
+          requires:
+            - build-docker-eth-rpc-amd64-debian
+            - build-docker-eth-rpc-arm64-debian
           filters:
             branches:
               only:
