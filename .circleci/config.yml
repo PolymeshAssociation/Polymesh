@@ -839,26 +839,14 @@ jobs:
             zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64 ./polymesh-${VERSION}-arm64.sha256
             zip -T ./polymesh-${VERSION}-linux-arm64.zip
 
-            # eth-rpc x86_64
-            mv ./eth-rpc ./eth-rpc-${VERSION}
-            sha256sum ./eth-rpc-${VERSION} > ./eth-rpc-${VERSION}.sha256
-            zip -rm ./eth-rpc-${VERSION}.zip ./eth-rpc-${VERSION} ./eth-rpc-${VERSION}.sha256
-            zip -T ./eth-rpc-${VERSION}.zip
-
-            # eth-rpc arm64
-            mv ./eth-rpc-arm64 ./eth-rpc-${VERSION}-arm64
-            sha256sum ./eth-rpc-${VERSION}-arm64 > ./eth-rpc-${VERSION}-arm64.sha256
-            zip -rm ./eth-rpc-${VERSION}-linux-arm64.zip ./eth-rpc-${VERSION}-arm64 ./eth-rpc-${VERSION}-arm64.sha256
-            zip -T ./eth-rpc-${VERSION}-linux-arm64.zip
-
             # polymesh wasm
             for file in *.wasm; do sha256sum "$file" > "${file}.sha256"; done
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm ./*.wasm.sha256 ./*-srtool-digest.json
             zip -T ./polymesh-${VERSION}-wasm.zip
 
             # checksum file
-            sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip ./eth-rpc-${VERSION}.zip ./eth-rpc-${VERSION}-linux-arm64.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
-            sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip ./eth-rpc-${VERSION}.zip ./eth-rpc-${VERSION}-linux-arm64.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
+            sha256sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha256: /' > ./polymesh-${VERSION}.CHECKSUMS
+            sha512sum ./polymesh-${VERSION}.zip ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-wasm.zip | sed 's/^/sha512: /' >> ./polymesh-${VERSION}.CHECKSUMS
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete v${VERSION} ./
 
 workflows:
@@ -906,7 +894,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-amd64-distroless:
           requires:
             - build
@@ -917,7 +904,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-ci-runtime:
           requires:
             - build-ci
@@ -925,7 +911,6 @@ workflows:
             branches:
               only:
                 - develop
-                - develop_v8
       - build-docker-arm64-debian:
           requires:
             - build-arm64
@@ -936,7 +921,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -947,7 +931,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-debian:
           requires:
             - build-docker-amd64-debian
@@ -959,7 +942,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-distroless:
           requires:
             - build-docker-amd64-distroless
@@ -971,7 +953,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-eth-rpc-amd64-debian:
           requires:
             - build
@@ -982,7 +963,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-eth-rpc-arm64-debian:
           requires:
             - build-arm64
@@ -993,7 +973,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-eth-rpc-debian:
           requires:
             - build-docker-eth-rpc-amd64-debian
@@ -1005,7 +984,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - publish-github-release:
           requires:
             - build
@@ -1026,7 +1004,6 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
-                - develop_v8
           chain: testnet
           package: polymesh-runtime-testnet
           runtime_dir: pallets/runtime/testnet
@@ -1039,7 +1016,6 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
-                - develop_v8
           chain: mainnet
           package: polymesh-runtime-mainnet
           runtime_dir: pallets/runtime/mainnet
@@ -1050,7 +1026,6 @@ workflows:
             branches:
               only:
                 - develop
-                - develop_v8
           chain: develop
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop
