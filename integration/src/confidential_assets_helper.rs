@@ -2,7 +2,8 @@ use ark_ec::short_weierstrass::SWCurveConfig;
 use polymesh_dart::{
     BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, FeeAccountAssetState,
     FeeAccountRegistrationProof, FeeAccountTopupProof, FeePaymentWithBatchedProofs,
-    InstantSettlementLegAffirmations, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
+    InstantSettlementLegAffirmations, LegConfig, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
+    FEE_ASSET_ID,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -178,15 +179,15 @@ pub fn create_keys() -> AccountKeys {
 }
 
 pub struct DartUserAccountAssetState {
-    account: AccountKeyPair,
+    keys: AccountKeys,
     pub asset_state: AccountAssetState,
     pub leaf_index: Option<LeafIndex>,
 }
 
 impl DartUserAccountAssetState {
-    pub fn new(asset_state: AccountAssetState, account: &AccountKeyPair) -> Self {
+    pub fn new(asset_state: AccountAssetState, keys: &AccountKeys) -> Self {
         Self {
-            account: account.clone(),
+            keys: keys.clone(),
             asset_state,
             leaf_index: None,
         }
@@ -205,12 +206,12 @@ impl DartUserAccountAssetState {
         if let Some((leaf_index, account_leaf)) = get_account_leaf_inserted(res).await? {
             // Get the expect new account commitment.
             let expected_leaf = if let Some(state) = &self.asset_state.pending_state {
-                let leaf = state.commitment(&self.account)?.as_leaf_value()?;
+                let leaf = state.commitment(&self.keys)?.as_leaf_value()?;
                 let nullifier = state.nullifier()?;
 
                 log::debug!(
                     "{action}: pk={:?} Updating leaf index: {}, pending state balance: {}, leaf: {:?}, nullifier: {:?}",
-                    self.account.public, leaf_index, state.balance, leaf, nullifier
+                    self.keys.acct.public, leaf_index, state.balance, leaf, nullifier
                 );
 
                 leaf
@@ -218,13 +219,13 @@ impl DartUserAccountAssetState {
                 let leaf = self
                     .asset_state
                     .current_state
-                    .commitment(&self.account)?
+                    .commitment(&self.keys)?
                     .as_leaf_value()?;
                 let nullifier = self.asset_state.current_state.nullifier()?;
 
                 log::debug!(
                     "{action}: pk={:?} No pending state in account asset when updating leaf index: {leaf_index}, leaf: {:?}, nullifier: {:?}",
-                    self.account.public, leaf, nullifier,
+                    self.keys.acct.public, leaf, nullifier,
                 );
 
                 leaf
@@ -705,7 +706,7 @@ impl DartProofSubmitter {
         symbol: &str,
         decimals: u8,
         description: &str,
-        mediators: BTreeSet<EncryptionPublicKey>,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
         auditors: BTreeSet<EncryptionPublicKey>,
     ) -> Result<DartAssetId> {
         let mut res = self
@@ -912,13 +913,13 @@ impl DartUserInner {
             let params = get_account_curve_tree_parameters();
             let (proof, asset_state) = AccountAssetRegistrationProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 asset_id,
                 0,
                 &did.0[..],
                 params,
             )?;
-            let asset_state = DartUserAccountAssetState::new(asset_state, &self.keys.acct);
+            let asset_state = DartUserAccountAssetState::new(asset_state, &self.keys);
             (proof, asset_state)
         };
 
@@ -956,7 +957,7 @@ impl DartUserInner {
         symbol: &str,
         decimals: u8,
         description: &str,
-        mediators: BTreeSet<EncryptionPublicKey>,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
         auditors: BTreeSet<EncryptionPublicKey>,
     ) -> Result<DartAssetId> {
         self.submitter
@@ -984,7 +985,7 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             AssetMintingProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 asset_state.as_mut(),
                 account_lookup,
                 amount,
@@ -1063,7 +1064,7 @@ impl DartUserInner {
         amount: DartBalance,
     ) -> Result<SenderAffirmationProof> {
         // Try to decrypt the leg as the sender
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::sender(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
 
         // Check the leg asset and amount.
         if leg.asset_id() != asset_id || leg.amount() != amount {
@@ -1091,11 +1092,10 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             SenderAffirmationProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 amount,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1113,7 +1113,7 @@ impl DartUserInner {
         amount: DartBalance,
     ) -> Result<ReceiverAffirmationProof> {
         // Try to decrypt the leg as the receiver
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::receiver(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
 
         // Check the leg asset and amount.
         if leg.asset_id() != asset_id || leg.amount() != amount {
@@ -1141,10 +1141,9 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             ReceiverAffirmationProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1224,7 +1223,7 @@ impl DartUserInner {
         amount: DartBalance,
     ) -> Result<InstantSenderAffirmationProof> {
         // Try to decrypt the leg as the sender
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::sender(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
 
         // Check the leg asset and amount.
         if leg.asset_id() != asset_id || leg.amount() != amount {
@@ -1252,11 +1251,10 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             InstantSenderAffirmationProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 amount,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1274,7 +1272,7 @@ impl DartUserInner {
         amount: DartBalance,
     ) -> Result<InstantReceiverAffirmationProof> {
         // Try to decrypt the leg as the receiver
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::receiver(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
 
         // Check the leg asset and amount.
         if leg.asset_id() != asset_id || leg.amount() != amount {
@@ -1302,11 +1300,10 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             InstantReceiverAffirmationProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 amount,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1411,14 +1408,9 @@ impl DartUserInner {
 
         // Generate mediator affirmation proof.
         let mut rng = rand::thread_rng();
+        let med_enc = leg_enc.mediator_encryption(mediator_id)?;
         Ok(MediatorAffirmationProof::new(
-            &mut rng,
-            &leg_ref,
-            leg.asset_id,
-            &leg_enc,
-            &self.keys.enc,
-            0,
-            accept,
+            &mut rng, &leg_ref, &med_enc, &self.keys, 0, accept,
         )?)
     }
 
@@ -1465,7 +1457,7 @@ impl DartUserInner {
             .ok_or_else(|| anyhow::anyhow!("Settlement leg not found"))?;
 
         // Try to decrypt the leg as the receiver
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::receiver(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
         let asset_id = leg.asset_id();
         let amount = leg.amount();
 
@@ -1484,11 +1476,10 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             ReceiverClaimProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 amount,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1520,7 +1511,7 @@ impl DartUserInner {
             .ok_or_else(|| anyhow::anyhow!("Settlement leg not found"))?;
 
         // Try to decrypt the leg as the sender
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::sender(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
 
         // Get our current account asset state.
         let asset_state = self
@@ -1537,10 +1528,9 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             SenderCounterUpdateProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1568,7 +1558,7 @@ impl DartUserInner {
             .ok_or_else(|| anyhow::anyhow!("Settlement leg not found"))?;
 
         // Try to decrypt the leg as the sender
-        let (leg, leg_enc_rand) = leg_enc.decrypt_with_randomness(LegRole::sender(), &self.keys)?;
+        let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
         let asset_id = leg.asset_id();
         let amount = leg.amount();
 
@@ -1587,11 +1577,10 @@ impl DartUserInner {
             let mut rng = rand::thread_rng();
             SenderReversalProof::new(
                 &mut rng,
-                &self.keys.acct,
+                &self.keys,
                 &leg_ref,
                 amount,
                 &leg_enc,
-                &leg_enc_rand,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1665,7 +1654,7 @@ impl DartUser {
         symbol: &str,
         decimals: u8,
         description: &str,
-        mediators: BTreeSet<EncryptionPublicKey>,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
         auditors: BTreeSet<EncryptionPublicKey>,
     ) -> Result<DartAssetId> {
         self.0
@@ -2044,9 +2033,9 @@ impl DartAssetTester {
             // Register mediators' encryption key.
             for &mediator in mediators {
                 let mediator = mediator.clone();
-                tasks.push(tokio::spawn(async move {
-                    mediator.register_encryption_key().await
-                }));
+                tasks.push(tokio::spawn(
+                    async move { mediator.register_account().await },
+                ));
             }
             // Register auditors' encryption key.
             for &auditor in auditors {
@@ -2110,15 +2099,20 @@ impl DartTestAssetInner {
         asset_issuer.register_account().await?;
 
         // Create mediator user and keys.
+        let mut track_enc_keys = BTreeSet::new();
         let mut auditor_keys = BTreeSet::new();
         for &auditor in auditors {
             auditor.register_encryption_key().await?;
-            auditor_keys.insert(auditor.public_keys().await.enc);
+            let enc_key = auditor.public_keys().await.enc;
+            track_enc_keys.insert(enc_key);
+            auditor_keys.insert(enc_key);
         }
-        let mut mediator_keys = BTreeSet::new();
+        let mut mediator_keys = BTreeMap::new();
         for &mediator in mediators {
-            mediator.register_encryption_key().await?;
-            mediator_keys.insert(mediator.public_keys().await.enc);
+            mediator.register_account().await?;
+            let med_keys = mediator.public_keys().await;
+            track_enc_keys.insert(med_keys.enc);
+            mediator_keys.insert(med_keys.acct, med_keys.enc);
         }
 
         // Create the asset.
@@ -2152,24 +2146,21 @@ impl DartTestAssetInner {
         self.mediators.len()
     }
 
-    pub fn mediators(&self) -> Vec<(MediatorId, DartUser)> {
-        self.mediators
-            .iter()
-            .enumerate()
-            .map(|(id, m)| (id as MediatorId, m.clone()))
-            .collect()
+    pub fn mediators(&self) -> Vec<DartUser> {
+        self.mediators.clone()
     }
 
-    pub async fn asset_state(&self) -> AssetState {
+    pub async fn asset_state(&self) -> Result<AssetState> {
         let mut auditors = Vec::new();
         for auditor in &self.auditors {
             auditors.push(auditor.public_keys().await.enc);
         }
         let mut mediators = Vec::new();
         for mediator in &self.mediators {
-            mediators.push(mediator.public_keys().await.enc);
+            let med_keys = mediator.public_keys().await;
+            mediators.push((med_keys.acct, med_keys.enc));
         }
-        AssetState::new(self.id, &mediators, &auditors)
+        Ok(AssetState::new::<()>(self.id, &mediators, &auditors)?)
     }
 
     pub async fn mint_more(&mut self, tester: &DartAssetTester, amount: DartBalance) -> Result<()> {
@@ -2243,16 +2234,16 @@ impl DartTestAsset {
         account_tree: &AccountCurveTree,
         asset_issuer: &DartUser,
         name: &str,
-        auditors: &[&DartUser],
         mediators: &[&DartUser],
+        auditors: &[&DartUser],
         mint_amount: Option<DartBalance>,
     ) -> Result<Self> {
         let inner = DartTestAssetInner::new(
             account_tree,
             asset_issuer,
             name,
-            auditors,
             mediators,
+            auditors,
             mint_amount,
         )
         .await?;
@@ -2280,12 +2271,12 @@ impl DartTestAsset {
         inner.issuer.clone()
     }
 
-    pub async fn mediators(&self) -> Vec<(MediatorId, DartUser)> {
+    pub async fn mediators(&self) -> Vec<DartUser> {
         let inner = self.inner.read().await;
         inner.mediators()
     }
 
-    pub async fn asset_state(&self) -> AssetState {
+    pub async fn asset_state(&self) -> Result<AssetState> {
         let inner = self.inner.read().await;
         inner.asset_state().await
     }
@@ -2342,7 +2333,7 @@ pub struct DartSettlementLegState {
     pub receiver: DartUser,
     pub asset_id: DartAssetId,
     pub amount: DartBalance,
-    pub mediators: Vec<(MediatorId, DartUser)>,
+    pub mediators: Vec<DartUser>,
 }
 
 impl DartSettlementLegState {
@@ -2366,7 +2357,7 @@ impl DartSettlementLegState {
     }
 
     pub async fn mediators_affirm(&self, tester: &DartAssetTester, accept: bool) -> Result<()> {
-        for (id, mediator) in &self.mediators {
+        for (id, mediator) in self.mediators.iter().enumerate() {
             log::debug!(
                 "Leg {:?}: Mediator {:?} affirming with keys {:?}, accept={}",
                 self.leg_ref,
@@ -2378,7 +2369,7 @@ impl DartSettlementLegState {
                 .mediator_affirmation(
                     tester,
                     self.leg_ref,
-                    *id,
+                    id as _,
                     accept,
                     Some((self.asset_id, self.amount)),
                 )
@@ -2452,7 +2443,7 @@ impl DartSettlementState {
                 .get_asset(asset_id)
                 .await
                 .ok_or_else(|| anyhow::anyhow!("Asset not registered: {}", asset_id))?;
-            let asset_state = asset.asset_state().await;
+            let asset_state = asset.asset_state().await?;
 
             // Add the asset path to the settlement.
             let path = asset_tree
@@ -2465,6 +2456,8 @@ impl DartSettlementState {
                 receiver: leg.receiver.public_keys().await,
                 asset: asset_state,
                 amount,
+                config: LegConfig::default(),
+                public_enc_keys: vec![],
             });
             leg_states.push(DartSettlementLegState {
                 leg_ref,
@@ -2496,7 +2489,7 @@ impl DartSettlementState {
                 let leg_ref = leg_state.leg_ref;
                 let asset_id = leg_state.asset_id;
                 let amount = leg_state.amount;
-                let leg_enc = &leg.leg_enc;
+                let leg_enc = leg.leg_enc();
                 // Sender instant affirmation proof.
                 let sender = leg_state
                     .sender
@@ -2509,9 +2502,9 @@ impl DartSettlementState {
                     .await?;
 
                 let mut mediators = Vec::new();
-                for (id, mediator) in &leg_state.mediators {
+                for (id, mediator) in leg_state.mediators.iter().enumerate() {
                     let mediator_proof = mediator
-                        .mediator_affirmation_proof(tester, leg_ref, *id, true, None)
+                        .mediator_affirmation_proof(tester, leg_ref, id as _, true, None)
                         .await?;
                     mediators.push(mediator_proof);
                 }

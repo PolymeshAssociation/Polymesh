@@ -2,6 +2,7 @@
 // Copyright (c) 2023 Polymesh
 
 use frame_benchmarking::benchmarks;
+use sp_std::vec;
 use sp_std::vec::Vec;
 
 use rand_chacha::ChaCha20Rng as Rng;
@@ -33,15 +34,15 @@ benchmarks! {
         let mut account_commitments = Vec::with_capacity(l as usize);
         for asset_id in 0..l {
             // Generate an initial account state for each asset.
-            let account_state = keys.acct.account_state(asset_id, 0, &[42]).expect("Failed to create account state");
-            let account_state_commitment = account_state.commitment(&keys.acct).expect("Failed to get account state commitment");
+            let (account_state, _rho_rand) = keys.account_state(asset_id, 0, &[42]).expect("Failed to create account state");
+            let account_state_commitment = account_state.commitment(&keys).expect("Failed to get account state commitment");
             let nullifier = account_state.nullifier().expect("Failed to get account state nullifier");
             account_commitments.push((account_state_commitment, nullifier));
         }
 
         // Insert the account state commitments into the account curve tree.
         for (account_commitment, nullifier) in account_commitments {
-            Pallet::<T>::insert_account_leaf(account_commitment, nullifier)
+            Pallet::<T>::insert_account_leaf(account_commitment, Some(nullifier))
                 .expect("Failed to insert account leaf");
         }
     }: {
@@ -170,22 +171,15 @@ benchmarks! {
         // Register the asset issuer's account.
         asset_issuer.register_account();
 
-        // Create the maximum number of auditors.
-        let mut auditor_keys = BoundedBTreeSet::new();
-        for i in 0..<T as Config>::MaxAssetAuditors::get() {
-            let auditor = DartUser::<T>::auditor_user("Auditor", 0, i);
-            auditor.register_account();
-            auditor_keys
-                .try_insert(auditor.public_keys().enc)
-                .expect("Failed to push auditor keys");
-        }
         // Create the maximum number of mediators.
-        let mut mediator_keys = BoundedBTreeSet::new();
+        let auditor_keys = BoundedBTreeSet::new();
+        let mut mediator_keys = BoundedBTreeMap::new();
         for i in 0..<T as Config>::MaxAssetMediators::get() {
             let mediator = DartUser::<T>::auditor_user("Mediator", 0, i);
             mediator.register_account();
+            let med_keys = mediator.public_keys();
             mediator_keys
-                .try_insert(mediator.public_keys().enc)
+                .try_insert(med_keys.acct, med_keys.enc)
                 .expect("Failed to push mediator keys");
         }
 
@@ -222,7 +216,7 @@ benchmarks! {
             let account = user.new_account("Batching account", idx);
 
             accounts.push(account.keys());
-            account_assets.push((account.keys().acct.clone(), asset.id, 0));
+            account_assets.push((account.keys(), asset.id, 0));
         }
 
         // Register all the accounts first.
@@ -396,7 +390,7 @@ benchmarks! {
 
         for asset_idx in 0..l {
             // Create asset issuer and an asset.
-            let mut asset = DartTestAsset::<T>::new(&mut off_chain, "Test Asset", asset_idx, 2, 2, Some(1000));
+            let mut asset = DartTestAsset::<T>::new(&mut off_chain, "Test Asset", asset_idx, 2, 0, Some(1000));
             let asset_state = asset.asset_state();
 
             // Create investor.
@@ -407,6 +401,8 @@ benchmarks! {
                 receiver: user.public_keys(),
                 asset: asset_state,
                 amount: 500,
+                config: Default::default(),
+                public_enc_keys: vec![],
             })
         }
 
@@ -423,7 +419,7 @@ benchmarks! {
 
         // Make sure there is at least one leave path.
         if paths.is_empty() {
-            let asset = DartTestAsset::<T>::new(&mut off_chain, "Test Asset", 0, 2, 2, Some(1000));
+            let asset = DartTestAsset::<T>::new(&mut off_chain, "Test Asset", 0, 2, 0, Some(1000));
             let path = off_chain
                 .asset_tree
                 .get_path_and_root_by_index(asset.id as LeafIndex)

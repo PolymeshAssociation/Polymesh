@@ -10,8 +10,8 @@ use rand_core::SeedableRng;
 use polymesh_dart::curve_tree::get_account_curve_tree_parameters;
 use polymesh_dart::{
     AccountPublicKey, AccountPublicKeys, AccountRegistrationProof, AccountStateCommitment,
-    AccountStateNullifier, AccountStateUpdate, AssetId, AssetMintingProof, Balance,
-    BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
+    AccountStateNullifier, AccountStateUpdate, AssetId, AssetKeysLookup, AssetMintingProof,
+    Balance, BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, DartLimits, EncryptionKeyRegistrationProof, EncryptionPublicKey,
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
     FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
@@ -50,6 +50,7 @@ pub enum VerifyDartAssetRequest {
     },
     CreateSettlement {
         root: AssetTreeRoot,
+        asset_lookup: AssetKeysLookup,
         proof: SettlementProof<PolymeshPrivateLimits>,
     },
     SenderAffirmation {
@@ -138,10 +139,14 @@ impl VerifyDartAssetRequest {
                     .verify(&did.0[..], root, &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
-            Self::CreateSettlement { root, proof } => {
+            Self::CreateSettlement {
+                root,
+                asset_lookup,
+                proof,
+            } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .batched_verify(root, &mut rng)
+                    .batched_verify(root, &asset_lookup, &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
             Self::SenderAffirmation {
@@ -185,7 +190,8 @@ impl VerifyDartAssetRequest {
                     .map_err(|_| Error::VerifyFailed)?;
             }
             Self::MediatorAffirmation { leg_enc, proof } => {
-                proof.verify(&leg_enc).map_err(|_| Error::VerifyFailed)?;
+                let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
+                proof.verify(&med_enc).map_err(|_| Error::VerifyFailed)?;
             }
             Self::SenderCounterUpdate {
                 leg_enc,
@@ -269,7 +275,6 @@ impl VerifyDartAssetRequest {
                         asset_id: state.asset_id,
                         counter: state.counter,
                         account_state_commitment: state.account_state_commitment,
-                        nullifier: state.nullifier,
                     })
                     .collect();
                 return Ok(VerifyDartProofResponse::BatchedAccountAssetRegistration {
@@ -288,7 +293,7 @@ impl VerifyDartAssetRequest {
                 });
             }
             Self::CreateSettlement { proof, .. } => {
-                let legs = proof.legs.iter().map(|leg| leg.leg_enc.clone()).collect();
+                let legs = proof.legs.iter().map(|leg| leg.leg_enc().clone()).collect();
                 return Ok(VerifyDartProofResponse::CreateSettlement {
                     id: proof.settlement_ref(),
                     memo: proof.memo.clone(),
@@ -457,11 +462,10 @@ impl VerifyDartAssetRequest {
 
 #[derive(Encode, Decode, Clone)]
 pub struct RegisterAccountAsset {
-    pub account: AccountPublicKey,
+    pub account: AccountPublicKeys,
     pub asset_id: AssetId,
     pub counter: NullifierSkGenCounter,
     pub account_state_commitment: AccountStateCommitment,
-    pub nullifier: AccountStateNullifier,
 }
 
 #[derive(Encode, Decode, Clone)]
