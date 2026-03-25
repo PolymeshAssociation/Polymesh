@@ -49,14 +49,25 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 #ark-ff = { path = "../../arkworks-algebra/ff" }
 #ark-pallas = { path = "../../arkworks-algebra/curves/pallas" }
 #ark-vesta = { path = "../../arkworks-algebra/curves/vesta" }
+#ark-helios = { path = "../../arkworks-algebra/curves/helios" }
+#ark-selene = { path = "../../arkworks-algebra/curves/selene" }
+#ark-wei25519 = { path = "../../arkworks-algebra/curves/wei25519" }
+#ark-curve25519 = { path = "../../arkworks-algebra/curves/curve25519" }
+#ark-ed25519 = { path = "../../arkworks-algebra/curves/ed25519" }
+
 ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 
 [features]
-default = []
+default = ["current_release"]
 
 debug = []
 
@@ -101,11 +112,11 @@ polymesh-api-tester = { version = "0.10.1", default-features = false, features =
 
 # DART Assets
 polymesh-dart = { version = "0.1.0", default-features = false, features = [
-  "std",
-  "asm",
-  "parallel",
-  "backend_bp",
-  "async_tree",
+    "std",
+    "asm",
+    "parallel",
+    "backend_bp",
+    "async_tree",
 ] }
 ark-ec = { version = "0.5", default-features = false }
 
