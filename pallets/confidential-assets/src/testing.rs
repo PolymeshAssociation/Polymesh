@@ -289,7 +289,7 @@ impl<T: Config> DartUserInner<T> {
 
         // Generate the account asset registration proof.
         let req = GenerateDartProofRequest::AccountAssetRegistration {
-            key: self.keys.acct.clone(),
+            keys: self.keys.clone(),
             did: self.did(),
             asset_id,
             counter: 0,
@@ -333,12 +333,11 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the mint asset proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::MintAsset {
-            key,
+            keys: self.keys.clone(),
             amount,
             path: off_chain
                 .account_tree
@@ -394,9 +393,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the sender affirmation proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::SenderAffirmation {
             keys: self.keys.clone(),
@@ -440,9 +438,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the instant sender affirmation proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::InstantSenderAffirmation {
             keys: self.keys.clone(),
@@ -505,9 +502,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the receiver affirmation proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::ReceiverAffirmation {
             keys: self.keys.clone(),
@@ -550,9 +546,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the instant receiver affirmation proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::InstantReceiverAffirmation {
             keys: self.keys.clone(),
@@ -615,9 +610,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the receiver claim proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::ReceiverClaim {
             keys: self.keys.clone(),
@@ -680,9 +674,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the sender revert proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::SenderRevert {
             keys: self.keys.clone(),
@@ -743,9 +736,8 @@ impl<T: Config> DartUserInner<T> {
             .expect("Asset not registered for user");
 
         // Generate the sender counter update proof.
-        let key = self.keys.acct.clone();
         let current_state_commitment = account_state
-            .current_commitment(&key)
+            .current_commitment(&self.keys)
             .expect("current commitment");
         let req = GenerateDartProofRequest::SenderCounterUpdate {
             keys: self.keys.clone(),
@@ -810,8 +802,7 @@ impl<T: Config> DartUserInner<T> {
         let req = GenerateDartProofRequest::MediatorAffirmation {
             leg_ref,
             leg_enc: leg_enc.clone(),
-            asset_id: leg.asset_id,
-            key: self.keys.enc.clone(),
+            keys: self.keys.clone(),
             key_index: 0,
             accept,
         };
@@ -1196,13 +1187,14 @@ impl<T: Config> DartTestAsset<T> {
             auditors.push(auditor);
         }
         let mut mediators = Vec::new();
-        let mut mediator_keys = BoundedBTreeSet::new();
+        let mut mediator_keys = BoundedBTreeMap::new();
         for i in 0..mediator_count {
             let mediator = DartUser::<T>::auditor_user("Mediator", asset_idx, i);
             // Register the mediator's keys.
-            mediator.register_encryption_key();
+            mediator.register_account();
+            let med_keys = mediator.public_keys();
             mediator_keys
-                .try_insert(mediator.public_keys().enc)
+                .try_insert(med_keys.acct, med_keys.enc)
                 .expect("Failed to push mediator keys");
             mediators.push(mediator);
         }
@@ -1275,9 +1267,12 @@ impl<T: Config> DartTestAsset<T> {
         let mediators = self
             .mediators
             .iter()
-            .map(|m| m.public_keys().enc)
+            .map(|m| {
+                let keys = m.public_keys();
+                (keys.acct, keys.enc)
+            })
             .collect::<Vec<_>>();
-        AssetState::new(self.id, &mediators, &auditors)
+        AssetState::new(self.id, &mediators, &auditors).expect("Failed to create AssetState")
     }
 
     pub fn mint_more(&mut self, off_chain: &mut OffchainProverState<T>, amount: DartBalance) {
@@ -1407,6 +1402,8 @@ impl<T: Config> DartSettlementState<T> {
                 receiver: user.public_keys(),
                 asset: asset_data.clone(),
                 amount,
+                config: Default::default(),
+                public_enc_keys: vec![],
             });
             investors.push(user);
         }

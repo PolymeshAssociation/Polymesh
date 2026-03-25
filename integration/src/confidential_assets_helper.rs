@@ -2098,24 +2098,26 @@ impl DartTestAssetInner {
         asset_issuer.register_account().await?;
 
         // Create mediator user and keys.
+        let mut track_enc_keys = BTreeSet::new();
         let mut auditor_keys = BTreeSet::new();
         for &auditor in auditors {
             auditor.register_encryption_key().await?;
-            auditor_keys.insert(auditor.public_keys().await.enc);
+            let enc_key = auditor.public_keys().await.enc;
+            track_enc_keys.insert(enc_key);
+            auditor_keys.insert(enc_key);
         }
         let mut mediator_keys = BTreeMap::new();
         for &mediator in mediators {
             mediator.register_account().await?;
             let med_keys = mediator.public_keys().await;
-            // Ensure that the mediator's encryption key is in the auditor keys set.
-            auditor_keys.insert(med_keys.enc);
+            track_enc_keys.insert(med_keys.enc);
             mediator_keys.insert(med_keys.acct, med_keys.enc);
         }
         // Mediator with index.
         let mut mediator_keys_with_index = Vec::with_capacity(mediators.len());
         for &mediator in mediators {
             let med_keys = mediator.public_keys().await;
-            let enc_index = auditor_keys
+            let enc_index = track_enc_keys
                 .iter()
                 .position(|k| k == &med_keys.enc)
                 .expect("Mediator encryption key not found in auditor keys")

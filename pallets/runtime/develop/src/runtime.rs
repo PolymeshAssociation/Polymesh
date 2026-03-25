@@ -203,6 +203,7 @@ type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<50>;
 type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
 type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
 type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<4>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -535,6 +536,7 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
     type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
     type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
 }
 
 impl polymesh_dart::DartLimits for Runtime {
@@ -547,6 +549,7 @@ impl polymesh_dart::DartLimits for Runtime {
     type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
     type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
     type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

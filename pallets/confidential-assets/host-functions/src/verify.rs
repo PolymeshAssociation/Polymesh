@@ -141,7 +141,7 @@ impl VerifyDartAssetRequest {
             Self::CreateSettlement { root, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .batched_verify(root, &mut rng)
+                    .batched_verify(root, &|_| todo!(""), &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
             Self::SenderAffirmation {
@@ -269,7 +269,6 @@ impl VerifyDartAssetRequest {
                         asset_id: state.asset_id,
                         counter: state.counter,
                         account_state_commitment: state.account_state_commitment,
-                        nullifier: state.nullifier,
                     })
                     .collect();
                 return Ok(VerifyDartProofResponse::BatchedAccountAssetRegistration {
@@ -288,7 +287,7 @@ impl VerifyDartAssetRequest {
                 });
             }
             Self::CreateSettlement { proof, .. } => {
-                let legs = proof.legs.iter().map(|leg| leg.leg_enc.clone()).collect();
+                let legs = proof.legs.iter().map(|leg| leg.leg_enc().clone()).collect();
                 return Ok(VerifyDartProofResponse::CreateSettlement {
                     id: proof.settlement_ref(),
                     memo: proof.memo.clone(),
@@ -457,11 +456,10 @@ impl VerifyDartAssetRequest {
 
 #[derive(Encode, Decode, Clone)]
 pub struct RegisterAccountAsset {
-    pub account: AccountPublicKey,
+    pub account: AccountPublicKeys,
     pub asset_id: AssetId,
     pub counter: NullifierSkGenCounter,
     pub account_state_commitment: AccountStateCommitment,
-    pub nullifier: AccountStateNullifier,
 }
 
 #[derive(Encode, Decode, Clone)]
