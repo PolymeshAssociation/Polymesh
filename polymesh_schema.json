@@ -565,8 +565,7 @@
     "PortfolioKind": {
       "_enum": {
         "Default": "",
-        "User": "PortfolioNumber",
-        "AccountId": "AccountId32"
+        "User": "PortfolioNumber"
       }
     },
     "PortfolioId": {
@@ -701,6 +700,35 @@
       "_enum": {
         "Portfolio": "PortfolioId",
         "Account": "AccountId32"
+      }
+    },
+    "LegV7": {
+      "_enum": {
+        "Fungible": "FungibleLegV7",
+        "NonFungible": "NonFungibleLegV7",
+        "OffChain": "OffChainLeg"
+      }
+    },
+    "FungibleLegV7": {
+      "sender": "PortfolioIdV7",
+      "receiver": "PortfolioIdV7",
+      "assetId": "PolymeshAssetId",
+      "amount": "Balance"
+    },
+    "NonFungibleLegV7": {
+      "sender": "PortfolioIdV7",
+      "receiver": "PortfolioIdV7",
+      "nfts": "NFTs"
+    },
+    "PortfolioIdV7": {
+      "did": "IdentityId",
+      "kind": "PortfolioKindV7"
+    },
+    "PortfolioKindV7": {
+      "_enum": {
+        "Default": "",
+        "User": "PortfolioNumber",
+        "AccountId": "AccountId32"
       }
     }
   },
@@ -1049,6 +1077,37 @@
             "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
             "params": [
               {
+                "name": "sender_portfolio",
+                "type": "PortfolioIdV7"
+              },
+              {
+                "name": "receiver_portfolio",
+                "type": "PortfolioIdV7"
+              },
+              {
+                "name": "asset_id",
+                "type": "PolymeshAssetId"
+              },
+              {
+                "name": "transfer_value",
+                "type": "Balance"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
+              }
+            ],
+            "type": "Vec<DispatchError>"
+          }
+        },
+        "version": 4
+      },
+      {
+        "methods": {
+          "transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
+            "params": [
+              {
                 "name": "sender",
                 "type": "AssetHolder"
               },
@@ -1072,7 +1131,7 @@
             "type": "Vec<DispatchError>"
           }
         },
-        "version": 4
+        "version": 5
       }
     ],
     "GroupApi": [
@@ -1154,6 +1213,33 @@
             "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
             "params": [
               {
+                "name": "sender_portfolio",
+                "type": "PortfolioIdV7"
+              },
+              {
+                "name": "receiver_portfolio",
+                "type": "PortfolioIdV7"
+              },
+              {
+                "name": "nfts",
+                "type": "NFTs"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
+              }
+            ],
+            "type": "Vec<DispatchError>"
+          }
+        },
+        "version": 2
+      },
+      {
+        "methods": {
+          "transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
+            "params": [
+              {
                 "name": "sender",
                 "type": "AssetHolder"
               },
@@ -1173,10 +1259,83 @@
             "type": "Vec<DispatchError>"
           }
         },
-        "version": 2
+        "version": 3
       }
     ],
     "SettlementApi": [
+      {
+        "methods": {
+          "get_execute_instruction_info": {
+            "description": "Returns an ExecuteInstructionInfo instance containing the consumed weight and the number of tokens in the instruction.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              }
+            ],
+            "type": "Option<ExecuteInstructionInfo>"
+          },
+          "get_affirmation_count": {
+            "description": "Returns an AffirmationCount instance containing the number of assets being sent/received from portfolios, and the number of off-chain assets in the instruction.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              },
+              {
+                "name": "portfolios",
+                "type": "Vec<PortfolioIdV7>"
+              }
+            ],
+            "type": "AffirmationCount"
+          },
+          "get_transfer_report": {
+            "description": "Returns a vector containing all errors for the transfer. An empty vec means there's no error.",
+            "params": [
+              {
+                "name": "leg",
+                "type": "LegV7"
+              },
+              {
+                "name": "skip_locked_check",
+                "type": "bool"
+              }
+            ],
+            "type": "Vec<DispatchError>"
+          },
+          "get_execute_instruction_report": {
+            "description": "Returns a vector containing all errors for the execution. An empty vec means there's no error.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              }
+            ],
+            "type": "Vec<DispatchError>"
+          },
+          "instruction_asset_count": {
+            "description": "Returns the AssetCount for the given instruction.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              }
+            ],
+            "type": "AssetCount"
+          },
+          "lock_instruction_weight": {
+            "description": "Returns the weight for executing lock_instruction.",
+            "params": [
+              {
+                "name": "instruction_id",
+                "type": "InstructionId"
+              }
+            ],
+            "type": "Result<Weight, DispatchError>"
+          }
+        },
+        "version": 2
+      },
       {
         "methods": {
           "get_execute_instruction_info": {
@@ -1248,7 +1407,7 @@
             "type": "Result<Weight, DispatchError>"
           }
         },
-        "version": 2
+        "version": 3
       }
     ],
     "PipsApi": [
