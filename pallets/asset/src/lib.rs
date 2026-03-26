@@ -2210,6 +2210,10 @@ impl<T: AssetConfig> Pallet<T> {
             false,
         )?;
 
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding_ctx)?;
+        ensure!(sender_did != holder_did, Error::<T>::SenderSameAsReceiver);
+
         Self::validate_asset_transfer(
             asset_id,
             &sender,
@@ -2218,8 +2222,6 @@ impl<T: AssetConfig> Pallet<T> {
             true,
             weight_meter,
         )?;
-
-        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding_ctx)?;
         Self::unverified_transfer_asset(
             sender.clone(),
             caller_holding_ctx,
