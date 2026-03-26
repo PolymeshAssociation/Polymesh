@@ -106,19 +106,23 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
             Error::<T>::CommissionTooHigh
         );
 
-        let stash_did = pallet_identity::Pallet::<T>::get_identity(stash)
-            .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
-        let mut stash_did_prefs = PermissionedIdentity::<T>::get(stash_did)
-            .ok_or(Error::<T>::StashIdentityNotPermissioned)?;
+        // Only increment running_count and ref count for new validators.
+        // Existing validators are already counted.
+        if !pallet_staking::Validators::<T>::contains_key(stash) {
+            let stash_did = pallet_identity::Pallet::<T>::get_identity(stash)
+                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
+            let mut stash_did_prefs = PermissionedIdentity::<T>::get(stash_did)
+                .ok_or(Error::<T>::StashIdentityNotPermissioned)?;
 
-        // Ensure the identity doesn't run more validators than the intended count
-        ensure!(
-            stash_did_prefs.running_count < stash_did_prefs.intended_count,
-            StakingError::<T>::TooManyValidators
-        );
-        stash_did_prefs.running_count += 1;
-        pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
-        PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
+            // Ensure the identity doesn't run more validators than the intended count
+            ensure!(
+                stash_did_prefs.running_count < stash_did_prefs.intended_count,
+                StakingError::<T>::TooManyValidators
+            );
+            stash_did_prefs.running_count += 1;
+            pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
+            PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
+        }
 
         Ok(())
     }
