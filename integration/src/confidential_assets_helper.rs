@@ -2173,7 +2173,7 @@ impl DartTestAssetInner {
             let med_keys = mediator.public_keys().await;
             mediators.push((med_keys.acct, med_keys.enc));
         }
-        Ok(AssetState::new(self.id, &mediators, &auditors)?)
+        Ok(AssetState::new::<()>(self.id, &mediators, &auditors)?)
     }
 
     pub async fn mint_more(&mut self, tester: &DartAssetTester, amount: DartBalance) -> Result<()> {

@@ -1848,7 +1848,11 @@ impl<T: Config> Pallet<T> {
         // Verify the settlement proof.
         let root =
             AssetCurveTreeRoots::<T>::get(root_block).ok_or(Error::<T>::CurveTreeRootNotFound)?;
-        Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement { root, proof })?;
+        Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
+            root,
+            asset_lookup: Default::default(),
+            proof,
+        })?;
 
         // Set the settlement state to pending.
         SettlementState::<T>::insert(settlement_ref, SettlementStatus::Pending);
@@ -2357,7 +2361,7 @@ impl<T: Config> Pallet<T> {
 
         // Create the Asset State.
         let asset_state =
-            AssetState::<PolymeshPrivateLimits>::new_bounded(asset_id, mediators, auditors)
+            AssetState::new_bounded::<PolymeshPrivateLimits>(asset_id, mediators, auditors)
                 .map_err(|_| Error::<T>::AssetStateInvalid)?;
         let req = UpdateAssetStateRequest::new(asset_state);
         let resp = req.update().map_err(|_| Error::<T>::AssetStateInvalid)?;

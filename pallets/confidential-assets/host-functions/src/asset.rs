@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 
 use polymesh_dart::{
-    AssetState, CompressedAffine, PolymeshPrivateLimits,
+    AssetState, CompressedAffine,
     curve_tree::{AssetTreeConfig, CompressedLeafValue},
 };
 
@@ -9,11 +9,11 @@ use crate::Error;
 
 #[derive(Clone, Encode, Decode)]
 pub struct UpdateAssetStateRequest {
-    asset: AssetState<PolymeshPrivateLimits>,
+    asset: AssetState,
 }
 
 impl UpdateAssetStateRequest {
-    pub fn new(asset: AssetState<PolymeshPrivateLimits>) -> Self {
+    pub fn new(asset: AssetState) -> Self {
         Self { asset }
     }
 }

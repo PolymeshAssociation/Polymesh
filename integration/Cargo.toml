@@ -67,7 +67,7 @@ ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebr
 ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 
 [features]
-default = ["current_release"]
+default = []
 
 debug = []
 

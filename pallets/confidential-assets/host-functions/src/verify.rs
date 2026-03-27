@@ -10,8 +10,8 @@ use rand_core::SeedableRng;
 use polymesh_dart::curve_tree::get_account_curve_tree_parameters;
 use polymesh_dart::{
     AccountPublicKey, AccountPublicKeys, AccountRegistrationProof, AccountStateCommitment,
-    AccountStateNullifier, AccountStateUpdate, AssetId, AssetMintingProof, Balance,
-    BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
+    AccountStateNullifier, AccountStateUpdate, AssetId, AssetKeysLookup, AssetMintingProof,
+    Balance, BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, DartLimits, EncryptionKeyRegistrationProof, EncryptionPublicKey,
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
     FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
@@ -50,6 +50,7 @@ pub enum VerifyDartAssetRequest {
     },
     CreateSettlement {
         root: AssetTreeRoot,
+        asset_lookup: AssetKeysLookup,
         proof: SettlementProof<PolymeshPrivateLimits>,
     },
     SenderAffirmation {
@@ -138,10 +139,14 @@ impl VerifyDartAssetRequest {
                     .verify(&did.0[..], root, &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
-            Self::CreateSettlement { root, proof } => {
+            Self::CreateSettlement {
+                root,
+                asset_lookup,
+                proof,
+            } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .batched_verify(root, &|_| todo!(""), &mut rng)
+                    .batched_verify(root, &asset_lookup, &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
             Self::SenderAffirmation {
