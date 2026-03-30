@@ -1272,7 +1272,8 @@ impl<T: Config> DartTestAsset<T> {
                 (keys.acct, keys.enc)
             })
             .collect::<Vec<_>>();
-        AssetState::new(self.id, &mediators, &auditors).expect("Failed to create AssetState")
+        AssetState::new::<PolymeshPrivateLimits>(self.id, &mediators, &auditors)
+            .expect("Failed to create AssetState")
     }
 
     pub fn mint_more(&mut self, off_chain: &mut OffchainProverState<T>, amount: DartBalance) {

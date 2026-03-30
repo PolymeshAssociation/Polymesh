@@ -34,7 +34,7 @@ benchmarks! {
         let mut account_commitments = Vec::with_capacity(l as usize);
         for asset_id in 0..l {
             // Generate an initial account state for each asset.
-            let account_state = keys.account_state(asset_id, 0, &[42]).expect("Failed to create account state");
+            let (account_state, _rho_rand) = keys.account_state(asset_id, 0, &[42]).expect("Failed to create account state");
             let account_state_commitment = account_state.commitment(&keys).expect("Failed to get account state commitment");
             let nullifier = account_state.nullifier().expect("Failed to get account state nullifier");
             account_commitments.push((account_state_commitment, nullifier));
