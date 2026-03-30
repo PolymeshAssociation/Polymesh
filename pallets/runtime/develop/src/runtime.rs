@@ -539,19 +539,6 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
 }
 
-impl polymesh_dart::DartLimits for Runtime {
-    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
-    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
-    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
-    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
-    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
-    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
-    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
-    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
-    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
-    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 mod benches {

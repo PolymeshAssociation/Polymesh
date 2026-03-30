@@ -42,7 +42,7 @@ use sp_std::vec::Vec;
 use polymesh_dart::{
     curve_tree::WrappedCurveTreeParameters, AccountPublicKey, AccountRegistrationProof,
     AccountStateCommitment, AccountStateNullifier, AccountStateUpdate,
-    AssetId as ConfidentialAssetId, AssetMintingProof, AssetState,
+    AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
     BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, BatchedProof, BatchedProofs, BatchedSettlementProof, DartLimits,
     EncryptionKeyRegistrationProof, EncryptionPublicKey, Error as DartError,
@@ -257,19 +257,13 @@ pub trait WeightInfo {
 /// Confidential asset details.
 #[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct DartAssetDetail<T: Config> {
-    /// Asset ID.
-    pub asset_id: ConfidentialAssetId,
+pub struct AssetDetails<T: Config> {
     /// Total supply of the asset.
     pub total_supply: Balance,
     /// Asset's owner DID.
     pub owner_did: IdentityId,
     /// Asset data.
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
-    /// Mediator account public keys.
-    pub mediators: MediatorKeys,
-    /// Auditor encryption public keys.
-    pub auditors: AuditorKeys,
 }
 
 pub use pallet::*;
@@ -286,10 +280,7 @@ pub mod pallet {
     /// Configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config
-        + pallet_identity::Config
-        + pallet_transaction_payment::Config
-        + DartLimits
+        frame_system::Config + pallet_identity::Config + pallet_transaction_payment::Config
     {
         /// Confidential asset pallet weights.
         type WeightInfo: WeightInfo;
@@ -675,22 +666,27 @@ pub mod pallet {
 
     /// Mapping of Confidential Asset ID to its details.
     #[pallet::storage]
-    pub(super) type DartAssetDetails<T: Config> =
-        StorageMap<_, Twox64Concat, ConfidentialAssetId, DartAssetDetail<T>, OptionQuery>;
+    pub(super) type Details<T: Config> =
+        StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetDetails<T>, OptionQuery>;
+
+    /// Mapping of Confidential Asset ID to its auditor and mediator keys.
+    #[pallet::storage]
+    pub(super) type Keys<T: Config> =
+        StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetKeys, OptionQuery>;
 
     /// A Confidential assets token name.
     #[pallet::storage]
-    pub(super) type ConfidentialAssetNames<T: Config> =
+    pub(super) type Names<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, Name, OptionQuery>;
 
     /// A Confidential assets token symbol.
     #[pallet::storage]
-    pub(super) type ConfidentialAssetSymbols<T: Config> =
+    pub(super) type Symbols<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, Symbol, OptionQuery>;
 
     /// A Confidential assets token decimals.
     #[pallet::storage]
-    pub(super) type ConfidentialAssetDecimals<T: Config> =
+    pub(super) type Decimals<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, u8, OptionQuery>;
 
     /// Mapping of asset owner to their assets.
@@ -1242,7 +1238,7 @@ pub mod pallet {
             })?;
 
             // Store the updated asset details.
-            DartAssetDetails::<T>::insert(asset_id, &asset_details);
+            Details::<T>::insert(asset_id, &asset_details);
 
             // Emit an event for the asset minting.
             Self::deposit_event(Event::<T>::AssetMinted {
@@ -1786,36 +1782,33 @@ impl<T: Config> Pallet<T> {
         NextAssetId::<T>::put(asset_id + 1);
 
         // Create the asset details.
-        let asset_detail = DartAssetDetail {
+        let asset_detail = AssetDetails {
             total_supply: 0,
-            asset_id,
             owner_did,
             data: data.clone(),
-            mediators: mediators.clone(),
-            auditors: auditors.clone(),
         };
         // Store the asset details.
-        DartAssetDetails::<T>::insert(asset_id, asset_detail);
+        Details::<T>::insert(asset_id, asset_detail);
 
         // Store the asset name.
-        ConfidentialAssetNames::<T>::insert(asset_id, &name);
+        Names::<T>::insert(asset_id, &name);
         // Store the asset symbol.
-        ConfidentialAssetSymbols::<T>::insert(asset_id, &symbol);
+        Symbols::<T>::insert(asset_id, &symbol);
         // Store the asset decimals.
-        ConfidentialAssetDecimals::<T>::insert(asset_id, decimals);
+        Decimals::<T>::insert(asset_id, decimals);
 
         // Add the asset ID to the owner's list of assets.
         OwnerAssets::<T>::insert((owner_did, asset_id), ());
 
         // Insert the asset state into the asset curve tree.
-        Self::update_asset_leaf(owner_did, asset_id, &mediators, &auditors)?;
+        Self::update_asset_leaf(owner_did, asset_id, &mediators, &auditors, true)?;
 
         // Emit the event for asset creation.
         Self::deposit_event(Event::<T>::AssetCreated {
             caller_did: owner_did,
             asset_id,
-            mediators: mediators.clone(),
-            auditors: auditors.clone(),
+            mediators,
+            auditors,
             name,
             symbol,
             decimals,
@@ -2352,6 +2345,7 @@ impl<T: Config> Pallet<T> {
         asset_id: ConfidentialAssetId,
         mediators: &MediatorKeys,
         auditors: &AuditorKeys,
+        is_create: bool,
     ) -> DispatchResult {
         // Require at least one auditor/mediator.
         ensure!(
@@ -2359,10 +2353,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NoAuditorsOrMediators
         );
 
+        // Create the Asset keys.
+        let keys = AssetKeys::new_bounded::<PolymeshPrivateLimits>(mediators, auditors)
+            .map_err(|_| Error::<T>::AssetStateInvalid)?;
+        Keys::<T>::insert(asset_id, &keys);
+
         // Create the Asset State.
-        let asset_state =
-            AssetState::new_bounded::<PolymeshPrivateLimits>(asset_id, mediators, auditors)
-                .map_err(|_| Error::<T>::AssetStateInvalid)?;
+        let asset_state = AssetState { asset_id, keys };
         let req = UpdateAssetStateRequest::new(asset_state);
         let resp = req.update().map_err(|_| Error::<T>::AssetStateInvalid)?;
         let asset_leaf = resp.asset_leaf();
@@ -2373,12 +2370,15 @@ impl<T: Config> Pallet<T> {
         asset_curve_tree.update_leaf(leaf_index, asset_leaf)?;
 
         // Emit an event for the asset state update.
-        Self::deposit_event(Event::<T>::AssetUpdated {
-            caller_did,
-            asset_id,
-            auditors: auditors.clone(),
-            mediators: mediators.clone(),
-        });
+        if !is_create {
+            // Only emit the AssetUpdated event for updates, not for the initial creation.
+            Self::deposit_event(Event::<T>::AssetUpdated {
+                caller_did,
+                asset_id,
+                auditors: auditors.clone(),
+                mediators: mediators.clone(),
+            });
+        }
         Self::deposit_event(Event::<T>::AssetStateLeafUpdated {
             leaf_index,
             asset_leaf,
@@ -2505,7 +2505,7 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_dart_asset_owner(
         caller_did: IdentityId,
         asset_id: ConfidentialAssetId,
-    ) -> Result<DartAssetDetail<T>, DispatchError> {
+    ) -> Result<AssetDetails<T>, DispatchError> {
         // Ensure the Confidential asset exists.
         let asset_detail = Self::ensure_dart_asset_exists(asset_id)?;
         // Ensure the caller's identity is the owner of the Confidential asset.
@@ -2532,8 +2532,8 @@ impl<T: Config> Pallet<T> {
     /// Ensure that the Confidential asset exists.
     pub fn ensure_dart_asset_exists(
         asset_id: ConfidentialAssetId,
-    ) -> Result<DartAssetDetail<T>, Error<T>> {
-        DartAssetDetails::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)
+    ) -> Result<AssetDetails<T>, Error<T>> {
+        Details::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)
     }
 
     /// Ensure encryption key is registered.
