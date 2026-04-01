@@ -1410,7 +1410,7 @@ macro_rules! runtime_apis {
                     spender: polymesh_primitives::AccountId,
                     asset_id: AssetId,
                 ) -> Balance {
-                    pallet_asset::Allowances::<Runtime>::get((&owner, &spender, &asset_id))
+                    pallet_asset::Allowances::<Runtime>::get((&owner, &spender, asset_id))
                 }
             }
 

@@ -49,7 +49,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::dispatch::{
     DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
 };
@@ -82,13 +82,12 @@ use polymesh_primitives::settlement::{
     ReceiptMetadata, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::traits::{
-    AffirmationFnTrait, AssetOrNft, PortfolioFnConfig, PortfolioFnTrait, SettlementFnTrait,
+    AffirmationFnTrait, PortfolioFnConfig, PortfolioFnTrait, SettlementFnTrait,
 };
 use polymesh_primitives::with_transaction;
 use polymesh_primitives::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
-    AccountId as AccountId32, AssetHolder, Balance, Fund, FundDescription, IdentityId, Memo, NFTs,
-    SecondaryKey, WeightMeter,
+    AssetHolder, Balance, Fund, FundDescription, IdentityId, Memo, NFTs, SecondaryKey, WeightMeter,
 };
 
 type System<T> = frame_system::Pallet<T>;
@@ -223,7 +222,24 @@ pub mod pallet {
         fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
         fn set_mandatory_receiver_affirmation() -> Weight;
-        fn transfer_funds() -> Weight;
+        /// Same-DID direct transfer between portfolios (custody check).
+        fn transfer_funds_portfolio_same_did() -> Weight;
+        /// Cross-DID settlement with portfolio holders (custody check, no execution).
+        fn transfer_funds_portfolio_diff_did() -> Weight;
+        /// Same-DID direct transfer between accounts.
+        fn transfer_funds_account_same_did() -> Weight;
+        /// Cross-DID settlement with account holders (no execution).
+        fn transfer_funds_account_diff_did() -> Weight;
+
+        /// Worst-case weight across all `transfer_funds` paths, including try-execution.
+        fn transfer_funds() -> Weight {
+            let worst_path = Self::transfer_funds_portfolio_same_did()
+                .max(Self::transfer_funds_portfolio_diff_did())
+                .max(Self::transfer_funds_account_same_did())
+                .max(Self::transfer_funds_account_diff_did());
+            // Cross-DID paths may also execute the instruction immediately.
+            worst_path.saturating_add(Self::execute_manual_instruction(1, 0, 0))
+        }
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -1571,15 +1587,19 @@ pub mod pallet {
             to: AssetHolder,
             fund: Fund,
         ) -> DispatchResultWithPostInfo {
-            let (_instruction_id, consumed) = Self::base_transfer_funds(
+            let mut weight_meter =
+                WeightMeter::max_limit(<T as Config>::WeightInfo::transfer_funds());
+
+            Self::base_transfer_funds(
                 origin,
                 from,
                 to,
                 fund,
+                &mut weight_meter,
                 #[cfg(feature = "runtime-benchmarks")]
                 false,
             )?;
-            Ok(PostDispatchInfo::from(Some(consumed)))
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
     }
 }
@@ -1590,52 +1610,35 @@ impl<T: Config> Pallet<T> {
         from: Option<AssetHolder>,
         to: AssetHolder,
         fund: Fund,
+        weight_meter: &mut WeightMeter,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<(Option<InstructionId>, Weight), DispatchError> {
-        let caller_data =
+    ) -> Result<Option<InstructionId>, DispatchError> {
+        let origin_data =
             pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
-        let caller = caller_data.sender;
-        let caller_did = caller_data.primary_did;
+        let origin_did = origin_data.primary_did;
 
         // Resolve source: None defaults to caller's account.
-        let caller_acc32: AccountId32 = caller
-            .using_encoded(|b| AccountId32::decode(&mut &b[..]))
-            .map_err(|_| Error::<T>::InvalidAccountId)?;
-        let resolved_from = from.unwrap_or_else(|| AssetHolder::Account(caller_acc32.clone()));
+        let resolved_from = match from {
+            Some(holder) => holder,
+            None => AssetHolder::try_from(origin_data.sender.encode())
+                .map_err(|_| Error::<T>::InvalidAccountId)?,
+        };
 
         // Self-transfer guard.
         ensure!(resolved_from != to, Error::<T>::SenderSameAsReceiver);
-
-        // Authorization check based on source type.
-        match &resolved_from {
-            // Account source: if caller != owner, check spender allowance.
-            AssetHolder::Account(ref owner) => {
-                if *owner != caller_acc32 {
-                    let owner_acc = pallet_base::pallet_account_id::<T>(owner)?;
-                    match &fund.description {
-                        FundDescription::Fungible { asset_id, amount } => {
-                            Asset::<T>::spend_allowance(&owner_acc, &caller, *asset_id, *amount)?;
-                        }
-                        FundDescription::NonFungible(_) => {
-                            return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
-                        }
-                    }
-                }
-            }
-            // Portfolio source: caller must have custody.
-            AssetHolder::Portfolio(ref portfolio_id) => {
-                T::PortfolioFn::ensure_portfolio_custody(portfolio_id, caller_did)?;
-            }
-        }
 
         // Resolve DIDs and determine transfer path.
         let from_did = pallet_identity::Pallet::<T>::asset_holder_did(&resolved_from)?;
         let to_did = pallet_identity::Pallet::<T>::asset_holder_did(&to)?;
 
-        let mut weight_meter = WeightMeter::max_limit(<T as Config>::WeightInfo::transfer_funds());
+        let same_did = from_did == to_did;
+        let is_portfolio = matches!(resolved_from, AssetHolder::Portfolio(_));
+        let _ = weight_meter
+            .check_accrue(Self::transfer_funds_actual_weight(is_portfolio, same_did));
 
-        let instruction_id = if from_did == to_did {
-            // Same-identity: transfer directly.
+        let instruction_id = if same_did {
+            // Same-identity: authorize and transfer directly.
+            Self::ensure_transfer_source_authorized(&resolved_from, &origin_data, &fund)?;
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
                     Asset::<T>::base_transfer(
@@ -1645,8 +1648,8 @@ impl<T: Config> Pallet<T> {
                         amount,
                         None,
                         fund.memo,
-                        caller_did,
-                        &mut weight_meter,
+                        origin_did,
+                        weight_meter,
                     )?;
                 }
                 FundDescription::NonFungible(nfts) => {
@@ -1656,40 +1659,67 @@ impl<T: Config> Pallet<T> {
                         nfts,
                         None,
                         fund.memo,
-                        caller_did,
+                        origin_did,
                     )?;
                 }
             }
             None
         } else {
-            // Cross-identity: create a settlement instruction and try to execute.
-            let asset_or_nft = match fund.description {
-                FundDescription::Fungible { asset_id, amount } => {
-                    AssetOrNft::Asset { asset_id, amount }
-                }
-                FundDescription::NonFungible(nfts) => {
-                    Nft::<T>::ensure_within_nfts_transfer_limits(&nfts)?;
-                    AssetOrNft::Nft {
-                        asset_id: *nfts.asset_id(),
-                        nft_id: nfts.ids()[0],
-                    }
-                }
-            };
+            // Cross-identity: authorize and create settlement instruction.
             Self::base_transfer_and_try_execute(
                 origin,
-                Some(resolved_from),
-                Some(from_did),
+                &origin_data,
+                resolved_from,
+                from_did,
                 to,
-                Some(to_did),
-                asset_or_nft,
-                fund.memo,
-                &mut weight_meter,
+                to_did,
+                fund,
+                weight_meter,
                 #[cfg(feature = "runtime-benchmarks")]
                 bench_base_weight,
             )?
         };
 
-        Ok((instruction_id, weight_meter.consumed()))
+        Ok(instruction_id)
+    }
+
+    /// Authorize the transfer source.
+    ///
+    /// - Account source where caller != owner: checks and decrements spender allowance.
+    /// - Portfolio source: checks custody.
+    /// Authorize the transfer source.
+    ///
+    /// - Account source where caller != owner: checks and decrements spender allowance.
+    /// - Portfolio source: checks custody.
+    fn ensure_transfer_source_authorized(
+        resolved_from: &AssetHolder,
+        caller_data: &pallet_identity::PermissionedCallOriginData<T::AccountId>,
+        fund: &Fund,
+    ) -> DispatchResult {
+        match resolved_from {
+            AssetHolder::Account(ref owner) => {
+                let owner_acc = pallet_base::pallet_account_id::<T>(owner)?;
+                if owner_acc != caller_data.sender {
+                    match &fund.description {
+                        FundDescription::Fungible { asset_id, amount } => {
+                            Asset::<T>::spend_allowance(
+                                &owner_acc,
+                                &caller_data.sender,
+                                *asset_id,
+                                *amount,
+                            )?;
+                        }
+                        FundDescription::NonFungible(_) => {
+                            return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
+                        }
+                    }
+                }
+            }
+            AssetHolder::Portfolio(ref portfolio_id) => {
+                T::PortfolioFn::ensure_portfolio_custody(portfolio_id, caller_data.primary_did)?;
+            }
+        }
+        Ok(())
     }
 
     fn lock_asset(leg: &Leg) -> DispatchResult {
@@ -3687,6 +3717,15 @@ impl<T: Config> Pallet<T> {
         <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count), 0)
     }
 
+    fn transfer_funds_actual_weight(is_portfolio: bool, same_did: bool) -> Weight {
+        match (is_portfolio, same_did) {
+            (true, true) => <T as Config>::WeightInfo::transfer_funds_portfolio_same_did(),
+            (true, false) => <T as Config>::WeightInfo::transfer_funds_portfolio_diff_did(),
+            (false, true) => <T as Config>::WeightInfo::transfer_funds_account_same_did(),
+            (false, false) => <T as Config>::WeightInfo::transfer_funds_account_diff_did(),
+        }
+    }
+
     /// Returns the miminum weight for calling the `reject_instruction` extrinsic.
     fn reject_instruction_minimum_weight() -> Weight {
         <T as Config>::WeightInfo::base_reject_instruction(0, 0, 1)
@@ -3905,49 +3944,44 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Initiates a transfer instruction for fungible or non-fungible assets.
-    /// When `from` is `None`, the sender is derived from origin.
-    /// When `from_did`/`to_did` are `None`, they are resolved internally.
     fn base_transfer_and_try_execute(
         origin: OriginFor<T>,
-        from: Option<AssetHolder>,
-        from_did: Option<IdentityId>,
+        origin_data: &pallet_identity::PermissionedCallOriginData<T::AccountId>,
+        from: AssetHolder,
+        from_did: IdentityId,
         to: AssetHolder,
-        to_did: Option<IdentityId>,
-        asset_or_nft: AssetOrNft,
-        memo: Option<Memo>,
+        to_did: IdentityId,
+        fund: Fund,
         weight_meter: &mut WeightMeter,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> Result<Option<InstructionId>, DispatchError> {
-        let origin_data =
-            pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin.clone())?;
         let origin_did = origin_data.primary_did;
 
-        let from = match from {
-            Some(f) => f,
-            None => AssetHolder::try_from(origin_data.sender.encode())
-                .map_err(|_| Error::<T>::InvalidAccountId)?,
-        };
-        let from_did = from_did.unwrap_or(origin_did);
+        // Authorize: spender allowance (account) or custody (portfolio).
+        Self::ensure_transfer_source_authorized(&from, origin_data, &fund)?;
 
         // Prepare the leg depending on whether it's a fungible or non-fungible transfer
-        let (leg, is_fungible) = match asset_or_nft {
-            AssetOrNft::Asset { asset_id, amount } => (
+        let (leg, is_fungible) = match &fund.description {
+            FundDescription::Fungible { asset_id, amount } => (
                 Leg::Fungible {
                     sender: from.clone(),
                     receiver: to.clone(),
-                    asset_id,
-                    amount,
+                    asset_id: *asset_id,
+                    amount: *amount,
                 },
                 true,
             ),
-            AssetOrNft::Nft { asset_id, nft_id } => (
-                Leg::NonFungible {
-                    sender: from.clone(),
-                    receiver: to.clone(),
-                    nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
-                },
-                false,
-            ),
+            FundDescription::NonFungible(nfts) => {
+                Nft::<T>::ensure_within_nfts_transfer_limits(nfts)?;
+                (
+                    Leg::NonFungible {
+                        sender: from.clone(),
+                        receiver: to.clone(),
+                        nfts: NFTs::new_unverified(*nfts.asset_id(), vec![nfts.ids()[0]]),
+                    },
+                    false,
+                )
+            }
         };
 
         // Consume weight for the transfer and affirmation
@@ -3968,7 +4002,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             vec![leg],
-            memo,
+            fund.memo,
             None,
         )?;
 
@@ -3984,7 +4018,7 @@ impl<T: Config> Pallet<T> {
         Self::unsafe_affirm_instruction(from_did, instruction_id, [from].into(), sender_sk, None)?;
 
         // Try affirming if caller is the receiver (spender mode) and receiver affirmation is needed.
-        if to_did == Some(origin_did) && InstructionAffirmsPending::<T>::get(instruction_id) > 0 {
+        if to_did == origin_did && InstructionAffirmsPending::<T>::get(instruction_id) > 0 {
             Self::unsafe_affirm_instruction(
                 origin_did,
                 instruction_id,
@@ -4060,40 +4094,6 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
-    /// Initiates a transfer instruction for fungible or non-fungible assets.
-    fn transfer_and_try_execute(
-        origin: OriginFor<T>,
-        to: T::AccountId,
-        asset_or_nft: AssetOrNft,
-        memo: Option<Memo>,
-        weight_meter: &mut WeightMeter,
-        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
-        let to = AssetHolder::try_from(to.encode()).map_err(|_| DispatchErrorWithPostInfo {
-            post_info: Some(weight_meter.consumed()).into(),
-            error: Error::<T>::InvalidAccountId.into(),
-        })?;
-
-        let instruction_id = Self::base_transfer_and_try_execute(
-            origin,
-            None,
-            None,
-            to,
-            None,
-            asset_or_nft,
-            memo,
-            weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            bench_base_weight,
-        )
-        .map_err(|error| DispatchErrorWithPostInfo {
-            post_info: Some(weight_meter.consumed()).into(),
-            error,
-        })?;
-
-        Ok(instruction_id)
-    }
-
     /// Receiver affirms the transfer of fungible or non-fungible assets.
     fn receiver_affirm_transfer_and_try_execute(
         origin: OriginFor<T>,
@@ -4174,13 +4174,15 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
         from: Option<AssetHolder>,
         to: AssetHolder,
         fund: Fund,
+        weight_meter: &mut WeightMeter,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<(Option<InstructionId>, Weight), DispatchError> {
+    ) -> Result<Option<InstructionId>, DispatchError> {
         Self::base_transfer_funds(
             origin,
             from,
             to,
             fund,
+            weight_meter,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
         )

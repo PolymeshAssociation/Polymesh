@@ -23,7 +23,7 @@ fn approve_stores_allowance_and_emits_event() {
         System::set_block_number(1);
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             500
         );
         assert_eq!(
@@ -49,7 +49,7 @@ fn approve_overwrites_previous_allowance() {
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 200));
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             200
         );
     });
@@ -67,13 +67,13 @@ fn approve_zero_removes_entry() {
         System::set_block_number(1);
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 0));
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             0
         );
         assert!(!Allowances::<TestStorage>::contains_key((
             &alice.acc(),
             &bob.acc(),
-            &asset_id
+            asset_id
         )));
         assert_eq!(
             System::events().pop().unwrap().event,
@@ -116,7 +116,7 @@ fn allowance_query_nonexistent_returns_zero() {
         let asset_id = create_and_issue_sample_asset(&alice);
 
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             0
         );
     });

@@ -148,7 +148,7 @@ fn spender_same_identity_uses_direct_transfer() {
 
         // Allowance decremented.
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             400
         );
         // Balance moved within alice's identity.
@@ -181,7 +181,7 @@ fn spender_as_receiver_affirms_both_sides() {
         ));
 
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             300
         );
         assert_eq!(
@@ -222,7 +222,7 @@ fn spender_unlimited_allowance_not_decremented() {
         ));
 
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             Balance::MAX
         );
         assert_eq!(
@@ -275,7 +275,7 @@ fn spender_zero_allowance_removes_entry() {
         assert!(!Allowances::<TestStorage>::contains_key((
             &alice.acc(),
             &bob.acc(),
-            &asset_id
+            asset_id
         )));
     });
 }
@@ -345,7 +345,7 @@ fn spender_atomicity_failed_transfer_restores_allowance() {
 
         // Allowance unchanged — extrinsic rollback reverts the decrement.
         assert_eq!(
-            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), &asset_id)),
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
             500
         );
     });

@@ -32,7 +32,7 @@ use polymesh_primitives::bench::reg_unique_ticker;
 use polymesh_primitives::constants::currency::{ONE_UNIT, POLY};
 use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::ticker::TICKER_LEN;
-use polymesh_primitives::traits::{AssetOrNft, ComplianceFnConfig, NFTTrait};
+use polymesh_primitives::traits::{ComplianceFnConfig, NFTTrait};
 use polymesh_primitives::{
     AuthorizationData, Fund, FundDescription, IdentityId, NFTCollectionKeys, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker, Url, WeightMeter,
@@ -824,11 +824,16 @@ benchmarks! {
             setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, true);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        let instruction_id = T::SettlementFn::transfer_and_try_execute(
+        let to = AssetHolder::try_from(bob.account().encode()).unwrap();
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+        let instruction_id = T::SettlementFn::transfer_funds(
             alice.origin.into(),
-            bob.account(),
-            AssetOrNft::Asset { asset_id, amount: ONE_UNIT },
             None,
+            to,
+            fund,
             &mut weight_meter,
             false,
         ).expect("Transfer setup must work");
@@ -849,13 +854,13 @@ benchmarks! {
         let asset_id = create_sample_asset::<T>(&caller, true);
         // Pre-insert an allowance to benchmark the overwrite path (worst case).
         Allowances::<T>::insert(
-            (&caller.account(), &spender.account(), &asset_id),
+            (&caller.account(), &spender.account(), asset_id),
             1000u128,
         );
     }: _(RawOrigin::Signed(caller.account()), asset_id, spender.account(), 500u128)
     verify {
         assert_eq!(
-            Allowances::<T>::get((&caller.account(), &spender.account(), &asset_id)),
+            Allowances::<T>::get((&caller.account(), &spender.account(), asset_id)),
             500u128
         );
     }

@@ -771,24 +771,26 @@ impl<T: Config> Pallet<T> {
         to: AssetHolder,
         memo: Option<Memo>,
     ) -> DispatchResultWithPostInfo {
-        let _caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin.clone())?;
-
         let fund = Fund {
             description: FundDescription::NonFungible(nfts),
             memo,
         };
 
-        let (_instruction_id, consumed) =
-            <T as pallet_asset::Config>::SettlementFn::transfer_funds(
-                origin,
-                from,
-                to,
-                fund,
-                #[cfg(feature = "runtime-benchmarks")]
-                false,
-            )?;
+        let mut weight_meter = WeightMeter::max_limit(
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight(),
+        );
 
-        Ok(PostDispatchInfo::from(Some(consumed)))
+        <T as pallet_asset::Config>::SettlementFn::transfer_funds(
+            origin,
+            from,
+            to,
+            fund,
+            &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            false,
+        )?;
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
     pub fn base_controller_transfer(

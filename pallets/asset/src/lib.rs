@@ -96,7 +96,7 @@ use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
 use frame_system::pallet_prelude::*;
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::ensure_root;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -605,9 +605,20 @@ pub mod pallet {
     ///
     /// A non-existent entry returns 0 (via `ValueQuery`), matching ERC-20 behavior.
     /// When an allowance is revoked (set to 0), the entry is removed to bound storage growth.
+    ///
+    /// Uses `StorageNMap` so that all allowances for a given owner can be iterated
+    /// via prefix.
     #[pallet::storage]
-    pub type Allowances<T: Config> =
-        StorageMap<_, Blake2_128Concat, (T::AccountId, T::AccountId, AssetId), Balance, ValueQuery>;
+    pub type Allowances<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>,
+            NMapKey<Blake2_128Concat, T::AccountId>,
+            NMapKey<Blake2_128Concat, AssetId>,
+        ),
+        Balance,
+        ValueQuery,
+    >;
 
     /// Storage version.
     #[pallet::storage]
@@ -1763,11 +1774,10 @@ pub mod pallet {
             let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
             let owner = caller_data.sender;
 
-            let key = (owner.clone(), spender.clone(), asset_id);
             if amount == 0 {
-                Allowances::<T>::remove(&key);
+                Allowances::<T>::remove((&owner, &spender, &asset_id));
             } else {
-                Allowances::<T>::insert(&key, amount);
+                Allowances::<T>::insert((&owner, &spender, &asset_id), amount);
             }
 
             Self::deposit_event(Event::Approval {
@@ -2673,8 +2683,7 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: AssetId,
         amount: Balance,
     ) -> DispatchResult {
-        let key = (owner.clone(), spender.clone(), asset_id);
-        let current = Allowances::<T>::get(&key);
+        let current = Allowances::<T>::get((owner, spender, &asset_id));
         ensure!(current >= amount, Error::<T>::InsufficientAllowance);
 
         // Infinite allowance — no deduction.
@@ -2684,9 +2693,9 @@ impl<T: AssetConfig> Pallet<T> {
 
         let new_allowance = current.saturating_sub(amount);
         if new_allowance == 0 {
-            Allowances::<T>::remove(&key);
+            Allowances::<T>::remove((owner, spender, &asset_id));
         } else {
-            Allowances::<T>::insert(&key, new_allowance);
+            Allowances::<T>::insert((owner, spender, &asset_id), new_allowance);
         }
         Ok(())
     }
@@ -2804,7 +2813,7 @@ impl<T: AssetConfig> Pallet<T> {
         memo: Option<Memo>,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
-        let from = ensure_signed(origin.clone())?;
+        let from = frame_system::ensure_signed(origin.clone())?;
 
         let to_holder = AssetHolder::try_from(to.encode())
             .map_err(|_| DispatchError::Other("InvalidAccountId"))?;
@@ -2813,11 +2822,16 @@ impl<T: AssetConfig> Pallet<T> {
             memo: memo.clone(),
         };
 
-        let (instruction_id, consumed) = T::SettlementFn::transfer_funds(
+        let mut weight_meter = WeightMeter::max_limit(
+            <T as Config>::SettlementFn::transfer_funds_weight(),
+        );
+
+        let instruction_id = T::SettlementFn::transfer_funds(
             origin,
             None,
             to_holder,
             fund,
+            &mut weight_meter,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
         )?;
@@ -2831,7 +2845,7 @@ impl<T: AssetConfig> Pallet<T> {
             pending_transfer_id: instruction_id,
         });
 
-        Ok(PostDispatchInfo::from(Some(consumed)))
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
     pub fn base_receiver_affirm_asset_transfer(

@@ -1341,11 +1341,28 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
-    // TODO: Replace with generated weights after benchmark run.
-    // Based on base_transfer (21r/5w) + origin check (1r) + allowance (1r/1w) + DID resolution (2r).
-    fn transfer_funds() -> Weight {
-        Weight::from_parts(200_000_000, 0)
-            .saturating_add(DbWeight::get().reads(25))
-            .saturating_add(DbWeight::get().writes(6))
+    fn transfer_funds_portfolio_same_did() -> Weight {
+        // Minimum execution time: 141_000_000 picoseconds.
+        Weight::from_parts(142_000_000, 0)
+            .saturating_add(DbWeight::get().reads(15))
+            .saturating_add(DbWeight::get().writes(4))
+    }
+    fn transfer_funds_portfolio_diff_did() -> Weight {
+        // Minimum execution time: 122_000_000 picoseconds.
+        Weight::from_parts(131_000_000, 0)
+            .saturating_add(DbWeight::get().reads(19))
+            .saturating_add(DbWeight::get().writes(10))
+    }
+    fn transfer_funds_account_same_did() -> Weight {
+        // Minimum execution time: 140_000_000 picoseconds.
+        Weight::from_parts(140_000_000, 0)
+            .saturating_add(DbWeight::get().reads(14))
+            .saturating_add(DbWeight::get().writes(4))
+    }
+    fn transfer_funds_account_diff_did() -> Weight {
+        // Minimum execution time: 133_000_000 picoseconds.
+        Weight::from_parts(139_000_000, 0)
+            .saturating_add(DbWeight::get().reads(17))
+            .saturating_add(DbWeight::get().writes(11))
     }
 }
