@@ -666,6 +666,7 @@ macro_rules! misc_pallet_impls {
             type MaxEthExtrinsicWeight = polymesh_runtime_common::MaxEthExtrinsicWeight;
             type DebugEnabled = frame_support::traits::ConstBool<false>;
             type GasScale = frame_support::traits::ConstU32<1>;
+            type OnBurn = ();
         }
 
         impl pallet_compliance_manager::Config for Runtime {
