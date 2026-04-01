@@ -1633,8 +1633,8 @@ impl<T: Config> Pallet<T> {
 
         let same_did = from_did == to_did;
         let is_portfolio = matches!(resolved_from, AssetHolder::Portfolio(_));
-        let _ = weight_meter
-            .check_accrue(Self::transfer_funds_actual_weight(is_portfolio, same_did));
+        let _ =
+            weight_meter.check_accrue(Self::transfer_funds_actual_weight(is_portfolio, same_did));
 
         let instruction_id = if same_did {
             // Same-identity: authorize and transfer directly.

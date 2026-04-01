@@ -95,8 +95,8 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
-use frame_system::pallet_prelude::*;
 use frame_system::ensure_root;
+use frame_system::pallet_prelude::*;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -2822,9 +2822,8 @@ impl<T: AssetConfig> Pallet<T> {
             memo: memo.clone(),
         };
 
-        let mut weight_meter = WeightMeter::max_limit(
-            <T as Config>::SettlementFn::transfer_funds_weight(),
-        );
+        let mut weight_meter =
+            WeightMeter::max_limit(<T as Config>::SettlementFn::transfer_funds_weight());
 
         let instruction_id = T::SettlementFn::transfer_funds(
             origin,
