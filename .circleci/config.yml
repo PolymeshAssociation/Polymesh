@@ -513,12 +513,12 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests against the previous version.
-          command: cargo nextest run --release --features previous_release --locked
+          command: cargo nextest run --release --no-default-features --features previous_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
           name: Upgrade chain to current version.
-          command: cargo run --features previous_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
+          command: cargo run --no-default-features --features previous_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
