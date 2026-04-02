@@ -333,8 +333,11 @@ impl GenerateDartProofRequest {
                 key_index,
                 accept,
             } => {
+                let med_enc = leg_enc
+                    .mediator_encryption(key_index)
+                    .map_err(|_| Error::GenerateProofFailed)?;
                 let proof = MediatorAffirmationProof::new(
-                    &mut rng, &leg_ref, &leg_enc, &keys, key_index, accept,
+                    &mut rng, &leg_ref, &med_enc, &keys, key_index, accept,
                 )
                 .map_err(|_| Error::GenerateProofFailed)?;
                 Ok(GenerateDartProofResponse::MediatorAffirmation { proof })

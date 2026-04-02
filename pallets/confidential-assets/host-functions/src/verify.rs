@@ -190,7 +190,8 @@ impl VerifyDartAssetRequest {
                     .map_err(|_| Error::VerifyFailed)?;
             }
             Self::MediatorAffirmation { leg_enc, proof } => {
-                proof.verify(&leg_enc).map_err(|_| Error::VerifyFailed)?;
+                let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
+                proof.verify(&med_enc).map_err(|_| Error::VerifyFailed)?;
             }
             Self::SenderCounterUpdate {
                 leg_enc,
