@@ -44,8 +44,8 @@ sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
-subxt = { version = "0.43", default-features = true, features = ["reconnecting-rpc-client"] }
-subxt-signer = { version = "0.43", features = ["unstable-eth"] }
+subxt = { version = "0.44", default-features = true, features = ["reconnecting-rpc-client"] }
+subxt-signer = { version = "0.44", features = ["unstable-eth"] }
 thiserror = { version = "1.0.64" }
 tokio = { version = "1.45.0", default-features = false, features = ["full"] }
 

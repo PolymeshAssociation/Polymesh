@@ -110,8 +110,17 @@ impl SubstrateCli for Cli {
     }
 }
 
+/// Parse command line arguments into Polymesh-specific CLI struct and run the service.
+pub fn run() -> sc_cli::Result<()> {
+    run_with_args(std::env::args_os())
+}
+
 /// Parses Polymesh specific CLI arguments and run the service.
-pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
+pub fn run_with_args<I>(args: I) -> sc_cli::Result<()>
+where
+    I: IntoIterator,
+    I::Item: Into<std::ffi::OsString> + Clone,
+{
     let cli = Cli::from_iter(args);
 
     match &cli.subcommand {

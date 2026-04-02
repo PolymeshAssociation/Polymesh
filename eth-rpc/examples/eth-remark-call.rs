@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	println!("\n\n=== Eth calling System.Remark  ===\n\n");
 
-	let tx = TransactionBuilder::new(&client)
+	let tx = TransactionBuilder::new(client)
 		.signer(alith)
 		.input(tx_payload)
 		.to(dest)

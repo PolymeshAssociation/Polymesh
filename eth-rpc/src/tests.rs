@@ -74,6 +74,7 @@ impl SharedResources {
 			// POLYMESH CHANGE
 			// if let Err(e) = revive_dev_node::command::run_with_args(vec![
 			if let Err(e) = polymesh::command::run_with_args(vec![
+				"polymesh".to_string(),
 				"--dev".to_string(),
 				"--rpc-port=45789".to_string(),
 				"-lerror,sc_rpc_server=info,runtime::revive=debug".to_string(),
@@ -84,6 +85,7 @@ impl SharedResources {
 
 		// Start the rpc server.
 		let args = CliCommand::parse_from([
+			"eth-rpc",
 			"--dev",
 			"--rpc-port=45788",
 			"--node-rpc-url=ws://localhost:45789",

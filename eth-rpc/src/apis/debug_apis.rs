@@ -120,6 +120,6 @@ impl DebugRpcServer for DebugRpcServerImpl {
 	}
 
 	async fn get_automine(&self) -> RpcResult<bool> {
-		sc_service::Result::Ok(self.client.get_automine().await)
+		Ok(self.client.get_automine().await)
 	}
 }
