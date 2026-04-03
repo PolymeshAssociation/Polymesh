@@ -455,7 +455,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -466,7 +466,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -594,7 +594,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -658,7 +658,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -1542,7 +1542,7 @@ checksum = "90dbd31c98227229239363921e60fcf5e558e43ec69094d46fc4996f08d1d5bc"
 dependencies = [
  "bitcoin_hashes",
  "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -1780,7 +1780,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
 dependencies = [
  "ahash 0.8.12",
  "ark-ec 0.5.0",
@@ -1795,7 +1795,8 @@ dependencies = [
  "byteorder",
  "digest 0.9.0",
  "dock_crypto_utils",
- "hashbrown 0.16.1",
+ "fnv",
+ "hashbrown 0.15.5",
  "log",
  "rand 0.8.5",
  "rand_core 0.6.4",
@@ -3292,10 +3293,9 @@ dependencies = [
 [[package]]
 name = "dock_crypto_utils"
 version = "0.22.0"
-source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#71fe0e595bd0317a3486e2d84118835ddc1019e0"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#20330676486cbe54d05bf8a9c200b4ed630bcb73"
 dependencies = [
  "aead",
- "ahash 0.8.12",
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
  "ark-poly 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3304,7 +3304,7 @@ dependencies = [
  "cfg_eval",
  "digest 0.10.7",
  "dock_merlin",
- "hashbrown 0.16.1",
+ "hashbrown 0.15.5",
  "hkdf",
  "integer-sqrt",
  "itertools 0.14.0",
@@ -3318,7 +3318,7 @@ dependencies = [
 [[package]]
 name = "dock_merlin"
 version = "3.0.0"
-source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#71fe0e595bd0317a3486e2d84118835ddc1019e0"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#20330676486cbe54d05bf8a9c200b4ed630bcb73"
 dependencies = [
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
@@ -3604,7 +3604,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4801,7 +4801,6 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.2.0",
- "rustc-std-workspace-alloc",
  "serde",
  "serde_core",
 ]
@@ -5551,7 +5550,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8483,7 +8482,7 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "paste",
- "polkavm",
+ "polkavm 0.31.0",
  "polkavm-common 0.31.0",
  "rand 0.8.5",
  "rand_pcg",
@@ -9188,6 +9187,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "picoalloc"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e1912f9b1d3aea43590e3986afdcf4ed1d9662edae24744a095738157d65b6a"
+
+[[package]]
 name = "picosimd"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9565,9 +9570,23 @@ dependencies = [
  "libc",
  "log",
  "picosimd",
- "polkavm-assembler",
+ "polkavm-assembler 0.31.0",
  "polkavm-common 0.31.0",
- "polkavm-linux-raw",
+ "polkavm-linux-raw 0.31.0",
+]
+
+[[package]]
+name = "polkavm"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe695ae43268c297264adda1c7b75ac5d2029a652c1420b85fe6db5c789ec535"
+dependencies = [
+ "libc",
+ "log",
+ "picosimd",
+ "polkavm-assembler 0.32.0",
+ "polkavm-common 0.32.0",
+ "polkavm-linux-raw 0.32.0",
 ]
 
 [[package]]
@@ -9575,6 +9594,15 @@ name = "polkavm-assembler"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f9006f0a135c6d035487fa88fa75b97b32a53d1d914c757f131c8e10a2af295"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-assembler"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48db9ab3568744d88514cfd8ca97f549913d17446e822fef20f9bd64598b8625"
 dependencies = [
  "log",
 ]
@@ -9597,7 +9625,18 @@ dependencies = [
  "blake3",
  "log",
  "picosimd",
- "polkavm-assembler",
+ "polkavm-assembler 0.31.0",
+]
+
+[[package]]
+name = "polkavm-common"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7be32b303518704bb6deda7ce5a02feedbdadccccfd03da5bd3fe8eb1cd30694"
+dependencies = [
+ "log",
+ "picosimd",
+ "polkavm-assembler 0.32.0",
 ]
 
 [[package]]
@@ -9616,6 +9655,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d944b6b4e792c2a120232b52bd6f2c9dd3071d3f48462afb2b5d00cb9f7ac9"
 dependencies = [
  "polkavm-derive-impl-macro 0.31.0",
+]
+
+[[package]]
+name = "polkavm-derive"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92147c429bebe93187a5c6963636a1efdfb69734e83b5d9d9aa751775c1dd62f"
+dependencies = [
+ "polkavm-derive-impl-macro 0.32.0",
 ]
 
 [[package]]
@@ -9643,6 +9691,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-derive-impl"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a396e7939ae0a723cabf639c23f0704423c8e470d01f52ad0cecf2dc283387f0"
+dependencies = [
+ "polkavm-common 0.32.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "polkavm-derive-impl-macro"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9659,6 +9719,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3fcadb13edfcc3b4046fcd2d292597782f5b7a2af140e6363fbf71fe196b425"
 dependencies = [
  "polkavm-derive-impl 0.31.0",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "polkavm-derive-impl-macro"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19eb3426df09ad4820b9beecd5c6754c5249b8fc5c6e94f0f559fbf7ce082fc3"
+dependencies = [
+ "polkavm-derive-impl 0.32.0",
  "syn 2.0.117",
 ]
 
@@ -9699,6 +9769,12 @@ name = "polkavm-linux-raw"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cbcd9ed5f77c60f3878289001d3e789da301746249b622bfb2876e2d0fe32c0b"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8afb212d0effe4097b7243f0828feed74ca49105e3082e9b43dd5c2e89bc91c"
 
 [[package]]
 name = "polling"
@@ -9865,7 +9941,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#7ad2c3272926c67ee829dfa9a2d74a45db593df5"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#425a64bec94e6ca6dddedec39e7b27f27b135a9d"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -9903,7 +9979,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#7ad2c3272926c67ee829dfa9a2d74a45db593df5"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#425a64bec94e6ca6dddedec39e7b27f27b135a9d"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -9934,7 +10010,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#7ad2c3272926c67ee829dfa9a2d74a45db593df5"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#425a64bec94e6ca6dddedec39e7b27f27b135a9d"
 
 [[package]]
 name = "polymesh-dart-host-functions"
@@ -10499,6 +10575,43 @@ dependencies = [
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-transaction-payment",
+ "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkavm 0.32.0",
+ "polymesh-dart",
+ "polymesh-worker-protocol-common",
+ "polymesh-worker-protocol-dart-v0",
+]
+
+[[package]]
+name = "polymesh-worker-protocol-common"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker-protocol-dart-v0"
+version = "0.1.0"
+dependencies = [
+ "ark-ec 0.5.0",
+ "bounded-collections",
+ "parity-scale-codec",
+ "picoalloc",
+ "polkavm-derive 0.32.0",
+ "polymesh-dart",
+ "polymesh-dart-common",
+ "polymesh-worker-protocol-common",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "scale-info",
  "sp-std",
 ]
 
@@ -11378,7 +11491,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3d7e95d68c29af86f9af9321260090c6c91ddc23"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",
@@ -11814,12 +11927,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
-name = "rustc-std-workspace-alloc"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d441c3b2ebf55cebf796bfdc265d67fa09db17b7bb6bd4be75c509e1e8fec3"
-
-[[package]]
 name = "rustc_version"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11856,7 +11963,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -11869,7 +11976,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -11927,7 +12034,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs 0.26.11",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -12505,7 +12612,7 @@ name = "sc-executor-common"
 version = "0.44.0"
 source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603#02f0bdeecdca97a122aca35b029e23534bf4aa53"
 dependencies = [
- "polkavm",
+ "polkavm 0.31.0",
  "sc-allocator",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface",
@@ -12519,7 +12626,7 @@ version = "0.41.0"
 source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603#02f0bdeecdca97a122aca35b029e23534bf4aa53"
 dependencies = [
  "log",
- "polkavm",
+ "polkavm 0.31.0",
  "sc-executor-common",
  "sp-runtime-interface",
  "sp-wasm-interface",
@@ -13420,7 +13527,7 @@ dependencies = [
 [[package]]
 name = "schnorr_pok"
 version = "0.22.0"
-source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#71fe0e595bd0317a3486e2d84118835ddc1019e0"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#20330676486cbe54d05bf8a9c200b4ed630bcb73"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -14110,7 +14217,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -15717,7 +15824,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -15736,7 +15843,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.4",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -17269,7 +17376,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

@@ -1,0 +1,49 @@
+[package]
+name = "polymesh-worker"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+license-file = "../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Polymesh protocol worker"
+edition = "2024"
+
+[dependencies]
+# Protocols
+polymesh-worker-protocol-common = { workspace = true, default-features = false }
+polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["native"] }
+
+# For testing
+polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"]}
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+
+polkavm = { workspace = true, default-features = true, optional = true }
+
+#wasmtime = { version = "43.0.0", optional = true }
+
+[features]
+default = [
+	"std",
+	"polkavm",
+	#"wasmtime",
+	"testing"
+]
+
+polkavm = [
+	"dep:polkavm",
+]
+
+wasmtime = [
+	#"dep:wasmtime",
+]
+
+testing = [
+	"polymesh-worker-protocol-common/testing",
+	"polymesh-worker-protocol-dart-v0/testing",
+]
+
+std = [
+	"codec/std",
+	"polymesh-worker-protocol-common/std",
+	"polymesh-worker-protocol-dart-v0/std",
+]

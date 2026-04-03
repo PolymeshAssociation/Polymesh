@@ -66,12 +66,15 @@ ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.g
 members = [
     "eth-rpc",
     "node-rpc",
+    "worker",
+    "worker/protocol/common",
+    "worker/protocol/dart-v0",
     "pallets/asset",
     "pallets/base",
     "pallets/committee",
     "pallets/compliance-manager",
     "pallets/confidential-assets",
-		"pallets/confidential-assets/host-functions",
+    "pallets/confidential-assets/host-functions",
     "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
@@ -117,6 +120,15 @@ homepage = "https://github.com/PolymeshAssociation/Polymesh"
 
 ## Keep common dependencies here.
 [workspace.dependencies]
+# Polymesh worker host functions and protocols.
+polymesh-worker = { path = "worker", default-features = false }
+polymesh-worker-protocol-common = { path = "worker/protocol/common", default-features = false }
+polymesh-worker-protocol-dart-v0 = { path = "worker/protocol/dart-v0", default-features = false }
+
+# Polkavm for protocol workers.
+polkavm = { version = "0.32", default-features = false }
+polkavm-derive = { version = "0.32", default-features = false }
+
 # Our pallets
 pallet-asset = { path = "pallets/asset", default-features = false }
 pallet-base = { path = "pallets/base", default-features = false }
@@ -175,6 +187,7 @@ codec = { package = "parity-scale-codec", version = "3.7.4", default-features = 
 scale-info = { version = "2.11.6", default-features = false, features = [
     "derive",
 ] }
+bounded-collections = { version = "0.3.2", default-features = false }
 
 # Substrate pallet/runtime deps.
 frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
@@ -303,6 +316,7 @@ rand_chacha = { version = "0.3", default-features = false }
 polymesh-dart = { version = "0.1.0", default-features = false }
 polymesh-dart-common = { version = "0.1.0", default-features = false }
 ark-ec = { version = "0.5", default-features = false }
+ark-std = { version = "0.5", default-features = false }
 
 [dependencies]
 pallet-asset = { workspace = true }
