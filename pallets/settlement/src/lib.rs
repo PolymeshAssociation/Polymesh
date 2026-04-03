@@ -585,6 +585,8 @@ pub mod pallet {
         InvalidTaskName,
         /// The receipt has expired and can no longer be claimed.
         ReceiptExpired,
+        /// The signers list contains duplicate entries.
+        DuplicateSigners,
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -809,6 +811,10 @@ pub mod pallet {
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
             ensure_string_limited::<T>(&details)?;
 
+            let mut seen = BTreeSet::new();
+            for signer in &signers {
+                ensure!(seen.insert(signer), Error::<T>::DuplicateSigners);
+            }
             ensure!(
                 signers.len() <= T::MaxNumberOfVenueSigners::get() as usize,
                 Error::<T>::NumberOfVenueSignersExceeded
@@ -2561,6 +2567,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // Ensure venue exists & sender is its creator.
         Self::ensure_venue_creator(&venue_id, &did)?;
+
+        let mut seen = BTreeSet::new();
+        for signer in &signers {
+            ensure!(seen.insert(signer), Error::<T>::DuplicateSigners);
+        }
 
         if add_signers {
             let current_number_of_signers = NumberOfVenueSigners::<T>::get(venue_id);

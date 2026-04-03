@@ -2318,6 +2318,59 @@ fn assert_number_of_venue_signers() {
 }
 
 #[test]
+fn duplicate_venue_signers_rejected() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let venue_id = VenueCounter::<TestStorage>::get();
+        let bob = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+        // Duplicates in create_venue rejected.
+        assert_noop!(
+            Settlement::create_venue(
+                alice.origin(),
+                VenueDetails::default(),
+                vec![bob.clone(), bob.clone()],
+                VenueType::Exchange
+            ),
+            Error::DuplicateSigners
+        );
+
+        // Create venue with unique signers.
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![bob.clone(), charlie.clone()],
+            VenueType::Exchange
+        ));
+        assert_eq!(NumberOfVenueSigners::<TestStorage>::get(venue_id), 2);
+
+        // Duplicates in remove rejected — counter stays in sync.
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_id,
+                vec![bob.clone(), bob.clone()],
+                false
+            ),
+            Error::DuplicateSigners
+        );
+        assert_eq!(NumberOfVenueSigners::<TestStorage>::get(venue_id), 2);
+
+        // Duplicates in add rejected.
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_id,
+                vec![Sr25519Keyring::Dave.to_account_id(); 2],
+                true
+            ),
+            Error::DuplicateSigners
+        );
+    });
+}
+
+#[test]
 fn reject_instruction_with_zero_amount() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
