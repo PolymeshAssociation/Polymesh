@@ -4116,6 +4116,7 @@ impl<T: AssetConfig> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
 
         ensure!(
             BalanceOf::<T>::get(&asset_id, &sender_did) >= transfer_value,
@@ -4126,12 +4127,21 @@ impl<T: AssetConfig> Pallet<T> {
             AssetHolder::Portfolio(receiver_pid) => {
                 PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?
             }
-            AssetHolder::Account(_) => {
-                let _ = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
-            }
+            AssetHolder::Account(_) => {}
         }
 
         Self::ensure_sufficient_balance(&sender, &asset_id, transfer_value)?;
+
+        Statistics::<T>::verify_transfer_restrictions(
+            asset_id,
+            &sender_did,
+            &receiver_did,
+            BalanceOf::<T>::get(asset_id, &sender_did),
+            BalanceOf::<T>::get(asset_id, &receiver_did),
+            transfer_value,
+            Self::try_get_asset_details(&asset_id)?.total_supply,
+            weight_meter,
+        )?;
 
         Self::unverified_transfer_asset(
             sender,

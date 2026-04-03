@@ -7,8 +7,11 @@ use pallet_portfolio::{PortfolioAssetBalances, PortfolioLockedNFT};
 use pallet_portfolio::{PortfolioLockedAssets, PortfolioNFT};
 use pallet_settlement::Error;
 use polymesh_primitives::settlement::{InstructionId, SettlementType};
+use polymesh_primitives::statistics::{StatOpType, StatType};
+use polymesh_primitives::transfer_compliance::TransferCondition;
 use polymesh_primitives::{AssetHolderKind, NFTId, NFTs, PortfolioId, PortfolioNumber};
 use polymesh_runtime_common::Weight;
+use sp_arithmetic::Permill;
 
 use super::setup::add_and_affirm_simple_instruction;
 use crate::storage::User;
@@ -17,12 +20,14 @@ use crate::{ExtBuilder, TestStorage};
 type Asset = pallet_asset::Pallet<TestStorage>;
 type Nft = pallet_nft::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
+type Statistics = pallet_statistics::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type AssetError = pallet_asset::Error<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
+type StatisticsError = pallet_statistics::Error<TestStorage>;
 
 #[test]
 fn invalid_caller() {
@@ -347,6 +352,54 @@ fn successfully_execute_after_locking() {
                 (nft_asset_id, NFTId(1))
             ),
             false
+        );
+    });
+}
+
+#[test]
+fn execute_locked_instruction_rechecks_statistics() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+
+        let (asset_id, _) =
+            add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        assert_ok!(Settlement::lock_instruction(
+            dave.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
+
+        let balance_stat = StatType {
+            operation_type: StatOpType::Balance,
+            claim_issuer: None,
+        };
+        assert_ok!(Statistics::set_active_asset_stats(
+            dave.origin(),
+            asset_id,
+            vec![balance_stat].into_iter().collect(),
+        ));
+        assert_ok!(Statistics::set_asset_transfer_compliance(
+            dave.origin(),
+            asset_id,
+            vec![TransferCondition::MaxInvestorOwnership(Permill::zero())]
+                .into_iter()
+                .collect(),
+        ));
+
+        assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                dave.origin(),
+                InstructionId(0),
+                None,
+                1,
+                1,
+                0,
+                None
+            ),
+            StatisticsError::InvalidTransferStatisticsFailure
         );
     });
 }
