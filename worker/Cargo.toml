@@ -1,0 +1,78 @@
+[package]
+name = "polymesh-worker"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+license-file = "../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Polymesh protocol worker"
+edition = "2024"
+
+[dependencies]
+# Protocols
+polymesh-worker-protocol-common = { workspace = true, default-features = false }
+polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["native"] }
+
+# For testing
+polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"]}
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+
+# RiscV based engine
+polkavm = { workspace = true, default-features = true, optional = true }
+
+# WASM engines
+wasmtime = { version = "43.0.0", optional = true }
+wasmer = { version = "7.1.0", optional = true }
+wasmer-compiler-cranelift = { version = "7.1.0", optional = true }
+wasmer-compiler-llvm = { version = "7.1.0", optional = true }
+
+env_logger = { version = "0.10.0", default-features = false }
+
+# EC Math
+ark-serialize = { workspace = true, default-features = false }
+ark-std = { workspace = true, default-features = false }
+ark-ec = { workspace = true, default-features = false }
+ark-pallas = { workspace = true, default-features = false }
+ark-vesta = { workspace = true, default-features = false }
+
+[features]
+default = [
+	"std",
+	"polkavm",
+	"wasmtime",
+	"wasmer",
+	"testing"
+]
+
+polkavm = [
+	"dep:polkavm",
+]
+
+wasmtime = [
+	"dep:wasmtime",
+]
+
+wasmer = [
+	"dep:wasmer",
+	"wasmer-compiler-cranelift",
+	"llvm",
+]
+
+llvm = [
+	"wasmer/llvm",
+	"wasmer-compiler-llvm",
+]
+
+testing = [
+	"polymesh-worker-protocol-common/testing",
+	"polymesh-worker-protocol-dart-v0/testing",
+]
+
+std = [
+	"codec/std",
+	"polymesh-worker-protocol-common/std",
+	"polymesh-worker-protocol-dart-v0/std",
+	"ark-std/std",
+	"ark-pallas/std",
+	"ark-vesta/std",
+]
