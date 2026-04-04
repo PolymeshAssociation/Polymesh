@@ -208,6 +208,12 @@ impl From<[u8; DID_LEN]> for IdentityId {
     }
 }
 
+impl From<IdentityId> for [u8; DID_LEN] {
+    fn from(did: IdentityId) -> Self {
+        did.0
+    }
+}
+
 impl AsRef<[u8]> for IdentityId {
     #[inline]
     fn as_ref(&self) -> &[u8] {
