@@ -1,10 +1,12 @@
-use codec::Decode;
+use codec::{Decode, Encode};
 use polymesh_dart::{
     AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
     SenderAffirmationProof, curve_tree::AccountTreeConfig,
 };
 use polymesh_worker::*;
-use polymesh_worker_protocol_dart_v0::{AccountTreeRoot, DartWorkRequest, VerifyDartAssetRequest};
+use polymesh_worker_protocol_dart_v0::{
+    AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
+};
 
 pub fn signer_to_did(signer_name: &str) -> [u8; 32] {
     let mut did = [0u8; 32];
@@ -53,7 +55,10 @@ pub fn main() {
         let req = WorkRequest::new(protocol, req);
         for _ in 0..4 {
             let now = std::time::Instant::now();
-            let res: Result<u32, Error> = module.execute(&req).decode();
+            let res: Result<u32, Error> = module
+                .execute(&req)
+                .decode()
+                .map(|res: DartWorkResponse| res.encoded_size() as u32);
             println!("{name} Result: {:?}", res);
             println!("{name} Execution time: {:?}", now.elapsed());
         }
