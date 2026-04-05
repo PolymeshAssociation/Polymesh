@@ -24,7 +24,7 @@ impl BackendModuleInstance for PolkavmModuleInstance {
         // Execute the module's `execute` function, which will read the request from the scratch buffer, process it and write the response back to the scratch buffer.
         let res_len = self
             .instance
-            .call_typed_and_get_result::<u32, (u32, u32)>(&mut (), "execute", (req_len, 0))
+            .call_typed_and_get_result::<u32, (u32,)>(&mut (), "execute", (req_len,))
             .unwrap();
 
         // Read the response from the scratch buffer and decode it.

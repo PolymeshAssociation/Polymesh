@@ -51,6 +51,8 @@ testing = []
 
 polkavm = []
 
+wasm = []
+
 native = []
 
 sp-io = [

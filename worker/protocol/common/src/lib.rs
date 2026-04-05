@@ -34,6 +34,8 @@ pub enum Error {
     VerifyProofFailed,
     GenerateProofFailed,
     DecodingFailed,
+    InvalidModule,
+    ModuleMemoryError,
     NoBackendAvailable,
     ProtocolError([u8; 4]),
 }

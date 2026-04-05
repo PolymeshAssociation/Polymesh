@@ -3,6 +3,7 @@ use polymesh_worker_protocol_common::*;
 
 mod native;
 mod polkavm;
+mod wasmtime;
 
 pub struct Backends {
     pub backends: Vec<Box<dyn Backend>>,
@@ -11,8 +12,9 @@ pub struct Backends {
 impl Backends {
     pub fn new() -> Self {
         let mut backends: Vec<Box<dyn Backend>> = Vec::new();
-        //backends.push(Box::new(native::NativeBackend));
+        backends.push(Box::new(native::NativeBackend));
         backends.push(Box::new(polkavm::PolkavmBackend::new()));
+        backends.push(Box::new(wasmtime::WasmtimeBackend::new()));
         Self { backends }
     }
 
@@ -23,9 +25,10 @@ impl Backends {
             match kind {
                 BackendKind::Native => backends.push(Box::new(native::NativeBackend)),
                 BackendKind::PolkaVM => backends.push(Box::new(polkavm::PolkavmBackend::new())),
-                BackendKind::Wasmtime => {
-                    eprintln!("Wasmtime backend is not yet implemented.");
-                    //backends.push(Box::new(wasmtime::WasmtimeBackend::new()));
+                BackendKind::Wasmtime => backends.push(Box::new(wasmtime::WasmtimeBackend::new())),
+                BackendKind::Wasmer => {
+                    eprintln!("Wasmer backend is not yet implemented.");
+                    //backends.push(Box::new(wasmer::WasmerBackend::new()));
                 }
             }
         }
@@ -73,6 +76,7 @@ pub enum BackendKind {
     Native,
     PolkaVM,
     Wasmtime,
+    Wasmer,
 }
 
 pub trait BackendModuleInstance: Send + Sync {

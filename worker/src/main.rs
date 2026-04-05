@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use codec::Decode;
 use polymesh_dart::{
     AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
     SenderAffirmationProof, curve_tree::AccountTreeConfig,
@@ -22,6 +22,7 @@ pub fn main() {
             "polkavm" => Some(BackendKind::PolkaVM),
             "native" => Some(BackendKind::Native),
             "wasmtime" => Some(BackendKind::Wasmtime),
+            "wasmer" => Some(BackendKind::Wasmer),
             _ => None,
         })
         .unwrap_or(BackendKind::PolkaVM);
@@ -56,7 +57,7 @@ pub fn main() {
 
     // Verify the register account asset proof.
     {
-        let raw_proof = include_bytes!("../register-account-proof.dat");
+        let raw_proof = include_bytes!("../data/register-account-proof.dat");
         let proof = AccountAssetRegistrationProof::decode(&mut &raw_proof[..])
             .expect("Failed to decode proof");
         let did = signer_to_did("investor");
@@ -76,9 +77,9 @@ pub fn main() {
 
     // Verify sender affirmation proof.
     {
-        let raw_proof = include_bytes!("../sender-affirm-proof.dat");
-        let raw_leg_enc = include_bytes!("../settlement_2_leg_0.bin");
-        let raw_account_root = include_bytes!("../block_12_current_account_root.bin");
+        let raw_proof = include_bytes!("../data/sender-affirm-proof.dat");
+        let raw_leg_enc = include_bytes!("../data/settlement_2_leg_0.bin");
+        let raw_account_root = include_bytes!("../data/block_12_current_account_root.bin");
 
         let proof = SenderAffirmationProof::<AccountTreeConfig>::decode(&mut &raw_proof[..])
             .expect("Failed to decode proof");

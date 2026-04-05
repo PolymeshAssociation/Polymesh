@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 TARGET_JSON_PATH="$(polkatool get-target-json-path --bitness 64)"
-echo "$TARGET_JSON_PATH"
+#echo "$TARGET_JSON_PATH"
 
 crate="polymesh-worker-protocol-dart-v0"
 lib_name="polymesh_worker_protocol_dart_v0"
