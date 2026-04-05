@@ -1,7 +1,14 @@
 use codec::{Decode, Encode};
 use polymesh_worker_protocol_common::{Error, Protocol, WorkRequest, WorkResponse};
 
-use wasmer::*;
+use wasmer::{
+    sys::{EngineBuilder, Features},
+    *,
+};
+#[cfg(not(feature = "llvm"))]
+use wasmer_compiler_cranelift::Cranelift;
+#[cfg(feature = "llvm")]
+use wasmer_compiler_llvm::LLVM;
 
 use crate::backend::{Backend, BackendKind, BackendModuleInstance, BackendModuleLoader};
 
@@ -70,17 +77,42 @@ impl Backend for WasmerBackend {
         loader: &dyn BackendModuleLoader,
     ) -> Option<Box<dyn BackendModuleInstance>> {
         println!("Initializing...");
-        let mut store = Store::default();
+        let now = std::time::Instant::now();
 
+        // Setup the Wasm features to support.
+        let mut features = Features::all(); //default();
+        features.bulk_memory = true;
+        features.multi_value = true;
+        features.simd = true;
+        features.wide_arithmetic = true;
+
+        #[cfg(feature = "llvm")]
+        let compiler = LLVM::default();
+        #[cfg(not(feature = "llvm"))]
+        let compiler = Cranelift::default();
+
+        let engine = EngineBuilder::new(compiler)
+            .set_features(Some(features))
+            .engine();
+        let mut store = Store::new(engine);
+
+        println!("Loading module...");
         let module_bytes = loader.get_module_bytes(protocol, self.kind())?;
-        let module = Module::from_binary(&store, &module_bytes).ok()?;
+        println!("Module loaded, time taken: {:?}", now.elapsed());
+        let module = Module::from_binary(&store, &module_bytes)
+            .expect("Failed to create module from binary");
+
+        println!("Module loaded, time taken: {:?}", now.elapsed());
 
         // Once we've got that all set up we can then move to the instantiation
         // phase, pairing together a compiled module as well as a set of imports.
         // Note that this is where the wasm `start` function, if any, would run.
         println!("Instantiating module...");
+        let now = std::time::Instant::now();
         let imports = Imports::new();
-        let instance = Instance::new(&mut store, &module, &imports).ok()?;
+        let instance =
+            Instance::new(&mut store, &module, &imports).expect("Failed to instantiate module"); //.ok()?;
+        println!("Module instantiated, time taken: {:?}", now.elapsed());
 
         // Get the scratch buffer pointer.
         let now = std::time::Instant::now();

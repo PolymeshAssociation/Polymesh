@@ -92,18 +92,26 @@ impl Backend for WasmtimeBackend {
         protocol: Protocol,
         loader: &dyn BackendModuleLoader,
     ) -> Option<Box<dyn BackendModuleInstance>> {
-        let module_bytes = loader.get_module_bytes(protocol, self.kind())?;
-        let module = Module::from_binary(&self.engine, &module_bytes).ok()?;
-
         println!("Initializing...");
+        let now = std::time::Instant::now();
         let mut store = Store::new(&self.engine, ());
+
+        // Load the module bytes and compile the module.
+        let module_bytes = loader.get_module_bytes(protocol, self.kind())?;
+        let module = Module::from_binary(&self.engine, &module_bytes)
+            .expect("Failed to create module from binary");
+        println!(
+            "Module loaded and compiled, time taken: {:?}",
+            now.elapsed()
+        );
 
         // Once we've got that all set up we can then move to the instantiation
         // phase, pairing together a compiled module as well as a set of imports.
         // Note that this is where the wasm `start` function, if any, would run.
         println!("Instantiating module...");
         let imports = [];
-        let instance = Instance::new(&mut store, &module, &imports).ok()?;
+        let instance =
+            Instance::new(&mut store, &module, &imports).expect("Failed to instantiate module");
 
         // Get the scratch buffer pointer.
         let now = std::time::Instant::now();
