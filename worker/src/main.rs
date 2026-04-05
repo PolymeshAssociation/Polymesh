@@ -15,6 +15,7 @@ pub fn signer_to_did(signer_name: &str) -> [u8; 32] {
 }
 
 pub fn main() {
+    env_logger::init();
     // Parse the first command line argument as the backend kind, default to PolkaVM if not provided or invalid.
     let backend_kind = std::env::args()
         .nth(1)
@@ -24,12 +25,15 @@ pub fn main() {
             "wasmtime" => Some(BackendKind::Wasmtime),
             "wasmer" => Some(BackendKind::Wasmer),
             _ => None,
-        })
-        .unwrap_or(BackendKind::PolkaVM);
+        });
 
-    println!("Using backend: {:?}", backend_kind);
-
-    let backends = Backends::with_backends(vec![backend_kind]);
+    let backends = if let Some(backend_kind) = backend_kind {
+        println!("Using backend: {:?}", backend_kind);
+        Backends::with_backends(vec![backend_kind])
+    } else {
+        println!("No valid backend specified, using all available backends.");
+        Backends::new()
+    };
     let loader = StaticModules;
     let protocol = Protocol {
         id: PROTOCOL_PDART,

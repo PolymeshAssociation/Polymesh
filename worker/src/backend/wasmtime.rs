@@ -63,6 +63,12 @@ impl WasmtimeBackend {
         // Enable the Cranelift optimizing compiler.
         config.strategy(Strategy::Cranelift);
 
+        // Enable Webassembly features.
+        config.wasm_wide_arithmetic(true);
+        config.wasm_bulk_memory(true);
+        config.wasm_multi_value(true);
+        config.wasm_simd(true);
+
         // Enable signals-based traps. This is required to elide explicit
         // bounds-checking.
         config.signals_based_traps(true);

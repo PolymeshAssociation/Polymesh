@@ -11,7 +11,7 @@ polkavm_derive::min_stack_size!(128 * 1024);
 #[cfg(feature = "polkavm")]
 polkavm_derive::min_stack_size!(2);
 
-#[cfg(not(feature = "native"))]
+#[cfg(not(any(feature = "native", feature = "std")))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     #[cfg(target_family = "wasm")]

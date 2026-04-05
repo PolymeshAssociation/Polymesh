@@ -3743,6 +3743,15 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "env_logger"
 version = "0.11.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0621c04f2196ac3f488dd583365b9c09be011a4ab8b9f37248ffcc8f6198b56a"
@@ -8732,7 +8741,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "env_logger",
+ "env_logger 0.11.10",
  "futures",
  "git2",
  "hex",
@@ -10803,6 +10812,7 @@ dependencies = [
 name = "polymesh-worker"
 version = "0.1.0"
 dependencies = [
+ "env_logger 0.10.2",
  "parity-scale-codec",
  "polkavm 0.32.0",
  "polymesh-dart",

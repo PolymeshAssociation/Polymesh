@@ -2,7 +2,9 @@ use codec::{Decode, Encode};
 use polymesh_worker_protocol_common::*;
 
 mod native;
+#[cfg(feature = "polkavm")]
 mod polkavm;
+#[cfg(feature = "wasmtime")]
 mod wasmtime;
 
 pub struct Backends {
@@ -13,7 +15,9 @@ impl Backends {
     pub fn new() -> Self {
         let mut backends: Vec<Box<dyn Backend>> = Vec::new();
         backends.push(Box::new(native::NativeBackend));
+        #[cfg(feature = "polkavm")]
         backends.push(Box::new(polkavm::PolkavmBackend::new()));
+        #[cfg(feature = "wasmtime")]
         backends.push(Box::new(wasmtime::WasmtimeBackend::new()));
         Self { backends }
     }
@@ -24,8 +28,16 @@ impl Backends {
         for kind in kinds {
             match kind {
                 BackendKind::Native => backends.push(Box::new(native::NativeBackend)),
-                BackendKind::PolkaVM => backends.push(Box::new(polkavm::PolkavmBackend::new())),
-                BackendKind::Wasmtime => backends.push(Box::new(wasmtime::WasmtimeBackend::new())),
+                BackendKind::PolkaVM =>
+                {
+                    #[cfg(feature = "polkavm")]
+                    backends.push(Box::new(polkavm::PolkavmBackend::new()))
+                }
+                BackendKind::Wasmtime =>
+                {
+                    #[cfg(feature = "wasmtime")]
+                    backends.push(Box::new(wasmtime::WasmtimeBackend::new()))
+                }
                 BackendKind::Wasmer => {
                     eprintln!("Wasmer backend is not yet implemented.");
                     //backends.push(Box::new(wasmer::WasmerBackend::new()));

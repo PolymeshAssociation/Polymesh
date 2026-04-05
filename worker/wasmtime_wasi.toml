@@ -1,0 +1,17 @@
+[optimize]
+opt-level = 2
+signals-based-traps=true
+memory-reservation=4294967296
+memory-guard-size=4294967296
+
+[codegen]
+compiler="cranelift"
+
+[wasi]
+cli=true
+inherit-env=true
+
+[wasm]
+simd=true
+shared-memory=true
+wide-arithmetic=true

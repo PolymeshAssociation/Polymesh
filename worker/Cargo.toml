@@ -21,6 +21,8 @@ polkavm = { workspace = true, default-features = true, optional = true }
 
 wasmtime = { version = "43.0.0", optional = true }
 
+env_logger = { version = "0.10.0", default-features = false }
+
 [features]
 default = [
 	"std",
