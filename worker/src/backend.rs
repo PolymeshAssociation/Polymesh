@@ -4,6 +4,8 @@ use polymesh_worker_protocol_common::*;
 mod native;
 #[cfg(feature = "polkavm")]
 mod polkavm;
+#[cfg(feature = "wasmer")]
+mod wasmer;
 #[cfg(feature = "wasmtime")]
 mod wasmtime;
 
@@ -19,6 +21,8 @@ impl Backends {
         backends.push(Box::new(polkavm::PolkavmBackend::new()));
         #[cfg(feature = "wasmtime")]
         backends.push(Box::new(wasmtime::WasmtimeBackend::new()));
+        #[cfg(feature = "wasmer")]
+        backends.push(Box::new(wasmer::WasmerBackend::new()));
         Self { backends }
     }
 
@@ -38,9 +42,10 @@ impl Backends {
                     #[cfg(feature = "wasmtime")]
                     backends.push(Box::new(wasmtime::WasmtimeBackend::new()))
                 }
-                BackendKind::Wasmer => {
-                    eprintln!("Wasmer backend is not yet implemented.");
-                    //backends.push(Box::new(wasmer::WasmerBackend::new()));
+                BackendKind::Wasmer =>
+                {
+                    #[cfg(feature = "wasmer")]
+                    backends.push(Box::new(wasmer::WasmerBackend::new()))
                 }
             }
         }

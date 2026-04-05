@@ -17,9 +17,12 @@ polymesh-dart = { workspace = true, default-features = false, features = ["backe
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
 
+# RiscV based engine
 polkavm = { workspace = true, default-features = true, optional = true }
 
+# WASM engines
 wasmtime = { version = "43.0.0", optional = true }
+wasmer = { version = "7.1.0", optional = true }
 
 env_logger = { version = "0.10.0", default-features = false }
 
@@ -28,6 +31,7 @@ default = [
 	"std",
 	"polkavm",
 	"wasmtime",
+	"wasmer",
 	"testing"
 ]
 
@@ -37,6 +41,10 @@ polkavm = [
 
 wasmtime = [
 	"dep:wasmtime",
+]
+
+wasmer = [
+	"dep:wasmer",
 ]
 
 testing = [
