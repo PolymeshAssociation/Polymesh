@@ -197,6 +197,54 @@ fn chain_extension_calls() {
 }
 
 #[test]
+fn twox_hash_variants_charge_correct_weight() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
+        let permissions = Permissions {
+            portfolio: PortfolioPermissions::Whole,
+            asset: SubsetRestriction::empty(),
+            extrinsic: ExtrinsicPermissions::empty(),
+        };
+        let (code, _) = chain_extension();
+        let salt = vec![0xFD];
+        assert_ok!(Contracts::instantiate_with_code_perms(
+            alice.origin(),
+            Balances::minimum_balance(),
+            GAS_LIMIT,
+            None,
+            code.clone(),
+            vec![],
+            salt.clone(),
+            permissions,
+        ));
+        let hash = Hashing::hash(&code);
+        let contract_key = FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
+        let payload = vec![0xCC; MaxInLen::get() as usize];
+        let call_hash = |func_id: u32| {
+            FrameContracts::call(
+                alice.origin(),
+                contract_key.clone().into(),
+                0,
+                GAS_LIMIT,
+                None,
+                [func_id.encode(), payload.clone()].concat(),
+            )
+            .expect("hashing call should succeed")
+        };
+
+        // func_id 0x10 = KeyHasher(Twox, B64), 0x12 = KeyHasher(Twox, B256)
+        let twox64 = call_hash(0x00_00_00_10);
+        let twox256 = call_hash(0x00_00_00_12);
+        // twox_256 must cost more than twox_64 — they use different hash functions.
+        assert_ne!(
+            twox64.actual_weight, twox256.actual_weight,
+            "twox_256 and twox_64 should charge different weights"
+        );
+    })
+}
+
+#[test]
 fn upgrade_api_unauthorized_caller() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
