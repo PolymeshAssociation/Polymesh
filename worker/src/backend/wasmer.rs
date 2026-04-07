@@ -17,7 +17,8 @@ struct FnEnv {
     memory: Option<Memory>,
 }
 
-fn host_msm_unchecked(mut env: FunctionEnvMut<FnEnv>, is_pallas: u32, ptr: u32, len: u32) -> u32 {
+fn host_msm_unchecked(mut env: FunctionEnvMut<FnEnv>, fat_ptr: u64) -> u32 {
+    let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
     let (env, store) = env.data_and_store_mut();
     let Some(memory) = env.memory.as_ref().map(|m| m.view(&store)) else {
         eprintln!("Memory not found in host environment");
@@ -28,7 +29,7 @@ fn host_msm_unchecked(mut env: FunctionEnvMut<FnEnv>, is_pallas: u32, ptr: u32, 
         eprintln!("Failed to read from module memory: {err}");
         return 0;
     }
-    let res_len = crate::host::host_msm_unchecked(is_pallas, &mut buffer, len);
+    let res_len = ark_host_msm_impl::host_msm_unchecked(&mut buffer, len);
 
     if let Err(err) = memory.write(ptr as u64, &buffer[..res_len as usize]) {
         eprintln!("Failed to write to module memory: {err}");

@@ -10,8 +10,8 @@ rm $output_path $wasm_path
 
 echo "> Building: '$crate' (-> $output_path)"
 
-#RUSTFLAGS="-C target-feature=+simd128,+wide-arithmetic" cargo build \
-cargo build \
+#RUSTFLAGS="-C target-feature=+simd128,+wide-arithmetic" \
+	cargo build \
 	--target=$target \
 	--no-default-features \
 	--features wasm \

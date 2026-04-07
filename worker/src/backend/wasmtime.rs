@@ -1,10 +1,10 @@
+use ark_host_msm_impl::host_msm_unchecked;
 use codec::{Decode, Encode};
 use polymesh_worker_protocol_common::{Error, Protocol, WorkRequest, WorkResponse};
 
 use wasmtime::*;
 
 use crate::backend::{Backend, BackendKind, BackendModuleInstance, BackendModuleLoader};
-use crate::host::*;
 
 /// Wasmtime module instance.
 pub struct WasmtimeModuleInstance {
@@ -106,25 +106,28 @@ impl Backend for WasmtimeBackend {
             now.elapsed()
         );
 
-        let host_msm = Func::wrap(&mut store, |mut caller: Caller<'_, ()>, is_pallas: u32, ptr: u32, len: u32| -> wasmtime::Result<u32> {
-            let mem = match caller.get_export("memory") {
-                Some(Extern::Memory(mem)) => mem,
-                _ => bail!("failed to find host memory"),
-            };
-            let ptr = ptr as usize;
-            let len = len as usize;
-            let buffer = if let Some(buffer) = mem
-                .data_mut(&mut caller)
-                .get_mut(ptr..ptr + len) {
-                buffer
-            } else {
-                bail!("pointer/length out of bounds");
-            };
+        let host_msm = Func::wrap(
+            &mut store,
+            |mut caller: Caller<'_, ()>, fat_ptr: u64| -> wasmtime::Result<u32> {
+                let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
+                let mem = match caller.get_export("memory") {
+                    Some(Extern::Memory(mem)) => mem,
+                    _ => bail!("failed to find host memory"),
+                };
+                let ptr = ptr as usize;
+                let len = len as usize;
+                let buffer = if let Some(buffer) = mem.data_mut(&mut caller).get_mut(ptr..ptr + len)
+                {
+                    buffer
+                } else {
+                    bail!("pointer/length out of bounds");
+                };
 
-            let res = host_msm_unchecked(is_pallas, buffer, len as u32);
+                let res = host_msm_unchecked(buffer, len as u32);
 
-            Ok(res)
-        });
+                Ok(res)
+            },
+        );
         let imports = [host_msm.into()];
 
         // Once we've got that all set up we can then move to the instantiation

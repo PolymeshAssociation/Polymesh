@@ -1,7 +1,6 @@
 pub use polymesh_worker_protocol_common::*;
 
 mod backend;
-mod host;
 
 pub use backend::{Backend, BackendKind, BackendModuleInstance, BackendModuleLoader, Backends};
 

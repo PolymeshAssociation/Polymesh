@@ -5,12 +5,13 @@ use polkavm::{Caller, Config, Engine, Instance, Linker, Module, ProgramBlob};
 
 use crate::backend::{Backend, BackendKind, BackendModuleInstance, BackendModuleLoader};
 
-fn host_msm_unchecked(caller: Caller<()>, is_pallas: u32, ptr: u32, len: u32) -> u32 {
+fn host_msm_unchecked(caller: Caller<()>, fat_ptr: u64) -> u32 {
+    let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
     let mut buffer = caller
         .instance
         .read_memory(ptr, len)
         .expect("Failed to read memory from module");
-    let res_len = crate::host::host_msm_unchecked(is_pallas, buffer.as_mut_slice(), len);
+    let res_len = ark_host_msm_impl::host_msm_unchecked(buffer.as_mut_slice(), len);
 
     caller
         .instance

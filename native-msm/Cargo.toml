@@ -1,0 +1,38 @@
+[package]
+name = "polymesh-native-msm"
+version = "1.0.0"
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Polymesh native MSM support"
+edition = "2024"
+
+[dependencies]
+wasmtime = { version = "35.0.0", default-features = false }
+sp-wasm-interface = { workspace = true, default-features = false }
+
+# Arkworks host MSM
+ark-host-msm = { workspace = true, default-features = false }
+ark-host-msm-impl = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+
+asm = [
+    "ark-host-msm-impl/asm"
+]
+parallel = [
+    "ark-host-msm-impl/parallel",
+]
+
+std = [
+    "asm",
+    "parallel",
+    "wasmtime/runtime",
+    "sp-wasm-interface/wasmtime",
+
+    "sp-wasm-interface/std",
+    "ark-host-msm/std",
+    "ark-host-msm-impl/std",
+]

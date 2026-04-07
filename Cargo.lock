@@ -539,7 +539,7 @@ dependencies = [
 [[package]]
 name = "ark-bls12-381"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -550,7 +550,7 @@ dependencies = [
 [[package]]
 name = "ark-bn254"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -593,7 +593,7 @@ dependencies = [
 [[package]]
 name = "ark-curve25519"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -646,11 +646,12 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ahash 0.8.12",
  "ark-ff 0.5.0",
- "ark-poly 0.5.0 (git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm)",
+ "ark-host-msm",
+ "ark-poly 0.5.0 (git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master)",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "educe",
@@ -660,7 +661,6 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
- "polkavm-derive 0.32.0",
  "rayon",
  "zeroize",
 ]
@@ -706,7 +706,7 @@ dependencies = [
 [[package]]
 name = "ark-ed25519"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -755,7 +755,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ff-asm 0.5.0",
  "ark-ff-macros 0.5.0",
@@ -792,7 +792,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -826,7 +826,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -838,7 +838,7 @@ dependencies = [
 [[package]]
 name = "ark-helios"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -848,9 +848,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-host-msm"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
+dependencies = [
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "polkavm-derive 0.32.0",
+]
+
+[[package]]
+name = "ark-host-msm-impl"
+version = "0.5.0"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-host-msm",
+ "ark-pallas",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
+ "lazy_static",
+]
+
+[[package]]
 name = "ark-pallas"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -890,7 +915,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ahash 0.8.12",
  "ark-ff 0.5.0",
@@ -933,7 +958,7 @@ dependencies = [
 [[package]]
 name = "ark-selene"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -967,7 +992,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-serialize-derive 0.5.0",
  "ark-std 0.5.0",
@@ -992,7 +1017,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1059,7 +1084,7 @@ dependencies = [
 [[package]]
 name = "ark-vesta"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -1090,7 +1115,7 @@ dependencies = [
 [[package]]
 name = "ark-wei25519"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master-host-msm#0573c0ebd740c73b993ce07ee6f687ffc64d2d14"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=polymesh-master#25392075256f107ed9c17296bbe49e33ca737ed0"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -10594,6 +10619,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-contracts",
  "polymesh-dart-host-functions",
+ "polymesh-native-msm",
  "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -10787,6 +10813,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "polymesh-native-msm"
+version = "1.0.0"
+dependencies = [
+ "ark-host-msm",
+ "ark-host-msm-impl",
+ "sp-wasm-interface",
+ "wasmtime 35.0.0",
 ]
 
 [[package]]
@@ -11333,11 +11369,14 @@ name = "polymesh-worker"
 version = "0.1.0"
 dependencies = [
  "ark-ec 0.5.0",
+ "ark-host-msm",
+ "ark-host-msm-impl",
  "ark-pallas",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "ark-vesta",
  "env_logger 0.10.2",
+ "log",
  "parity-scale-codec",
  "polkavm 0.32.0",
  "polymesh-dart",

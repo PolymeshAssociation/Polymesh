@@ -32,6 +32,8 @@ env_logger = { version = "0.10.0", default-features = false }
 ark-serialize = { workspace = true, default-features = false }
 ark-std = { workspace = true, default-features = false }
 ark-ec = { workspace = true, default-features = false }
+ark-host-msm = { workspace = true, default-features = false }
+ark-host-msm-impl = { workspace = true, default-features = false }
 ark-pallas = { workspace = true, default-features = false }
 ark-vesta = { workspace = true, default-features = false }
 
@@ -68,11 +70,20 @@ testing = [
 	"polymesh-worker-protocol-dart-v0/testing",
 ]
 
+asm = ["ark-host-msm-impl/asm"]
+parallel = [
+	"ark-host-msm-impl/parallel",
+]
+
 std = [
+	"asm",
+	"parallel",
 	"codec/std",
 	"polymesh-worker-protocol-common/std",
 	"polymesh-worker-protocol-dart-v0/std",
 	"ark-std/std",
 	"ark-pallas/std",
 	"ark-vesta/std",
+	"ark-host-msm/std",
+	"ark-host-msm-impl/std",
 ]

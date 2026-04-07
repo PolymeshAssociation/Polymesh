@@ -1,7 +1,10 @@
 [package]
 name = "polymesh"
-version = "8.0.0-rc1"
-authors = ["PolymeshAssociation"]
+version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+homepage.workspace = true
 build = "build.rs"
 edition = "2021"
 
@@ -40,6 +43,8 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 # Polymesh changes to Arkworks.
 #ark-serialize = { path = "../arkworks-algebra/serialize" }
 #ark-ec = { path = "../arkworks-algebra/ec" }
+#ark-host-msm = { path = "../arkworks-algebra/host-msm" }
+#ark-host-msm-impl = { path = "../arkworks-algebra/host-msm-impl" }
 #ark-ff = { path = "../arkworks-algebra/ff" }
 #ark-pallas = { path = "../arkworks-algebra/curves/pallas" }
 #ark-vesta = { path = "../arkworks-algebra/curves/vesta" }
@@ -50,21 +55,23 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 #ark-ed25519 = { path = "../arkworks-algebra/curves/ed25519" }
 #ark-bn254 = { path = "../arkworks-algebra/curves/bn254" }
 #ark-bls12-381 = { path = "../arkworks-algebra/curves/bls12_381" }
-ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
-ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
+ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 
 #ark-bls12-377 = { path = "../arkworks-algebra/curves/bls12_377" }
-#ark-bls12-377 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master-host-msm" }
+#ark-bls12-377 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 
 [workspace]
 members = [
@@ -112,12 +119,14 @@ members = [
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
+    "native-msm",
 ]
 exclude = ["contracts", "integration", "metadata-tools"]
 
 [workspace.package]
-version = "8.0.0"
+version = "8.0.0-rc1"
 authors = ["PolymeshAssociation"]
+license-file = "./LICENSE"
 edition = "2021"
 repository = "https://github.com/PolymeshAssociation/Polymesh"
 homepage = "https://github.com/PolymeshAssociation/Polymesh"
@@ -128,6 +137,9 @@ homepage = "https://github.com/PolymeshAssociation/Polymesh"
 polymesh-worker = { path = "worker", default-features = false }
 polymesh-worker-protocol-common = { path = "worker/protocol/common", default-features = false }
 polymesh-worker-protocol-dart-v0 = { path = "worker/protocol/dart-v0", default-features = false }
+
+# Polymesh native MSM
+polymesh-native-msm = { path = "native-msm", default-features = false }
 
 # Polkavm for protocol workers.
 polkavm = { version = "0.32", default-features = false }
@@ -260,6 +272,7 @@ sp-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch =
 sp-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-weights = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
+sp-wasm-interface = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-state-machine = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
@@ -322,6 +335,8 @@ polymesh-dart = { version = "0.1.0", default-features = false }
 polymesh-dart-common = { version = "0.1.0", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 ark-ec = { version = "0.5", default-features = false }
+ark-host-msm = { version = "0.5", default-features = false }
+ark-host-msm-impl = { version = "0.5", default-features = false }
 ark-pallas = { version = "0.5", default-features = false }
 ark-vesta = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
@@ -344,6 +359,9 @@ polymesh-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
+
+# Host MSM
+polymesh-native-msm = { workspace = true, default-features = false }
 
 # RPC
 node-rpc = { workspace = true }
@@ -480,6 +498,7 @@ metadata-hash = [
 ]
 
 std = [
-		"polymesh-dart-host-functions/std",
-    "serde/std"
+    "polymesh-dart-host-functions/std",
+    "serde/std",
+    "polymesh-native-msm/std",
 ]
