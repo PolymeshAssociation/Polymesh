@@ -231,14 +231,19 @@ pub mod pallet {
         /// Cross-DID settlement with account holders (no execution).
         fn transfer_funds_account_diff_did() -> Weight;
 
-        /// Worst-case weight across all `transfer_funds` paths, including try-execution.
+        /// Worst-case weight across all `transfer_funds` paths.
+        /// Cross-DID benchmarks include execution (receiver auto-affirms).
         fn transfer_funds() -> Weight {
-            let worst_path = Self::transfer_funds_portfolio_same_did()
+            Self::transfer_funds_portfolio_same_did()
                 .max(Self::transfer_funds_portfolio_diff_did())
                 .max(Self::transfer_funds_account_same_did())
-                .max(Self::transfer_funds_account_diff_did());
-            // Cross-DID paths may also execute the instruction immediately.
-            worst_path.saturating_add(Self::execute_manual_instruction(1, 0, 0))
+                .max(Self::transfer_funds_account_diff_did())
+        }
+
+        /// Worst-case weight for account-only `transfer_funds` paths (no portfolios).
+        fn transfer_funds_account() -> Weight {
+            Self::transfer_funds_account_same_did()
+                .max(Self::transfer_funds_account_diff_did())
         }
 
         fn add_and_affirm_with_mediators_legs(
@@ -1058,6 +1063,7 @@ pub mod pallet {
                 asset_holder.as_ref(),
                 &input_cost,
                 false,
+                false,
                 &mut weight_meter,
             )
             .map_err(|e| DispatchErrorWithPostInfo {
@@ -1633,11 +1639,15 @@ impl<T: Config> Pallet<T> {
 
         let same_did = from_did == to_did;
         let is_portfolio = matches!(resolved_from, AssetHolder::Portfolio(_));
-        let _ =
-            weight_meter.check_accrue(Self::transfer_funds_actual_weight(is_portfolio, same_did));
+
+        // Charge the benchmark-measured weight for this path.
+        Self::check_accrue(
+            weight_meter,
+            Self::transfer_funds_actual_weight(is_portfolio, same_did),
+        )?;
 
         let instruction_id = if same_did {
-            // Same-identity: authorize and transfer directly.
+            // Authorize: spender allowance (account) or custody (portfolio).
             Self::ensure_transfer_source_authorized(&resolved_from, &origin_data, &fund)?;
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
@@ -3087,6 +3097,7 @@ impl<T: Config> Pallet<T> {
         caller_holding: Option<&AssetHolder>,
         input_asset_count: &AssetCount,
         skip_caller_check: bool,
+        skip_weight_charge: bool,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
         let origin_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
@@ -3113,26 +3124,32 @@ impl<T: Config> Pallet<T> {
 
         match InstructionStatuses::<T>::get(&inst_id) {
             InstructionStatus::Pending => {
-                Self::check_accrue(
-                    weight_meter,
-                    <T as Config>::WeightInfo::execute_manual_instruction_paused(
-                        inst_asset_count.fungible() as u32,
-                        inst_asset_count.non_fungible() as u32,
-                        inst_asset_count.off_chain() as u32,
-                    ),
-                )?;
+                // Skipped when called from `transfer_funds` — that path charges
+                // weight once upfront via its own dedicated benchmark.
+                if !skip_weight_charge {
+                    Self::check_accrue(
+                        weight_meter,
+                        <T as Config>::WeightInfo::execute_manual_instruction_paused(
+                            inst_asset_count.fungible() as u32,
+                            inst_asset_count.non_fungible() as u32,
+                            inst_asset_count.off_chain() as u32,
+                        ),
+                    )?;
+                }
                 Self::ensure_manual_settlement_type(inst_details.settlement_type)?;
                 Self::execute_instruction_retryable(inst_id, caller_did, weight_meter, true)?;
             }
             InstructionStatus::Failed => {
-                Self::check_accrue(
-                    weight_meter,
-                    <T as Config>::WeightInfo::execute_manual_instruction_paused(
-                        inst_asset_count.fungible() as u32,
-                        inst_asset_count.non_fungible() as u32,
-                        inst_asset_count.off_chain() as u32,
-                    ),
-                )?;
+                if !skip_weight_charge {
+                    Self::check_accrue(
+                        weight_meter,
+                        <T as Config>::WeightInfo::execute_manual_instruction_paused(
+                            inst_asset_count.fungible() as u32,
+                            inst_asset_count.non_fungible() as u32,
+                            inst_asset_count.off_chain() as u32,
+                        ),
+                    )?;
+                }
                 Self::execute_instruction_retryable(inst_id, caller_did, weight_meter, true)?;
             }
             InstructionStatus::LockedForExecution => {
@@ -3876,6 +3893,7 @@ impl<T: Config> Pallet<T> {
             None,
             &inst_asset_count,
             true,
+            false,
             &mut weight_meter,
         ) {
             Ok(_) => Some(ExecuteInstructionInfo::new(
@@ -3937,6 +3955,7 @@ impl<T: Config> Pallet<T> {
             None,
             &asset_count,
             true,
+            true, // Skip weight charge — covered by transfer_funds benchmark.
             weight_meter,
         )
         .map_err(|e| e.error)?;
@@ -3983,9 +4002,6 @@ impl<T: Config> Pallet<T> {
                 )
             }
         };
-
-        // Consume weight for the transfer and affirmation
-        Self::check_accrue(weight_meter, Self::transfer_weight(is_fungible))?;
 
         #[cfg(feature = "runtime-benchmarks")]
         {
@@ -4118,14 +4134,6 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
-    /// Get the transfer weight based on the type of asset.
-    fn transfer_weight(is_fungible: bool) -> Weight {
-        let (fungible, non_fungible) = if is_fungible { (1, 0) } else { (0, 1) };
-        <T as Config>::WeightInfo::add_instruction(fungible, non_fungible, 0).saturating_add(
-            <T as Config>::WeightInfo::affirm_instruction(fungible, non_fungible),
-        )
-    }
-
     /// Get the try execute weight based on the type of asset.
     fn try_execute_weight(is_fungible: bool) -> Weight {
         let (fungible, non_fungible) = if is_fungible { (1, 0) } else { (0, 1) };
@@ -4167,6 +4175,10 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
 
     fn transfer_funds_weight() -> Weight {
         <T as Config>::WeightInfo::transfer_funds()
+    }
+
+    fn transfer_funds_account_weight() -> Weight {
+        <T as Config>::WeightInfo::transfer_funds_account()
     }
 
     fn transfer_funds(

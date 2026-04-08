@@ -43,9 +43,6 @@ pub trait SettlementFnTrait<T: Config> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo;
 
-    /// Get the transfer weight based on the type of asset.
-    fn transfer_weight(is_fungible: bool) -> Weight;
-
     /// Get the try execute weight based on the type of asset.
     fn try_execute_weight(is_fungible: bool) -> Weight;
 
@@ -68,6 +65,10 @@ pub trait SettlementFnTrait<T: Config> {
 
     /// Get the worst-case weight for `transfer_funds` / `base_transfer_funds`.
     fn transfer_funds_weight() -> Weight;
+
+    /// Worst-case weight for `transfer_funds` when sender and receiver are accounts (no portfolios).
+    /// Used by `transfer_asset` where both ends are always `AccountId`.
+    fn transfer_funds_account_weight() -> Weight;
 
     /// Routes a transfer: same-identity direct, cross-identity settlement.
     /// Returns the settlement instruction ID (None for same-identity).

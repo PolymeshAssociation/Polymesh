@@ -1665,7 +1665,7 @@ pub mod pallet {
         /// * `UnexpectedOFFChainAsset` - If the asset could not be found on-chain.
         /// * `MissingIdentity` - The caller doesn't have an identity.
         #[pallet::call_index(34)]
-        #[pallet::weight(<T as Config>::SettlementFn::transfer_funds_weight())]
+        #[pallet::weight(<T as Config>::SettlementFn::transfer_funds_account_weight())]
         pub fn transfer_asset(
             origin: OriginFor<T>,
             asset_id: AssetId,
@@ -2823,7 +2823,7 @@ impl<T: AssetConfig> Pallet<T> {
         };
 
         let mut weight_meter =
-            WeightMeter::max_limit(<T as Config>::SettlementFn::transfer_funds_weight());
+            WeightMeter::max_limit(<T as Config>::SettlementFn::transfer_funds_account_weight());
 
         let instruction_id = T::SettlementFn::transfer_funds(
             origin,

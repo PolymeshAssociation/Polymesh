@@ -960,16 +960,23 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
 
         let (sender_holding, receiver_holding, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, false);
+            setup_asset_transfer::<T>(&alice, &bob, None, None, false, false, 0, true, false);
+
+        // Undo mandatory affirmation so receiver auto-affirms and instruction executes.
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Automatic,
+        )
+        .unwrap();
 
         let fund = Fund {
             description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
             memo: None,
         };
-    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding, fund)
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding.clone(), fund)
     verify {
-        // Instruction created but not executed (receiver affirmation pending).
-        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
+        // Receiver auto-affirms → instruction executes with compliance checks.
+        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&receiver_holding, &asset_id), ONE_UNIT);
     }
 
     transfer_funds_account_same_did {
@@ -978,28 +985,6 @@ benchmarks! {
 
         let (_sender_holding, _receiver_holding, _, asset_id) =
             setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, true);
-
-        let from = AssetHolder::try_from(alice.account().encode()).unwrap();
-        let to = AssetHolder::from(polymesh_primitives::PortfolioId {
-            did: alice.did(),
-            kind: polymesh_primitives::PortfolioKind::Default,
-        });
-        let fund = Fund {
-            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
-            memo: None,
-        };
-    }: transfer_funds(alice.origin.clone(), Some(from), to.clone(), fund)
-    verify {
-        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
-    }
-
-    transfer_funds_account_diff_did {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let charlie = UserBuilder::<T>::default().generate_did().build("Charlie");
-
-        let (_sender_holding, _receiver_holding, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &charlie, None, None, true, true, 0, false, true);
 
         pallet_asset::Pallet::<T>::approve(
             alice.origin().into(),
@@ -1010,18 +995,48 @@ benchmarks! {
         .unwrap();
 
         let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
-        let to = AssetHolder::try_from(charlie.account().encode()).unwrap();
+        let to = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
         let fund = Fund {
             description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
             memo: None,
         };
-    }: transfer_funds(bob.origin.clone(), from, to, fund)
+    }: transfer_funds(bob.origin.clone(), from, to.clone(), fund)
     verify {
+        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
+    }
+
+    transfer_funds_account_diff_did {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (_sender_holding, _receiver_holding, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, false, false, 0, false, true);
+
+        pallet_asset::Pallet::<T>::approve(
+            alice.origin().into(),
+            asset_id,
+            bob.account(),
+            ONE_UNIT * 10,
+        )
+        .unwrap();
+
+        let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
+        let to = AssetHolder::try_from(bob.account().encode()).unwrap();
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+    }: transfer_funds(bob.origin.clone(), from, to.clone(), fund)
+    verify {
+        // Allowance decremented.
         assert_eq!(
             pallet_asset::Allowances::<T>::get((&alice.account(), &bob.account(), asset_id)),
             ONE_UNIT * 9
         );
-        // Instruction created but not executed (receiver affirmation pending).
-        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
+        // Instruction executed (caller is receiver → auto-affirm → execution).
+        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
     }
 }
