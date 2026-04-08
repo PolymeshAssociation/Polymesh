@@ -242,8 +242,7 @@ pub mod pallet {
 
         /// Worst-case weight for account-only `transfer_funds` paths (no portfolios).
         fn transfer_funds_account() -> Weight {
-            Self::transfer_funds_account_same_did()
-                .max(Self::transfer_funds_account_diff_did())
+            Self::transfer_funds_account_same_did().max(Self::transfer_funds_account_diff_did())
         }
 
         fn add_and_affirm_with_mediators_legs(
