@@ -422,7 +422,7 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./polymesh-benchmarks benchmark pallet -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
+          command: ./polymesh-benchmarks benchmark pallet --min-duration=0 -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
           no_output_timeout: 30m
   migration-tests:
     docker:
