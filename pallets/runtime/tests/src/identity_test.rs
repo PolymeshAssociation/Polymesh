@@ -1500,6 +1500,41 @@ fn register_did_test() {
         });
 }
 
+/// Test `self_register_did` extrinsic for registering DIDs.
+///
+/// Need to test the following scenarios:
+/// 1. Success: Account registers its own DID successfully.
+/// 2. Error: Account that already has a DID cannot register again.
+#[test]
+fn self_register_did_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let bob = Sr25519Keyring::Bob.to_account_id();
+
+            // Success: Bob registers his own DID
+            assert_ok!(Identity::self_register_did(Origin::signed(bob.clone())));
+            let bob_id = get_identity_id(Sr25519Keyring::Bob).unwrap();
+
+            // Verify DID is active and primary key is set correctly
+            assert!(Identity::is_did_active(bob_id));
+            assert_eq!(get_primary_key(bob_id), bob.clone());
+
+            // Verify DidCreated event was emitted
+            System::assert_has_event(Event::DidCreated(bob_id, bob.clone(), vec![]).into());
+
+            // Error: Cannot register DID for account that already has one
+            assert_noop!(
+                Identity::self_register_did(Origin::signed(bob.clone())),
+                Error::AlreadyLinked
+            );
+        });
+}
+
 #[test]
 fn add_identity_signers() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
