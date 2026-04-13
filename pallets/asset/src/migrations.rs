@@ -23,7 +23,7 @@ pub(crate) fn migrate_to_v7<T: Config + pallet_identity::Config>() -> Weight {
     }
 
     log::info!(
-        "identity::RemoveTickerDidRecords: Removed {} asset DidRecords from {} tickers.",
+        "asset.migrate_to_v7: Removed {} asset DidRecords from {} tickers.",
         removed,
         ticker_count,
     );

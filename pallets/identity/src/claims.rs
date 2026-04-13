@@ -204,7 +204,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensures that the caller is an active DID registrar and creates a new did for the target.
-    /// This function returns the new did of the target.
     ///
     /// # Failure
     /// - `origin` has to be an active DID registrar. Inactive registrars cannot add new
