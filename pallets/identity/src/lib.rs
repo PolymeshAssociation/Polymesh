@@ -366,11 +366,10 @@ pub mod pallet {
         CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
     }
 
-    const OLD_STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
     #[pallet::pallet]
-    #[pallet::storage_version(OLD_STORAGE_VERSION)]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     /// DID -> identity info
