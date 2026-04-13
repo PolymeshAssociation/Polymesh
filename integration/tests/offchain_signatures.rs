@@ -8,7 +8,7 @@ mod offchain_tests {
     use polymesh_api::client::Signer;
     use polymesh_api::polymesh::types::{
         pallet_utility::UniqueCall,
-        polymesh_primitives::identity::SecondaryKeyWithAuth,
+        polymesh_primitives::identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
         polymesh_primitives::secondary_key::{Permissions, SecondaryKey},
         primitive_types::H512,
     };
@@ -82,6 +82,70 @@ mod offchain_tests {
             .await?;
         let events = res.events().await?;
         println!("Add secondary keys with auth: events = {:#?}", events);
+        Ok(())
+    }
+
+    /// Test creating child identities from secondary keys using offchain signatures.
+    #[tokio::test]
+    async fn create_child_identities_with_authorizations() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut parent = tester.user("ParentDID1").await?;
+        let parent_did = parent.did.expect("ParentDID1 did");
+
+        // Create a new signer for each child identity.
+        let keys = vec![
+            tester.new_signer_idx("ParentDID1", 1)?,
+            tester.new_signer_idx("ParentDID1", 2)?,
+        ];
+
+        // Get the current off-chain nonce for the parent did.
+        let nonce = tester
+            .api
+            .query()
+            .identity()
+            .off_chain_authorization_nonce(parent_did)
+            .await?;
+
+        // Get current timestamp from chain.
+        let now = tester.api.query().timestamp().now().await?;
+        let expires_at = now + 60_000; // Expire after 1 minute (ms).
+
+        // Prepare authorazation data.
+        let auth = TargetIdAuthorization {
+            target_id: parent_did,
+            nonce,
+            expires_at,
+        };
+
+        let mut children = Vec::new();
+        for key in &keys {
+            // Sign the authorization data with the secondary key.
+            match sign_with_key(key, &auth).await? {
+                MultiSignature::Sr25519(sig) => {
+                    // Create child identity with authorization.
+                    let child = CreateChildIdentityWithAuth {
+                        key: key.account(),
+                        auth_signature: H512(sig.0),
+                    };
+                    children.push(child);
+                }
+                _ => {
+                    bail!("Only Sr25519 keys supported.");
+                }
+            }
+        }
+
+        // Create child identities with authorization.
+        let mut res = tester
+            .api
+            .call()
+            .identity()
+            .create_child_identities(children, expires_at)?
+            .submit_and_watch(&mut parent)
+            .await?;
+        let events = res.events().await?;
+        println!("Create child identities with auth: events = {:#?}", events);
+
         Ok(())
     }
 
