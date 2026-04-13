@@ -85,6 +85,7 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
+mod migrations;
 
 pub mod types;
 pub use types::{
@@ -110,7 +111,6 @@ use polymesh_primitives::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
-    storage_migration_ver,
     traits::group::GroupTrait,
     traits::{CurrentFeePayer, IdentityFnTrait},
     AssetPermissions, Authorization, AuthorizationData, AuthorizationType, Balance, CddId, Claim,
@@ -122,8 +122,6 @@ use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::prelude::*;
 use sp_std::vec::Vec;
-
-storage_migration_ver!(8);
 
 pub trait WeightInfo {
     fn register_did() -> Weight;
@@ -368,7 +366,11 @@ pub mod pallet {
         CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
     }
 
+    const OLD_STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
+
     #[pallet::pallet]
+    #[pallet::storage_version(OLD_STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     /// DID -> identity info
@@ -471,10 +473,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Storage version.
-    #[pallet::storage]
-    pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
-
     /// How many "strong" references to the account key.
     ///
     /// Strong references will block a key from leaving it's identity.
@@ -514,7 +512,7 @@ pub mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             MultiPurposeNonce::<T>::put(1);
-            StorageVersion::<T>::put(Version::new(8));
+            STORAGE_VERSION.put::<Pallet<T>>();
 
             polymesh_primitives::SYSTEMATIC_ISSUERS
                 .iter()
@@ -582,7 +580,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
+            if Pallet::<T>::on_chain_storage_version() < STORAGE_VERSION {
+                let weight = migrations::v7::migrate_to_v8::<T>();
+                STORAGE_VERSION.put::<Pallet<T>>();
+                weight
+            } else {
+                Weight::zero()
+            }
         }
     }
 

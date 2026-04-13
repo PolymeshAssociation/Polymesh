@@ -145,7 +145,7 @@ pub trait AssetConfig: Config + checkpoint::Config {}
 
 impl<T: Config + checkpoint::Config> AssetConfig for T {}
 
-storage_migration_ver!(6);
+storage_migration_ver!(7);
 
 pub use pallet::*;
 
@@ -600,10 +600,10 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let weight = Weight::zero();
+            let mut weight = Weight::zero();
 
-            storage_migrate_on!(StorageVersion::<T>, 6, {
-                migrations::migrate_to_v6::<T>();
+            storage_migrate_on!(StorageVersion::<T>, 7, {
+                weight = migrations::migrate_to_v7::<T>();
             });
 
             weight
