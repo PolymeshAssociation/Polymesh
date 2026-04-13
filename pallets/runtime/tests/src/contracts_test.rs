@@ -8,7 +8,6 @@ use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::Hash;
 
 use pallet_asset::TickersOwnedByUser;
-use pallet_identity::ParentDid;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::{ExtrinsicPermissions, SubsetRestriction, Ticker};
 use polymesh_primitives::{Gas, Permissions, PortfolioPermissions};
@@ -194,31 +193,6 @@ fn chain_extension_calls() {
             TickersOwnedByUser::<TestStorage>::get(&alice.did, ticker),
             true
         );
-    })
-}
-
-#[test]
-fn deploy_as_child_identity() {
-    ExtBuilder::default().build().execute_with(|| {
-        let salt = vec![0xFF];
-        let (code, _) = chain_extension();
-        let hash = Hashing::hash(&code);
-        let alice = User::new(Sr25519Keyring::Alice);
-        Balances::make_free_balance_be(&alice.acc(), 1_000_000 * POLY);
-
-        assert_ok!(Contracts::instantiate_with_code_as_primary_key(
-            alice.origin(),
-            Balances::minimum_balance(),
-            GAS_LIMIT,
-            None,
-            code.clone(),
-            vec![],
-            salt.clone(),
-        ));
-
-        let contract_account_id = FrameContracts::contract_address(&alice.acc(), &hash, &[], &salt);
-        let child_id = Identity::get_identity(&contract_account_id).unwrap();
-        assert_eq!(ParentDid::<TestStorage>::get(child_id), Some(alice.did));
     })
 }
 

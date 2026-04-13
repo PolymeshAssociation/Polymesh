@@ -412,35 +412,11 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Proof Skipped: Identity KeyExtrinsicPermissions (max_values: None, max_size: None, mode: Measured)
     // Storage: Identity KeyAssetPermissions (r:0 w:1)
     // Proof Skipped: Identity KeyAssetPermissions (max_values: None, max_size: None, mode: Measured)
-    fn link_contract_as_secondary_key() -> Weight {
+    fn link_contract_to_did() -> Weight {
         // Minimum execution time: 26_339 nanoseconds.
         Weight::from_parts(28_423_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(5))
-    }
-    // Storage: Identity KeyRecords (r:2 w:1)
-    // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ParentDid (r:1 w:1)
-    // Proof Skipped: Identity ParentDid (max_values: None, max_size: None, mode: Measured)
-    // Storage: ProtocolFee Coefficient (r:1 w:0)
-    // Proof Skipped: ProtocolFee Coefficient (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: ProtocolFee BaseFees (r:1 w:0)
-    // Proof Skipped: ProtocolFee BaseFees (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity MultiPurposeNonce (r:1 w:1)
-    // Proof Skipped: Identity MultiPurposeNonce (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: System ParentHash (r:1 w:0)
-    // Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-    // Storage: Identity DidRecords (r:1 w:1)
-    // Proof Skipped: Identity DidRecords (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity DidKeys (r:0 w:1)
-    // Proof Skipped: Identity DidKeys (max_values: None, max_size: None, mode: Measured)
-    // Storage: Identity ChildDid (r:0 w:1)
-    // Proof Skipped: Identity ChildDid (max_values: None, max_size: None, mode: Measured)
-    fn link_contract_as_primary_key() -> Weight {
-        // Minimum execution time: 47_721 nanoseconds.
-        Weight::from_parts(52_568_000, 0)
-            .saturating_add(DbWeight::get().reads(8))
-            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: PolymeshContracts ApiNextUpgrade (r:0 w:1)
     // Proof Skipped: PolymeshContracts ApiNextUpgrade (max_values: None, max_size: None, mode: Measured)

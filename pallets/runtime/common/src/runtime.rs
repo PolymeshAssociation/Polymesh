@@ -627,10 +627,7 @@ macro_rules! misc_pallet_impls {
             type Environment = ();
             type ApiVersion = ();
             type Xcm = ();
-            #[cfg(not(feature = "runtime-benchmarks"))]
-            type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
-            #[cfg(feature = "runtime-benchmarks")]
-            type PolymeshHooks = polymesh_contracts::benchmarking::BenchmarkContractPolymeshHooks;
+            type PolymeshHooks = pallet_contracts::DefaultPolymeshHooks;
         }
 
         impl pallet_compliance_manager::Config for Runtime {
