@@ -16,6 +16,7 @@
 use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
+use frame_system::RawOrigin;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
@@ -125,6 +126,14 @@ benchmarks! {
         let registrar = did_registrar::<T>("registrar", 0);
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(registrar.origin, target.clone())
+    verify {
+        let did = Pallet::<T>::get_identity(&target).expect("target should have a DID");
+        assert!(Pallet::<T>::is_did_active(did));
+    }
+
+    self_register_did {
+        let target: T::AccountId = account("target", SEED, SEED);
+    }: _(RawOrigin::Signed(target.clone()))
     verify {
         let did = Pallet::<T>::get_identity(&target).expect("target should have a DID");
         assert!(Pallet::<T>::is_did_active(did));

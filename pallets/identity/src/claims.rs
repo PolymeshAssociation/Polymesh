@@ -216,7 +216,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         target_account: T::AccountId,
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
-    ) -> Result<(IdentityId, IdentityId), DispatchError> {
+    ) -> Result<(), DispatchError> {
         let registrar_did = Self::ensure_perms(origin)?;
 
         // Sender has to be part of DID registrars (formerly CddServiceProviders)
@@ -228,13 +228,13 @@ impl<T: Config> Pallet<T> {
         }
 
         // Register Identity
-        let target_did = Self::register_did_without_cdd(
+        Self::register_did_without_cdd(
             target_account,
             secondary_keys,
-            Some(ProtocolOp::IdentityCddRegisterDid),
+            Some(ProtocolOp::IdentityRegisterDid),
         )?;
 
-        Ok((registrar_did, target_did))
+        Ok(())
     }
 
     /// Adds systematic CDD claims.

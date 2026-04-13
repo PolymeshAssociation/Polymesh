@@ -130,6 +130,7 @@ pub trait WeightInfo {
     fn create_child_identities(i: u32) -> Weight;
     fn unlink_child_identity() -> Weight;
     fn register_did() -> Weight;
+    fn self_register_did() -> Weight;
     fn cdd_register_did(i: u32) -> Weight;
     fn remove_secondary_keys(i: u32) -> Weight;
     fn accept_primary_key() -> Weight;
@@ -979,6 +980,23 @@ pub mod pallet {
         #[pallet::call_index(24)]
         pub fn register_did(origin: OriginFor<T>, target_account: T::AccountId) -> DispatchResult {
             Self::base_register_did(origin, target_account, vec![])?;
+            Ok(())
+        }
+
+        /// Register for a new DID for the caller's account.
+        ///
+        /// This is callable by any account that is not already linked to an identity, and will create a new DID with the caller as the primary key.
+        /// This allows users to self onboard without needing to go through a DID registrar (formerly CDD provider).
+        ///
+        /// No CDD claim is added - DID existence is sufficient for onboarding.
+        ///
+        /// # Errors
+        /// - Caller must not already have an identity.
+        #[pallet::weight(<T as Config>::WeightInfo::self_register_did())]
+        #[pallet::call_index(25)]
+        pub fn self_register_did(origin: OriginFor<T>) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+            Self::register_did_without_cdd(caller, vec![], Some(ProtocolOp::IdentityRegisterDid))?;
             Ok(())
         }
     }

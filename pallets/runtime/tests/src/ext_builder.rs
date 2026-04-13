@@ -66,7 +66,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::AssetCreateAsset,
             ProtocolOp::CheckpointCreateSchedule,
             ProtocolOp::ComplianceManagerAddComplianceRequirement,
-            ProtocolOp::IdentityCddRegisterDid,
+            ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityAddClaim,
             ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,

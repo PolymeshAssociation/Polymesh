@@ -158,6 +158,28 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(6))
     }
+    // Storage: `Identity::KeyRecords` (r:1 w:1)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `Identity::MultiPurposeNonce` (r:1 w:1)
+    // Proof: `Identity::MultiPurposeNonce` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `Babe::NextRandomness` (r:1 w:0)
+    // Proof: `Babe::NextRandomness` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+    // Storage: `Babe::EpochStart` (r:1 w:0)
+    // Proof: `Babe::EpochStart` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `Identity::DidRecords` (r:1 w:1)
+    // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+    // Storage: `ProtocolFee::Coefficient` (r:1 w:0)
+    // Proof: `ProtocolFee::Coefficient` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `ProtocolFee::BaseFees` (r:1 w:0)
+    // Proof: `ProtocolFee::BaseFees` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+    // Storage: `Identity::DidKeys` (r:0 w:1)
+    // Proof: `Identity::DidKeys` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    fn self_register_did() -> Weight {
+        // Minimum execution time: 24_367 nanoseconds.
+        Weight::from_parts(25_378_000, 0)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(4))
+    }
     // Storage: Identity KeyRecords (r:201 w:1)
     // Proof Skipped: Identity KeyRecords (max_values: None, max_size: None, mode: Measured)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)

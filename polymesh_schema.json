@@ -495,7 +495,7 @@
         "AssetCreateAsset",
         "CheckpointCreateSchedule",
         "ComplianceManagerAddComplianceRequirement",
-        "IdentityCddRegisterDid",
+        "IdentityRegisterDid",
         "IdentityAddClaim",
         "IdentityAddSecondaryKeysWithAuthorization",
         "PipsPropose",
