@@ -626,7 +626,7 @@ pub mod pallet {
         T: AssetConfig,
     {
         fn build(&self) {
-            StorageVersion::<T>::put(Version::new(6));
+            StorageVersion::<T>::put(Version::new(7));
 
             // Set ticker registratoin config.
             TickerConfig::<T>::put(TickerRegistrationConfig {
