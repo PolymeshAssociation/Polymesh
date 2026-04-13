@@ -43,7 +43,6 @@
       "message": "RuntimeCall"
     },
     "SecondaryKeyAuthMessage": "ChainScopedMessageIdentityId",
-    "CreateChildIdentityAuthMessage": "ChainScopedMessageIdentityId",
     "FundraiserReceiptMessage": "ChainScopedMessageFundraiserReceipt",
     "ReceiptMessage": "ChainScopedMessageReceipt",
     "RelayTxMessage": "ChainScopedMessageRuntimeCall",
@@ -503,8 +502,7 @@
         "CorporateBallotAttachBallot",
         "CapitalDistributionDistribute",
         "NFTCreateCollection",
-        "NFTMint",
-        "IdentityCreateChildIdentity"
+        "NFTMint"
       ]
     },
     "DidActiveStatus": {

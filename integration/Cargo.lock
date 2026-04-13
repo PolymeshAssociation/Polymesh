@@ -3129,9 +3129,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client-extras"
-version = "3.6.3"
+version = "3.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c3471872123a756ef1b37f4c72eea33d6a88ecf8da39ccec3a43b6a142c3be6"
+checksum = "4823982b1b0a4db6d4337775eb77c0e568e885f7e9c750259041922edc497682"
 dependencies = [
  "parity-scale-codec",
  "polymesh-api",

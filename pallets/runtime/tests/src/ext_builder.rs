@@ -75,7 +75,6 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::CapitalDistributionDistribute,
             ProtocolOp::NFTCreateCollection,
             ProtocolOp::NFTMint,
-            ProtocolOp::IdentityCreateChildIdentity,
         ];
         let fees = ops
             .into_iter()

@@ -106,7 +106,7 @@ use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS,
 };
 use polymesh_primitives::{
-    identity::{AuthorizationNonce, CreateChildIdentityWithAuth, SecondaryKeyWithAuth},
+    identity::{AuthorizationNonce, SecondaryKeyWithAuth},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
@@ -126,9 +126,6 @@ use sp_std::vec::Vec;
 storage_migration_ver!(8);
 
 pub trait WeightInfo {
-    fn create_child_identity() -> Weight;
-    fn create_child_identities(i: u32) -> Weight;
-    fn unlink_child_identity() -> Weight;
     fn register_did() -> Weight;
     fn self_register_did() -> Weight;
     fn cdd_register_did(i: u32) -> Weight;
@@ -369,16 +366,6 @@ pub mod pallet {
         ///
         /// (DID, id, Type)
         CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
-
-        /// Child identity created.
-        ///
-        /// (Parent DID, Child DID, primary key)
-        ChildDidCreated(IdentityId, IdentityId, T::AccountId),
-
-        /// Child identity unlinked from parent identity.
-        ///
-        /// (Caller DID, Parent DID, Child DID)
-        ChildDidUnlinked(IdentityId, IdentityId, IdentityId),
     }
 
     #[pallet::pallet]
@@ -499,15 +486,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type AccountKeyRefCount<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
-
-    /// Parent identity if the DID is a child Identity.
-    #[pallet::storage]
-    pub type ParentDid<T: Config> = StorageMap<_, Identity, IdentityId, IdentityId, OptionQuery>;
-
-    /// All child identities of a parent (i.e ParentDID, ChildDID, true)
-    #[pallet::storage]
-    pub type ChildDid<T: Config> =
-        StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
 
     /// Track the number of authorizations given by each identity.
     #[pallet::storage]
@@ -894,75 +872,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Create a child identity and make the `secondary_key` it's primary key.
-        ///
-        /// Only the primary key can create child identities.
-        ///
-        /// # Arguments
-        /// - `secondary_key` the secondary key that will become the primary key of the new identity.
-        ///
-        /// # Errors
-        /// - `KeyNotAllowed` only the primary key can create a new identity.
-        /// - `NotASigner` the `secondary_key` is not a secondary key of the caller's identity.
-        /// - `AccountKeyIsBeingUsed` the `secondary_key` can't be unlinked from it's current identity.
-        /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
-        #[pallet::weight(<T as Config>::WeightInfo::create_child_identity())]
-        #[pallet::call_index(21)]
-        pub fn create_child_identity(
-            origin: OriginFor<T>,
-            secondary_key: T::AccountId,
-        ) -> DispatchResult {
-            Self::base_create_child_identity(origin, secondary_key)?;
-            Ok(())
-        }
-
-        /// Create a child identities.
-        ///
-        /// The new primary key for each child identity will need to sign (off-chain)
-        /// an authorization.
-        ///
-        /// Only the primary key can create child identities.
-        ///
-        /// # Arguments
-        /// - `child_keys` the keys that will become primary keys of their own child identity.
-        ///
-        /// # Errors
-        /// - `KeyNotAllowed` only the primary key can create a new identity.
-        /// - `AlreadyLinked` one of the keys is already linked to an identity.
-        /// - `DuplicateKey` one of the keys is included multiple times.
-        /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
-        #[pallet::weight(<T as Config>::WeightInfo::create_child_identities(child_keys.len() as u32))]
-        #[pallet::call_index(22)]
-        pub fn create_child_identities(
-            origin: OriginFor<T>,
-            child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
-            expires_at: T::Moment,
-        ) -> DispatchResult {
-            Self::base_create_child_identities(origin, child_keys, expires_at)?;
-            Ok(())
-        }
-
-        /// Unlink a child identity from it's parent identity.
-        ///
-        /// Only the primary key of the parent or child identities can unlink the identities.
-        ///
-        /// # Arguments
-        /// - `child_did` the child identity to unlink from its parent identity.
-        ///
-        /// # Errors
-        /// - `KeyNotAllowed` only the primary key of either the parent or child identity can unlink the identities.
-        /// - `NoParentIdentity` the identity `child_did` doesn't have a parent identity.
-        /// - `NotParentOrChildIdentity` the caller's identity isn't the parent or child identity.
-        #[pallet::weight(<T as Config>::WeightInfo::unlink_child_identity())]
-        #[pallet::call_index(23)]
-        pub fn unlink_child_identity(
-            origin: OriginFor<T>,
-            child_did: IdentityId,
-        ) -> DispatchResult {
-            Self::base_unlink_child_identity(origin, child_did)?;
-            Ok(())
-        }
-
         /// Register a new DID for the target account.
         ///
         /// Caller must be a DID registrar (formerly CDD provider).
@@ -1058,12 +967,6 @@ pub mod pallet {
         CustomClaimTypeDoesNotExist,
         /// Claim does not exist.
         ClaimDoesNotExist,
-        /// Identity is already a child of an other identity, can't create grand-child identity.
-        IsChildIdentity,
-        /// The Identity doesn't have a parent identity.
-        NoParentIdentity,
-        /// The caller is not the parent or child identity.
-        NotParentOrChildIdentity,
         /// The same key was included multiple times.
         DuplicateKey,
         /// Cannot use Except when specifying extrinsic permissions.

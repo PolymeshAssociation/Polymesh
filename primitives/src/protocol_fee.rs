@@ -53,8 +53,6 @@ pub enum ProtocolOp {
     NFTCreateCollection,
     /// Fee charged when minting NFTs.
     NFTMint,
-    /// Fee charged when creating a child identity.
-    IdentityCreateChildIdentity,
 }
 
 /// Common interface to protocol fees for runtime modules.
