@@ -199,17 +199,20 @@ pub fn create_extrinsic(
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
     let tx_ext: polymesh_runtime_develop::TxExtension = (
-        frame_system::AuthorizeCall::new(),
-        frame_system::CheckNonZeroSender::new(),
-        frame_system::CheckSpecVersion::new(),
-        frame_system::CheckTxVersion::new(),
-        frame_system::CheckGenesis::new(),
+        (
+            frame_system::AuthorizeCall::new(),
+            frame_system::CheckNonZeroSender::new(),
+            frame_system::CheckSpecVersion::new(),
+            frame_system::CheckTxVersion::new(),
+            frame_system::CheckGenesis::new(),
+        ),
         frame_system::CheckEra::from(generic::Era::mortal(period, best_block.saturated_into())),
         frame_system::CheckNonce::from(nonce),
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     );
 
@@ -217,17 +220,20 @@ pub fn create_extrinsic(
         function.clone(),
         tx_ext.clone(),
         (
-            (),
-            (),
-            polymesh_runtime_develop::runtime::VERSION.spec_version,
-            polymesh_runtime_develop::runtime::VERSION.transaction_version,
-            genesis_hash,
+            (
+                (),
+                (),
+                polymesh_runtime_develop::runtime::VERSION.spec_version,
+                polymesh_runtime_develop::runtime::VERSION.transaction_version,
+                genesis_hash,
+            ),
             best_hash,
             (),
             (),
             (),
             (),
             None,
+            (),
             (),
         ),
     );
@@ -305,6 +311,7 @@ where
             config,
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
             executor,
+            vec![Arc::new(grandpa::GrandpaPruningFilter)],
         )?;
     let client = Arc::new(client);
 
@@ -585,6 +592,7 @@ where
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
+            spawn_essential_handle: task_manager.spawn_essential_handle(),
             import_queue,
             block_announce_validator_builder: None,
             warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
@@ -644,7 +652,6 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let client_clone = client.clone();
         let slot_duration = babe_link.config().slot_duration();
         let babe_config = sc_consensus_babe::BabeParams {
             keystore: keystore_container.keystore(),
@@ -654,25 +661,16 @@ where
             block_import,
             sync_oracle: sync_service.clone(),
             justification_sync_link: sync_service.clone(),
-            create_inherent_data_providers: move |parent, ()| {
-                let client_clone = client_clone.clone();
-                async move {
-                    let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+            create_inherent_data_providers: move |_parent, ()| async move {
+                let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-                    let slot =
+                let slot =
                         sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                             *timestamp,
                             slot_duration,
                         );
 
-                    let storage_proof =
-                        sp_transaction_storage_proof::registration::new_data_provider(
-                            &*client_clone,
-                            &parent,
-                        )?;
-
-                    Ok((slot, timestamp, storage_proof))
-                }
+                Ok((slot, timestamp))
             },
             force_authoring,
             backoff_authoring_blocks,

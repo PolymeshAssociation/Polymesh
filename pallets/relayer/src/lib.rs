@@ -53,7 +53,6 @@ use frame_system::{ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_std::prelude::*;
-use sp_std::vec;
 
 use polymesh_primitives::crypto::{ChainScopedMessage, RELAY_TX_LABEL};
 use polymesh_primitives::identity::AuthorizationNonce;
