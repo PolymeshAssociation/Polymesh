@@ -47,7 +47,6 @@ use sp_runtime::traits::Dispatchable;
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill, Permill};
 use sp_staking::EraIndex;
 use sp_std::prelude::*;
-use sp_std::vec;
 
 use polymesh_primitives::{IdentityId, GC_DID};
 

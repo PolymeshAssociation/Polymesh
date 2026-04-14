@@ -1,5 +1,25 @@
 version: 2.1
 commands:
+  get-solc:
+    steps:
+      - run:
+          name: Get solc
+          command: |
+            SOLC_VERSION="0.8.33"
+            ASSET_URL="https://github.com/argotorg/solidity/releases/download/v${SOLC_VERSION}/solc-static-linux"
+            echo "Downloading solc version ${SOLC_VERSION} from ${ASSET_URL}"
+            curl -sSL --output /usr/local/bin/solc ${ASSET_URL}
+            chmod +x /usr/local/bin/solc
+  get-resolc:
+    steps:
+      - run:
+          name: Get resolc
+          command: |
+            RESOLC_VERSION="0.6.0"
+            ASSET_URL="https://github.com/paritytech/revive/releases/download/v${RESOLC_VERSION}/resolc-x86_64-unknown-linux-musl"
+            echo "Downloading resolc version ${RESOLC_VERSION} from ${ASSET_URL}"
+            curl -sSL --output /usr/local/bin/resolc ${ASSET_URL}
+            chmod +x /usr/local/bin/resolc
   setup-sccache:
     steps:
       - run:
@@ -39,7 +59,7 @@ commands:
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -53,7 +73,7 @@ jobs:
           command: ./scripts/check_spec_and_cargo_version.sh
   check-storage-version:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -64,7 +84,7 @@ jobs:
           command: ./scripts/check_storage_versions.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -79,11 +99,18 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
+          name: Build eth-rpc
+          command: cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+          no_output_timeout: 30m
+      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
           name: Copy binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh
+      - run:
+          name: Copy eth-rpc binary to assets
+          command: cp ./target/release/eth-rpc ./assets/eth-rpc
       ## This has been commented out due to deterministic wasm build step added
       # - run:
       #     name: Copy wasm to assets
@@ -95,7 +122,7 @@ jobs:
       - save-sccache-cache
   build-ci:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -124,7 +151,7 @@ jobs:
             - .
   build-arm64:
     docker:
-      - image: polymeshassociation/rust-arm64:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust-arm64:debian-nightly-2025-12-01
     resource_class: arm.xlarge
     environment:
       - VERBOSE: "1"
@@ -139,11 +166,18 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
+          name: Build eth-rpc
+          command: cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+          no_output_timeout: 30m
+      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
           name: Copy arm64 binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh-arm64
+      - run:
+          name: Copy arm64 eth-rpc binary to assets
+          command: cp ./target/release/eth-rpc ./assets/eth-rpc-arm64
       - persist_to_workspace:
           root: ./assets
           paths:
@@ -151,7 +185,7 @@ jobs:
       - save-sccache-cache
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -161,6 +195,8 @@ jobs:
       - checkout
       - setup-sccache
       - restore-sccache-cache
+      - get-solc
+      - get-resolc
       - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --locked --release --features=runtime-benchmarks,running-ci
@@ -277,7 +313,7 @@ jobs:
 
   metadata-tools-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: small
     steps:
       - checkout
@@ -386,11 +422,11 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./polymesh-benchmarks benchmark pallet -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
+          command: ./polymesh-benchmarks benchmark pallet --min-duration=0 -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
           no_output_timeout: 30m
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -407,7 +443,7 @@ jobs:
       - save-sccache-cache
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -435,7 +471,7 @@ jobs:
       - save-sccache-cache
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -450,11 +486,12 @@ jobs:
       - save-sccache-cache
   rust-integration-test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
+      - RUST_BACKTRACE: "1"
     steps:
       - checkout
       - attach_workspace:
@@ -522,7 +559,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2025-09-01
+      - image: polymeshassociation/rust:debian-nightly-2025-12-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -650,6 +687,55 @@ jobs:
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless
           docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless
+  build-docker-eth-rpc-amd64-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc-amd64
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker build -f ./.docker/eth-rpc/Dockerfile --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-eth-rpc-arm64-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker build -f ./.docker/eth-rpc/Dockerfile --build-arg ETH_RPC_BIN=eth-rpc-arm64 --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-eth-rpc-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc
+      IMAGE_AMD_NAME: polymeshassociation/polymesh-eth-rpc-amd64
+      IMAGE_ARM_NAME: polymeshassociation/polymesh-eth-rpc-arm64
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+          docker manifest create $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:latest-$CIRCLE_BRANCH-debian
+          docker manifest create $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:$VERSION-$CIRCLE_BRANCH-debian
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian
+          docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian
   build-docker-rust-debian:
     environment:
       RUST_BASE: 1.75.0
@@ -808,7 +894,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-amd64-distroless:
           requires:
             - build
@@ -819,7 +904,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-ci-runtime:
           requires:
             - build-ci
@@ -827,7 +911,6 @@ workflows:
             branches:
               only:
                 - develop
-                - develop_v8
       - build-docker-arm64-debian:
           requires:
             - build-arm64
@@ -838,7 +921,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
@@ -849,7 +931,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-debian:
           requires:
             - build-docker-amd64-debian
@@ -861,7 +942,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
       - build-docker-distroless:
           requires:
             - build-docker-amd64-distroless
@@ -873,7 +953,37 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - develop_v8
+      - build-docker-eth-rpc-amd64-debian:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-eth-rpc-arm64-debian:
+          requires:
+            - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-eth-rpc-debian:
+          requires:
+            - build-docker-eth-rpc-amd64-debian
+            - build-docker-eth-rpc-arm64-debian
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
       - publish-github-release:
           requires:
             - build
@@ -894,7 +1004,6 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
-                - develop_v8
           chain: testnet
           package: polymesh-runtime-testnet
           runtime_dir: pallets/runtime/testnet
@@ -907,7 +1016,6 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
-                - develop_v8
           chain: mainnet
           package: polymesh-runtime-mainnet
           runtime_dir: pallets/runtime/mainnet
@@ -918,7 +1026,6 @@ workflows:
             branches:
               only:
                 - develop
-                - develop_v8
           chain: develop
           package: polymesh-runtime-develop
           runtime_dir: pallets/runtime/develop

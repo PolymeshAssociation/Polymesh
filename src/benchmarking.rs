@@ -125,11 +125,13 @@ pub fn create_benchmark_extrinsic<R>(
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
     let tx_ext: TxExtension = (
-        frame_system::AuthorizeCall::new(),
-        frame_system::CheckNonZeroSender::new(),
-        frame_system::CheckSpecVersion::new(),
-        frame_system::CheckTxVersion::new(),
-        frame_system::CheckGenesis::new(),
+        (
+            frame_system::AuthorizeCall::new(),
+            frame_system::CheckNonZeroSender::new(),
+            frame_system::CheckSpecVersion::new(),
+            frame_system::CheckTxVersion::new(),
+            frame_system::CheckGenesis::new(),
+        ),
         frame_system::CheckEra::from(sp_runtime::generic::Era::mortal(
             period,
             best_block.saturated_into(),
@@ -139,6 +141,7 @@ pub fn create_benchmark_extrinsic<R>(
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     );
 
@@ -146,11 +149,13 @@ pub fn create_benchmark_extrinsic<R>(
         call.clone(),
         tx_ext.clone(),
         (
-            (),
-            (),
-            VERSION.spec_version,
-            VERSION.transaction_version,
-            genesis_hash,
+            (
+                (),
+                (),
+                VERSION.spec_version,
+                VERSION.transaction_version,
+                genesis_hash,
+            ),
             best_hash,
             (),
             (),
@@ -158,16 +163,18 @@ pub fn create_benchmark_extrinsic<R>(
             (),
             None,
             (),
+            (),
         ),
     );
     let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-    UncheckedExtrinsic::new_signed(
+    sp_runtime::generic::UncheckedExtrinsic::new_signed(
         call.clone(),
         sp_runtime::AccountId32::from(sender.public()).into(),
         Signature::Sr25519(signature.clone()),
         tx_ext.clone(),
     )
+    .into()
 }
 
 /// Generates inherent data for the `benchmark overhead` command.

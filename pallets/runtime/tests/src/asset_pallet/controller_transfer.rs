@@ -80,3 +80,22 @@ fn controller_transfer_locked_asset() {
         );
     });
 }
+
+#[test]
+fn controller_self_transfer_rejected() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        assert_noop!(
+            Asset::controller_transfer(
+                alice.origin(),
+                asset_id,
+                1000,
+                alice_default_portfolio.into()
+            ),
+            AssetError::SenderSameAsReceiver
+        );
+    });
+}

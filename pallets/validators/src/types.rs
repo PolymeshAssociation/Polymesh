@@ -2,10 +2,9 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use pallet_staking::permissioned_staking::WhoToSlash;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_runtime::RuntimeDebug;
 
 /// Preference of an identity regarding validation.
-#[derive(Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, Debug, TypeInfo)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct PermissionedIdentityPrefs {
     /// Intended number of validators an identity wants to run.
@@ -39,7 +38,7 @@ impl PermissionedIdentityPrefs {
 
 /// Switch used to change the "victim" for slashing. Victims can be
 /// validators, both validators and nominators, or no-one.
-#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, RuntimeDebug)]
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, Debug)]
 #[derive(Clone, Copy, Default, Eq, PartialEq, TypeInfo)]
 #[derive(Serialize, Deserialize)]
 pub enum SlashingSwitch {

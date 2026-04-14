@@ -103,9 +103,8 @@ pub enum FundraiserStatus {
 }
 
 /// Funding method.  On-chain asset or off-chain receipt.
-#[derive(Decode, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Debug, Encode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Debug))]
 pub enum FundingMethod<AccountId, OffChainSignature, Moment> {
     /// On-chain asset.
     OnChain(PortfolioId),

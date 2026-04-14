@@ -29,7 +29,7 @@ use polymesh_primitives::{AssetHolder, PortfolioId};
 sp_api::decl_runtime_apis! {
     #[api_version(3)]
     pub trait SettlementApi {
-        #[changed_in(2)]
+        #[changed_in(3)]
         fn get_affirmation_count(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> AffirmationCount;
 
         /// Returns an [`ExecuteInstructionInfo`] instance containing the consumed weight and the number of fungible and non fungible
