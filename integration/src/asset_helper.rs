@@ -68,6 +68,8 @@ impl AssetHelper {
         #[cfg(feature = "current_release")] kind: Option<AssetHolderKind>,
         #[cfg(feature = "previous_release")] kind: Option<PortfolioKind>,
     ) -> Result<Self> {
+        #[cfg(feature = "previous_release")]
+        let signers = signers.into_iter().collect();
         // Create a new venue.
         let venue_res = if need_venue {
             Some(

@@ -83,7 +83,11 @@ async fn simple_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test1".to_vec()), BTreeSet::new(), VenueType::Other)?
+        .create_venue(
+            VenueDetails(b"Test1".to_vec()),
+            Default::default(),
+            VenueType::Other,
+        )?
         .submit_and_watch(&mut venue)
         .await?;
 
