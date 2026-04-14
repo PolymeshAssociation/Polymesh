@@ -1987,7 +1987,7 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other
         ));
         assert_ok!(Settlement::add_instruction(

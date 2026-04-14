@@ -52,7 +52,7 @@ impl AssetHelper {
         issuer: &mut User,
         name: &str,
         mint: u128,
-        signers: Vec<AccountId>,
+        signers: BTreeSet<AccountId>,
     ) -> Result<Self> {
         Self::new_full(api, issuer, name, mint, signers, true, None).await
     }
@@ -63,11 +63,13 @@ impl AssetHelper {
         issuer: &mut User,
         name: &str,
         mint: u128,
-        signers: Vec<AccountId>,
+        signers: BTreeSet<AccountId>,
         need_venue: bool,
         #[cfg(feature = "current_release")] kind: Option<AssetHolderKind>,
         #[cfg(feature = "previous_release")] kind: Option<PortfolioKind>,
     ) -> Result<Self> {
+        #[cfg(feature = "previous_release")]
+        let signers = signers.into_iter().collect();
         // Create a new venue.
         let venue_res = if need_venue {
             Some(

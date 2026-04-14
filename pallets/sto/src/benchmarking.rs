@@ -100,7 +100,7 @@ fn create_venue<T: Config>(user: &User<T>) -> Result<VenueId, DispatchError> {
     <Settlement<T>>::create_venue(
         user.origin().into(),
         VenueDetails::default(),
-        vec![user.account()],
+        BTreeSet::from([user.account()]),
         VenueType::Sto,
     )
     .unwrap();

@@ -1,5 +1,6 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
+use sp_std::collections::btree_set::BTreeSet;
 
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::settlement::{
@@ -50,7 +51,7 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other
         ));
         assert_ok!(Settlement::add_instruction(

@@ -1,6 +1,8 @@
 // >=v7.4
 #[cfg(feature = "current_release")]
 mod asset_transfer_tests {
+    use std::collections::BTreeSet;
+
     use anyhow::Result;
 
     use integration::*;
@@ -36,7 +38,7 @@ mod asset_transfer_tests {
             &mut asset_issuer,
             "TestAsset",
             1_000_000,
-            vec![],
+            BTreeSet::new(),
             false,
             Some(kind),
         )
@@ -103,7 +105,7 @@ mod asset_transfer_tests {
             &mut asset_issuer,
             "TestAsset",
             1_000_000,
-            vec![],
+            BTreeSet::new(),
             false,
             Some(kind),
         )
@@ -170,7 +172,7 @@ mod asset_transfer_tests {
             &mut asset_issuer,
             "TestAsset",
             1_000_000,
-            vec![],
+            BTreeSet::new(),
             false,
             Some(kind),
         )
@@ -237,7 +239,7 @@ mod asset_transfer_tests {
             &mut asset_issuer,
             "TestAsset",
             1_000_000,
-            vec![],
+            BTreeSet::new(),
             false,
             Some(kind),
         )

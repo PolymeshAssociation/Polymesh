@@ -1,5 +1,6 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
+use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_nft::Owner;
 use pallet_portfolio::{
@@ -702,7 +703,7 @@ fn delete_portfolio_with_locked_nfts() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             Default::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             Default::default()
         ));
         // Locks the NFT - Adds and affirms the instruction
