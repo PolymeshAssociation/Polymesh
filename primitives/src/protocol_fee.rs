@@ -35,8 +35,8 @@ pub enum ProtocolOp {
     CheckpointCreateSchedule,
     /// Fee charged when adding compliance requirements.
     ComplianceManagerAddComplianceRequirement,
-    /// Fee charged when registering a DID through CDD.
-    IdentityCddRegisterDid,
+    /// Fee charged when registering a DID.
+    IdentityRegisterDid,
     /// Fee charged when adding a claim to an identity.
     IdentityAddClaim,
     /// Fee charged when adding secondary keys with authorization.
@@ -53,8 +53,6 @@ pub enum ProtocolOp {
     NFTCreateCollection,
     /// Fee charged when minting NFTs.
     NFTMint,
-    /// Fee charged when creating a child identity.
-    IdentityCreateChildIdentity,
 }
 
 /// Common interface to protocol fees for runtime modules.

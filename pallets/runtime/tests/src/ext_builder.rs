@@ -66,7 +66,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::AssetCreateAsset,
             ProtocolOp::CheckpointCreateSchedule,
             ProtocolOp::ComplianceManagerAddComplianceRequirement,
-            ProtocolOp::IdentityCddRegisterDid,
+            ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityAddClaim,
             ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
@@ -75,7 +75,6 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::CapitalDistributionDistribute,
             ProtocolOp::NFTCreateCollection,
             ProtocolOp::NFTMint,
-            ProtocolOp::IdentityCreateChildIdentity,
         ];
         let fees = ops
             .into_iter()

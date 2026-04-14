@@ -329,8 +329,6 @@ pub trait IntegrationUser: Signer {
         sk: usize,
         permissions: impl Into<Permissions> + Send,
     ) -> Result<()>;
-
-    async fn create_child_identity(&mut self, sk: usize) -> Result<User>;
 }
 
 #[async_trait::async_trait]
@@ -400,26 +398,6 @@ impl IntegrationUser for User {
             .ok_or_else(|| anyhow!("Missing extrinsic permissions"))?;
         assert_eq!(permissions.extrinsic, extrinsic);
         Ok(())
-    }
-
-    async fn create_child_identity(&mut self, sk: usize) -> Result<User> {
-        if sk >= self.secondary_keys.len() {
-            return Err(anyhow!("Missing secondary key: {sk}"));
-        }
-        let sk = self.secondary_keys.remove(sk);
-        let mut res = self
-            .api
-            .call()
-            .identity()
-            .create_child_identity(sk.account())?
-            .submit_and_watch(self)
-            .await?;
-        let did = get_identity_id(&mut res)
-            .await?
-            .ok_or_else(|| anyhow!("Failed to create child identity"))?;
-        let mut child = User::new(&self.api, sk);
-        child.did = Some(did);
-        Ok(child)
     }
 }
 

@@ -16,6 +16,7 @@
 use crate::*;
 
 use frame_benchmarking::{account, benchmarks};
+use frame_system::RawOrigin;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::identity::limits::{
     MAX_ASSETS, MAX_EXTRINSICS, MAX_PALLETS, MAX_PORTFOLIOS, MAX_SECONDARY_KEYS,
@@ -47,84 +48,18 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
 }
 
 benchmarks! {
-    create_child_identity {
-        // Create parent identity.
-        let parent = user::<T>("parent", 0);
-        let parent_did = parent.did.unwrap();
-
-        let child_key: T::AccountId = account("child", 0, SEED);
-        Pallet::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
-
-    }: _(parent.origin, child_key.clone())
-    verify {
-        let child_did = Pallet::<T>::get_identity(&child_key).unwrap();
-        assert_ne!(child_did, parent_did);
-    }
-
-    create_child_identities {
-        // Number of keys.
-        let i in 0 .. 100;
-
-        // Create parent identity.
-        let parent = user::<T>("parent", 0);
-        let parent_did = parent.did.unwrap();
-
-        let expires_at: T::Moment = 600u32.into();
-        let nonce = OffChainAuthorizationNonce::<T>::get(parent_did);
-        let authorization = ChainScopedMessage::<T, _>::new_unchecked(
-            nonce,
-            IDENTITY_ADD_SECONDARY_KEY_LABEL,
-            expires_at,
-            parent_did,
-        );
-
-        let child_keys_with_auth = (0..i).map(|x| {
-            let user = user_without_did::<T>("key", x);
-            CreateChildIdentityWithAuth {
-                key: user.account(),
-                auth_signature: H512::from(authorization.native_sign(&user.secret.as_ref().unwrap().to_bytes()).unwrap()),
-            }
-        }).collect::<Vec<_>>();
-    }: _(parent.origin, child_keys_with_auth.clone(), expires_at)
-    verify {
-        for auth in child_keys_with_auth {
-            let child_did = Pallet::<T>::get_identity(&auth.key).unwrap();
-            assert_ne!(child_did, parent_did);
-        }
-    }
-
-    unlink_child_identity {
-        // Create parent identity.
-        let parent = user::<T>("parent", 0);
-        let parent_did = parent.did.unwrap();
-
-        // Create a secondary key.
-        let child_key: T::AccountId = account("child", 0, SEED);
-        Pallet::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
-
-        // Create a child identity using the secondary key.
-        Pallet::<T>::create_child_identity(
-            parent.origin().into(),
-            child_key.clone()
-        ).unwrap();
-        let child_did = Pallet::<T>::get_identity(&child_key).unwrap();
-
-        // Generate valid CDD claim for child identity.
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
-
-        // Add CDD claim to the child identity.
-        let cdd = did_registrar::<T>("cdd", 0).did.unwrap();
-        Pallet::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
-
-    }: _(parent.origin, child_did)
-    verify {
-        assert!(Pallet::<T>::is_did_active(child_did));
-    }
-
     register_did {
         let registrar = did_registrar::<T>("registrar", 0);
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(registrar.origin, target.clone())
+    verify {
+        let did = Pallet::<T>::get_identity(&target).expect("target should have a DID");
+        assert!(Pallet::<T>::is_did_active(did));
+    }
+
+    self_register_did {
+        let target: T::AccountId = account("target", SEED, SEED);
+    }: _(RawOrigin::Signed(target.clone()))
     verify {
         let did = Pallet::<T>::get_identity(&target).expect("target should have a DID");
         assert!(Pallet::<T>::is_did_active(did));

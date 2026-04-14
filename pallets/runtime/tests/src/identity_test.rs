@@ -2,7 +2,6 @@ use super::{
     asset_pallet::setup::create_and_issue_sample_asset,
     asset_test::{max_len, max_len_bytes, set_timestamp},
     committee_test::gc_vmo,
-    exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     multisig::{create_multisig_default_perms, create_signers},
     storage::{
@@ -16,11 +15,11 @@ use codec::Encode;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency};
 use pallet_balances as balances;
 use pallet_identity::{
-    Authorizations, ChildDid, CurrentAuthId, CustomClaimIdSequence, CustomClaims,
-    CustomClaimsInverse, OffChainAuthorizationNonce, ParentDid,
+    Authorizations, CurrentAuthId, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
+    OffChainAuthorizationNonce,
 };
 use pallet_identity::{Config as IdentityConfig, Event};
-use polymesh_primitives::identity::{CreateChildIdentityWithAuth, SecondaryKeyWithAuth};
+use polymesh_primitives::identity::SecondaryKeyWithAuth;
 use polymesh_primitives::{
     asset::AssetId,
     crypto::{ChainScopedMessage, IDENTITY_ADD_SECONDARY_KEY_LABEL},
@@ -1501,6 +1500,41 @@ fn register_did_test() {
         });
 }
 
+/// Test `self_register_did` extrinsic for registering DIDs.
+///
+/// Need to test the following scenarios:
+/// 1. Success: Account registers its own DID successfully.
+/// 2. Error: Account that already has a DID cannot register again.
+#[test]
+fn self_register_did_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let bob = Sr25519Keyring::Bob.to_account_id();
+
+            // Success: Bob registers his own DID
+            assert_ok!(Identity::self_register_did(Origin::signed(bob.clone())));
+            let bob_id = get_identity_id(Sr25519Keyring::Bob).unwrap();
+
+            // Verify DID is active and primary key is set correctly
+            assert!(Identity::is_did_active(bob_id));
+            assert_eq!(get_primary_key(bob_id), bob.clone());
+
+            // Verify DidCreated event was emitted
+            System::assert_has_event(Event::DidCreated(bob_id, bob.clone(), vec![]).into());
+
+            // Error: Cannot register DID for account that already has one
+            assert_noop!(
+                Identity::self_register_did(Origin::signed(bob.clone())),
+                Error::AlreadyLinked
+            );
+        });
+}
+
 #[test]
 fn add_identity_signers() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
@@ -1944,213 +1978,4 @@ fn cdd_register_did_events() {
                 ))
             );
         });
-}
-
-#[test]
-fn child_identity_test() {
-    ExtBuilder::default()
-        .balance_factor(1_000)
-        .monied(true)
-        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(&do_child_identity_test);
-}
-
-fn do_child_identity_test() {
-    let cdd = Origin::signed(Sr25519Keyring::Eve.to_account_id());
-    let alice = User::new(Sr25519Keyring::Alice);
-    let bob = User::new_with(alice.did, Sr25519Keyring::Bob);
-    let dave = User::new_with(alice.did, Sr25519Keyring::Dave);
-
-    let charlie = User::new(Sr25519Keyring::Charlie);
-
-    // Helper functions.
-    let did_of = |u: User| Identity::get_identity(&u.acc());
-    let is_did_active = |u: User| did_of(u).map(Identity::is_did_active).unwrap_or_default();
-    let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
-    let rejoin_parent = |parent: User, child: User| {
-        ParentDid::<TestStorage>::insert(child.did, parent.did);
-    };
-
-    // Create some secondary keys.
-    add_secondary_key(alice.did, bob.acc());
-    add_secondary_key(alice.did, dave.acc());
-
-    // Check KeyRecords map
-    assert_eq!(did_of(bob), Some(alice.did));
-    assert_eq!(did_of(dave), Some(alice.did));
-    assert!(is_did_active(alice));
-    assert!(is_did_active(bob));
-    assert!(is_did_active(dave));
-
-    // The new child identity's primary key must be a secondary key.
-    exec_noop!(
-        Identity::create_child_identity(alice.origin(), charlie.acc()),
-        Error::NotASigner,
-    );
-
-    // The new child identity's primary key must be unlinkable (no account references).
-    inc_acc_ref(dave);
-    exec_noop!(
-        Identity::create_child_identity(alice.origin(), dave.acc()),
-        Error::AccountKeyIsBeingUsed,
-    );
-
-    // Only a secondary key from the parent identity can be used as the primary key for the child identity.
-    exec_noop!(
-        Identity::create_child_identity(alice.origin(), alice.acc()),
-        Error::NotASigner,
-    );
-
-    // Only the primary key can create a child identity.
-    exec_noop!(
-        Identity::create_child_identity(bob.origin(), bob.acc()),
-        Error::KeyNotAllowed,
-    );
-
-    // Create child identity with Bob as the primary key.
-    exec_ok!(Identity::create_child_identity(alice.origin(), bob.acc()));
-    // Update bob's identity.
-    let bob_did = did_of(bob).expect("Bob's new identity");
-    let bob = User::new_with(bob_did, Sr25519Keyring::Bob);
-
-    // Ensure bob has a new identity.
-    assert!(is_did_active(bob));
-    assert_ne!(bob.did, alice.did);
-    assert_eq!(ParentDid::<TestStorage>::get(bob.did), Some(alice.did));
-    assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), true);
-
-    // Attach secondary key to child identity.
-    let ferdie = User::new_with(bob.did, Sr25519Keyring::Ferdie);
-    add_secondary_key(bob.did, ferdie.acc());
-
-    // Child identity can't create a child identity.
-    exec_noop!(
-        Identity::create_child_identity(bob.origin(), ferdie.acc()),
-        Error::IsChildIdentity,
-    );
-
-    // Parent can force unlinking of child identity without CDD claim.
-    exec_ok!(Identity::unlink_child_identity(alice.origin(), bob_did));
-    rejoin_parent(alice, bob);
-
-    // Child can force unlinking from parent identity without CDD claim.
-    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
-    rejoin_parent(alice, bob);
-
-    // Child identity can receive a CDD Claim.
-    assert_ok!(Identity::add_claim(
-        cdd.clone(),
-        bob_did,
-        Claim::CustomerDueDiligence(Default::default()),
-        None
-    ));
-
-    // Parent can unlink child identity (has CDD claim).
-    exec_ok!(Identity::unlink_child_identity(alice.origin(), bob_did));
-    rejoin_parent(alice, bob);
-
-    // Child can unlink from parent identity.
-    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
-
-    // Bob's identity doesn't have a parent.
-    exec_noop!(
-        Identity::unlink_child_identity(alice.origin(), bob_did),
-        Error::NoParentIdentity,
-    );
-
-    // Rejoin parent identity for testing.
-    rejoin_parent(alice, bob);
-
-    // The caller's identity must be the parent or child.
-    exec_noop!(
-        Identity::unlink_child_identity(charlie.origin(), bob_did),
-        Error::NotParentOrChildIdentity,
-    );
-
-    // Only the parent's primary key can unlink a child identity.
-    exec_noop!(
-        Identity::unlink_child_identity(dave.origin(), bob_did),
-        Error::KeyNotAllowed,
-    );
-
-    // Only the child's primary key can unlink a child identity.
-    exec_noop!(
-        Identity::unlink_child_identity(ferdie.origin(), bob_did),
-        Error::KeyNotAllowed,
-    );
-
-    // Unlink child from parent again.
-    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
-    assert_eq!(ParentDid::<TestStorage>::get(bob.did), None);
-    assert_eq!(ChildDid::<TestStorage>::get(alice.did, bob.did), false);
-
-    assert!(is_did_active(bob));
-
-    // Bob's identity is no longer a child identity.  It can create child identities.
-    exec_ok!(Identity::create_child_identity(bob.origin(), ferdie.acc()));
-    // Update ferdie's identity.
-    let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
-    let ferdie = User::new_with(ferdie_did, Sr25519Keyring::Ferdie);
-    assert!(is_did_active(ferdie));
-    assert_eq!(ParentDid::<TestStorage>::get(ferdie.did), Some(bob.did));
-    assert_eq!(ChildDid::<TestStorage>::get(bob.did, ferdie.did), true);
-}
-
-#[test]
-fn create_child_identities_with_auth_test() {
-    ExtBuilder::default()
-        .balance_factor(1_000)
-        .monied(true)
-        .did_registrars(vec![Sr25519Keyring::Eve.to_account_id()])
-        .build()
-        .execute_with(&do_create_child_identities_with_auth_test);
-}
-
-fn do_create_child_identities_with_auth_test() {
-    let alice = User::new(Sr25519Keyring::Alice);
-    let charlie = User::new_with(alice.did, Sr25519Keyring::Charlie);
-    // Create some secondary keys.
-    add_secondary_key(alice.did, charlie.acc());
-
-    let (authorization, expires_at) = scoped_target_id_auth(&alice);
-
-    let create_with_auth = |child: Sr25519Keyring| {
-        let signature = authorization.sign(&child).expect("Signing should not fail");
-        CreateChildIdentityWithAuth {
-            key: child.to_account_id(),
-            auth_signature: H512::from(signature.as_ref()),
-        }
-    };
-
-    // Try creating a child identity with a key already linked to another identity.
-    let child_keys = vec![create_with_auth(charlie.ring)];
-    assert_noop!(
-        Identity::create_child_identities(alice.origin(), child_keys, expires_at),
-        Error::AlreadyLinked
-    );
-
-    // Repeat a key.
-    let child_keys = vec![
-        create_with_auth(Sr25519Keyring::Bob),
-        create_with_auth(Sr25519Keyring::Dave),
-        create_with_auth(Sr25519Keyring::Ferdie),
-        create_with_auth(Sr25519Keyring::Bob), // Duplicate key.
-    ];
-    assert_noop!(
-        Identity::create_child_identities(alice.origin(), child_keys, expires_at),
-        Error::DuplicateKey
-    );
-
-    // Create multiple child identities from unlinked keys.
-    let child_keys = vec![
-        create_with_auth(Sr25519Keyring::Bob),
-        create_with_auth(Sr25519Keyring::Dave),
-        create_with_auth(Sr25519Keyring::Ferdie),
-    ];
-    assert_ok!(Identity::create_child_identities(
-        alice.origin(),
-        child_keys,
-        expires_at
-    ));
 }

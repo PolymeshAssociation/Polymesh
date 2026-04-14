@@ -108,7 +108,6 @@ macro_rules! misc_pallet_impls {
             /// The set code logic, just the default since we're not a parachain.
             type SingleBlockMigrations = (
                 UpgradeSessionKeys,
-                RemoveTickerDidRecords,
                 RemoveRandomnessCollectiveFlipStorage,
                 MigrateCddServiceProvidersToDidRegistrars,
                 pallet_contracts::Migration<Runtime>,
@@ -334,51 +333,6 @@ macro_rules! misc_pallet_impls {
             fn on_runtime_upgrade() -> Weight {
                 Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
                 Perbill::from_percent(50) * polymesh_runtime_common::RuntimeBlockWeights::get().max_block
-            }
-        }
-
-        /// Removes `DidRecord` entries that were created for asset tickers.
-        pub struct RemoveTickerDidRecords;
-        impl frame_support::traits::OnRuntimeUpgrade for RemoveTickerDidRecords {
-            fn on_runtime_upgrade() -> Weight {
-                use codec::Encode;
-
-                const TARGET_VERSION: pallet_identity::Version = pallet_identity::Version::new(8);
-
-                let current_version = pallet_identity::StorageVersion::<Runtime>::get();
-                if current_version >= TARGET_VERSION {
-                    log::info!("identity::RemoveTickerDidRecords: Already at version >= 8, skipping.");
-                    return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
-                }
-
-                const SECURITY_TOKEN_PREFIX: &[u8; 15] = b"SECURITY_TOKEN:";
-
-                let mut removed = 0u64;
-                let mut ticker_count = 0u64;
-                for ticker in pallet_asset::UniqueTickerRegistration::<Runtime>::iter_keys() {
-                    ticker_count += 1;
-                    let hash = (SECURITY_TOKEN_PREFIX, ticker).using_encoded(sp_io::hashing::blake2_256);
-                    let did = polymesh_primitives::IdentityId::try_from(&hash[..])
-                        .expect("BlakeTwo256 output is 32 bytes = IdentityId size");
-
-                    if pallet_identity::DidRecords::<Runtime>::contains_key(&did) {
-                        pallet_identity::DidRecords::<Runtime>::remove(&did);
-                        removed += 1;
-                    }
-                }
-
-                pallet_identity::StorageVersion::<Runtime>::put(TARGET_VERSION);
-
-                log::info!(
-                    "identity::RemoveTickerDidRecords: Removed {} asset DidRecords from {} tickers. Storage version set to 8.",
-                    removed,
-                    ticker_count,
-                );
-
-                // Reads: 1 (version check) + ticker_count (iter_keys) + ticker_count (contains_key).
-                // Writes: 1 (version put) + removed (DidRecords removals).
-                <Runtime as frame_system::Config>::DbWeight::get()
-                    .reads_writes(1 + (2 * ticker_count), 1 + removed)
             }
         }
 
@@ -637,10 +591,7 @@ macro_rules! misc_pallet_impls {
             type Environment = ();
             type ApiVersion = ();
             type Xcm = ();
-            #[cfg(not(feature = "runtime-benchmarks"))]
-            type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
-            #[cfg(feature = "runtime-benchmarks")]
-            type PolymeshHooks = polymesh_contracts::benchmarking::BenchmarkContractPolymeshHooks;
+            type PolymeshHooks = pallet_contracts::DefaultPolymeshHooks;
         }
 
         impl pallet_revive::Config for Runtime {

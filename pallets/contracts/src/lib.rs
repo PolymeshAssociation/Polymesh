@@ -75,16 +75,13 @@ pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 use pallet_contracts::weights::WeightInfo as FrameWeightInfo;
 use pallet_contracts::Code;
 use pallet_contracts::Config as ContractsConfig;
-use pallet_identity::{Config as IdentityConfig, ParentDid, WeightInfo as IdentityWeightInfo};
+use pallet_identity::{Config as IdentityConfig, WeightInfo as IdentityWeightInfo};
 use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait};
 use polymesh_primitives::{storage_migration_ver, Balance, Permissions};
 
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
-type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
-
-pub struct ContractPolymeshHooks;
 
 #[derive(Clone, Debug, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
 #[derive(Decode, DecodeWithMemTracking, Encode)]
@@ -169,48 +166,6 @@ impl<T: Config> sp_std::fmt::Debug for NextUpgrade<T> {
     }
 }
 
-impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks
-where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-{
-    fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
-        pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
-        Ok(())
-    }
-
-    fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
-        // Get the caller's identity.
-        let did = IdentityPallet::<T>::get_identity(&caller)
-            .ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
-        // Check if contact is already linked.
-        match IdentityPallet::<T>::get_identity(&contract) {
-            Some(contract_did) => {
-                if contract_did != did && ParentDid::<T>::get(contract_did) != Some(did) {
-                    // Contract address already linked to a different identity.
-                    Err(IdentityError::<T>::AlreadyLinked.into())
-                } else {
-                    // Contract is already linked to caller's identity.
-                    Ok(())
-                }
-            }
-            None => {
-                // Linked new contract address to caller's identity.  With empty permissions.
-                IdentityPallet::<T>::unsafe_join_identity(
-                    did,
-                    Permissions::empty(),
-                    contract.clone(),
-                );
-                Ok(())
-            }
-        }
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn register_did(_account_id: T::AccountId) -> DispatchResult {
-        Ok(())
-    }
-}
-
 pub const CHAIN_EXTENSION_BATCH_SIZE: u32 = 100;
 
 macro_rules! cost {
@@ -250,8 +205,7 @@ pub trait WeightInfo {
 
     fn base_weight_with_code(code_len: u32, data_len: u32, salt_len: u32) -> Weight;
     fn base_weight_with_hash(data_len: u32, salt_len: u32) -> Weight;
-    fn link_contract_as_primary_key() -> Weight;
-    fn link_contract_as_secondary_key() -> Weight;
+    fn link_contract_to_did() -> Weight;
 
     fn update_call_runtime_whitelist(u: u32) -> Weight;
 
@@ -354,15 +308,8 @@ pub mod pallet {
         InLenTooLarge,
         /// Output data returned from the ChainExtension was too large.
         OutLenTooLarge,
-        /// A contract was attempted to be instantiated,
-        /// but no identity was given to associate the new contract's key with.
-        InstantiatorWithNoIdentity,
         /// Extrinsic is not allowed to be called by contracts.
         RuntimeCallDenied,
-        /// The caller is not a primary key.
-        CallerNotAPrimaryKey,
-        /// Secondary key permissions are missing.
-        MissingKeyPermissions,
         /// Only future chain versions are allowed.
         InvalidChainVersion,
         /// There are no api upgrades supported for the contract.
@@ -455,7 +402,7 @@ pub mod pallet {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[pallet::weight(Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit))]
+        #[pallet::weight(Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, perms).saturating_add(*gas_limit))]
         #[pallet::call_index(0)]
         pub fn instantiate_with_code_perms(
             origin: OriginFor<T>,
@@ -475,8 +422,7 @@ pub mod pallet {
                 Code::Upload(code),
                 data,
                 salt,
-                Some(perms),
-                false,
+                perms,
             )
         }
 
@@ -507,7 +453,7 @@ pub mod pallet {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[pallet::weight(Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, Some(perms)).saturating_add(*gas_limit))]
+        #[pallet::weight(Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, perms).saturating_add(*gas_limit))]
         #[pallet::call_index(1)]
         pub fn instantiate_with_hash_perms(
             origin: OriginFor<T>,
@@ -527,8 +473,7 @@ pub mod pallet {
                 Code::Existing(code_hash),
                 data,
                 salt,
-                Some(perms),
-                false,
+                perms,
             )
         }
 
@@ -544,80 +489,6 @@ pub mod pallet {
             updates: Vec<(ExtrinsicId, bool)>,
         ) -> DispatchResult {
             Self::base_update_call_runtime_whitelist(origin, updates)
-        }
-
-        /// Instantiates a smart contract defining it with the given `code` and `salt`.
-        ///
-        /// The contract will be attached as a primary key of a newly created child identity of the caller.
-        ///
-        /// # Arguments
-        /// - `endowment`: Amount of POLYX to transfer to the contract.
-        /// - `gas_limit`: For how much gas the `deploy` code in the contract may at most consume.
-        /// - `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved from the caller to pay for the storage consumed.
-        /// - `code`: The WASM binary defining the smart contract.
-        /// - `data`: The input data to pass to the contract constructor.
-        /// - `salt`: Used for contract address derivation. By varying this, the same `code` can be used under the same identity.
-        ///
-        #[pallet::weight(Pallet::<T>::weight_instantiate_with_code(code.len() as u32, data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit))]
-        #[pallet::call_index(3)]
-        pub fn instantiate_with_code_as_primary_key(
-            origin: OriginFor<T>,
-            endowment: Balance,
-            gas_limit: Weight,
-            storage_deposit_limit: Option<Balance>,
-            code: Vec<u8>,
-            data: Vec<u8>,
-            salt: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            Self::general_instantiate(
-                origin,
-                endowment,
-                gas_limit,
-                storage_deposit_limit,
-                Code::Upload(code),
-                data,
-                salt,
-                None,
-                true,
-            )
-        }
-
-        /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
-        ///
-        /// Unlike `instantiate_with_code`, this assumes that at least one contract with the same WASM code has already been uploaded.
-        ///
-        /// The contract will be attached as a primary key of a newly created child identity of the caller.
-        ///
-        /// # Arguments
-        /// - `endowment`: amount of POLYX to transfer to the contract.
-        /// - `gas_limit`: for how much gas the `deploy` code in the contract may at most consume.
-        /// - `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved from the caller to pay for the storage consumed.
-        /// - `code_hash`: of an already uploaded WASM binary.
-        /// - `data`: The input data to pass to the contract constructor.
-        /// - `salt`: used for contract address derivation. By varying this, the same `code` can be used under the same identity.
-        ///
-        #[pallet::weight(Pallet::<T>::weight_instantiate_with_hash(data.len() as u32, salt.len() as u32, None).saturating_add(*gas_limit))]
-        #[pallet::call_index(4)]
-        pub fn instantiate_with_hash_as_primary_key(
-            origin: OriginFor<T>,
-            endowment: Balance,
-            gas_limit: Weight,
-            storage_deposit_limit: Option<Balance>,
-            code_hash: CodeHash<T>,
-            data: Vec<u8>,
-            salt: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            Self::general_instantiate(
-                origin,
-                endowment,
-                gas_limit,
-                storage_deposit_limit,
-                Code::Existing(code_hash),
-                data,
-                salt,
-                None,
-                true,
-            )
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::upgrade_api())]
@@ -662,14 +533,10 @@ where
     }
 
     /// Computes the weight of `instantiate_with_code(code, salt, perms)`.
-    fn weight_link_contract_to_did(perms: Option<&Permissions>) -> Weight {
-        match perms {
-            Some(permissions) => <T as Config>::WeightInfo::link_contract_as_secondary_key()
-                .saturating_add(<T as IdentityConfig>::WeightInfo::permissions_cost_perms(
-                    permissions,
-                )),
-            None => <T as Config>::WeightInfo::link_contract_as_primary_key(),
-        }
+    fn weight_link_contract_to_did(perms: &Permissions) -> Weight {
+        <T as Config>::WeightInfo::link_contract_to_did().saturating_add(
+            <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
+        )
     }
 
     /// Computes the weight of `instantiate_with_code(code, salt, perms)`.
@@ -677,7 +544,7 @@ where
         code_len: u32,
         data_len: u32,
         salt_len: u32,
-        perms: Option<&Permissions>,
+        perms: &Permissions,
     ) -> Weight {
         let instantiate_weight =
             <T as ContractsConfig>::WeightInfo::instantiate_with_code(code_len, data_len, salt_len)
@@ -688,11 +555,7 @@ where
     }
 
     /// Computes weight of `instantiate_with_hash(salt, perms)`.
-    fn weight_instantiate_with_hash(
-        data_len: u32,
-        salt_len: u32,
-        perms: Option<&Permissions>,
-    ) -> Weight {
+    fn weight_instantiate_with_hash(data_len: u32, salt_len: u32, perms: &Permissions) -> Weight {
         let instantiate_weight =
             <T as ContractsConfig>::WeightInfo::instantiate(data_len, salt_len).saturating_add(
                 <T as Config>::WeightInfo::base_weight_with_hash(data_len, salt_len),
@@ -706,7 +569,7 @@ where
         code: &Code<CodeHash<T>>,
         data: &[u8],
         salt: &[u8],
-        perms: Option<&Permissions>,
+        perms: &Permissions,
     ) -> (Weight, T::AccountId) {
         let data_len = data.len() as u32;
         let salt_len = salt.len() as u32;
@@ -734,28 +597,17 @@ where
     pub fn link_contract_to_did(
         caller: &T::AccountId,
         contract: T::AccountId,
-        perms: Option<Permissions>,
-        deploy_as_child_identity: bool,
+        perms: Permissions,
     ) -> Result<(), DispatchErrorWithPostInfo> {
         // Ensure we have perms + we'll need sender & DID.
         let caller = pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
 
         // Ensure contract is not linked to a DID
         IdentityPallet::<T>::ensure_key_did_unlinked(&contract)?;
-        if deploy_as_child_identity {
-            ensure!(
-                caller.secondary_key.is_none(),
-                Error::<T>::CallerNotAPrimaryKey
-            );
-            IdentityPallet::<T>::ensure_no_parent(caller.primary_did)?;
-            IdentityPallet::<T>::unverified_create_child_identity(contract, caller.primary_did)?;
-        } else {
-            let perms = perms.ok_or(Error::<T>::MissingKeyPermissions)?;
-            // Ensure that the key can be a secondary-key
-            IdentityPallet::<T>::ensure_perms_length_limited(&perms)?;
-            // Link contract's address to caller's identity as a secondary key with `perms`.
-            IdentityPallet::<T>::unsafe_join_identity(caller.primary_did, perms, contract);
-        }
+        // Ensure that the key can be a secondary-key
+        IdentityPallet::<T>::ensure_perms_length_limited(&perms)?;
+        // Link contract's address to caller's identity as a secondary key with `perms`.
+        IdentityPallet::<T>::unsafe_join_identity(caller.primary_did, perms, contract);
         Ok(())
     }
 
@@ -768,13 +620,12 @@ where
         code: Code<CodeHash<T>>,
         data: Vec<u8>,
         salt: Vec<u8>,
-        perms: Option<Permissions>,
-        deploy_as_child_identity: bool,
+        perms: Permissions,
     ) -> DispatchResultWithPostInfo {
         let caller = ensure_signed(origin.clone())?;
         let (base_weight, contract) =
-            Self::base_weight_and_contract_address(&caller, &code, &data, &salt, perms.as_ref());
-        Self::link_contract_to_did(&caller, contract, perms, deploy_as_child_identity)?;
+            Self::base_weight_and_contract_address(&caller, &code, &data, &salt, &perms);
+        Self::link_contract_to_did(&caller, contract, perms)?;
 
         // Instantiate the contract.
         let storage_deposit_limit = storage_deposit_limit.map(Compact);

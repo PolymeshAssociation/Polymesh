@@ -1,48 +1,34 @@
+use codec::Encode;
 use sp_runtime::runtime_logger::RuntimeLogger;
-use sp_std::collections::btree_map::BTreeMap;
 
 use super::*;
 
-pub(crate) fn migrate_to_v6<T: Config>() {
+pub(crate) fn migrate_to_v7<T: Config + pallet_identity::Config>() -> Weight {
     RuntimeLogger::init();
 
-    log::info!("Running Migration for removing asset_id/tickers mappings.");
-    let mut remove_mappings = BTreeMap::new();
+    const SECURITY_TOKEN_PREFIX: &[u8; 15] = b"SECURITY_TOKEN:";
 
-    for (asset_id, ticker) in AssetIdTicker::<T>::iter() {
-        if !Assets::<T>::contains_key(asset_id) {
-            remove_mappings.insert(asset_id, ticker);
+    let mut removed = 0u64;
+    let mut ticker_count = 0u64;
+    for ticker in UniqueTickerRegistration::<T>::iter_keys() {
+        ticker_count += 1;
+        let hash = (SECURITY_TOKEN_PREFIX, ticker).using_encoded(sp_io::hashing::blake2_256);
+        let did = polymesh_primitives::IdentityId::try_from(&hash[..])
+            .expect("BlakeTwo256 output is 32 bytes = IdentityId size");
+
+        if pallet_identity::DidRecords::<T>::contains_key(&did) {
+            pallet_identity::DidRecords::<T>::remove(&did);
+            removed += 1;
         }
     }
 
-    let new_expiry = TickerConfig::<T>::get()
-        .registration_length
-        .map(|x| <pallet_timestamp::Pallet<T>>::get() + x);
-    log::info!("{:?} mappings will be removed.", remove_mappings.len());
-    for (asset_id, ticker) in remove_mappings {
-        log::info!(
-            "AssetId: {:?} Ticker: {:?} have been unlinked",
-            asset_id,
-            ticker
-        );
+    log::info!(
+        "asset.migrate_to_v7: Removed {} asset DidRecords from {} tickers.",
+        removed,
+        ticker_count,
+    );
 
-        AssetIdTicker::<T>::remove(asset_id);
-        TickerAssetId::<T>::remove(ticker);
-
-        UniqueTickerRegistration::<T>::mutate(ticker, |registration| {
-            if let Some(registration) = registration {
-                if registration.expiry.is_some() {
-                    registration.expiry = new_expiry;
-
-                    Pallet::<T>::deposit_event(Event::TickerRegistered(
-                        registration.owner,
-                        ticker,
-                        new_expiry,
-                    ));
-                }
-            }
-        });
-    }
-
-    log::info!("Migration has finished running.");
+    // Reads: 1 (version check) + ticker_count (iter_keys) + ticker_count (contains_key).
+    // Writes: 1 (version put) + removed (DidRecords removals).
+    T::DbWeight::get().reads_writes(1 + (2 * ticker_count), 1 + removed)
 }
