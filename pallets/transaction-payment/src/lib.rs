@@ -336,6 +336,8 @@ pub enum Val<T: Config> {
 pub enum Pre<T: Config> {
     Charge {
         tip: BalanceOf<T>,
+        // the max fee reserved from the subsidy in prepare
+        fee_with_tip: BalanceOf<T>,
         // imbalance resulting from withdrawing the fee
         imbalance: <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
         // Polymesh Subsidiser account (who paid the fee)
@@ -441,8 +443,18 @@ where
                 let (_, subsidiser, imbalance, call_payment_info) =
                     self.withdraw_fee(&who, call, info, fee_with_tip)?;
 
+                // Reserve the full tx fee from the subsidy budget so that protocol fees
+                // charged during dispatch cannot exhaust `remaining` and break post_dispatch.
+                if subsidiser.is_some() {
+                    T::Subsidiser::reserve_subsidy(
+                        call_payment_info.paying_account(),
+                        fee_with_tip.into(),
+                    )?;
+                }
+
                 Ok(Pre::Charge {
                     tip,
+                    fee_with_tip,
                     imbalance,
                     subsidiser,
                     call_payment_info,
@@ -460,14 +472,15 @@ where
     ) -> Result<(), TransactionValidityError> {
         let _ = CurrentPayer::<T>::take();
 
-        let (tip, imbalance, subsidiser, call_payment_info) = {
+        let (tip, fee_with_tip, imbalance, subsidiser, call_payment_info) = {
             match pre {
                 Pre::Charge {
                     tip,
+                    fee_with_tip,
                     imbalance,
                     subsidiser,
                     call_payment_info,
-                } => (tip, imbalance, subsidiser, call_payment_info),
+                } => (tip, fee_with_tip, imbalance, subsidiser, call_payment_info),
                 Pre::NoCharge { .. } => return Ok(()),
             }
         };
@@ -482,10 +495,13 @@ where
 
         let fee_key = {
             if let Some(subsidiser_acc) = subsidiser {
-                T::Subsidiser::debit_subsidy(
+                // Settle the subsidy: refund (reserved - actual) and emit the debit event.
+                T::Subsidiser::settle_subsidy(
                     call_payment_info.paying_account(),
+                    &subsidiser_acc,
+                    fee_with_tip.into(),
                     actual_fee.into(),
-                )?;
+                );
                 subsidiser_acc
             } else {
                 call_payment_info.paying_account().clone()

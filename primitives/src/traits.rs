@@ -79,6 +79,25 @@ pub trait SubsidiserTrait<AccountId, RuntimeCall> {
         user_key: &AccountId,
         fee: Balance,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
+
+    /// Reserve `fee` from the remaining balance without emitting events.
+    /// Called in `prepare` to prevent protocol fees from exhausting the budget.
+    fn reserve_subsidy(
+        user_key: &AccountId,
+        fee: Balance,
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
+
+    /// Settle a previously reserved subsidy. Refunds `reserved - actual` to remaining
+    /// and emits `SubsidyDebited` for `actual`.
+    ///
+    /// `paying_key` is the original subsidiser captured at prepare time, so the event
+    /// is emitted even if the subsidy was removed or changed during dispatch.
+    fn settle_subsidy(
+        user_key: &AccountId,
+        paying_key: &AccountId,
+        reserved: Balance,
+        actual: Balance,
+    );
 }
 
 pub trait PortfolioFnTrait {
