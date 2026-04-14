@@ -154,7 +154,7 @@ pub mod pallet {
         /// (caller DID, instruction_id)
         InstructionRescheduled(IdentityId, InstructionId),
         /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
-        VenueSignersUpdated(IdentityId, VenueId, Vec<T::AccountId>, bool),
+        VenueSignersUpdated(IdentityId, VenueId, BTreeSet<T::AccountId>, bool),
         /// Settlement manually executed (did, id)
         SettlementManuallyExecuted(IdentityId, InstructionId),
         /// A new instruction has been created
@@ -853,7 +853,7 @@ pub mod pallet {
         pub fn create_venue(
             origin: OriginFor<T>,
             details: VenueDetails,
-            signers: Vec<T::AccountId>,
+            signers: BTreeSet<T::AccountId>,
             typ: VenueType,
         ) -> DispatchResult {
             // Ensure permissions and details limit.
@@ -1031,7 +1031,7 @@ pub mod pallet {
         pub fn update_venue_signers(
             origin: OriginFor<T>,
             id: VenueId,
-            signers: Vec<T::AccountId>,
+            signers: BTreeSet<T::AccountId>,
             add_signers: bool,
         ) -> DispatchResult {
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
@@ -2773,7 +2773,7 @@ impl<T: Config> Pallet<T> {
     fn base_update_venue_signers(
         did: IdentityId,
         venue_id: VenueId,
-        signers: Vec<T::AccountId>,
+        signers: BTreeSet<T::AccountId>,
         add_signers: bool,
     ) -> DispatchResult {
         // Ensure venue exists & sender is its creator.

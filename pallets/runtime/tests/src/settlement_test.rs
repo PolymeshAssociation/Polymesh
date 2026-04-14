@@ -200,7 +200,8 @@ fn venue_details_length_limited() {
     ExtBuilder::default().build().execute_with(|| {
         let actor = User::new(Sr25519Keyring::Alice);
         let id = VenueCounter::<TestStorage>::get();
-        let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
+        let create =
+            |d| Settlement::create_venue(actor.origin(), d, BTreeSet::new(), VenueType::Exchange);
         let update = |d| Settlement::update_venue_details(actor.origin(), id, d);
         assert_too_long!(create(max_len_bytes(1)));
         assert_ok!(create(max_len_bytes(0)));
@@ -231,10 +232,10 @@ fn venue_registration() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![
+            BTreeSet::from([
                 Sr25519Keyring::Alice.to_account_id(),
                 Sr25519Keyring::Bob.to_account_id()
-            ],
+            ]),
             VenueType::Exchange
         ));
         let venue_info = VenueInfo::<TestStorage>::get(venue_counter).unwrap();
@@ -270,7 +271,7 @@ fn venue_registration() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc(), Sr25519Keyring::Bob.to_account_id()],
+            BTreeSet::from([alice.acc(), Sr25519Keyring::Bob.to_account_id()]),
             VenueType::Exchange
         ));
         assert_eq!(
@@ -936,7 +937,7 @@ fn basic_fuzzing() {
         assert_ok!(Settlement::create_venue(
             Origin::signed(Sr25519Keyring::Alice.to_account_id()),
             VenueDetails::default(),
-            vec![Sr25519Keyring::Alice.to_account_id()],
+            BTreeSet::from([Sr25519Keyring::Alice.to_account_id()]),
             VenueType::Other
         ));
         let mut assets = Vec::with_capacity(40);
@@ -2110,10 +2111,10 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![
+            BTreeSet::from([
                 Sr25519Keyring::Alice.to_account_id(),
                 Sr25519Keyring::Bob.to_account_id()
-            ],
+            ]),
             VenueType::Exchange
         ));
 
@@ -2122,7 +2123,7 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 charlie.origin(),
                 venue_counter,
-                vec![Sr25519Keyring::Dave.to_account_id(),],
+                BTreeSet::from([Sr25519Keyring::Dave.to_account_id()]),
                 true
             ),
             Error::Unauthorized
@@ -2132,7 +2133,7 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
-            vec![Sr25519Keyring::Charlie.to_account_id(),],
+            BTreeSet::from([Sr25519Keyring::Charlie.to_account_id()]),
             true
         ));
 
@@ -2141,7 +2142,7 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
-                vec![Sr25519Keyring::Dave.to_account_id(),],
+                BTreeSet::from([Sr25519Keyring::Dave.to_account_id()]),
                 false
             ),
             Error::SignerDoesNotExist
@@ -2152,7 +2153,7 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
-                vec![Sr25519Keyring::Charlie.to_account_id(),],
+                BTreeSet::from([Sr25519Keyring::Charlie.to_account_id()]),
                 true
             ),
             Error::SignerAlreadyExists
@@ -2162,7 +2163,7 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
-            vec![Sr25519Keyring::Charlie.to_account_id(),],
+            BTreeSet::from([Sr25519Keyring::Charlie.to_account_id()]),
             false
         ));
 
@@ -2187,11 +2188,11 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
-            vec![
+            BTreeSet::from([
                 Sr25519Keyring::Charlie.to_account_id(),
                 Sr25519Keyring::Dave.to_account_id(),
                 Sr25519Keyring::Eve.to_account_id(),
-            ],
+            ]),
             true
         ));
 
@@ -2199,11 +2200,11 @@ fn modify_venue_signers() {
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
-            vec![
+            BTreeSet::from([
                 Sr25519Keyring::Charlie.to_account_id(),
                 Sr25519Keyring::Dave.to_account_id(),
                 Sr25519Keyring::Eve.to_account_id(),
-            ],
+            ]),
             false
         ));
 
@@ -2212,12 +2213,12 @@ fn modify_venue_signers() {
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
-                vec![
+                BTreeSet::from([
                     Sr25519Keyring::Charlie.to_account_id(),
                     Sr25519Keyring::Dave.to_account_id(),
                     Sr25519Keyring::Eve.to_account_id(),
                     Sr25519Keyring::Bob.to_account_id()
-                ],
+                ]),
                 true
             ),
             Error::SignerAlreadyExists
@@ -2256,7 +2257,10 @@ fn assert_number_of_venue_signers() {
             <TestStorage as pallet_settlement::Config>::MaxNumberOfVenueSigners::get();
         let venue_id = VenueId(0);
         let alice = User::new(Sr25519Keyring::Alice);
-        let initial_signers: Vec<AccountId32> = (0..max_signers as u8)
+        let initial_signers: BTreeSet<AccountId32> = (0..max_signers as u8)
+            .map(|i| AccountId32::from([i; 32]))
+            .collect();
+        let over_limit_signers: BTreeSet<AccountId32> = (0..max_signers as u8 + 1)
             .map(|i| AccountId32::from([i; 32]))
             .collect();
         // Verifies that an error will be thrown when the limit is exceeded
@@ -2264,9 +2268,7 @@ fn assert_number_of_venue_signers() {
             Settlement::create_venue(
                 alice.origin(),
                 VenueDetails::default(),
-                (0..max_signers as u8 + 1)
-                    .map(|i| AccountId32::from([i; 32]))
-                    .collect(),
+                over_limit_signers,
                 VenueType::Exchange
             ),
             Error::NumberOfVenueSignersExceeded
@@ -2287,27 +2289,30 @@ fn assert_number_of_venue_signers() {
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_id,
-                vec![AccountId32::from([51; 32])],
+                BTreeSet::from([AccountId32::from([51; 32])]),
                 true
             ),
             Error::NumberOfVenueSignersExceeded
         );
-        // Verifies that the count is being updated when adding removing signers
+        // Verifies that the count is being updated when removing signers
+        let remove_signers: BTreeSet<AccountId32> =
+            initial_signers.iter().take(3).cloned().collect();
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_id,
-            initial_signers[0..3].to_vec(),
+            remove_signers,
             false
         ));
         assert_eq!(
             NumberOfVenueSigners::<TestStorage>::get(venue_id),
             max_signers - 3
         );
-        // Verifies that the count is being updated when adding adding new signers
+        // Verifies that the count is being updated when adding new signers
+        let add_signers: BTreeSet<AccountId32> = initial_signers.iter().take(2).cloned().collect();
         assert_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_id,
-            initial_signers[0..2].to_vec(),
+            add_signers,
             true
         ));
         assert_eq!(
@@ -2785,7 +2790,7 @@ fn add_and_affirm_nft_instruction() {
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other,
         )
         .unwrap();
@@ -2897,7 +2902,7 @@ fn add_and_affirm_nft_not_owned() {
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other,
         )
         .unwrap();
@@ -2959,7 +2964,7 @@ fn add_same_nft_different_legs() {
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other,
         )
         .unwrap();
@@ -3023,7 +3028,7 @@ fn add_and_affirm_with_receipts_nfts() {
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other,
         )
         .unwrap();
@@ -3082,7 +3087,7 @@ fn add_instruction_unexpected_offchain_asset() {
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other,
         )
         .unwrap();
@@ -3219,7 +3224,7 @@ fn affirm_offchain_asset_without_receipt() {
         Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other,
         )
         .unwrap();

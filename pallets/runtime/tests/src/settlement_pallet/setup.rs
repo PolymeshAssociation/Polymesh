@@ -25,7 +25,7 @@ pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId,
     assert_ok!(Settlement::create_venue(
         asset_owner.origin(),
         VenueDetails::default(),
-        vec![asset_owner.acc()],
+        BTreeSet::from([asset_owner.acc()]),
         VenueType::Other,
     ));
 
