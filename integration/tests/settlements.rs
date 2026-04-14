@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use integration::*;
@@ -27,7 +29,7 @@ async fn asset_helper() -> Result<()> {
         &mut asset_issuer,
         "TestAsset",
         1_000_000,
-        vec![],
+        BTreeSet::new(),
     )
     .await?;
 
@@ -81,7 +83,7 @@ async fn simple_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test1".to_vec()), vec![], VenueType::Other)?
+        .create_venue(VenueDetails(b"Test1".to_vec()), BTreeSet::new(), VenueType::Other)?
         .submit_and_watch(&mut venue)
         .await?;
 
@@ -221,7 +223,7 @@ async fn offchain_settlement() -> Result<()> {
         &mut venue,
         "TestAsset",
         1_000_000_000,
-        vec![signer1.account()],
+        BTreeSet::from([signer1.account()]),
     )
     .await?;
     let venue_id = asset_helper.issuer_venue_id;

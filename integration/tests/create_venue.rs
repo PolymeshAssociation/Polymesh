@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use integration::*;
@@ -12,14 +14,14 @@ async fn create_venue() -> Result<()> {
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test1".to_vec()), vec![], VenueType::Other)?
+        .create_venue(VenueDetails(b"Test1".to_vec()), BTreeSet::new(), VenueType::Other)?
         .submit_and_watch(&mut users[0])
         .await?;
     let mut res2 = tester
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test2".to_vec()), vec![], VenueType::Other)?
+        .create_venue(VenueDetails(b"Test2".to_vec()), BTreeSet::new(), VenueType::Other)?
         .submit_and_watch(&mut users[0])
         .await?;
     println!("venue1 = {:?}", get_venue_id(&mut res1).await?);

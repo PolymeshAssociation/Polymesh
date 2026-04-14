@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use polymesh_api::{
@@ -88,7 +90,7 @@ async fn contract_as_secondary_key_change_identity() -> Result<()> {
     // Prepare `settlement.create_venue` call.
     let create_venue_call = tester.api.call().settlement().create_venue(
         VenueDetails(vec![]),
-        vec![],
+        BTreeSet::new(),
         VenueType::Other,
     )?;
     // Prepare `identity.leave_identity_as_key` call.

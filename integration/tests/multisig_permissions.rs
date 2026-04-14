@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::{anyhow, Result};
 
 use polymesh_api::{
@@ -383,7 +385,7 @@ async fn multisig_as_secondary_key_change_identity() -> Result<()> {
     // Prepare `settlement.create_venue` call.
     let create_venue_call = tester.api.call().settlement().create_venue(
         VenueDetails(vec![]),
-        vec![],
+        BTreeSet::new(),
         VenueType::Other,
     )?;
     // Prepare `identity.leave_identity_as_key` call.
@@ -459,7 +461,7 @@ async fn secondary_key_ms_make_primary() -> Result<()> {
     // Prepare `settlement.create_venue` call.
     let create_venue_call = tester.api.call().settlement().create_venue(
         VenueDetails(vec![]),
-        vec![],
+        BTreeSet::new(),
         VenueType::Other,
     )?;
 
@@ -498,7 +500,7 @@ async fn secondary_key_creates_multisig() -> Result<()> {
     // Prepare `settlement.create_venue` call.
     let create_venue_call = tester.api.call().settlement().create_venue(
         VenueDetails(vec![]),
-        vec![],
+        BTreeSet::new(),
         VenueType::Other,
     )?;
 
