@@ -2812,10 +2812,11 @@ fn add_and_affirm_nft_instruction() {
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
         assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, alice.did), 1);
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(
-                PortfolioId::default_portfolio(alice.did),
-                (asset_id, NFTId(1))
-            ),
+            PortfolioNFT::<TestStorage>::get((
+                &PortfolioId::default_portfolio(alice.did),
+                asset_id,
+                NFTId(1)
+            )),
             true
         );
         assert_eq!(
@@ -2836,17 +2837,19 @@ fn add_and_affirm_nft_instruction() {
         assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, alice.did), 0);
         assert_eq!(NumberOfNFTs::<TestStorage>::get(asset_id, bob.did), 1);
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(
+            PortfolioNFT::<TestStorage>::get((
                 PortfolioId::default_portfolio(alice.did),
-                (asset_id, NFTId(1))
-            ),
+                asset_id,
+                NFTId(1)
+            )),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(
+            PortfolioNFT::<TestStorage>::get((
                 PortfolioId::default_portfolio(bob.did),
-                (asset_id, NFTId(1))
-            ),
+                asset_id,
+                NFTId(1)
+            )),
             true
         );
         assert_eq!(

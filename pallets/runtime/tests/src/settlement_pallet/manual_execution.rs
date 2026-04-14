@@ -324,11 +324,11 @@ fn successfully_execute_after_locking() {
             0
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&bob_default_portfolio, (&nft_asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get((&bob_default_portfolio, &nft_asset_id, NFTId(1))),
             true
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_default_portfolio, (&nft_asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get((&alice_default_portfolio, &nft_asset_id, NFTId(1))),
             false
         );
         assert_eq!(

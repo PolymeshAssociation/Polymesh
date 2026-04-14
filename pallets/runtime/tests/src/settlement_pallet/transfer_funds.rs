@@ -459,7 +459,7 @@ fn nft_same_identity_transfer_succeeds() {
 
         // NFT moved to portfolio.
         assert_eq!(
-            pallet_nft::NFTHolder::<TestStorage>::get(&alice.acc(), (&asset_id, &NFTId(1))),
+            pallet_nft::NFTHolder::<TestStorage>::get((&alice.acc(), &asset_id, &NFTId(1))),
             NFTOwnerStatus::NotOwned
         );
     });
