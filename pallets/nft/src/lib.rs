@@ -142,12 +142,13 @@ pub mod pallet {
 
     /// All NFTs associated to the account Key.
     #[pallet::storage]
-    pub type NFTHolder<T: Config> = StorageDoubleMap<
+    pub type NFTHolder<T: Config> = StorageNMap<
         _,
-        Twox64Concat,
-        AccountId32,
-        Blake2_128Concat,
-        (AssetId, NFTId),
+        (
+            NMapKey<Twox64Concat, AccountId32>,
+            NMapKey<Blake2_128Concat, AssetId>,
+            NMapKey<Blake2_128Concat, NFTId>,
+        ),
         NFTOwnerStatus,
         ValueQuery,
     >;
@@ -1003,11 +1004,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         match asset_owner {
             AssetHolder::Account(ref acc_id) => {
-                if !NFTHolder::<T>::contains_key(acc_id, (&asset_id, &nft_id)) {
+                if !NFTHolder::<T>::contains_key((acc_id, &asset_id, &nft_id)) {
                     let acc_id = pallet_base::pallet_account_id::<T>(acc_id)?;
                     IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
                 }
-                NFTHolder::<T>::insert(acc_id, (asset_id, nft_id), NFTOwnerStatus::Owner);
+                NFTHolder::<T>::insert((acc_id, asset_id, nft_id), NFTOwnerStatus::Owner);
             }
             AssetHolder::Portfolio(ref portfolio_id) => {
                 PortfolioPallet::<T>::add_nft_to_portfolio(portfolio_id.clone(), asset_id, nft_id);
@@ -1025,11 +1026,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         match asset_holder {
             AssetHolder::Account(acc_id) => {
-                if NFTHolder::<T>::contains_key(acc_id, (asset_id, nft_id)) {
+                if NFTHolder::<T>::contains_key((acc_id, asset_id, nft_id)) {
                     let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
                     IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
                 }
-                NFTHolder::<T>::remove(acc_id, (asset_id, nft_id));
+                NFTHolder::<T>::remove((acc_id, asset_id, nft_id));
             }
             AssetHolder::Portfolio(portfolio_id) => {
                 PortfolioPallet::<T>::remove_nft_from_portfolio(portfolio_id, asset_id, nft_id);
@@ -1042,7 +1043,7 @@ impl<T: Config> Pallet<T> {
     /// Returns `true` if the `asset_holder` holds the given `nft_id` of the `asset_id`
     fn is_holder_of_nft(asset_id: &AssetId, nft_id: &NFTId, asset_holder: &AssetHolder) -> bool {
         match asset_holder {
-            AssetHolder::Account(acc_id) => match NFTHolder::<T>::get(acc_id, (asset_id, nft_id)) {
+            AssetHolder::Account(acc_id) => match NFTHolder::<T>::get((acc_id, asset_id, nft_id)) {
                 NFTOwnerStatus::Owner | NFTOwnerStatus::OwnerLocked => true,
                 NFTOwnerStatus::NotOwned => false,
             },
@@ -1055,7 +1056,7 @@ impl<T: Config> Pallet<T> {
     /// Returns `true` if the `nft_id` of the `asset_id` held by the `asset_holder` is locked.
     fn is_nft_locked(asset_id: &AssetId, nft_id: &NFTId, asset_holder: &AssetHolder) -> bool {
         match asset_holder {
-            AssetHolder::Account(acc_id) => match NFTHolder::<T>::get(acc_id, (asset_id, nft_id)) {
+            AssetHolder::Account(acc_id) => match NFTHolder::<T>::get((acc_id, asset_id, nft_id)) {
                 NFTOwnerStatus::OwnerLocked => true,
                 NFTOwnerStatus::Owner | NFTOwnerStatus::NotOwned => false,
             },
@@ -1078,7 +1079,7 @@ impl<T: Config> Pallet<T> {
 
         match asset_holder {
             AssetHolder::Account(acc_id) => {
-                NFTHolder::<T>::insert(acc_id, (asset_id, nft_id), NFTOwnerStatus::OwnerLocked);
+                NFTHolder::<T>::insert((acc_id, asset_id, nft_id), NFTOwnerStatus::OwnerLocked);
             }
             AssetHolder::Portfolio(portfolio_id) => {
                 PortfolioPallet::<T>::lock_nft(portfolio_id, asset_id, nft_id);
@@ -1101,7 +1102,7 @@ impl<T: Config> Pallet<T> {
 
         match asset_holder {
             AssetHolder::Account(acc_id) => {
-                NFTHolder::<T>::insert(acc_id, (asset_id, nft_id), NFTOwnerStatus::Owner);
+                NFTHolder::<T>::insert((acc_id, asset_id, nft_id), NFTOwnerStatus::Owner);
             }
             AssetHolder::Portfolio(portfolio_id) => {
                 PortfolioPallet::<T>::unlock_nft(portfolio_id, asset_id, nft_id);

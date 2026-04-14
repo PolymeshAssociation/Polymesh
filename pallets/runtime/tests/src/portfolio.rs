@@ -843,19 +843,19 @@ fn move_portfolio_nfts() {
             funds,
         ));
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(alice_default_portfolio.clone(), (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get((&alice_default_portfolio, asset_id, NFTId(1))),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_default_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get((&alice_default_portfolio, asset_id, NFTId(2))),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_custom_portfolio, (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get((&alice_custom_portfolio, asset_id, NFTId(1))),
             true
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_custom_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get((&alice_custom_portfolio, asset_id, NFTId(2))),
             true
         );
         assert_eq!(
