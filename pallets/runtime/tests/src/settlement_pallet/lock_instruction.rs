@@ -4,7 +4,9 @@ use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
 use pallet_portfolio::PortfolioAssetBalances;
-use pallet_settlement::{Error, Event, InstructionStatuses, LockedTimestamp};
+use pallet_settlement::{
+    Error, Event, InstructionRelockCount, InstructionStatuses, LockedTimestamp,
+};
 use polymesh_primitives::settlement::{InstructionId, InstructionStatus, Leg, SettlementType};
 use polymesh_primitives::TrustedFor;
 use polymesh_primitives::{Claim, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
@@ -493,7 +495,7 @@ fn success() {
 }
 
 #[test]
-fn lock_twice_success() {
+fn lock_while_already_locked_fails() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
@@ -509,6 +511,42 @@ fn lock_twice_success() {
             Weight::MAX
         ));
 
+        // Second lock while already locked must fail (lock period + cooldown not elapsed)
+        assert_noop!(
+            Settlement::lock_instruction(dave.origin(), InstructionId(0), Weight::MAX),
+            Error::<TestStorage>::InstructionAlreadyLocked
+        );
+    });
+}
+
+#[test]
+fn relock_without_unlock_after_expiry_and_cooldown() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let alice = User::new(Sr25519Keyring::Alice);
+
+        add_and_affirm_simple_instruction(alice, bob, dave, SettlementType::SettleAfterLock);
+
+        assert_ok!(Settlement::lock_instruction(
+            dave.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
+
+        // Advance past MaximumLockPeriod (2) + RelockCooldown (1) = 3
+        Timestamp::set_timestamp(Timestamp::get() + 4);
+
+        // Re-affirm as mediator (previous affirmation expired)
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            dave.origin(),
+            InstructionId(0),
+            Some(Timestamp::get() + 1),
+        ));
+
+        // Re-lock without explicit unlock should succeed
         assert_ok!(Settlement::lock_instruction(
             dave.origin(),
             InstructionId(0),
@@ -519,13 +557,9 @@ fn lock_twice_success() {
             InstructionStatuses::<TestStorage>::get(InstructionId(0)),
             InstructionStatus::LockedForExecution
         );
-
-        assert!(LockedTimestamp::<TestStorage>::get(InstructionId(0)).is_some());
-
-        let mut system_events = System::events();
         assert_eq!(
-            system_events.pop().unwrap().event,
-            EventTest::Settlement(Event::InstructionLocked(dave.did, InstructionId(0)))
+            InstructionRelockCount::<TestStorage>::get(InstructionId(0)),
+            1
         );
     });
 }

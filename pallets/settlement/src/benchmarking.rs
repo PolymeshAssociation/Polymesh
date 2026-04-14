@@ -1062,4 +1062,23 @@ benchmarks! {
         // Receiver auto-affirms → instruction executes.
         assert_eq!(pallet_nft::NumberOfNFTs::<T>::get(asset_id, bob.did()), n as u64);
     }
+
+    unlock_instruction {
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleAfterLock;
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, 1, 0, 0, m, false, false);
+
+        Pallet::<T>::base_lock_instruction(
+            p.asset_mediators[0].clone().origin.into(),
+            InstructionId(1),
+            false,
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
+    }: _(p.asset_mediators[0].clone().origin, InstructionId(1))
 }

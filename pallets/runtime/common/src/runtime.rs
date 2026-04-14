@@ -743,6 +743,8 @@ macro_rules! misc_pallet_impls {
             type MaxNumberOfVenueSigners = MaxNumberOfVenueSigners;
             type MaxInstructionMediators = MaxInstructionMediators;
             type MaximumLockPeriod = MaximumLockPeriod;
+            type RelockCooldown = RelockCooldown;
+            type MaxRelockCount = MaxRelockCount;
             type SchedulerPreimage = Preimage;
         }
 

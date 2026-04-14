@@ -1619,4 +1619,22 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(14))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
+    /// Storage: `Identity::KeyRecords` (r:1 w:0)
+    /// Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    /// Storage: `Settlement::InstructionMediatorsAffirmations` (r:1 w:0)
+    /// Proof: `Settlement::InstructionMediatorsAffirmations` (`max_values`: None, `max_size`: Some(58), added: 2533, mode: `MaxEncodedLen`)
+    /// Storage: `Settlement::InstructionStatuses` (r:1 w:1)
+    /// Proof: `Settlement::InstructionStatuses` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
+    /// Storage: `Timestamp::Now` (r:1 w:0)
+    /// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    /// Storage: `Settlement::UnlockedTimestamp` (r:0 w:1)
+    /// Proof: `Settlement::UnlockedTimestamp` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+    /// Storage: `Settlement::LockedTimestamp` (r:0 w:1)
+    /// Proof: `Settlement::LockedTimestamp` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+    fn unlock_instruction() -> Weight {
+        // Minimum execution time: 36_000 nanoseconds.
+        Weight::from_parts(39_000_000, 0)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(3))
+    }
 }

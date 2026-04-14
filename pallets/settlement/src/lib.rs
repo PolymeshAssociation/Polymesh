@@ -63,6 +63,7 @@ use frame_support::{ensure, BoundedBTreeSet};
 use frame_system::pallet_prelude::*;
 use frame_system::{ensure_root, RawOrigin};
 use sp_runtime::traits::One;
+use sp_runtime::Saturating;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
@@ -185,6 +186,12 @@ pub mod pallet {
         InstructionLocked(IdentityId, InstructionId),
         /// An identity's mandatory receiver affirmation policy has been updated.
         MandatoryReceiverAffirmationSet(IdentityId, AffirmationRequirement),
+        /// An instruction has been unlocked by a mediator.
+        ///
+        /// Parameters:
+        /// - `IdentityId`: The [`IdentityId`] of the mediator.
+        /// - `InstructionId`: The [`InstructionId`] of the instruction.
+        InstructionUnlocked(IdentityId, InstructionId),
     }
 
     pub trait WeightInfo {
@@ -257,6 +264,7 @@ pub mod pallet {
                 }
             }
         }
+        fn unlock_instruction() -> Weight;
 
         fn add_and_affirm_with_mediators_legs(
             legs: &[Leg],
@@ -467,6 +475,14 @@ pub mod pallet {
         #[pallet::constant]
         type MaximumLockPeriod: Get<Self::Moment>;
 
+        /// The minimum cooldown period a mediator must wait after unlocking before relocking an instruction.
+        #[pallet::constant]
+        type RelockCooldown: Get<Self::Moment>;
+
+        /// The maximum number of times an instruction can be relocked.
+        #[pallet::constant]
+        type MaxRelockCount: Get<u32>;
+
         /// Preimage provider for the scheduler.
         type SchedulerPreimage: QueryPreimage<H = Self::Hashing> + StorePreimage;
     }
@@ -585,6 +601,14 @@ pub mod pallet {
         SenderSameAsReceiver,
         /// Spender allowances are not supported for non-fungible token transfers.
         AllowancesNotSupportedForNFTs,
+        /// The instruction is already locked. It must be unlocked before relocking.
+        InstructionAlreadyLocked,
+        /// The instruction is not in `LockedForExecution` status and cannot be unlocked.
+        InstructionNotLocked,
+        /// The relock cooldown period has not expired since the last unlock.
+        RelockCooldownNotExpired,
+        /// The maximum number of relocks for this instruction has been exceeded.
+        MaxRelockCountExceeded,
         /// At least one mediator is required for this instruction.
         MissingInstructionMediators,
     }
@@ -762,6 +786,16 @@ pub mod pallet {
     #[pallet::storage]
     pub type LockedTimestamp<T: Config> =
         StorageMap<_, Twox64Concat, InstructionId, T::Moment, OptionQuery>;
+
+    /// The moment the instruction was unlocked by a mediator. Used to enforce the relock cooldown.
+    #[pallet::storage]
+    pub type UnlockedTimestamp<T: Config> =
+        StorageMap<_, Twox64Concat, InstructionId, T::Moment, OptionQuery>;
+
+    /// The number of times an instruction has been relocked.
+    #[pallet::storage]
+    pub type InstructionRelockCount<T: Config> =
+        StorageMap<_, Twox64Concat, InstructionId, u32, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -1528,6 +1562,22 @@ pub mod pallet {
             )?;
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
+
+        /// Unlocks an instruction that is currently in `LockedForExecution` status,
+        /// moving it back to `Pending`. Only a mediator of the instruction can call this.
+        ///
+        /// After unlocking, the mediator must wait at least [`Config::RelockCooldown`] before
+        /// locking the instruction again. This gives other parties time to reject the
+        /// instruction if they wish to back out.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, must be a mediator of the instruction.
+        /// * `inst_id` - The [`InstructionId`] of the instruction to unlock.
+        #[pallet::call_index(27)]
+        #[pallet::weight(<T as Config>::WeightInfo::unlock_instruction())]
+        pub fn unlock_instruction(origin: OriginFor<T>, inst_id: InstructionId) -> DispatchResult {
+            Self::base_unlock_instruction(origin, inst_id)
+        }
     }
 }
 
@@ -2235,6 +2285,9 @@ impl<T: Config> Pallet<T> {
         }
 
         InstructionAffirmsPending::<T>::remove(inst_id);
+        LockedTimestamp::<T>::remove(inst_id);
+        UnlockedTimestamp::<T>::remove(inst_id);
+        InstructionRelockCount::<T>::remove(inst_id);
 
         let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(inst_id, u32::MAX, None);
 
@@ -3357,6 +3410,41 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnexpectedSettlementType
         );
 
+        let is_relock =
+            if InstructionStatuses::<T>::get(inst_id) == InstructionStatus::LockedForExecution {
+                // Allow re-lock without explicit unlock if the lock period + cooldown has elapsed.
+                let locked_at =
+                    LockedTimestamp::<T>::get(inst_id).ok_or(Error::<T>::LockTimestampNotFound)?;
+                let now = pallet_timestamp::Pallet::<T>::get();
+                let required = T::MaximumLockPeriod::get().saturating_add(T::RelockCooldown::get());
+                ensure!(
+                    now - locked_at >= required,
+                    Error::<T>::InstructionAlreadyLocked
+                );
+                true
+            } else if let Some(unlocked_at) = UnlockedTimestamp::<T>::take(inst_id) {
+                // Explicit unlock path: enforce cooldown.
+                let now = pallet_timestamp::Pallet::<T>::get();
+                ensure!(
+                    now - unlocked_at >= T::RelockCooldown::get(),
+                    Error::<T>::RelockCooldownNotExpired
+                );
+                true
+            } else {
+                false
+            };
+
+        if is_relock {
+            InstructionRelockCount::<T>::try_mutate(inst_id, |count| -> DispatchResult {
+                ensure!(
+                    *count < T::MaxRelockCount::get(),
+                    Error::<T>::MaxRelockCountExceeded
+                );
+                *count = count.saturating_add(1);
+                Ok(())
+            })?;
+        }
+
         // The order of execution of the legs matter in some edge cases around compliance
         let mut inst_legs: Vec<_> = InstructionLegs::<T>::iter_prefix(&inst_id).collect();
         inst_legs.sort_by_key(|leg| leg.0);
@@ -3394,6 +3482,25 @@ impl<T: Config> Pallet<T> {
         LockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
 
         Self::deposit_event(Event::InstructionLocked(caller_did, inst_id));
+        Ok(())
+    }
+
+    /// Unlocks a locked instruction, moving it back to `Pending` status.
+    /// Records the unlock timestamp to enforce the relock cooldown.
+    fn base_unlock_instruction(origin: OriginFor<T>, inst_id: InstructionId) -> DispatchResult {
+        let caller_did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
+        Self::ensure_mediator(&inst_id, &caller_did)?;
+
+        ensure!(
+            InstructionStatuses::<T>::get(inst_id) == InstructionStatus::LockedForExecution,
+            Error::<T>::InstructionNotLocked
+        );
+
+        InstructionStatuses::<T>::insert(inst_id, InstructionStatus::Pending);
+        LockedTimestamp::<T>::remove(inst_id);
+        UnlockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
+
+        Self::deposit_event(Event::InstructionUnlocked(caller_did, inst_id));
         Ok(())
     }
 

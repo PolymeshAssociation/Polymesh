@@ -104,6 +104,8 @@ parameter_types! {
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaximumLockPeriod: Moment = 1_440_000; // 24 min
+    pub const RelockCooldown: Moment = 600_000; // 10 min
+    pub const MaxRelockCount: u32 = 3;
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;

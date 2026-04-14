@@ -210,6 +210,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
     pub const MaximumLockPeriod: Moment = 2;
+    pub const RelockCooldown: Moment = 1;
+    pub const MaxRelockCount: u32 = 3;
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
