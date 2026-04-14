@@ -1,9 +1,10 @@
-use codec::{Decode, Encode};
-use polymesh_worker_protocol_common::*;
+use polymesh_worker_common::*;
 
-use polkavm::{Caller, Config, Engine, Instance, Linker, Module, ProgramBlob};
+use polkavm::{
+    Caller, Config, Engine, Instance, InstancePre, Linker, Module, ProgramBlob, ProgramCounter,
+};
 
-use crate::backend::{Backend, BackendKind, BackendModuleInstance, BackendModuleLoader};
+use crate::backend::{Backend, BackendKind, BackendModule, BackendModuleInstance};
 
 fn host_msm_unchecked(caller: Caller<()>, fat_ptr: u64) -> u32 {
     let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
@@ -23,28 +24,97 @@ fn host_msm_unchecked(caller: Caller<()>, fat_ptr: u64) -> u32 {
 /// Polkavm module instance.
 pub struct PolkavmModuleInstance {
     instance: Instance,
+    initialize: ProgramCounter,
+    execute: ProgramCounter,
     scratch: u32,
     scratch_size: u32,
 }
 
 impl BackendModuleInstance for PolkavmModuleInstance {
-    fn execute(&mut self, req: &WorkRequest) -> WorkResponse {
-        // Encode the request to the scratch buffer and call the module's `execute` function.
-        let buf = req.encode();
-        let req_len = buf.len() as u32;
+    fn allocate_scratch_pad(&mut self, min_size: u32) -> Result<(u32, u32), WorkerError> {
+        if self.scratch_size >= min_size {
+            Ok((self.scratch, self.scratch_size))
+        } else {
+            Err(WorkerError::ModuleMemoryError)
+        }
+    }
+
+    fn release_scratch_pad(&mut self, _ptr: u32, _size: u32) -> Result<(), WorkerError> {
+        Ok(())
+    }
+
+    fn write_memory(&mut self, ptr: u32, data: &[u8]) -> Result<(), WorkerError> {
+        if ptr != self.scratch || data.len() as u32 > self.scratch_size {
+            return Err(WorkerError::ModuleMemoryError);
+        }
+        self.instance.write_memory(ptr, data).map_err(|err| {
+            log::error!("Error during writing to scratch buffer: {err}");
+            WorkerError::ModuleMemoryError
+        })
+    }
+
+    fn read_memory_into(&mut self, ptr: u32, buffer: &mut [u8]) -> Result<(), WorkerError> {
+        if ptr != self.scratch || buffer.len() as u32 > self.scratch_size {
+            return Err(WorkerError::ModuleMemoryError);
+        }
+        self.instance.read_memory_into(ptr, buffer).map_err(|err| {
+            log::error!("Error during reading from scratch buffer: {err}");
+            WorkerError::ModuleMemoryError
+        })?;
+        Ok(())
+    }
+
+    fn call_initialize(&mut self, params_len: u32, save: u32) -> Result<u64, WorkerError> {
         self.instance
-            .write_memory(self.scratch, buf.as_slice())
+            .call_typed_and_get_result::<u64, (u32, u32)>(
+                &mut (),
+                self.initialize,
+                (params_len, save),
+            )
+            .map_err(|err| {
+                log::error!("Error during calling initialize: {err:?}");
+                WorkerError::ModuleInitializationFailed
+            })
+    }
+
+    fn call_execute(&mut self, req_len: u32) -> Result<u64, WorkerError> {
+        self.instance
+            .call_typed_and_get_result::<u64, (u32,)>(&mut (), self.execute, (req_len,))
+            .map_err(|err| {
+                log::error!("Error during calling execute: {err:?}");
+                WorkerError::ModuleExecutionFailed
+            })
+    }
+}
+
+/// Polkavm module.
+pub struct PolkavmModule {
+    instance_pre: InstancePre,
+    initialize: ProgramCounter,
+    execute: ProgramCounter,
+    get_scratch_pad: ProgramCounter,
+    get_scratch_pad_size: ProgramCounter,
+}
+
+impl BackendModule for PolkavmModule {
+    fn instantiate(&self) -> Option<Box<dyn BackendModuleInstance>> {
+        let mut instance = self.instance_pre.instantiate().ok()?;
+
+        // Get the scratch buffer pointer.
+        let scratch = instance
+            .call_typed_and_get_result::<u32, ()>(&mut (), self.get_scratch_pad, ())
+            .unwrap();
+        let scratch_size = instance
+            .call_typed_and_get_result::<u32, ()>(&mut (), self.get_scratch_pad_size, ())
             .unwrap();
 
-        // Execute the module's `execute` function, which will read the request from the scratch buffer, process it and write the response back to the scratch buffer.
-        let res_len = self
-            .instance
-            .call_typed_and_get_result::<u32, (u32,)>(&mut (), "execute", (req_len,))
-            .unwrap();
-
-        // Read the response from the scratch buffer and decode it.
-        let res_bytes = self.instance.read_memory(self.scratch, res_len).unwrap();
-        Decode::decode(&mut &res_bytes[..]).unwrap_or(WorkResponse::Error(Error::DecodingFailed))
+        Some(Box::new(PolkavmModuleInstance {
+            instance,
+            initialize: self.initialize,
+            execute: self.execute,
+            scratch,
+            scratch_size,
+        }))
     }
 }
 
@@ -65,12 +135,7 @@ impl Backend for PolkavmBackend {
         BackendKind::PolkaVM
     }
 
-    fn load_module(
-        &self,
-        protocol: Protocol,
-        loader: &dyn BackendModuleLoader,
-    ) -> Option<Box<dyn BackendModuleInstance>> {
-        let module_bytes = loader.get_module_bytes(protocol, self.kind())?;
+    fn load_module(&self, module_bytes: &[u8]) -> Option<Box<dyn BackendModule>> {
         let blob = ProgramBlob::parse(module_bytes.into()).ok()?;
         let module = Module::from_blob(&self.engine, &Default::default(), blob).ok()?;
         let mut linker: Linker = Linker::new();
@@ -79,48 +144,35 @@ impl Backend for PolkavmBackend {
             .define_typed("host_msm_unchecked", host_msm_unchecked)
             .expect("Failed to define host function");
 
+        // Find the `initialize` and `execute` functions from the module exports.
+        let mut initialize = None;
+        let mut execute = None;
+        let mut get_scratch_pad = None;
+        let mut get_scratch_pad_size = None;
+        for export in module.exports() {
+            let name = export.symbol().as_bytes();
+            if name == b"initialize" {
+                initialize = Some(export.program_counter());
+            }
+            if name == b"execute" {
+                execute = Some(export.program_counter());
+            }
+            if name == b"get_scratch_pad" {
+                get_scratch_pad = Some(export.program_counter());
+            }
+            if name == b"get_scratch_pad_size" {
+                get_scratch_pad_size = Some(export.program_counter());
+            }
+        }
+
         let instance_pre = linker.instantiate_pre(&module).ok()?;
-        let mut instance = instance_pre.instantiate().ok()?;
 
-        // Get the scratch buffer pointer.
-        let now = std::time::Instant::now();
-        let scratch = instance
-            .call_typed_and_get_result::<u32, ()>(&mut (), "get_scratch_pad", ())
-            .unwrap();
-        let scratch_size = instance
-            .call_typed_and_get_result::<u32, ()>(&mut (), "get_scratch_pad_size", ())
-            .unwrap();
-        println!("Scratch pad pointer: {scratch}, size: {scratch_size}");
-        println!("Time taken for scratch pad setup: {:?}", now.elapsed());
-
-        // init parameters
-        let now = std::time::Instant::now();
-        let params_len = instance
-            .call_typed_and_get_result::<u32, (u32, u32)>(&mut (), "initialize", (0, 0))
-            .unwrap();
-        println!("initialize result: params_len={params_len}");
-        println!("Time taken for initialize: {:?}", now.elapsed());
-
-        // Save parameters back to the scratch buffer.
-        let now = std::time::Instant::now();
-        let save_result = instance
-            .call_typed_and_get_result::<u32, (u32, u32)>(&mut (), "initialize", (0, 1))
-            .unwrap();
-        println!("Save parameters result: {save_result}");
-        println!("Time taken for saving parameters: {:?}", now.elapsed());
-
-        // Time loading the parameters back into the module.
-        let now = std::time::Instant::now();
-        let load_result = instance
-            .call_typed_and_get_result::<u32, (u32, u32)>(&mut (), "initialize", (params_len, 0))
-            .unwrap();
-        println!("Load parameters result: {load_result}");
-        println!("Time taken for loading parameters: {:?}", now.elapsed());
-
-        Some(Box::new(PolkavmModuleInstance {
-            instance,
-            scratch,
-            scratch_size,
+        Some(Box::new(PolkavmModule {
+            instance_pre,
+            initialize: initialize?,
+            execute: execute?,
+            get_scratch_pad: get_scratch_pad?,
+            get_scratch_pad_size: get_scratch_pad_size?,
         }))
     }
 }

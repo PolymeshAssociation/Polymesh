@@ -78,7 +78,11 @@ members = [
     "eth-rpc",
     "node-rpc",
     "worker",
-    "worker/protocol/common",
+    "worker/extension",
+    "worker/tester",
+    "worker/tools",
+    "worker/common",
+    "worker/native",
     "worker/protocol/dart-v0",
     "pallets/asset",
     "pallets/base",
@@ -135,8 +139,11 @@ homepage = "https://github.com/PolymeshAssociation/Polymesh"
 [workspace.dependencies]
 # Polymesh worker host functions and protocols.
 polymesh-worker = { path = "worker", default-features = false }
-polymesh-worker-protocol-common = { path = "worker/protocol/common", default-features = false }
+polymesh-worker-extension = { path = "worker/extension", default-features = false }
+polymesh-worker-common = { path = "worker/common", default-features = false }
+polymesh-worker-native = { path = "worker/native", default-features = false }
 polymesh-worker-protocol-dart-v0 = { path = "worker/protocol/dart-v0", default-features = false }
+schnellru = { version = "0.2.4", default-features = false }
 
 # Polymesh native MSM
 polymesh-native-msm = { path = "native-msm", default-features = false }
@@ -265,6 +272,7 @@ sp-inherents = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", br
 sp-io = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-keystore = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-keyring = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
+sp-maybe-compressed-blob = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-mmr-primitives = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-npos-elections = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-offchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
@@ -362,6 +370,11 @@ polymesh-runtime-common = { workspace = true, default-features = false }
 
 # Host MSM
 polymesh-native-msm = { workspace = true, default-features = false }
+
+# Polymesh worker service
+polymesh-worker = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false }
+polymesh-worker-native = { workspace = true, default-features = false }
 
 # RPC
 node-rpc = { workspace = true }
@@ -470,7 +483,13 @@ frame-benchmarking-cli = { workspace = true }
 substrate-build-script-utils = { workspace = true }
 
 [features]
-default = ["std"]
+default = [
+    "std",
+    "worker_polkavm",
+    "worker_wasmtime",
+    "worker_wasmer",
+]
+
 disable_fees = [
     "polymesh-transaction-payment/disable_fees",
     "polymesh-runtime-develop/disable_fees",
@@ -486,6 +505,8 @@ runtime-benchmarks = [
     "polymesh-runtime-testnet/runtime-benchmarks",
     "polymesh-runtime-mainnet/runtime-benchmarks",
     "polymesh-dart-host-functions/runtime-benchmarks",
+    "polymesh-worker-extension/runtime-benchmarks",
+    "polymesh-worker/testing",
 ]
 
 # Only build a "ci" runtime.
@@ -497,8 +518,22 @@ metadata-hash = [
     "polymesh-runtime-testnet/metadata-hash",
 ]
 
+# Polymesh worker backends
+worker_polkavm = [
+    "polymesh-worker/polkavm",
+]
+worker_wasmer = [
+    "polymesh-worker/wasmer",
+]
+worker_wasmtime = [
+    "polymesh-worker/wasmtime",
+]
+
 std = [
     "polymesh-dart-host-functions/std",
     "serde/std",
     "polymesh-native-msm/std",
+    "polymesh-worker/std",
+    "polymesh-worker-extension/std",
+    "polymesh-worker-native/std",
 ]

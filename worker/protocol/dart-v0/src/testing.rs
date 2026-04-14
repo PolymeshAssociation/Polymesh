@@ -21,7 +21,7 @@ use polymesh_dart::{
         MultiLeafPathAndRoot,
     },
 };
-use polymesh_worker_protocol_common::WorkSeed;
+use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
 
 use crate::{Did, Error};
 
@@ -505,9 +505,34 @@ impl GenerateDartProofRequest {
 }
 
 impl GenerateDartProofRequest {
-    pub fn generate(self) -> Result<GenerateDartProofResponse, Error> {
+    pub fn do_generate(self) -> Result<GenerateDartProofResponse, ProtocolError> {
         let seed = blake2_256(&self);
-        self.generate_with_seed(seed)
+        Ok(self.generate_with_seed(seed)?)
+    }
+
+    pub fn submit_and_wait(
+        self,
+        _session_id: WorkerSessionId,
+    ) -> Result<GenerateDartProofResponse, ProtocolError> {
+        self.generate()
+    }
+}
+
+#[cfg(feature = "impl_protocol")]
+impl GenerateDartProofRequest {
+    pub fn generate(self) -> Result<GenerateDartProofResponse, ProtocolError> {
+        self.do_generate()
+    }
+}
+
+#[cfg(not(feature = "impl_protocol"))]
+impl GenerateDartProofRequest {
+    pub fn generate(self) -> Result<GenerateDartProofResponse, ProtocolError> {
+        let req = crate::DartWorkRequest::GenerateProof(self);
+        match req.execute()? {
+            crate::DartWorkResponse::GenerateProof(res) => Ok(res),
+            _ => Err(ProtocolError::UnexpectedResponse),
+        }
     }
 }
 

@@ -17,8 +17,11 @@ use polymesh_dart::{
     SettlementBuilder, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M,
     FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
+#[cfg(not(feature = "worker_extension"))]
 use polymesh_dart_host_functions::{GenerateDartProofRequest, GenerateDartProofResponse};
 use polymesh_primitives::erc20::{Name, Symbol};
+#[cfg(feature = "worker_extension")]
+use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
 
 use crate::*;
 
@@ -39,6 +42,7 @@ pub fn init_block<T: Config>() {
     }
 }
 
+#[cfg(not(feature = "worker_extension"))]
 pub fn set_skip_verify<T: Config>(skip: bool) {
     #[cfg(feature = "std")]
     {
@@ -48,6 +52,11 @@ pub fn set_skip_verify<T: Config>(skip: bool) {
     {
         polymesh_dart_host_functions::native_dart_assets::set_skip_verify(skip)
     }
+}
+
+#[cfg(feature = "worker_extension")]
+pub fn set_skip_verify<T: Config>(_skip: bool) {
+    // TODO: Implement skip verify for worker extension.
 }
 
 pub type AccountProverCurveTree<T> = ProverCurveTree<
@@ -189,7 +198,7 @@ impl<T: Config> DartUserInner<T> {
         // Generate the encryption key registration proof.
         let req = GenerateDartProofRequest::EncryptionKeyRegistration {
             keys,
-            did: self.did(),
+            did: self.did().into(),
         };
         if let GenerateDartProofResponse::EncryptionKeyRegistration { proof } = generate::<T>(req) {
             return proof;
@@ -215,7 +224,7 @@ impl<T: Config> DartUserInner<T> {
         // Generate the account registration proof.
         let req = GenerateDartProofRequest::AccountRegistration {
             accounts,
-            did: self.did(),
+            did: self.did().into(),
         };
         if let GenerateDartProofResponse::AccountRegistration { proof } = generate::<T>(req) {
             return proof;
@@ -244,7 +253,7 @@ impl<T: Config> DartUserInner<T> {
         // Generate the account registration proof.
         let req = GenerateDartProofRequest::BatchedFeeAccountRegistration {
             accounts,
-            did: self.did(),
+            did: self.did().into(),
         };
         if let GenerateDartProofResponse::BatchedFeeAccountRegistration {
             proof,
@@ -290,7 +299,7 @@ impl<T: Config> DartUserInner<T> {
         // Generate the account asset registration proof.
         let req = GenerateDartProofRequest::AccountAssetRegistration {
             keys: self.keys.clone(),
-            did: self.did(),
+            did: self.did().into(),
             asset_id,
             counter: 0,
         };

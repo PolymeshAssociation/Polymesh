@@ -603,7 +603,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -668,7 +668,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -1835,7 +1835,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
 dependencies = [
  "ahash 0.8.12",
  "ark-ec 0.5.0",
@@ -8649,6 +8649,8 @@ dependencies = [
  "polymesh-dart-host-functions",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-worker-extension",
+ "polymesh-worker-protocol-dart-v0",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "scale-info",
@@ -10627,6 +10629,9 @@ dependencies = [
  "polymesh-runtime-mainnet",
  "polymesh-runtime-testnet",
  "polymesh-transaction-payment",
+ "polymesh-worker",
+ "polymesh-worker-extension",
+ "polymesh-worker-native",
  "rustc-hex",
  "sc-authority-discovery",
  "sc-basic-authorship",
@@ -10712,7 +10717,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#425a64bec94e6ca6dddedec39e7b27f27b135a9d"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10750,7 +10755,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#425a64bec94e6ca6dddedec39e7b27f27b135a9d"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10781,7 +10786,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#425a64bec94e6ca6dddedec39e7b27f27b135a9d"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
 
 [[package]]
 name = "polymesh-dart-host-functions"
@@ -10801,6 +10806,7 @@ dependencies = [
  "rayon",
  "scale-info",
  "sp-core",
+ "sp-externalities",
  "sp-io",
  "sp-runtime-interface",
  "sp-std",
@@ -11368,20 +11374,17 @@ dependencies = [
 name = "polymesh-worker"
 version = "0.1.0"
 dependencies = [
- "ark-ec 0.5.0",
- "ark-host-msm",
  "ark-host-msm-impl",
- "ark-pallas",
- "ark-serialize 0.5.0",
- "ark-std 0.5.0",
- "ark-vesta",
- "env_logger 0.10.2",
+ "blake2 0.10.6",
+ "crossbeam",
+ "digest 0.10.7",
+ "lazy_static",
  "log",
  "parity-scale-codec",
  "polkavm 0.32.0",
- "polymesh-dart",
- "polymesh-worker-protocol-common",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-common",
+ "rayon",
+ "sp-maybe-compressed-blob",
  "wasmer",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -11389,11 +11392,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-worker-protocol-common"
+name = "polymesh-worker-common"
 version = "0.1.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker-extension"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "log",
+ "parity-scale-codec",
+ "polymesh-worker",
+ "polymesh-worker-common",
+ "sc-client-api",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker-native"
+version = "0.1.0"
+dependencies = [
+ "polymesh-worker",
+ "polymesh-worker-common",
+ "polymesh-worker-protocol-dart-v0",
 ]
 
 [[package]]
@@ -11402,16 +11431,48 @@ version = "0.1.0"
 dependencies = [
  "ark-ec 0.5.0",
  "bounded-collections",
+ "log",
  "parity-scale-codec",
  "picoalloc",
  "polkavm-derive 0.32.0",
  "polymesh-dart",
  "polymesh-dart-common",
- "polymesh-worker-protocol-common",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "scale-info",
  "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker-tester"
+version = "0.1.0"
+dependencies = [
+ "env_logger 0.10.2",
+ "hex",
+ "log",
+ "parity-scale-codec",
+ "polymesh-dart",
+ "polymesh-worker",
+ "polymesh-worker-common",
+ "polymesh-worker-native",
+ "polymesh-worker-protocol-dart-v0",
+ "sp-core",
+]
+
+[[package]]
+name = "polymesh-worker-tools"
+version = "0.1.0"
+dependencies = [
+ "env_logger 0.10.2",
+ "hex",
+ "log",
+ "polymesh-worker",
+ "polymesh-worker-common",
+ "polymesh-worker-native",
+ "sp-core",
+ "sp-maybe-compressed-blob",
 ]
 
 [[package]]
@@ -12403,7 +12464,7 @@ dependencies = [
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#db725e34cd730dede1b70a7b84290c0dc928f22b"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",

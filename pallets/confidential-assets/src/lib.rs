@@ -55,8 +55,15 @@ use polymesh_dart::{
     FEE_ACCOUNT_TREE_HEIGHT, FEE_ASSET_ID,
 };
 
+#[cfg(not(feature = "worker_extension"))]
 use polymesh_dart_host_functions::{
     native_dart_assets, BatchId, UpdateAssetStateRequest, VerifyDartAssetRequest,
+};
+#[cfg(feature = "worker_extension")]
+use polymesh_worker_extension::{native_polymesh_worker, BackendKind, WorkerSessionId as BatchId};
+#[cfg(feature = "worker_extension")]
+use polymesh_worker_protocol_dart_v0::{
+    UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
 };
 
 pub type BalanceOf<T> =
@@ -1086,7 +1093,7 @@ pub mod pallet {
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::AccountRegistration {
-                did: caller_did,
+                did: caller_did.into(),
                 proof,
             })?;
 
@@ -1170,7 +1177,7 @@ pub mod pallet {
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
-                did: caller_did,
+                did: caller_did.into(),
                 proof,
             })?;
 
@@ -1231,7 +1238,7 @@ pub mod pallet {
             Self::handle_account_state_update_proof(proof, |proof, root| {
                 // Verify the proof.
                 Self::submit_and_wait(VerifyDartAssetRequest::MintAsset {
-                    did: caller_did,
+                    did: caller_did.into(),
                     root,
                     proof,
                 })
@@ -1477,7 +1484,7 @@ pub mod pallet {
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedFeeAccountRegistration {
-                did: caller_did,
+                did: caller_did.into(),
                 proof,
             })?;
 
@@ -1562,7 +1569,7 @@ pub mod pallet {
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedFeeAccountTopup {
-                did: caller_did,
+                did: caller_did.into(),
                 proof,
                 root,
             })?;
@@ -1667,7 +1674,7 @@ pub mod pallet {
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::EncryptionKeyRegistration {
-                did: caller_did,
+                did: caller_did.into(),
                 proof,
             })?;
 
@@ -2581,7 +2588,16 @@ impl<T: Config> Pallet<T> {
 
     pub fn init_block() -> Weight {
         // Create a new batch for the block, with caching enabled and thread pool disabled.
+        #[cfg(not(feature = "worker_extension"))]
         let batch_id = native_dart_assets::create_batch(true, false);
+
+        // Start worker session.
+        #[cfg(feature = "worker_extension")]
+        let batch_id = {
+            let backends = BackendKind::all_mask();
+            native_polymesh_worker::start_session(0, backends, DART_PROTOCOL.to_number())
+        };
+
         CurrentBatchId::<T>::put(batch_id);
 
         // TODO: add missing writes to weight.
@@ -2594,7 +2610,10 @@ impl<T: Config> Pallet<T> {
 
         // Close the batch.
         if let Some(batch_id) = CurrentBatchId::<T>::take() {
+            #[cfg(not(feature = "worker_extension"))]
             native_dart_assets::batch_close(batch_id);
+            #[cfg(feature = "worker_extension")]
+            native_polymesh_worker::end_session(batch_id);
         }
     }
 

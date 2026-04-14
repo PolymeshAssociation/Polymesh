@@ -22,3 +22,5 @@ cargo build  \
 polkatool link \
     --run-only-if-newer -s $elf_path \
     -o $output_path
+
+cargo run -r -p polymesh-worker-tools -- compress $output_path

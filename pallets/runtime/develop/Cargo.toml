@@ -20,7 +20,8 @@ pallet-balances = { workspace = true, default-features = false }
 pallet-base = { workspace = true, default-features = false }
 pallet-committee = { workspace = true, default-features = false }
 pallet-compliance-manager = { workspace = true, default-features = false }
-pallet-confidential-assets = { workspace = true, default-features = false }
+pallet-confidential-assets = { workspace = true, default-features = false, features = ["old_host_functions"] }
+#pallet-confidential-assets = { workspace = true, default-features = false, features = ["worker_extension"] }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }

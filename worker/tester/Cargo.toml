@@ -1,0 +1,50 @@
+[package]
+name = "polymesh-worker-tester"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4"
+
+# Worker and protocols
+polymesh-worker = { workspace = true, default-features = false }
+polymesh-worker-native = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["native"] }
+
+polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"]}
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+
+sp-core = { workspace = true, default-features = false }
+hex = { version = "0.4.3", default-features = false }
+
+env_logger = { version = "0.10.0", default-features = false }
+
+[features]
+default = [
+	"std",
+	"polkavm",
+	"wasmtime",
+	"wasmer"
+]
+
+polkavm = [
+	"polymesh-worker/polkavm",
+]
+
+wasmtime = [
+	"polymesh-worker/wasmtime",
+]
+
+wasmer = [
+	"polymesh-worker/wasmer",
+]
+
+std = [
+	"codec/std",
+	"sp-core/std",
+	"polymesh-worker/std",
+	"polymesh-worker-native/std",
+	"polymesh-worker-protocol-dart-v0/std",
+]

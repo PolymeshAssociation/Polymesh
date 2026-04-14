@@ -11,6 +11,7 @@ rm $output_path $wasm_path
 echo "> Building: '$crate' (-> $output_path)"
 
 #RUSTFLAGS="-C target-feature=+simd128,+wide-arithmetic" \
+RUSTFLAGS="--remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C strip=symbols" \
 	cargo build \
 	--target=$target \
 	--no-default-features \
@@ -19,3 +20,4 @@ echo "> Building: '$crate' (-> $output_path)"
 
 cp $wasm_path $output_path
 
+cargo run -r -p polymesh-worker-tools -- compress $output_path

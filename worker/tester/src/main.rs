@@ -3,7 +3,8 @@ use polymesh_dart::{
     AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
     SenderAffirmationProof, curve_tree::AccountTreeConfig,
 };
-use polymesh_worker::*;
+use polymesh_worker::{backend::*, *};
+use polymesh_worker_common::PROTOCOL_PDART;
 use polymesh_worker_protocol_dart_v0::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
@@ -29,14 +30,18 @@ pub fn main() {
             _ => None,
         });
 
-    let backends = if let Some(backend_kind) = backend_kind {
+    let (backends, kind) = if let Some(backend_kind) = backend_kind {
+        let native_backend = polymesh_worker_native::NativeBackend;
         println!("Using backend: {:?}", backend_kind);
-        Backends::with_backends(vec![backend_kind])
+        (
+            Backends::with_backends(vec![backend_kind], Some(Box::new(native_backend))),
+            backend_kind,
+        )
     } else {
-        println!("No valid backend specified, using all available backends.");
-        Backends::new()
+        println!("No valid backend specified.");
+        return;
     };
-    let loader = StaticModules;
+    let mut loader = StaticModules::new();
     let protocol = Protocol {
         id: PROTOCOL_PDART,
         version: ProtocolVersion {
@@ -47,19 +52,73 @@ pub fn main() {
     };
 
     // Load the module.
-    let mut module = backends
-        .load_module(protocol, &loader)
+    let now = std::time::Instant::now();
+    let module = backends
+        .load_module(protocol, &mut loader)
         .expect("No backend available for the given protocol and version");
+    println!("Module loaded in: {:?}", now.elapsed());
+
+    // Load the module context.
+    let now = std::time::Instant::now();
+    let hashes = loader
+        .get_module_code_and_context_hash(protocol, kind)
+        .expect("Failed to get module code and context hash");
+    let context_bytes = if let Some(context_hash) = hashes.context_hash {
+        loader.get_module_context_bytes(protocol, context_hash)
+    } else {
+        None
+    };
+    println!("Context loaded: {}", context_bytes.is_some());
+    println!("Module context loaded in: {:?}", now.elapsed());
+
+    // Instantiate the module.
+    let now = std::time::Instant::now();
+    let mut instance = module.instantiate().expect("Failed to instantiate module");
+    println!("Module instantiated in: {:?}", now.elapsed());
+
+    // Initialize the module.
+    {
+        let now = std::time::Instant::now();
+        instance
+            .initialize(context_bytes.as_deref())
+            .expect("Failed to initialize module");
+        println!("Module initialized in: {:?}", now.elapsed());
+    }
+
+    // Save the module context.
+    let saved_ctx = {
+        let now = std::time::Instant::now();
+        let save_result = instance.save_context().expect("Failed to save context");
+        println!("Context saved: {:?}", save_result.is_some());
+        println!("Time taken for saving context: {:?}", now.elapsed());
+
+        save_result
+    };
+    if let Some(ref ctx) = saved_ctx {
+        let hash = sp_core::blake2_256(ctx);
+        println!("Saved context size: {} bytes", ctx.len());
+        println!("Saved context hash: 0x{}", hex::encode(hash));
+    }
+
+    // Test loading the context back into a new instance.
+    {
+        let now = std::time::Instant::now();
+        instance
+            .initialize(saved_ctx.as_deref())
+            .expect("Failed to initialize with saved context");
+        println!("Time taken for loading context: {:?}", now.elapsed());
+    }
 
     let mut execute_work = |name: &str, req: DartWorkRequest| {
-        let req = WorkRequest::new(protocol, req);
+        let req = WorkRequest::new(req);
         for _ in 0..4 {
             println!();
             let now = std::time::Instant::now();
-            let res: Result<u32, Error> = module
-                .execute(&req)
-                .decode()
-                .map(|res: DartWorkResponse| res.encoded_size() as u32);
+            let res: Result<Result<u32, ProtocolError>, WorkerError> =
+                instance.execute(&req).map(|res| {
+                    res?.decode()
+                        .map(|res: DartWorkResponse| res.encoded_size() as u32)
+                });
             println!("{name} Result: {:?}", res);
             println!("{name} Execution time: {:?}", now.elapsed());
         }

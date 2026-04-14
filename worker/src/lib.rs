@@ -1,22 +1,140 @@
-pub use polymesh_worker_protocol_common::*;
+pub use polymesh_worker_common::{
+    BackendBitmask, BackendCodeAndContextHash, BackendCodeHash, BackendContextHash, BackendKind,
+    FALLBACK_TO_RUNTIME, MODULE_CODE_SIZE_LIMIT, PROTOCOL_PDART, Protocol, ProtocolError,
+    ProtocolId, ProtocolNumber, ProtocolVersion, WorkFlags, WorkRequest, WorkRequestId,
+    WorkResponse, WorkResponseResult, WorkSeed, WorkStatus, WorkStatusFlagsAndId, WorkerSessionId,
+    WorkerVersion, config::*, error::*,
+};
 
-mod backend;
+pub mod backend;
+pub mod cache;
+pub mod worker;
 
-pub use backend::{Backend, BackendKind, BackendModuleInstance, BackendModuleLoader, Backends};
+/// The max supported worker version.
+///
+/// This version number should be incremented if the worker <-> backend module interface changes in a non-backwards-compatible way.
+/// Only changes like the following (the module exported/imported function signatures):
+/// - Changing how modules are initialized.
+/// - Changing how scratch space is managed and accessed.
+/// - Changing the execute work functinon signature.
+/// - Adding new import functions (like host_msm_unchecked) that the modules can use to access host functionalities.
+///
+/// If the runtime requires a newer worker version, then it can fallback to executing the work in the runtime instead of the worker.
+/// This allows node running older versions to continue syncing with the network (at a slower speed).
+pub const WORKER_VERSION: WorkerVersion = 1;
 
-pub struct StaticModules;
+/// Decompress the given module code bytes if they are compressed, otherwise return the original bytes.
+pub fn decompress_module_code(bytes: &[u8]) -> Option<Vec<u8>> {
+    // Try to decompress the bytes, if it fails, assume it's not compressed and return the original bytes.
+    match sp_maybe_compressed_blob::decompress(bytes, MODULE_CODE_SIZE_LIMIT) {
+        Ok(decompressed) => Some(decompressed.to_vec()),
+        Err(_) => Some(bytes.to_vec()),
+    }
+}
 
-impl BackendModuleLoader for StaticModules {
-    fn get_module_bytes(&self, protocol: Protocol, kind: BackendKind) -> Option<Vec<u8>> {
-        // TODO: support loading from Substrate on-chain storage.
-        match (protocol.id, kind) {
-            (PROTOCOL_PDART, BackendKind::PolkaVM) => {
-                Some(include_bytes!("../polymesh-worker-protocol-dart-v0.polkavm").to_vec())
-            }
-            (PROTOCOL_PDART, BackendKind::Wasmtime | BackendKind::Wasmer) => {
-                Some(include_bytes!("../polymesh-worker-protocol-dart-v0.wasm").to_vec())
-            }
-            _ => None,
+pub struct StaticModules {
+    initialized: bool,
+    polkavm_code_hash: BackendCodeHash,
+    wasm_code_hash: BackendCodeHash,
+    native_code_hash: BackendCodeHash,
+    context_hash: BackendContextHash,
+}
+
+impl StaticModules {
+    pub fn new() -> Self {
+        Self {
+            initialized: false,
+            polkavm_code_hash: [0u8; 32],
+            wasm_code_hash: [0u8; 32],
+            native_code_hash: [42u8; 32],
+            context_hash: [0u8; 32],
         }
     }
+
+    fn polkavm_bytes(&self) -> &'static [u8] {
+        include_bytes!("../polymesh-worker-protocol-dart-v0.polkavm.zst")
+    }
+
+    fn wasm_bytes(&self) -> &'static [u8] {
+        include_bytes!("../polymesh-worker-protocol-dart-v0.wasm.zst")
+    }
+
+    fn context_bytes(&self) -> &'static [u8] {
+        include_bytes!("../polymesh-worker-protocol-dart-v0.context.bin")
+    }
+
+    fn initialize(&mut self) {
+        if self.initialized {
+            return;
+        }
+        // Precompute the code and context hashes for the static modules.
+        self.polkavm_code_hash = blake2b256_hash(self.polkavm_bytes());
+        self.wasm_code_hash = blake2b256_hash(self.wasm_bytes());
+        self.context_hash = blake2b256_hash(self.context_bytes());
+        self.initialized = true;
+    }
+}
+
+impl backend::BackendModuleLoader for StaticModules {
+    fn get_module_code_and_context_hash(
+        &mut self,
+        protocol: Protocol,
+        kind: BackendKind,
+    ) -> Option<BackendCodeAndContextHash> {
+        if protocol.id == PROTOCOL_PDART {
+            self.initialize();
+            let code_hash = match kind {
+                BackendKind::PolkaVM => self.polkavm_code_hash,
+                BackendKind::Wasmtime | BackendKind::Wasmer => self.wasm_code_hash,
+                BackendKind::Native => self.native_code_hash,
+            };
+            Some(BackendCodeAndContextHash {
+                code_hash,
+                context_hash: Some(self.context_hash),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn get_module_code_bytes(
+        &mut self,
+        protocol: Protocol,
+        kind: BackendKind,
+        code_hash: BackendCodeHash,
+    ) -> Option<Vec<u8>> {
+        if protocol.id == PROTOCOL_PDART {
+            self.initialize();
+            match kind {
+                BackendKind::PolkaVM if code_hash == self.polkavm_code_hash => {
+                    decompress_module_code(self.polkavm_bytes())
+                }
+                BackendKind::Wasmtime | BackendKind::Wasmer if code_hash == self.wasm_code_hash => {
+                    decompress_module_code(self.wasm_bytes())
+                }
+                BackendKind::Native if code_hash == self.native_code_hash => Some(vec![]),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_module_context_bytes(
+        &mut self,
+        protocol: Protocol,
+        ctx_hash: BackendContextHash,
+    ) -> Option<Vec<u8>> {
+        if protocol.id == PROTOCOL_PDART && ctx_hash == self.context_hash {
+            Some(include_bytes!("../polymesh-worker-protocol-dart-v0.context.bin").to_vec())
+        } else {
+            None
+        }
+    }
+}
+
+pub fn blake2b256_hash(data: &[u8]) -> [u8; 32] {
+    use digest::{Digest, generic_array::typenum::U32};
+    type Blake2b256 = blake2::Blake2b<U32>;
+    Blake2b256::digest(data).into()
 }

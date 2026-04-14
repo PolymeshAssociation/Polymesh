@@ -1,0 +1,51 @@
+[package]
+name = "polymesh-worker-extension"
+version = "0.1.0"
+edition = "2024"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+
+[dependencies]
+log = "0.4"
+
+lazy_static = { version = "1.5.0", default-features = false, optional = true }
+
+polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker = { workspace = true, default-features = false, optional = true }
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+
+sc-client-api = { workspace = true, optional = true }
+
+sp-std = { workspace = true, default-features = false }
+sp-externalities = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false, optional = true }
+sp-runtime-interface = { workspace = true, default-features = false }
+
+[features]
+default = [
+    "std",
+    "polkavm",
+    "wasmtime",
+    "wasmer",
+]
+
+polkavm = ["polymesh-worker/polkavm"]
+wasmtime = ["polymesh-worker/wasmtime"]
+wasmer = ["polymesh-worker/wasmer"]
+testing = ["polymesh-worker?/testing"]
+
+runtime-benchmarks = ["testing"]
+
+std = [
+    "lazy_static",
+    "sc-client-api",
+    "codec/std",
+    "polymesh-worker-common/std",
+    "polymesh-worker/std",
+    "sp-externalities/std",
+    "sp-std/std",
+    "sp-runtime/std",
+    "sp-runtime-interface/std",
+]

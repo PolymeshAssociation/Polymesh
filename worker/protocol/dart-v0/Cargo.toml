@@ -12,7 +12,10 @@ path = "src/lib.rs"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-polymesh-worker-protocol-common = { workspace = true, default-features = false }
+log = "0.4"
+
+polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
 
 # Crypto
 rand_core = { workspace = true, default-features = false }
@@ -45,15 +48,25 @@ default = ["std", "testing"]
 
 testing = []
 
+# Directly implement protocol logic (i.e. don't use a host function).
+impl_protocol = []
+
 polkavm = [
 	"ark-ec/polkavm",
+  "impl_protocol",
 ]
 
 wasm = [
 	"ark-ec/host_msm",
+  "impl_protocol",
 ]
 
 native = []
+
+runtime = [
+	"native",
+	"polymesh-worker-extension",
+]
 
 sp-io = [
 	"polymesh-dart/sp-io",
@@ -67,6 +80,7 @@ parallel = [
 
 no_std = ["polymesh-dart/no_std"]
 std = [
+  "impl_protocol",
   "asm",
   "parallel",
   "rand_core/std",

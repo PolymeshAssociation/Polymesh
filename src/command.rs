@@ -21,6 +21,7 @@ use std::sync::Arc;
 use core::future::Future;
 use frame_benchmarking_cli::*;
 use log::info;
+use polymesh_worker::backend::Backends;
 use sc_cli::SubstrateCli;
 use sc_service::{Configuration, TaskManager};
 use sp_keyring::Sr25519Keyring;
@@ -127,6 +128,10 @@ where
     I::Item: Into<std::ffi::OsString> + Clone,
 {
     let cli = Cli::from_iter(args);
+
+    // Initialize Polymesh worker backends.
+    let native_backend = polymesh_worker_native::NativeBackend;
+    Backends::init_global_backends(Box::new(native_backend));
 
     match &cli.subcommand {
         None => {

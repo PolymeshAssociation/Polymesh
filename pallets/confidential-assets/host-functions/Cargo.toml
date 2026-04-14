@@ -19,6 +19,8 @@ rand = { workspace = true, default-features = false, optional = true }
 # Common
 polymesh-primitives = { workspace = true, default-features = false }
 
+sp-externalities = { workspace = true, default-features = false, optional = true }
+
 # DART
 polymesh-dart = { workspace = true, default-features = false, features = [
   "backend_bp", "sp-io"
@@ -64,6 +66,7 @@ std = [
   "polymesh-dart/std",
   "ark-ec/std",
   "polymesh-primitives/std",
+  "sp-externalities/std",
   "codec/std",
   "sp-std/std",
   "sp-core/std",

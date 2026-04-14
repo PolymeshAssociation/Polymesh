@@ -14,7 +14,8 @@ pallet-identity = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 
 # Crypto
-polymesh-dart-host-functions = { workspace = true, default-features = false }
+polymesh-dart-host-functions = { workspace = true, default-features = false, optional = true }
+polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
 rand_core = { workspace = true, default-features = false, optional = true }
 rand_chacha = { workspace = true, default-features = false, optional = true }
 
@@ -22,6 +23,7 @@ rand_chacha = { workspace = true, default-features = false, optional = true }
 polymesh-dart = { workspace = true, default-features = false, features = [
   "backend_bp", "sp-io"
 ] }
+polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["runtime"], optional = true }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -44,12 +46,15 @@ log = { version = "0.4", default-features = false }
 equalize = []
 default = ["std", "equalize"]
 
-testing = ["polymesh-dart-host-functions/testing"]
+old_host_functions = ["polymesh-dart-host-functions"]
+worker_extension = ["polymesh-worker-extension", "polymesh-worker-protocol-dart-v0"]
+
+testing = ["polymesh-dart-host-functions?/testing", "polymesh-worker-extension?/testing"]
 
 asm = ["polymesh-dart/asm"]
 parallel = ["polymesh-dart/parallel"]
 
-no_std = ["polymesh-dart-host-functions/no_std", "polymesh-dart/no_std"]
+no_std = ["polymesh-dart-host-functions?/no_std", "polymesh-dart/no_std"]
 std = [
   "asm",
   "parallel",
@@ -65,7 +70,9 @@ std = [
   "pallet-transaction-payment/std",
   "polymesh-runtime-common/std",
   "polymesh-primitives/std",
-  "polymesh-dart-host-functions/std",
+  "polymesh-dart-host-functions?/std",
+  "polymesh-worker-extension?/std",
+	"polymesh-worker-protocol-dart-v0?/std",
   "sp-runtime/std",
   "sp-std/std",
   "sp-io/std",
@@ -77,7 +84,9 @@ runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
   "pallet-identity/runtime-benchmarks",
   "polymesh-primitives/runtime-benchmarks",
-  "polymesh-dart-host-functions/runtime-benchmarks",
+  "polymesh-dart-host-functions?/runtime-benchmarks",
+  "polymesh-worker-extension?/runtime-benchmarks",
+	"polymesh-worker-protocol-dart-v0?/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
 ]
 try-runtime = []

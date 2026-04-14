@@ -1,13 +1,15 @@
 [package]
-name = "polymesh-worker-protocol-common"
+name = "polymesh-worker-common"
 version = "0.1.0"
 authors = ["Polymesh Labs"]
 license-file = "../../../LICENSE"
 repository = "https://github.com/PolymeshAssociation/Polymesh"
-description = "Polymesh protocol worker common types"
+description = "Polymesh worker common types"
 edition = "2024"
 
 [dependencies]
+log = "0.4"
+
 codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-std = { workspace = true, default-features = false }
 

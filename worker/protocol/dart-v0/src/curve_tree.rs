@@ -2,19 +2,18 @@ use core::marker::PhantomData;
 
 use codec::{Decode, Encode};
 
-use polymesh_dart::curve_tree::DefaultCurveTreeUpdater;
+#[cfg(not(feature = "impl_protocol"))]
+use polymesh_dart::Error as DartError;
 use polymesh_dart::{
-    ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M, Error as DartError,
+    ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M, ChildIndex, CompressedAffine,
     FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
     curve_tree::{AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig},
-};
-use polymesh_dart::{
-    ChildIndex, CompressedAffine,
     curve_tree::{
         CompressedChildCommitments, CompressedInner, CompressedXCoords, CurveTreeConfig,
-        CurveTreeUpdater,
+        CurveTreeUpdater, DefaultCurveTreeUpdater,
     },
 };
+use polymesh_worker_common::ProtocolError;
 
 use crate::Error;
 
@@ -29,7 +28,7 @@ pub struct UpdateTreeNodeRequest<const L: usize, const M: usize, C: CurveTreeCon
 }
 
 impl<const L: usize, const M: usize, C: CurveTreeConfig> UpdateTreeNodeRequest<L, M, C> {
-    pub fn update(mut self) -> Result<UpdateTreeNodeResult<M>, Error> {
+    pub fn do_update(mut self) -> Result<UpdateTreeNodeResult<M>, ProtocolError> {
         let x_coords = DefaultCurveTreeUpdater::<L, M, C>::update_node(
             &mut self.inner,
             self.child_index,
@@ -60,17 +59,17 @@ impl<const M: usize> Default for UpdateTreeNodeResult<M> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "impl_protocol")]
 pub type HostCurveTreeUpdater<const L: usize, const M: usize, C> = DefaultCurveTreeUpdater<L, M, C>;
 
 /// Curve tree updater that helps updating the tree root when a leaf is added or updated.
 #[derive(Clone, Encode, Decode)]
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "impl_protocol"))]
 pub struct HostCurveTreeUpdater<const L: usize, const M: usize, C: CurveTreeConfig> {
     _marker: PhantomData<C>,
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "impl_protocol"))]
 impl CurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
     for HostCurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
 {
@@ -88,13 +87,20 @@ impl CurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
             _marker: PhantomData,
         };
 
-        let res = req.update().map_err(|_| DartError::CurveTreeUpdateError)?;
+        let req =
+            crate::DartWorkRequest::UpdateCurveTree(CurveTreeUpdateRequest::AssetTreeNode(req));
+        let res = match req.execute().map_err(|_| DartError::CurveTreeUpdateError)? {
+            crate::DartWorkResponse::UpdateCurveTree(CurveTreeUpdateResponse::AssetTreeNode(
+                res,
+            )) => res,
+            _ => return Err(DartError::CurveTreeUpdateError),
+        };
         inner.commitments = res.commitments;
         Ok(res.x_coords)
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "impl_protocol"))]
 impl CurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
     for HostCurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
 {
@@ -112,13 +118,20 @@ impl CurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
             _marker: PhantomData,
         };
 
-        let res = req.update().map_err(|_| DartError::CurveTreeUpdateError)?;
+        let req =
+            crate::DartWorkRequest::UpdateCurveTree(CurveTreeUpdateRequest::AccountTreeNode(req));
+        let res = match req.execute().map_err(|_| DartError::CurveTreeUpdateError)? {
+            crate::DartWorkResponse::UpdateCurveTree(CurveTreeUpdateResponse::AccountTreeNode(
+                res,
+            )) => res,
+            _ => return Err(DartError::CurveTreeUpdateError),
+        };
         inner.commitments = res.commitments;
         Ok(res.x_coords)
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "impl_protocol"))]
 impl CurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>
     for HostCurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>
 {
@@ -137,8 +150,46 @@ impl CurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConf
                 _marker: PhantomData,
             };
 
-        let res = req.update().map_err(|_| DartError::CurveTreeUpdateError)?;
+        let req = crate::DartWorkRequest::UpdateCurveTree(
+            CurveTreeUpdateRequest::FeeAccountTreeNode(req),
+        );
+        let res = match req.execute().map_err(|_| DartError::CurveTreeUpdateError)? {
+            crate::DartWorkResponse::UpdateCurveTree(
+                CurveTreeUpdateResponse::FeeAccountTreeNode(res),
+            ) => res,
+            _ => return Err(DartError::CurveTreeUpdateError),
+        };
         inner.commitments = res.commitments;
         Ok(res.x_coords)
     }
+}
+
+#[derive(Encode, Decode, Clone)]
+pub enum CurveTreeUpdateRequest {
+    AssetTreeNode(UpdateTreeNodeRequest<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>),
+    AccountTreeNode(UpdateTreeNodeRequest<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>),
+    FeeAccountTreeNode(
+        UpdateTreeNodeRequest<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>,
+    ),
+}
+
+impl CurveTreeUpdateRequest {
+    pub fn do_update(self) -> Result<CurveTreeUpdateResponse, ProtocolError> {
+        match self {
+            Self::AssetTreeNode(req) => req.do_update().map(CurveTreeUpdateResponse::AssetTreeNode),
+            Self::AccountTreeNode(req) => req
+                .do_update()
+                .map(CurveTreeUpdateResponse::AccountTreeNode),
+            Self::FeeAccountTreeNode(req) => req
+                .do_update()
+                .map(CurveTreeUpdateResponse::FeeAccountTreeNode),
+        }
+    }
+}
+
+#[derive(Encode, Decode, Clone)]
+pub enum CurveTreeUpdateResponse {
+    AssetTreeNode(UpdateTreeNodeResult<ASSET_TREE_M>),
+    AccountTreeNode(UpdateTreeNodeResult<ACCOUNT_TREE_M>),
+    FeeAccountTreeNode(UpdateTreeNodeResult<FEE_ACCOUNT_TREE_M>),
 }

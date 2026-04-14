@@ -12,7 +12,11 @@ use polymesh_dart::{
     curve_tree::{CurveTreeLookup, MultiLeafPathAndRoot},
     FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
 };
+#[cfg(not(feature = "worker_extension"))]
 use polymesh_dart_host_functions::{GenerateDartProofRequest, GenerateDartProofResponse};
+#[cfg(feature = "worker_extension")]
+use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
+
 use polymesh_primitives::erc20::{Name, Symbol};
 
 use crate::testing::*;
@@ -96,7 +100,7 @@ benchmarks! {
         // Generate the account registration proof.
         let req = GenerateDartProofRequest::AccountRegistration {
             accounts,
-            did: user.did(),
+            did: user.did().into(),
         };
 
         let proof = if let Ok(GenerateDartProofResponse::AccountRegistration { proof }) = req.generate() {
@@ -123,7 +127,7 @@ benchmarks! {
         // Generate the encryption key registration proof.
         let req = GenerateDartProofRequest::EncryptionKeyRegistration {
             keys: encryption_keys,
-            did: user.did(),
+            did: user.did().into(),
         };
 
         let proof = if let Ok(GenerateDartProofResponse::EncryptionKeyRegistration { proof }) = req.generate() {
@@ -152,7 +156,7 @@ benchmarks! {
         // Generate the fee accounts registration proof.
         let req = GenerateDartProofRequest::BatchedFeeAccountRegistration {
             accounts,
-            did: user.did(),
+            did: user.did().into(),
         };
 
         let proof = if let Ok(GenerateDartProofResponse::BatchedFeeAccountRegistration { proof, .. }) = req.generate() {
@@ -225,7 +229,7 @@ benchmarks! {
         // Generate the account registration proof.
         let req = GenerateDartProofRequest::BatchedAccountAssetRegistration {
             account_assets,
-            did: user.did(),
+            did: user.did().into(),
         };
 
         let proof = if let Ok(GenerateDartProofResponse::BatchedAccountAssetRegistration { proof, .. }) = req.generate() {
@@ -303,7 +307,7 @@ benchmarks! {
             let req = GenerateDartProofRequest::BatchedFeeAccountTopup {
                 topups,
                 paths: MultiLeafPathAndRoot::from_paths(paths).expect("Failed to create MultiLeafPathAndRoot"),
-                did: user.did(),
+                did: user.did().into(),
             };
 
             if let Ok(GenerateDartProofResponse::BatchedFeeAccountTopup { proof, .. }) = req.generate() {

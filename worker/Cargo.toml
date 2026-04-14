@@ -8,14 +8,15 @@ description = "Polymesh protocol worker"
 edition = "2024"
 
 [dependencies]
+log = "0.4"
+
+lazy_static = { version = "1.5.0", default-features = false, optional = true }
+
 # Protocols
-polymesh-worker-protocol-common = { workspace = true, default-features = false }
-polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["native"] }
+polymesh-worker-common = { workspace = true, default-features = false }
 
-# For testing
-polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"]}
-
-codec = { workspace = true, default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"], optional = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = false, optional = true }
 
 # RiscV based engine
 polkavm = { workspace = true, default-features = true, optional = true }
@@ -26,16 +27,14 @@ wasmer = { version = "7.1.0", optional = true }
 wasmer-compiler-cranelift = { version = "7.1.0", optional = true }
 wasmer-compiler-llvm = { version = "7.1.0", optional = true }
 
-env_logger = { version = "0.10.0", default-features = false }
+# Work execution.
+crossbeam = { version = "0.8", optional = true }
+rayon = { version = "1.8", optional = true }
+blake2 = { version = "0.10", default-features = false, optional = true }
+digest = { version = "0.10.7", default-features = false, optional = true }
 
 # EC Math
-ark-serialize = { workspace = true, default-features = false }
-ark-std = { workspace = true, default-features = false }
-ark-ec = { workspace = true, default-features = false }
-ark-host-msm = { workspace = true, default-features = false }
-ark-host-msm-impl = { workspace = true, default-features = false }
-ark-pallas = { workspace = true, default-features = false }
-ark-vesta = { workspace = true, default-features = false }
+ark-host-msm-impl = { workspace = true, default-features = false, optional = true }
 
 [features]
 default = [
@@ -66,8 +65,7 @@ llvm = [
 ]
 
 testing = [
-	"polymesh-worker-protocol-common/testing",
-	"polymesh-worker-protocol-dart-v0/testing",
+	"polymesh-worker-common/testing",
 ]
 
 asm = ["ark-host-msm-impl/asm"]
@@ -76,14 +74,15 @@ parallel = [
 ]
 
 std = [
+    "lazy_static",
 	"asm",
 	"parallel",
+	"crossbeam",
+	"rayon",
+	"blake2",
+	"digest",
 	"codec/std",
-	"polymesh-worker-protocol-common/std",
-	"polymesh-worker-protocol-dart-v0/std",
-	"ark-std/std",
-	"ark-pallas/std",
-	"ark-vesta/std",
-	"ark-host-msm/std",
+	"polymesh-worker-common/std",
+	"sp-maybe-compressed-blob",
 	"ark-host-msm-impl/std",
 ]

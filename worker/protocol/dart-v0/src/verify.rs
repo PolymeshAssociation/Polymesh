@@ -19,7 +19,7 @@ use polymesh_dart::{
     SettlementRef, blake2_256,
 };
 use polymesh_dart_common::NullifierSkGenCounter;
-use polymesh_worker_protocol_common::WorkSeed;
+use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
 
 use crate::{AccountTreeRoot, AssetTreeRoot, Did, Error, FeeAccountTreeRoot};
 
@@ -422,9 +422,34 @@ impl VerifyDartAssetRequest {
 }
 
 impl VerifyDartAssetRequest {
-    pub fn verify(&self) -> Result<VerifyDartProofResponse, Error> {
-        let seed = blake2_256(self);
-        self.verify_with_seed(seed)
+    pub fn do_verify(self) -> Result<VerifyDartProofResponse, ProtocolError> {
+        let seed = blake2_256(&self);
+        Ok(self.verify_with_seed(seed)?)
+    }
+
+    pub fn submit_and_wait(
+        self,
+        _session_id: WorkerSessionId,
+    ) -> Result<VerifyDartProofResponse, ProtocolError> {
+        self.verify()
+    }
+}
+
+#[cfg(feature = "impl_protocol")]
+impl VerifyDartAssetRequest {
+    pub fn verify(self) -> Result<VerifyDartProofResponse, ProtocolError> {
+        self.do_verify()
+    }
+}
+
+#[cfg(not(feature = "impl_protocol"))]
+impl VerifyDartAssetRequest {
+    pub fn verify(self) -> Result<VerifyDartProofResponse, ProtocolError> {
+        let req = crate::DartWorkRequest::VerifyProof(self);
+        match req.execute()? {
+            crate::DartWorkResponse::VerifyProof(res) => Ok(res),
+            _ => Err(ProtocolError::UnexpectedResponse),
+        }
     }
 }
 
