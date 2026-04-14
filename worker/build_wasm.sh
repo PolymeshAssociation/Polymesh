@@ -2,8 +2,8 @@
 
 target="wasm32-unknown-unknown"
 crate="polymesh-worker-protocol-dart-v0"
-bin_name="$crate"
-wasm_path="../target/$target/release/$bin_name.wasm"
+lib_name="polymesh_worker_protocol_dart_v0"
+wasm_path="../target/$target/release/$lib_name.wasm"
 
 output_path="$crate.wasm"
 rm $output_path $wasm_path
@@ -15,7 +15,7 @@ echo "> Building: '$crate' (-> $output_path)"
 	--target=$target \
 	--no-default-features \
 	--features wasm \
-	--release --bin $crate -p $crate
+  --release --lib -p $crate
 
 cp $wasm_path $output_path
 

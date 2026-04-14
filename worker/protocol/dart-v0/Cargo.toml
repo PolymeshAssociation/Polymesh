@@ -11,10 +11,6 @@ edition = "2024"
 path = "src/lib.rs"
 crate-type = ["lib", "cdylib"]
 
-[[bin]]
-name = "polymesh-worker-protocol-dart-v0"
-path = "src/lib.rs"
-
 [dependencies]
 polymesh-worker-protocol-common = { workspace = true, default-features = false }
 
