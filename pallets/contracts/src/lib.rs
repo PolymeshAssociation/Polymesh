@@ -308,15 +308,8 @@ pub mod pallet {
         InLenTooLarge,
         /// Output data returned from the ChainExtension was too large.
         OutLenTooLarge,
-        /// A contract was attempted to be instantiated,
-        /// but no identity was given to associate the new contract's key with.
-        InstantiatorWithNoIdentity,
         /// Extrinsic is not allowed to be called by contracts.
         RuntimeCallDenied,
-        /// The caller is not a primary key.
-        CallerNotAPrimaryKey,
-        /// Secondary key permissions are missing.
-        MissingKeyPermissions,
         /// Only future chain versions are allowed.
         InvalidChainVersion,
         /// There are no api upgrades supported for the contract.
