@@ -9,7 +9,7 @@ use frame_support::{
     BoundedBTreeSet,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use rand::{prelude::*, thread_rng};
+use rand::prelude::*;
 use sp_runtime::{AccountId32, AnySignature};
 use sp_std::collections::btree_set::BTreeSet;
 
@@ -524,33 +524,6 @@ fn token_swap() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        assert_ok!(Settlement::withdraw_affirmation(
-            alice.origin(),
-            instruction_id,
-            default_asset_holder_set(alice.did),
-        ));
-
-        assert_affirms_pending(instruction_id, 2);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-
-        assert_leg_status(instruction_id, LegId(0), LegStatus::PendingTokenLock);
-        assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-
-        assert_locked_assets(&asset_id, &alice, 0);
-        assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
-
-        assert_affirms_pending(instruction_id, 1);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-
-        assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
-        assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-
-        assert_locked_assets(&asset_id, &alice, amount);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
         set_current_block_number(500);
 
         assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
@@ -1032,18 +1005,8 @@ fn basic_fuzzing() {
             None,
         ));
 
-        // Authorize instructions and do a few authorize/deny in between
+        // Authorize instructions
         for (_, user) in users.clone().iter().enumerate() {
-            for _ in 0..2 {
-                if random() {
-                    assert_affirm_instruction!(user.origin(), instruction_id, user.did);
-                    assert_ok!(Settlement::withdraw_affirmation(
-                        user.origin(),
-                        instruction_id,
-                        default_asset_holder_set(user.did),
-                    ));
-                }
-            }
             assert_affirm_instruction!(user.origin(), instruction_id, user.did);
         }
 
@@ -1079,81 +1042,27 @@ fn basic_fuzzing() {
 
         check_locked_assets(&locked_assets, &assets, &users);
 
-        let fail: bool = random();
-        let mut rng = thread_rng();
-        let failed_user = rng.gen_range(0..4);
-        if fail {
-            assert_ok!(Settlement::withdraw_affirmation(
-                users[failed_user].origin(),
-                instruction_id,
-                default_asset_holder_set(users[failed_user].did),
-            ));
-            locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
-        }
-
         next_block();
-
-        if fail {
-            assert_eq!(
-                InstructionStatuses::<TestStorage>::get(instruction_id),
-                InstructionStatus::Failed
-            );
-            check_locked_assets(&locked_assets, &assets, &users);
-        }
 
         for asset_id in &assets {
             for user in &users {
-                if fail {
-                    assert_eq!(
-                        BalanceOf::<TestStorage>::get(&asset_id, user.did),
-                        u128::try_from(
-                            *balances
-                                .get(&(asset_id, user.did, "init").encode())
-                                .unwrap()
-                        )
-                        .unwrap()
-                    );
-                    assert_eq!(
-                        PortfolioLockedAssets::<TestStorage>::get(
-                            PortfolioId::default_portfolio(user.did),
-                            &asset_id
-                        ),
-                        locked_assets
-                            .get(&(user.did, *asset_id))
-                            .cloned()
-                            .unwrap_or(0) as u128
-                    );
-                } else {
-                    assert_eq!(
-                        BalanceOf::<TestStorage>::get(&asset_id, user.did),
-                        u128::try_from(
-                            *balances
-                                .get(&(asset_id, user.did, "final").encode())
-                                .unwrap()
-                        )
-                        .unwrap()
-                    );
-                    assert_eq!(
-                        PortfolioLockedAssets::<TestStorage>::get(
-                            PortfolioId::default_portfolio(user.did),
-                            &asset_id
-                        ),
-                        0
-                    );
-                }
+                assert_eq!(
+                    BalanceOf::<TestStorage>::get(&asset_id, user.did),
+                    u128::try_from(
+                        *balances
+                            .get(&(asset_id, user.did, "final").encode())
+                            .unwrap()
+                    )
+                    .unwrap()
+                );
+                assert_eq!(
+                    PortfolioLockedAssets::<TestStorage>::get(
+                        PortfolioId::default_portfolio(user.did),
+                        &asset_id
+                    ),
+                    0
+                );
             }
-        }
-
-        if fail {
-            assert_ok!(Settlement::reject_instruction(
-                users[0].origin(),
-                instruction_id,
-                PortfolioId::default_portfolio(users[0].did).into(),
-            ));
-            assert_eq!(
-                InstructionStatuses::<TestStorage>::get(instruction_id),
-                InstructionStatus::Rejected(System::block_number())
-            );
         }
 
         for asset_id in &assets {
@@ -1653,19 +1562,6 @@ fn multiple_portfolio_settlement() {
         bob.assert_portfolio_bal(bob_num, 0, &asset_id);
         assert_locked_assets(&asset_id, &alice, amount);
 
-        // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
-        assert_noop!(
-            Settlement::withdraw_affirmation(
-                alice.origin(),
-                instruction_id,
-                vec_to_btreeset(vec![
-                    PortfolioId::default_portfolio(alice.did),
-                    PortfolioId::user_portfolio(alice.did, alice_num)
-                ]),
-            ),
-            Error::UnexpectedAffirmationStatus
-        );
-
         // Alice fails to approve the instruction from her user specified portfolio due to lack of funds
         assert_noop!(
             Settlement::affirm_instruction(
@@ -1825,7 +1721,7 @@ fn multiple_custodian_settlement() {
         ]
         .into_iter()
         .try_collect()
-        .expect("Two portfolios isn't too many");
+        .expect("Number of portfolios under limit");
         set_current_block_number(10);
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
@@ -1863,7 +1759,7 @@ fn multiple_custodian_settlement() {
         ]
         .into_iter()
         .try_collect()
-        .expect("Two portfolios isn't too many");
+        .expect("Number of portfolios under limit");
         assert_noop!(
             Settlement::affirm_instruction(bob.origin(), instruction_id, portfolios_bob),
             PortfolioError::UnauthorizedCustodian
@@ -1873,29 +1769,12 @@ fn multiple_custodian_settlement() {
         // Bob can approve instruction from the portfolio he has custody of
         assert_affirm_instruction!(bob.origin(), instruction_id, bob.did);
 
-        // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
-        next_block();
-        assert_noop!(
-            Settlement::withdraw_affirmation(alice.origin(), instruction_id, portfolios_set,),
-            PortfolioError::UnauthorizedCustodian
-        );
-
-        // Alice can deny instruction from the portfolio she has custody of
-        assert_ok!(Settlement::withdraw_affirmation(
-            alice.origin(),
-            instruction_id,
-            default_asset_holder_set(alice.did),
-        ));
-        assert_locked_assets(&asset_id, &alice, 0);
-
         // Alice can authorize instruction from remaining portfolios since she has the custody
-        let portfolios_final: BoundedBTreeSet<_, _> = [
-            PortfolioId::default_portfolio(alice.did).into(),
-            PortfolioId::user_portfolio(bob.did, bob_num).into(),
-        ]
-        .into_iter()
-        .try_collect()
-        .expect("Two portfolios isn't too many");
+        let portfolios_final: BoundedBTreeSet<_, _> =
+            [PortfolioId::user_portfolio(bob.did, bob_num).into()]
+                .into_iter()
+                .try_collect()
+                .expect("Number of portfolios under limit");
         next_block();
         assert_ok!(Settlement::affirm_instruction(
             alice.origin(),
@@ -3795,55 +3674,6 @@ fn affirm_instruction_cost() {
 }
 
 #[test]
-fn withdraw_affirmation_cost() {
-    ExtBuilder::default().build().execute_with(|| {
-        // Setup base parameters
-        let alice = User::new(Sr25519Keyring::Alice);
-        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-        let bob = User::new(Sr25519Keyring::Bob);
-        let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
-        let (asset_id, venue) = create_and_issue_sample_asset_with_venue(&alice);
-        let instruction_memo = Some(Memo::default());
-
-        let legs: Vec<Leg> = vec![Leg::Fungible {
-            sender: alice_default_portfolio.into(),
-            receiver: bob_default_portfolio.into(),
-            asset_id,
-            amount: 1,
-        }];
-        assert_ok!(Settlement::add_instruction(
-            alice.origin(),
-            venue,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            legs.clone(),
-            instruction_memo.clone(),
-        ));
-
-        let affirmation_count =
-            AffirmationCount::new(AssetCount::new(1, 0, 0), AssetCount::default(), 0);
-        assert_ok!(Settlement::affirm_instruction_with_count(
-            alice.origin(),
-            InstructionId(0),
-            default_asset_holder_set(alice.did),
-            Some(affirmation_count)
-        ),);
-        let affirmation_count =
-            AffirmationCount::new(AssetCount::new(0, 0, 0), AssetCount::default(), 0);
-        assert_noop!(
-            Settlement::withdraw_affirmation_with_count(
-                alice.origin(),
-                InstructionId(0),
-                default_asset_holder_set(alice.did),
-                Some(affirmation_count)
-            ),
-            Error::NumberOfFungibleTransfersUnderestimated
-        );
-    });
-}
-
-#[test]
 fn reject_instruction_cost() {
     ExtBuilder::default().build().execute_with(|| {
         // Setup base parameters
@@ -4037,125 +3867,6 @@ fn affirm_as_mediator() {
             &legs,
             &BTreeSet::new(),
             &mediators_affirmed,
-        );
-    });
-}
-
-#[test]
-fn withdraw_as_mediator_invalid_mediator() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(Sr25519Keyring::Bob);
-        let dave = User::new(Sr25519Keyring::Dave);
-        let alice = User::new(Sr25519Keyring::Alice);
-        let charlie = User::new(Sr25519Keyring::Charlie);
-
-        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
-
-        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
-        let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did).into(),
-            receiver: PortfolioId::default_portfolio(bob.did).into(),
-            nfts,
-        }];
-        assert_ok!(Settlement::add_instruction_with_mediators(
-            alice.origin(),
-            venue_counter,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            legs.clone(),
-            None,
-            BTreeSet::from([charlie.did]).try_into().unwrap()
-        ));
-
-        assert_noop!(
-            Settlement::withdraw_affirmation_as_mediator(dave.origin(), InstructionId(0)),
-            Error::CallerIsNotAMediator
-        );
-    });
-}
-
-#[test]
-fn withdraw_as_mediator_invalid_status() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(Sr25519Keyring::Bob);
-        let alice = User::new(Sr25519Keyring::Alice);
-        let charlie = User::new(Sr25519Keyring::Charlie);
-
-        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
-
-        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
-        let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did).into(),
-            receiver: PortfolioId::default_portfolio(bob.did).into(),
-            nfts,
-        }];
-        assert_ok!(Settlement::add_instruction_with_mediators(
-            alice.origin(),
-            venue_counter,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            legs.clone(),
-            None,
-            BTreeSet::from([charlie.did]).try_into().unwrap()
-        ));
-
-        assert_noop!(
-            Settlement::withdraw_affirmation_as_mediator(charlie.origin(), InstructionId(0)),
-            Error::UnexpectedAffirmationStatus
-        );
-    });
-}
-
-#[test]
-fn withdraw_affirmation_as_mediator() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob = User::new(Sr25519Keyring::Bob);
-        let alice = User::new(Sr25519Keyring::Alice);
-        let charlie = User::new(Sr25519Keyring::Charlie);
-        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
-
-        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
-
-        let nfts = NFTs::new_unverified(asset_id, vec![NFTId(1)]);
-        let legs: Vec<Leg> = vec![Leg::NonFungible {
-            sender: PortfolioId::default_portfolio(alice.did).into(),
-            receiver: PortfolioId::default_portfolio(bob.did).into(),
-            nfts,
-        }];
-        assert_ok!(Settlement::add_instruction_with_mediators(
-            alice.origin(),
-            venue_counter,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            legs.clone(),
-            None,
-            BTreeSet::from([charlie.did]).try_into().unwrap()
-        ));
-
-        assert_ok!(Settlement::affirm_instruction_as_mediator(
-            charlie.origin(),
-            InstructionId(0),
-            None
-        ),);
-        assert_ok!(Settlement::withdraw_affirmation_as_mediator(
-            charlie.origin(),
-            InstructionId(0),
-        ),);
-
-        let portfolios_pending_approval = BTreeSet::from([alice_default_portfolio]);
-        let mediators_pending_approval = BTreeSet::from([charlie.did]);
-        assert_add_instruction_storage(
-            &InstructionId(0),
-            &portfolios_pending_approval,
-            &BTreeSet::new(),
-            &BTreeSet::new(),
-            None,
-            &legs,
-            &mediators_pending_approval,
-            &BTreeSet::new(),
         );
     });
 }

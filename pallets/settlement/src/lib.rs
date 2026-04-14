@@ -37,7 +37,6 @@
 //! - `create_venue` - Registers a new venue.
 //! - `add_instruction` - Adds a new instruction.
 //! - `affirm_instruction` - Affirms an existing instruction.
-//! - `withdraw_affirmation` - Withdraw an existing affirmation to the given instruction.
 //! - `reject_instruction` - Rejects an existing instruction.
 //! - `set_venue_filtering` - Enables or disabled venue filtering for a token.
 //! - `allow_venues` - Allows additional venues to create instructions involving an asset.
@@ -148,11 +147,6 @@ pub mod pallet {
         InstructionExecuted(IdentityId, InstructionId),
         /// Venue not part of the token's allow list (did, AssetId, venue_id)
         VenueUnauthorized(IdentityId, AssetId, VenueId),
-        /// Scheduling of instruction fails.
-        SchedulingFailed(InstructionId, DispatchError),
-        /// Instruction is rescheduled.
-        /// (caller DID, instruction_id)
-        InstructionRescheduled(IdentityId, InstructionId),
         /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
         VenueSignersUpdated(IdentityId, VenueId, BTreeSet<T::AccountId>, bool),
         /// Settlement manually executed (did, id)
@@ -206,17 +200,14 @@ pub mod pallet {
         fn add_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn affirm_instruction(f: u32, n: u32) -> Weight;
-        fn withdraw_affirmation(f: u32, n: u32, o: u32) -> Weight;
         fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
         fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn ensure_root_origin() -> Weight;
         fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight;
         fn affirm_instruction_rcv(f: u32, n: u32) -> Weight;
-        fn withdraw_affirmation_rcv(f: u32, n: u32, o: u32) -> Weight;
         fn add_instruction_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
         fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight;
         fn affirm_instruction_as_mediator() -> Weight;
-        fn withdraw_affirmation_as_mediator() -> Weight;
         fn base_reject_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn lock_instruction_extrinsic(f: u32, n: u32, o: u32) -> Weight;
         fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
@@ -391,48 +382,6 @@ pub mod pallet {
                         Self::affirm_instruction(portfolios, portfolios)
                     } else {
                         Self::affirm_instruction(10, 100)
-                    }
-                }
-            }
-        }
-        fn withdraw_affirmation_input(
-            affirmation_count: Option<AffirmationCount>,
-            portfolios: u32,
-        ) -> Weight {
-            match affirmation_count {
-                Some(affirmation_count) => {
-                    let max_portfolios = affirmation_count.max_portfolios();
-                    if portfolios > max_portfolios {
-                        // Too many portfolios, return worse-case weight based on portfolio count.
-                        return Self::withdraw_affirmation(portfolios, portfolios, 10);
-                    }
-                    // The weight for the assets being sent
-                    let sender_asset_count = affirmation_count.sender_asset_count();
-                    let sender_side_weight = Self::withdraw_affirmation(
-                        sender_asset_count.fungible(),
-                        sender_asset_count.non_fungible(),
-                        affirmation_count.offchain_count(),
-                    );
-                    // The weight for the assets being received
-                    let receiver_asset_count = affirmation_count.receiver_asset_count();
-                    let receiver_side_weight = Self::withdraw_affirmation_rcv(
-                        receiver_asset_count.fungible(),
-                        receiver_asset_count.non_fungible(),
-                        0,
-                    );
-                    // Common reads/writes are being added twice
-                    let duplicated_weight = Self::withdraw_affirmation_rcv(0, 0, 0);
-                    // The actual weight is the sum of the sender and receiver weights subtracted by the duplicated weight
-                    sender_side_weight
-                        .saturating_add(receiver_side_weight)
-                        .saturating_sub(duplicated_weight)
-                }
-                None => {
-                    if portfolios > (10 + 100) * 2 {
-                        // Too many portfolios, return worse-case weight based on portfolio count.
-                        Self::withdraw_affirmation(portfolios, portfolios, 10)
-                    } else {
-                        Self::withdraw_affirmation(10, 100, 10)
                     }
                 }
             }
@@ -636,6 +585,8 @@ pub mod pallet {
         SenderSameAsReceiver,
         /// Spender allowances are not supported for non-fungible token transfers.
         AllowancesNotSupportedForNFTs,
+        /// At least one mediator is required for this instruction.
+        MissingInstructionMediators,
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -866,7 +817,6 @@ pub mod pallet {
             );
 
             // Advance venue counter.
-            // NB: Venue counter starts with 1.
             let id = VenueCounter::<T>::try_mutate(try_next_post::<T, _>)?;
 
             // Other commits to storage + emit event.
@@ -993,7 +943,9 @@ pub mod pallet {
             venues: Vec<VenueId>,
         ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
+            let next_venue_id = VenueCounter::<T>::get();
             for venue in &venues {
+                ensure!(venue < &next_venue_id, Error::<T>::InvalidVenue);
                 VenueAllowList::<T>::insert(&asset_id, venue, true);
             }
             Self::deposit_event(Event::VenuesAllowed(did, asset_id, venues));
@@ -1015,7 +967,9 @@ pub mod pallet {
             venues: Vec<VenueId>,
         ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
+            let next_venue_id = VenueCounter::<T>::get();
             for venue in &venues {
+                ensure!(venue < &next_venue_id, Error::<T>::InvalidVenue);
                 VenueAllowList::<T>::remove(&asset_id, venue);
             }
             Self::deposit_event(Event::VenuesBlocked(did, asset_id, venues));
@@ -1191,24 +1145,6 @@ pub mod pallet {
             Self::affirm_and_maybe_schedule_instruction(origin, id, holder_set.into_inner(), None)
         }
 
-        /// Withdraw an affirmation for a given instruction.
-        ///
-        /// # Arguments
-        /// * `id` - the [`InstructionId`] of the instruction getting an affirmation withdrawn.
-        /// * `holder_set` - a set of [`AssetHolder`] under the caller's control and intended for affirmation withdrawal.
-        ///
-        /// # Permissions
-        /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_input(None, holder_set.len() as u32))]
-        #[pallet::call_index(12)]
-        pub fn withdraw_affirmation(
-            origin: OriginFor<T>,
-            id: InstructionId,
-            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
-        ) -> DispatchResultWithPostInfo {
-            Self::base_withdraw_affirmation(origin, id, holder_set.into_inner(), None)
-        }
-
         /// Rejects an existing instruction.
         ///
         /// # Arguments
@@ -1356,30 +1292,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Withdraw an affirmation for a given instruction.
-        ///
-        /// # Arguments
-        /// * `id` - the [`InstructionId`] of the instruction getting an affirmation withdrawn.
-        /// * `holder_set` - a set of [`AssetHolder`] under the caller's control and intended for affirmation withdrawal.
-        /// * `number_of_assets` - an optional [`AffirmationCount`] that will be used for a precise fee estimation before executing the extrinsic.
-        ///
-        /// Note: calling the rpc method `get_affirmation_count` returns an instance of [`AffirmationCount`].
-        ///
-        /// # Permissions
-        /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_input(*number_of_assets, holder_set.len() as u32))]
-        #[pallet::call_index(18)]
-        pub fn withdraw_affirmation_with_count(
-            origin: OriginFor<T>,
-            id: InstructionId,
-            holder_set: BoundedBTreeSet<AssetHolder, T::MaxNumberOfAssetHolders>,
-            number_of_assets: Option<AffirmationCount>,
-        ) -> DispatchResult {
-            Self::base_withdraw_affirmation(origin, id, holder_set.into_inner(), number_of_assets)
-                .map_err(|e| e.error)?;
-            Ok(())
-        }
-
         /// Adds a new instruction with mediators.
         ///
         /// # Arguments
@@ -1478,21 +1390,6 @@ pub mod pallet {
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             Self::base_affirm_instruction_as_mediator(origin, instruction_id, expiry)?;
-            Ok(())
-        }
-
-        /// Removes the mediator's affirmation for the instruction - should only be called by mediators, otherwise it will fail.
-        ///
-        /// # Arguments
-        /// * `origin`: The secondary key of the sender.
-        /// * `instruction_id`: The [`InstructionId`] that will have the affirmation removed.
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_affirmation_as_mediator())]
-        #[pallet::call_index(22)]
-        pub fn withdraw_affirmation_as_mediator(
-            origin: OriginFor<T>,
-            instruction_id: InstructionId,
-        ) -> DispatchResult {
-            Self::base_withdraw_affirmation_as_mediator(origin, instruction_id)?;
             Ok(())
         }
 
@@ -1818,12 +1715,23 @@ impl<T: Config> Pallet<T> {
         memo: Option<Memo>,
         mediators: Option<BoundedBTreeSet<IdentityId, T::MaxInstructionMediators>>,
     ) -> Result<InstructionId, DispatchError> {
-        // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
-        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
-            ensure!(
-                *block_number > System::<T>::block_number(),
-                Error::<T>::SettleOnPastBlock
-            );
+        match settlement_type {
+            SettlementType::SettleOnBlock(block_number) => {
+                ensure!(
+                    block_number > System::<T>::block_number(),
+                    Error::<T>::SettleOnPastBlock
+                );
+            }
+            SettlementType::SettleAfterLock => {
+                ensure!(
+                    !mediators
+                        .as_ref()
+                        .ok_or(Error::<T>::MissingInstructionMediators)?
+                        .is_empty(),
+                    Error::<T>::MissingInstructionMediators
+                );
+            }
+            SettlementType::SettleOnAffirmation | SettlementType::SettleManual(_) => {}
         }
 
         // Ensure that instruction dates are valid.
@@ -2003,60 +1911,6 @@ impl<T: Config> Pallet<T> {
             holders_pre_approved,
             mediators,
         ))
-    }
-
-    fn unsafe_withdraw_instruction_affirmation(
-        did: IdentityId,
-        id: InstructionId,
-        holder_set: BTreeSet<AssetHolder>,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        affirmation_count: Option<AffirmationCount>,
-    ) -> Result<FilteredLegs, DispatchError> {
-        if InstructionStatus::LockedForExecution == InstructionStatuses::<T>::get(id) {
-            return Err(Error::<T>::InvalidInstructionStatusForWithdrawal.into());
-        }
-
-        // checks custodianship of portfolios and affirmation status
-        Self::ensure_permissions_and_affirmation_status(
-            id,
-            &holder_set,
-            did,
-            secondary_key,
-            &[AffirmationStatus::Affirmed],
-        )?;
-        // Unlock tokens that were previously locked during the affirmation
-        let filtered_legs = Self::filtered_legs(id, &holder_set);
-        // If the fee was estimated in advance, the input values must be at least equal to the actual values
-        if let Some(affirmation_count) = affirmation_count {
-            Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?;
-        }
-        for (leg_id, leg) in filtered_legs.sender_subset() {
-            match InstructionLegStatus::<T>::get(id, leg_id) {
-                LegStatus::ExecutionToBeSkipped(_, _) => {
-                    return Err(Error::<T>::UnexpectedLegStatus.into())
-                }
-                LegStatus::ExecutionPending => {
-                    Self::unlock_asset(&leg)?;
-                }
-                LegStatus::PendingTokenLock => {
-                    return Err(Error::<T>::InstructionNotAffirmed.into());
-                }
-            };
-            InstructionLegStatus::<T>::insert(id, leg_id, LegStatus::PendingTokenLock);
-        }
-
-        // Updates storage.
-        let n_portfolios = holder_set.len();
-        for asset_holder in holder_set {
-            UserAffirmations::<T>::insert(&asset_holder, id, AffirmationStatus::Pending);
-            AffirmsReceived::<T>::remove(id, &asset_holder);
-            Self::deposit_event(Event::AffirmationWithdrawn(did, asset_holder, id));
-        }
-
-        InstructionAffirmsPending::<T>::mutate(id, |affirms_pending| {
-            *affirms_pending += u64::try_from(n_portfolios).unwrap_or_default()
-        });
-        Ok(filtered_legs)
     }
 
     fn ensure_instruction_validity(
@@ -2368,6 +2222,7 @@ impl<T: Config> Pallet<T> {
     /// - `UserAffirmations`
     /// - `AffirmsReceived`
     /// - `OffChainAffirmations`
+    /// - `LockedTimestamp`
     #[rustfmt::skip]
     fn prune_instruction(
         inst_id: &InstructionId,
@@ -2496,19 +2351,15 @@ impl<T: Config> Pallet<T> {
             .execution_name()
             .map_err(|_| Error::<T>::InvalidTaskName)?;
 
-        if let Err(_) = T::Scheduler::schedule_named(
+        T::Scheduler::schedule_named(
             task_name,
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
             RawOrigin::Root.into(),
             execute_inst_call,
-        ) {
-            Self::deposit_event(Event::SchedulingFailed(
-                id,
-                Error::<T>::FailedToSchedule.into(),
-            ));
-        }
+        )
+        .map_err(|_| Error::<T>::FailedToSchedule)?;
 
         Ok(())
     }
@@ -2942,13 +2793,12 @@ impl<T: Config> Pallet<T> {
         instruction_legs: &[(LegId, Leg)],
         venue_id: Option<VenueId>,
     ) -> DispatchResult {
-        if let Some(_) = venue_id {
-            // Avoids reading the storage multiple times for the same asset_id
-            let mut tickers: BTreeSet<AssetId> = BTreeSet::new();
-            for (_, leg) in instruction_legs {
-                if let Some(asset_id) = leg.asset_id() {
-                    Self::ensure_venue_filtering(&mut tickers, *asset_id, &venue_id)?;
-                }
+        // Avoids reading the storage multiple times for the same asset_id
+        let mut tickers: BTreeSet<AssetId> = BTreeSet::new();
+
+        for (_, leg) in instruction_legs {
+            if let Some(asset_id) = leg.asset_id() {
+                Self::ensure_venue_filtering(&mut tickers, *asset_id, &venue_id)?;
             }
         }
         Ok(())
@@ -2960,13 +2810,12 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         venue_id: &Option<VenueId>,
     ) -> DispatchResult {
-        if let Some(venue_id) = venue_id {
-            if tickers.insert(asset_id) && VenueFiltering::<T>::get(asset_id) {
-                ensure!(
-                    VenueAllowList::<T>::get(asset_id, venue_id),
-                    Error::<T>::UnauthorizedVenue
-                );
-            }
+        if tickers.insert(asset_id) && VenueFiltering::<T>::get(asset_id) {
+            let venue_id = venue_id.ok_or(Error::<T>::UnauthorizedVenue)?;
+            ensure!(
+                VenueAllowList::<T>::get(asset_id, venue_id),
+                Error::<T>::UnauthorizedVenue
+            );
         }
         Ok(())
     }
@@ -3339,37 +3188,6 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn base_withdraw_affirmation(
-        origin: OriginFor<T>,
-        inst_id: InstructionId,
-        holder_set: BTreeSet<AssetHolder>,
-        affirmation_count: Option<AffirmationCount>,
-    ) -> DispatchResultWithPostInfo {
-        let (did, secondary_key, details) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, inst_id, false)?;
-        let filtered_legs = Self::unsafe_withdraw_instruction_affirmation(
-            did,
-            inst_id,
-            holder_set,
-            secondary_key.as_ref(),
-            affirmation_count,
-        )?;
-        if details.settlement_type == SettlementType::SettleOnAffirmation {
-            // Cancel the scheduled task for the execution of a given instruction.
-            let task_name = inst_id
-                .execution_name()
-                .map_err(|_| Error::<T>::InvalidTaskName)?;
-            let _ = T::Scheduler::cancel_named(task_name);
-        }
-        Ok(PostDispatchInfo::from(Some(
-            Self::withdraw_affirmation_actual_weight(
-                filtered_legs.sender_asset_count().clone(),
-                filtered_legs.receiver_asset_count().clone(),
-                filtered_legs.unfiltered_asset_count().off_chain(),
-            ),
-        )))
-    }
-
     /// Returns `Ok` if the number of assets in [`AffirmationCount`] is greater or equal to the actual number of assets.
     fn ensure_valid_affirmation_count(
         filtered_legs: &FilteredLegs,
@@ -3445,55 +3263,6 @@ impl<T: Config> Pallet<T> {
             caller_did,
             instruction_id,
             expiry,
-        ));
-        Ok(())
-    }
-
-    /// Removes the mediator's affirmation for the instruction
-    fn base_withdraw_affirmation_as_mediator(
-        origin: OriginFor<T>,
-        instruction_id: InstructionId,
-    ) -> DispatchResult {
-        let (caller_did, _, instruction) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
-
-        // Verifies if the caller is a mediator and has already affirmed the instruction
-        let mediator_affirmation_status =
-            InstructionMediatorsAffirmations::<T>::get(instruction_id, caller_did);
-        match mediator_affirmation_status {
-            MediatorAffirmationStatus::Unknown => {
-                return Err(Error::<T>::CallerIsNotAMediator.into())
-            }
-            MediatorAffirmationStatus::Pending => {
-                return Err(Error::<T>::UnexpectedAffirmationStatus.into())
-            }
-            MediatorAffirmationStatus::Affirmed { .. } => {}
-        }
-
-        // Updates the mediator's affirmation status to pending and add one to the number of pending affirmations
-        InstructionMediatorsAffirmations::<T>::insert(
-            instruction_id,
-            caller_did,
-            MediatorAffirmationStatus::Pending,
-        );
-        let n_pending_before_withdrawal =
-            InstructionAffirmsPending::<T>::mutate(instruction_id, |n| {
-                let before = n.clone();
-                *n = n.saturating_add(1);
-                before
-            });
-        if n_pending_before_withdrawal == 0
-            && instruction.settlement_type == SettlementType::SettleOnAffirmation
-        {
-            // Cancel the scheduled task
-            let task_name = instruction_id
-                .execution_name()
-                .map_err(|_| Error::<T>::InvalidTaskName)?;
-            let _ = T::Scheduler::cancel_named(task_name);
-        }
-        Self::deposit_event(Event::MediatorAffirmationWithdrawn(
-            caller_did,
-            instruction_id,
         ));
         Ok(())
     }
@@ -3741,18 +3510,6 @@ impl<T: Config> Pallet<T> {
         <T as Config>::WeightInfo::affirm_instruction_input(Some(affirmation_count), 0)
     }
 
-    /// Returns the weight for calling `withdraw_affirmation` while considering the `sender_asset_count` for the sender and`receiver_asset_count`
-    /// for the receiver, and `n_offchain` offchain legs.
-    fn withdraw_affirmation_actual_weight(
-        sender_asset_count: AssetCount,
-        receiver_asset_count: AssetCount,
-        n_offchain: u32,
-    ) -> Weight {
-        let affirmation_count =
-            AffirmationCount::new(sender_asset_count, receiver_asset_count, n_offchain);
-        <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count), 0)
-    }
-
     fn transfer_funds_actual_weight(from: &AssetHolder, same_did: bool, fund: &Fund) -> Weight {
         match (from, same_did, &fund.description) {
             (AssetHolder::Account(_), true, FundDescription::NonFungible(nfts)) => {
@@ -3804,14 +3561,6 @@ impl<T: Config> Pallet<T> {
             Call::affirm_with_receipts { id, holder_set, .. } => {
                 let filtered_legs = Self::filtered_legs(*id, &holder_set);
                 Some(Self::affirm_with_receipts_actual_weight(
-                    *filtered_legs.sender_asset_count(),
-                    *filtered_legs.receiver_asset_count(),
-                    filtered_legs.unfiltered_asset_count().off_chain(),
-                ))
-            }
-            Call::withdraw_affirmation { id, holder_set } => {
-                let filtered_legs = Self::filtered_legs(*id, &holder_set);
-                Some(Self::withdraw_affirmation_actual_weight(
                     *filtered_legs.sender_asset_count(),
                     *filtered_legs.receiver_asset_count(),
                     filtered_legs.unfiltered_asset_count().off_chain(),

@@ -5,12 +5,24 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 
 use pallet_identity::{Config as IdentityConfig, Pallet as Identity};
 use polymesh_primitives::traits::CurrentFeePayer;
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
 use polymesh_transaction_payment::Pallet as PolymeshTransactionPallet;
 
 use pallet_identity::Call as IdentityCall;
 use pallet_multisig::Call as MultiSigCall;
 use pallet_relayer::Call as RelayerCall;
+
+type ValidPayerResult = Result<CallPaymentInfo<AccountId>, InvalidTransaction>;
+
+#[derive(Encode, Decode)]
+enum CallType {
+    AcceptMultiSigSigner,
+    AcceptIdentitySecondary,
+    AcceptIdentityPrimary,
+    RotatePrimaryToSecondary,
+    RemoveAuthorization,
+}
 
 /// The set of `Call`s from pallets that `TxFeeHandler` recognizes specially.
 pub enum Call<'a, R>
@@ -33,95 +45,143 @@ where
         + pallet_relayer::Config
         + polymesh_transaction_payment::Config,
 {
-    /// If the authorization is valid for the call type, returns the account that will pay for the call.
+    /// Returns the account that will pay for the call.
     fn get_payers_account(
         account_id: AccountId,
         auth_id: &u64,
         call_type: CallType,
-    ) -> ValidPayerResult {
+    ) -> Result<AccountId, InvalidTransaction> {
         if let Some(auth) =
             Identity::<A>::get_non_expired_auth(&Signatory::Account(account_id), auth_id)
         {
             match call_type {
                 CallType::RemoveAuthorization => {
-                    return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by));
+                    return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by)?);
                 }
                 CallType::AcceptMultiSigSigner => {
                     if let AuthorizationData::AddMultiSigSigner(_) = auth.authorization_data {
-                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by));
+                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by)?);
                     }
                 }
                 CallType::AcceptIdentitySecondary => {
                     if let AuthorizationData::JoinIdentity(_) = auth.authorization_data {
-                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by));
+                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by)?);
                     }
                 }
                 CallType::AcceptIdentityPrimary => {
                     if let AuthorizationData::RotatePrimaryKey = auth.authorization_data {
-                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by));
+                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by)?);
                     }
                 }
                 CallType::RotatePrimaryToSecondary => {
                     if let AuthorizationData::RotatePrimaryKeyToSecondary(_) =
                         auth.authorization_data
                     {
-                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by));
+                        return Ok(TxFeeHandler::<A>::get_did_primary_key(auth.authorized_by)?);
                     }
                 }
             }
         }
 
-        INVALID_AUTH
+        Err(InvalidTransaction::Custom(
+            TransactionError::InvalidAuthorization as u8,
+        ))
     }
 
-    /// If the multisig and the authorization are valid, returns the multisig payer account.
+    /// Returns the multisig payer account.
     fn get_multisig_payer(
         multisig_acc_id: AccountId,
         caller_acc_id: &AccountId,
         call_auth_id: Option<(CallType, &u64)>,
-    ) -> ValidPayerResult {
+    ) -> Result<AccountId, InvalidTransaction> {
         if pallet_multisig::MultiSigSigners::<A>::contains_key(&multisig_acc_id, caller_acc_id) {
             if let Some((call_type, auth_id)) = call_auth_id {
                 return TxFeeHandler::<A>::get_payers_account(multisig_acc_id, auth_id, call_type);
             }
 
             match pallet_multisig::Pallet::<A>::get_paying_did(&multisig_acc_id) {
-                Some(did) => return Ok(TxFeeHandler::<A>::get_did_primary_key(did)),
-                None => return Ok(Some(multisig_acc_id)),
+                Some(did) => return Ok(TxFeeHandler::<A>::get_did_primary_key(did)?),
+                None => return Ok(multisig_acc_id),
             }
         }
 
-        MISSING_ID
+        Err(InvalidTransaction::Custom(
+            TransactionError::MissingIdentity as u8,
+        ))
     }
 
     /// Returns the primary key of the did.
-    fn get_did_primary_key(did: IdentityId) -> Option<AccountId> {
-        Identity::<A>::get_primary_key(did)
+    fn get_did_primary_key(did: IdentityId) -> Result<AccountId, InvalidTransaction> {
+        Identity::<A>::get_primary_key(did).ok_or(InvalidTransaction::Custom(
+            TransactionError::MissingIdentity as u8,
+        ))
     }
 
     /// Returns the account that will pay for the call.
     fn handle_multisig_calls(call: &MultiSigCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
+        // Returns true if the caller has already voted on the given multisig proposal.
+        let already_voted = |multisig: &AccountId, proposal_id: &u64| {
+            pallet_multisig::Votes::<A>::get((multisig, proposal_id), &caller_acc_id)
+        };
+
+        // Returns the proposal id for the given multisig and auth_id.
+        let get_proposal_id = |multisig: &AccountId, auth_id: &u64| {
+            pallet_multisig::AuthToProposalId::<A>::get(multisig, auth_id)
+        };
+
         match call {
             MultiSigCall::accept_multisig_signer { auth_id } => {
-                TxFeeHandler::<A>::get_payers_account(
+                let paying_acc = TxFeeHandler::<A>::get_payers_account(
                     caller_acc_id,
                     auth_id,
                     CallType::AcceptMultiSigSigner,
-                )
+                )?;
+                Ok(CallPaymentInfo::new(paying_acc, Some(*auth_id), None))
             }
             MultiSigCall::approve_join_identity { multisig, auth_id } => {
-                TxFeeHandler::<A>::get_multisig_payer(
+                if let Some(proposal_id) = get_proposal_id(multisig, auth_id) {
+                    if already_voted(&multisig, &proposal_id) {
+                        return Err(InvalidTransaction::Custom(
+                            TransactionError::AlreadyVoted as u8,
+                        ));
+                    }
+                }
+                let paying_acc = TxFeeHandler::<A>::get_multisig_payer(
                     multisig.clone(),
                     &caller_acc_id,
                     Some((CallType::AcceptIdentitySecondary, auth_id)),
-                )
+                )?;
+                Ok(CallPaymentInfo::new(
+                    paying_acc,
+                    Some(*auth_id),
+                    Some(Signatory::Account(multisig.clone())),
+                ))
             }
-            MultiSigCall::create_proposal { multisig, .. }
-            | MultiSigCall::approve { multisig, .. }
-            | MultiSigCall::reject { multisig, .. } => {
-                TxFeeHandler::<A>::get_multisig_payer(multisig.clone(), &caller_acc_id, None)
+            MultiSigCall::approve {
+                multisig,
+                proposal_id,
+                ..
             }
-            _ => Ok(Some(caller_acc_id)),
+            | MultiSigCall::reject {
+                multisig,
+                proposal_id,
+                ..
+            } => {
+                if already_voted(&multisig, &proposal_id) {
+                    return Err(InvalidTransaction::Custom(
+                        TransactionError::AlreadyVoted as u8,
+                    ));
+                }
+                let paying_acc =
+                    TxFeeHandler::<A>::get_multisig_payer(multisig.clone(), &caller_acc_id, None)?;
+                Ok(CallPaymentInfo::new(paying_acc, None, None))
+            }
+            MultiSigCall::create_proposal { multisig, .. } => {
+                let paying_acc =
+                    TxFeeHandler::<A>::get_multisig_payer(multisig.clone(), &caller_acc_id, None)?;
+                Ok(CallPaymentInfo::new(paying_acc, None, None))
+            }
+            _ => Ok(CallPaymentInfo::new(caller_acc_id, None, None)),
         }
     }
 
@@ -129,25 +189,34 @@ where
     fn handle_identity_calls(call: &IdentityCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
         match call {
             IdentityCall::join_identity_as_key { auth_id } => {
-                TxFeeHandler::<A>::get_payers_account(
+                let paying_acc = TxFeeHandler::<A>::get_payers_account(
                     caller_acc_id,
                     auth_id,
                     CallType::AcceptIdentitySecondary,
-                )
+                )?;
+                Ok(CallPaymentInfo::new(paying_acc, Some(*auth_id), None))
             }
             IdentityCall::accept_primary_key {
                 rotation_auth_id, ..
-            } => TxFeeHandler::<A>::get_payers_account(
-                caller_acc_id,
-                rotation_auth_id,
-                CallType::AcceptIdentityPrimary,
-            ),
+            } => {
+                let paying_acc = TxFeeHandler::<A>::get_payers_account(
+                    caller_acc_id,
+                    rotation_auth_id,
+                    CallType::AcceptIdentityPrimary,
+                )?;
+                Ok(CallPaymentInfo::new(
+                    paying_acc,
+                    Some(*rotation_auth_id),
+                    None,
+                ))
+            }
             IdentityCall::rotate_primary_key_to_secondary { auth_id, .. } => {
-                TxFeeHandler::<A>::get_payers_account(
+                let paying_acc = TxFeeHandler::<A>::get_payers_account(
                     caller_acc_id,
                     auth_id,
                     CallType::RotatePrimaryToSecondary,
-                )
+                )?;
+                Ok(CallPaymentInfo::new(paying_acc, Some(*auth_id), None))
             }
             IdentityCall::remove_authorization {
                 target,
@@ -159,36 +228,35 @@ where
                         TransactionError::InvalidAuthorization as u8,
                     ));
                 }
-                TxFeeHandler::<A>::get_payers_account(
+                let paying_acc = TxFeeHandler::<A>::get_payers_account(
                     caller_acc_id,
                     auth_id,
                     CallType::RemoveAuthorization,
-                )
+                )?;
+                Ok(CallPaymentInfo::new(
+                    paying_acc,
+                    Some(*auth_id),
+                    Some(target.clone()),
+                ))
             }
-            _ => Ok(Some(caller_acc_id)),
+            _ => Ok(CallPaymentInfo::new(caller_acc_id, None, None)),
         }
     }
 
     /// Returns the account that will pay for the call.
     fn handle_relayer_calls(call: &RelayerCall<A>, caller_acc_id: AccountId) -> ValidPayerResult {
         if let RelayerCall::accept_subsidy { paying_key } = call {
-            use pallet_relayer::Pallet as Relayer;
-            if Relayer::<A>::has_pending_subsidy(&caller_acc_id, paying_key) {
-                Ok(Some(paying_key.clone()))
-            } else {
-                Ok(Some(caller_acc_id))
+            if pallet_relayer::Pallet::<A>::has_pending_subsidy(&caller_acc_id, paying_key) {
+                return Ok(CallPaymentInfo::new(paying_key.clone(), None, None));
             }
-        } else {
-            Ok(Some(caller_acc_id))
         }
+
+        Ok(CallPaymentInfo::new(caller_acc_id, None, None))
     }
 
     /// Decreases the authorization count for the given target and auth_id.
-    fn decrease_auth_count(caller: AccountId, auth_id: &u64) {
-        pallet_identity::Pallet::<A>::decrease_authorization_count(
-            &Signatory::Account(caller),
-            auth_id,
-        );
+    fn decrease_auth_count(signatory: &Signatory<AccountId>, auth_id: &u64) {
+        pallet_identity::Pallet::<A>::decrease_authorization_count(&signatory, auth_id);
     }
 }
 
@@ -200,7 +268,10 @@ where
         + pallet_relayer::Config
         + polymesh_transaction_payment::Config,
 {
-    fn get_valid_payer(call: &C, caller_acc_id: AccountId) -> ValidPayerResult {
+    fn call_payment_info(
+        call: &C,
+        caller_acc_id: AccountId,
+    ) -> Result<CallPaymentInfo<AccountId>, InvalidTransaction> {
         match call.try_into() {
             Ok(Call::MultiSig(multi_sig_call)) => {
                 TxFeeHandler::<A>::handle_multisig_calls(multi_sig_call, caller_acc_id)
@@ -211,7 +282,7 @@ where
             Ok(Call::Relayer(relayer_call)) => {
                 TxFeeHandler::<A>::handle_relayer_calls(relayer_call, caller_acc_id)
             }
-            Err(_) => Ok(Some(caller_acc_id)),
+            Err(_) => Ok(CallPaymentInfo::new(caller_acc_id, None, None)),
         }
     }
 
@@ -223,53 +294,23 @@ where
         PolymeshTransactionPallet::<A>::current_payer()
     }
 
-    fn get_authorization_id(call: &C) -> Option<u64> {
-        match call.try_into() {
-            Ok(Call::MultiSig(multi_sig_call)) => {
-                if let MultiSigCall::accept_multisig_signer { auth_id } = multi_sig_call {
-                    return Some(*auth_id);
+    fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
+        if let Some(auth_id) = call_payment_info.auth_id() {
+            if let Some(target) = call_payment_info.ms_signatory() {
+                return TxFeeHandler::<A>::decrease_auth_count(target, &auth_id);
+            }
+
+            if let Some(payer_record) =
+                pallet_identity::KeyRecords::<A>::get(call_payment_info.paying_account())
+            {
+                if let Some(payer_did) = payer_record.as_did() {
+                    let signatory =
+                        pallet_identity::AuthorizationsGiven::<A>::get(&payer_did, &auth_id);
+                    pallet_identity::Pallet::<A>::decrease_authorization_count(
+                        &signatory, &auth_id,
+                    );
                 }
             }
-            Ok(Call::Identity(identity_call)) => match identity_call {
-                IdentityCall::join_identity_as_key { auth_id }
-                | IdentityCall::rotate_primary_key_to_secondary { auth_id, .. } => {
-                    return Some(*auth_id)
-                }
-                IdentityCall::accept_primary_key {
-                    rotation_auth_id, ..
-                } => return Some(*rotation_auth_id),
-                _ => {}
-            },
-            Ok(_) | Err(_) => {}
-        }
-
-        None
-    }
-
-    fn decrease_authorization_count(caller: &AccountId, auth_id: Option<u64>) {
-        if let Some(auth_id) = auth_id {
-            TxFeeHandler::<A>::decrease_auth_count(caller.clone(), &auth_id);
         }
     }
 }
-
-#[derive(Encode, Decode)]
-enum CallType {
-    AcceptMultiSigSigner,
-    AcceptIdentitySecondary,
-    AcceptIdentityPrimary,
-    RotatePrimaryToSecondary,
-    /// Matches any call to `remove_authorization`,
-    /// where the authorization is available for `auth.authorized_by` payer redirection.
-    RemoveAuthorization,
-}
-
-type ValidPayerResult = Result<Option<AccountId>, InvalidTransaction>;
-
-const MISSING_ID: ValidPayerResult = Err(InvalidTransaction::Custom(
-    TransactionError::MissingIdentity as u8,
-));
-
-const INVALID_AUTH: ValidPayerResult = Err(InvalidTransaction::Custom(
-    TransactionError::InvalidAuthorization as u8,
-));

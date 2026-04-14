@@ -431,6 +431,7 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(VenueId(i.into()));
         }
+        VenueCounter::<T>::put(VenueId(v.into()));
         let s_venues = venues.clone();
     }: _(user.origin, ticker, s_venues)
     verify {
@@ -448,6 +449,7 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(VenueId(i.into()));
         }
+        VenueCounter::<T>::put(VenueId(v.into()));
         let s_venues = venues.clone();
     }: _(user.origin, ticker, s_venues)
     verify {
@@ -569,23 +571,6 @@ benchmarks! {
         ).unwrap();
     }: _(alice.origin, InstructionId(1), sdr_holdings)
 
-    withdraw_affirmation {
-        // Number of fungible, non-fungible and offchain LEGS in the portfolios
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let sdr_holdings = parameters.sdr_holdings();
-    }: _(alice.origin, InstructionId(1),  sdr_holdings)
-
     execute_instruction_paused {
         // Number of fungible, non-fungible and offchain assets in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
@@ -681,23 +666,6 @@ benchmarks! {
         ).unwrap();
     }: affirm_instruction(bob.origin, InstructionId(1), rcv_holdings)
 
-    withdraw_affirmation_rcv {
-        // Number of fungible, non-fungible and offchain LEGS in the portfolios
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let rcv_holdings = parameters.rcv_holdings();
-    }: withdraw_affirmation(bob.origin, InstructionId(1),  rcv_holdings)
-
     add_instruction_with_mediators {
         // Number of fungible, non-fungible, offchain legs and mediators
         let f in 1..T::MaxNumberOfFungibleAssets::get();
@@ -761,41 +729,6 @@ benchmarks! {
             mediators.try_into().unwrap()
         ).unwrap();
     }: _(david.origin, InstructionId(1), None)
-
-
-    withdraw_affirmation_as_mediator {
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let david = UserBuilder::<T>::default().generate_did().build("David");
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let memo = Some(Memo::default());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
-        let mediators = BTreeSet::from([david.did()]);
-
-        let parameters = setup_legs::<T>(
-            &alice,
-            &bob,
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get(),
-            false,
-            false,
-        );
-        Pallet::<T>::add_instruction_with_mediators(
-            alice.origin.clone().into(),
-            Some(venue_id),
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            parameters.legs,
-            memo,
-            mediators.try_into().unwrap()
-        ).unwrap();
-        Pallet::<T>::affirm_instruction_as_mediator(
-            david.origin.clone().into(),
-            InstructionId(1),
-            None
-        ).unwrap();
-    }: _(david.origin, InstructionId(1))
 
     base_reject_instruction {
         let f in 0..T::MaxNumberOfFungibleAssets::get();

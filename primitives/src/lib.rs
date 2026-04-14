@@ -302,6 +302,9 @@ pub use constants::{SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS, TECHNICAL_DID
 /// Multisig type definitions.
 pub mod multisig;
 
+/// Transaction payment related types.
+pub mod transaction_payment;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
@@ -315,6 +318,8 @@ pub enum TransactionError {
     InvalidAuthorization = 3,
     /// Subsidy is not available for this pallet.
     PalletNotSubsidised = 4,
+    /// The caller has already voted.
+    AlreadyVoted = 5,
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.

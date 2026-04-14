@@ -15,6 +15,7 @@ use pallet_relayer::{RelayTxNonces, Subsidy};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::traits::CurrentFeePayer;
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::{AccountId, Balance, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{RuntimeCall as DevRuntimeCall, TxFeeHandler};
 use polymesh_transaction_payment::Val;
@@ -672,13 +673,13 @@ fn do_relayer_accept_cdd_and_fees_test() {
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
-        TxFeeHandler::get_valid_payer(
+        TxFeeHandler::call_payment_info(
             &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_subsidy {
                 paying_key: alice.acc()
             }),
             bob.acc()
         ),
-        Ok(Some(alice.acc()))
+        Ok(CallPaymentInfo::new(alice.acc(), None, None))
     );
 }
 

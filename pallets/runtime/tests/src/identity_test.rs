@@ -35,6 +35,7 @@ use polymesh_primitives::{
 use polymesh_runtime_develop::runtime::{RuntimeCall, TxFeeHandler};
 use sp_core::H512;
 use sp_keyring::Sr25519Keyring;
+
 use sp_std::iter;
 use std::convert::From;
 
@@ -51,6 +52,7 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type DidRegistrars = <TestStorage as IdentityConfig>::DidRegistrars;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;
+type MultisigError = pallet_multisig::Error<TestStorage>;
 
 const MAX_ASSETS: u64 = 2000;
 const MAX_PORTFOLIOS: u64 = 2000;
@@ -456,7 +458,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 
     // 4. Bob should be able to transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
-    let payer = TxFeeHandler::get_valid_payer(
+    let payer = TxFeeHandler::call_payment_info(
         &RuntimeCall::Balances(balances::Call::transfer_with_memo {
             dest: Sr25519Keyring::Charlie.to_account_id().into(),
             value: 1_000,

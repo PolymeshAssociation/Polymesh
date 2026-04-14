@@ -34,6 +34,7 @@ use polymesh_primitives::constants::currency::{DOLLARS, POLY};
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::traits::{group::GroupTrait, CurrentFeePayer};
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::{AccountId, Authorization, AuthorizationData, BlockNumber};
 use polymesh_primitives::{Moment, Permissions as AuthPermissions};
 use polymesh_primitives::{PortfolioNumber, Scope, SecondaryKey, TrustedFor, TrustedIssuer};
@@ -580,23 +581,23 @@ thread_local! {
 pub type NegativeImbalance<T> =
     <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-type TxFeeHandler = TestStorage;
+pub(crate) type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<TestStorage>;
+
 impl CurrentFeePayer<AccountId, RuntimeCall> for TestStorage {
-    fn get_valid_payer(
-        _: &RuntimeCall,
+    fn call_payment_info(
+        call: &RuntimeCall,
         caller: AccountId,
-    ) -> Result<Option<AccountId>, InvalidTransaction> {
-        Ok(Some(caller))
+    ) -> Result<CallPaymentInfo<AccountId>, InvalidTransaction> {
+        TxFeeHandler::call_payment_info(call, caller)
     }
     fn set_payer_context(payer: Option<AccountId>) {
-        PolymeshTransactionPayment::set_current_payer(payer);
+        TxFeeHandler::set_payer_context(payer)
     }
     fn get_payer_from_context() -> Option<AccountId> {
-        PolymeshTransactionPayment::current_payer()
+        TxFeeHandler::get_payer_from_context()
     }
-    fn decrease_authorization_count(_caller: &AccountId, _auth_id: Option<u64>) {}
-    fn get_authorization_id(_call: &RuntimeCall) -> Option<u64> {
-        None
+    fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
+        TxFeeHandler::decrease_authorization_count(call_payment_info);
     }
 }
 
@@ -675,7 +676,7 @@ impl pallet_identity::Config for TestStorage {
     type Proposal = RuntimeCall;
     type DidRegistrars = DidRegistrar;
     type Balances = balances::Pallet<TestStorage>;
-    type TxFeeHandler = TestStorage;
+    type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<TestStorage>;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Pallet<TestStorage>;

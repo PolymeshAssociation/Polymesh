@@ -590,7 +590,9 @@ impl<T: Config> Pallet<T> {
         group: AgentGroup,
     ) -> DispatchResult {
         if let AgentGroup::Full = group {
-            Self::inc_full_count(asset_id)?;
+            if GroupOfAgent::<T>::get(&asset_id, &did) != Some(AgentGroup::Full) {
+                Self::inc_full_count(asset_id)?;
+            }
         }
         GroupOfAgent::<T>::insert(asset_id, did, group);
         AgentOf::<T>::insert(did, asset_id, ());

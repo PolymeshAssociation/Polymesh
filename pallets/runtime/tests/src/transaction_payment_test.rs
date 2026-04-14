@@ -1,4 +1,5 @@
 use codec::Encode;
+use frame_support::assert_ok;
 use frame_support::dispatch::{DispatchClass, DispatchInfo};
 use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::traits::Currency;
@@ -6,20 +7,31 @@ use frame_support::weights::{Weight, WeightToFee};
 use sp_arithmetic::traits::One;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::UncheckedExtrinsic;
-use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
+use sp_runtime::traits::{Dispatchable, TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::TransactionSource;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use sp_runtime::{FixedPointNumber, MultiAddress};
 
 use pallet_balances::Call as BalancesCall;
+use pallet_identity::Authorizations;
+use pallet_multisig::ProposalStates;
 use pallet_transaction_payment::{Multiplier, NextFeeMultiplier, RuntimeDispatchInfo};
-use polymesh_primitives::AccountId;
+use polymesh_primitives::multisig::ProposalState;
+use polymesh_primitives::traits::CurrentFeePayer;
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::TransactionError;
+use polymesh_primitives::{AccountId, AuthorizationData, Permissions, Signatory};
 use polymesh_transaction_payment::{ChargeTransactionPayment, Val};
 
 use super::ext_builder::ExtBuilder;
 use super::storage::{Address, RuntimeCall, TestStorage};
+use crate::multisig::{create_multisig_default_perms, create_signers};
+use crate::storage::{get_last_auth_id, User};
 
+type Identity = pallet_identity::Pallet<TestStorage>;
+type MultiSig = pallet_multisig::Pallet<TestStorage>;
+type MultisigError = pallet_multisig::Error<TestStorage>;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type RuntimeOrigin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
@@ -761,4 +773,196 @@ fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
         .prepare(val.1, &registrar_origin, &call, &operational_info, len)
         .is_ok());
+}
+
+#[test]
+fn validation_should_reject_duplicate_votes() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(|| {
+            let alice = User::new(Sr25519Keyring::Alice);
+            let bob = Sr25519Keyring::Bob.to_account_id();
+            let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+            // Create a multisig with Bob and Charlie as signers, and Alice as the creator.
+            let ms_address = create_multisig_default_perms(
+                alice.acc(),
+                create_signers(vec![bob.clone(), charlie.clone()]),
+                2,
+            );
+            let bob_auth_id = get_last_auth_id(&Signatory::Account(bob.clone()));
+            let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie.clone()));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(bob.clone()),
+                bob_auth_id
+            ));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(charlie.clone()),
+                charlie_auth_id,
+            ));
+
+            assert_ok!(Identity::leave_identity_as_key(Origin::signed(
+                ms_address.clone()
+            )));
+            let ms_signatory = Signatory::Account(ms_address.clone());
+            let auth_id = Identity::add_auth(
+                alice.did,
+                ms_signatory.clone(),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
+                None,
+            )
+            .unwrap();
+            let call = crate::storage::RuntimeCall::MultiSig(
+                pallet_multisig::Call::approve_join_identity {
+                    multisig: ms_address.clone(),
+                    auth_id,
+                },
+            );
+            let info = call.get_dispatch_info();
+            let len = 10;
+
+            assert_eq!(
+                crate::storage::TxFeeHandler::call_payment_info(&call, bob.clone()),
+                Ok(CallPaymentInfo::new(
+                    alice.acc(),
+                    Some(auth_id),
+                    Some(Signatory::Account(ms_address.clone()))
+                ))
+            );
+            assert_ok!(MultiSig::approve_join_identity(
+                Origin::signed(bob.clone()),
+                ms_address.clone(),
+                auth_id,
+            ));
+
+            assert_eq!(
+                ChargeTransactionPayment::<TestStorage>::from(0)
+                    .validate(
+                        Origin::signed(bob.clone()),
+                        &call,
+                        &info,
+                        len,
+                        Default::default(),
+                        &TxBaseImplication(()),
+                        TransactionSource::InBlock,
+                    )
+                    .unwrap_err(),
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(5))
+            );
+        });
+}
+
+#[test]
+fn post_dispatch_decreases_auth_count() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(|| {
+            let alice = User::new(Sr25519Keyring::Alice);
+            let bob = Sr25519Keyring::Bob.to_account_id();
+            let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+            // Create a multisig with Bob and Charlie as signers, and Alice as the creator.
+            let ms_address = create_multisig_default_perms(
+                alice.acc(),
+                create_signers(vec![bob.clone(), charlie.clone()]),
+                2,
+            );
+            let bob_auth_id = get_last_auth_id(&Signatory::Account(bob.clone()));
+            let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie.clone()));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(bob.clone()),
+                bob_auth_id
+            ));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(charlie.clone()),
+                charlie_auth_id,
+            ));
+
+            assert_ok!(Identity::leave_identity_as_key(Origin::signed(
+                ms_address.clone()
+            )));
+            let ms_signatory = Signatory::Account(ms_address.clone());
+            let auth_id = Identity::add_auth(
+                alice.did,
+                ms_signatory.clone(),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
+                None,
+            )
+            .unwrap();
+            let call = crate::storage::RuntimeCall::MultiSig(
+                pallet_multisig::Call::approve_join_identity {
+                    multisig: ms_address.clone(),
+                    auth_id,
+                },
+            );
+            let info = call.get_dispatch_info();
+            let len = 10;
+
+            assert_eq!(
+                crate::storage::TxFeeHandler::call_payment_info(&call, bob.clone()),
+                Ok(CallPaymentInfo::new(
+                    alice.acc(),
+                    Some(auth_id),
+                    Some(Signatory::Account(ms_address.clone()))
+                ))
+            );
+            assert_ok!(MultiSig::approve_join_identity(
+                Origin::signed(bob.clone()),
+                ms_address.clone(),
+                auth_id,
+            ));
+
+            let auth_before = Authorizations::<TestStorage>::get(&ms_signatory, auth_id).unwrap();
+            let alice_before = Balances::free_balance(&alice.acc());
+            // After validation and preparation, Alice should be charged
+            let val = ChargeTransactionPayment::<TestStorage>::from(0)
+                .validate(
+                    Origin::signed(charlie.clone()),
+                    &call,
+                    &info,
+                    len,
+                    Default::default(),
+                    &TxBaseImplication(()),
+                    TransactionSource::InBlock,
+                )
+                .unwrap();
+            let pre = ChargeTransactionPayment::<TestStorage>::from(0)
+                .prepare(val.1, &Origin::signed(bob.clone()), &call, &info, len)
+                .unwrap();
+            assert!(alice_before > Balances::free_balance(&alice.acc()));
+            // Forces an error
+            let proposal_id =
+                pallet_multisig::AuthToProposalId::<TestStorage>::get(&ms_address, &auth_id)
+                    .unwrap();
+            ProposalStates::<TestStorage>::insert(
+                &ms_address,
+                &proposal_id,
+                ProposalState::Rejected,
+            );
+            // If dispatch fails, Alice should be refunded and the authorization count should decrease by 1
+            let (mut post_info, dispatch_result) =
+                match call.clone().dispatch(Origin::signed(charlie.clone())) {
+                    Ok(info) => (info, Ok(())),
+                    Err(err) => (err.post_info, Err(err.error)),
+                };
+            assert_eq!(
+                dispatch_result,
+                Err(MultisigError::ProposalAlreadyRejected.into())
+            );
+            assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
+                pre,
+                &info,
+                &mut post_info,
+                len,
+                &dispatch_result,
+            )
+            .is_ok());
+            let auth_after_retry =
+                Authorizations::<TestStorage>::get(&ms_signatory, auth_id).unwrap();
+            assert_eq!(auth_before.count, auth_after_retry.count + 1);
+        });
 }

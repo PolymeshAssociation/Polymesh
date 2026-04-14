@@ -1904,6 +1904,8 @@ pub mod pallet {
         InsufficientTokensLocked,
         /// The spender's allowance for this asset is insufficient for the requested transfer amount.
         InsufficientAllowance,
+        /// Transfering ownership to the same owner is not allowed.
+        SelfOwnershipTransferNotAllowed,
     }
 
     pub trait WeightInfo {
@@ -2004,6 +2006,11 @@ impl<T: AssetConfig> Pallet<T> {
             let asset_id = extract_auth!(auth_data, TransferAssetOwnership(asset_id));
 
             let mut asset_details = Self::try_get_asset_details(&asset_id)?;
+
+            ensure!(
+                asset_details.owner_did != caller_did,
+                Error::<T>::SelfOwnershipTransferNotAllowed
+            );
 
             // Ensure the authorization was created by a permissioned agent.
             <ExternalAgents<T>>::ensure_agent_permissioned(&asset_id, auth_by)?;

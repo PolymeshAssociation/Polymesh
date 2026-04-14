@@ -5,7 +5,7 @@ use pallet_asset::BalanceOf;
 use pallet_nft::{NumberOfNFTs, Owner};
 use pallet_portfolio::{PortfolioAssetBalances, PortfolioLockedNFT};
 use pallet_portfolio::{PortfolioLockedAssets, PortfolioNFT};
-use pallet_settlement::Error;
+use pallet_settlement::{Error, LockedTimestamp};
 use polymesh_primitives::settlement::{InstructionId, SettlementType};
 use polymesh_primitives::statistics::{StatOpType, StatType};
 use polymesh_primitives::transfer_compliance::TransferCondition;
@@ -353,6 +353,7 @@ fn successfully_execute_after_locking() {
             ),
             false
         );
+        assert!(LockedTimestamp::<TestStorage>::get(InstructionId(0)).is_none());
     });
 }
 

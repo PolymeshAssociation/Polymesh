@@ -25,6 +25,7 @@ use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransactio
 
 use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::traits::{CurrentFeePayer, IdentityFnTrait, SubsidiserTrait};
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::TransactionError;
 
 pub use pallet::*;
@@ -188,16 +189,19 @@ where
             return Ok((fee_with_tip, None));
         }
 
-        let (payers_key, subsidiser) = Self::check_subsidy_conditions(&who, call, fee_with_tip)?;
+        let (call_payment_info, subsidiser) =
+            Self::check_subsidy_conditions(&who, call, fee_with_tip)?;
 
         // key to pay the fee.
-        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
+        let fee_key = subsidiser
+            .as_ref()
+            .unwrap_or(call_payment_info.paying_account());
 
         <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
             T,
         >>::can_withdraw_fee(fee_key, call, info, fee_with_tip, tip)?;
 
-        T::TxFeeHandler::set_payer_context(Some(payers_key));
+        T::TxFeeHandler::set_payer_context(Some(call_payment_info.paying_account().clone()));
 
         // -----------------------------------------------------------------
 
@@ -215,6 +219,7 @@ where
             BalanceOf<T>,
             Option<T::AccountId>,
             <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+            CallPaymentInfo<T::AccountId>,
         ),
         TransactionValidityError,
     >{
@@ -224,13 +229,17 @@ where
         // -----------------------------------------------------------------
 
         if fee_with_tip.is_zero() {
-            return Ok((fee_with_tip, None, Default::default()));
+            let call_payment_info = CallPaymentInfo::new(who.clone(), None, None);
+            return Ok((fee_with_tip, None, Default::default(), call_payment_info));
         }
 
-        let (payers_key, subsidiser) = Self::check_subsidy_conditions(who, call, fee_with_tip)?;
+        let (call_payment_info, subsidiser) =
+            Self::check_subsidy_conditions(who, call, fee_with_tip)?;
 
         // key to pay the fee.
-        let fee_key = subsidiser.as_ref().unwrap_or(&payers_key);
+        let fee_key = subsidiser
+            .as_ref()
+            .unwrap_or(call_payment_info.paying_account());
 
         let liq_info =
             <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
@@ -241,27 +250,29 @@ where
                 tip,
             )?;
 
-        T::TxFeeHandler::set_payer_context(Some(payers_key));
+        T::TxFeeHandler::set_payer_context(Some(call_payment_info.paying_account().clone()));
 
         // -----------------------------------------------------------------
 
-        Ok((fee_with_tip, subsidiser, liq_info))
+        Ok((fee_with_tip, subsidiser, liq_info, call_payment_info))
     }
 
     fn check_subsidy_conditions(
         who: &T::AccountId,
         call: &T::RuntimeCall,
         fee_with_tip: BalanceOf<T>,
-    ) -> Result<(T::AccountId, Option<T::AccountId>), InvalidTransaction> {
-        // Get the payer for this transaction.
-        let payers_key = T::TxFeeHandler::get_valid_payer(call, who.clone())?
-            .ok_or(InvalidTransaction::Payment)?;
+    ) -> Result<(CallPaymentInfo<T::AccountId>, Option<T::AccountId>), InvalidTransaction> {
+        // Get the payment info for the call
+        let call_payment_info = T::TxFeeHandler::call_payment_info(call, who.clone())?;
 
         // Check if the payer is being subsidised.
-        let subsidiser =
-            T::Subsidiser::check_subsidy(&payers_key, fee_with_tip.into(), Some(call))?;
+        let subsidiser = T::Subsidiser::check_subsidy(
+            call_payment_info.paying_account(),
+            fee_with_tip.into(),
+            Some(call),
+        )?;
 
-        Ok((payers_key, subsidiser))
+        Ok((call_payment_info, subsidiser))
     }
 
     // Polymesh change: Used to allow GC/DID registrar member to include a `tip`.
@@ -325,14 +336,12 @@ pub enum Val<T: Config> {
 pub enum Pre<T: Config> {
     Charge {
         tip: BalanceOf<T>,
-        // who paid the fee
-        who: T::AccountId,
         // imbalance resulting from withdrawing the fee
         imbalance: <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
         // Polymesh Subsidiser account (who paid the fee)
         subsidiser: Option<T::AccountId>,
-        // The AuthId of the call
-        auth_id: Option<u64>,
+        // Call payment info
+        call_payment_info: CallPaymentInfo<T::AccountId>,
     },
     NoCharge {
         // weight initially estimated by the extension, to be refunded
@@ -429,16 +438,14 @@ where
                 fee_with_tip,
                 subsidiser: _,
             } => {
-                let (_, subsidiser, imbalance) =
+                let (_, subsidiser, imbalance, call_payment_info) =
                     self.withdraw_fee(&who, call, info, fee_with_tip)?;
-                let auth_id = T::TxFeeHandler::get_authorization_id(call);
 
                 Ok(Pre::Charge {
                     tip,
-                    who,
                     imbalance,
                     subsidiser,
-                    auth_id,
+                    call_payment_info,
                 })
             }
         }
@@ -451,39 +458,37 @@ where
         len: usize,
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        // Clear the current payer at the beginning of post_dispatch to ensure it's cleared even if errors occur later.
-        let current_payer = CurrentPayer::<T>::take();
+        let _ = CurrentPayer::<T>::take();
 
-        let (tip, who, imbalance, subsidiser, auth_id) = {
+        let (tip, imbalance, subsidiser, call_payment_info) = {
             match pre {
                 Pre::Charge {
                     tip,
-                    who,
                     imbalance,
                     subsidiser,
-                    auth_id,
-                } => (tip, who, imbalance, subsidiser, auth_id),
+                    call_payment_info,
+                } => (tip, imbalance, subsidiser, call_payment_info),
                 Pre::NoCharge { .. } => return Ok(()),
             }
         };
 
         // We want to decrease the counter of Authorization.count when the caller is not paying for the fee and the call failed
         if result.is_err() {
-            T::TxFeeHandler::decrease_authorization_count(&who, auth_id);
+            T::TxFeeHandler::decrease_authorization_count(&call_payment_info);
         }
 
         let actual_fee =
             TransactionPallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
-        // Fee returned to original payer.
-        let payers_key = current_payer.unwrap_or(who.clone());
-
         let fee_key = {
             if let Some(subsidiser_acc) = subsidiser {
-                T::Subsidiser::debit_subsidy(&payers_key, actual_fee.into())?;
+                T::Subsidiser::debit_subsidy(
+                    call_payment_info.paying_account(),
+                    actual_fee.into(),
+                )?;
                 subsidiser_acc
             } else {
-                payers_key
+                call_payment_info.paying_account().clone()
             }
         };
 
