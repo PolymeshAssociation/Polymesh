@@ -222,27 +222,49 @@ pub mod pallet {
         fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight;
         fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
         fn set_mandatory_receiver_affirmation() -> Weight;
-        /// Same-DID direct transfer between portfolios (custody check).
+        /// Same-DID direct transfer between portfolios.
         fn transfer_funds_portfolio_same_did() -> Weight;
-        /// Cross-DID settlement with portfolio holders (custody check, no execution).
+        /// Cross-DID settlement with portfolio holders.
         fn transfer_funds_portfolio_diff_did() -> Weight;
         /// Same-DID direct transfer between accounts.
         fn transfer_funds_account_same_did() -> Weight;
-        /// Cross-DID settlement with account holders (no execution).
+        /// Cross-DID settlement with account holders.
         fn transfer_funds_account_diff_did() -> Weight;
 
-        /// Worst-case weight across all `transfer_funds` paths.
-        /// Cross-DID benchmarks include execution (receiver auto-affirms).
-        fn transfer_funds() -> Weight {
-            Self::transfer_funds_portfolio_same_did()
-                .max(Self::transfer_funds_portfolio_diff_did())
-                .max(Self::transfer_funds_account_same_did())
-                .max(Self::transfer_funds_account_diff_did())
-        }
+        /// Same-DID NFT transfer between portfolios (custody check).
+        fn transfer_funds_nft_portfolio_same_did(n: u32) -> Weight;
+        /// Cross-DID NFT settlement with portfolio holders.
+        fn transfer_funds_nft_portfolio_diff_did(n: u32) -> Weight;
+        /// Same-DID NFT transfer from account.
+        fn transfer_funds_nft_account_same_did(n: u32) -> Weight;
+        /// Cross-DID NFT settlement from account.
+        fn transfer_funds_nft_account_diff_did(n: u32) -> Weight;
 
-        /// Worst-case weight for account-only `transfer_funds` paths (no portfolios).
-        fn transfer_funds_account() -> Weight {
-            Self::transfer_funds_account_same_did().max(Self::transfer_funds_account_diff_did())
+        /// Worst-case weight for `transfer_funds`.
+        ///
+        /// `from`: the source holder. `None` or `Account` → account paths,
+        /// `Portfolio` → portfolio paths. `fund` detects fungible vs NFT.
+        fn transfer_funds(from: Option<&AssetHolder>, fund: &Fund) -> Weight {
+            match (from, &fund.description) {
+                (Some(AssetHolder::Account(_)) | None, FundDescription::NonFungible(nfts)) => {
+                    let n = nfts.len() as u32;
+                    Self::transfer_funds_nft_account_same_did(n)
+                        .max(Self::transfer_funds_nft_account_diff_did(n))
+                }
+                (Some(AssetHolder::Portfolio(_)), FundDescription::NonFungible(nfts)) => {
+                    let n = nfts.len() as u32;
+                    Self::transfer_funds_nft_portfolio_same_did(n)
+                        .max(Self::transfer_funds_nft_portfolio_diff_did(n))
+                }
+                (Some(AssetHolder::Account(_)) | None, FundDescription::Fungible { .. }) => {
+                    Self::transfer_funds_account_same_did()
+                        .max(Self::transfer_funds_account_diff_did())
+                }
+                (Some(AssetHolder::Portfolio(_)), FundDescription::Fungible { .. }) => {
+                    Self::transfer_funds_portfolio_same_did()
+                        .max(Self::transfer_funds_portfolio_diff_did())
+                }
+            }
         }
 
         fn add_and_affirm_with_mediators_legs(
@@ -1585,15 +1607,18 @@ pub mod pallet {
         /// * `to` — Destination account or portfolio.
         /// * `fund` — Asset and amount (fungible) or NFT IDs (non-fungible), plus optional memo.
         #[pallet::call_index(26)]
-        #[pallet::weight(<T as Config>::WeightInfo::transfer_funds())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::transfer_funds(from.as_ref(), &fund)
+        )]
         pub fn transfer_funds(
             origin: OriginFor<T>,
             from: Option<AssetHolder>,
             to: AssetHolder,
             fund: Fund,
         ) -> DispatchResultWithPostInfo {
-            let mut weight_meter =
-                WeightMeter::max_limit(<T as Config>::WeightInfo::transfer_funds());
+            let mut weight_meter = WeightMeter::max_limit(
+                <T as Config>::WeightInfo::transfer_funds(from.as_ref(), &fund),
+            );
 
             Self::base_transfer_funds(
                 origin,
@@ -1637,12 +1662,11 @@ impl<T: Config> Pallet<T> {
         let to_did = pallet_identity::Pallet::<T>::asset_holder_did(&to)?;
 
         let same_did = from_did == to_did;
-        let is_portfolio = matches!(resolved_from, AssetHolder::Portfolio(_));
 
         // Charge the benchmark-measured weight for this path.
         Self::check_accrue(
             weight_meter,
-            Self::transfer_funds_actual_weight(is_portfolio, same_did),
+            Self::transfer_funds_actual_weight(&resolved_from, same_did, &fund),
         )?;
 
         let instruction_id = if same_did {
@@ -1692,10 +1716,6 @@ impl<T: Config> Pallet<T> {
         Ok(instruction_id)
     }
 
-    /// Authorize the transfer source.
-    ///
-    /// - Account source where caller != owner: checks and decrements spender allowance.
-    /// - Portfolio source: checks custody.
     /// Authorize the transfer source.
     ///
     /// - Account source where caller != owner: checks and decrements spender allowance.
@@ -3733,12 +3753,32 @@ impl<T: Config> Pallet<T> {
         <T as Config>::WeightInfo::withdraw_affirmation_input(Some(affirmation_count), 0)
     }
 
-    fn transfer_funds_actual_weight(is_portfolio: bool, same_did: bool) -> Weight {
-        match (is_portfolio, same_did) {
-            (true, true) => <T as Config>::WeightInfo::transfer_funds_portfolio_same_did(),
-            (true, false) => <T as Config>::WeightInfo::transfer_funds_portfolio_diff_did(),
-            (false, true) => <T as Config>::WeightInfo::transfer_funds_account_same_did(),
-            (false, false) => <T as Config>::WeightInfo::transfer_funds_account_diff_did(),
+    fn transfer_funds_actual_weight(from: &AssetHolder, same_did: bool, fund: &Fund) -> Weight {
+        match (from, same_did, &fund.description) {
+            (AssetHolder::Account(_), true, FundDescription::NonFungible(nfts)) => {
+                <T as Config>::WeightInfo::transfer_funds_nft_account_same_did(nfts.len() as u32)
+            }
+            (AssetHolder::Account(_), false, FundDescription::NonFungible(nfts)) => {
+                <T as Config>::WeightInfo::transfer_funds_nft_account_diff_did(nfts.len() as u32)
+            }
+            (AssetHolder::Portfolio(_), true, FundDescription::NonFungible(nfts)) => {
+                <T as Config>::WeightInfo::transfer_funds_nft_portfolio_same_did(nfts.len() as u32)
+            }
+            (AssetHolder::Portfolio(_), false, FundDescription::NonFungible(nfts)) => {
+                <T as Config>::WeightInfo::transfer_funds_nft_portfolio_diff_did(nfts.len() as u32)
+            }
+            (AssetHolder::Account(_), true, FundDescription::Fungible { .. }) => {
+                <T as Config>::WeightInfo::transfer_funds_account_same_did()
+            }
+            (AssetHolder::Account(_), false, FundDescription::Fungible { .. }) => {
+                <T as Config>::WeightInfo::transfer_funds_account_diff_did()
+            }
+            (AssetHolder::Portfolio(_), true, FundDescription::Fungible { .. }) => {
+                <T as Config>::WeightInfo::transfer_funds_portfolio_same_did()
+            }
+            (AssetHolder::Portfolio(_), false, FundDescription::Fungible { .. }) => {
+                <T as Config>::WeightInfo::transfer_funds_portfolio_diff_did()
+            }
         }
     }
 
@@ -3939,20 +3979,25 @@ impl<T: Config> Pallet<T> {
         AssetCount::new(fungible, non_fungible, 0)
     }
 
+    fn asset_count_from_fund(fund: &FundDescription) -> AssetCount {
+        match fund {
+            FundDescription::Fungible { .. } => AssetCount::new(1, 0, 0),
+            FundDescription::NonFungible(nfts) => AssetCount::new(0, nfts.len() as u32, 0),
+        }
+    }
+
     /// Attempts to execute an instruction.
     fn base_try_execute_instruction(
         origin: OriginFor<T>,
         instruction_id: InstructionId,
-        is_fungible: bool,
+        asset_count: &AssetCount,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let asset_count = Self::fungible_asset_count(is_fungible);
-
         Self::base_manual_execution(
             origin,
             instruction_id,
             None,
-            &asset_count,
+            asset_count,
             true,
             true, // Skip weight charge — covered by transfer_funds benchmark.
             weight_meter,
@@ -3979,26 +4024,20 @@ impl<T: Config> Pallet<T> {
         Self::ensure_transfer_source_authorized(&from, origin_data, &fund)?;
 
         // Prepare the leg depending on whether it's a fungible or non-fungible transfer
-        let (leg, is_fungible) = match &fund.description {
-            FundDescription::Fungible { asset_id, amount } => (
-                Leg::Fungible {
-                    sender: from.clone(),
-                    receiver: to.clone(),
-                    asset_id: *asset_id,
-                    amount: *amount,
-                },
-                true,
-            ),
+        let leg = match &fund.description {
+            FundDescription::Fungible { asset_id, amount } => Leg::Fungible {
+                sender: from.clone(),
+                receiver: to.clone(),
+                asset_id: *asset_id,
+                amount: *amount,
+            },
             FundDescription::NonFungible(nfts) => {
                 Nft::<T>::ensure_within_nfts_transfer_limits(nfts)?;
-                (
-                    Leg::NonFungible {
-                        sender: from.clone(),
-                        receiver: to.clone(),
-                        nfts: NFTs::new_unverified(*nfts.asset_id(), vec![nfts.ids()[0]]),
-                    },
-                    false,
-                )
+                Leg::NonFungible {
+                    sender: from.clone(),
+                    receiver: to.clone(),
+                    nfts: nfts.clone(),
+                }
             }
         };
 
@@ -4045,7 +4084,9 @@ impl<T: Config> Pallet<T> {
 
         let instruction_id = if InstructionAffirmsPending::<T>::get(instruction_id) == 0 {
             // If there are no pending affirmations, execute the instruction immediately.
-            Self::base_try_execute_instruction(origin, instruction_id, is_fungible, weight_meter)?;
+            let asset_count = Self::asset_count_from_fund(&fund.description);
+
+            Self::base_try_execute_instruction(origin, instruction_id, &asset_count, weight_meter)?;
 
             // The instruction was executed immediately, no need for receiver affirmation.
             None
@@ -4102,7 +4143,8 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Try to execute the instruction.
-        Self::base_try_execute_instruction(origin, instruction_id, is_fungible, weight_meter)?;
+        let asset_count = Self::fungible_asset_count(is_fungible);
+        Self::base_try_execute_instruction(origin, instruction_id, &asset_count, weight_meter)?;
 
         Ok(())
     }
@@ -4172,12 +4214,8 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
         )
     }
 
-    fn transfer_funds_weight() -> Weight {
-        <T as Config>::WeightInfo::transfer_funds()
-    }
-
-    fn transfer_funds_account_weight() -> Weight {
-        <T as Config>::WeightInfo::transfer_funds_account()
+    fn transfer_funds_weight(from: Option<&AssetHolder>, fund: &Fund) -> Weight {
+        <T as Config>::WeightInfo::transfer_funds(from, fund)
     }
 
     fn transfer_funds(

@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::Encode;
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
@@ -299,27 +300,32 @@ pub mod pallet {
             Self::base_controller_transfer(origin, nfts, source, callers_holdings_kind)
         }
 
-        /// Transfer NFTs between accounts or portfolios.
+        /// Transfer NFTs from the caller's account to another account.
         ///
         /// Same-identity transfers move NFTs directly. Cross-identity transfers
         /// route through the settlement engine.
         ///
+        /// For portfolio-based transfers, use `Settlement::transfer_funds`.
+        ///
         /// # Arguments
         /// * `origin` — Signed origin. Caller must have a registered DID.
         /// * `nfts` — The NFTs to transfer.
-        /// * `from` — Source. `None` defaults to caller's account.
-        /// * `to` — Destination account or portfolio.
+        /// * `to` — Destination account.
         /// * `memo` — Optional memo attached to the transfer.
         #[pallet::call_index(4)]
-        #[pallet::weight(<T as pallet_asset::Config>::SettlementFn::transfer_funds_weight())]
+        #[pallet::weight(
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight(
+                None,
+                &Fund { description: FundDescription::NonFungible(nfts.clone()), memo: None },
+            )
+        )]
         pub fn transfer_nft(
             origin: OriginFor<T>,
             nfts: NFTs,
-            from: Option<AssetHolder>,
-            to: AssetHolder,
+            to: T::AccountId,
             memo: Option<Memo>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_transfer_nft(origin, nfts, from, to, memo)
+            Self::base_transfer_nft(origin, nfts, to, memo)
         }
     }
 
@@ -767,23 +773,24 @@ impl<T: Config> Pallet<T> {
     pub fn base_transfer_nft(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
-        from: Option<AssetHolder>,
-        to: AssetHolder,
+        to: T::AccountId,
         memo: Option<Memo>,
     ) -> DispatchResultWithPostInfo {
+        let to_holder = AssetHolder::try_from(to.encode())
+            .map_err(|_| pallet_base::Error::<T>::InvalidAccountId)?;
         let fund = Fund {
             description: FundDescription::NonFungible(nfts),
             memo,
         };
 
         let mut weight_meter = WeightMeter::max_limit(
-            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight(),
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight(None, &fund),
         );
 
         <T as pallet_asset::Config>::SettlementFn::transfer_funds(
             origin,
-            from,
-            to,
+            None,
+            to_holder,
             fund,
             &mut weight_meter,
             #[cfg(feature = "runtime-benchmarks")]

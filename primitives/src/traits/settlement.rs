@@ -63,12 +63,11 @@ pub trait SettlementFnTrait<T: Config> {
     /// Get the reject transfer weight meter.
     fn reject_transfer_weight_meter(is_fungible: bool) -> WeightMeter;
 
-    /// Get the worst-case weight for `transfer_funds` / `base_transfer_funds`.
-    fn transfer_funds_weight() -> Weight;
-
-    /// Worst-case weight for `transfer_funds` when sender and receiver are accounts (no portfolios).
-    /// Used by `transfer_asset` where both ends are always `AccountId`.
-    fn transfer_funds_account_weight() -> Weight;
+    /// Get the worst-case weight for `transfer_funds`.
+    ///
+    /// `from`: the source holder. `None` or `Account` → account paths,
+    /// `Portfolio` → portfolio paths. `fund` detects fungible vs NFT.
+    fn transfer_funds_weight(from: Option<&AssetHolder>, fund: &Fund) -> Weight;
 
     /// Routes a transfer: same-identity direct, cross-identity settlement.
     /// Returns the settlement instruction ID (None for same-identity).

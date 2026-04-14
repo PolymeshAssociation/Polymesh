@@ -1665,7 +1665,12 @@ pub mod pallet {
         /// * `UnexpectedOFFChainAsset` - If the asset could not be found on-chain.
         /// * `MissingIdentity` - The caller doesn't have an identity.
         #[pallet::call_index(34)]
-        #[pallet::weight(<T as Config>::SettlementFn::transfer_funds_account_weight())]
+        #[pallet::weight(
+            <T as Config>::SettlementFn::transfer_funds_weight(
+                None,
+                &Fund { description: FundDescription::Fungible { asset_id: *asset_id, amount: *amount }, memo: None },
+            )
+        )]
         pub fn transfer_asset(
             origin: OriginFor<T>,
             asset_id: AssetId,
@@ -2816,14 +2821,15 @@ impl<T: AssetConfig> Pallet<T> {
         let from = frame_system::ensure_signed(origin.clone())?;
 
         let to_holder = AssetHolder::try_from(to.encode())
-            .map_err(|_| DispatchError::Other("InvalidAccountId"))?;
+            .map_err(|_| pallet_base::Error::<T>::InvalidAccountId)?;
         let fund = Fund {
             description: FundDescription::Fungible { asset_id, amount },
             memo: memo.clone(),
         };
 
-        let mut weight_meter =
-            WeightMeter::max_limit(<T as Config>::SettlementFn::transfer_funds_account_weight());
+        let mut weight_meter = WeightMeter::max_limit(
+            <T as Config>::SettlementFn::transfer_funds_weight(None, &fund),
+        );
 
         let instruction_id = T::SettlementFn::transfer_funds(
             origin,
