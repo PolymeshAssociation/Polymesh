@@ -3,6 +3,7 @@ use scale_info::prelude::format;
 use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
+use codec::Encode;
 use pallet_asset::benchmarking::create_portfolio;
 use pallet_identity::benchmarking::{user, User, UserBuilder};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
@@ -94,14 +95,22 @@ pub fn setup_nft_transfer<T>(
     receiver_portolfio_name: Option<&str>,
     pause_compliance: bool,
     n_mediators: u8,
+    use_account_portfolio: bool,
 ) -> (AssetId, AssetHolder, AssetHolder, Vec<User<T>>)
 where
     T: Config,
 {
-    let sender_holdings =
-        create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
-    let receiver_holdings =
-        create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
+    let (sender_holdings, receiver_holdings) = if use_account_portfolio {
+        (
+            AssetHolder::try_from(sender.account().encode()).unwrap(),
+            AssetHolder::try_from(receiver.account().encode()).unwrap(),
+        )
+    } else {
+        (
+            create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio")),
+            create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio")),
+        )
+    };
 
     let asset_id =
         create_collection_issue_nfts::<T>(sender, 0, n_nfts, sender_holdings.clone().into());
@@ -201,7 +210,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (asset_id, sender, receiver, _) =
-            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, false);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
@@ -226,7 +235,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (asset_id, alice_holdings, bob_holdings, _) =
-            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0);
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, false);
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         with_transaction(|| {
             Pallet::<T>::base_nft_transfer(

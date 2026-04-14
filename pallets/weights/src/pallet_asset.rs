@@ -775,18 +775,6 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Proof: Timestamp Now (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-    // Storage: CddServiceProviders ActiveMembers (r:1 w:0)
-    // Proof Skipped: CddServiceProviders ActiveMembers (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Identity Claims (r:2 w:0)
-    // Proof Skipped: Identity Claims (max_values: None, max_size: None, mode: Measured)
-    fn transfer_asset_base_weight() -> Weight {
-        // Minimum execution time: 28_885 nanoseconds.
-        Weight::from_parts(30_178_000, 0).saturating_add(DbWeight::get().reads(6))
-    }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
     // Storage: Timestamp Now (r:1 w:0)
@@ -798,5 +786,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     fn receiver_affirm_asset_transfer_base_weight() -> Weight {
         // Minimum execution time: 24_004 nanoseconds.
         Weight::from_parts(26_399_000, 0).saturating_add(DbWeight::get().reads(5))
+    }
+    // TODO: Replace with generated weights after benchmark run.
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Asset Allowances (r:0 w:1)
+    fn approve() -> Weight {
+        Weight::from_parts(50_000_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
     }
 }
