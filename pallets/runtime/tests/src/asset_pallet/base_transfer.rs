@@ -1,5 +1,6 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
+use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::{AssetBalance, BalanceOf};
 use pallet_portfolio::PortfolioAssetBalances;
@@ -212,7 +213,7 @@ fn base_transfer_locked_asset() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other
         ));
         assert_ok!(Settlement::add_and_affirm_instruction(

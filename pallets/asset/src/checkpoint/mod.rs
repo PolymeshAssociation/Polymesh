@@ -47,7 +47,6 @@ use frame_support::{pallet_prelude::*, traits::UnixTime};
 use frame_system::pallet_prelude::*;
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::prelude::*;
-use sp_std::vec;
 
 use pallet_base::try_next_pre;
 use polymesh_primitives::asset::{AssetId, CheckpointId};

@@ -423,10 +423,11 @@ fn mint_nft_successfully() {
         assert_eq!(NumberOfNFTs::<TestStorage>::get(&asset_id, alice.did), 1);
         assert_eq!(NFTsInCollection::<TestStorage>::get(&asset_id), 1);
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(
+            PortfolioNFT::<TestStorage>::get((
                 PortfolioId::default_portfolio(alice.did),
-                (&asset_id, NFTId(1))
-            ),
+                &asset_id,
+                NFTId(1)
+            )),
             true
         );
         assert_eq!(
@@ -604,10 +605,11 @@ fn burn_nft() {
         ),);
         assert_eq!(NumberOfNFTs::<TestStorage>::get(&asset_id, alice.did), 0);
         assert_eq!(NFTsInCollection::<TestStorage>::get(&asset_id), 0);
-        assert!(!PortfolioNFT::<TestStorage>::contains_key(
+        assert!(!PortfolioNFT::<TestStorage>::contains_key((
             PortfolioId::default_portfolio(alice.did),
-            (&asset_id, NFTId(1))
-        ),);
+            &asset_id,
+            NFTId(1)
+        )),);
         assert_eq!(Owner::<TestStorage>::get(asset_id, NFTId(1)), None);
         assert_eq!(
             CurrentNFTId::<TestStorage>::get(NFTCollectionId(1)),
@@ -941,19 +943,21 @@ fn transfer_nft() {
         }));
         assert_eq!(NumberOfNFTs::<TestStorage>::get(&asset_id, alice.did), 0);
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(
+            PortfolioNFT::<TestStorage>::get((
                 PortfolioId::default_portfolio(alice.did),
-                (&asset_id, NFTId(1))
-            ),
+                &asset_id,
+                NFTId(1)
+            )),
             false
         );
         assert_eq!(NumberOfNFTs::<TestStorage>::get(&asset_id, bob.did), 1);
         assert_eq!(NFTsInCollection::<TestStorage>::get(&asset_id), 1);
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(
+            PortfolioNFT::<TestStorage>::get((
                 PortfolioId::default_portfolio(bob.did),
-                (&asset_id, NFTId(1))
-            ),
+                &asset_id,
+                NFTId(1)
+            )),
             true
         );
         assert_eq!(
@@ -1027,18 +1031,20 @@ fn controller_transfer() {
             NumberOfNFTs::<TestStorage>::get(nfts.asset_id(), bob.did),
             1
         );
-        assert!(PortfolioNFT::<TestStorage>::contains_key(
+        assert!(PortfolioNFT::<TestStorage>::contains_key((
             &bob_portfolio,
-            (asset_id, NFTId(1))
-        ));
+            asset_id,
+            NFTId(1)
+        )));
         assert_eq!(
             NumberOfNFTs::<TestStorage>::get(nfts.asset_id(), alice.did),
             0
         );
-        assert!(!PortfolioNFT::<TestStorage>::contains_key(
+        assert!(!PortfolioNFT::<TestStorage>::contains_key((
             &alice_portfolio,
-            (asset_id, NFTId(1))
-        ));
+            asset_id,
+            NFTId(1)
+        )));
         // Calls controller transfer
         assert_ok!(NFT::controller_transfer(
             alice.origin(),
@@ -1050,18 +1056,20 @@ fn controller_transfer() {
             NumberOfNFTs::<TestStorage>::get(nfts.asset_id(), bob.did),
             0
         );
-        assert!(!PortfolioNFT::<TestStorage>::contains_key(
+        assert!(!PortfolioNFT::<TestStorage>::contains_key((
             &bob_portfolio,
-            (asset_id, NFTId(1))
-        ));
+            asset_id,
+            NFTId(1)
+        )));
         assert_eq!(
             NumberOfNFTs::<TestStorage>::get(nfts.asset_id(), alice.did),
             1
         );
-        assert!(PortfolioNFT::<TestStorage>::contains_key(
+        assert!(PortfolioNFT::<TestStorage>::contains_key((
             &alice_portfolio,
-            (asset_id, NFTId(1))
-        ));
+            asset_id,
+            NFTId(1)
+        )));
         assert_eq!(
             Owner::<TestStorage>::get(asset_id, NFTId(1)),
             Some(alice_portfolio.clone().into())

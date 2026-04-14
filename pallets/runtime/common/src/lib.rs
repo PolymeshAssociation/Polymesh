@@ -24,6 +24,7 @@ pub mod runtime;
 
 use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
 pub use frame_support::dispatch::{DispatchClass, GetDispatchInfo};
+use frame_support::pallet_prelude::One;
 pub use frame_support::parameter_types;
 pub use frame_support::traits::{Currency, Get};
 pub use frame_support::weights::constants::{
@@ -34,8 +35,9 @@ pub use frame_support::weights::{
     RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
+use pallet_transaction_payment::Multiplier;
 pub use sp_runtime::transaction_validity::TransactionPriority;
-pub use sp_runtime::{Perbill, Percent, Permill, SaturatedConversion, Saturating};
+pub use sp_runtime::{FixedU128, Perbill, Percent, Permill, SaturatedConversion, Saturating};
 
 pub use impls::Author;
 use polymesh_primitives::constants::currency::*;
@@ -82,6 +84,8 @@ parameter_types! {
     pub const PolyXBaseFee: Balance = 3 * CENTS;
     /// The multiplier for operational fees.
     pub const OperationalFeeMultiplier: u8 = 5;
+    /// The fee multiplier to use for adjusting fees.
+    pub FeeMultiplier: Multiplier = Multiplier::one();
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
     pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_mul(75).saturating_div(100);
@@ -91,12 +95,16 @@ parameter_types! {
     pub const DepositPerContract: Balance = 10 * CENTS;
     /// The balance a contract needs to deposit per storage item to stay alive indefinitely.
     pub const DepositPerItem: Balance = deposit(1, 0);
+    /// The balance a contract needs to deposit per child trie item to stay alive indefinitely.
+    pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
     /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
     pub const DepositPerByte: Balance = deposit(0, 1);
     /// The code hash lookup deposit.
     pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
     /// The default deposit limit.
     pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+    /// The maximum ratio of eth extrinsic weight to block weight.
+    pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
     /// The maximum nesting level of a call/instantiate stack.
     pub const ContractsMaxDepth: u32 = 32;
     /// The maximum size of a storage value and event payload in bytes.
@@ -104,8 +112,10 @@ parameter_types! {
     /// Max length of (instrumented) contract code in bytes.
     pub const ContractsMaxCodeSize: u32 = 100 * 1024;
 
-    pub RuntimeBlockLength: BlockLength =
-        BlockLength::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+    pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+        .max_length(10 * 1024 * 1024)
+        .modify_max_length_for_class(DispatchClass::Normal, |m| *m = NORMAL_DISPATCH_RATIO * *m)
+        .build();
 
     pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
         .base_block(BlockExecutionWeight::get())

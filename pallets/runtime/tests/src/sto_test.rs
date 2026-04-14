@@ -1,6 +1,7 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::DispatchError;
+use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::BalanceOf;
 use pallet_settlement::{InstructionCounter, InstructionStatuses, VenueCounter};
@@ -131,7 +132,7 @@ fn raise_happy_path() {
     exec_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
-        vec![Sr25519Keyring::Alice.to_account_id()],
+        BTreeSet::from([Sr25519Keyring::Alice.to_account_id()]),
         VenueType::Sto
     ));
 
@@ -318,7 +319,7 @@ fn raise_unhappy_path() {
         assert_ok!(Settlement::create_venue(
             user.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             type_
         ));
         bad_venue
@@ -424,7 +425,7 @@ fn invalid_fundraiser() {
     assert_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
-        vec![Sr25519Keyring::Alice.to_account_id()],
+        BTreeSet::from([Sr25519Keyring::Alice.to_account_id()]),
         VenueType::Sto
     ));
 
@@ -487,7 +488,7 @@ fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     assert_ok!(Settlement::create_venue(
         context.alice.origin(),
         VenueDetails::default(),
-        vec![Sr25519Keyring::Alice.to_account_id()],
+        BTreeSet::from([Sr25519Keyring::Alice.to_account_id()]),
         VenueType::Sto
     ));
     let fundraiser_id = FundraiserCount::<TestStorage>::get(context.offering_asset);

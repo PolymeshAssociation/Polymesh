@@ -25,7 +25,7 @@ pub fn create_and_issue_sample_asset_with_venue(asset_owner: &User) -> (AssetId,
     assert_ok!(Settlement::create_venue(
         asset_owner.origin(),
         VenueDetails::default(),
-        vec![asset_owner.acc()],
+        BTreeSet::from([asset_owner.acc()]),
         VenueType::Other,
     ));
 
@@ -66,7 +66,7 @@ pub fn add_and_affirm_simple_instruction(
         med_default_portfolio.clone().into(),
         sender_default_portfolio.clone().into(),
         NFTs::new_unverified(nft_asset_id, vec![NFTId(1)]),
-        InstructionId(0),
+        Some(InstructionId(0)),
         None,
         mediator.did,
     )

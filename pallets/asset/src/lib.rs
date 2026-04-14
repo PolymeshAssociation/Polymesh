@@ -95,8 +95,8 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
+use frame_system::ensure_root;
 use frame_system::pallet_prelude::*;
-use frame_system::{ensure_root, ensure_signed};
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -117,6 +117,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::constants::*;
+use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::settlement::InstructionId;
 use polymesh_primitives::traits::{
@@ -343,6 +344,13 @@ pub mod pallet {
             amount: Balance,
             memo: Option<Memo>,
             pending_transfer_id: Option<InstructionId>,
+        },
+        /// A spender allowance was set for an asset.
+        Approval {
+            owner: T::AccountId,
+            spender: T::AccountId,
+            asset_id: AssetId,
+            amount: Balance,
         },
     }
 
@@ -589,6 +597,25 @@ pub mod pallet {
         AccountId32,
         Blake2_128Concat,
         AssetId,
+        Balance,
+        ValueQuery,
+    >;
+
+    /// Maps (owner, spender, asset_id) to the approved allowance amount.
+    ///
+    /// A non-existent entry returns 0 (via `ValueQuery`), matching ERC-20 behavior.
+    /// When an allowance is revoked (set to 0), the entry is removed to bound storage growth.
+    ///
+    /// Uses `StorageNMap` so that all allowances for a given owner can be iterated
+    /// via prefix.
+    #[pallet::storage]
+    pub type Allowances<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>,
+            NMapKey<Blake2_128Concat, T::AccountId>,
+            NMapKey<Blake2_128Concat, AssetId>,
+        ),
         Balance,
         ValueQuery,
     >;
@@ -1638,7 +1665,12 @@ pub mod pallet {
         /// * `UnexpectedOFFChainAsset` - If the asset could not be found on-chain.
         /// * `MissingIdentity` - The caller doesn't have an identity.
         #[pallet::call_index(34)]
-        #[pallet::weight(<T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::transfer_asset_base_weight(), true).limit())]
+        #[pallet::weight(
+            <T as Config>::SettlementFn::transfer_funds_weight(
+                None,
+                &Fund { description: FundDescription::Fungible { asset_id: *asset_id, amount: *amount }, memo: None },
+            )
+        )]
         pub fn transfer_asset(
             origin: OriginFor<T>,
             asset_id: AssetId,
@@ -1717,6 +1749,50 @@ pub mod pallet {
             transfer_id: InstructionId,
         ) -> DispatchResultWithPostInfo {
             Self::base_reject_asset_transfer(origin, transfer_id)
+        }
+
+        /// Set the allowance for `spender` to transfer up to `amount` of `asset_id` from
+        /// the caller's account.
+        ///
+        /// Replaces any existing allowance for this (owner, spender, asset_id) combination.
+        /// Setting `amount` to 0 revokes the allowance (removes the storage entry).
+        /// Setting `amount` to `Balance::MAX` grants an unlimited allowance that is never
+        /// decremented on spend.
+        ///
+        /// # Arguments
+        /// * `origin` — Signed origin. Caller must have a registered DID.
+        /// * `asset_id` — The asset for which the allowance is set.
+        /// * `spender` — The AccountId authorized to spend.
+        /// * `amount` — Maximum amount the spender may transfer. 0 = revoke. Balance::MAX = unlimited.
+        ///
+        /// # Errors
+        /// * `BadOrigin` — Unsigned origin.
+        /// * `MissingIdentity` — Caller's key is not linked to a DID.
+        #[pallet::call_index(37)]
+        #[pallet::weight(<T as Config>::WeightInfo::approve())]
+        pub fn approve(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            spender: T::AccountId,
+            amount: Balance,
+        ) -> DispatchResult {
+            let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+            let owner = caller_data.sender;
+
+            if amount == 0 {
+                Allowances::<T>::remove((&owner, &spender, &asset_id));
+            } else {
+                Allowances::<T>::insert((&owner, &spender, &asset_id), amount);
+            }
+
+            Self::deposit_event(Event::Approval {
+                owner,
+                spender,
+                asset_id,
+                amount,
+            });
+
+            Ok(())
         }
     }
 
@@ -1826,6 +1902,8 @@ pub mod pallet {
         KeyNotFoundForDid,
         /// Insufficient tokens are locked.
         InsufficientTokensLocked,
+        /// The spender's allowance for this asset is insufficient for the requested transfer amount.
+        InsufficientAllowance,
     }
 
     pub trait WeightInfo {
@@ -1863,8 +1941,8 @@ pub mod pallet {
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
         fn update_global_metadata_spec() -> Weight;
-        fn transfer_asset_base_weight() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
+        fn approve() -> Weight;
     }
 }
 
@@ -2601,6 +2679,34 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
+    /// Check and decrement spender allowance for a fungible transfer.
+    ///
+    /// - `Balance::MAX` (infinite allowance): no storage write.
+    /// - Depletes to zero: removes the storage entry.
+    /// - No `Approval` event is emitted on spend.
+    pub fn spend_allowance(
+        owner: &T::AccountId,
+        spender: &T::AccountId,
+        asset_id: AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        let current = Allowances::<T>::get((owner, spender, &asset_id));
+        ensure!(current >= amount, Error::<T>::InsufficientAllowance);
+
+        // Infinite allowance — no deduction.
+        if current == Balance::MAX {
+            return Ok(());
+        }
+
+        let new_allowance = current.saturating_sub(amount);
+        if new_allowance == 0 {
+            Allowances::<T>::remove((owner, spender, &asset_id));
+        } else {
+            Allowances::<T>::insert((owner, spender, &asset_id), new_allowance);
+        }
+        Ok(())
+    }
+
     pub fn base_link_ticker_to_asset_id(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
@@ -2714,25 +2820,29 @@ impl<T: AssetConfig> Pallet<T> {
         memo: Option<Memo>,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
-        let from = ensure_signed(origin.clone())?;
-        let mut weight_meter = <T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(
-            <T as Config>::WeightInfo::transfer_asset_base_weight(),
-            true,
+        let from = frame_system::ensure_signed(origin.clone())?;
+
+        let to_holder = AssetHolder::try_from(to.encode())
+            .map_err(|_| pallet_base::Error::<T>::InvalidAccountId)?;
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount },
+            memo: memo.clone(),
+        };
+
+        let mut weight_meter = WeightMeter::max_limit(
+            <T as Config>::SettlementFn::transfer_funds_weight(None, &fund),
         );
 
-        // Create the transfer instruction via the settlement engine and affirm it as the sender.
-        let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
+        let instruction_id = T::SettlementFn::transfer_funds(
             origin,
-            to.clone(),
-            asset_id,
-            amount,
-            memo.clone(),
+            None,
+            to_holder,
+            fund,
             &mut weight_meter,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
         )?;
 
-        // Emit a transfer event.
         Self::deposit_event(Event::CreatedAssetTransfer {
             asset_id,
             from,

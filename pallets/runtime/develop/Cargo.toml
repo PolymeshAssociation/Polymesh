@@ -81,8 +81,10 @@ pallet-indices = { workspace = true, default-features = false }
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
+pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false }
+pallet-session-benchmarking = { workspace = true, default-features = false, optional = true }
 pallet-staking = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
@@ -152,6 +154,7 @@ std = [
     "pallet-portfolio/std",
     "pallet-protocol-fee/std",
     "pallet-protocol-fee-rpc-runtime-api/std",
+    "pallet-revive/std",
     "pallet-session/std",
     "pallet-settlement/std",
     "pallet-staking/std",
@@ -176,6 +179,7 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "pallet-session-benchmarking/runtime-benchmarks",
     "frame-system-benchmarking/runtime-benchmarks",
     "frame-election-provider-support/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
@@ -200,6 +204,7 @@ runtime-benchmarks = [
     "pallet-preimage/runtime-benchmarks",
     "pallet-protocol-fee/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
+    "pallet-revive/runtime-benchmarks",
     "pallet-scheduler/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",

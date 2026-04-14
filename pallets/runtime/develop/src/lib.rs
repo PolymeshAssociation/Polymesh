@@ -2,15 +2,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "1024"]
 
-#[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
 pub mod constants;
 pub mod runtime;
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarks;
 
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
