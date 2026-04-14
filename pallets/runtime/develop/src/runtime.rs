@@ -27,7 +27,7 @@ use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::merge_active_and_inactive;
 use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
@@ -74,6 +74,9 @@ parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
     pub const SS58Prefix: u8 = 42;
+
+    // Revive/EVM
+    pub const EvmChainId: u64 = 1_641_818;
 
     // Base:
     pub const MaxLen: u32 = ENSURED_MAX_LEN;
@@ -481,12 +484,15 @@ mod runtime {
 
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(80)]
+    pub type Revive = pallet_revive::Pallet<Runtime>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 mod benches {
-    define_benchmarks!(
+    frame_benchmarking::define_benchmarks!(
         [frame_benchmarking, BaselineBench::<Runtime>]
         [pallet_asset, Asset]
         [pallet_balances, Balances]
@@ -526,6 +532,7 @@ mod benches {
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
         [pallet_contracts, Contracts]
+        [pallet_revive, Revive]
     );
 }
 
@@ -539,13 +546,18 @@ polymesh_runtime_common::runtime_apis! {
             use frame_benchmarking::{baseline, BenchmarkBatch};
             use frame_support::traits::TrackedStorageKey;
 
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
             impl baseline::Config for Runtime {}
-            impl crate::benchmarks::pallet_session::Config for Runtime {}
+            impl pallet_session_benchmarking::Config for Runtime {
+                fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+                    let keys = SessionKeys::generate(&owner.encode(), None);
+                    (keys.keys, keys.proof.encode())
+                }
+            }
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -575,7 +587,7 @@ polymesh_runtime_common::runtime_apis! {
             use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 

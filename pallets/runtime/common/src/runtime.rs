@@ -222,9 +222,15 @@ macro_rules! misc_pallet_impls {
             #[allow(deprecated)]
             type OnChargeTransaction =
                 pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees>;
-            type WeightToFee = polymesh_runtime_common::WeightToFee;
+            // The two generic parameters of `BlockRatioFee` define a rational number that defines the
+            // ref_time to fee mapping. The numbers chosen here are exactly the same as the one from the
+            // `WeightToFeePolynomial` that was used before:
+            // - The numerator is `3 * currency::CENTS` = 3 * 1_000_000 / 100 = 30_000
+            // - The denominator is `Balance::from(ExtrinsicBaseWeight::get().ref_time())`
+            //   - which is 1_000_000 * 650 = 650_000_000
+            type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<30_000, 650_000_000, Self, Balance>;
             type LengthToFee = polymesh_runtime_common::LengthToFee;
-            type FeeMultiplierUpdate = ();
+            type FeeMultiplierUpdate = pallet_transaction_payment::ConstFeeMultiplier<polymesh_runtime_common::FeeMultiplier>;
             type OperationalFeeMultiplier = polymesh_runtime_common::OperationalFeeMultiplier;
             type WeightInfo = polymesh_weights::polymesh_transaction_payment::SubstrateWeight;
             type ChargeFees = PolymeshTransactionPayment;
@@ -633,6 +639,36 @@ macro_rules! misc_pallet_impls {
             type PolymeshHooks = polymesh_contracts::benchmarking::BenchmarkContractPolymeshHooks;
         }
 
+        impl pallet_revive::Config for Runtime {
+            type Time = Timestamp;
+            type Balance = Balance;
+            type Currency = Balances;
+            type RuntimeEvent = RuntimeEvent;
+            type RuntimeCall = RuntimeCall;
+            type RuntimeOrigin = RuntimeOrigin;
+            type DepositPerItem = polymesh_runtime_common::DepositPerItem;
+            type DepositPerChildTrieItem = polymesh_runtime_common::DepositPerChildTrieItem;
+            type DepositPerByte = polymesh_runtime_common::DepositPerByte;
+            type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
+            type Precompiles = ();
+            type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+            type RuntimeMemory = frame_support::traits::ConstU32<{ 128 * 1024 * 1024 }>;
+            type PVFMemory = frame_support::traits::ConstU32<{ 512 * 1024 * 1024 }>;
+            type UploadOrigin = frame_system::EnsureSigned<Self::AccountId>;
+            type InstantiateOrigin = frame_system::EnsureSigned<Self::AccountId>;
+            type RuntimeHoldReason = RuntimeHoldReason;
+            type CodeHashLockupDepositPercent = polymesh_runtime_common::CodeHashLockupDepositPercent;
+            type ChainId = EvmChainId;
+            type NativeToEthRatio = frame_support::traits::ConstU64<1_000_000_000_000>; // 10^(18 - 6) Eth is 10^18, Native is 10^6.
+            type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
+            type AllowEVMBytecode = frame_support::traits::ConstBool<true>;
+            type FeeInfo = pallet_revive::evm::fees::Info<Address, polymesh_primitives::Signature, EthExtraImpl>;
+            type MaxEthExtrinsicWeight = polymesh_runtime_common::MaxEthExtrinsicWeight;
+            type DebugEnabled = frame_support::traits::ConstBool<false>;
+            type GasScale = frame_support::traits::ConstU32<1>;
+            type OnBurn = ();
+        }
+
         impl pallet_compliance_manager::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
@@ -799,17 +835,20 @@ macro_rules! misc_pallet_impls {
                     .saturating_sub(1);
                 let era = generic::Era::mortal(period, current_block);
                 let tx_ext: TxExtension = (
-                    frame_system::AuthorizeCall::new(),
-                    frame_system::CheckNonZeroSender::new(),
-                    frame_system::CheckSpecVersion::new(),
-                    frame_system::CheckTxVersion::new(),
-                    frame_system::CheckGenesis::new(),
+                    (
+                        frame_system::AuthorizeCall::new(),
+                        frame_system::CheckNonZeroSender::new(),
+                        frame_system::CheckSpecVersion::new(),
+                        frame_system::CheckTxVersion::new(),
+                        frame_system::CheckGenesis::new(),
+                    ),
                     frame_system::CheckEra::from(era),
                     frame_system::CheckNonce::from(nonce),
                     frame_system::CheckWeight::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                     frame_metadata_hash_extension::CheckMetadataHash::new(false),
+                    pallet_revive::evm::tx_extension::SetOrigin::default(),
                     frame_system::WeightReclaim::new(),
                 );
                 let raw_payload = SignedPayload::new(call, tx_ext)
@@ -820,7 +859,7 @@ macro_rules! misc_pallet_impls {
                 let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
                 let address = Indices::unlookup(account);
                 let (call, tx_ext, _) = raw_payload.deconstruct();
-                let transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
+                let transaction = generic::UncheckedExtrinsic::new_signed(call, address, signature, tx_ext).into();
                 Some(transaction)
             }
         }
@@ -844,17 +883,20 @@ macro_rules! misc_pallet_impls {
         {
             fn create_extension() -> Self::Extension {
                 (
-                    frame_system::AuthorizeCall::<Runtime>::new(),
-                    frame_system::CheckNonZeroSender::<Runtime>::new(),
-                    frame_system::CheckSpecVersion::<Runtime>::new(),
-                    frame_system::CheckTxVersion::<Runtime>::new(),
-                    frame_system::CheckGenesis::<Runtime>::new(),
+                    (
+                        frame_system::AuthorizeCall::<Runtime>::new(),
+                        frame_system::CheckNonZeroSender::<Runtime>::new(),
+                        frame_system::CheckSpecVersion::<Runtime>::new(),
+                        frame_system::CheckTxVersion::<Runtime>::new(),
+                        frame_system::CheckGenesis::<Runtime>::new(),
+                    ),
                     frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
                     frame_system::CheckNonce::<Runtime>::from(0),
                     frame_system::CheckWeight::<Runtime>::new(),
                     polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
                     pallet_permissions::StoreCallMetadata::<Runtime>::new(),
                     frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )
             }
@@ -865,7 +907,7 @@ macro_rules! misc_pallet_impls {
                 RuntimeCall: From<LocalCall>,
         {
             fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
-                UncheckedExtrinsic::new_bare(call)
+                generic::UncheckedExtrinsic::new_bare(call).into()
             }
         }
 
@@ -973,6 +1015,7 @@ macro_rules! runtime_apis {
         use frame_support::pallet_prelude::DispatchError;
         use frame_support::traits::GetStorageVersion;
         use sp_inherents::{CheckInherentsResult, InherentData};
+        use sp_api::impl_runtime_apis;
         use frame_support::dispatch::DispatchResult;
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
@@ -1000,21 +1043,53 @@ macro_rules! runtime_apis {
         pub type BlockId = generic::BlockId<Block>;
         /// The SignedExtension to the basic transaction logic.
         pub type TxExtension = (
-            frame_system::AuthorizeCall<Runtime>,
-            frame_system::CheckNonZeroSender<Runtime>,
-            frame_system::CheckSpecVersion<Runtime>,
-            frame_system::CheckTxVersion<Runtime>,
-            frame_system::CheckGenesis<Runtime>,
+            (
+                frame_system::AuthorizeCall<Runtime>,
+                frame_system::CheckNonZeroSender<Runtime>,
+                frame_system::CheckSpecVersion<Runtime>,
+                frame_system::CheckTxVersion<Runtime>,
+                frame_system::CheckGenesis<Runtime>,
+            ),
             frame_system::CheckEra<Runtime>,
             frame_system::CheckNonce<Runtime>,
             frame_system::CheckWeight<Runtime>,
             polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
             frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+            pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
             frame_system::WeightReclaim<Runtime>,
         );
+
+        #[derive(Clone, PartialEq, Eq, Debug)]
+        pub struct EthExtraImpl;
+
+        impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
+            type Config = Runtime;
+            type Extension = TxExtension;
+
+            fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+                (
+                    (
+                        frame_system::AuthorizeCall::<Runtime>::new(),
+                        frame_system::CheckNonZeroSender::<Runtime>::new(),
+                        frame_system::CheckSpecVersion::<Runtime>::new(),
+                        frame_system::CheckTxVersion::<Runtime>::new(),
+                        frame_system::CheckGenesis::<Runtime>::new(),
+                    ),
+                    frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
+                    frame_system::CheckNonce::<Runtime>::from(nonce),
+                    frame_system::CheckWeight::<Runtime>::new(),
+                    polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+                    pallet_permissions::StoreCallMetadata::new(),
+                    frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
+                    frame_system::WeightReclaim::<Runtime>::new(),
+                )
+            }
+        }
+
         /// Unchecked extrinsic type as expected by this runtime.
-        pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, RuntimeCall, polymesh_primitives::Signature, TxExtension>;
+        pub type UncheckedExtrinsic = pallet_revive::evm::runtime::UncheckedExtrinsic<Address, polymesh_primitives::Signature, EthExtraImpl>;
         /// The payload being signed in transactions.
         pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
         /// Extrinsic type that has already been checked.
@@ -1043,7 +1118,12 @@ macro_rules! runtime_apis {
             pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
         }
 
-        sp_api::impl_runtime_apis! {
+        pallet_revive::impl_runtime_apis_plus_revive_traits!(
+            Runtime,
+            Revive,
+            Executive,
+            EthExtraImpl,
+
             impl sp_api::Core<Block> for Runtime {
                 fn version() -> RuntimeVersion {
                     VERSION
@@ -1297,8 +1377,8 @@ macro_rules! runtime_apis {
             }
 
             impl sp_session::SessionKeys<Block> for Runtime {
-                fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-                    SessionKeys::generate(seed)
+                fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+                    SessionKeys::generate(&owner, seed).into()
                 }
 
                 fn decode_session_keys(
@@ -1658,6 +1738,6 @@ macro_rules! runtime_apis {
             }
 
             $($extra)*
-        }
+        );
     }
 }

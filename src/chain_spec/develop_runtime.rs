@@ -39,6 +39,26 @@ fn dev_chain_spec(code: &[u8]) -> ChainSpec {
         seeded_acc_id("Charlie"),
         seeded_acc_id("Dave"),
         seeded_acc_id("Eve"),
+        // ETH dev alith
+        array_bytes::hex_n_into_unchecked(
+            "f24ff3a9cf04c71dbc94d0b566f7a27b94566caceeeeeeeeeeeeeeeeeeeeeeee",
+        ),
+        // ETH dev baltathar
+        array_bytes::hex_n_into_unchecked(
+            "3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
+        ),
+        // ETH dev charleth
+        array_bytes::hex_n_into_unchecked(
+            "798d4ba9baf0064ec19eb4f0a1a45785ae9d6dfceeeeeeeeeeeeeeeeeeeeeeee",
+        ),
+        // ETH dev dorothy
+        array_bytes::hex_n_into_unchecked(
+            "773539d4ac0e786233d90a233654ccee26a613d9eeeeeeeeeeeeeeeeeeeeeeee",
+        ),
+        // ETH dev ethan
+        array_bytes::hex_n_into_unchecked(
+            "ff64d3f6efe2317ee2807d223a0bdc4c0c49dfdbeeeeeeeeeeeeeeeeeeeeeeee",
+        ),
     ];
 
     let root_key = seeded_acc_id("Alice");

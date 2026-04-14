@@ -1,0 +1,67 @@
+[package]
+name = "pallet-revive-eth-rpc"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "An Ethereum JSON-RPC server for pallet-revive."
+default-run = "eth-rpc"
+
+#[lints]
+#workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[[bin]]
+name = "eth-rpc"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { version = "1.0.81", default-features = false }
+clap = { version = "4.5.13", features = ["derive", "env"] }
+codec = { workspace = true, features = ["derive"] }
+futures = { version = "0.3.31", features = ["thread-pool"] }
+hex = { version = "0.4.3", default-features = false }
+jsonrpsee = { version = "0.24.10", features = ["full"] }
+log = { version = "0.4.22", default-features = false }
+pallet-revive = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+rlp = { version = "0.6.1", default-features = false }
+sc-cli = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+serde = { version = "1.0.214", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1.0.132", default-features = false }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true }
+sp-weights = { workspace = true, default-features = true }
+sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
+subxt = { version = "0.44", default-features = true, features = ["reconnecting-rpc-client"] }
+subxt-signer = { version = "0.44", features = ["unstable-eth"] }
+thiserror = { version = "1.0.64" }
+tokio = { version = "1.45.0", default-features = false, features = ["full"] }
+
+[dev-dependencies]
+env_logger = { version = "0.11.2" }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+pretty_assertions = { version = "1.3.0" }
+# POLYMESH CHANGE
+#revive-dev-node = { workspace = true }
+polymesh = { path = "../", default-features = true }
+sp-io = { workspace = true, default-features = true }
+
+[build-dependencies]
+git2 = { version = "0.20.0", default-features = false }
+# POLYMESH CHANGE
+#revive-dev-runtime = { workspace = true, default-features = true }
+polymesh-runtime-develop = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
