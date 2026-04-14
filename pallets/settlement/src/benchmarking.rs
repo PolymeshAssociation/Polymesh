@@ -356,13 +356,13 @@ benchmarks! {
         let d in 1 .. MAX_VENUE_DETAILS_LENGTH;
         // Variations for the no. of signers allowed.
         let s in 0 .. MAX_SIGNERS_ALLOWED;
-        let mut signers = Vec::with_capacity(s as usize);
+        let mut signers = BTreeSet::new();
         let User {origin, did, .. } = UserBuilder::<T>::default().generate_did().build("caller");
         let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
         let venue_type = VenueType::Distribution;
-        // Create signers vector.
+        // Create signers set.
         for signer in 0 .. s {
-            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+            signers.insert(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
         }
     }: _(origin, venue_details, signers, venue_type)
     verify {
@@ -397,12 +397,12 @@ benchmarks! {
     update_venue_signers {
         // Variations for the no. of signers allowed.
         let s in 0 .. MAX_SIGNERS_ALLOWED;
-        let mut signers = Vec::with_capacity(s as usize);
+        let mut signers = BTreeSet::new();
         let User {account, origin, did, .. } = creator::<T>();
         let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
-        // Create signers vector.
+        // Create signers set.
         for signer in 0 .. s {
-            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+            signers.insert(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
         }
     }: _(origin, venue_id, signers.clone(), true)
     verify {
