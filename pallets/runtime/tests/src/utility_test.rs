@@ -797,7 +797,7 @@ fn batch_works_with_committee_origin() {
         assert_ok!(committee_proposal(0));
         let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
-        assert_ok!(Pips::snapshot(bob.origin()));
+        assert_ok!(Pips::snapshot(bob.origin(), 1000));
         consensus_batch(vec![
             RuntimeCall::Pips(pallet_pips::Call::approve_committee_proposal { id: id_committee }),
             RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {
@@ -831,7 +831,7 @@ fn force_batch_works_with_committee_origin() {
         assert_ok!(committee_proposal(0));
         let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
-        assert_ok!(Pips::snapshot(bob.origin()));
+        assert_ok!(Pips::snapshot(bob.origin(), 1000));
         consensus_batch(vec![
             RuntimeCall::Pips(pallet_pips::Call::approve_committee_proposal { id: id_committee }),
             RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {
@@ -865,7 +865,7 @@ fn batch_all_works_with_committee_origin() {
         assert_ok!(committee_proposal(0));
         let id_snapshot = PipIdSequence::<TestStorage>::get();
         assert_ok!(community_proposal(proposer, 10));
-        assert_ok!(Pips::snapshot(bob.origin()));
+        assert_ok!(Pips::snapshot(bob.origin(), 1000));
         consensus_batch(vec![
             RuntimeCall::Pips(pallet_pips::Call::approve_committee_proposal { id: id_committee }),
             RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {

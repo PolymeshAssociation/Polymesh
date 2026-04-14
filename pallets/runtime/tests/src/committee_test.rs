@@ -143,7 +143,7 @@ fn single_member_committee_works_we() {
 
     // Proposal is executed if committee is comprised of a single member
     prepare_proposal(alice_ring);
-    assert_ok!(Pips::snapshot(alice_signer.clone()));
+    assert_ok!(Pips::snapshot(alice_signer.clone(), 1000));
     assert_eq!(
         Proposals::<TestStorage, committee::Instance1>::get(),
         vec![]
@@ -180,7 +180,7 @@ fn preventing_motions_from_non_members_works_we() {
 
     prepare_proposal(alice_ring);
     assert_noop!(
-        Pips::snapshot(alice_signer.clone()),
+        Pips::snapshot(alice_signer.clone(), 1000),
         pallet_pips::Error::<TestStorage>::NotACommitteeMember
     );
     assert_eq!(
@@ -211,7 +211,7 @@ fn preventing_voting_from_non_members_works_we() {
 
     set_members(vec![alice_did]);
     prepare_proposal(alice_ring);
-    assert_ok!(Pips::snapshot(alice_signer.clone()));
+    assert_ok!(Pips::snapshot(alice_signer.clone(), 1000));
     assert_eq!(
         Proposals::<TestStorage, committee::Instance1>::get(),
         vec![]
@@ -382,7 +382,7 @@ fn rage_quit_we() {
 
     // Make a proposal... only Alice & Bob approve it.
     prepare_proposal(alice_ring);
-    assert_ok!(Pips::snapshot(alice_signer.clone()));
+    assert_ok!(Pips::snapshot(alice_signer.clone(), 1000));
     assert_eq!(
         Proposals::<TestStorage, committee::Instance1>::get(),
         vec![]
@@ -610,7 +610,7 @@ fn enact_we() {
 
     // 1. Create the PIP.
     prepare_proposal(alice);
-    assert_ok!(Pips::snapshot(alice_signer.clone()));
+    assert_ok!(Pips::snapshot(alice_signer.clone(), 1000));
     assert_eq!(
         Proposals::<TestStorage, committee::Instance1>::get(),
         vec![]

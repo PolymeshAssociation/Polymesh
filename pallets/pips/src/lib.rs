@@ -130,7 +130,7 @@ pub trait WeightInfo {
     fn prune_proposal() -> Weight;
     fn reschedule_execution() -> Weight;
     fn clear_snapshot() -> Weight;
-    fn snapshot() -> Weight;
+    fn snapshot(q: u32) -> Weight;
     fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight;
     fn execute_scheduled_pip() -> Weight;
     fn expire_scheduled_pip() -> Weight;
@@ -189,6 +189,8 @@ pub mod pallet {
         InvalidPipId,
         /// TaskName cannot exceed 32 bytes.
         InvalidTaskName,
+        /// The provided `limit` is less than the actual queue length.
+        SnapshotLimitTooSmall,
     }
 
     #[pallet::event]
@@ -1102,6 +1104,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be a GC member.
+        /// * `limit` - Weight witness for the expected queue length (typically the active PIP limit). The actual weight is refunded based on the real queue size.
         ///
         /// # Events
         /// * `SnapshotTaken` - Emitted when a snapshot is successfully taken, containing the ID of the snapshot and the queue of PIPs.
@@ -1109,8 +1112,10 @@ pub mod pallet {
         /// # Errors
         /// * `NotACommitteeMember` - If the call is not made by a GC member.
         #[pallet::call_index(13)]
-        #[pallet::weight((<T as Config>::WeightInfo::snapshot(), Operational))]
-        pub fn snapshot(origin: OriginFor<T>) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::snapshot(
+            *limit
+        ), Operational))]
+        pub fn snapshot(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
             // Ensure a GC member is executing this.
             let PermissionedCallOriginData {
                 sender: made_by,
@@ -1131,12 +1136,14 @@ pub mod pallet {
                 id,
             }));
             let queue = LiveQueue::<T>::get();
+            let queue_len = queue.len() as u32;
+            ensure!(limit >= queue_len, Error::<T>::SnapshotLimitTooSmall);
             SnapshotQueue::<T>::set(queue.clone());
 
             // Emit event.
             Self::deposit_event(Event::SnapshotTaken(did, id, queue));
 
-            Ok(())
+            Ok(Some(<T as Config>::WeightInfo::snapshot(queue_len)).into())
         }
 
         /// Enacts the results for the PIPs in the snapshot queue.

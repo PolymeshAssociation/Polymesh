@@ -283,21 +283,24 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(2))
     }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Proof: Identity KeyRecords (max_values: None, max_size: Some(73), added: 2548, mode: MaxEncodedLen)
-    // Storage: PolymeshCommittee Members (r:1 w:0)
-    // Proof Skipped: PolymeshCommittee Members (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Pips SnapshotIdSequence (r:1 w:1)
-    // Proof: Pips SnapshotIdSequence (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-    // Storage: Pips LiveQueue (r:1 w:0)
-    // Proof Skipped: Pips LiveQueue (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Pips SnapshotQueue (r:0 w:1)
-    // Proof Skipped: Pips SnapshotQueue (max_values: Some(1), max_size: None, mode: Measured)
-    // Storage: Pips SnapshotMeta (r:0 w:1)
-    // Proof: Pips SnapshotMeta (max_values: Some(1), max_size: Some(40), added: 535, mode: MaxEncodedLen)
-    fn snapshot() -> Weight {
-        // Minimum execution time: 62_355 nanoseconds.
-        Weight::from_parts(70_260_000, 0)
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `PolymeshCommittee::Members` (r:1 w:0)
+    // Proof: `PolymeshCommittee::Members` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Pips::SnapshotIdSequence` (r:1 w:1)
+    // Proof: `Pips::SnapshotIdSequence` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+    // Storage: `Pips::LiveQueue` (r:1 w:0)
+    // Proof: `Pips::LiveQueue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Pips::SnapshotQueue` (r:0 w:1)
+    // Proof: `Pips::SnapshotQueue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Pips::SnapshotMeta` (r:0 w:1)
+    // Proof: `Pips::SnapshotMeta` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
+    /// The range of component `q` is `[0, 100]`.
+    fn snapshot(q: u32) -> Weight {
+        // Minimum execution time: 31_000 nanoseconds.
+        Weight::from_parts(38_267_475, 0)
+            // Standard Error: 43_566
+            .saturating_add(Weight::from_parts(345_413, 0).saturating_mul(q.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(3))
     }

@@ -319,7 +319,7 @@ benchmarks! {
         ).unwrap();
         let id = PipId(0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Pallet::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into(), 1).unwrap();
         let vmo_origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
         let enact_call = Call::<T>::enact_snapshot_results { results: vec![(id, SnapshotResult::Approve)] };
         enact_call.dispatch_bypass_filter(vmo_origin).unwrap();
@@ -342,7 +342,7 @@ benchmarks! {
             Some(description.clone())
         ).unwrap();
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Pallet::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into(), 1).unwrap();
         assert!(SnapshotMeta::<T>::get().is_some(), "missing a snapshot before clear_snapshot");
         let origin = user.origin();
     }: _(origin)
@@ -351,12 +351,14 @@ benchmarks! {
     }
 
     snapshot {
-        vote_setup::<T>(1, T::MaxRefundsAndVotesPruned::get());
+        let q in 0..PROPOSALS_NUM;
+        vote_setup::<T>(q, T::MaxRefundsAndVotesPruned::get());
         let user = user::<T>("release_coordinator", 0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-    }: _(user.origin())
+    }: _(user.origin(), q)
     verify {
         assert!(SnapshotMeta::<T>::get().is_some());
+        assert_eq!(SnapshotQueue::<T>::get().len(), q as usize);
     }
 
     enact_snapshot_results {
@@ -373,7 +375,7 @@ benchmarks! {
         // Adds a user to the governance committee and captures a snapshot
         let user = user::<T>("release_coordinator", 0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Pallet::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into(), PROPOSALS_NUM).unwrap();
 
         // Set up the results parameter based on the number of Approve, Reject, and Skip results.
         let origin = T::VotingMajorityOrigin::try_successful_origin().unwrap();
@@ -392,7 +394,7 @@ benchmarks! {
         // Adds a user to the governance committee and captures a snapshot
         let user = user::<T>("release_coordinator", 0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Pallet::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into(), PROPOSALS_NUM).unwrap();
         assert!(SnapshotQueue::<T>::get().len() == PROPOSALS_NUM as usize);
 
         // Set up the results parameter where all proposals are approved
@@ -411,7 +413,7 @@ benchmarks! {
         // Adds a user to the governance committee and captures a snapshot
         let user = user::<T>("release_coordinator", 0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
-        Pallet::<T>::snapshot(user.origin().into()).unwrap();
+        Pallet::<T>::snapshot(user.origin().into(), PROPOSALS_NUM).unwrap();
 
         assert_eq!(ProposalState::Pending, ProposalStates::<T>::get(PipId(0)).unwrap());
     }: _(RawOrigin::Root, GC_DID, PipId(0))
