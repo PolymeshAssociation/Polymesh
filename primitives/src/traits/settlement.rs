@@ -1,11 +1,12 @@
-use frame_support::dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo};
+use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::pallet_prelude::DispatchError;
 use frame_support::weights::Weight;
 use frame_system::{pallet_prelude::OriginFor, Config};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::settlement::AffirmationRequirement;
 use crate::{
-    asset::AssetId, settlement::InstructionId, Balance, IdentityId, Memo, NFTId, WeightMeter,
+    asset::AssetHolder, portfolio::Fund, settlement::InstructionId, IdentityId, WeightMeter,
 };
 
 /// Trait for querying affirmation settings stored in the settlement pallet.
@@ -23,67 +24,8 @@ pub trait AffirmationFnConfig: frame_system::Config {
     type AffirmationFn: AffirmationFnTrait;
 }
 
-/// Enum representing either a fungible asset or a non-fungible token.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum AssetOrNft {
-    Asset { asset_id: AssetId, amount: Balance },
-    Nft { asset_id: AssetId, nft_id: NFTId },
-}
-
 /// Trait defining settlement functions for transferring assets.
 pub trait SettlementFnTrait<T: Config> {
-    /// Creates a transfer instruction for a fungible asset and attempts to execute it (if no pending affirmations).
-    fn transfer_asset_and_try_execute(
-        origin: OriginFor<T>,
-        to: T::AccountId,
-        asset_id: AssetId,
-        amount: Balance,
-        memo: Option<Memo>,
-        weight_meter: &mut WeightMeter,
-        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
-        Self::transfer_and_try_execute(
-            origin,
-            to,
-            AssetOrNft::Asset { asset_id, amount },
-            memo,
-            weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            bench_base_weight,
-        )
-    }
-
-    /// Creates a transfer instruction for a non-fungible asset and attempts to execute it (if no pending affirmations).
-    fn transfer_nft_and_try_execute(
-        origin: OriginFor<T>,
-        to: T::AccountId,
-        asset_id: AssetId,
-        nft_id: NFTId,
-        memo: Option<Memo>,
-        weight_meter: &mut WeightMeter,
-        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo> {
-        Self::transfer_and_try_execute(
-            origin,
-            to,
-            AssetOrNft::Nft { asset_id, nft_id },
-            memo,
-            weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            bench_base_weight,
-        )
-    }
-
-    /// Creates a transfer instruction for fungible or non-fungible assets and attempts to execute it (if no pending affirmations).
-    fn transfer_and_try_execute(
-        origin: OriginFor<T>,
-        to: T::AccountId,
-        asset_or_nft: AssetOrNft,
-        memo: Option<Memo>,
-        weight_meter: &mut WeightMeter,
-        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
-    ) -> Result<Option<InstructionId>, DispatchErrorWithPostInfo>;
-
     /// Receiver affirms the transfer of fungible or non-fungible assets and attempts to execute it.
     fn receiver_affirm_transfer_and_try_execute(
         origin: OriginFor<T>,
@@ -101,18 +43,8 @@ pub trait SettlementFnTrait<T: Config> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo;
 
-    /// Get the transfer weight based on the type of asset.
-    fn transfer_weight(is_fungible: bool) -> Weight;
-
     /// Get the try execute weight based on the type of asset.
     fn try_execute_weight(is_fungible: bool) -> Weight;
-
-    /// Get the transfer and try execute weight based on the type of asset.
-    fn transfer_and_try_execute_weight_meter(base: Weight, is_fungible: bool) -> WeightMeter {
-        let minimum_charge = Self::transfer_weight(is_fungible).saturating_add(base);
-        let limit = minimum_charge.saturating_add(Self::try_execute_weight(is_fungible));
-        WeightMeter::from_limit_unchecked(minimum_charge, limit)
-    }
 
     /// Get the receiver affirm transfer weight based on the type of asset.
     fn receiver_affirm_transfer_weight(is_fungible: bool) -> Weight;
@@ -130,4 +62,21 @@ pub trait SettlementFnTrait<T: Config> {
 
     /// Get the reject transfer weight meter.
     fn reject_transfer_weight_meter(is_fungible: bool) -> WeightMeter;
+
+    /// Get the worst-case weight for `transfer_funds`.
+    ///
+    /// `from`: the source holder. `None` or `Account` → account paths,
+    /// `Portfolio` → portfolio paths. `fund` detects fungible vs NFT.
+    fn transfer_funds_weight(from: Option<&AssetHolder>, fund: &Fund) -> Weight;
+
+    /// Routes a transfer: same-identity direct, cross-identity settlement.
+    /// Returns the settlement instruction ID (None for same-identity).
+    fn transfer_funds(
+        origin: OriginFor<T>,
+        from: Option<AssetHolder>,
+        to: AssetHolder,
+        fund: Fund,
+        weight_meter: &mut WeightMeter,
+        #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
+    ) -> Result<Option<InstructionId>, DispatchError>;
 }

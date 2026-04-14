@@ -814,27 +814,6 @@ benchmarks! {
         .unwrap();
     }: _(RawOrigin::Root, asset_metadata_name, asset_metadata_spec)
 
-    transfer_asset_base_weight {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-
-        // Setup the transfer with worse case conditions.
-        // Don't move the assets from the default portfolio.
-        let (_sender_portfolio, _receiver_portfolio, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, false);
-    }: {
-        Pallet::<T>::base_transfer_asset(
-            alice.origin.into(),
-            asset_id,
-            bob.account(),
-            ONE_UNIT,
-            None,
-            // Only benchmark the base cost.
-            true,
-        )
-        .unwrap();
-    }
-
     receiver_affirm_asset_transfer_base_weight {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -845,12 +824,16 @@ benchmarks! {
             setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, true);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
-        let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
+        let to = AssetHolder::try_from(bob.account().encode()).unwrap();
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+        let instruction_id = T::SettlementFn::transfer_funds(
             alice.origin.into(),
-            bob.account(),
-            asset_id,
-            ONE_UNIT,
             None,
+            to,
+            fund,
             &mut weight_meter,
             false,
         ).expect("Transfer setup must work");
@@ -863,5 +846,22 @@ benchmarks! {
             true,
         )
         .expect("Receiver affirm must work");
+    }
+
+    approve {
+        let caller = UserBuilder::<T>::default().generate_did().build("Caller");
+        let spender = UserBuilder::<T>::default().generate_did().build("Spender");
+        let asset_id = create_sample_asset::<T>(&caller, true);
+        // Pre-insert an allowance to benchmark the overwrite path (worst case).
+        Allowances::<T>::insert(
+            (&caller.account(), &spender.account(), asset_id),
+            1000u128,
+        );
+    }: _(RawOrigin::Signed(caller.account()), asset_id, spender.account(), 500u128)
+    verify {
+        assert_eq!(
+            Allowances::<T>::get((&caller.account(), &spender.account(), asset_id)),
+            500u128
+        );
     }
 }

@@ -83,6 +83,20 @@ pub trait SubsidiserTrait<AccountId, RuntimeCall> {
     ) -> Result<Option<AccountId>, InvalidTransaction>;
 }
 
+pub trait PortfolioFnTrait {
+    /// Returns `Ok(())` if `custodian` has custody over the portfolio.
+    /// The portfolio owner is the default custodian when none is assigned.
+    fn ensure_portfolio_custody(
+        portfolio: &PortfolioId,
+        custodian: IdentityId,
+    ) -> Result<(), DispatchError>;
+}
+
+/// Supertrait config for pallets that need portfolio custody queries.
+pub trait PortfolioFnConfig: frame_system::Config {
+    type PortfolioFn: PortfolioFnTrait;
+}
+
 pub trait ComplianceFnConfig {
     /// Returns `true` if there are no requirements or if any requirement is satisfied.
     /// Otherwise, returns `false`.

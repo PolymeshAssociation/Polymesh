@@ -561,6 +561,10 @@ macro_rules! misc_pallet_impls {
             type AffirmationFn = pallet_settlement::Pallet<Runtime>;
         }
 
+        impl polymesh_primitives::traits::PortfolioFnConfig for Runtime {
+            type PortfolioFn = pallet_portfolio::Pallet<Runtime>;
+        }
+
         impl pallet_asset::checkpoint::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
         }
@@ -1479,6 +1483,14 @@ macro_rules! runtime_apis {
                         skip_locked_check,
                         &mut weight_meter
                     )
+                }
+
+                fn allowance(
+                    owner: polymesh_primitives::AccountId,
+                    spender: polymesh_primitives::AccountId,
+                    asset_id: AssetId,
+                ) -> Balance {
+                    pallet_asset::Allowances::<Runtime>::get((&owner, &spender, asset_id))
                 }
             }
 
