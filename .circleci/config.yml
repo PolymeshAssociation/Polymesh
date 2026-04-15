@@ -110,7 +110,7 @@ jobs:
           command: cp ./target/release/polymesh ./assets/polymesh
       - run:
           name: Copy eth-rpc binary to assets
-          command: cp ./target/release/eth-rpc ./assets/eth-rpc
+          command: cp ./target/release/eth-rpc ./assets/eth-rpc-amd64
       ## This has been commented out due to deterministic wasm build step added
       # - run:
       #     name: Copy wasm to assets

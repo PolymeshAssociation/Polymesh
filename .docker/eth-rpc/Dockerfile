@@ -1,5 +1,5 @@
 FROM debian:trixie-slim
-ARG ETH_RPC_BIN=eth-rpc
+ARG ETH_RPC_BIN=eth-rpc-amd64
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get upgrade -y && \
