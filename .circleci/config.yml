@@ -697,7 +697,7 @@ jobs:
       - checkout
       - setup_remote_docker
       - attach_workspace:
-          at: .
+          at: ./assets
       - run: |
           export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/eth-rpc/Dockerfile --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
@@ -712,7 +712,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: .
+          at: ./assets
       - run: |
           export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/eth-rpc/Dockerfile --build-arg ETH_RPC_BIN=eth-rpc-arm64 --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
