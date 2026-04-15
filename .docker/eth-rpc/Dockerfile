@@ -1,5 +1,5 @@
 FROM debian:trixie-slim
-ARG ETH_RPC_BIN=eth-rpc
+ARG ETH_RPC_BIN=eth-rpc-amd64
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get upgrade -y && \
@@ -11,7 +11,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get clean && \
     find /var/lib/apt/lists/ -type f -not -name lock -delete
 
-COPY ./assets/${ETH_RPC_BIN} /usr/local/bin/eth-rpc
+COPY ./${ETH_RPC_BIN} /usr/local/bin/eth-rpc
 
 USER root
 RUN useradd -m -u 4001 -U -s /bin/sh -d /home/polymesh polymesh && \

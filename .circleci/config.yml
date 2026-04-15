@@ -110,7 +110,7 @@ jobs:
           command: cp ./target/release/polymesh ./assets/polymesh
       - run:
           name: Copy eth-rpc binary to assets
-          command: cp ./target/release/eth-rpc ./assets/eth-rpc
+          command: cp ./target/release/eth-rpc ./assets/eth-rpc-amd64
       ## This has been commented out due to deterministic wasm build step added
       # - run:
       #     name: Copy wasm to assets
@@ -697,7 +697,7 @@ jobs:
       - checkout
       - setup_remote_docker
       - attach_workspace:
-          at: ./assets
+          at: .
       - run: |
           export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/eth-rpc/Dockerfile --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
@@ -712,7 +712,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ./assets
+          at: .
       - run: |
           export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
           docker build -f ./.docker/eth-rpc/Dockerfile --build-arg ETH_RPC_BIN=eth-rpc-arm64 --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
