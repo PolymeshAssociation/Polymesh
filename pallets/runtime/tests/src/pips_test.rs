@@ -331,8 +331,7 @@ fn active_limit_works() {
 
         // Remove limit completely, and let's add more.
         assert_ok!(Pips::set_active_pip_limit(root(), 0));
-        assert_ok!(community_proposal(proposer, 0));
-        assert_eq!(ActivePipCount::<TestStorage>::get(), 4);
+        assert_noop!(community_proposal(proposer, 0), Error::TooManyActivePips);
     })
 }
 
@@ -1659,7 +1658,7 @@ fn snapshot_works() {
         let snapshot = || Pips::snapshot(member.origin(), 1000);
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_active_pip_limit(root(), 0));
+        assert_ok!(Pips::set_active_pip_limit(root(), 6));
 
         propose(0); // 0
         assert_ok!(vote(0, true, 100));
@@ -2004,7 +2003,7 @@ fn live_queue_off_by_one_insertion_regression_test2() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_active_pip_limit(root(), 0));
+        assert_ok!(Pips::set_active_pip_limit(root(), 3));
 
         let proposer = User::new(Sr25519Keyring::Alice);
         let voter = User::new(Sr25519Keyring::Bob);

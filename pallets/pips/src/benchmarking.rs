@@ -369,6 +369,7 @@ benchmarks! {
         // The number of Skip results.
         let s in 0..PROPOSALS_NUM / 3;
 
+        Pallet::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
         Pallet::<T>::set_max_pip_skip_count(RawOrigin::Root.into(), MAX_SKIPPED_COUNT).unwrap();
         vote_setup::<T>(PROPOSALS_NUM, T::MaxRefundsAndVotesPruned::get());
 

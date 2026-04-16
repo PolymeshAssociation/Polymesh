@@ -736,10 +736,9 @@ pub mod pallet {
             if let Proposer::Community(ref proposer) = proposer {
                 // ...but first make sure active PIP limit isn't crossed.
                 // This doesn't apply to committee PIPs.
-                // `0` is special and denotes no limit.
                 let limit = ActivePipLimit::<T>::get();
                 ensure!(
-                    limit == 0 || ActivePipCount::<T>::get() < limit,
+                    ActivePipCount::<T>::get() < limit,
                     Error::<T>::TooManyActivePips
                 );
 
