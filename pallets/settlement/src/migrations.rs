@@ -1,4 +1,6 @@
 use frame_support::pallet_prelude::*;
+use frame_support::storage::migration::move_prefix;
+use frame_support::StoragePrefixedMap;
 
 use polymesh_primitives::asset::AssetHolder;
 use polymesh_primitives::settlement::Leg;
@@ -56,7 +58,7 @@ pub mod v3 {
     }
 
     #[frame_support::storage_alias]
-    pub type AffirmsReceived<T: Config> = StorageDoubleMap<
+    pub type OldAffirmsReceived<T: Config> = StorageDoubleMap<
         Pallet<T>,
         Twox64Concat,
         InstructionId,
@@ -67,7 +69,7 @@ pub mod v3 {
     >;
 
     #[frame_support::storage_alias]
-    pub type UserAffirmations<T: Config> = StorageDoubleMap<
+    pub type OldUserAffirmations<T: Config> = StorageDoubleMap<
         Pallet<T>,
         Twox64Concat,
         PortfolioId,
@@ -78,7 +80,7 @@ pub mod v3 {
     >;
 
     #[frame_support::storage_alias]
-    pub type InstructionLegs<T: Config> = StorageDoubleMap<
+    pub type OldInstructionLegs<T: Config> = StorageDoubleMap<
         Pallet<T>,
         Twox64Concat,
         InstructionId,
@@ -92,7 +94,12 @@ pub mod v3 {
 pub fn migrate_affirms_received<T: Config>() -> Weight {
     let mut count = 0;
 
-    for (instruction_id, portfolio_id, status) in v3::AffirmsReceived::<T>::drain() {
+    move_prefix(
+        &crate::AffirmsReceived::<T>::final_prefix(),
+        &v3::OldAffirmsReceived::<T>::final_prefix(),
+    );
+
+    for (instruction_id, portfolio_id, status) in v3::OldAffirmsReceived::<T>::drain() {
         crate::AffirmsReceived::<T>::insert(
             instruction_id,
             AssetHolder::from(portfolio_id),
@@ -107,7 +114,12 @@ pub fn migrate_affirms_received<T: Config>() -> Weight {
 pub fn migrate_user_affirmations<T: Config>() -> Weight {
     let mut count = 0;
 
-    for (portfolio_id, instruction_id, status) in v3::UserAffirmations::<T>::drain() {
+    move_prefix(
+        &crate::UserAffirmations::<T>::final_prefix(),
+        &v3::OldUserAffirmations::<T>::final_prefix(),
+    );
+
+    for (portfolio_id, instruction_id, status) in v3::OldUserAffirmations::<T>::drain() {
         crate::UserAffirmations::<T>::insert(
             AssetHolder::from(portfolio_id),
             instruction_id,
@@ -124,7 +136,12 @@ pub fn migrate_user_affirmations<T: Config>() -> Weight {
 pub fn migrate_instruction_legs<T: Config>() -> Weight {
     let mut count = 0;
 
-    for (instruction_id, leg_id, leg) in v3::InstructionLegs::<T>::drain() {
+    move_prefix(
+        &crate::InstructionLegs::<T>::final_prefix(),
+        &v3::OldInstructionLegs::<T>::final_prefix(),
+    );
+
+    for (instruction_id, leg_id, leg) in v3::OldInstructionLegs::<T>::drain() {
         crate::InstructionLegs::<T>::insert(instruction_id, leg_id, Leg::from(leg));
         count += 1;
     }

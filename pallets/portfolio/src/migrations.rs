@@ -1,4 +1,6 @@
 use frame_support::pallet_prelude::*;
+use frame_support::storage::migration::move_prefix;
+use frame_support::StoragePrefixedMap;
 
 use crate::Config;
 
@@ -13,7 +15,7 @@ pub mod v3 {
 
     /// The nft associated to the portfolio.
     #[frame_support::storage_alias]
-    pub type PortfolioNFT<T: Config> = StorageDoubleMap<
+    pub type OldPortfolioNFT<T: Config> = StorageDoubleMap<
         Pallet<T>,
         Twox64Concat,
         PortfolioId,
@@ -28,15 +30,15 @@ pub fn migrate_to_v4<T: Config>() -> Weight {
     let mut writes: u64 = 0;
     let mut reads: u64 = 0;
 
-    let old_entries: sp_std::vec::Vec<_> =
-        crate::migrations::v3::PortfolioNFT::<T>::drain().collect();
+    move_prefix(
+        &crate::PortfolioNFT::<T>::final_prefix(),
+        &v3::OldPortfolioNFT::<T>::final_prefix(),
+    );
 
-    reads += old_entries.len() as u64;
-    writes += old_entries.len() as u64;
-
-    for (portfolio_id, (asset_id, nft_id), value) in old_entries {
+    for (portfolio_id, (asset_id, nft_id), value) in v3::OldPortfolioNFT::<T>::drain() {
         crate::PortfolioNFT::<T>::insert((portfolio_id, asset_id, nft_id), value);
-        writes += 1;
+        writes += 2;
+        reads += 1;
     }
 
     log::info!("PortfolioNFT storage migrated: {} itens", reads);
