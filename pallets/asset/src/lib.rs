@@ -119,7 +119,7 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::constants::*;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::settlement::{AssetCount, InstructionId};
 use polymesh_primitives::traits::{
     AffirmationFnTrait, AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait,
     SettlementFnTrait,
@@ -1666,9 +1666,9 @@ pub mod pallet {
         /// * `MissingIdentity` - The caller doesn't have an identity.
         #[pallet::call_index(34)]
         #[pallet::weight(
-            <T as Config>::SettlementFn::transfer_funds_weight(
+            <T as Config>::SettlementFn::transfer_funds_weight_limit(
                 None,
-                &Fund { description: FundDescription::Fungible { asset_id: *asset_id, amount: *amount }, memo: None },
+                &Fund { description: FundDescription::Fungible { asset_id: *asset_id, amount: *amount }, memo: memo.clone() },
             )
         )]
         pub fn transfer_asset(
@@ -1711,7 +1711,7 @@ pub mod pallet {
         /// * `UnknownInstruction` - If the instruction associated to the given transfer ID does not exist.
         /// * `InvalidTransfer` - If the transfer validation check fails.
         #[pallet::call_index(35)]
-        #[pallet::weight(<T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), true).limit())]
+        #[pallet::weight(<T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), AssetCount::new(1, 0, 0)).limit())]
         pub fn receiver_affirm_asset_transfer(
             origin: OriginFor<T>,
             transfer_id: InstructionId,
@@ -1743,7 +1743,7 @@ pub mod pallet {
         /// # Errors
         /// * `InvalidInstructionStatusForRejection` - Either the instruction doesn't exist or it has already been executed or rejected.
         #[pallet::call_index(36)]
-        #[pallet::weight(<T as Config>::SettlementFn::reject_transfer_weight_meter(true).limit())]
+        #[pallet::weight(<T as Config>::SettlementFn::reject_transfer_weight_meter(AssetCount::new(1, 0, 0)).limit())]
         pub fn reject_asset_transfer(
             origin: OriginFor<T>,
             transfer_id: InstructionId,
@@ -1945,6 +1945,7 @@ pub mod pallet {
         fn update_global_metadata_spec() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
         fn approve() -> Weight;
+        fn spend_allowance() -> Weight;
     }
 }
 
@@ -2836,8 +2837,9 @@ impl<T: AssetConfig> Pallet<T> {
             memo: memo.clone(),
         };
 
-        let mut weight_meter = WeightMeter::max_limit(
-            <T as Config>::SettlementFn::transfer_funds_weight(None, &fund),
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            Weight::zero(),
+            <T as Config>::SettlementFn::transfer_funds_weight_limit(None, &fund),
         );
 
         let instruction_id = T::SettlementFn::transfer_funds(
@@ -2867,17 +2869,18 @@ impl<T: AssetConfig> Pallet<T> {
         transfer_id: InstructionId,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
+        let asset_count = AssetCount::new(1, 0, 0);
         let mut weight_meter =
             <T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(
                 <T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(),
-                true,
+                asset_count,
             );
 
         // Affirm the transfer as the receiver and execute it.
         T::SettlementFn::receiver_affirm_transfer_and_try_execute(
             origin,
             transfer_id,
-            true,
+            asset_count,
             &mut weight_meter,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
@@ -2890,10 +2893,12 @@ impl<T: AssetConfig> Pallet<T> {
         origin: T::RuntimeOrigin,
         transfer_id: InstructionId,
     ) -> DispatchResultWithPostInfo {
-        let mut weight_meter = <T as Config>::SettlementFn::reject_transfer_weight_meter(true);
+        let asset_count = AssetCount::new(1, 0, 0);
+        let mut weight_meter =
+            <T as Config>::SettlementFn::reject_transfer_weight_meter(asset_count);
 
         // Reject the transfer.
-        T::SettlementFn::reject_transfer(origin, transfer_id, true, &mut weight_meter)?;
+        T::SettlementFn::reject_transfer(origin, transfer_id, asset_count, &mut weight_meter)?;
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
@@ -4200,6 +4205,10 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn generate_asset_id(caller_acc: T::AccountId) -> AssetId {
         Self::generate_asset_id(caller_acc, false)
+    }
+
+    fn spend_allowance_weight() -> Weight {
+        <T as Config>::WeightInfo::spend_allowance()
     }
 
     #[cfg(feature = "runtime-benchmarks")]
