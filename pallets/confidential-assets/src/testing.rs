@@ -27,14 +27,14 @@ pub(crate) const TICKER_SEED: u32 = 10_000_000;
 pub(crate) const AUDITOR_SEED: u32 = 10_000;
 
 pub fn generate<T: Config>(req: GenerateDartProofRequest) -> GenerateDartProofResponse {
-    let batch_id = Pallet::<T>::batch_id().expect("Batch ID not set");
-    req.submit_and_wait(batch_id)
+    let session_id = Pallet::<T>::session_id().expect("Session ID not set");
+    req.submit_and_wait(session_id)
         .expect("Failed to generate proof")
 }
 
 // Make sure the pallet is initialized.
 pub fn init_block<T: Config>() {
-    if Pallet::<T>::batch_id().is_err() {
+    if Pallet::<T>::session_id().is_err() {
         Pallet::<T>::init_block();
     }
 }

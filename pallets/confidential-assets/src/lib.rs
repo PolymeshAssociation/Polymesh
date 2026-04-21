@@ -55,7 +55,7 @@ use polymesh_dart::{
     FEE_ACCOUNT_TREE_HEIGHT, FEE_ASSET_ID,
 };
 
-use polymesh_worker_extension::{native_polymesh_worker, BackendKind, WorkerSessionId as BatchId};
+use polymesh_worker_extension::{native_polymesh_worker, BackendKind, WorkerSessionId};
 use polymesh_worker_protocol_dart_v0::{
     UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
 };
@@ -627,8 +627,8 @@ pub mod pallet {
         SettlementNotRejected,
         /// CurveTree parameters not set.
         CurveTreeParametersNotSet,
-        /// No current batch.
-        NoCurrentBatch,
+        /// No current worker session.
+        NoCurrentWorkerSession,
         /// Confidential assets require at least one mediator or auditor.
         NoAuditorsOrMediators,
         /// Not the last pending affirmation for the settlement.
@@ -958,9 +958,10 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// The BatchId for the current block.
+    /// The WorkerSessionId for the current block.
     #[pallet::storage]
-    pub(crate) type CurrentBatchId<T: Config> = StorageValue<_, BatchId, OptionQuery>;
+    pub(crate) type CurrentWorkerSessionId<T: Config> =
+        StorageValue<_, WorkerSessionId, OptionQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -2582,12 +2583,11 @@ impl<T: Config> Pallet<T> {
 
     pub fn init_block() -> Weight {
         // Start worker session.
-        let batch_id = {
-            let backends = BackendKind::all_mask();
-            native_polymesh_worker::start_session(0, backends, DART_PROTOCOL.to_number())
-        };
+        let backends = BackendKind::all_mask();
+        let session_id =
+            native_polymesh_worker::start_session(0, backends, DART_PROTOCOL.to_number());
 
-        CurrentBatchId::<T>::put(batch_id);
+        CurrentWorkerSessionId::<T>::put(session_id);
 
         // TODO: add missing writes to weight.
         <T as Config>::WeightInfo::on_init()
@@ -2598,19 +2598,19 @@ impl<T: Config> Pallet<T> {
         Self::update_fee_account_curve_tree_root();
 
         // Close the batch.
-        if let Some(batch_id) = CurrentBatchId::<T>::take() {
-            native_polymesh_worker::end_session(batch_id);
+        if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
+            native_polymesh_worker::end_session(session_id);
         }
     }
 
     pub fn submit_and_wait(req: VerifyDartAssetRequest) -> DispatchResult {
-        req.submit_and_wait(Self::batch_id()?)
+        req.submit_and_wait(Self::session_id()?)
             .map_err(|_| Error::<T>::InvalidProof)?;
         Ok(())
     }
 
-    pub fn batch_id() -> Result<BatchId, DispatchError> {
-        CurrentBatchId::<T>::get().ok_or(Error::<T>::NoCurrentBatch.into())
+    pub fn session_id() -> Result<WorkerSessionId, DispatchError> {
+        CurrentWorkerSessionId::<T>::get().ok_or(Error::<T>::NoCurrentWorkerSession.into())
     }
 
     /// Transfer funds to the fee account.
