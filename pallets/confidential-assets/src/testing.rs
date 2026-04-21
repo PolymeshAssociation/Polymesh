@@ -17,10 +17,7 @@ use polymesh_dart::{
     SettlementBuilder, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M,
     FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
-#[cfg(not(feature = "worker_extension"))]
-use polymesh_dart_host_functions::{GenerateDartProofRequest, GenerateDartProofResponse};
 use polymesh_primitives::erc20::{Name, Symbol};
-#[cfg(feature = "worker_extension")]
 use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
 
 use crate::*;
@@ -42,19 +39,6 @@ pub fn init_block<T: Config>() {
     }
 }
 
-#[cfg(not(feature = "worker_extension"))]
-pub fn set_skip_verify<T: Config>(skip: bool) {
-    #[cfg(feature = "std")]
-    {
-        polymesh_dart_host_functions::batch::BatchVerifiers::set_skip_verify(skip)
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        polymesh_dart_host_functions::native_dart_assets::set_skip_verify(skip)
-    }
-}
-
-#[cfg(feature = "worker_extension")]
 pub fn set_skip_verify<T: Config>(_skip: bool) {
     // TODO: Implement skip verify for worker extension.
 }

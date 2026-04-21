@@ -55,13 +55,7 @@ use polymesh_dart::{
     FEE_ACCOUNT_TREE_HEIGHT, FEE_ASSET_ID,
 };
 
-#[cfg(not(feature = "worker_extension"))]
-use polymesh_dart_host_functions::{
-    native_dart_assets, BatchId, UpdateAssetStateRequest, VerifyDartAssetRequest,
-};
-#[cfg(feature = "worker_extension")]
 use polymesh_worker_extension::{native_polymesh_worker, BackendKind, WorkerSessionId as BatchId};
-#[cfg(feature = "worker_extension")]
 use polymesh_worker_protocol_dart_v0::{
     UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
 };
@@ -2587,12 +2581,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn init_block() -> Weight {
-        // Create a new batch for the block, with caching enabled and thread pool disabled.
-        #[cfg(not(feature = "worker_extension"))]
-        let batch_id = native_dart_assets::create_batch(true, false);
-
         // Start worker session.
-        #[cfg(feature = "worker_extension")]
         let batch_id = {
             let backends = BackendKind::all_mask();
             native_polymesh_worker::start_session(0, backends, DART_PROTOCOL.to_number())
@@ -2610,9 +2599,6 @@ impl<T: Config> Pallet<T> {
 
         // Close the batch.
         if let Some(batch_id) = CurrentBatchId::<T>::take() {
-            #[cfg(not(feature = "worker_extension"))]
-            native_dart_assets::batch_close(batch_id);
-            #[cfg(feature = "worker_extension")]
             native_polymesh_worker::end_session(batch_id);
         }
     }

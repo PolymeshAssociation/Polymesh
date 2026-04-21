@@ -127,7 +127,6 @@ impl<Api> RuntimeApiCollection for Api where
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     polymesh_worker_extension::native_polymesh_worker::HostFunctions,
-    polymesh_dart_host_functions::native_dart_assets::HostFunctions,
     polymesh_native_msm::MSMHostFunctions,
 );
 
@@ -138,7 +137,6 @@ pub type HostFunctions = (
     frame_benchmarking::benchmarking::HostFunctions,
     polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
     polymesh_worker_extension::native_polymesh_worker::HostFunctions,
-    polymesh_dart_host_functions::native_dart_assets::HostFunctions,
     polymesh_native_msm::MSMHostFunctions,
 );
 

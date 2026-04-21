@@ -8646,7 +8646,6 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-dart",
- "polymesh-dart-host-functions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-worker-extension",
@@ -10620,7 +10619,6 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-contracts",
- "polymesh-dart-host-functions",
  "polymesh-native-msm",
  "polymesh-node-rpc",
  "polymesh-primitives",
@@ -10787,30 +10785,6 @@ dependencies = [
 name = "polymesh-dart-common"
 version = "0.1.0"
 source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
-
-[[package]]
-name = "polymesh-dart-host-functions"
-version = "0.1.0"
-dependencies = [
- "ark-ec 0.5.0",
- "crossbeam",
- "lazy_static",
- "log",
- "parity-scale-codec",
- "polymesh-dart",
- "polymesh-dart-common",
- "polymesh-primitives",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "rayon",
- "scale-info",
- "sp-core",
- "sp-externalities",
- "sp-io",
- "sp-runtime-interface",
- "sp-std",
-]
 
 [[package]]
 name = "polymesh-exec-macro"

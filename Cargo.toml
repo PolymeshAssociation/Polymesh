@@ -89,7 +89,6 @@ members = [
     "pallets/committee",
     "pallets/compliance-manager",
     "pallets/confidential-assets",
-    "pallets/confidential-assets/host-functions",
     "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
@@ -158,7 +157,6 @@ pallet-base = { path = "pallets/base", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-compliance-manager = { path = "pallets/compliance-manager", default-features = false }
 pallet-confidential-assets = { path = "pallets/confidential-assets", default-features = false }
-polymesh-dart-host-functions = { path = "pallets/confidential-assets/host-functions/", default-features = false }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-external-agents = { path = "pallets/external-agents", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
@@ -353,7 +351,6 @@ ark-std = { version = "0.5", default-features = false }
 pallet-asset = { workspace = true }
 pallet-committee = { workspace = true, default-features = false }
 pallet-confidential-assets = { workspace = true, default-features = false }
-polymesh-dart-host-functions = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
@@ -504,7 +501,6 @@ runtime-benchmarks = [
     "polymesh-runtime-develop/runtime-benchmarks",
     "polymesh-runtime-testnet/runtime-benchmarks",
     "polymesh-runtime-mainnet/runtime-benchmarks",
-    "polymesh-dart-host-functions/runtime-benchmarks",
     "polymesh-worker-extension/runtime-benchmarks",
     "polymesh-worker/testing",
 ]
@@ -530,7 +526,6 @@ worker_wasmtime = [
 ]
 
 std = [
-    "polymesh-dart-host-functions/std",
     "serde/std",
     "polymesh-native-msm/std",
     "polymesh-worker/std",

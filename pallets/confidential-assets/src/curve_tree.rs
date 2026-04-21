@@ -9,9 +9,6 @@ use polymesh_dart::{
     ASSET_TREE_HEIGHT, ASSET_TREE_L, ASSET_TREE_M, FEE_ACCOUNT_TREE_HEIGHT, FEE_ACCOUNT_TREE_L,
     FEE_ACCOUNT_TREE_M,
 };
-#[cfg(not(feature = "worker_extension"))]
-use polymesh_dart_host_functions::HostCurveTreeUpdater;
-#[cfg(feature = "worker_extension")]
 use polymesh_worker_protocol_dart_v0::HostCurveTreeUpdater;
 
 #[cfg(feature = "std")]
