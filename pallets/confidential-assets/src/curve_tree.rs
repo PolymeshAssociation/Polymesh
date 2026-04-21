@@ -9,7 +9,7 @@ use polymesh_dart::{
     ASSET_TREE_HEIGHT, ASSET_TREE_L, ASSET_TREE_M, FEE_ACCOUNT_TREE_HEIGHT, FEE_ACCOUNT_TREE_L,
     FEE_ACCOUNT_TREE_M,
 };
-use polymesh_worker_protocol_dart_v0::HostCurveTreeUpdater;
+use polymesh_worker_protocol_dart_v0::{GetSessionId, HostCurveTreeUpdater};
 
 #[cfg(feature = "std")]
 use polymesh_dart::curve_tree::CurveTreeConfig;
@@ -44,6 +44,12 @@ lazy_static::lazy_static! {
 static mut ASSET_CURVE_TREE_PARAMETERS: Option<CurveTreeParameters<AssetTreeConfig>> = None;
 #[cfg(not(feature = "std"))]
 static mut ACCOUNT_CURVE_TREE_PARAMETERS: Option<CurveTreeParameters<AccountTreeConfig>> = None;
+
+impl<T: Config> GetSessionId for Pallet<T> {
+    fn session_id(&self) -> Option<WorkerSessionId> {
+        Pallet::<T>::session_id().ok()
+    }
+}
 
 impl<T: Config> Pallet<T> {
     #[cfg(feature = "std")]
@@ -108,7 +114,7 @@ impl<T: Config> CurveTreeBackend<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
     for AssetCurveTreeStorage<T>
 {
     type Error = Error<T>;
-    type Updater = HostCurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>;
+    type Updater = HostCurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig, Pallet<T>>;
 
     fn new(_height: NodeLevel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -239,7 +245,8 @@ impl<T: Config> CurveTreeBackend<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConf
     for AccountCurveTreeStorage<T>
 {
     type Error = Error<T>;
-    type Updater = HostCurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>;
+    type Updater =
+        HostCurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig, Pallet<T>>;
 
     fn new(_height: NodeLevel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -386,8 +393,12 @@ impl<T: Config> CurveTreeBackend<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAcco
     for FeeAccountCurveTreeStorage<T>
 {
     type Error = Error<T>;
-    type Updater =
-        HostCurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>;
+    type Updater = HostCurveTreeUpdater<
+        FEE_ACCOUNT_TREE_L,
+        FEE_ACCOUNT_TREE_M,
+        FeeAccountTreeConfig,
+        Pallet<T>,
+    >;
 
     fn new(_height: NodeLevel) -> Result<Self, Self::Error> {
         Ok(Self {

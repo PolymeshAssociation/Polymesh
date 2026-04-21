@@ -2,18 +2,16 @@ use core::marker::PhantomData;
 
 use codec::{Decode, Encode};
 
-#[cfg(not(feature = "impl_protocol"))]
-use polymesh_dart::Error as DartError;
 use polymesh_dart::{
     ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M, ChildIndex, CompressedAffine,
-    FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
+    Error as DartError, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
     curve_tree::{AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig},
     curve_tree::{
         CompressedChildCommitments, CompressedInner, CompressedXCoords, CurveTreeConfig,
         CurveTreeUpdater, DefaultCurveTreeUpdater,
     },
 };
-use polymesh_worker_common::ProtocolError;
+use polymesh_worker_common::{ProtocolError, WorkerSessionId};
 
 use crate::Error;
 
@@ -59,19 +57,35 @@ impl<const M: usize> Default for UpdateTreeNodeResult<M> {
     }
 }
 
-#[cfg(feature = "impl_protocol")]
-pub type HostCurveTreeUpdater<const L: usize, const M: usize, C> = DefaultCurveTreeUpdater<L, M, C>;
+pub trait GetSessionId {
+    fn session_id(&self) -> Option<WorkerSessionId>;
+}
 
 /// Curve tree updater that helps updating the tree root when a leaf is added or updated.
 #[derive(Clone, Encode, Decode)]
-#[cfg(not(feature = "impl_protocol"))]
-pub struct HostCurveTreeUpdater<const L: usize, const M: usize, C: CurveTreeConfig> {
-    _marker: PhantomData<C>,
+pub struct HostCurveTreeUpdater<const L: usize, const M: usize, C: CurveTreeConfig, S: GetSessionId>
+{
+    _marker: PhantomData<(C, S)>,
+}
+
+#[cfg(feature = "impl_protocol")]
+impl<const L: usize, const M: usize, C: CurveTreeConfig, S: GetSessionId> CurveTreeUpdater<L, M, C>
+    for HostCurveTreeUpdater<L, M, C, S>
+{
+    fn update_node(
+        inner: &mut CompressedInner<M, C>,
+        child_index: ChildIndex,
+        old_child: Option<CompressedChildCommitments<M>>,
+        new_child: CompressedChildCommitments<M>,
+    ) -> Result<CompressedXCoords<M>, DartError> {
+        DefaultCurveTreeUpdater::<L, M, C>::update_node(inner, child_index, old_child, new_child)
+            .map_err(|_| DartError::CurveTreeUpdateError)
+    }
 }
 
 #[cfg(not(feature = "impl_protocol"))]
-impl CurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
-    for HostCurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
+impl<S: GetSessionId> CurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
+    for HostCurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig, S>
 {
     fn update_node(
         inner: &mut CompressedInner<ASSET_TREE_M, AssetTreeConfig>,
@@ -101,8 +115,8 @@ impl CurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
 }
 
 #[cfg(not(feature = "impl_protocol"))]
-impl CurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
-    for HostCurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
+impl<S: GetSessionId> CurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
+    for HostCurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig, S>
 {
     fn update_node(
         inner: &mut CompressedInner<ACCOUNT_TREE_M, AccountTreeConfig>,
@@ -132,8 +146,8 @@ impl CurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>
 }
 
 #[cfg(not(feature = "impl_protocol"))]
-impl CurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>
-    for HostCurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>
+impl<S: GetSessionId> CurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>
+    for HostCurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig, S>
 {
     fn update_node(
         inner: &mut CompressedInner<FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>,

@@ -4,7 +4,7 @@ use polymesh_dart::{
     AssetState, CompressedAffine,
     curve_tree::{AssetTreeConfig, CompressedLeafValue},
 };
-use polymesh_worker_common::ProtocolError;
+use polymesh_worker_common::{ProtocolError, WorkerSessionId};
 
 use crate::Error;
 
@@ -33,16 +33,22 @@ impl UpdateAssetStateRequest {
 
 #[cfg(feature = "impl_protocol")]
 impl UpdateAssetStateRequest {
-    pub fn update(self) -> Result<UpdateAssetStateResult, ProtocolError> {
+    pub fn update(
+        self,
+        _session_id: WorkerSessionId,
+    ) -> Result<UpdateAssetStateResult, ProtocolError> {
         self.do_update()
     }
 }
 
 #[cfg(not(feature = "impl_protocol"))]
 impl UpdateAssetStateRequest {
-    pub fn update(self) -> Result<UpdateAssetStateResult, ProtocolError> {
+    pub fn update(
+        self,
+        session_id: WorkerSessionId,
+    ) -> Result<UpdateAssetStateResult, ProtocolError> {
         let req = crate::DartWorkRequest::UpdateAssetState(self);
-        match req.execute()? {
+        match req.session_execute_and_wait(session_id)? {
             crate::DartWorkResponse::UpdateAssetState(res) => Ok(res),
             _ => Err(ProtocolError::UnexpectedResponse),
         }

@@ -64,7 +64,7 @@ use polymesh_worker_common::pack_fat_pointer;
 
 use polymesh_worker_common::{
     PROTOCOL_PDART, Protocol, ProtocolError, ProtocolVersion, WorkRequest, WorkResponse,
-    WorkResponseResult,
+    WorkResponseResult, WorkerSessionId,
 };
 
 #[cfg(feature = "native")]
@@ -162,6 +162,13 @@ impl DartWorkRequest {
     pub fn execute(self) -> Result<DartWorkResponse, ProtocolError> {
         self.do_execute()
     }
+
+    pub fn session_execute_and_wait(
+        self,
+        _session_id: WorkerSessionId,
+    ) -> Result<DartWorkResponse, ProtocolError> {
+        self.do_execute()
+    }
 }
 
 #[cfg(not(feature = "impl_protocol"))]
@@ -173,6 +180,31 @@ impl DartWorkRequest {
         let backends = BackendKind::all_mask();
 
         match native_polymesh_worker::execute_request(PROTOCOL.to_number(), backends, req.0) {
+            Ok(Ok(resp)) => Ok(resp.decode()?),
+            Ok(Err(err)) => {
+                // This is a protocol error (i.e. invalid proof).
+                Err(err)
+            }
+            Err(err) => {
+                // Fallback to runtime execution if the host execution fails, to allow older nodes to continue syncing.
+                log::info!(
+                    "Host failed to execute work, falling back to runtime execution: {:?}",
+                    err
+                );
+                self.do_execute()
+            }
+        }
+    }
+
+    pub fn session_execute_and_wait(
+        self,
+        session_id: WorkerSessionId,
+    ) -> Result<DartWorkResponse, ProtocolError> {
+        use polymesh_worker_extension::*;
+
+        let req = WorkRequest::new(&self);
+
+        match native_polymesh_worker::session_execute_request_and_wait(session_id, 0, req.0) {
             Ok(Ok(resp)) => Ok(resp.decode()?),
             Ok(Err(err)) => {
                 // This is a protocol error (i.e. invalid proof).

@@ -512,24 +512,30 @@ impl GenerateDartProofRequest {
 
     pub fn submit_and_wait(
         self,
-        _session_id: WorkerSessionId,
+        session_id: WorkerSessionId,
     ) -> Result<GenerateDartProofResponse, ProtocolError> {
-        self.generate()
+        self.generate(session_id)
     }
 }
 
 #[cfg(feature = "impl_protocol")]
 impl GenerateDartProofRequest {
-    pub fn generate(self) -> Result<GenerateDartProofResponse, ProtocolError> {
+    pub fn generate(
+        self,
+        _session_id: WorkerSessionId,
+    ) -> Result<GenerateDartProofResponse, ProtocolError> {
         self.do_generate()
     }
 }
 
 #[cfg(not(feature = "impl_protocol"))]
 impl GenerateDartProofRequest {
-    pub fn generate(self) -> Result<GenerateDartProofResponse, ProtocolError> {
+    pub fn generate(
+        self,
+        session_id: WorkerSessionId,
+    ) -> Result<GenerateDartProofResponse, ProtocolError> {
         let req = crate::DartWorkRequest::GenerateProof(self);
-        match req.execute()? {
+        match req.session_execute_and_wait(session_id)? {
             crate::DartWorkResponse::GenerateProof(res) => Ok(res),
             _ => Err(ProtocolError::UnexpectedResponse),
         }

@@ -109,21 +109,22 @@ pub trait NativePolymeshWorker {
     fn session_execute_request(
         &mut self,
         session_id: WorkerSessionId,
+        flags: WorkerConfigFlags,
         request: PassFatPointerAndRead<Vec<u8>>,
     ) -> WorkStatusFlagsAndId {
         let ext = PolymeshWorkerExt::new();
-        ext.session_execute_request(session_id, request)
+        ext.session_execute_request(session_id, flags, request)
     }
 
     /// Execute work request in the give session and wait for the results.
     fn session_execute_request_and_wait(
         &mut self,
         session_id: WorkerSessionId,
-        use_cache: bool,
+        flags: WorkerConfigFlags,
         request: PassFatPointerAndRead<Vec<u8>>,
     ) -> AllocateAndReturnByCodec<Result<WorkResponseResult, WorkerError>> {
         let ext = PolymeshWorkerExt::new();
-        ext.session_execute_request_and_wait(session_id, use_cache, request)
+        ext.session_execute_request_and_wait(session_id, flags, request)
     }
 
     /// Push the work result for the given session id and request id.

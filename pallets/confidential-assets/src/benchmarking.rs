@@ -100,7 +100,7 @@ benchmarks! {
             did: user.did().into(),
         };
 
-        let proof = if let Ok(GenerateDartProofResponse::AccountRegistration { proof }) = req.generate() {
+        let proof = if let Ok(GenerateDartProofResponse::AccountRegistration { proof }) = req.generate(Pallet::<T>::session_id()?) {
             proof
         } else {
             panic!("Failed to generate account registration proof");
@@ -127,7 +127,7 @@ benchmarks! {
             did: user.did().into(),
         };
 
-        let proof = if let Ok(GenerateDartProofResponse::EncryptionKeyRegistration { proof }) = req.generate() {
+        let proof = if let Ok(GenerateDartProofResponse::EncryptionKeyRegistration { proof }) = req.generate(Pallet::<T>::session_id()?) {
             proof
         } else {
             panic!("Failed to generate encryption key registration proof");
@@ -156,7 +156,7 @@ benchmarks! {
             did: user.did().into(),
         };
 
-        let proof = if let Ok(GenerateDartProofResponse::BatchedFeeAccountRegistration { proof, .. }) = req.generate() {
+        let proof = if let Ok(GenerateDartProofResponse::BatchedFeeAccountRegistration { proof, .. }) = req.generate(Pallet::<T>::session_id()?) {
             proof
         } else {
             panic!("Failed to generate fee account registration proofs");
@@ -229,7 +229,7 @@ benchmarks! {
             did: user.did().into(),
         };
 
-        let proof = if let Ok(GenerateDartProofResponse::BatchedAccountAssetRegistration { proof, .. }) = req.generate() {
+        let proof = if let Ok(GenerateDartProofResponse::BatchedAccountAssetRegistration { proof, .. }) = req.generate(Pallet::<T>::session_id()?) {
             proof
         } else {
             panic!("Failed to generate account asset registration proofs");
@@ -307,7 +307,7 @@ benchmarks! {
                 did: user.did().into(),
             };
 
-            if let Ok(GenerateDartProofResponse::BatchedFeeAccountTopup { proof, .. }) = req.generate() {
+            if let Ok(GenerateDartProofResponse::BatchedFeeAccountTopup { proof, .. }) = req.generate(Pallet::<T>::session_id()?) {
                 proof
             } else {
                 panic!("Failed to generate fee account topup proofs");
@@ -358,7 +358,7 @@ benchmarks! {
             account_state,
         };
 
-        let proof = if let Ok(GenerateDartProofResponse::FeeAccountPayment { proof, .. }) = req.generate() {
+        let proof = if let Ok(GenerateDartProofResponse::FeeAccountPayment { proof, .. }) = req.generate(Pallet::<T>::session_id()?) {
             proof
         } else {
             panic!("Failed to generate fee account payment proof");
@@ -433,7 +433,7 @@ benchmarks! {
             paths: MultiLeafPathAndRoot::from_paths(paths).expect("Failed to create MultiLeafPathAndRoot"),
             settlement,
         };
-        let proof = if let Ok(GenerateDartProofResponse::CreateSettlement { proof }) = req.generate() {
+        let proof = if let Ok(GenerateDartProofResponse::CreateSettlement { proof }) = req.generate(Pallet::<T>::session_id()?) {
             proof
         } else {
             panic!("Failed to generate create settlement proof");

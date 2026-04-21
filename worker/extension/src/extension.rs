@@ -101,11 +101,13 @@ impl PolymeshWorkerExt {
     pub fn session_execute_request(
         &self,
         session_id: WorkerSessionId,
+        flags: WorkerConfigFlags,
         work_req: Vec<u8>,
     ) -> WorkStatusFlagsAndId {
-        let (request_id, status) = self
-            .0
-            .session_execute_request(session_id, WorkRequest(work_req));
+        let config = WorkRequestConfig::new(flags);
+        let (request_id, status) =
+            self.0
+                .session_execute_request(session_id, config, WorkRequest(work_req));
         log::debug!(
             "Submitted work for session id: {}, request id: {}, status: {:?}",
             session_id,
@@ -120,16 +122,17 @@ impl PolymeshWorkerExt {
     pub fn session_execute_request_and_wait(
         &self,
         session_id: WorkerSessionId,
-        use_cache: bool,
+        flags: WorkerConfigFlags,
         work_req: Vec<u8>,
     ) -> Result<WorkResponseResult, WorkerError> {
+        let config = WorkRequestConfig::new(flags);
         log::debug!(
-            "Submitting work and waiting for result for session id: {}, use_cache: {}",
+            "Submitting work and waiting for result for session id: {}, flags: {:?}",
             session_id,
-            use_cache
+            flags
         );
         self.0
-            .session_execute_request_and_wait(session_id, use_cache, WorkRequest(work_req))
+            .session_execute_request_and_wait(session_id, config, WorkRequest(work_req))
     }
 
     /// Push the result of a work request execution back to the worker for the given session and request id.

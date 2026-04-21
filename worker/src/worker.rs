@@ -89,6 +89,11 @@ impl WorkerSession {
         let inner = self.inner.read().unwrap();
         inner.next_id
     }
+
+    /// Merge the session config with a work request config to get the effective config for the work request execution.
+    pub fn merge_config(&self, req_config: WorkRequestConfig) -> WorkRequestConfig {
+        req_config.flags_and(&self.config.work)
+    }
 }
 
 /// The main worker struct that manages sessions.
@@ -204,6 +209,7 @@ impl PolymeshWorker {
     pub fn session_execute_request(
         &self,
         session_id: WorkerSessionId,
+        config: WorkRequestConfig,
         work: WorkRequest,
     ) -> (WorkRequestId, WorkStatus) {
         // First get the session for the given session id.
@@ -216,6 +222,9 @@ impl PolymeshWorker {
             }
         };
 
+        // Merge the session config with the work request config to get the effective config for the work request execution.
+        let config = session.merge_config(config);
+
         // Create a new request id.
         let request_id = session.new_request();
         log::debug!(
@@ -225,7 +234,7 @@ impl PolymeshWorker {
         );
 
         // Try executing the work request and get the status.  If execution fails, fallback to runtime execution by returning a special status.
-        let status = match self.try_execute_work(session.clone(), request_id, work) {
+        let status = match self.try_execute_work(session, config, request_id, work) {
             Ok(status) => status,
             Err(err) => {
                 log::error!("Failed to execute work request: {err:?}");
@@ -239,18 +248,38 @@ impl PolymeshWorker {
     pub fn session_execute_request_and_wait(
         &self,
         session_id: WorkerSessionId,
-        _use_cache: bool,
+        mut config: WorkRequestConfig,
         work: WorkRequest,
     ) -> Result<WorkResponseResult, WorkerError> {
-        // TODO: Only support synchronous execution.  Don't allocate a request id for these requests.
-        let (request_id, status) = self.session_execute_request(session_id, work);
-        if status == WorkStatus::SessionNotFound {
-            return Err(WorkerError::SessionNotFound(session_id));
-        } else if status != WorkStatus::Completed {
-            return Err(WorkerError::ModuleExecutionFailed);
+        // Force the `use_thread_pool` flag to be false for synchronous execution, since the caller is waiting for the results and we don't want to spawn a new thread for the execution.
+        config.use_thread_pool = false;
+
+        // First get the session for the given session id.
+        let inner = self.inner.read().unwrap();
+        let session = match inner.get_session(session_id) {
+            Ok(session) => session,
+            Err(err) => {
+                log::error!("Failed to submit work request: {err:?}");
+                return Err(WorkerError::SessionNotFound(session_id));
+            }
+        };
+
+        // Merge the session config with the work request config to get the effective config for the work request execution.
+        let config = session.merge_config(config);
+
+        if config.use_cache {
+            // TODO: work response cache.
         }
 
-        self.session_get_result(session_id, request_id)
+        // Get the protocol module instance for the session's protocol.
+        let protocol = session.protocol;
+        let mut instance = self
+            .backend
+            .get_protocol_instance(protocol)
+            .ok_or(WorkerError::ModuleExecutionFailed)?;
+
+        // Execute the work request using the protocol module instance.
+        instance.execute(&work)
     }
 
     /// Push the result of a work request execution back to the worker for the given session and request id.
@@ -299,9 +328,14 @@ impl PolymeshWorker {
     fn try_execute_work(
         &self,
         session: WorkerSessionRef,
+        config: WorkRequestConfig,
         request_id: WorkRequestId,
         work: WorkRequest,
     ) -> Result<WorkStatus, WorkerError> {
+        if config.use_cache {
+            // TODO: work response cache.
+        }
+
         // Get the protocol module instance for the session's protocol.
         let protocol = session.protocol;
         let mut instance = self
@@ -311,6 +345,10 @@ impl PolymeshWorker {
 
         // Execute the work request using the protocol module instance.
         let work_result = instance.execute(&work)?;
+
+        if config.use_cache {
+            // TODO: work response cache.
+        }
 
         // Push the work response result to the session.
         session.push_response(request_id, work_result);

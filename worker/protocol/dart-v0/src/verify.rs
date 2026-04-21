@@ -429,24 +429,30 @@ impl VerifyDartAssetRequest {
 
     pub fn submit_and_wait(
         self,
-        _session_id: WorkerSessionId,
+        session_id: WorkerSessionId,
     ) -> Result<VerifyDartProofResponse, ProtocolError> {
-        self.verify()
+        self.verify(session_id)
     }
 }
 
 #[cfg(feature = "impl_protocol")]
 impl VerifyDartAssetRequest {
-    pub fn verify(self) -> Result<VerifyDartProofResponse, ProtocolError> {
+    pub fn verify(
+        self,
+        _session_id: WorkerSessionId,
+    ) -> Result<VerifyDartProofResponse, ProtocolError> {
         self.do_verify()
     }
 }
 
 #[cfg(not(feature = "impl_protocol"))]
 impl VerifyDartAssetRequest {
-    pub fn verify(self) -> Result<VerifyDartProofResponse, ProtocolError> {
+    pub fn verify(
+        self,
+        session_id: WorkerSessionId,
+    ) -> Result<VerifyDartProofResponse, ProtocolError> {
         let req = crate::DartWorkRequest::VerifyProof(self);
-        match req.execute()? {
+        match req.session_execute_and_wait(session_id)? {
             crate::DartWorkResponse::VerifyProof(res) => Ok(res),
             _ => Err(ProtocolError::UnexpectedResponse),
         }
