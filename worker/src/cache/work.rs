@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use polymesh_worker_common::{WorkRequestHash, WorkResponseResult};
 
 /// A simple cache for work request responses.
+#[derive(Clone)]
 pub struct WorkRequestCache {
     cache: Arc<RwLock<LruMap<WorkRequestHash, WorkResponseResult, ByLength>>>,
 }

@@ -10,6 +10,8 @@ use crate::{
     backend::{BACKENDS, Backend, BackendModule, BackendModuleInstance, BackendModuleLoader},
 };
 
+pub const MAX_MODULE_INSTANCES_PER_PROTOCOL: usize = 32;
+
 /// An instance of a loaded protocol module, which can be used to execute work requests.
 ///
 /// The instance will be returned to the module's cache when dropped, so it can be reused for future requests.
@@ -60,6 +62,10 @@ impl ProtocolModuleInstanceCache {
     }
 
     fn return_instance(&mut self, instance: Box<dyn BackendModuleInstance>) {
+        // If the cache is full, we simply drop the instance, which will free its resources.
+        if self.instances.len() >= MAX_MODULE_INSTANCES_PER_PROTOCOL {
+            return;
+        }
         self.instances.push(instance);
     }
 }
@@ -135,36 +141,27 @@ impl ProtocolModuleRef {
     /// Get a module instance from the cache or create a new one if the cache is empty.
     pub fn get_instance(&self) -> Option<ProtocolModuleInstance> {
         // First try getting an instance from the cache.
-        let instance = {
+        {
             let mut cache = self.0.cache.write().unwrap();
             if let Some(instance) = cache.get_instance() {
                 log::debug!(
                     "Reusing cached module instance for protocol: {:?}",
                     self.0.kind
                 );
-                Some(instance)
-            } else {
-                None
+                return Some(ProtocolModuleInstance::new(instance, self.clone()));
             }
-        };
+        }
 
-        let instance = match instance {
-            Some(instance) => instance,
-            None => {
-                log::info!(
-                    "No cached module instance available, creating a new one for protocol: {:?}",
-                    self.0.kind
-                );
-                // No cached instance available, create a new one.
-                let mut instance = self.0.module.instantiate()?;
-                if let Err(err) = instance.initialize(self.0.context.as_deref()) {
-                    log::error!("Failed to initialize module instance: {err:?}");
-                    return None;
-                }
-                instance
-            }
-        };
-
+        log::info!(
+            "No cached module instance available, creating a new one for protocol: {:?}",
+            self.0.kind
+        );
+        // No cached instance available, create a new one.
+        let mut instance = self.0.module.instantiate()?;
+        if let Err(err) = instance.initialize(self.0.context.as_deref()) {
+            log::error!("Failed to initialize module instance: {err:?}");
+            return None;
+        }
         Some(ProtocolModuleInstance::new(instance, self.clone()))
     }
 

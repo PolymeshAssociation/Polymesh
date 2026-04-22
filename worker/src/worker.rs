@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use crossbeam::channel::{Receiver, Sender, unbounded};
+
 use crate::{
     backend::{BackendManager, BackendManagerRef, BackendModuleLoader},
     cache::{
@@ -17,6 +19,13 @@ use polymesh_worker_common::{
 
 pub const WORK_CACHE_CAPACITY: usize = 10_000;
 
+struct PushWorkResponse {
+    request_id: WorkRequestId,
+    // If `None` there was a host worker error.
+    result: Option<WorkResponseResult>,
+    cached: bool,
+}
+
 /// The mutable state of a worker session, which tracks the pending work requests and their results.
 struct WorkerSessionInner {
     responses: BTreeMap<WorkRequestId, WorkResponseResult>,
@@ -24,32 +33,36 @@ struct WorkerSessionInner {
 
     next_id: WorkRequestId,
     pending_count: usize,
+
+    rx: Receiver<PushWorkResponse>,
 }
 
 impl WorkerSessionInner {
-    fn new() -> Self {
+    fn new(rx: Receiver<PushWorkResponse>) -> Self {
         Self {
             responses: BTreeMap::new(),
             hashes: BTreeMap::new(),
 
             next_id: 0,
             pending_count: 0,
+            rx,
         }
     }
 
     fn new_request(
         &mut self,
-        req_hash_and_cached_value: Option<(WorkRequestHash, Option<WorkResponseResult>)>,
+        req_hash: Option<WorkRequestHash>,
+        cached_value: Option<WorkResponseResult>,
     ) -> WorkRequestId {
         let req_id = self.next_id;
-        self.next_id += 1;
-        self.pending_count += 1;
+        self.next_id = self.next_id.saturating_add(1);
+        self.pending_count = self.pending_count.saturating_add(1);
 
-        if let Some((req_hash, cached_value)) = req_hash_and_cached_value {
+        if let Some(req_hash) = req_hash {
             self.hashes.insert(req_id, req_hash);
             if let Some(cached_value) = cached_value {
                 // If there is a cached value for the request, we can immediately push the cached response to the session and mark the request as completed.
-                self.push_response(req_id, cached_value);
+                self.push_response(req_id, Some(cached_value));
             }
         }
         req_id
@@ -58,18 +71,82 @@ impl WorkerSessionInner {
     fn push_response(
         &mut self,
         req_id: WorkRequestId,
-        res: WorkResponseResult,
+        res: Option<WorkResponseResult>,
     ) -> Option<(WorkRequestHash, WorkResponseResult)> {
         // If the request has a hash, then the response should be cached, so we return the hash and response for caching after pushing the results to the session.
-        let cache_resp = self
-            .hashes
-            .remove(&req_id)
-            .map(|req_hash| (req_hash, res.clone()));
+        let req_hash = self.hashes.remove(&req_id);
 
-        self.responses.insert(req_id, res);
-        self.pending_count -= 1;
+        // If we have the request hash and a response, we return them for caching.  Otherwise, we return None, which indicates that there is no cacheable response for the request.
+        let cache_resp = match (req_hash, res.as_ref()) {
+            (Some(hash), Some(res)) => Some((hash, res.clone())),
+            _ => None,
+        };
+
+        // Even if there is no response (host worker error), we still consider the request as completed and decrease the pending count (to avoid waiting indefinitely).
+        self.pending_count = self.pending_count.saturating_sub(1);
+
+        if let Some(res) = res {
+            self.responses.insert(req_id, res);
+        }
 
         cache_resp
+    }
+
+    pub fn get_or_wait_for(
+        &mut self,
+        req_id: WorkRequestId,
+        cache: Option<&WorkRequestCache>,
+    ) -> Option<WorkResponseResult> {
+        self.wait_for_pending(Some(req_id), cache);
+        self.responses.get(&req_id).cloned()
+    }
+
+    pub fn next_result(
+        &mut self,
+        cache: Option<&WorkRequestCache>,
+    ) -> Option<(WorkRequestId, WorkResponseResult)> {
+        self.wait_for_pending(None, cache);
+        self.responses.pop_first()
+    }
+
+    pub fn wait_for_pending(
+        &mut self,
+        wait_for: Option<WorkRequestId>,
+        cache: Option<&WorkRequestCache>,
+    ) {
+        // If nothing is pending, return immediately.
+        if self.pending_count == 0 {
+            return;
+        }
+        if let Some(wait_for) = wait_for {
+            if self.responses.contains_key(&wait_for) {
+                return;
+            }
+        }
+        while self.pending_count > 0 {
+            let res = match self.rx.recv() {
+                Ok(res) => res,
+                Err(err) => {
+                    log::error!("Failed to receive work response: {err:?}");
+                    return;
+                }
+            };
+
+            if let Some((req_hash, cache_resp)) = self.push_response(res.request_id, res.result) {
+                if !res.cached {
+                    // If the response is not already cached, we insert it into the cache for future reuse.
+                    if let Some(cache) = cache {
+                        cache.insert(req_hash, cache_resp);
+                    }
+                }
+            }
+
+            if wait_for == Some(res.request_id) {
+                // Got the request we are waiting for, return the response.
+                return;
+            }
+        }
+        // No more pending requests.
     }
 }
 
@@ -80,6 +157,8 @@ pub struct WorkerSession {
     pub config: WorkerSessionConfig,
     pub protocol: Protocol,
     pub module: Option<ProtocolModuleRef>,
+
+    tx: Sender<PushWorkResponse>,
 
     inner: RwLock<WorkerSessionInner>,
 }
@@ -92,39 +171,72 @@ impl WorkerSession {
         protocol: Protocol,
         module: Option<ProtocolModuleRef>,
     ) -> WorkerSessionRef {
+        let (tx, rx) = unbounded();
         Arc::new(Self {
             id,
             config,
             protocol,
             module,
 
-            inner: RwLock::new(WorkerSessionInner::new()),
+            tx,
+
+            inner: RwLock::new(WorkerSessionInner::new(rx)),
         })
     }
 
     /// New work request.
     pub fn new_request(
         &self,
-        req_hash_and_cached_value: Option<(WorkRequestHash, Option<WorkResponseResult>)>,
+        req_hash: Option<WorkRequestHash>,
+        cached_value: Option<WorkResponseResult>,
     ) -> WorkRequestId {
         let mut inner = self.inner.write().unwrap();
-        inner.new_request(req_hash_and_cached_value)
+        inner.new_request(req_hash, cached_value)
     }
 
     /// Push the work response result for the given request id.
     pub fn push_response(
         &self,
-        req_id: WorkRequestId,
-        res: WorkResponseResult,
-    ) -> Option<(WorkRequestHash, WorkResponseResult)> {
-        let mut inner = self.inner.write().unwrap();
-        inner.push_response(req_id, res)
+        request_id: WorkRequestId,
+        result: Option<WorkResponseResult>,
+        cached: bool,
+    ) {
+        if let Err(err) = self.tx.send(PushWorkResponse {
+            request_id,
+            result,
+            cached,
+        }) {
+            let PushWorkResponse {
+                request_id, result, ..
+            } = err.0;
+
+            log::warn!(
+                "Failed to push work response to session for request id {}.",
+                request_id
+            );
+            // Fallback to directly pushing the response.
+            let mut inner = self.inner.write().unwrap();
+            inner.push_response(request_id, result);
+        }
     }
 
     /// Get the work response result for the given request id.
-    pub fn get_response(&self, req_id: WorkRequestId) -> Option<WorkResponseResult> {
-        let inner = self.inner.read().unwrap();
-        inner.responses.get(&req_id).cloned()
+    pub fn get_response(
+        &self,
+        req_id: WorkRequestId,
+        cache: Option<&WorkRequestCache>,
+    ) -> Option<WorkResponseResult> {
+        let mut inner = self.inner.write().unwrap();
+        inner.get_or_wait_for(req_id, cache)
+    }
+
+    /// Get the next completed work request and its result.
+    pub fn next_result(
+        &self,
+        cache: Option<&WorkRequestCache>,
+    ) -> Option<(WorkRequestId, WorkResponseResult)> {
+        let mut inner = self.inner.write().unwrap();
+        inner.next_result(cache)
     }
 
     /// Get the number of requests in the session.
@@ -136,6 +248,11 @@ impl WorkerSession {
     /// Merge the session config with a work request config to get the effective config for the work request execution.
     pub fn merge_config(&self, req_config: WorkRequestConfig) -> WorkRequestConfig {
         req_config.flags_and(&self.config.work)
+    }
+
+    /// Get protocol module from the session, if the session has a module reference.  Otherwise, return None, and the caller can try getting the protocol module from the backend.
+    pub fn get_protocol_module(&self) -> Option<ProtocolModuleRef> {
+        self.module.clone()
     }
 
     /// Get module instance for the session's protocol, if the session has a module reference.
@@ -192,16 +309,44 @@ pub struct PolymeshWorker {
     inner: RwLock<PolymeshWorkerInner>,
     backend: BackendManagerRef,
     cache: WorkRequestCache,
+    pool: Option<rayon::ThreadPool>,
 }
 
 impl PolymeshWorker {
     /// Create the polymesh worker shared state.
     pub fn new() -> PolymeshWorkerRef {
+        let mut builder = rayon::ThreadPoolBuilder::new();
+
+        // Get env variable `POLYMESH_WORKER_NUM_THREADS` to set the number of threads for the worker thread pool.
+        let num_threads = std::env::var("POLYMESH_WORKER_NUM_THREADS")
+            .ok()
+            .and_then(|val| val.parse::<usize>().ok());
+        if let Some(num_threads) = num_threads {
+            builder = builder.num_threads(num_threads);
+        }
+
+        let pool = match builder.build() {
+            Ok(pool) => Some(pool),
+            Err(err) => {
+                log::error!("Failed to create thread pool for worker: {err:?}");
+                None
+            }
+        };
         Arc::new(Self {
             inner: RwLock::new(PolymeshWorkerInner::new()),
             backend: BackendManager::new(),
             cache: WorkRequestCache::new(WORK_CACHE_CAPACITY),
+            pool,
         })
+    }
+
+    /// Get the session for the given session id.
+    pub fn get_session(
+        &self,
+        session_id: WorkerSessionId,
+    ) -> Result<WorkerSessionRef, WorkerError> {
+        let inner = self.inner.read().unwrap();
+        inner.get_session(session_id)
     }
 
     /// Preload the backend modules for the given protocol and backend bitmask.
@@ -265,8 +410,7 @@ impl PolymeshWorker {
         work: WorkRequest,
     ) -> (WorkRequestId, WorkStatus) {
         // First get the session for the given session id.
-        let inner = self.inner.read().unwrap();
-        let session = match inner.get_session(session_id) {
+        let session = match self.get_session(session_id) {
             Ok(session) => session,
             Err(err) => {
                 log::error!("Failed to submit work request: {err:?}");
@@ -277,7 +421,7 @@ impl PolymeshWorker {
         // Merge the session config with the work request config to get the effective config for the work request execution.
         let config = session.merge_config(config);
 
-        let req_hash_cached_value = if config.use_cache {
+        let (req_hash, cached_value) = if config.use_cache {
             let hash = work.hash_using(crate::blake2b256_hash);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
@@ -295,27 +439,83 @@ impl PolymeshWorker {
                 }
             });
 
-            Some((hash, cached))
+            (Some(hash), cached)
         } else {
-            None
+            (None, None)
         };
 
+        // If we got a cached value, then we can skip the execution.
+        // The cached value will be saved to the session.
+        let skip_execution = cached_value.is_some();
+
         // Create a new request id.
-        let request_id = session.new_request(req_hash_cached_value);
+        let request_id = session.new_request(req_hash, cached_value);
         log::debug!(
             "Submitted work request with id: {} for session id: {}",
             request_id,
             session_id
         );
 
-        // Try executing the work request and get the status.  If execution fails, fallback to runtime execution by returning a special status.
-        let status = match self.try_execute_work(session, config, request_id, work) {
-            Ok(status) => status,
-            Err(err) => {
-                log::error!("Failed to execute work request: {err:?}");
-                WorkStatus::ExecutionFailedFallbackToRuntime
+        if skip_execution {
+            log::debug!(
+                "Skipping execution for work request with id: {} since we have a cached response.",
+                request_id
+            );
+            return (request_id, WorkStatus::Completed);
+        }
+
+        // Get the protocol module either from the session or from the backend, and if we fail to get the protocol module, we return an error status to fallback to runtime execution.
+        let Some(module) = session
+            .get_protocol_module()
+            .or_else(|| self.backend.get_protocol(session.protocol))
+        else {
+            log::error!(
+                "Failed to get protocol module for protocol {:?} to execute work request.",
+                session.protocol
+            );
+            return (request_id, WorkStatus::ExecutionFailedFallbackToRuntime);
+        };
+
+        // Execute closure to support either thread pool execution or direct execution, and if execution fails, we return an error status to fallback to runtime execution.
+        let cache = req_hash.map(|hash| (hash, self.cache.clone()));
+
+        let execute = move |is_thread: bool| {
+            match Self::try_execute_work(&session, module, request_id, work, cache) {
+                Ok(status) => status,
+                Err(err) => {
+                    log::error!("Failed to execute work request: {err:?}");
+                    if is_thread {
+                        // We need to push a host worker error response to the session for the request, since the caller is waiting for the response and we don't want to wait indefinitely.
+                        session.push_response(request_id, None, false);
+                    }
+                    WorkStatus::ExecutionFailedFallbackToRuntime
+                }
             }
         };
+
+        let status = match (config.use_thread_pool, &self.pool) {
+            (true, Some(pool)) => {
+                log::debug!(
+                    "Spawning a new thread to execute work request with id: {} for session id: {}.",
+                    request_id,
+                    session_id
+                );
+
+                pool.spawn(move || {
+                    execute(true);
+                });
+
+                WorkStatus::Pending
+            }
+            _ => {
+                // If we don't have a thread pool, we execute the work request directly on the current thread.
+                log::debug!(
+                    "Executing work request on the current thread since thread pool is not available."
+                );
+                execute(false)
+            }
+        };
+
         (request_id, status)
     }
 
@@ -330,14 +530,7 @@ impl PolymeshWorker {
         config.use_thread_pool = false;
 
         // First get the session for the given session id.
-        let inner = self.inner.read().unwrap();
-        let session = match inner.get_session(session_id) {
-            Ok(session) => session,
-            Err(err) => {
-                log::error!("Failed to submit work request: {err:?}");
-                return Err(WorkerError::SessionNotFound(session_id));
-            }
-        };
+        let session = self.get_session(session_id)?;
 
         // Merge the session config with the work request config to get the effective config for the work request execution.
         let config = session.merge_config(config);
@@ -381,21 +574,6 @@ impl PolymeshWorker {
         Ok(result)
     }
 
-    fn push_response(
-        &self,
-        session: WorkerSessionRef,
-        request_id: WorkRequestId,
-        result: WorkResponseResult,
-    ) -> Result<(), WorkerError> {
-        // Push the work response result to the session.
-        if let Some((req_hash, cache_resp)) = session.push_response(request_id, result) {
-            // If the request has a hash, then the response should be cached, so we insert the hash and response to the cache.
-            self.cache.insert(req_hash, cache_resp);
-        }
-
-        Ok(())
-    }
-
     /// Push the result of a work request execution back to the worker for the given session and request id.
     pub fn session_push_result(
         &self,
@@ -404,17 +582,18 @@ impl PolymeshWorker {
         result: WorkResponseResult,
     ) -> Result<(), WorkerError> {
         // First get the session for the given session id.
-        let inner = self.inner.read().unwrap();
-        let session = inner.get_session(session_id)?;
+        let session = self.get_session(session_id)?;
 
-        self.push_response(session, request_id, result)
+        // Push the work response result to the session.
+        session.push_response(request_id, Some(result), false);
+
+        Ok(())
     }
 
     /// Get the number of requests in the session.
     pub fn session_num_requests(&self, session_id: WorkerSessionId) -> Result<u32, WorkerError> {
         // First get the session for the given session id.
-        let inner = self.inner.read().unwrap();
-        let session = inner.get_session(session_id)?;
+        let session = self.get_session(session_id)?;
 
         Ok(session.num_requests())
     }
@@ -426,36 +605,53 @@ impl PolymeshWorker {
         request_id: WorkRequestId,
     ) -> Result<WorkResponseResult, WorkerError> {
         // First get the session for the given session id.
-        let inner = self.inner.read().unwrap();
-        let session = inner.get_session(session_id)?;
+        let session = self.get_session(session_id)?;
 
         // Get the work response result for the given request id.
         let result = session
-            .get_response(request_id)
+            .get_response(request_id, Some(&self.cache))
             .ok_or(WorkerError::SessionRequestNotFound(session_id, request_id))?;
         Ok(result)
     }
 
+    /// Get the next completed work request and its result for the given session id.
+    pub fn session_next_result(
+        &self,
+        session_id: WorkerSessionId,
+    ) -> Result<Option<(WorkRequestId, WorkResponseResult)>, WorkerError> {
+        // First get the session for the given session id.
+        let session = self.get_session(session_id)?;
+
+        // Get the next completed work request and its result.
+        Ok(session.next_result(Some(&self.cache)))
+    }
+
     // Try executing the work request on the host and return the status.
     fn try_execute_work(
-        &self,
-        session: WorkerSessionRef,
-        _config: WorkRequestConfig,
+        session: &WorkerSessionRef,
+        module: ProtocolModuleRef,
         request_id: WorkRequestId,
         work: WorkRequest,
+        cache: Option<(WorkRequestHash, WorkRequestCache)>,
     ) -> Result<WorkStatus, WorkerError> {
         // Get the protocol module instance for the session's protocol.
-        let protocol = session.protocol;
-        let mut instance = self
-            .backend
-            .get_protocol_instance(protocol)
+        let mut instance = module
+            .get_instance()
             .ok_or(WorkerError::ModuleExecutionFailed)?;
 
         // Execute the work request using the protocol module instance.
-        let work_result = instance.execute(&work)?;
+        let result = instance.execute(&work)?;
+
+        // If caching is enabled, we insert the result into the cache for future reuse.
+        let cached = if let Some((req_hash, cache)) = cache {
+            cache.insert(req_hash, result.clone());
+            true
+        } else {
+            false
+        };
 
         // Push the work response result to the session.
-        self.push_response(session, request_id, work_result)?;
+        session.push_response(request_id, Some(result), cached);
 
         Ok(WorkStatus::Completed)
     }
