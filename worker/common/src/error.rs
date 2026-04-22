@@ -114,6 +114,16 @@ impl WorkerError {
             Self::Unknown(value) => *value,
         }
     }
+
+    pub fn result_from_u64(value: WorkerErrorNum) -> Result<(), Self> {
+        let err = Self::from_u64(value);
+        err.into()
+    }
+
+    pub fn result_id_from_u64(value: WorkerErrorNum) -> Result<u32, Self> {
+        let err = Self::from_u64(value);
+        err.into()
+    }
 }
 
 impl From<WorkerError> for Result<(), WorkerError> {

@@ -61,11 +61,16 @@ pub fn scratch() -> &'static [u8] {
 
 #[cfg(not(feature = "native"))]
 use polymesh_worker_common::pack_fat_pointer;
+#[cfg(not(feature = "impl_protocol"))]
+use polymesh_worker_common::{WorkRequestId, WorkerError, parse_work_status_flags_and_id};
 
 use polymesh_worker_common::{
     PROTOCOL_PDART, Protocol, ProtocolError, ProtocolVersion, WorkRequest, WorkResponse,
     WorkResponseResult, WorkerSessionId,
 };
+
+#[cfg(not(feature = "impl_protocol"))]
+use polymesh_worker_extension::*;
 
 #[cfg(feature = "native")]
 use sp_std::vec::Vec;
@@ -173,9 +178,8 @@ impl DartWorkRequest {
 
 #[cfg(not(feature = "impl_protocol"))]
 impl DartWorkRequest {
+    /// Execute a work request without a session, and return the results.
     pub fn execute(self) -> Result<DartWorkResponse, ProtocolError> {
-        use polymesh_worker_extension::*;
-
         let req = WorkRequest::new(&self);
         let backends = BackendKind::all_mask();
 
@@ -196,12 +200,54 @@ impl DartWorkRequest {
         }
     }
 
+    /// Execute the work request in the given session, and don't wait for the results.  The results can be retrieved later using `session_get_result` with the returned request id.
+    pub fn session_execute(
+        self,
+        session_id: WorkerSessionId,
+    ) -> Result<WorkRequestId, ProtocolError> {
+        let req = WorkRequest::new(&self);
+
+        let status_flag_and_id =
+            native_polymesh_worker::session_execute_request(session_id, 0, req.0);
+        let (status, _flags, request_id) = parse_work_status_flags_and_id(status_flag_and_id);
+
+        match status {
+            WorkStatus::Pending | WorkStatus::Completed => Ok(request_id),
+            WorkStatus::ExecutionFailedFallbackToRuntime => {
+                // Fallback to runtime execution if the host execution fails, to allow older nodes to continue syncing.
+                log::debug!(
+                    "Host failed to execute work, falling back to runtime execution for session id: {}, request id: {}",
+                    session_id,
+                    request_id
+                );
+                let result = self.do_execute().map(WorkResponse::new);
+
+                // Push the results back to the session, and return the request id if the push is successful.
+                WorkerError::result_from_u64(native_polymesh_worker::session_push_result(
+                    session_id, request_id, result,
+                ))
+                .map_err(|err| {
+                    log::error!(
+                        "Failed to push result for session id: {}, request id: {}, error: {:?}",
+                        session_id,
+                        request_id,
+                        err
+                    );
+                    ProtocolError::ExecuteWorkFailed
+                })?;
+
+                Ok(request_id)
+            }
+            WorkStatus::SessionNotFound => Err(ProtocolError::ExecuteWorkFailed),
+            WorkStatus::Unknown => Err(ProtocolError::UnexpectedResponse),
+        }
+    }
+
+    /// Execute the work request in the given session and wait for the results.
     pub fn session_execute_and_wait(
         self,
         session_id: WorkerSessionId,
     ) -> Result<DartWorkResponse, ProtocolError> {
-        use polymesh_worker_extension::*;
-
         let req = WorkRequest::new(&self);
 
         match native_polymesh_worker::session_execute_request_and_wait(session_id, 0, req.0) {
@@ -229,6 +275,33 @@ pub enum DartWorkResponse {
     UpdateCurveTree(CurveTreeUpdateResponse),
     UpdateAssetState(UpdateAssetStateResult),
     GenerateProof(GenerateDartProofResponse),
+}
+
+#[cfg(not(feature = "impl_protocol"))]
+impl DartWorkResponse {
+    /// Get the work response results from the session and decode it into the expected response type.
+    pub fn session_get_result(
+        session_id: WorkerSessionId,
+        request_id: WorkRequestId,
+    ) -> Result<Self, ProtocolError> {
+        match native_polymesh_worker::session_get_result(session_id, request_id) {
+            Ok(Ok(resp)) => Ok(resp.decode()?),
+            Ok(Err(err)) => {
+                // This is a protocol error (i.e. invalid proof).
+                Err(err)
+            }
+            Err(err) => {
+                // Fallback to runtime execution if the host execution fails, to allow older nodes to continue syncing.
+                log::debug!(
+                    "Host failed to get result for session id: {}, request id: {}, falling back to runtime execution: {:?}",
+                    session_id,
+                    request_id,
+                    err
+                );
+                Err(ProtocolError::UnexpectedResponse)
+            }
+        }
+    }
 }
 
 pub type AssetTreeRoot = CompressedCurveTreeRoot<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>;
