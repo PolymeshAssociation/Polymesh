@@ -65,6 +65,7 @@ native = []
 
 runtime = [
 	"native",
+	"ark-ec/host_msm",
 	"polymesh-worker-extension",
 ]
 
