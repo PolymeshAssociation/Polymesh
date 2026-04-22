@@ -56,7 +56,8 @@ wasmtime = [
 wasmer = [
 	"dep:wasmer",
 	"wasmer-compiler-cranelift",
-	"llvm",
+	# Disbled for now.  (requires installing LLVM 21).
+	#"llvm",
 ]
 
 llvm = [
