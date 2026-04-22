@@ -285,7 +285,7 @@ pub mod pallet {
         /// * `origin` - is a signer that has permissions to act as an agent of `asset_id`.
         /// * `nft_id` - the [`NFTId`] of the NFT to be transferred.
         /// * `source` - the [`AssetHolder`] that currently holds the NFT.
-        /// * `callers_holdings_kind` - the [`AssetHolderKind`] of the caller's portfolio.
+        /// * `destination_kind` - the [`AssetHolderKind`] of the caller's portfolio.
         ///
         /// # Permissions
         /// * Asset
@@ -296,9 +296,9 @@ pub mod pallet {
             origin: OriginFor<T>,
             nfts: NFTs,
             source: AssetHolder,
-            callers_holdings_kind: AssetHolderKind,
+            destination_kind: AssetHolderKind,
         ) -> DispatchResult {
-            Self::base_controller_transfer(origin, nfts, source, callers_holdings_kind)
+            Self::base_controller_transfer(origin, nfts, source, destination_kind)
         }
 
         /// Transfer NFTs from the caller's account to another account.
@@ -806,27 +806,27 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         nfts: NFTs,
         source: AssetHolder,
-        callers_holding_kind: AssetHolderKind,
+        destination_kind: AssetHolderKind,
     ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for portfolio.
-        let caller_holding = AssetPallet::<T>::ensure_asset_and_holding_permissions(
+        let destination = AssetPallet::<T>::ensure_asset_and_holding_permissions(
             origin,
             *nfts.asset_id(),
-            callers_holding_kind,
+            destination_kind,
             true,
         )?;
-        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding)?;
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&destination)?;
 
         // Verifies if all rules for transfering the NFTs are being respected
-        Self::validate_nft_transfer(&source, &caller_holding, &nfts, true, None)?;
+        Self::validate_nft_transfer(&source, &destination, &nfts, true, None)?;
         // Transfer ownership of the NFTs
-        Self::unverified_nfts_transfer(&source, caller_holding.clone(), &nfts)?;
+        Self::unverified_nfts_transfer(&source, destination.clone(), &nfts)?;
 
         Self::deposit_event(Event::NFTHoldingsUpdated(
             holder_did,
             nfts,
             Some(source),
-            Some(caller_holding),
+            Some(destination),
             HoldingsUpdateReason::ControllerTransfer,
         ));
         Ok(())

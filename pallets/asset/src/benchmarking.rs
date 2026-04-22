@@ -550,7 +550,7 @@ benchmarks! {
         )
         .unwrap();
         pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
-    }: _(bob.origin.clone(), asset_id, 1_000,  alice_holdings)
+    }: _(bob.origin.clone(), asset_id, 1_000,  alice_holdings, AssetHolderKind::Account)
     verify {
         assert_eq!(
             BalanceOf::<T>::get(asset_id, bob.did()),

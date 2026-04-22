@@ -203,6 +203,7 @@ fn controller_transfer_insufficient_balance() {
                 asset_id,
                 1_000,
                 PortfolioId::default_portfolio(alice.did).into(),
+                AssetHolderKind::DefaultPortfolio
             ),
             AssetError::InsufficientBalance
         );

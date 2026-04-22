@@ -1083,7 +1083,8 @@ pub mod pallet {
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
         /// * `asset_id` - The [`AssetId`] associated to the asset.
         /// * `value` - The [`Balance`] of tokens that will be transferred.
-        /// * `asset_holder` - The [`AssetHolder`] that will have its balance reduced.
+        /// * `source` - The [`AssetHolder`] that will have its balance reduced.
+        /// * `destination_kind` - The [`AssetHolderKind`] of the destination.
         ///
         /// # Permissions
         /// * Asset
@@ -1102,10 +1103,18 @@ pub mod pallet {
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
-            asset_holder: AssetHolder,
+            source: AssetHolder,
+            destination_kind: AssetHolderKind,
         ) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            Self::base_controller_transfer(origin, asset_id, value, asset_holder, &mut weight_meter)
+            Self::base_controller_transfer(
+                origin,
+                asset_id,
+                value,
+                source,
+                destination_kind,
+                &mut weight_meter,
+            )
         }
 
         /// Registers a custom asset type.
@@ -2286,31 +2295,28 @@ impl<T: AssetConfig> Pallet<T> {
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
         transfer_value: Balance,
-        sender: AssetHolder,
+        source: AssetHolder,
+        destination_kind: AssetHolderKind,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let caller_holding_ctx = Self::ensure_asset_and_holding_permissions(
-            origin,
-            asset_id,
-            AssetHolderKind::DefaultPortfolio,
-            false,
-        )?;
+        let destination =
+            Self::ensure_asset_and_holding_permissions(origin, asset_id, destination_kind, false)?;
 
-        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
-        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding_ctx)?;
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&source)?;
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&destination)?;
         ensure!(sender_did != holder_did, Error::<T>::SenderSameAsReceiver);
 
         Self::validate_asset_transfer(
             asset_id,
-            &sender,
-            &caller_holding_ctx,
+            &source,
+            &destination,
             transfer_value,
             true,
             weight_meter,
         )?;
         Self::unverified_transfer_asset(
-            sender.clone(),
-            caller_holding_ctx,
+            source.clone(),
+            destination,
             asset_id,
             transfer_value,
             None,
@@ -2322,7 +2328,7 @@ impl<T: AssetConfig> Pallet<T> {
         Self::deposit_event(Event::ControllerTransfer(
             holder_did,
             asset_id,
-            sender,
+            source,
             transfer_value,
         ));
         Ok(())
