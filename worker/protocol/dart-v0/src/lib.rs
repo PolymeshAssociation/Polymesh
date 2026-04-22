@@ -7,7 +7,7 @@
 #[cfg(feature = "polkavm")]
 polkavm_derive::min_stack_size!(1);
 #[cfg(feature = "polkavm")]
-polkavm_derive::min_stack_size!(128 * 1024);
+polkavm_derive::min_stack_size!(1024 * 1024);
 #[cfg(feature = "polkavm")]
 polkavm_derive::min_stack_size!(2);
 
@@ -26,7 +26,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 }
 
 #[cfg(not(feature = "native"))]
-const HEAP_SIZE: usize = 10 * 1024 * 1024;
+const HEAP_SIZE: usize = 20 * 1024 * 1024;
 
 #[cfg(not(feature = "native"))]
 #[global_allocator]
@@ -42,7 +42,7 @@ static mut GLOBAL_ALLOC: picoalloc::Mutex<
 
 /// The size of the scratch pad used to hold temporary data to be passed between the host and the module.
 #[cfg(not(feature = "native"))]
-const SCRATCH_SIZE: usize = 4 * 1024 * 1024;
+const SCRATCH_SIZE: usize = 10 * 1024 * 1024;
 
 #[cfg(not(feature = "native"))]
 static mut SCRATCH: picoalloc::Array<{ SCRATCH_SIZE }> = picoalloc::Array([0; SCRATCH_SIZE]);
