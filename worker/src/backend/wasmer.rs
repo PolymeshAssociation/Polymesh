@@ -185,6 +185,10 @@ impl WasmerBackend {
 }
 
 impl Backend for WasmerBackend {
+    fn new_boxed() -> Result<Box<dyn Backend>, WorkerError> {
+        Ok(Box::new(Self::new()?) as _)
+    }
+
     fn kind(&self) -> BackendKind {
         BackendKind::Wasmer
     }

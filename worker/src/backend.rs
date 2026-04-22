@@ -28,23 +28,16 @@ pub struct Backends {
 }
 
 impl Backends {
-    pub fn init_global_backends(native: Box<dyn Backend>) {
+    pub fn init_global_backends<N: Backend>(kinds: &[BackendKind]) {
+        let native = N::new_boxed().ok();
         // Try loading all backends and see which ones are available.
-        *BACKENDS.write().unwrap() = Self::with_backends(
-            vec![
-                BackendKind::Native,
-                BackendKind::PolkaVM,
-                BackendKind::Wasmer,
-                BackendKind::Wasmtime,
-            ],
-            Some(native),
-        );
+        *BACKENDS.write().unwrap() = Self::with_backends(kinds, native);
     }
 
     pub fn new(native: Option<Box<dyn Backend>>) -> Self {
         // Try loading all backends and see which ones are available.
         Self::with_backends(
-            vec![
+            &[
                 BackendKind::Native,
                 BackendKind::PolkaVM,
                 BackendKind::Wasmer,
@@ -55,7 +48,7 @@ impl Backends {
     }
 
     /// Load only the provided backends
-    pub fn with_backends(kinds: Vec<BackendKind>, mut native: Option<Box<dyn Backend>>) -> Self {
+    pub fn with_backends(kinds: &[BackendKind], mut native: Option<Box<dyn Backend>>) -> Self {
         let mut backends: Vec<Box<dyn Backend>> = Vec::new();
         for kind in kinds {
             match kind {
@@ -67,8 +60,8 @@ impl Backends {
                 BackendKind::PolkaVM => {
                     #[cfg(feature = "polkavm")]
                     {
-                        match polkavm::PolkavmBackend::new() {
-                            Ok(backend) => backends.push(Box::new(backend)),
+                        match polkavm::PolkavmBackend::new_boxed() {
+                            Ok(backend) => backends.push(backend as _),
                             Err(err) => log::warn!(
                                 "Failed to initialize PolkaVM backend, disabling it: {err:?}"
                             ),
@@ -78,8 +71,8 @@ impl Backends {
                 BackendKind::Wasmtime => {
                     #[cfg(feature = "wasmtime")]
                     {
-                        match wasmtime::WasmtimeBackend::new() {
-                            Ok(backend) => backends.push(Box::new(backend)),
+                        match wasmtime::WasmtimeBackend::new_boxed() {
+                            Ok(backend) => backends.push(backend as _),
                             Err(err) => log::warn!(
                                 "Failed to initialize Wasmtime backend, disabling it: {err:?}"
                             ),
@@ -89,8 +82,8 @@ impl Backends {
                 BackendKind::Wasmer => {
                     #[cfg(feature = "wasmer")]
                     {
-                        match wasmer::WasmerBackend::new() {
-                            Ok(backend) => backends.push(Box::new(backend)),
+                        match wasmer::WasmerBackend::new_boxed() {
+                            Ok(backend) => backends.push(backend as _),
                             Err(err) => log::warn!(
                                 "Failed to initialize Wasmer backend, disabling it: {err:?}"
                             ),
@@ -117,6 +110,17 @@ impl Backends {
             }
         }
         None
+    }
+
+    /// Get avaiable backends.
+    pub fn get_available_backends() -> Vec<BackendKind> {
+        BACKENDS
+            .read()
+            .unwrap()
+            .backends
+            .iter()
+            .map(|b| b.kind())
+            .collect()
     }
 }
 
@@ -327,6 +331,10 @@ pub trait BackendModule: Send + Sync {
 
 /// A trait for backends that can be used to verify proofs.
 pub trait Backend: Send + Sync {
+    fn new_boxed() -> Result<Box<dyn Backend>, WorkerError>
+    where
+        Self: Sized;
+
     /// The kind of the backend.
     fn kind(&self) -> BackendKind;
 

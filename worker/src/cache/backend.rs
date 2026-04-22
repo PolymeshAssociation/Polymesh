@@ -119,6 +119,7 @@ impl ProtocolModule {
             }
             let module = Self::load_from_backend(backend, protocol, loader);
             if module.is_some() {
+                log::info!("Loaded protocol module using backend {:?}", backend.kind());
                 return module;
             }
         }

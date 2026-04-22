@@ -34,7 +34,7 @@ pub fn main() {
         let native_backend = polymesh_worker_native::NativeBackend;
         println!("Using backend: {:?}", backend_kind);
         (
-            Backends::with_backends(vec![backend_kind], Some(Box::new(native_backend))),
+            Backends::with_backends(&[backend_kind], Some(Box::new(native_backend))),
             backend_kind,
         )
     } else {

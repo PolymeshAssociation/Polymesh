@@ -143,6 +143,10 @@ impl PolkavmBackend {
 }
 
 impl Backend for PolkavmBackend {
+    fn new_boxed() -> Result<Box<dyn Backend>, WorkerError> {
+        Ok(Box::new(Self::new()?) as _)
+    }
+
     fn kind(&self) -> BackendKind {
         BackendKind::PolkaVM
     }

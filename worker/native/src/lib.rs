@@ -63,6 +63,10 @@ impl BackendModule for NativeModule {
 pub struct NativeBackend;
 
 impl Backend for NativeBackend {
+    fn new_boxed() -> Result<Box<dyn Backend>, WorkerError> {
+        Ok(Box::new(Self) as _)
+    }
+
     fn kind(&self) -> BackendKind {
         BackendKind::Native
     }

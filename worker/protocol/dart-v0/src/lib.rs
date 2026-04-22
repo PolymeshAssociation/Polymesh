@@ -187,7 +187,7 @@ impl DartWorkRequest {
             }
             Err(err) => {
                 // Fallback to runtime execution if the host execution fails, to allow older nodes to continue syncing.
-                log::info!(
+                log::debug!(
                     "Host failed to execute work, falling back to runtime execution: {:?}",
                     err
                 );
@@ -212,7 +212,7 @@ impl DartWorkRequest {
             }
             Err(err) => {
                 // Fallback to runtime execution if the host execution fails, to allow older nodes to continue syncing.
-                log::info!(
+                log::debug!(
                     "Host failed to execute work, falling back to runtime execution: {:?}",
                     err
                 );

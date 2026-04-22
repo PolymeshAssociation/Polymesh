@@ -74,6 +74,13 @@ pub enum BackendKind {
 }
 
 impl BackendKind {
+    pub const ALL_KINDS: [BackendKind; 4] = [
+        BackendKind::Native,
+        BackendKind::PolkaVM,
+        BackendKind::Wasmtime,
+        BackendKind::Wasmer,
+    ];
+
     /// All supported backends.
     pub fn all_mask() -> BackendBitmask {
         BackendKind::Native | BackendKind::PolkaVM | BackendKind::Wasmtime | BackendKind::Wasmer
@@ -86,6 +93,17 @@ impl BackendKind {
             1 => Some(Self::PolkaVM),
             2 => Some(Self::Wasmtime),
             3 => Some(Self::Wasmer),
+            _ => None,
+        }
+    }
+
+    /// Convert from a string to a backend kind.
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "native" => Some(Self::Native),
+            "polkavm" => Some(Self::PolkaVM),
+            "wasmtime" => Some(Self::Wasmtime),
+            "wasmer" => Some(Self::Wasmer),
             _ => None,
         }
     }
@@ -125,6 +143,44 @@ impl BackendKind {
     /// Append backend kind to buffer for storage key generation.
     pub fn append_to_buf(&self, buf: &mut Vec<u8>) {
         buf.extend_from_slice(self.to_storage_key_suffix());
+    }
+
+    /// Convert bitmask to a list of backend kinds.
+    pub fn bitmask_to_kinds(bitmask: BackendBitmask) -> Vec<Self> {
+        let mut kinds = Vec::new();
+        for kind in Self::ALL_KINDS.iter() {
+            if kind.is_supported_by(bitmask) {
+                kinds.push(*kind);
+            }
+        }
+        kinds
+    }
+
+    /// Convert string list (i.e. 'native,polkavm,...') of backend kind to list of backend kinds.
+    #[cfg(feature = "std")]
+    pub fn from_str_to_kinds(backends: &str) -> Result<Vec<Self>, String> {
+        let mut kinds = Vec::new();
+        let backends = backends.trim().to_ascii_lowercase();
+
+        // If the string is empty or "none", return an empty list.
+        if backends.is_empty() || backends == "none" {
+            // No backends specified, return empty list.
+            return Ok(kinds);
+        }
+
+        // If the string is "all", return all backends.
+        if backends == "all" {
+            return Ok(Self::ALL_KINDS.to_vec());
+        }
+
+        for s in backends.split(',') {
+            if let Some(kind) = Self::from_str(s.trim()) {
+                kinds.push(kind);
+            } else {
+                return Err(format!("Invalid backend kind: {}", s));
+            }
+        }
+        Ok(kinds)
     }
 }
 
