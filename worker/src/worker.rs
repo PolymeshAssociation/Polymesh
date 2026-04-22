@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::backend::{BackendManager, BackendManagerRef, BackendModuleLoader};
+use crate::{
+    backend::{BackendManager, BackendManagerRef, BackendModuleLoader},
+    cache::backend::{ProtocolModuleInstance, ProtocolModuleRef},
+};
 use polymesh_worker_common::{
     BackendBitmask, Protocol, WorkRequest, WorkRequestId, WorkResponseResult, WorkStatus,
     WorkerSessionId, config::*, error::*,
@@ -46,6 +49,7 @@ pub struct WorkerSession {
     pub id: WorkerSessionId,
     pub config: WorkerSessionConfig,
     pub protocol: Protocol,
+    pub module: Option<ProtocolModuleRef>,
 
     inner: RwLock<WorkerSessionInner>,
 }
@@ -56,11 +60,13 @@ impl WorkerSession {
         id: WorkerSessionId,
         config: WorkerSessionConfig,
         protocol: Protocol,
+        module: Option<ProtocolModuleRef>,
     ) -> WorkerSessionRef {
         Arc::new(Self {
             id,
             config,
             protocol,
+            module,
 
             inner: RwLock::new(WorkerSessionInner::new()),
         })
@@ -94,6 +100,12 @@ impl WorkerSession {
     pub fn merge_config(&self, req_config: WorkRequestConfig) -> WorkRequestConfig {
         req_config.flags_and(&self.config.work)
     }
+
+    /// Get module instance for the session's protocol, if the session has a module reference.
+    pub fn get_protocol_instance(&self) -> Option<ProtocolModuleInstance> {
+        let module = self.module.as_ref()?;
+        module.get_instance()
+    }
 }
 
 /// The main worker struct that manages sessions.
@@ -115,10 +127,11 @@ impl PolymeshWorkerInner {
         &mut self,
         config: WorkerSessionConfig,
         protocol: Protocol,
+        module: Option<ProtocolModuleRef>,
     ) -> WorkerSessionRef {
         let session_id = self.next_session_id;
         self.next_session_id += 1;
-        let session = WorkerSession::new(session_id, config, protocol);
+        let session = WorkerSession::new(session_id, config, protocol, module);
         self.sessions.insert(session_id, session.clone());
         session
     }
@@ -195,12 +208,12 @@ impl PolymeshWorker {
         loader: &mut dyn BackendModuleLoader,
     ) -> WorkerSessionRef {
         // Ensure the protocol is loaded before starting the session.
-        // TODO: Cache the loaded protocol module reference in the session.
-        self.backend
+        let module = self
+            .backend
             .load_protocol(config.backends, protocol, loader);
 
         let mut inner = self.inner.write().unwrap();
-        let session = inner.create_session(config, protocol);
+        let session = inner.create_session(config, protocol, module);
         log::debug!("Started session with id: {}", session.id);
         session
     }
@@ -272,10 +285,9 @@ impl PolymeshWorker {
         }
 
         // Get the protocol module instance for the session's protocol.
-        let protocol = session.protocol;
-        let mut instance = self
-            .backend
-            .get_protocol_instance(protocol)
+        let mut instance = session
+            .get_protocol_instance()
+            .or_else(|| self.backend.get_protocol_instance(session.protocol))
             .ok_or(WorkerError::ModuleExecutionFailed)?;
 
         // Execute the work request using the protocol module instance.
