@@ -5,16 +5,22 @@ use std::{
 
 use crate::{
     backend::{BackendManager, BackendManagerRef, BackendModuleLoader},
-    cache::backend::{ProtocolModuleInstance, ProtocolModuleRef},
+    cache::{
+        modules::{ProtocolModuleInstance, ProtocolModuleRef},
+        work::WorkRequestCache,
+    },
 };
 use polymesh_worker_common::{
-    BackendBitmask, Protocol, WorkRequest, WorkRequestId, WorkResponseResult, WorkStatus,
-    WorkerSessionId, config::*, error::*,
+    BackendBitmask, Protocol, WorkRequest, WorkRequestHash, WorkRequestId, WorkResponseResult,
+    WorkStatus, WorkerSessionId, config::*, error::*,
 };
+
+pub const WORK_CACHE_CAPACITY: usize = 10_000;
 
 /// The mutable state of a worker session, which tracks the pending work requests and their results.
 struct WorkerSessionInner {
     responses: BTreeMap<WorkRequestId, WorkResponseResult>,
+    hashes: BTreeMap<WorkRequestId, WorkRequestHash>,
 
     next_id: WorkRequestId,
     pending_count: usize,
@@ -24,22 +30,46 @@ impl WorkerSessionInner {
     fn new() -> Self {
         Self {
             responses: BTreeMap::new(),
+            hashes: BTreeMap::new(),
+
             next_id: 0,
             pending_count: 0,
         }
     }
 
-    fn new_request(&mut self) -> WorkRequestId {
+    fn new_request(
+        &mut self,
+        req_hash_and_cached_value: Option<(WorkRequestHash, Option<WorkResponseResult>)>,
+    ) -> WorkRequestId {
         let req_id = self.next_id;
         self.next_id += 1;
         self.pending_count += 1;
+
+        if let Some((req_hash, cached_value)) = req_hash_and_cached_value {
+            self.hashes.insert(req_id, req_hash);
+            if let Some(cached_value) = cached_value {
+                // If there is a cached value for the request, we can immediately push the cached response to the session and mark the request as completed.
+                self.push_response(req_id, cached_value);
+            }
+        }
         req_id
     }
 
-    fn push_results(&mut self, req_id: WorkRequestId, res: WorkResponseResult) -> usize {
+    fn push_response(
+        &mut self,
+        req_id: WorkRequestId,
+        res: WorkResponseResult,
+    ) -> Option<(WorkRequestHash, WorkResponseResult)> {
+        // If the request has a hash, then the response should be cached, so we return the hash and response for caching after pushing the results to the session.
+        let cache_resp = self
+            .hashes
+            .remove(&req_id)
+            .map(|req_hash| (req_hash, res.clone()));
+
         self.responses.insert(req_id, res);
         self.pending_count -= 1;
-        self.pending_count
+
+        cache_resp
     }
 }
 
@@ -73,15 +103,22 @@ impl WorkerSession {
     }
 
     /// New work request.
-    pub fn new_request(&self) -> WorkRequestId {
+    pub fn new_request(
+        &self,
+        req_hash_and_cached_value: Option<(WorkRequestHash, Option<WorkResponseResult>)>,
+    ) -> WorkRequestId {
         let mut inner = self.inner.write().unwrap();
-        inner.new_request()
+        inner.new_request(req_hash_and_cached_value)
     }
 
     /// Push the work response result for the given request id.
-    pub fn push_response(&self, req_id: WorkRequestId, res: WorkResponseResult) {
+    pub fn push_response(
+        &self,
+        req_id: WorkRequestId,
+        res: WorkResponseResult,
+    ) -> Option<(WorkRequestHash, WorkResponseResult)> {
         let mut inner = self.inner.write().unwrap();
-        inner.push_results(req_id, res);
+        inner.push_response(req_id, res)
     }
 
     /// Get the work response result for the given request id.
@@ -154,6 +191,7 @@ pub type PolymeshWorkerRef = Arc<PolymeshWorker>;
 pub struct PolymeshWorker {
     inner: RwLock<PolymeshWorkerInner>,
     backend: BackendManagerRef,
+    cache: WorkRequestCache,
 }
 
 impl PolymeshWorker {
@@ -162,6 +200,7 @@ impl PolymeshWorker {
         Arc::new(Self {
             inner: RwLock::new(PolymeshWorkerInner::new()),
             backend: BackendManager::new(),
+            cache: WorkRequestCache::new(WORK_CACHE_CAPACITY),
         })
     }
 
@@ -238,8 +277,31 @@ impl PolymeshWorker {
         // Merge the session config with the work request config to get the effective config for the work request execution.
         let config = session.merge_config(config);
 
+        let req_hash_cached_value = if config.use_cache {
+            let hash = work.hash_using(crate::blake2b256_hash);
+
+            // Check if the response for the work request is already cached, and if so, return the cached response.
+            let cached = self.cache.get(&hash).and_then(|cached_resp| {
+                if cfg!(feature = "testing") {
+                    log::debug!(
+                        "Cache hit for work request with hash: {:x?}, discarding value (testing feature flag).",
+                        hash
+                    );
+                    None
+                } else {
+                    // In production, we return the cached response to save time and resources.
+                    log::debug!("Cache hit for work request with hash: {:x?}", hash);
+                    Some(cached_resp)
+                }
+            });
+
+            Some((hash, cached))
+        } else {
+            None
+        };
+
         // Create a new request id.
-        let request_id = session.new_request();
+        let request_id = session.new_request(req_hash_cached_value);
         log::debug!(
             "Submitted work request with id: {} for session id: {}",
             request_id,
@@ -280,9 +342,28 @@ impl PolymeshWorker {
         // Merge the session config with the work request config to get the effective config for the work request execution.
         let config = session.merge_config(config);
 
-        if config.use_cache {
-            // TODO: work response cache.
-        }
+        // If caching is enabled, hash the work request to get the cache key and check if the response for the work request is already cached, and if so, return the cached response.
+        let req_hash = if config.use_cache {
+            let hash = work.hash_using(crate::blake2b256_hash);
+
+            // Check if the response for the work request is already cached, and if so, return the cached response.
+            if let Some(cached_resp) = self.cache.get(&hash) {
+                if cfg!(feature = "testing") {
+                    log::debug!(
+                        "Cache hit for work request with hash: {:x?}, discarding value (testing feature flag).",
+                        hash
+                    );
+                } else {
+                    // In production, we return the cached response to save time and resources.
+                    log::debug!("Cache hit for work request with hash: {:x?}", hash);
+                    return Ok(cached_resp);
+                }
+            }
+
+            Some(hash)
+        } else {
+            None
+        };
 
         // Get the protocol module instance for the session's protocol.
         let mut instance = session
@@ -291,7 +372,28 @@ impl PolymeshWorker {
             .ok_or(WorkerError::ModuleExecutionFailed)?;
 
         // Execute the work request using the protocol module instance.
-        instance.execute(&work)
+        let result = instance.execute(&work)?;
+
+        if let Some(req_hash) = req_hash {
+            self.cache.insert(req_hash, result.clone());
+        }
+
+        Ok(result)
+    }
+
+    fn push_response(
+        &self,
+        session: WorkerSessionRef,
+        request_id: WorkRequestId,
+        result: WorkResponseResult,
+    ) -> Result<(), WorkerError> {
+        // Push the work response result to the session.
+        if let Some((req_hash, cache_resp)) = session.push_response(request_id, result) {
+            // If the request has a hash, then the response should be cached, so we insert the hash and response to the cache.
+            self.cache.insert(req_hash, cache_resp);
+        }
+
+        Ok(())
     }
 
     /// Push the result of a work request execution back to the worker for the given session and request id.
@@ -305,9 +407,7 @@ impl PolymeshWorker {
         let inner = self.inner.read().unwrap();
         let session = inner.get_session(session_id)?;
 
-        // Push the work response result to the session.
-        session.push_response(request_id, result);
-        Ok(())
+        self.push_response(session, request_id, result)
     }
 
     /// Get the number of requests in the session.
@@ -340,14 +440,10 @@ impl PolymeshWorker {
     fn try_execute_work(
         &self,
         session: WorkerSessionRef,
-        config: WorkRequestConfig,
+        _config: WorkRequestConfig,
         request_id: WorkRequestId,
         work: WorkRequest,
     ) -> Result<WorkStatus, WorkerError> {
-        if config.use_cache {
-            // TODO: work response cache.
-        }
-
         // Get the protocol module instance for the session's protocol.
         let protocol = session.protocol;
         let mut instance = self
@@ -358,12 +454,8 @@ impl PolymeshWorker {
         // Execute the work request using the protocol module instance.
         let work_result = instance.execute(&work)?;
 
-        if config.use_cache {
-            // TODO: work response cache.
-        }
-
         // Push the work response result to the session.
-        session.push_response(request_id, work_result);
+        self.push_response(session, request_id, work_result)?;
 
         Ok(WorkStatus::Completed)
     }

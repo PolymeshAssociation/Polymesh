@@ -62,7 +62,7 @@ pub fn scratch() -> &'static [u8] {
 #[cfg(not(feature = "native"))]
 use polymesh_worker_common::pack_fat_pointer;
 #[cfg(not(feature = "impl_protocol"))]
-use polymesh_worker_common::{WorkRequestId, WorkerError, parse_work_status_flags_and_id};
+use polymesh_worker_common::{WorkRequestId, WorkerError, unpack_work_status_flags_and_id};
 
 use polymesh_worker_common::{
     PROTOCOL_PDART, Protocol, ProtocolError, ProtocolVersion, WorkRequest, WorkResponse,
@@ -209,7 +209,7 @@ impl DartWorkRequest {
 
         let status_flag_and_id =
             native_polymesh_worker::session_execute_request(session_id, 0, req.0);
-        let (status, _flags, request_id) = parse_work_status_flags_and_id(status_flag_and_id);
+        let (status, _flags, request_id) = unpack_work_status_flags_and_id(status_flag_and_id);
 
         match status {
             WorkStatus::Pending | WorkStatus::Completed => Ok(request_id),

@@ -304,6 +304,7 @@ impl ProtocolVersion {
 }
 
 pub type WorkRequestId = u32;
+pub type WorkRequestHash = [u8; 32];
 
 pub type WorkFlags = u16;
 
@@ -359,9 +360,9 @@ impl WorkStatus {
 pub type WorkStatusFlagsAndId = u64;
 
 pub const FALLBACK_TO_RUNTIME: WorkStatusFlagsAndId =
-    work_status_flags_and_id(WorkStatus::ExecutionFailedFallbackToRuntime, 0, 0);
+    pack_work_status_flags_and_id(WorkStatus::ExecutionFailedFallbackToRuntime, 0, 0);
 
-pub const fn work_status_flags_and_id(
+pub const fn pack_work_status_flags_and_id(
     status: WorkStatus,
     flags: WorkFlags,
     id: WorkRequestId,
@@ -372,7 +373,7 @@ pub const fn work_status_flags_and_id(
     (id_u64 << 32) | (flags_u64 << 8) | status_u64
 }
 
-pub fn parse_work_status_flags_and_id(
+pub fn unpack_work_status_flags_and_id(
     value: WorkStatusFlagsAndId,
 ) -> (WorkStatus, WorkFlags, WorkRequestId) {
     let status_u8 = (value & 0xFF) as u8;
@@ -398,6 +399,15 @@ impl WorkRequest {
     /// Decode the work request data into the given protocol-specific request type.
     pub fn decode<T: Decode>(&self) -> Result<T, ProtocolError> {
         T::decode(&mut &self.0[..]).map_err(|_| ProtocolError::DecodingFailed)
+    }
+
+    /// Hash the work request data using the given hash function, which is used for caching work responses.
+    pub fn hash_using<F: FnOnce(&[u8]) -> [u8; 32]>(&self, hash_fn: F) -> WorkRequestHash {
+        #[cfg(feature = "std")]
+        {
+            eprintln!("Hashing work request");
+        }
+        hash_fn(&self.0)
     }
 }
 

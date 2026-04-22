@@ -5,7 +5,7 @@ use polymesh_worker_common::*;
 
 use crate::{
     blake2b256_hash,
-    cache::backend::{BackendModuleCache, ProtocolModuleInstance, ProtocolModuleRef},
+    cache::modules::{BackendModuleCache, ProtocolModuleInstance, ProtocolModuleRef},
 };
 
 #[cfg(feature = "polkavm")]

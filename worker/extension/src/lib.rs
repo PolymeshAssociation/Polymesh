@@ -96,12 +96,12 @@ pub trait NativePolymeshWorker {
     /// Start a new session.  This is normally done at the start of a block.
     fn start_session(
         &mut self,
-        flags: WorkerConfigFlags,
-        backends: BackendBitmask,
+        flags_and_backends: WorkerConfigFlagsAndBackends,
         default_protocol: ProtocolNumber,
     ) -> WorkerSessionId {
         let ext = PolymeshWorkerExt::new();
         let mut loader = SubstrateModuleLoader(&mut **self);
+        let (flags, backends) = unpack_flags_and_backends(flags_and_backends);
         ext.start_session(flags, backends, default_protocol, &mut loader)
     }
 

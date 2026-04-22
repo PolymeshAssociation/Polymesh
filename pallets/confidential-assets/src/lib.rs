@@ -55,7 +55,9 @@ use polymesh_dart::{
     FEE_ACCOUNT_TREE_HEIGHT, FEE_ASSET_ID,
 };
 
-use polymesh_worker_extension::{native_polymesh_worker, BackendKind, WorkerSessionId};
+use polymesh_worker_extension::{
+    native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig, WorkerSessionId,
+};
 use polymesh_worker_protocol_dart_v0::{
     UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
 };
@@ -2585,9 +2587,15 @@ impl<T: Config> Pallet<T> {
 
     pub fn init_block() -> Weight {
         // Start worker session.
-        let backends = BackendKind::all_mask();
-        let session_id =
-            native_polymesh_worker::start_session(0, backends, DART_PROTOCOL.to_number());
+        let config = WorkerSessionConfig {
+            work: WorkRequestConfig {
+                use_cache: true,
+                use_thread_pool: false,
+            },
+            backends: BackendKind::all_mask(),
+        }
+        .to_flags_and_backends();
+        let session_id = native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
 
         CurrentWorkerSessionId::<T>::put(session_id);
 

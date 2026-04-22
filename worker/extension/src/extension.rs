@@ -115,7 +115,7 @@ impl PolymeshWorkerExt {
             status
         );
 
-        work_status_flags_and_id(status, 0, request_id)
+        pack_work_status_flags_and_id(status, 0, request_id)
     }
 
     /// Execute a protocol-specific work request for the given session and wait for the results.

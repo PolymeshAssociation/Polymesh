@@ -11358,6 +11358,7 @@ dependencies = [
  "polkavm 0.32.0",
  "polymesh-worker-common",
  "rayon",
+ "schnellru",
  "sp-maybe-compressed-blob",
  "wasmer",
  "wasmer-compiler-cranelift",
