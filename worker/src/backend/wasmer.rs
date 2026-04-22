@@ -118,15 +118,10 @@ impl BackendModule for WasmerModule {
                 "host_msm_unchecked" => Function::new_typed_with_env(&mut store, &env, host_msm_unchecked),
             },
         };
-        let instance = Instance::new(&mut store, &self.module, &imports)
-            .expect("Failed to instantiate module"); //.ok()?;
+        let instance = Instance::new(&mut store, &self.module, &imports).ok()?;
 
         // Get the instance memory for the host functions to access.
-        let memory = instance
-            .exports
-            .get_memory("memory")
-            .expect("Failed to get memory export")
-            .clone();
+        let memory = instance.exports.get_memory("memory").ok()?.clone();
         env.as_mut(&mut store).memory = Some(memory.clone());
 
         // Get the scratch buffer pointer.
@@ -166,7 +161,7 @@ pub struct WasmerBackend {
 }
 
 impl WasmerBackend {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, WorkerError> {
         // Setup the Wasm features to support.
         let mut features = Features::default();
         features.bulk_memory = true;
@@ -183,9 +178,9 @@ impl WasmerBackend {
             .set_features(Some(features))
             .engine();
 
-        Self {
+        Ok(Self {
             engine: engine.into(),
-        }
+        })
     }
 }
 
@@ -195,8 +190,7 @@ impl Backend for WasmerBackend {
     }
 
     fn load_module(&self, module_bytes: &[u8]) -> Option<Box<dyn BackendModule>> {
-        let module = Module::from_binary(&self.engine, &module_bytes)
-            .expect("Failed to create module from binary");
+        let module = Module::from_binary(&self.engine, &module_bytes).ok()?;
 
         Some(Box::new(WasmerModule {
             module,

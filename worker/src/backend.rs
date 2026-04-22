@@ -64,20 +64,38 @@ impl Backends {
                         backends.push(native);
                     }
                 }
-                BackendKind::PolkaVM =>
-                {
+                BackendKind::PolkaVM => {
                     #[cfg(feature = "polkavm")]
-                    backends.push(Box::new(polkavm::PolkavmBackend::new()))
+                    {
+                        match polkavm::PolkavmBackend::new() {
+                            Ok(backend) => backends.push(Box::new(backend)),
+                            Err(err) => log::warn!(
+                                "Failed to initialize PolkaVM backend, disabling it: {err:?}"
+                            ),
+                        }
+                    }
                 }
-                BackendKind::Wasmtime =>
-                {
+                BackendKind::Wasmtime => {
                     #[cfg(feature = "wasmtime")]
-                    backends.push(Box::new(wasmtime::WasmtimeBackend::new()))
+                    {
+                        match wasmtime::WasmtimeBackend::new() {
+                            Ok(backend) => backends.push(Box::new(backend)),
+                            Err(err) => log::warn!(
+                                "Failed to initialize Wasmtime backend, disabling it: {err:?}"
+                            ),
+                        }
+                    }
                 }
-                BackendKind::Wasmer =>
-                {
+                BackendKind::Wasmer => {
                     #[cfg(feature = "wasmer")]
-                    backends.push(Box::new(wasmer::WasmerBackend::new()))
+                    {
+                        match wasmer::WasmerBackend::new() {
+                            Ok(backend) => backends.push(Box::new(backend)),
+                            Err(err) => log::warn!(
+                                "Failed to initialize Wasmer backend, disabling it: {err:?}"
+                            ),
+                        }
+                    }
                 }
             }
         }

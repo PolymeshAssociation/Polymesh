@@ -58,6 +58,7 @@ pub enum WorkerError {
     DecodingFailed = 6,
     SessionNotFound(WorkerSessionId) = 7,
     SessionRequestNotFound(WorkerSessionId, WorkRequestId) = 8,
+    BackendNotSupported = 9,
     Unknown(WorkerErrorNum),
 }
 
@@ -85,6 +86,7 @@ impl WorkerError {
                 let request_id = (error_details & 0xFFFFFFFF) as u32;
                 Self::SessionRequestNotFound(session_id, request_id)
             }
+            9 => Self::BackendNotSupported,
             _ => Self::Unknown(value),
         }
     }
@@ -108,6 +110,7 @@ impl WorkerError {
                 let request_id_part = (*request_id as WorkerErrorNum) & 0xFFFFFFFF;
                 (8 << 56) | session_id_part | request_id_part
             }
+            Self::BackendNotSupported => 9 << 56,
             Self::Unknown(value) => *value,
         }
     }

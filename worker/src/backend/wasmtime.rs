@@ -102,8 +102,7 @@ impl BackendModule for WasmtimeModule {
         // Once we've got that all set up we can then move to the instantiation
         // phase, pairing together a compiled module as well as a set of imports.
         // Note that this is where the wasm `start` function, if any, would run.
-        let instance = Instance::new(&mut store, &self.module, &imports)
-            .expect("Failed to instantiate module");
+        let instance = Instance::new(&mut store, &self.module, &imports).ok()?;
 
         // Get the scratch buffer pointer.
         let get_scratch_pad = instance
@@ -141,7 +140,7 @@ pub struct WasmtimeBackend {
 }
 
 impl WasmtimeBackend {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, WorkerError> {
         let mut config = Config::new();
 
         // Enable the Cranelift optimizing compiler.
@@ -161,8 +160,11 @@ impl WasmtimeBackend {
         // elided.
         config.memory_reservation(1 << 32);
         config.memory_guard_size(1 << 32);
-        let engine = Engine::new(&config).expect("Failed to create Wasmtime engine");
-        Self { engine }
+        let engine = Engine::new(&config).map_err(|err| {
+            log::error!("Failed to create Wasmtime engine: {err}");
+            WorkerError::BackendNotSupported
+        })?;
+        Ok(Self { engine })
     }
 }
 
@@ -172,8 +174,7 @@ impl Backend for WasmtimeBackend {
     }
 
     fn load_module(&self, module_bytes: &[u8]) -> Option<Box<dyn BackendModule>> {
-        let module = Module::from_binary(&self.engine, &module_bytes)
-            .expect("Failed to create module from binary");
+        let module = Module::from_binary(&self.engine, &module_bytes).ok()?;
 
         Some(Box::new(WasmtimeModule {
             module,

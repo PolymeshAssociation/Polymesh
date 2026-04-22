@@ -8,16 +8,22 @@ use crate::backend::{Backend, BackendKind, BackendModule, BackendModuleInstance}
 
 fn host_msm_unchecked(caller: Caller<()>, fat_ptr: u64) -> u32 {
     let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
-    let mut buffer = caller
-        .instance
-        .read_memory(ptr, len)
-        .expect("Failed to read memory from module");
+    let mut buffer = match caller.instance.read_memory(ptr, len) {
+        Ok(data) => data,
+        Err(err) => {
+            log::error!("Failed to read memory from module: {err}");
+            return 0;
+        }
+    };
     let res_len = ark_host_msm_impl::host_msm_unchecked(buffer.as_mut_slice(), len);
 
-    caller
+    if let Err(err) = caller
         .instance
         .write_memory(ptr, &buffer[..res_len as usize])
-        .expect("Failed to write memory to module");
+    {
+        log::error!("Failed to write memory to module: {err}");
+        return 0;
+    }
     res_len
 }
 
@@ -103,10 +109,10 @@ impl BackendModule for PolkavmModule {
         // Get the scratch buffer pointer.
         let scratch = instance
             .call_typed_and_get_result::<u32, ()>(&mut (), self.get_scratch_pad, ())
-            .unwrap();
+            .ok()?;
         let scratch_size = instance
             .call_typed_and_get_result::<u32, ()>(&mut (), self.get_scratch_pad_size, ())
-            .unwrap();
+            .ok()?;
 
         Some(Box::new(PolkavmModuleInstance {
             instance,
@@ -123,10 +129,16 @@ pub struct PolkavmBackend {
 }
 
 impl PolkavmBackend {
-    pub fn new() -> Self {
-        let config = Config::from_env().unwrap();
-        let engine = Engine::new(&config).unwrap();
-        Self { engine }
+    pub fn new() -> Result<Self, WorkerError> {
+        let config = Config::from_env().map_err(|err| {
+            log::error!("Failed to create PolkaVM config from environment: {err}");
+            WorkerError::BackendNotSupported
+        })?;
+        let engine = Engine::new(&config).map_err(|err| {
+            log::error!("Failed to create PolkaVM engine: {err}");
+            WorkerError::BackendNotSupported
+        })?;
+        Ok(Self { engine })
     }
 }
 
@@ -142,7 +154,7 @@ impl Backend for PolkavmBackend {
 
         linker
             .define_typed("host_msm_unchecked", host_msm_unchecked)
-            .expect("Failed to define host function");
+            .ok()?;
 
         // Find the `initialize` and `execute` functions from the module exports.
         let mut initialize = None;
