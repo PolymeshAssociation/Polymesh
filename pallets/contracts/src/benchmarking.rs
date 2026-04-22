@@ -417,7 +417,7 @@ benchmarks! {
         let caller = user.account();
         let perms = Permissions::default();
     }: {
-        Pallet::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, &perms)
+        Pallet::<T>::polymesh_additions_and_contract_address_weight(&caller, &code, &input, &salt, &perms)
     }
 
     base_weight_with_code {
@@ -436,7 +436,7 @@ benchmarks! {
         let caller = user.account();
         let perms = Permissions::default();
     }: {
-        Pallet::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, &perms)
+        Pallet::<T>::polymesh_additions_and_contract_address_weight(&caller, &code, &input, &salt, &perms)
     }
 
     update_call_runtime_whitelist {
