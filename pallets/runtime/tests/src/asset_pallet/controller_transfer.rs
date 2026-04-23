@@ -6,7 +6,9 @@ use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
-use polymesh_primitives::{AuthorizationData, PortfolioId, PortfolioKind, Signatory};
+use polymesh_primitives::{
+    AssetHolderKind, AuthorizationData, PortfolioId, PortfolioKind, Signatory,
+};
 
 use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use crate::storage::{default_asset_holder_set, User};
@@ -76,7 +78,13 @@ fn controller_transfer_locked_asset() {
 
         // Controller transfer should fail since the tokens are locked
         assert_noop!(
-            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio.into()),
+            Asset::controller_transfer(
+                bob.origin(),
+                asset_id,
+                200,
+                alice_default_portfolio.into(),
+                AssetHolderKind::DefaultPortfolio
+            ),
             AssetError::InsufficientBalance
         );
     });
@@ -94,7 +102,8 @@ fn controller_self_transfer_rejected() {
                 alice.origin(),
                 asset_id,
                 1000,
-                alice_default_portfolio.into()
+                alice_default_portfolio.into(),
+                AssetHolderKind::DefaultPortfolio
             ),
             AssetError::SenderSameAsReceiver
         );
