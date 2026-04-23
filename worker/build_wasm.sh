@@ -10,8 +10,8 @@ rm $output_path $wasm_path
 
 echo "> Building: '$crate' (-> $output_path)"
 
-#RUSTFLAGS="-C target-feature=+simd128,+wide-arithmetic" \
-RUSTFLAGS="--remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C strip=symbols" \
+#RUSTFLAGS="-C target-feature=+simd128,+wide-arithmetic --remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C strip=symbols -C codegen-units=1" \
+RUSTFLAGS="-C target-feature=+simd128 --remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C strip=symbols -C codegen-units=1" \
 	cargo build \
 	--target=$target \
 	--no-default-features \
