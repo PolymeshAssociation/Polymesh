@@ -62,7 +62,9 @@ pub fn scratch() -> &'static [u8] {
 #[cfg(not(feature = "native"))]
 use polymesh_worker_common::pack_fat_pointer;
 #[cfg(not(feature = "impl_protocol"))]
-use polymesh_worker_common::{WorkRequestId, WorkerError, unpack_work_status_flags_and_id};
+use polymesh_worker_common::{
+    WORK_CONFIG_FLAG_USE_CACHE, WorkRequestId, WorkerError, unpack_work_status_flags_and_id,
+};
 
 use polymesh_worker_common::{
     PROTOCOL_PDART, Protocol, ProtocolError, ProtocolVersion, WorkRequest, WorkResponse,
@@ -220,8 +222,11 @@ impl DartWorkRequest {
     ) -> Result<WorkRequestId, ProtocolError> {
         let req = WorkRequest::new(&self);
 
-        let status_flag_and_id =
-            native_polymesh_worker::session_execute_request(session_id, 0, req.0);
+        let status_flag_and_id = native_polymesh_worker::session_execute_request(
+            session_id,
+            WORK_CONFIG_FLAG_USE_CACHE,
+            req.0,
+        );
         let (status, _flags, request_id) = unpack_work_status_flags_and_id(status_flag_and_id);
 
         match status {
@@ -263,7 +268,11 @@ impl DartWorkRequest {
     ) -> Result<DartWorkResponse, ProtocolError> {
         let req = WorkRequest::new(&self);
 
-        match native_polymesh_worker::session_execute_request_and_wait(session_id, 0, req.0) {
+        match native_polymesh_worker::session_execute_request_and_wait(
+            session_id,
+            WORK_CONFIG_FLAG_USE_CACHE,
+            req.0,
+        ) {
             Ok(Ok(resp)) => Ok(resp.decode()?),
             Ok(Err(err)) => {
                 // This is a protocol error (i.e. invalid proof).
