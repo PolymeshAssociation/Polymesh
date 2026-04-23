@@ -532,39 +532,65 @@ where
         Ok(())
     }
 
-    /// Computes the weight of `instantiate_with_code(code, salt, perms)`.
+    /// Weight of linking the contract as a secondary key.
     fn weight_link_contract_to_did(perms: &Permissions) -> Weight {
         <T as Config>::WeightInfo::link_contract_to_did().saturating_add(
             <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
         )
     }
 
-    /// Computes the weight of `instantiate_with_code(code, salt, perms)`.
+    /// Polymesh-only additions for the upload variant of `instantiate`:
+    /// `base_weight_with_code + link_contract_to_did + permissions_cost_perms`.
+    ///
+    /// `pallet_contracts::instantiate_with_code` already folds its own
+    /// benchmark into `post_info.actual_weight`, so this is what
+    /// `general_instantiate` must add to `actual_weight` on the post-dispatch
+    /// side — anything more would double-count the upstream base.
+    fn polymesh_additions_with_code_weight(
+        code_len: u32,
+        data_len: u32,
+        salt_len: u32,
+        perms: &Permissions,
+    ) -> Weight {
+        <T as Config>::WeightInfo::base_weight_with_code(code_len, data_len, salt_len)
+            .saturating_add(Self::weight_link_contract_to_did(perms))
+    }
+
+    /// Polymesh-only additions for the existing-code variant of `instantiate`.
+    /// See `polymesh_additions_with_code`.
+    fn polymesh_additions_with_hash_weight(
+        data_len: u32,
+        salt_len: u32,
+        perms: &Permissions,
+    ) -> Weight {
+        <T as Config>::WeightInfo::base_weight_with_hash(data_len, salt_len)
+            .saturating_add(Self::weight_link_contract_to_did(perms))
+    }
+
+    /// Full pre-dispatch weight of `instantiate_with_code_perms`:
+    /// upstream `instantiate_with_code` + Polymesh additions.
     fn weight_instantiate_with_code(
         code_len: u32,
         data_len: u32,
         salt_len: u32,
         perms: &Permissions,
     ) -> Weight {
-        let instantiate_weight =
-            <T as ContractsConfig>::WeightInfo::instantiate_with_code(code_len, data_len, salt_len)
-                .saturating_add(<T as Config>::WeightInfo::base_weight_with_code(
-                    code_len, data_len, salt_len,
-                ));
-        instantiate_weight.saturating_add(Self::weight_link_contract_to_did(perms))
+        <T as ContractsConfig>::WeightInfo::instantiate_with_code(code_len, data_len, salt_len)
+            .saturating_add(Self::polymesh_additions_with_code_weight(
+                code_len, data_len, salt_len, perms,
+            ))
     }
 
-    /// Computes weight of `instantiate_with_hash(salt, perms)`.
+    /// Full pre-dispatch weight of `instantiate_with_hash_perms`:
+    /// upstream `instantiate` + Polymesh additions.
     fn weight_instantiate_with_hash(data_len: u32, salt_len: u32, perms: &Permissions) -> Weight {
-        let instantiate_weight =
-            <T as ContractsConfig>::WeightInfo::instantiate(data_len, salt_len).saturating_add(
-                <T as Config>::WeightInfo::base_weight_with_hash(data_len, salt_len),
-            );
-        instantiate_weight.saturating_add(Self::weight_link_contract_to_did(perms))
+        <T as ContractsConfig>::WeightInfo::instantiate(data_len, salt_len).saturating_add(
+            Self::polymesh_additions_with_hash_weight(data_len, salt_len, perms),
+        )
     }
 
-    /// Get base weight and contract address.
-    pub fn base_weight_and_contract_address(
+    /// Polymesh-only weight additions + derived contract address.
+    pub fn polymesh_additions_and_contract_address_weight(
         caller: &T::AccountId,
         code: &Code<CodeHash<T>>,
         data: &[u8],
@@ -573,24 +599,22 @@ where
     ) -> (Weight, T::AccountId) {
         let data_len = data.len() as u32;
         let salt_len = salt.len() as u32;
-        // The base weight of the Substrate call `instantiate*`.
-        let (base_weight, code_hash) = match &code {
+        let (additions_weight, code_hash) = match &code {
             Code::Existing(h) => (
-                Self::weight_instantiate_with_hash(data_len, salt_len, perms),
+                Self::polymesh_additions_with_hash_weight(data_len, salt_len, perms),
                 *h,
             ),
             Code::Upload(c) => {
                 let code_len = c.len() as u32;
                 (
-                    Self::weight_instantiate_with_code(code_len, data_len, salt_len, perms),
+                    Self::polymesh_additions_with_code_weight(code_len, data_len, salt_len, perms),
                     T::Hashing::hash(c),
                 )
             }
         };
 
-        // Pre-compute what contract's address will be
-        let contract = FrameContracts::<T>::contract_address(caller, &code_hash, &data, &salt);
-        (base_weight, contract)
+        let contract = FrameContracts::<T>::contract_address(caller, &code_hash, data, salt);
+        (additions_weight, contract)
     }
 
     /// Link the contract to the caller's identity.
@@ -623,8 +647,10 @@ where
         perms: Permissions,
     ) -> DispatchResultWithPostInfo {
         let caller = ensure_signed(origin.clone())?;
-        let (base_weight, contract) =
-            Self::base_weight_and_contract_address(&caller, &code, &data, &salt, &perms);
+        let (actual_weight_addition, contract) =
+            Self::polymesh_additions_and_contract_address_weight(
+                &caller, &code, &data, &salt, &perms,
+            );
         Self::link_contract_to_did(&caller, contract, perms)?;
 
         // Instantiate the contract.
@@ -649,18 +675,18 @@ where
                 salt,
             ),
         };
-        // Add `base_weight` in returned actual weight.
+        // Add only the Polymesh-layer additions to the actual weight.
         {
             // Get `post_info` from either the Ok/Err variant.
             let post_info = match &mut result {
                 Ok(post_info) => post_info,
                 Err(err) => &mut err.post_info,
             };
-            // add the base weight to the actual weight.
             if let Some(actual_weight) = &mut post_info.actual_weight {
-                *actual_weight = actual_weight.saturating_add(base_weight);
+                *actual_weight = actual_weight.saturating_add(actual_weight_addition);
             }
-            // Note: `actual_weight=None` is the worse case weight with already include the base weight.
+            // Note: `actual_weight = None` means the worst-case pre-dispatch
+            // weight is charged — already the upper bound of what we need.
         }
         // Return the result with the updated actual_weight.
         result

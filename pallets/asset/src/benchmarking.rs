@@ -864,4 +864,22 @@ benchmarks! {
             500u128
         );
     }
+
+    spend_allowance {
+        let caller = UserBuilder::<T>::default().generate_did().build("Caller");
+        let spender = UserBuilder::<T>::default().generate_did().build("Spender");
+        let asset_id = create_sample_asset::<T>(&caller, true);
+        Allowances::<T>::insert(
+            (&caller.account(), &spender.account(), asset_id),
+            ONE_UNIT * 10,
+        );
+    }: {
+        Pallet::<T>::spend_allowance(&caller.account(), &spender.account(), asset_id, ONE_UNIT).unwrap();
+    }
+    verify {
+        assert_eq!(
+            Allowances::<T>::get((&caller.account(), &spender.account(), asset_id)),
+            ONE_UNIT * 9
+        );
+    }
 }

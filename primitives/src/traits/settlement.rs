@@ -6,7 +6,8 @@ use frame_system::{pallet_prelude::OriginFor, Config};
 #[cfg(feature = "runtime-benchmarks")]
 use crate::settlement::AffirmationRequirement;
 use crate::{
-    asset::AssetHolder, portfolio::Fund, settlement::InstructionId, IdentityId, WeightMeter,
+    asset::AssetHolder, portfolio::Fund, settlement::AssetCount, settlement::InstructionId,
+    IdentityId, WeightMeter,
 };
 
 /// Trait for querying affirmation settings stored in the settlement pallet.
@@ -30,7 +31,7 @@ pub trait SettlementFnTrait<T: Config> {
     fn receiver_affirm_transfer_and_try_execute(
         origin: OriginFor<T>,
         instruction_id: InstructionId,
-        is_fungible: bool,
+        asset_count: AssetCount,
         weight_meter: &mut WeightMeter,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo;
@@ -39,35 +40,35 @@ pub trait SettlementFnTrait<T: Config> {
     fn reject_transfer(
         origin: OriginFor<T>,
         instruction_id: InstructionId,
-        is_fungible: bool,
+        asset_count: AssetCount,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo;
 
-    /// Get the try execute weight based on the type of asset.
-    fn try_execute_weight(is_fungible: bool) -> Weight;
+    /// Get the try execute weight based on the asset count.
+    fn try_execute_weight(asset_count: AssetCount) -> Weight;
 
-    /// Get the receiver affirm transfer weight based on the type of asset.
-    fn receiver_affirm_transfer_weight(is_fungible: bool) -> Weight;
+    /// Get the receiver affirm transfer weight based on the asset count.
+    fn receiver_affirm_transfer_weight(asset_count: AssetCount) -> Weight;
 
-    /// Get the receiver affirm transfer and try execute weight based on the type of asset.
+    /// Get the receiver affirm transfer and try execute weight based on the asset count.
     fn receiver_affirm_transfer_and_try_execute_weight_meter(
         base: Weight,
-        is_fungible: bool,
+        asset_count: AssetCount,
     ) -> WeightMeter {
         let minimum_charge =
-            Self::receiver_affirm_transfer_weight(is_fungible).saturating_add(base);
-        let limit = minimum_charge.saturating_add(Self::try_execute_weight(is_fungible));
+            Self::receiver_affirm_transfer_weight(asset_count).saturating_add(base);
+        let limit = minimum_charge.saturating_add(Self::try_execute_weight(asset_count));
         WeightMeter::from_limit_unchecked(minimum_charge, limit)
     }
 
     /// Get the reject transfer weight meter.
-    fn reject_transfer_weight_meter(is_fungible: bool) -> WeightMeter;
+    fn reject_transfer_weight_meter(asset_count: AssetCount) -> WeightMeter;
 
-    /// Get the worst-case weight for `transfer_funds`.
+    /// Worst-case weight limit for `transfer_funds`.
     ///
-    /// `from`: the source holder. `None` or `Account` → account paths,
-    /// `Portfolio` → portfolio paths. `fund` detects fungible vs NFT.
-    fn transfer_funds_weight(from: Option<&AssetHolder>, fund: &Fund) -> Weight;
+    /// Includes base benchmark + execute/compliance + spender allowance (only when
+    /// `from` is `Some(Account)`) + receiver affirmation for the spender-is-receiver path.
+    fn transfer_funds_weight_limit(from: Option<&AssetHolder>, fund: &Fund) -> Weight;
 
     /// Routes a transfer: same-identity direct, cross-identity settlement.
     /// Returns the settlement instruction ID (None for same-identity).
