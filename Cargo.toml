@@ -209,6 +209,7 @@ scale-info = { version = "2.11.6", default-features = false, features = [
     "derive",
 ] }
 bounded-collections = { version = "0.3.2", default-features = false }
+hex-literal = { version = "1.1.0", default-features = false }
 
 # Substrate pallet/runtime deps.
 frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }

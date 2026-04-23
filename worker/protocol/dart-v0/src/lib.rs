@@ -115,9 +115,22 @@ use polymesh_dart::{
     },
 };
 
+macro_rules! env_num {
+    ($num_ty:ty, $env_var:expr) => {
+        match <$num_ty>::from_str_radix(env!($env_var), 10) {
+            Ok(num) => num,
+            Err(_) => 0,
+        }
+    };
+}
+
 pub const PROTOCOL: Protocol = Protocol {
     id: PROTOCOL_PDART,
-    version: ProtocolVersion::new(0, 1, 0),
+    version: ProtocolVersion::new(
+        env_num!(u16, "CARGO_PKG_VERSION_MAJOR"),
+        env_num!(u16, "CARGO_PKG_VERSION_MINOR"),
+        env_num!(u16, "CARGO_PKG_VERSION_PATCH"),
+    ),
 };
 
 /// Dart work request.

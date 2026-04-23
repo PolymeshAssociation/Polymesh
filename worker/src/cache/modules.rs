@@ -81,24 +81,34 @@ pub struct ProtocolModule {
 
 impl ProtocolModule {
     fn load_from_backend(
+        config: &ProtocolModuleConfig,
         backend: &Box<dyn Backend>,
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
     ) -> Option<ProtocolModuleRef> {
         let kind = backend.kind();
+        let module_kind = kind.to_module_kind();
 
-        // Get the module code hash for the given protocol, version and backend kind.  If the loader returns `None`, it means that the module is not available for this backend.
-        let hash = loader.get_module_code_and_context_hash(protocol, kind)?;
+        // Find a compatible module definition for this backend in the protocol config.
+        let mut found = None;
+        for def in &config.modules {
+            if def.module_kind == module_kind && backend.is_module_compatible(def.module_version) {
+                found = Some(def);
+                break;
+            }
+        }
+        let module_def = found?;
 
         // Try getting the module bytes using the code hash.  If this fails, it means that the module code is not available for this backend.
         // This shouldn't happen if we got a code hash.
-        let module_bytes = loader.get_module_code_bytes(protocol, kind, hash.code_hash)?;
+        let module_bytes =
+            loader.get_module_code_bytes(protocol, module_kind, module_def.code_hash)?;
 
         // Try loading the module into the backend.  If this fails, it means that the module code is not compatible with this backend.
         let module = backend.load_module(&module_bytes)?;
 
         // If there is a context hash, try loading the context.
-        let context = if let Some(ctx_hash) = hash.context_hash {
+        let context = if let Some(ctx_hash) = config.context_hash {
             loader.get_module_context_bytes(protocol, ctx_hash)
         } else {
             None
@@ -106,7 +116,7 @@ impl ProtocolModule {
 
         Some(ProtocolModuleRef(Arc::new(Self {
             kind,
-            code_hash: hash.code_hash,
+            code_hash: module_def.code_hash,
             module,
             context,
             cache: RwLock::new(ProtocolModuleInstanceCache::new()),
@@ -116,14 +126,19 @@ impl ProtocolModule {
     pub fn load(
         allowed: BackendBitmask,
         protocol: Protocol,
+        config_hash: ProtocolModuleConfigHash,
         loader: &mut dyn BackendModuleLoader,
     ) -> Option<ProtocolModuleRef> {
         let backends = BACKENDS.read().unwrap();
+
+        // Load protocol config.
+        let config = loader.get_protocol_module_config(protocol, config_hash)?;
+
         for backend in &backends.backends {
             if !backend.is_in_bitmask(allowed) {
                 continue;
             }
-            let module = Self::load_from_backend(backend, protocol, loader);
+            let module = Self::load_from_backend(&config, backend, protocol, loader);
             if module.is_some() {
                 log::info!("Loaded protocol module using backend {:?}", backend.kind());
                 return module;
@@ -173,14 +188,16 @@ impl ProtocolModuleRef {
 }
 
 pub(crate) struct BackendModuleCache {
-    // TODO: change key to (Protocol, BackendKind) if we want to support multiple backends for the same protocol version.
-    protocols: BTreeMap<Protocol, ProtocolModuleRef>,
+    protocols: BTreeMap<ProtocolModuleConfigHash, ProtocolModuleRef>,
+    builtin: StaticModules,
 }
 
 impl BackendModuleCache {
     pub(crate) fn new() -> Self {
+        let static_module = StaticModules::new();
         Self {
             protocols: BTreeMap::new(),
+            builtin: static_module,
         }
     }
 
@@ -190,32 +207,33 @@ impl BackendModuleCache {
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
     ) -> Option<ProtocolModuleRef> {
-        if let Some(module) = self.protocols.get(&protocol) {
-            return Some(module.clone());
+        // First try loading from `loader`.
+        if let Some(config_hash) = loader.get_protocol_module_config_hash(protocol) {
+            if let Some(module) = self.protocols.get(&config_hash) {
+                return Some(module.clone());
+            }
+
+            // Try loading the protocol module from the available backends.
+            if let Some(module) = ProtocolModule::load(allowed, protocol, config_hash, loader) {
+                self.protocols.insert(config_hash, module.clone());
+                return Some(module);
+            }
         }
-        // Try loading the protocol module from the available backends.
-        if let Some(module) = ProtocolModule::load(allowed, protocol, loader) {
-            self.protocols.insert(protocol, module.clone());
-            return Some(module);
-        }
-        // Fallback to the static modules.
-        let mut static_module = StaticModules::new();
-        if let Some(module) = ProtocolModule::load(allowed, protocol, &mut static_module) {
-            self.protocols.insert(protocol, module.clone());
-            return Some(module);
+
+        // Fallback to the builtin static modules.
+        if let Some(config_hash) = self.builtin.get_protocol_module_config_hash(protocol) {
+            if let Some(module) = self.protocols.get(&config_hash) {
+                return Some(module.clone());
+            }
+
+            if let Some(module) =
+                ProtocolModule::load(allowed, protocol, config_hash, &mut self.builtin)
+            {
+                self.protocols.insert(config_hash, module.clone());
+                return Some(module);
+            }
         }
 
         None
-    }
-
-    pub(crate) fn get_protocol(&self, protocol: Protocol) -> Option<ProtocolModuleRef> {
-        self.protocols.get(&protocol).cloned()
-    }
-
-    pub(crate) fn get_protocol_instance(
-        &self,
-        protocol: Protocol,
-    ) -> Option<ProtocolModuleInstance> {
-        self.get_protocol(protocol)?.get_instance()
     }
 }

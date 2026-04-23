@@ -3,10 +3,7 @@ use std::sync::{Arc, RwLock};
 use codec::Encode;
 use polymesh_worker_common::*;
 
-use crate::{
-    blake2b256_hash,
-    cache::modules::{BackendModuleCache, ProtocolModuleInstance, ProtocolModuleRef},
-};
+use crate::cache::modules::{BackendModuleCache, ProtocolModuleRef};
 
 #[cfg(feature = "polkavm")]
 mod polkavm;
@@ -154,53 +151,33 @@ impl BackendManager {
             .unwrap()
             .load_protocol(allowed, protocol, loader)
     }
-
-    /// Get a loaded protocol module.
-    pub fn get_protocol(&self, protocol: Protocol) -> Option<ProtocolModuleRef> {
-        self.inner.read().unwrap().get_protocol(protocol)
-    }
-
-    /// Get an instance to a loaded protocol module.
-    pub fn get_protocol_instance(&self, protocol: Protocol) -> Option<ProtocolModuleInstance> {
-        self.inner.read().unwrap().get_protocol_instance(protocol)
-    }
 }
 
 pub trait BackendModuleLoader {
-    /// Try getting the module code hash for the given protocol, version and backend kind.
+    /// Try loading the protocol module config hash for the given protocol.
     ///
-    /// This allows the host to check if the module is already cached before trying to load the module bytes, which can be expensive.
-    fn get_module_code_and_context_hash(
+    /// The config hash can be used to check if the protocol module has been updated and needs to be reloaded.
+    fn get_protocol_module_config_hash(
         &mut self,
         protocol: Protocol,
-        kind: BackendKind,
-    ) -> Option<BackendCodeAndContextHash> {
-        // Hash protocol and backend kind to get a dummy code hash.  This allows us to use the module instance cache for static modules without implementing a real loader.
-        let mut data = Vec::new();
-        protocol.append_to_buf(&mut data);
-        let context_hash = blake2b256_hash(&data); // Only use the protocol for the context hash, so that we can reuse the context for different backends.
-        data.push(b':');
-        kind.append_to_buf(&mut data);
-        let code_hash = blake2b256_hash(&data);
+    ) -> Option<ProtocolModuleConfigHash>;
 
-        // Return a dummy code hash for static modules.
-        Some(BackendCodeAndContextHash {
-            code_hash,
-            context_hash: Some(context_hash),
-        })
-    }
+    /// Try loading the prtocol module config for the given protocol and config hash.
+    fn get_protocol_module_config(
+        &mut self,
+        protocol: Protocol,
+        config_hash: ProtocolModuleConfigHash,
+    ) -> Option<ProtocolModuleConfig>;
 
-    /// Try loading a module for the given protocol, version and backend kind.
-    ///
-    /// This allows the PolkaVM and Wasmtime backends to load modulbe blobs from Substrate's chain storage.
+    /// Try loading a module for the given protocol.
     fn get_module_code_bytes(
         &mut self,
         protocol: Protocol,
-        kind: BackendKind,
+        kind: BackendModuleKind,
         code_hash: BackendCodeHash,
     ) -> Option<Vec<u8>>;
 
-    /// Try loading the protocol context for the given protocol and version based on the context hash.
+    /// Try loading the protocol context for the given protocol and context hash.
     fn get_module_context_bytes(
         &mut self,
         protocol: Protocol,
@@ -211,11 +188,17 @@ pub trait BackendModuleLoader {
     ///
     /// This allows the PolkaVM and Wasmtime backends to load modulbe blobs from Substrate's chain storage.
     fn get_module_bytes(&mut self, protocol: Protocol, kind: BackendKind) -> Option<Vec<u8>> {
-        if let Some(hash) = self.get_module_code_and_context_hash(protocol, kind) {
-            self.get_module_code_bytes(protocol, kind, hash.code_hash)
-        } else {
-            None
+        if let Some(config_hash) = self.get_protocol_module_config_hash(protocol) {
+            if let Some(config) = self.get_protocol_module_config(protocol, config_hash) {
+                let module_kind = kind.to_module_kind();
+                for module in config.modules {
+                    if module.module_kind == module_kind {
+                        return self.get_module_code_bytes(protocol, module_kind, module.code_hash);
+                    }
+                }
+            }
         }
+        None
     }
 }
 
@@ -337,6 +320,22 @@ pub trait Backend: Send + Sync {
 
     /// The kind of the backend.
     fn kind(&self) -> BackendKind;
+
+    /// Maximum supported module version, used for compatibility checking.
+    fn max_supported_version(&self) -> BackendModuleVersion {
+        1
+    }
+
+    /// Minimum supported module version, used for compatibility checking.
+    fn min_supported_version(&self) -> BackendModuleVersion {
+        1
+    }
+
+    /// Check if a module is compatible.
+    fn is_module_compatible(&self, module_version: BackendModuleVersion) -> bool {
+        module_version >= self.min_supported_version()
+            && module_version <= self.max_supported_version()
+    }
 
     /// Check if this backend is in the given bitmask of backends.
     fn is_in_bitmask(&self, bitmask: BackendBitmask) -> bool {

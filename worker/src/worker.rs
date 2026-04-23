@@ -464,11 +464,8 @@ impl PolymeshWorker {
             return (request_id, WorkStatus::Completed);
         }
 
-        // Get the protocol module either from the session or from the backend, and if we fail to get the protocol module, we return an error status to fallback to runtime execution.
-        let Some(module) = session
-            .get_protocol_module()
-            .or_else(|| self.backend.get_protocol(session.protocol))
-        else {
+        // Get the protocol module either from the session, if we fail to get the protocol module, we return an error status to fallback to runtime execution.
+        let Some(module) = session.get_protocol_module() else {
             log::error!(
                 "Failed to get protocol module for protocol {:?} to execute work request.",
                 session.protocol
@@ -561,7 +558,6 @@ impl PolymeshWorker {
         // Get the protocol module instance for the session's protocol.
         let mut instance = session
             .get_protocol_instance()
-            .or_else(|| self.backend.get_protocol_instance(session.protocol))
             .ok_or(WorkerError::ModuleExecutionFailed)?;
 
         // Execute the work request using the protocol module instance.

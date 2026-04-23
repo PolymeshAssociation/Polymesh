@@ -15,6 +15,7 @@ polymesh-worker-common = { workspace = true, default-features = false }
 polymesh-worker = { workspace = true, default-features = false, optional = true }
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
+hex-literal = { workspace = true, default-features = false }
 
 sc-client-api = { workspace = true, optional = true }
 

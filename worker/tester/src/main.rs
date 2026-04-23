@@ -30,7 +30,7 @@ pub fn main() {
             _ => None,
         });
 
-    let (backends, kind) = if let Some(backend_kind) = backend_kind {
+    let (backends, _kind) = if let Some(backend_kind) = backend_kind {
         let native_backend = polymesh_worker_native::NativeBackend;
         println!("Using backend: {:?}", backend_kind);
         (
@@ -60,10 +60,13 @@ pub fn main() {
 
     // Load the module context.
     let now = std::time::Instant::now();
-    let hashes = loader
-        .get_module_code_and_context_hash(protocol, kind)
-        .expect("Failed to get module code and context hash");
-    let context_bytes = if let Some(context_hash) = hashes.context_hash {
+    let config_hash = loader
+        .get_protocol_module_config_hash(protocol)
+        .expect("Failed to get protocol module config hash");
+    let config = loader
+        .get_protocol_module_config(protocol, config_hash)
+        .expect("Failed to get protocol module config");
+    let context_bytes = if let Some(context_hash) = config.context_hash {
         loader.get_module_context_bytes(protocol, context_hash)
     } else {
         None

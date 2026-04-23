@@ -1,10 +1,13 @@
+use codec::Encode;
+
 pub use polymesh_worker_common::{
-    BackendBitmask, BackendCodeAndContextHash, BackendCodeHash, BackendContextHash, BackendKind,
+    BackendBitmask, BackendCodeHash, BackendContextHash, BackendKind, BackendModuleDefinition,
     FALLBACK_TO_RUNTIME, MODULE_CODE_SIZE_LIMIT, PROTOCOL_PDART, Protocol, ProtocolError,
     ProtocolId, ProtocolNumber, ProtocolVersion, WorkFlags, WorkRequest, WorkRequestId,
     WorkResponse, WorkResponseResult, WorkSeed, WorkStatus, WorkStatusFlagsAndId, WorkerSessionId,
     WorkerVersion, config::*, error::*,
 };
+use polymesh_worker_common::{BackendModuleKind, ProtocolModuleConfig, ProtocolModuleConfigHash};
 
 pub mod backend;
 pub mod cache;
@@ -34,6 +37,8 @@ pub fn decompress_module_code(bytes: &[u8]) -> Option<Vec<u8>> {
 
 pub struct StaticModules {
     initialized: bool,
+    config: ProtocolModuleConfig,
+    config_hash: ProtocolModuleConfigHash,
     polkavm_code_hash: BackendCodeHash,
     wasm_code_hash: BackendCodeHash,
     native_code_hash: BackendCodeHash,
@@ -42,8 +47,18 @@ pub struct StaticModules {
 
 impl StaticModules {
     pub fn new() -> Self {
+        let config = ProtocolModuleConfig {
+            protocol: Protocol {
+                id: PROTOCOL_PDART,
+                version: ProtocolVersion::new(0, 1, 0),
+            },
+            context_hash: None,
+            modules: Vec::new(),
+        };
         Self {
             initialized: false,
+            config,
+            config_hash: [0u8; 32],
             polkavm_code_hash: [0u8; 32],
             wasm_code_hash: [0u8; 32],
             native_code_hash: [42u8; 32],
@@ -85,27 +100,51 @@ impl StaticModules {
         self.polkavm_code_hash = blake2b256_hash(self.polkavm_bytes());
         self.wasm_code_hash = blake2b256_hash(self.wasm_bytes());
         self.context_hash = blake2b256_hash(self.context_bytes());
+        self.config.context_hash = Some(self.context_hash);
+
+        // Setup module definitions for the protocol config.
+        self.config.modules.push(BackendModuleDefinition {
+            module_kind: BackendModuleKind::PolkaVM,
+            module_version: 1,
+            code_hash: self.polkavm_code_hash,
+        });
+        self.config.modules.push(BackendModuleDefinition {
+            module_kind: BackendModuleKind::Wasm,
+            module_version: 1,
+            code_hash: self.wasm_code_hash,
+        });
+        self.config.modules.push(BackendModuleDefinition {
+            module_kind: BackendModuleKind::Native,
+            module_version: 1,
+            code_hash: self.native_code_hash,
+        });
+        self.config_hash = blake2b256_hash(&self.config.encode());
         self.initialized = true;
     }
 }
 
 impl backend::BackendModuleLoader for StaticModules {
-    fn get_module_code_and_context_hash(
+    fn get_protocol_module_config_hash(
         &mut self,
         protocol: Protocol,
-        kind: BackendKind,
-    ) -> Option<BackendCodeAndContextHash> {
+    ) -> Option<ProtocolModuleConfigHash> {
         if protocol.id == PROTOCOL_PDART {
             self.initialize();
-            let code_hash = match kind {
-                BackendKind::PolkaVM => self.polkavm_code_hash,
-                BackendKind::Wasmtime | BackendKind::Wasmer => self.wasm_code_hash,
-                BackendKind::Native => self.native_code_hash,
-            };
-            Some(BackendCodeAndContextHash {
-                code_hash,
-                context_hash: Some(self.context_hash),
-            })
+            Some(self.config_hash)
+        } else {
+            None
+        }
+    }
+
+    /// Try loading the prtocol module config for the given protocol and config hash.
+    fn get_protocol_module_config(
+        &mut self,
+        protocol: Protocol,
+        config_hash: ProtocolModuleConfigHash,
+    ) -> Option<ProtocolModuleConfig> {
+        if protocol.id == PROTOCOL_PDART && config_hash == self.config_hash {
+            self.initialize();
+            Some(self.config.clone())
         } else {
             None
         }
@@ -114,19 +153,19 @@ impl backend::BackendModuleLoader for StaticModules {
     fn get_module_code_bytes(
         &mut self,
         protocol: Protocol,
-        kind: BackendKind,
+        kind: BackendModuleKind,
         code_hash: BackendCodeHash,
     ) -> Option<Vec<u8>> {
         if protocol.id == PROTOCOL_PDART {
             self.initialize();
             match kind {
-                BackendKind::PolkaVM if code_hash == self.polkavm_code_hash => {
+                BackendModuleKind::PolkaVM if code_hash == self.polkavm_code_hash => {
                     decompress_module_code(self.polkavm_bytes())
                 }
-                BackendKind::Wasmtime | BackendKind::Wasmer if code_hash == self.wasm_code_hash => {
+                BackendModuleKind::Wasm if code_hash == self.wasm_code_hash => {
                     decompress_module_code(self.wasm_bytes())
                 }
-                BackendKind::Native if code_hash == self.native_code_hash => Some(vec![]),
+                BackendModuleKind::Native if code_hash == self.native_code_hash => Some(vec![]),
                 _ => None,
             }
         } else {

@@ -1,64 +1,10 @@
-use codec::Decode;
-
-pub use polymesh_worker::{WORKER_VERSION, backend::BackendModuleLoader, worker::*};
+pub use polymesh_worker::{WORKER_VERSION, worker::*};
 use polymesh_worker_common::{
-    BackendBitmask, BackendCodeAndContextHash, BackendCodeHash, BackendContextHash, BackendKind,
-    Protocol, ProtocolNumber, WorkRequest, WorkerConfigFlags, WorkerSessionConfig, WorkerSessionId,
+    BackendBitmask, Protocol, ProtocolNumber, WorkRequest, WorkerConfigFlags, WorkerSessionConfig,
+    WorkerSessionId,
 };
 
 use crate::*;
-
-pub struct SubstrateModuleLoader<'a>(pub &'a mut dyn sp_externalities::Externalities);
-
-impl<'a> SubstrateModuleLoader<'a> {
-    fn storage(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        self.0.storage(key)
-    }
-}
-
-//impl BackendModuleLoader for SubstrateModuleLoader {
-impl<'a> BackendModuleLoader for SubstrateModuleLoader<'a> {
-    fn get_module_code_and_context_hash(
-        &mut self,
-        protocol: Protocol,
-        kind: BackendKind,
-    ) -> Option<BackendCodeAndContextHash> {
-        // Generate the storage key for the module code hash based on the protocol and backend kind.
-        let mut key = Vec::new();
-        protocol_module_code_hash_key(&mut key, kind, protocol);
-        // Load the module code hash from the host storage.
-        if let Some(hash_value) = self.storage(key.as_slice()) {
-            let code_hash = Decode::decode(&mut &hash_value[..]).ok()?;
-            return Some(code_hash);
-        }
-        None
-    }
-
-    fn get_module_code_bytes(
-        &mut self,
-        protocol: Protocol,
-        kind: BackendKind,
-        code_hash: BackendCodeHash,
-    ) -> Option<Vec<u8>> {
-        // Generate the storage key for the module bytes based on the protocol, backend kind and code hash.
-        let mut key = Vec::new();
-        protocol_module_bytes_key(&mut key, kind, protocol, code_hash);
-        // Load the module bytes from the host storage.
-        self.storage(key.as_slice())
-    }
-
-    fn get_module_context_bytes(
-        &mut self,
-        protocol: Protocol,
-        ctx_hash: BackendContextHash,
-    ) -> Option<Vec<u8>> {
-        // Generate the storage key for the module bytes based on the protocol, backend kind and code hash.
-        let mut key = Vec::new();
-        protocol_module_context_key(&mut key, protocol, ctx_hash);
-        // Load the module bytes from the host storage.
-        self.storage(key.as_slice())
-    }
-}
 
 /// Polymesh Worker extension.
 #[derive(Clone)]

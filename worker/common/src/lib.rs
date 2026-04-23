@@ -18,19 +18,48 @@ pub type WorkerSessionId = u32;
 /// Backend bitmask type.
 pub type BackendBitmask = u32;
 
+/// Protocol module config hash type.
+pub type ProtocolModuleConfigHash = [u8; 32];
+
+/// A protocol's module configuration, which contains the list of backends and their corresponding module definitions (code hash, context hash, etc).
+#[derive(Clone, Debug, Encode, Decode)]
+pub struct ProtocolModuleConfig {
+    pub protocol: Protocol,
+    /// The hash of the protocol context that is used for faster module initialization.
+    pub context_hash: Option<BackendContextHash>,
+    pub modules: Vec<BackendModuleDefinition>,
+}
+
+impl ProtocolModuleConfig {
+    /// Hash the protocol module config using the given hash function, which is used for caching loaded modules.
+    pub fn hash_using<F: FnOnce(&[u8]) -> [u8; 32]>(&self, hash_fn: F) -> ProtocolModuleConfigHash {
+        self.using_encoded(hash_fn)
+    }
+}
+
 /// Backend module code hash type.
 pub type BackendCodeHash = [u8; 32];
 
 /// Backend module context hash type.
 pub type BackendContextHash = [u8; 32];
 
+/// Backend module version.
+///
+/// This is used for compatibility checking with the backend.
+///
+/// Newer node release can include improved backends (i.e. like newer wasm features, or breaking changes in module code format).
+/// The chain can continue to support older backends by uploading multiple versions of the same module code compiled for the different backend versions.
+pub type BackendModuleVersion = u32;
+
 /// For a give protocol, version and backend kind, the code hash and context hash of the module to be loaded.
 #[derive(Clone, Debug, Encode, Decode)]
-pub struct BackendCodeAndContextHash {
+pub struct BackendModuleDefinition {
+    /// The module kind, used to determine which module code to load for the given backend kind.
+    pub module_kind: BackendModuleKind,
+    /// The module version, used for compatibility checking with the backend.
+    pub module_version: BackendModuleVersion,
     /// The code hash for loading the module code bytes.
     pub code_hash: BackendCodeHash,
-    /// If given the context is also loaded for faster initization.
-    pub context_hash: Option<BackendContextHash>,
 }
 
 /// The maximum module code size limit, used for decompression safety (e.g. to prevent decompression bombs).
@@ -60,11 +89,22 @@ pub fn unpack_fat_results(fat_ptr: u64) -> Result<(u32, u32), ProtocolError> {
     }
 }
 
+/// The module code kind.
+///
+/// Some backends like wasmer and wasmtime both support wasm modules and can share the same module code.
+#[derive(Clone, Copy, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum BackendModuleKind {
+    Native = 0,
+    PolkaVM = 1,
+    Wasm = 2,
+}
+
 /// The backend kind.
 ///
 /// This is used to allow disabling certain backends in the future if they are found to be insecure or have other issues.
 /// It also allows us to have multiple backends for the same protocol if needed.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum BackendKind {
     Native = 0,
@@ -84,6 +124,15 @@ impl BackendKind {
     /// All supported backends.
     pub fn all_mask() -> BackendBitmask {
         BackendKind::Native | BackendKind::PolkaVM | BackendKind::Wasmtime | BackendKind::Wasmer
+    }
+
+    /// Backend kind to module kind.
+    pub fn to_module_kind(&self) -> BackendModuleKind {
+        match self {
+            BackendKind::Native => BackendModuleKind::Native,
+            BackendKind::PolkaVM => BackendModuleKind::PolkaVM,
+            BackendKind::Wasmtime | BackendKind::Wasmer => BackendModuleKind::Wasm,
+        }
     }
 
     /// Convert from a u32 to a backend kind.
@@ -212,9 +261,9 @@ impl core::ops::BitOr<BackendKind> for BackendBitmask {
 #[derive(
     Clone, Copy, Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord
 )]
-pub struct ProtocolId(u8);
+pub struct ProtocolId(u16);
 
-pub type ProtocolNumber = u32;
+pub type ProtocolNumber = u64;
 
 /// The protocol id for the P-DART protocol.
 ///
@@ -253,32 +302,28 @@ impl Protocol {
 
     /// Create a new protocol from a protocol number.
     pub const fn from_number(num: ProtocolNumber) -> Self {
-        let id = ProtocolId((num >> 24) as u8);
-        let version = ProtocolVersion {
-            major: ((num >> 16) & 0xFF) as u8,
-            minor: ((num >> 8) & 0xFF) as u8,
-            patch: (num & 0xFF) as u8,
-        };
-        Self { id, version }
+        let id = ProtocolId((num >> 48) as u16);
+        let major = ((num >> 32) & 0xFFFF) as u16;
+        let minor = ((num >> 16) & 0xFFFF) as u16;
+        let patch = (num & 0xFFFF) as u16;
+        Self {
+            id,
+            version: ProtocolVersion::new(major, minor, patch),
+        }
     }
 
     /// Convert the protocol to a number for easier handling in the host <-> runtime communication.
     pub const fn to_number(&self) -> ProtocolNumber {
-        ((self.id.0 as ProtocolNumber) << 24)
-            | ((self.version.major as ProtocolNumber) << 16)
-            | ((self.version.minor as ProtocolNumber) << 8)
-            | (self.version.patch as ProtocolNumber)
+        let id_part = (self.id.0 as ProtocolNumber) << 48;
+        let major_part = (self.version.major as ProtocolNumber) << 32;
+        let minor_part = (self.version.minor as ProtocolNumber) << 16;
+        let patch_part = self.version.patch as ProtocolNumber;
+        id_part | major_part | minor_part | patch_part
     }
 
     /// Append protocol to buffer for storage key generation.
     pub fn append_to_buf(&self, buf: &mut Vec<u8>) {
-        buf.push(self.id.0);
-        buf.push(b':');
-        buf.push(self.version.major);
-        buf.push(b'.');
-        buf.push(self.version.minor);
-        buf.push(b'.');
-        buf.push(self.version.patch);
+        self.encode_to(buf);
     }
 }
 
@@ -287,14 +332,14 @@ impl Protocol {
     Clone, Copy, Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord
 )]
 pub struct ProtocolVersion {
-    pub major: u8,
-    pub minor: u8,
-    pub patch: u8,
+    pub major: u16,
+    pub minor: u16,
+    pub patch: u16,
 }
 
 impl ProtocolVersion {
     /// Create a new protocol version with the given major, minor and patch version.
-    pub const fn new(major: u8, minor: u8, patch: u8) -> Self {
+    pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
         Self {
             major,
             minor,
@@ -403,10 +448,6 @@ impl WorkRequest {
 
     /// Hash the work request data using the given hash function, which is used for caching work responses.
     pub fn hash_using<F: FnOnce(&[u8]) -> [u8; 32]>(&self, hash_fn: F) -> WorkRequestHash {
-        #[cfg(feature = "std")]
-        {
-            eprintln!("Hashing work request");
-        }
         hash_fn(&self.0)
     }
 }
