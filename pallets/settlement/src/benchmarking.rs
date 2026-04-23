@@ -666,6 +666,118 @@ benchmarks! {
         ).unwrap();
     }: affirm_instruction(bob.origin, InstructionId(1), rcv_holdings)
 
+    unsafe_affirm_instruction_receiver_portfolio {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
+        let asset_id = create_and_issue_sample_asset::<T>(
+            alice.account(),
+            true,
+            None,
+            b"PortAsset",
+            true,
+        );
+
+        let sender_portfolio = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+        let receiver_portfolio = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: bob.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+
+        let leg = Leg::Fungible {
+            sender: sender_portfolio,
+            receiver: receiver_portfolio.clone(),
+            asset_id,
+            amount: ONE_UNIT,
+        };
+
+        Pallet::<T>::base_add_instruction(
+            alice.did(),
+            None,
+            SettlementType::SettleManual(System::<T>::block_number()),
+            None,
+            None,
+            vec![leg],
+            Some(Memo::default()),
+            None,
+        ).unwrap();
+        let holder_set = BTreeSet::from([receiver_portfolio]);
+    }: {
+        Pallet::<T>::unsafe_affirm_instruction(
+            bob.did(),
+            InstructionId(1),
+            holder_set,
+            None,
+            None,
+        ).unwrap();
+    }
+
+    unsafe_affirm_instruction_receiver_account {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
+        let asset_id = create_and_issue_sample_asset::<T>(
+            alice.account(),
+            true,
+            None,
+            b"AcctAsset",
+            true,
+        );
+
+        let sender_account = AssetHolder::try_from(alice.account().encode()).unwrap();
+        let receiver_account = AssetHolder::try_from(bob.account().encode()).unwrap();
+
+        let leg = Leg::Fungible {
+            sender: sender_account,
+            receiver: receiver_account.clone(),
+            asset_id,
+            amount: ONE_UNIT,
+        };
+
+        Pallet::<T>::base_add_instruction(
+            alice.did(),
+            None,
+            SettlementType::SettleManual(System::<T>::block_number()),
+            None,
+            None,
+            vec![leg],
+            Some(Memo::default()),
+            None,
+        ).unwrap();
+        let holder_set = BTreeSet::from([receiver_account]);
+    }: {
+        Pallet::<T>::unsafe_affirm_instruction(
+            bob.did(),
+            InstructionId(1),
+            holder_set,
+            None,
+            None,
+        ).unwrap();
+    }
+
+    set_instruction_memo {
+        let instruction_id = InstructionId(1);
+        let memo = Memo::default();
+    }: {
+        InstructionMemos::<T>::insert(instruction_id, &memo);
+    }
+    verify {
+        assert_eq!(InstructionMemos::<T>::get(instruction_id), Some(memo));
+    }
+
     add_instruction_with_mediators {
         // Number of fungible, non-fungible, offchain legs and mediators
         let f in 1..T::MaxNumberOfFungibleAssets::get();
@@ -894,23 +1006,16 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
 
         let (sender_holding, receiver_holding, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, false, false, 0, true, false);
-
-        // Undo mandatory affirmation so receiver auto-affirms and instruction executes.
-        Pallet::<T>::set_mandatory_receiver_affirmation(
-            bob.origin().into(),
-            AffirmationRequirement::Automatic,
-        )
-        .unwrap();
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, false);
 
         let fund = Fund {
             description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
             memo: None,
         };
-    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding.clone(), fund)
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding, fund)
     verify {
-        // Receiver auto-affirms → instruction executes with compliance checks.
-        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&receiver_holding, &asset_id), ONE_UNIT);
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
     }
 
     transfer_funds_account_same_did {
@@ -920,15 +1025,6 @@ benchmarks! {
         let (_, _, _, asset_id) =
             setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, true);
 
-        pallet_asset::Pallet::<T>::approve(
-            alice.origin().into(),
-            asset_id,
-            bob.account(),
-            ONE_UNIT * 10,
-        )
-        .unwrap();
-
-        let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
         let to = AssetHolder::from(polymesh_primitives::PortfolioId {
             did: alice.did(),
             kind: polymesh_primitives::PortfolioKind::Default,
@@ -937,7 +1033,7 @@ benchmarks! {
             description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
             memo: None,
         };
-    }: transfer_funds(bob.origin.clone(), from, to.clone(), fund)
+    }: transfer_funds(alice.origin.clone(), None, to.clone(), fund)
     verify {
         assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
     }
@@ -947,31 +1043,17 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
 
         let (_, _, _, asset_id) =
-            setup_asset_transfer::<T>(&alice, &bob, None, None, false, false, 0, false, true);
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, true);
 
-        pallet_asset::Pallet::<T>::approve(
-            alice.origin().into(),
-            asset_id,
-            bob.account(),
-            ONE_UNIT * 10,
-        )
-        .unwrap();
-
-        let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
         let to = AssetHolder::try_from(bob.account().encode()).unwrap();
         let fund = Fund {
             description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
             memo: None,
         };
-    }: transfer_funds(bob.origin.clone(), from, to.clone(), fund)
+    }: transfer_funds(alice.origin.clone(), None, to, fund)
     verify {
-        // Allowance decremented.
-        assert_eq!(
-            pallet_asset::Allowances::<T>::get((&alice.account(), &bob.account(), asset_id)),
-            ONE_UNIT * 9
-        );
-        // Instruction executed (caller is receiver → auto-affirm → execution).
-        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
     }
 
     transfer_funds_nft_portfolio_same_did {
@@ -1004,17 +1086,22 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
 
         let (asset_id, sender_holding, receiver_holding, _) =
-            setup_nft_transfer::<T>(&alice, &bob, n, None, None, false, 0, false);
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, false);
+
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
 
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         let fund = Fund {
             description: FundDescription::NonFungible(nfts),
             memo: None,
         };
-    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding.clone(), fund)
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding, fund)
     verify {
-        // Receiver auto-affirms → instruction executes.
-        assert_eq!(pallet_nft::NumberOfNFTs::<T>::get(asset_id, bob.did()), n as u64);
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
     }
 
     transfer_funds_nft_account_same_did {
@@ -1048,19 +1135,23 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
 
         let (asset_id, _, _, _) =
-            setup_nft_transfer::<T>(&alice, &bob, n, None, None, false, 0, true);
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, true);
 
-        let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
         let to = AssetHolder::try_from(bob.account().encode()).unwrap();
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
         let fund = Fund {
             description: FundDescription::NonFungible(nfts),
             memo: None,
         };
-    }: transfer_funds(alice.origin.clone(), from, to.clone(), fund)
+    }: transfer_funds(alice.origin.clone(), None, to, fund)
     verify {
-        // Receiver auto-affirms → instruction executes.
-        assert_eq!(pallet_nft::NumberOfNFTs::<T>::get(asset_id, bob.did()), n as u64);
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
     }
 
     unlock_instruction {
