@@ -1,4 +1,6 @@
 use frame_support::pallet_prelude::*;
+use frame_support::storage::migration::move_prefix;
+use frame_support::StoragePrefixedMap;
 
 use crate::{Config, Pallet};
 
@@ -23,7 +25,7 @@ pub mod v6 {
     >;
 
     #[frame_support::storage_alias]
-    pub type NFTHolder<T: Config> = StorageDoubleMap<
+    pub type OldNFTHolder<T: Config> = StorageDoubleMap<
         Pallet<T>,
         Twox64Concat,
         AccountId32,
@@ -59,13 +61,15 @@ pub fn migrate_to_v7<T: Config>() -> Weight {
 
     log::info!("NFTOwner storage deleted");
 
-    let old_entries: sp_std::vec::Vec<_> = crate::migrations::v6::NFTHolder::<T>::drain().collect();
-    reads += old_entries.len() as u64;
-    writes += old_entries.len() as u64;
+    move_prefix(
+        &crate::NFTHolder::<T>::final_prefix(),
+        &v6::OldNFTHolder::<T>::final_prefix(),
+    );
 
-    for (account, (asset_id, nft_id), status) in old_entries {
+    for (account, (asset_id, nft_id), status) in v6::OldNFTHolder::<T>::drain() {
         crate::NFTHolder::<T>::insert((account, asset_id, nft_id), status);
-        writes += 1;
+        writes += 2;
+        reads += 1;
     }
 
     log::info!("NFTHolder storage migrated: {} itens", reads);
