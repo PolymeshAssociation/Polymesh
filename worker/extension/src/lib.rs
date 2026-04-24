@@ -53,6 +53,17 @@ pub trait NativePolymeshWorker {
         ext.start_session(flags, backends, default_protocol, &mut loader)
     }
 
+    /// Execute a batch of work requests within the given session.
+    fn session_execute_batch(
+        &mut self,
+        session_id: WorkerSessionId,
+        flags: WorkerConfigFlags,
+        work_reqs: PassFatPointerAndRead<Vec<u8>>,
+    ) -> AllocateAndReturnByCodec<Vec<WorkStatusFlagsAndId>> {
+        let ext = PolymeshWorkerExt::new();
+        ext.session_execute_batch(session_id, flags, work_reqs)
+    }
+
     /// Execute a protocol-specific work request for the given session id.
     fn session_execute_request(
         &mut self,

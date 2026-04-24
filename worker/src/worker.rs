@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    ops::Deref,
     sync::{Arc, RwLock},
 };
 
@@ -150,7 +151,16 @@ impl WorkerSessionInner {
     }
 }
 
-pub type WorkerSessionRef = Arc<WorkerSession>;
+#[derive(Clone)]
+pub struct WorkerSessionRef(Arc<WorkerSession>);
+
+impl Deref for WorkerSessionRef {
+    type Target = WorkerSession;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub struct WorkerSession {
     pub id: WorkerSessionId,
@@ -172,7 +182,7 @@ impl WorkerSession {
         module: Option<ProtocolModuleRef>,
     ) -> WorkerSessionRef {
         let (tx, rx) = unbounded();
-        Arc::new(Self {
+        WorkerSessionRef(Arc::new(Self {
             id,
             config,
             protocol,
@@ -181,7 +191,7 @@ impl WorkerSession {
             tx,
 
             inner: RwLock::new(WorkerSessionInner::new(rx)),
-        })
+        }))
     }
 
     /// New work request.
@@ -246,7 +256,7 @@ impl WorkerSession {
     }
 
     /// Merge the session config with a work request config to get the effective config for the work request execution.
-    pub fn merge_config(&self, req_config: WorkRequestConfig) -> WorkRequestConfig {
+    pub fn merge_config(&self, req_config: &WorkRequestConfig) -> WorkRequestConfig {
         req_config.flags_and(&self.config.work)
     }
 
@@ -259,6 +269,144 @@ impl WorkerSession {
     pub fn get_protocol_instance(&self) -> Option<ProtocolModuleInstance> {
         let module = self.module.as_ref()?;
         module.get_instance()
+    }
+
+    // Try executing the work request on the host and return the status.
+    fn try_execute_work(
+        &self,
+        module: ProtocolModuleRef,
+        request_id: WorkRequestId,
+        work: WorkRequest,
+        cache: Option<(WorkRequestHash, WorkRequestCache)>,
+    ) -> Result<WorkStatus, WorkerError> {
+        // Get the protocol module instance for the session's protocol.
+        let mut instance = module
+            .get_instance()
+            .ok_or(WorkerError::ModuleExecutionFailed)?;
+
+        // Execute the work request using the protocol module instance.
+        let result = instance.execute(&work)?;
+
+        // If caching is enabled, we insert the result into the cache for future reuse.
+        let cached = if let Some((req_hash, cache)) = cache {
+            cache.insert(req_hash, result.clone());
+            true
+        } else {
+            false
+        };
+
+        // Push the work response result to the session.
+        self.push_response(request_id, Some(result), cached);
+
+        Ok(WorkStatus::Completed)
+    }
+}
+
+impl WorkerSessionRef {
+    /// Execute a protocol-specific work request for the given session id.
+    pub fn execute_request(
+        &self,
+        worker: &PolymeshWorker,
+        config: &WorkRequestConfig,
+        work: WorkRequest,
+    ) -> (WorkRequestId, WorkStatus) {
+        // Merge the session config with the work request config to get the effective config for the work request execution.
+        let config = self.merge_config(config);
+
+        let (req_hash, cached_value) = if config.use_cache {
+            let hash = work.hash_using(crate::blake2b256_hash);
+
+            // Check if the response for the work request is already cached, and if so, return the cached response.
+            let cached = worker.cache.get(&hash).and_then(|cached_resp| {
+                if cfg!(feature = "testing") {
+                    log::debug!(
+                        "Cache hit for work request with hash: {:x?}, discarding value (testing feature flag).",
+                        hash
+                    );
+                    None
+                } else {
+                    // In production, we return the cached response to save time and resources.
+                    log::debug!("Cache hit for work request with hash: {:x?}", hash);
+                    Some(cached_resp)
+                }
+            });
+
+            (Some(hash), cached)
+        } else {
+            (None, None)
+        };
+
+        // If we got a cached value, then we can skip the execution.
+        // The cached value will be saved to the session.
+        let skip_execution = cached_value.is_some();
+
+        // Create a new request id.
+        let request_id = self.new_request(req_hash, cached_value);
+        log::debug!(
+            "Submitted work request with id: {} for session id: {}",
+            request_id,
+            self.id
+        );
+
+        if skip_execution {
+            log::debug!(
+                "Skipping execution for work request with id: {} since we have a cached response.",
+                request_id
+            );
+            return (request_id, WorkStatus::Completed);
+        }
+
+        // Get the protocol module either from the session, if we fail to get the protocol module, we return an error status to fallback to runtime execution.
+        let Some(module) = self.get_protocol_module() else {
+            log::error!(
+                "Failed to get protocol module for protocol {:?} to execute work request.",
+                self.protocol
+            );
+            return (request_id, WorkStatus::ExecutionFailedFallbackToRuntime);
+        };
+
+        // Execute closure to support either thread pool execution or direct execution, and if execution fails, we return an error status to fallback to runtime execution.
+        let cache = req_hash.map(|hash| (hash, worker.cache.clone()));
+
+        let execute = move |session: &WorkerSession, is_thread: bool| {
+            match session.try_execute_work(module, request_id, work, cache) {
+                Ok(status) => status,
+                Err(err) => {
+                    log::error!("Failed to execute work request: {err:?}");
+                    if is_thread {
+                        // We need to push a host worker error response to the session for the request, since the caller is waiting for the response and we don't want to wait indefinitely.
+                        session.push_response(request_id, None, false);
+                    }
+                    WorkStatus::ExecutionFailedFallbackToRuntime
+                }
+            }
+        };
+
+        let status = match (config.use_thread_pool, &worker.pool) {
+            (true, Some(pool)) => {
+                log::debug!(
+                    "Spawning a new thread to execute work request with id: {} for session id: {}.",
+                    request_id,
+                    self.id
+                );
+
+                let session = self.clone();
+                pool.spawn(move || {
+                    execute(&session, true);
+                });
+
+                WorkStatus::Pending
+            }
+            _ => {
+                // If we don't have a thread pool, we execute the work request directly on the current thread.
+                log::debug!(
+                    "Executing work request on the current thread since thread pool is not available."
+                );
+                execute(self, false)
+            }
+        };
+
+        (request_id, status)
     }
 }
 
@@ -402,6 +550,28 @@ impl PolymeshWorker {
         session
     }
 
+    /// Execute a batch of work requests in the given session.
+    pub fn session_execute_batch(
+        &self,
+        session_id: WorkerSessionId,
+        config: WorkRequestConfig,
+        batch: Vec<WorkRequest>,
+    ) -> Vec<(WorkRequestId, WorkStatus)> {
+        // First get the session for the given session id.
+        let session = match self.get_session(session_id) {
+            Ok(session) => session,
+            Err(err) => {
+                log::error!("Failed to submit work request: {err:?}");
+                return vec![];
+            }
+        };
+
+        batch
+            .into_iter()
+            .map(|work| session.execute_request(self, &config, work))
+            .collect()
+    }
+
     /// Execute a protocol-specific work request for the given session id.
     pub fn session_execute_request(
         &self,
@@ -418,102 +588,7 @@ impl PolymeshWorker {
             }
         };
 
-        // Merge the session config with the work request config to get the effective config for the work request execution.
-        let config = session.merge_config(config);
-
-        let (req_hash, cached_value) = if config.use_cache {
-            let hash = work.hash_using(crate::blake2b256_hash);
-
-            // Check if the response for the work request is already cached, and if so, return the cached response.
-            let cached = self.cache.get(&hash).and_then(|cached_resp| {
-                if cfg!(feature = "testing") {
-                    log::debug!(
-                        "Cache hit for work request with hash: {:x?}, discarding value (testing feature flag).",
-                        hash
-                    );
-                    None
-                } else {
-                    // In production, we return the cached response to save time and resources.
-                    log::debug!("Cache hit for work request with hash: {:x?}", hash);
-                    Some(cached_resp)
-                }
-            });
-
-            (Some(hash), cached)
-        } else {
-            (None, None)
-        };
-
-        // If we got a cached value, then we can skip the execution.
-        // The cached value will be saved to the session.
-        let skip_execution = cached_value.is_some();
-
-        // Create a new request id.
-        let request_id = session.new_request(req_hash, cached_value);
-        log::debug!(
-            "Submitted work request with id: {} for session id: {}",
-            request_id,
-            session_id
-        );
-
-        if skip_execution {
-            log::debug!(
-                "Skipping execution for work request with id: {} since we have a cached response.",
-                request_id
-            );
-            return (request_id, WorkStatus::Completed);
-        }
-
-        // Get the protocol module either from the session, if we fail to get the protocol module, we return an error status to fallback to runtime execution.
-        let Some(module) = session.get_protocol_module() else {
-            log::error!(
-                "Failed to get protocol module for protocol {:?} to execute work request.",
-                session.protocol
-            );
-            return (request_id, WorkStatus::ExecutionFailedFallbackToRuntime);
-        };
-
-        // Execute closure to support either thread pool execution or direct execution, and if execution fails, we return an error status to fallback to runtime execution.
-        let cache = req_hash.map(|hash| (hash, self.cache.clone()));
-
-        let execute = move |is_thread: bool| {
-            match Self::try_execute_work(&session, module, request_id, work, cache) {
-                Ok(status) => status,
-                Err(err) => {
-                    log::error!("Failed to execute work request: {err:?}");
-                    if is_thread {
-                        // We need to push a host worker error response to the session for the request, since the caller is waiting for the response and we don't want to wait indefinitely.
-                        session.push_response(request_id, None, false);
-                    }
-                    WorkStatus::ExecutionFailedFallbackToRuntime
-                }
-            }
-        };
-
-        let status = match (config.use_thread_pool, &self.pool) {
-            (true, Some(pool)) => {
-                log::debug!(
-                    "Spawning a new thread to execute work request with id: {} for session id: {}.",
-                    request_id,
-                    session_id
-                );
-
-                pool.spawn(move || {
-                    execute(true);
-                });
-
-                WorkStatus::Pending
-            }
-            _ => {
-                // If we don't have a thread pool, we execute the work request directly on the current thread.
-                log::debug!(
-                    "Executing work request on the current thread since thread pool is not available."
-                );
-                execute(false)
-            }
-        };
-
-        (request_id, status)
+        session.execute_request(self, &config, work)
     }
 
     /// Execute a protocol-specific work request for the given session id and wait for the results.
@@ -530,7 +605,7 @@ impl PolymeshWorker {
         let session = self.get_session(session_id)?;
 
         // Merge the session config with the work request config to get the effective config for the work request execution.
-        let config = session.merge_config(config);
+        let config = session.merge_config(&config);
 
         // If caching is enabled, hash the work request to get the cache key and check if the response for the work request is already cached, and if so, return the cached response.
         let req_hash = if config.use_cache {
@@ -620,36 +695,6 @@ impl PolymeshWorker {
 
         // Get the next completed work request and its result.
         Ok(session.next_result(Some(&self.cache)))
-    }
-
-    // Try executing the work request on the host and return the status.
-    fn try_execute_work(
-        session: &WorkerSessionRef,
-        module: ProtocolModuleRef,
-        request_id: WorkRequestId,
-        work: WorkRequest,
-        cache: Option<(WorkRequestHash, WorkRequestCache)>,
-    ) -> Result<WorkStatus, WorkerError> {
-        // Get the protocol module instance for the session's protocol.
-        let mut instance = module
-            .get_instance()
-            .ok_or(WorkerError::ModuleExecutionFailed)?;
-
-        // Execute the work request using the protocol module instance.
-        let result = instance.execute(&work)?;
-
-        // If caching is enabled, we insert the result into the cache for future reuse.
-        let cached = if let Some((req_hash, cache)) = cache {
-            cache.insert(req_hash, result.clone());
-            true
-        } else {
-            false
-        };
-
-        // Push the work response result to the session.
-        session.push_response(request_id, Some(result), cached);
-
-        Ok(WorkStatus::Completed)
     }
 
     /// End the worker session with the given session id.

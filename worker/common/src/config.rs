@@ -22,6 +22,14 @@ pub fn unpack_flags_and_backends(
 // Config flags.
 pub const WORK_CONFIG_FLAG_USE_CACHE: u32 = 1 << 0;
 pub const WORK_CONFIG_FLAG_USE_THREAD_POOL: u32 = 1 << 1;
+/// Initialize the protocol module from the context data for this session.
+///
+/// Normally the runtime will initialize the protocol module for the session, since it will have saved context data to do fast initialization.
+///
+/// However if the context data has not been generated yet, then the runtime can start the module without initialization
+/// and submit work request(s) to generate the context data.  For faster context generation multiple parallel work requests
+/// can be summited to generate different parts of the context data in parallel.
+pub const SESSION_CONFIG_FLAG_INIT_MODULE: u32 = 1 << 2;
 
 /// Configuration for a work request.
 #[derive(Debug, Clone)]
@@ -67,6 +75,8 @@ impl WorkRequestConfig {
 pub struct WorkerSessionConfig {
     /// Work request configuration for the session.
     pub work: WorkRequestConfig,
+    /// Initialize the module for this session.
+    pub init_module: bool,
     /// The backends to use for the session.
     pub backends: BackendBitmask,
 }
@@ -75,11 +85,21 @@ impl WorkerSessionConfig {
     /// Create a new session config with the given parameters.
     pub fn new(flags: WorkerConfigFlags, backends: BackendBitmask) -> Self {
         let work = WorkRequestConfig::new(flags);
-        Self { work, backends }
+        let init_module = (flags & SESSION_CONFIG_FLAG_INIT_MODULE) != 0;
+
+        Self {
+            work,
+            init_module,
+            backends,
+        }
     }
 
     /// Convert the session config to a combined flags and backends value.
     pub fn to_flags_and_backends(&self) -> WorkerConfigFlagsAndBackends {
-        pack_flags_and_backends(self.work.to_flags(), self.backends)
+        let mut flags = self.work.to_flags();
+        if self.init_module {
+            flags |= SESSION_CONFIG_FLAG_INIT_MODULE;
+        }
+        pack_flags_and_backends(flags, self.backends)
     }
 }

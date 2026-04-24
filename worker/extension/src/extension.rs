@@ -43,6 +43,38 @@ impl PolymeshWorkerExt {
         session.id
     }
 
+    /// Execute a batch of work requests within the given session.
+    pub fn session_execute_batch(
+        &self,
+        session_id: WorkerSessionId,
+        flags: WorkerConfigFlags,
+        requests: Vec<u8>,
+    ) -> Vec<WorkStatusFlagsAndId> {
+        let config = WorkRequestConfig::new(flags);
+        let requests =
+            codec::Decode::decode(&mut &requests[..]).expect("Failed to decode work requests");
+
+        let results = self.0.session_execute_batch(session_id, config, requests);
+        log::debug!(
+            "Submitted batch of work for session id: {}, number of requests: {}, flags: {:?}",
+            session_id,
+            results.len(),
+            flags
+        );
+        results
+            .into_iter()
+            .map(|(request_id, status)| {
+                log::debug!(
+                    "Submitted work for session id: {}, request id: {}, status: {:?}",
+                    session_id,
+                    request_id,
+                    status
+                );
+                pack_work_status_flags_and_id(status, 0, request_id)
+            })
+            .collect()
+    }
+
     /// Execute a protocol-specific work request within the given session.
     pub fn session_execute_request(
         &self,
