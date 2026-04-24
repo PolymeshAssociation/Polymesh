@@ -4,7 +4,7 @@ use polymesh_dart::{
     SenderAffirmationProof, curve_tree::AccountTreeConfig,
 };
 use polymesh_worker::{backend::*, *};
-use polymesh_worker_common::PROTOCOL_PDART;
+use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
 use polymesh_worker_protocol_dart_v0::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
@@ -66,12 +66,9 @@ pub fn main() {
     let config = loader
         .get_protocol_module_config(protocol, config_hash)
         .expect("Failed to get protocol module config");
-    let context_bytes = if let Some(context_hash) = config.context_hash {
-        loader.get_module_context_bytes(protocol, context_hash)
-    } else {
-        None
-    };
-    println!("Context loaded: {}", context_bytes.is_some());
+    let initialization_method = loader
+        .resolve_initialization_method(protocol, &config.initialization_method)
+        .expect("Failed to resolve initialization method");
     println!("Module context loaded in: {:?}", now.elapsed());
 
     // Instantiate the module.
@@ -80,12 +77,17 @@ pub fn main() {
     println!("Module instantiated in: {:?}", now.elapsed());
 
     // Initialize the module.
-    {
-        let now = std::time::Instant::now();
-        instance
-            .initialize(context_bytes.as_deref())
-            .expect("Failed to initialize module");
-        println!("Module initialized in: {:?}", now.elapsed());
+    match initialization_method {
+        ResolvedInitializationMethod::NoInitializationNeeded => {
+            // No initialization needed, do nothing.
+        }
+        ResolvedInitializationMethod::ContextData(context_bytes) => {
+            let now = std::time::Instant::now();
+            instance
+                .initialize(Some(context_bytes.as_ref()))
+                .expect("Failed to initialize module");
+            println!("Module initialized in: {:?}", now.elapsed());
+        }
     }
 
     // Save the module context.

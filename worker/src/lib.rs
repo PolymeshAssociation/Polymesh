@@ -7,7 +7,9 @@ pub use polymesh_worker_common::{
     WorkResponse, WorkResponseResult, WorkSeed, WorkStatus, WorkStatusFlagsAndId, WorkerSessionId,
     WorkerVersion, config::*, error::*,
 };
-use polymesh_worker_common::{BackendModuleKind, ProtocolModuleConfig, ProtocolModuleConfigHash};
+use polymesh_worker_common::{
+    BackendModuleKind, ProtocolInitializationMethod, ProtocolModuleConfig, ProtocolModuleConfigHash,
+};
 
 pub mod backend;
 pub mod cache;
@@ -52,7 +54,7 @@ impl StaticModules {
                 id: PROTOCOL_PDART,
                 version: ProtocolVersion::new(0, 1, 0),
             },
-            context_hash: None,
+            initialization_method: ProtocolInitializationMethod::ContextHash([0u8; 32]),
             modules: Vec::new(),
         };
         Self {
@@ -100,7 +102,8 @@ impl StaticModules {
         self.polkavm_code_hash = blake2b256_hash(self.polkavm_bytes());
         self.wasm_code_hash = blake2b256_hash(self.wasm_bytes());
         self.context_hash = blake2b256_hash(self.context_bytes());
-        self.config.context_hash = Some(self.context_hash);
+        self.config.initialization_method =
+            ProtocolInitializationMethod::ContextHash(self.context_hash);
 
         // Setup module definitions for the protocol config.
         self.config.modules.push(BackendModuleDefinition {

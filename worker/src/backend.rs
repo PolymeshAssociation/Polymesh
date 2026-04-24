@@ -184,6 +184,25 @@ pub trait BackendModuleLoader {
         ctx_hash: BackendContextHash,
     ) -> Option<Vec<u8>>;
 
+    /// Try resolving the protocol's initialization method, which may involve loading the context bytes if the method is `ContextHash`.
+    fn resolve_initialization_method(
+        &mut self,
+        protocol: Protocol,
+        method: &ProtocolInitializationMethod,
+    ) -> Option<ResolvedInitializationMethod> {
+        match method {
+            ProtocolInitializationMethod::NoInitializationNeeded => {
+                Some(ResolvedInitializationMethod::NoInitializationNeeded)
+            }
+            ProtocolInitializationMethod::ContextHash(ctx_hash) => self
+                .get_module_context_bytes(protocol, *ctx_hash)
+                .map(ResolvedInitializationMethod::ContextData),
+            ProtocolInitializationMethod::ContextData(ctx_data) => {
+                Some(ResolvedInitializationMethod::ContextData(ctx_data.clone()))
+            }
+        }
+    }
+
     /// Try loading a module for the given protocol, version and backend kind.
     ///
     /// This allows the PolkaVM and Wasmtime backends to load modulbe blobs from Substrate's chain storage.

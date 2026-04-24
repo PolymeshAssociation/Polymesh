@@ -75,7 +75,7 @@ pub struct ProtocolModule {
     pub kind: BackendKind,
     pub code_hash: BackendCodeHash,
     module: Box<dyn BackendModule>,
-    context: Option<Vec<u8>>,
+    initialization_method: ResolvedInitializationMethod,
     cache: RwLock<ProtocolModuleInstanceCache>,
 }
 
@@ -107,18 +107,15 @@ impl ProtocolModule {
         // Try loading the module into the backend.  If this fails, it means that the module code is not compatible with this backend.
         let module = backend.load_module(&module_bytes)?;
 
-        // If there is a context hash, try loading the context.
-        let context = if let Some(ctx_hash) = config.context_hash {
-            loader.get_module_context_bytes(protocol, ctx_hash)
-        } else {
-            None
-        };
+        // If the initialization method is `ContextHash`, we need to load the context bytes.
+        let initialization_method =
+            loader.resolve_initialization_method(protocol, &config.initialization_method)?;
 
         Some(ProtocolModuleRef(Arc::new(Self {
             kind,
             code_hash: module_def.code_hash,
             module,
-            context,
+            initialization_method,
             cache: RwLock::new(ProtocolModuleInstanceCache::new()),
         })))
     }
@@ -173,10 +170,20 @@ impl ProtocolModuleRef {
         );
         // No cached instance available, create a new one.
         let mut instance = self.0.module.instantiate()?;
-        if let Err(err) = instance.initialize(self.0.context.as_deref()) {
-            log::error!("Failed to initialize module instance: {err:?}");
-            return None;
+
+        // Initialize the module instance if needed.
+        match &self.0.initialization_method {
+            ResolvedInitializationMethod::NoInitializationNeeded => {
+                // No initialization needed, do nothing.
+            }
+            ResolvedInitializationMethod::ContextData(ctx_data) => {
+                if let Err(err) = instance.initialize(Some(ctx_data)) {
+                    log::error!("Failed to initialize module instance: {err:?}");
+                    return None;
+                }
+            }
         }
+
         Some(ProtocolModuleInstance::new(instance, self.clone()))
     }
 
