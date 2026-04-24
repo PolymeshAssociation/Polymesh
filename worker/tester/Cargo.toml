@@ -21,6 +21,28 @@ hex = { version = "0.4.3", default-features = false }
 
 env_logger = { version = "0.10.0", default-features = false }
 
+[dev-dependencies]
+anyhow = { version = "1.0.98" }
+test-log = { version = "0.2.17" }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+ark-serialize = { workspace = true, default-features = true, features = ["std", "parallel"] }
+ark-ec = { workspace = true, default-features = true, features = ["std", "parallel"] }
+ark-ff = { workspace = true, default-features = true, features = ["std", "parallel", "asm"] }
+ark-std = { workspace = true, default-features = true, features = ["std", "parallel"] }
+ark-host-msm = { workspace = true, default-features = true, features = ["std"] }
+ark-host-msm-impl = { workspace = true, default-features = true, features = ["std", "parallel", "asm"] }
+ark-pallas = { workspace = true, default-features = true, features = ["std", "asm"] }
+ark-vesta = { workspace = true, default-features = true, features = ["std", "asm"] }
+
+[[bench]]
+name = "bench_backends"
+harness = false
+
+[[bench]]
+name = "bench_msm"
+harness = false
+
 [features]
 default = [
 	"std",

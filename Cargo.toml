@@ -55,6 +55,7 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 #ark-ed25519 = { path = "../arkworks-algebra/curves/ed25519" }
 #ark-bn254 = { path = "../arkworks-algebra/curves/bn254" }
 #ark-bls12-381 = { path = "../arkworks-algebra/curves/bls12_381" }
+
 ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
@@ -342,6 +343,7 @@ polymesh-dart = { version = "0.1.0", default-features = false }
 polymesh-dart-common = { version = "0.1.0", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 ark-ec = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
 ark-host-msm = { version = "0.5", default-features = false }
 ark-host-msm-impl = { version = "0.5", default-features = false }
 ark-pallas = { version = "0.5", default-features = false }
