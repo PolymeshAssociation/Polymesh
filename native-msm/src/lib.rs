@@ -1,25 +1,65 @@
 use ark_host_msm_impl::host_msm_unchecked;
+use bulletproofs::batch_hash_to_curve;
 use sp_wasm_interface::*;
 
-pub struct HostMSM;
+#[derive(Clone, Copy)]
+pub struct HostFn {
+    name: &'static str,
+    func: fn(&mut [u8], u32) -> u32,
+}
 
-impl HostMSM {
-    fn call(context: &mut dyn FunctionContext, fat_ptr: u64) -> Result<u32> {
+impl HostFn {
+    fn call(&self, context: &mut dyn FunctionContext, fat_ptr: u64) -> Result<u32> {
         let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
         let ptr = Pointer::new(ptr);
 
         let mut buffer = context.read_memory(ptr, len)?;
-        let res_len = host_msm_unchecked(buffer.as_mut_slice(), len);
+        let res_len = (self.func)(buffer.as_mut_slice(), len);
         if res_len > 0 {
             context.write_memory(ptr, &buffer[..res_len as usize])?;
         }
         Ok(res_len)
     }
+
+    fn protected_call<T>(
+        &self,
+        caller: wasmtime::Caller<T::State>,
+        fat_ptr: u64,
+    ) -> wasmtime::Result<u32>
+    where
+        T: HostFunctionRegistry,
+    {
+        T::with_function_context(caller, move |context| {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.call(context, fat_ptr)
+                    .map_err(::sp_wasm_interface::anyhow::Error::msg)
+            }));
+            match result {
+                Ok(result) => result,
+                Err(panic) => {
+                    let message = if let Some(message) = panic.downcast_ref::<String>() {
+                        format!(
+                            "host code panicked while being called by the runtime: {}",
+                            message
+                        )
+                    } else if let Some(message) = panic.downcast_ref::<&'static str>() {
+                        format!(
+                            "host code panicked while being called by the runtime: {}",
+                            message
+                        )
+                    } else {
+                        "host code panicked while being called by the runtime".to_owned()
+                    };
+                    return Err(anyhow::Error::msg(message));
+                }
+            }
+        })
+    }
 }
 
-impl Function for HostMSM {
+impl Function for HostFn {
     fn name(&self) -> &str {
-        "host_msm_unchecked"
+        self.name
     }
 
     fn signature(&self) -> Signature {
@@ -41,12 +81,21 @@ impl Function for HostMSM {
                 _ => None,
             })
             .ok_or_else(|| "Invalid argument for ptr")? as u64;
-        let res_len = Self::call(context, fat_ptr)?;
+        let res_len = self.call(context, fat_ptr)?;
         Ok(Some(Value::I32(res_len as i32)))
     }
 }
 
-const HOST_FUNCTIONS: [HostMSM; 1] = [HostMSM];
+const HOST_FUNCTIONS: [HostFn; 2] = [
+    HostFn {
+        name: "host_msm_unchecked",
+        func: host_msm_unchecked,
+    },
+    HostFn {
+        name: "host_batch_hash_to_curve",
+        func: batch_hash_to_curve,
+    },
+];
 
 pub struct MSMHostFunctions;
 
@@ -61,37 +110,15 @@ impl HostFunctions for MSMHostFunctions {
     where
         T: HostFunctionRegistry,
     {
-        let func = HostMSM;
-        registry.register_static(
-            func.name(),
-            |caller: wasmtime::Caller<T::State>, fat_ptr: u64| -> wasmtime::Result<u32> {
-                T::with_function_context(caller, move |context| {
-                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        HostMSM::call(context, fat_ptr)
-                            .map_err(::sp_wasm_interface::anyhow::Error::msg)
-                    }));
-                    match result {
-                        Ok(result) => result,
-                        Err(panic) => {
-                            let message = if let Some(message) = panic.downcast_ref::<String>() {
-                                format!(
-                                    "host code panicked while being called by the runtime: {}",
-                                    message
-                                )
-                            } else if let Some(message) = panic.downcast_ref::<&'static str>() {
-                                format!(
-                                    "host code panicked while being called by the runtime: {}",
-                                    message
-                                )
-                            } else {
-                                "host code panicked while being called by the runtime".to_owned()
-                            };
-                            return Err(anyhow::Error::msg(message));
-                        }
-                    }
-                })
-            },
-        )?;
+        for func in HOST_FUNCTIONS.iter() {
+            let func = *func;
+            registry.register_static(
+                func.name(),
+                move |caller: wasmtime::Caller<T::State>, fat_ptr: u64| -> wasmtime::Result<u32> {
+                    func.protected_call::<T>(caller, fat_ptr)
+                },
+            )?;
+        }
         Ok(())
     }
 }

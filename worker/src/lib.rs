@@ -44,7 +44,6 @@ pub struct StaticModules {
     polkavm_code_hash: BackendCodeHash,
     wasm_code_hash: BackendCodeHash,
     native_code_hash: BackendCodeHash,
-    context_hash: BackendContextHash,
 }
 
 impl StaticModules {
@@ -54,7 +53,7 @@ impl StaticModules {
                 id: PROTOCOL_PDART,
                 version: ProtocolVersion::new(0, 1, 0),
             },
-            initialization_method: ProtocolInitializationMethod::ContextHash([0u8; 32]),
+            initialization_method: ProtocolInitializationMethod::SaveContextFromFirstInstance,
             modules: Vec::new(),
         };
         Self {
@@ -64,7 +63,6 @@ impl StaticModules {
             polkavm_code_hash: [0u8; 32],
             wasm_code_hash: [0u8; 32],
             native_code_hash: [42u8; 32],
-            context_hash: [0u8; 32],
         }
     }
 
@@ -90,10 +88,6 @@ impl StaticModules {
         }
     }
 
-    fn context_bytes(&self) -> &'static [u8] {
-        include_bytes!("../polymesh-worker-protocol-dart-v0.context.bin")
-    }
-
     fn initialize(&mut self) {
         if self.initialized {
             return;
@@ -101,9 +95,6 @@ impl StaticModules {
         // Precompute the code and context hashes for the static modules.
         self.polkavm_code_hash = blake2b256_hash(self.polkavm_bytes());
         self.wasm_code_hash = blake2b256_hash(self.wasm_bytes());
-        self.context_hash = blake2b256_hash(self.context_bytes());
-        self.config.initialization_method =
-            ProtocolInitializationMethod::ContextHash(self.context_hash);
 
         // Setup module definitions for the protocol config.
         self.config.modules.push(BackendModuleDefinition {
@@ -178,14 +169,10 @@ impl backend::BackendModuleLoader for StaticModules {
 
     fn get_module_context_bytes(
         &mut self,
-        protocol: Protocol,
-        ctx_hash: BackendContextHash,
+        _protocol: Protocol,
+        _ctx_hash: BackendContextHash,
     ) -> Option<Vec<u8>> {
-        if protocol.id == PROTOCOL_PDART && ctx_hash == self.context_hash {
-            Some(include_bytes!("../polymesh-worker-protocol-dart-v0.context.bin").to_vec())
-        } else {
-            None
-        }
+        None
     }
 }
 

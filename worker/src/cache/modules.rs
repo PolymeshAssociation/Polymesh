@@ -107,9 +107,46 @@ impl ProtocolModule {
         // Try loading the module into the backend.  If this fails, it means that the module code is not compatible with this backend.
         let module = backend.load_module(&module_bytes)?;
 
-        // If the initialization method is `ContextHash`, we need to load the context bytes.
+        // Check if we should initialize the context from the first instance.  If so, we need to execute the initialization method once to get the context data, which will be cached for future instances.
         let initialization_method =
-            loader.resolve_initialization_method(protocol, &config.initialization_method)?;
+            if let ProtocolInitializationMethod::SaveContextFromFirstInstance =
+                config.initialization_method
+            {
+                let mut instance = module.instantiate()?;
+                if let Err(err) = instance.initialize(None) {
+                    log::error!(
+                        "Failed to initialize module instance for context caching: {err:?}"
+                    );
+                    return None;
+                }
+                match instance.save_context().ok()? {
+                    Some(ctx_data) => {
+                        log::info!(
+                            "Successfully cached context data from first module instance for protocol: {:?}, backend: {:?}",
+                            protocol,
+                            backend.kind()
+                        );
+                        ResolvedInitializationMethod::ContextData(ctx_data)
+                    }
+                    None => {
+                        log::warn!(
+                            "Module instance does not support context saving, falling back to no context initialization for protocol: {:?}, backend: {:?}",
+                            protocol,
+                            backend.kind()
+                        );
+                        ResolvedInitializationMethod::InitializeNoContext
+                    }
+                }
+            } else {
+                log::info!(
+                    "Using initialization method {:?} for protocol: {:?}, backend: {:?}",
+                    config.initialization_method,
+                    protocol,
+                    backend.kind()
+                );
+                // If the initialization method is `ContextHash`, we need to load the context bytes.
+                loader.resolve_initialization_method(protocol, &config.initialization_method)?
+            };
 
         Some(ProtocolModuleRef(Arc::new(Self {
             kind,
@@ -175,6 +212,12 @@ impl ProtocolModuleRef {
         match &self.0.initialization_method {
             ResolvedInitializationMethod::NoInitializationNeeded => {
                 // No initialization needed, do nothing.
+            }
+            ResolvedInitializationMethod::InitializeNoContext => {
+                if let Err(err) = instance.initialize(None) {
+                    log::error!("Failed to initialize module instance: {err:?}");
+                    return None;
+                }
             }
             ResolvedInitializationMethod::ContextData(ctx_data) => {
                 if let Err(err) = instance.initialize(Some(ctx_data)) {

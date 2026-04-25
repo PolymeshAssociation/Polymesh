@@ -609,7 +609,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -1841,12 +1841,13 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
 dependencies = [
  "ahash 0.8.12",
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
  "ark-helios",
+ "ark-host-msm",
  "ark-pallas",
  "ark-selene",
  "ark-serialize 0.5.0",
@@ -1858,7 +1859,9 @@ dependencies = [
  "dock_crypto_utils",
  "fnv",
  "hashbrown 0.15.5",
+ "lazy_static",
  "log",
+ "polkavm-derive 0.32.0",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
@@ -10841,7 +10844,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1bffbe4496dbd49b168bf5299ae997f51ae526b5"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10879,7 +10882,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1bffbe4496dbd49b168bf5299ae997f51ae526b5"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10910,7 +10913,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c399294ba5d0843a59635f1629665a76a491acda"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1bffbe4496dbd49b168bf5299ae997f51ae526b5"
 
 [[package]]
 name = "polymesh-exec-macro"
@@ -10927,6 +10930,7 @@ version = "1.0.0"
 dependencies = [
  "ark-host-msm",
  "ark-host-msm-impl",
+ "bulletproofs",
  "sp-wasm-interface",
  "wasmtime 35.0.0",
 ]
@@ -11476,6 +11480,7 @@ version = "0.1.0"
 dependencies = [
  "ark-host-msm-impl",
  "blake2 0.10.6",
+ "bulletproofs",
  "crossbeam",
  "digest 0.10.7",
  "lazy_static",
@@ -11533,6 +11538,7 @@ version = "0.1.0"
 dependencies = [
  "ark-ec 0.5.0",
  "bounded-collections",
+ "bulletproofs",
  "log",
  "parity-scale-codec",
  "picoalloc",
@@ -12577,7 +12583,7 @@ dependencies = [
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#2c02afcf82cb99ef69a8ad4e5355c06a6f42f696"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",

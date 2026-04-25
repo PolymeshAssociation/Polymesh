@@ -38,6 +38,28 @@ fn host_msm_unchecked(mut env: FunctionEnvMut<FnEnv>, fat_ptr: u64) -> u32 {
     res_len
 }
 
+fn host_batch_hash_to_curve(mut env: FunctionEnvMut<FnEnv>, fat_ptr: u64) -> u32 {
+    let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
+    let (env, store) = env.data_and_store_mut();
+    let Some(memory) = env.memory.as_ref().map(|m| m.view(&store)) else {
+        log::error!("Memory not found in host environment");
+        return 0;
+    };
+    let mut buffer = vec![0u8; len as usize];
+    if let Err(err) = memory.read(ptr as u64, &mut buffer) {
+        log::error!("Failed to read from module memory: {err}");
+        return 0;
+    }
+    let res_len = bulletproofs::batch_hash_to_curve(&mut buffer, len);
+
+    if let Err(err) = memory.write(ptr as u64, &buffer[..res_len as usize]) {
+        log::error!("Failed to write to module memory: {err}");
+        return 0;
+    }
+
+    res_len
+}
+
 /// Wasmer module instance.
 pub struct WasmerModuleInstance {
     memory: Memory,
@@ -116,6 +138,7 @@ impl BackendModule for WasmerModule {
         let imports = imports! {
             "env" => {
                 "host_msm_unchecked" => Function::new_typed_with_env(&mut store, &env, host_msm_unchecked),
+                "host_batch_hash_to_curve" => Function::new_typed_with_env(&mut store, &env, host_batch_hash_to_curve),
             },
         };
         let instance = Instance::new(&mut store, &self.module, &imports).ok()?;

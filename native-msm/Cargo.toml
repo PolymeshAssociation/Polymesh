@@ -15,15 +15,19 @@ sp-wasm-interface = { workspace = true, default-features = false }
 # Arkworks host MSM
 ark-host-msm = { workspace = true, default-features = false }
 ark-host-msm-impl = { workspace = true, default-features = false }
+# Bulletproofs host batched hash to curve.
+bulletproofs = { workspace = true, default-features = false, features = ["impl_host_hash_to_curve"] }
 
 [features]
 default = ["std"]
 
 asm = [
-    "ark-host-msm-impl/asm"
+    "ark-host-msm-impl/asm",
+    "bulletproofs/asm",
 ]
 parallel = [
     "ark-host-msm-impl/parallel",
+    "bulletproofs/parallel",
 ]
 
 std = [
@@ -35,4 +39,5 @@ std = [
     "sp-wasm-interface/std",
     "ark-host-msm/std",
     "ark-host-msm-impl/std",
+    "bulletproofs/std",
 ]

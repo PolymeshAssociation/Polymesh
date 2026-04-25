@@ -37,6 +37,7 @@ digest = { version = "0.10.7", default-features = false }
 
 # EC Math
 ark-host-msm-impl = { workspace = true, default-features = false }
+bulletproofs = { workspace = true, default-features = false, features = ["impl_host_hash_to_curve"] }
 
 [features]
 default = [
@@ -82,4 +83,5 @@ std = [
 	"codec/std",
 	"polymesh-worker-common/std",
 	"ark-host-msm-impl/std",
+	"bulletproofs/std",
 ]

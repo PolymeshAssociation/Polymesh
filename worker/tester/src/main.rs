@@ -81,6 +81,14 @@ pub fn main() {
         ResolvedInitializationMethod::NoInitializationNeeded => {
             // No initialization needed, do nothing.
         }
+        ResolvedInitializationMethod::InitializeNoContext => {
+            let now = std::time::Instant::now();
+            if let Err(err) = instance.initialize(None) {
+                log::error!("Failed to initialize module instance: {err:?}");
+                return;
+            }
+            println!("Module initialized in: {:?}", now.elapsed());
+        }
         ResolvedInitializationMethod::ContextData(context_bytes) => {
             let now = std::time::Instant::now();
             instance
@@ -100,9 +108,18 @@ pub fn main() {
         save_result
     };
     if let Some(ref ctx) = saved_ctx {
-        let hash = sp_core::blake2_256(ctx);
+        const REF_CONTEXT_DATA: &[u8] =
+            include_bytes!("../../polymesh-worker-protocol-dart-v0.context.bin");
+        let ref_hash = hex::encode(sp_core::blake2_256(REF_CONTEXT_DATA));
+        let hash = hex::encode(sp_core::blake2_256(ctx));
         println!("Saved context size: {} bytes", ctx.len());
-        println!("Saved context hash: 0x{}", hex::encode(hash));
+        println!("Saved context hash: 0x{}", hash);
+        assert_eq!(
+            hash, ref_hash,
+            "Saved context does not match reference context"
+        );
+    } else {
+        panic!("Context saving is not supported by the module");
     }
 
     // Test loading the context back into a new instance.

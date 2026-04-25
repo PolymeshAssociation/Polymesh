@@ -27,6 +27,7 @@ polymesh-dart = { workspace = true, default-features = false, features = [
 ] }
 polymesh-dart-common = { workspace = true, default-features = false }
 ark-ec = { workspace = true, default-features = false }
+bulletproofs = { workspace = true, default-features = false }
 
 # Substrate
 scale-info = { workspace = true, default-features = false, features = [
@@ -52,31 +53,34 @@ testing = []
 impl_protocol = []
 
 polkavm = [
-	"ark-ec/polkavm",
+  "ark-ec/polkavm",
+  "bulletproofs/polkavm",
   "impl_protocol",
 ]
 
 wasm = [
-	"ark-ec/host_msm",
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
   "impl_protocol",
 ]
 
 native = []
 
 runtime = [
-	"native",
-	"ark-ec/host_msm",
-	"polymesh-worker-extension",
+  "native",
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+  "polymesh-worker-extension",
 ]
 
 sp-io = [
-	"polymesh-dart/sp-io",
+  "polymesh-dart/sp-io",
 ]
 
 asm = ["polymesh-dart/asm"]
 parallel = [
-	"polymesh-dart/verifier_parallel",
-	"polymesh-dart/parallel",
+  "polymesh-dart/verifier_parallel",
+  "polymesh-dart/parallel",
 ]
 
 no_std = ["polymesh-dart/no_std"]
@@ -91,5 +95,6 @@ std = [
   "codec/std",
   "sp-std/std",
   "bounded-collections/std",
+  "bulletproofs/std",
 ]
 runtime-benchmarks = ["testing"]

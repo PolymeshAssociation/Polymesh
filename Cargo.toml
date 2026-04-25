@@ -346,6 +346,7 @@ ark-ec = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
 ark-host-msm = { version = "0.5", default-features = false }
 ark-host-msm-impl = { version = "0.5", default-features = false }
+bulletproofs = { version = "2.0.0", default-features = false }
 ark-pallas = { version = "0.5", default-features = false }
 ark-vesta = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }

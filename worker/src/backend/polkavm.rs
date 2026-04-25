@@ -27,6 +27,27 @@ fn host_msm_unchecked(caller: Caller<()>, fat_ptr: u64) -> u32 {
     res_len
 }
 
+fn host_batch_hash_to_curve(caller: Caller<()>, fat_ptr: u64) -> u32 {
+    let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
+    let mut buffer = match caller.instance.read_memory(ptr, len) {
+        Ok(data) => data,
+        Err(err) => {
+            log::error!("Failed to read memory from module: {err}");
+            return 0;
+        }
+    };
+    let res_len = bulletproofs::batch_hash_to_curve(buffer.as_mut_slice(), len);
+
+    if let Err(err) = caller
+        .instance
+        .write_memory(ptr, &buffer[..res_len as usize])
+    {
+        log::error!("Failed to write memory to module: {err}");
+        return 0;
+    }
+    res_len
+}
+
 /// Polkavm module instance.
 pub struct PolkavmModuleInstance {
     instance: Instance,
@@ -158,6 +179,9 @@ impl Backend for PolkavmBackend {
 
         linker
             .define_typed("host_msm_unchecked", host_msm_unchecked)
+            .ok()?;
+        linker
+            .define_typed("host_batch_hash_to_curve", host_batch_hash_to_curve)
             .ok()?;
 
         // Find the `initialize` and `execute` functions from the module exports.

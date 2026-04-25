@@ -23,6 +23,25 @@ fn host_msm_unchecked(mut caller: Caller<'_, ()>, fat_ptr: u64) -> wasmtime::Res
     Ok(res)
 }
 
+fn host_batch_hash_to_curve(mut caller: Caller<'_, ()>, fat_ptr: u64) -> wasmtime::Result<u32> {
+    let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
+    let mem = match caller.get_export("memory") {
+        Some(Extern::Memory(mem)) => mem,
+        _ => bail!("failed to find host memory"),
+    };
+    let ptr = ptr as usize;
+    let len = len as usize;
+    let buffer = if let Some(buffer) = mem.data_mut(&mut caller).get_mut(ptr..ptr + len) {
+        buffer
+    } else {
+        bail!("pointer/length out of bounds");
+    };
+
+    let res = bulletproofs::batch_hash_to_curve(buffer, len as u32);
+
+    Ok(res)
+}
+
 /// Wasmtime module instance.
 pub struct WasmtimeModuleInstance {
     initialize: TypedFunc<(u32, u32), u64>,
@@ -97,7 +116,8 @@ impl BackendModule for WasmtimeModule {
     fn instantiate(&self) -> Option<Box<dyn BackendModuleInstance>> {
         let mut store = Store::new(&self.engine, ());
         let host_msm = Func::wrap(&mut store, host_msm_unchecked);
-        let imports = [host_msm.into()];
+        let host_batch_hash_to_curve = Func::wrap(&mut store, host_batch_hash_to_curve);
+        let imports = [host_msm.into(), host_batch_hash_to_curve.into()];
 
         // Once we've got that all set up we can then move to the instantiation
         // phase, pairing together a compiled module as well as a set of imports.

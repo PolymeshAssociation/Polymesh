@@ -90,12 +90,29 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_cached_asset_curve_tree_parameters() -> Option<CurveTreeParameters<AssetTreeConfig>>
     {
-        CachedAssetCurveTreeParameters::<T>::get().and_then(|p| p.decode::<AssetTreeConfig>().ok())
+        CachedAssetCurveTreeParameters::<T>::get()
+            .or_else(|| {
+                // If the parameters are not found in the storage, generate and cache them.
+                let params = WrappedCurveTreeParameters::new::<AssetTreeConfig>().ok();
+                if let Some(ref params) = params {
+                    CachedAssetCurveTreeParameters::<T>::put(params);
+                }
+                params
+            })
+            .and_then(|p| p.decode::<AssetTreeConfig>().ok())
     }
 
     pub fn get_cached_account_curve_tree_parameters(
     ) -> Option<CurveTreeParameters<AccountTreeConfig>> {
         CachedAccountCurveTreeParameters::<T>::get()
+            .or_else(|| {
+                // If the parameters are not found in the storage, generate and cache them.
+                let params = WrappedCurveTreeParameters::new::<AccountTreeConfig>().ok();
+                if let Some(ref params) = params {
+                    CachedAccountCurveTreeParameters::<T>::put(params);
+                }
+                params
+            })
             .and_then(|p| p.decode::<AccountTreeConfig>().ok())
     }
 }

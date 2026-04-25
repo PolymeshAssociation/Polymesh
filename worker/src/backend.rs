@@ -194,6 +194,13 @@ pub trait BackendModuleLoader {
             ProtocolInitializationMethod::NoInitializationNeeded => {
                 Some(ResolvedInitializationMethod::NoInitializationNeeded)
             }
+            ProtocolInitializationMethod::InitializeNoContext => {
+                Some(ResolvedInitializationMethod::InitializeNoContext)
+            }
+            ProtocolInitializationMethod::SaveContextFromFirstInstance => {
+                // The caller should initialize the first instance without context and save the context for faster initialization of subsequent instances, so we can resolve this to `InitializeNoContext` for the first instance.
+                Some(ResolvedInitializationMethod::InitializeNoContext)
+            }
             ProtocolInitializationMethod::ContextHash(ctx_hash) => self
                 .get_module_context_bytes(protocol, *ctx_hash)
                 .map(ResolvedInitializationMethod::ContextData),

@@ -975,18 +975,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            // Generate the asset curve tree parameters.
-            let params = WrappedCurveTreeParameters::new::<AssetTreeConfig>()
-                .expect("Asset curve tree parameters should be valid; qed");
-            // Store the asset curve tree parameters in the storage.
-            CachedAssetCurveTreeParameters::<T>::put(params);
-
-            // Generate the account curve tree parameters.
-            let params = WrappedCurveTreeParameters::new::<AccountTreeConfig>()
-                .expect("Account curve tree parameters should be valid; qed");
-            // Store the account curve tree parameters in the storage.
-            CachedAccountCurveTreeParameters::<T>::put(params);
-
             // ============================= TODO: This might not be needed.
             //
             // The host functions are not available in the genesis build, so we cannot initialize the curve trees here.
