@@ -9,7 +9,7 @@ use polymesh_dart::{
     ASSET_TREE_HEIGHT, ASSET_TREE_L, ASSET_TREE_M, FEE_ACCOUNT_TREE_HEIGHT, FEE_ACCOUNT_TREE_L,
     FEE_ACCOUNT_TREE_M,
 };
-use polymesh_worker_protocol_dart_v0::{GetSessionId, HostCurveTreeUpdater};
+use polymesh_worker_protocol_dart_v1::{GetSessionId, HostCurveTreeUpdater};
 
 #[cfg(feature = "std")]
 use polymesh_dart::curve_tree::CurveTreeConfig;

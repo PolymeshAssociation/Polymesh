@@ -8,7 +8,7 @@ use polymesh_dart::{
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
-use polymesh_worker_protocol_dart_v0::{
+use polymesh_worker_protocol_dart_v1::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
 
@@ -97,6 +97,14 @@ fn bench_backend_kind(kind: BackendKind, c: &mut Criterion) {
     match initialization_method {
         ResolvedInitializationMethod::NoInitializationNeeded => {
             // No initialization needed, do nothing.
+        }
+        ResolvedInitializationMethod::InitializeNoContext => {
+            let now = std::time::Instant::now();
+            if let Err(err) = instance.initialize(None) {
+                log::error!("Failed to initialize module instance: {err:?}");
+                return;
+            }
+            println!("Module initialized in: {:?}", now.elapsed());
         }
         ResolvedInitializationMethod::ContextData(context_bytes) => {
             let now = std::time::Instant::now();

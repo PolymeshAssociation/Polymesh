@@ -206,7 +206,7 @@ impl DartUserAccountAssetState {
         if let Some((leaf_index, account_leaf)) = get_account_leaf_inserted(res).await? {
             // Get the expect new account commitment.
             let expected_leaf = if let Some(state) = &self.asset_state.pending_state {
-                let leaf = state.commitment(&self.keys)?.as_leaf_value()?;
+                let leaf = state.commitment()?.as_leaf_value()?;
                 let nullifier = state.nullifier()?;
 
                 log::debug!(
@@ -219,7 +219,7 @@ impl DartUserAccountAssetState {
                 let leaf = self
                     .asset_state
                     .current_state
-                    .commitment(&self.keys)?
+                    .commitment()?
                     .as_leaf_value()?;
                 let nullifier = self.asset_state.current_state.nullifier()?;
 
@@ -321,7 +321,7 @@ impl DartUserFeeAccountAssetState {
         if let Some((leaf_index, account_leaf)) = get_fee_account_leaf_inserted(res).await? {
             // Get the expect new account commitment.
             let expected_leaf = if let Some(state) = &self.fee_account_state.pending_state {
-                let leaf = state.commitment(&self.account)?.as_leaf_value()?;
+                let leaf = state.commitment()?.as_leaf_value()?;
                 let nullifier = state.nullifier()?;
                 log::debug!(
                     "{action}: pk={:?} Updating leaf index: {}, pending state balance: {}, leaf: {:?}, nullifier: {:?}",
@@ -332,7 +332,7 @@ impl DartUserFeeAccountAssetState {
                 let leaf = self
                     .fee_account_state
                     .current_state
-                    .commitment(&self.account)?
+                    .commitment()?
                     .as_leaf_value()?;
                 let nullifier = self.fee_account_state.current_state.nullifier()?;
 
@@ -971,6 +971,7 @@ impl DartUserInner {
         asset_id: DartAssetId,
         amount: u64,
     ) -> Result<()> {
+        let did = self.did();
         // Get our current account asset state.
         let asset_state = self
             .assets
@@ -986,6 +987,7 @@ impl DartUserInner {
             AssetMintingProof::new(
                 &mut rng,
                 &self.keys,
+                &did.0,
                 asset_state.as_mut(),
                 account_lookup,
                 amount,

@@ -13,7 +13,7 @@ use polymesh_dart::{
     EncryptionKeyRegistrationProof, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountAssetState,
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountTopupProof,
     InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
-    MediatorAffirmationProof, PolymeshPrivateLimits, ProofHash, ReceiverAffirmationProof,
+    MediatorAffirmationProof, PolymeshLimits, ProofHash, ReceiverAffirmationProof,
     ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof,
     SettlementBuilder, SettlementProof, blake2_256,
     curve_tree::{
@@ -53,13 +53,14 @@ pub enum GenerateDartProofRequest {
     },
     MintAsset {
         keys: AccountKeys,
+        did: Did,
         amount: Balance,
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
     CreateSettlement {
         paths: MultiLeafPathAndRoot<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>,
-        settlement: SettlementBuilder<PolymeshPrivateLimits>,
+        settlement: SettlementBuilder<PolymeshLimits>,
     },
     SenderAffirmation {
         keys: AccountKeys,
@@ -208,12 +209,13 @@ impl GenerateDartProofRequest {
             }
             Self::MintAsset {
                 keys,
+                did,
                 amount,
                 path,
                 mut account_state,
             } => {
                 let proof =
-                    AssetMintingProof::new(&mut rng, &keys, &mut account_state, path, amount)
+                    AssetMintingProof::new(&mut rng, &keys, &did, &mut account_state, path, amount)
                         .map_err(|_| Error::GenerateProofFailed)?;
                 Ok(GenerateDartProofResponse::MintAsset {
                     proof,
@@ -545,75 +547,75 @@ impl GenerateDartProofRequest {
 #[derive(Encode, Decode, Clone)]
 pub enum GenerateDartProofResponse {
     AccountRegistration {
-        proof: AccountRegistrationProof<PolymeshPrivateLimits>,
+        proof: AccountRegistrationProof<PolymeshLimits>,
     },
     EncryptionKeyRegistration {
-        proof: EncryptionKeyRegistrationProof<PolymeshPrivateLimits>,
+        proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
     },
     AccountAssetRegistration {
-        proof: AccountAssetRegistrationProof,
+        proof: AccountAssetRegistrationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     BatchedAccountAssetRegistration {
-        proof: BatchedAccountAssetRegistrationProof<PolymeshPrivateLimits>,
+        proof: BatchedAccountAssetRegistrationProof<PolymeshLimits>,
         account_states: Vec<AccountAssetState>,
     },
     MintAsset {
-        proof: AssetMintingProof,
+        proof: AssetMintingProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     CreateSettlement {
-        proof: SettlementProof<PolymeshPrivateLimits>,
+        proof: SettlementProof<PolymeshLimits>,
     },
     SenderAffirmation {
-        proof: SenderAffirmationProof,
+        proof: SenderAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     ReceiverAffirmation {
-        proof: ReceiverAffirmationProof,
+        proof: ReceiverAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     MediatorAffirmation {
-        proof: MediatorAffirmationProof,
+        proof: MediatorAffirmationProof<PolymeshLimits>,
     },
     ReceiverClaim {
-        proof: ReceiverClaimProof,
+        proof: ReceiverClaimProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     SenderCounterUpdate {
-        proof: SenderCounterUpdateProof,
+        proof: SenderCounterUpdateProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     SenderRevert {
-        proof: SenderReversalProof,
+        proof: SenderReversalProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     FeeAccountRegistration {
-        proof: FeeAccountRegistrationProof,
+        proof: FeeAccountRegistrationProof<PolymeshLimits>,
         account_state: FeeAccountAssetState,
     },
     BatchedFeeAccountRegistration {
-        proof: BatchedFeeAccountRegistrationProof<PolymeshPrivateLimits>,
+        proof: BatchedFeeAccountRegistrationProof<PolymeshLimits>,
         account_states: Vec<FeeAccountAssetState>,
     },
     FeeAccountTopup {
-        proof: FeeAccountTopupProof,
+        proof: FeeAccountTopupProof<PolymeshLimits>,
         account_state: FeeAccountAssetState,
     },
     BatchedFeeAccountTopup {
-        proof: BatchedFeeAccountTopupProof<PolymeshPrivateLimits>,
+        proof: BatchedFeeAccountTopupProof<PolymeshLimits>,
         account_states: Vec<FeeAccountAssetState>,
     },
     FeeAccountPayment {
-        proof: FeeAccountPaymentProof,
+        proof: FeeAccountPaymentProof<PolymeshLimits>,
         account_state: FeeAccountAssetState,
     },
     InstantSenderAffirmation {
-        proof: InstantSenderAffirmationProof,
+        proof: InstantSenderAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     InstantReceiverAffirmation {
-        proof: InstantReceiverAffirmationProof,
+        proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
 }

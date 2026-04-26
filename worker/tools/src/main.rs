@@ -81,7 +81,7 @@ fn save_protocol_context() {
     }
 
     // Save the context to a file.
-    let saved_ctx_file_path = "polymesh-worker-protocol-dart-v0.context.bin";
+    let saved_ctx_file_path = "polymesh-worker-protocol-dart-v1.context.bin";
     std::fs::write(&saved_ctx_file_path, saved_ctx)
         .expect("Failed to write the saved context to a file");
 }

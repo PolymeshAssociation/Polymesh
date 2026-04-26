@@ -69,22 +69,22 @@ impl StaticModules {
     fn polkavm_bytes(&self) -> &'static [u8] {
         #[cfg(not(feature = "testing"))]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v0.polkavm.zst")
+            include_bytes!("../polymesh-worker-protocol-dart-v1.polkavm.zst")
         }
         #[cfg(feature = "testing")]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v0.testing.polkavm.zst")
+            include_bytes!("../polymesh-worker-protocol-dart-v1.testing.polkavm.zst")
         }
     }
 
     fn wasm_bytes(&self) -> &'static [u8] {
         #[cfg(not(feature = "testing"))]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v0.wasm.zst")
+            include_bytes!("../polymesh-worker-protocol-dart-v1.wasm.zst")
         }
         #[cfg(feature = "testing")]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v0.testing.wasm.zst")
+            include_bytes!("../polymesh-worker-protocol-dart-v1.testing.wasm.zst")
         }
     }
 

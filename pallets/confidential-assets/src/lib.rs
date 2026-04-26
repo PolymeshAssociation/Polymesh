@@ -49,7 +49,7 @@ use polymesh_dart::{
     FeeAccountPaymentProof, FeeAccountStateCommitment, FeeAccountStateNullifier,
     FeePaymentWithBatchedProofs, InstantReceiverAffirmationProof, InstantSenderAffirmationProof,
     InstantSettlementProof, LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof,
-    PolymeshPrivateLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
+    PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
     SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof, SettlementCounts,
     SettlementProof, SettlementRef, ACCOUNT_TREE_HEIGHT, ASSET_TREE_HEIGHT,
     FEE_ACCOUNT_TREE_HEIGHT, FEE_ASSET_ID,
@@ -58,7 +58,7 @@ use polymesh_dart::{
 use polymesh_worker_extension::{
     native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig, WorkerSessionId,
 };
-use polymesh_worker_protocol_dart_v0::{
+use polymesh_worker_protocol_dart_v1::{
     UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
 };
 
@@ -66,11 +66,11 @@ pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type AuditorKeys =
-    BoundedBTreeSet<EncryptionPublicKey, <PolymeshPrivateLimits as DartLimits>::MaxAssetAuditors>;
+    BoundedBTreeSet<EncryptionPublicKey, <PolymeshLimits as DartLimits>::MaxAssetAuditors>;
 pub type MediatorKeys = BoundedBTreeMap<
     AccountPublicKey,
     EncryptionPublicKey,
-    <PolymeshPrivateLimits as DartLimits>::MaxAssetMediators,
+    <PolymeshLimits as DartLimits>::MaxAssetMediators,
 >;
 
 type PalletIdentity<T> = pallet_identity::Pallet<T>;
@@ -144,7 +144,7 @@ pub trait WeightInfo {
             .saturating_add(Self::mediator_affirmation().saturating_mul(counts.mediator_count))
     }
 
-    fn batched_proofs(batch: &BatchedProofs<PolymeshPrivateLimits>) -> Weight {
+    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>) -> Weight {
         let mut weight = Weight::zero();
         for proof in &batch.proofs {
             match proof {
@@ -187,7 +187,7 @@ pub trait WeightInfo {
     }
 
     fn relayer_submit_batched_proofs(
-        batch: &FeePaymentWithBatchedProofs<PolymeshPrivateLimits>,
+        batch: &FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> Weight {
         Self::verify_fee_payment_with_leaf()
             .saturating_add(Self::batched_proofs(&batch.batched_proofs))
@@ -429,12 +429,11 @@ pub mod pallet {
             /// Settlement reference.
             settlement_ref: SettlementRef,
             /// Settlement memo.
-            memo: BoundedVec<u8, <PolymeshPrivateLimits as DartLimits>::MaxSettlementMemoLength>,
+            memo: BoundedVec<u8, <PolymeshLimits as DartLimits>::MaxSettlementMemoLength>,
             /// Asset CurveTree root_block.
             asset_root_block: BlockNumberFor<T>,
             /// Legs in the settlement.
-            legs:
-                BoundedVec<LegEncrypted, <PolymeshPrivateLimits as DartLimits>::MaxSettlementLegs>,
+            legs: BoundedVec<LegEncrypted, <PolymeshLimits as DartLimits>::MaxSettlementLegs>,
         },
         /// Sender has affirmed a leg.
         SenderAffirmed {
@@ -913,7 +912,7 @@ pub mod pallet {
         _,
         Identity,
         SettlementRef,
-        BoundedVec<u8, <PolymeshPrivateLimits as DartLimits>::MaxSettlementMemoLength>,
+        BoundedVec<u8, <PolymeshLimits as DartLimits>::MaxSettlementMemoLength>,
         OptionQuery,
     >;
 
@@ -1042,7 +1041,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::register_accounts(proof.len() as u32))]
         pub fn register_accounts(
             origin: OriginFor<T>,
-            proof: AccountRegistrationProof<PolymeshPrivateLimits>,
+            proof: AccountRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
 
@@ -1130,7 +1129,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::register_account_assets_with_leaf(proof.len() as u32))]
         pub fn register_account_assets(
             origin: OriginFor<T>,
-            proof: BatchedAccountAssetRegistrationProof<PolymeshPrivateLimits>,
+            proof: BatchedAccountAssetRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             // Ensure the caller is allowed to make this call.
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
@@ -1199,7 +1198,10 @@ pub mod pallet {
         /// * `NullifierAlreadyUsed` if the nullifier for the account state commitment has already been used.
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::mint_asset_with_leaf())]
-        pub fn mint_asset(origin: OriginFor<T>, proof: AssetMintingProof) -> DispatchResult {
+        pub fn mint_asset(
+            origin: OriginFor<T>,
+            proof: AssetMintingProof<PolymeshLimits>,
+        ) -> DispatchResult {
             // Ensure the caller has the required permissions to mint the asset.
             let caller_did = Self::ensure_dart_account_permissions(origin, &proof.pk)?;
 
@@ -1259,7 +1261,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::create_settlement(proof.legs.len() as u32))]
         pub fn create_settlement(
             origin: OriginFor<T>,
-            proof: SettlementProof<PolymeshPrivateLimits>,
+            proof: SettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1282,7 +1284,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::sender_affirmation_with_leaf())]
         pub fn sender_affirmation(
             origin: OriginFor<T>,
-            proof: SenderAffirmationProof,
+            proof: SenderAffirmationProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1305,7 +1307,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::receiver_affirmation_with_leaf())]
         pub fn receiver_affirmation(
             origin: OriginFor<T>,
-            proof: ReceiverAffirmationProof,
+            proof: ReceiverAffirmationProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1329,7 +1331,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::mediator_affirmation())]
         pub fn mediator_affirmation(
             origin: OriginFor<T>,
-            proof: MediatorAffirmationProof,
+            proof: MediatorAffirmationProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1351,7 +1353,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::sender_update_counter_with_leaf())]
         pub fn sender_update_counter(
             origin: OriginFor<T>,
-            proof: SenderCounterUpdateProof,
+            proof: SenderCounterUpdateProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1371,7 +1373,10 @@ pub mod pallet {
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::sender_revert_with_leaf())]
-        pub fn sender_revert(origin: OriginFor<T>, proof: SenderReversalProof) -> DispatchResult {
+        pub fn sender_revert(
+            origin: OriginFor<T>,
+            proof: SenderReversalProof<PolymeshLimits>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::base_sender_revert(proof)
@@ -1390,7 +1395,10 @@ pub mod pallet {
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(10)]
         #[pallet::weight(<T as Config>::WeightInfo::receiver_claim_with_leaf())]
-        pub fn receiver_claim(origin: OriginFor<T>, proof: ReceiverClaimProof) -> DispatchResult {
+        pub fn receiver_claim(
+            origin: OriginFor<T>,
+            proof: ReceiverClaimProof<PolymeshLimits>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::base_receiver_claim(proof)
@@ -1411,7 +1419,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(proof.count_leg_affirmations()))]
         pub fn batched_settlement(
             origin: OriginFor<T>,
-            proof: BatchedSettlementProof<PolymeshPrivateLimits>,
+            proof: BatchedSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1437,7 +1445,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::register_fee_accounts_with_leaf(proof.len() as u32))]
         pub fn register_fee_accounts(
             origin: OriginFor<T>,
-            proof: BatchedFeeAccountRegistrationProof<PolymeshPrivateLimits>,
+            proof: BatchedFeeAccountRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let pallet_identity::PermissionedCallOriginData {
                 sender,
@@ -1506,7 +1514,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::topup_fee_accounts_with_leaf(proof.len() as u32))]
         pub fn topup_fee_accounts(
             origin: OriginFor<T>,
-            proof: BatchedFeeAccountTopupProof<PolymeshPrivateLimits>,
+            proof: BatchedFeeAccountTopupProof<PolymeshLimits>,
         ) -> DispatchResult {
             let pallet_identity::PermissionedCallOriginData {
                 sender,
@@ -1589,7 +1597,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::batched_proofs(&proof))]
         pub fn submit_batched_proofs(
             origin: OriginFor<T>,
-            proof: BatchedProofs<PolymeshPrivateLimits>,
+            proof: BatchedProofs<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1618,7 +1626,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof))]
         pub fn relayer_submit_batched_proofs(
             origin: OriginFor<T>,
-            proof: FeePaymentWithBatchedProofs<PolymeshPrivateLimits>,
+            proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
@@ -1639,7 +1647,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::register_encryption_keys(proof.len() as u32))]
         pub fn register_encryption_keys(
             origin: OriginFor<T>,
-            proof: EncryptionKeyRegistrationProof<PolymeshPrivateLimits>,
+            proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
 
@@ -1681,7 +1689,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::execute_instant_settlement(proof.count_leg_affirmations()))]
         pub fn execute_instant_settlement(
             origin: OriginFor<T>,
-            proof: InstantSettlementProof<PolymeshPrivateLimits>,
+            proof: InstantSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1707,7 +1715,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::instant_sender_affirmation_with_leaf())]
         pub fn instant_sender_affirmation(
             origin: OriginFor<T>,
-            proof: InstantSenderAffirmationProof,
+            proof: InstantSenderAffirmationProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1734,7 +1742,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf())]
         pub fn instant_receiver_affirmation(
             origin: OriginFor<T>,
-            proof: InstantReceiverAffirmationProof,
+            proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -1810,7 +1818,7 @@ impl<T: Config> Pallet<T> {
         Ok(asset_id)
     }
 
-    pub fn base_create_settlement(proof: SettlementProof<PolymeshPrivateLimits>) -> DispatchResult {
+    pub fn base_create_settlement(proof: SettlementProof<PolymeshLimits>) -> DispatchResult {
         let settlement_ref = proof.settlement_ref();
         #[cfg(not(feature = "runtime-benchmarks"))]
         {
@@ -1895,7 +1903,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn base_batched_settlement(
-        proof: BatchedSettlementProof<PolymeshPrivateLimits>,
+        proof: BatchedSettlementProof<PolymeshLimits>,
     ) -> DispatchResult {
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
@@ -1920,7 +1928,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn base_execute_instant_settlement(
-        proof: InstantSettlementProof<PolymeshPrivateLimits>,
+        proof: InstantSettlementProof<PolymeshLimits>,
     ) -> DispatchResult {
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
@@ -1947,7 +1955,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_sender_affirmation(proof: SenderAffirmationProof) -> DispatchResult {
+    pub fn base_sender_affirmation(proof: SenderAffirmationProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -1964,7 +1972,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_receiver_affirmation(proof: ReceiverAffirmationProof) -> DispatchResult {
+    pub fn base_receiver_affirmation(proof: ReceiverAffirmationProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -1982,7 +1990,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn base_instant_sender_affirmation(
-        proof: InstantSenderAffirmationProof,
+        proof: InstantSenderAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
@@ -2017,7 +2025,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn base_instant_receiver_affirmation(
-        proof: InstantReceiverAffirmationProof,
+        proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
@@ -2086,7 +2094,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_mediator_affirmation(proof: MediatorAffirmationProof) -> DispatchResult {
+    pub fn base_mediator_affirmation(proof: MediatorAffirmationProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let accept = proof.accept;
         let key_index = proof.key_index;
@@ -2106,7 +2114,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_sender_update_counter(proof: SenderCounterUpdateProof) -> DispatchResult {
+    pub fn base_sender_update_counter(proof: SenderCounterUpdateProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -2123,7 +2131,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_sender_revert(proof: SenderReversalProof) -> DispatchResult {
+    pub fn base_sender_revert(proof: SenderReversalProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -2140,7 +2148,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_receiver_claim(proof: ReceiverClaimProof) -> DispatchResult {
+    pub fn base_receiver_claim(proof: ReceiverClaimProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -2159,7 +2167,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_relayer_submit_batched_proofs(
         relayer: T::AccountId,
-        proof: FeePaymentWithBatchedProofs<PolymeshPrivateLimits>,
+        proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> DispatchResultWithPostInfo {
         #[cfg(not(feature = "runtime-benchmarks"))]
         {
@@ -2211,7 +2219,7 @@ impl<T: Config> Pallet<T> {
         relayer: T::AccountId,
         batch_tx_fee: BalanceOf<T>,
         batch_hash: ProofHash,
-        proof: FeeAccountPaymentProof,
+        proof: FeeAccountPaymentProof<PolymeshLimits>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         let account_state_commitment = proof.updated_account_state_commitment;
         let nullifier = proof.nullifier;
@@ -2255,9 +2263,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs inside a transaction.
-    pub fn process_batched_proofs_atomic(
-        proof: BatchedProofs<PolymeshPrivateLimits>,
-    ) -> DispatchResult {
+    pub fn process_batched_proofs_atomic(proof: BatchedProofs<PolymeshLimits>) -> DispatchResult {
         use frame_support::storage::TransactionOutcome;
         frame_support::storage::with_transaction(|| {
             let res = Self::process_batched_proofs(proof);
@@ -2270,7 +2276,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs, this should be called inside a transaction.
-    pub fn process_batched_proofs(proof: BatchedProofs<PolymeshPrivateLimits>) -> DispatchResult {
+    pub fn process_batched_proofs(proof: BatchedProofs<PolymeshLimits>) -> DispatchResult {
         for proof in proof.proofs {
             match proof {
                 BatchedProof::CreateSettlement(p) => Self::base_create_settlement(p)?,
@@ -2346,7 +2352,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the Asset keys.
-        let keys = AssetKeys::new_bounded::<PolymeshPrivateLimits>(mediators, auditors)
+        let keys = AssetKeys::new_bounded::<PolymeshLimits>(mediators, auditors)
             .map_err(|_| Error::<T>::AssetStateInvalid)?;
         Keys::<T>::insert(asset_id, &keys);
 

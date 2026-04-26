@@ -238,7 +238,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify a sender affirmation proof for a specific leg in the settlement.
     pub fn sender_affirmation(
         &self,
-        proof: SenderAffirmationProof<AccountTreeConfig>,
+        proof: SenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         self.ensure_pending()?;
@@ -262,7 +262,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify a receiver affirmation proof for a specific leg in the settlement.
     pub fn receiver_affirmation(
         &self,
-        proof: ReceiverAffirmationProof<AccountTreeConfig>,
+        proof: ReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         self.ensure_pending()?;
@@ -285,7 +285,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify an instant sender affirmation proof for a specific leg in the settlement.
     pub fn instant_sender_affirmation(
         &self,
-        proof: InstantSenderAffirmationProof<AccountTreeConfig>,
+        proof: InstantSenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         self.ensure_pending()?;
@@ -309,7 +309,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify an instant receiver affirmation proof for a specific leg in the settlement.
     pub fn instant_receiver_affirmation(
         &self,
-        proof: InstantReceiverAffirmationProof<AccountTreeConfig>,
+        proof: InstantReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         self.ensure_pending()?;
@@ -330,7 +330,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a mediator affirmation proof for a specific leg in the settlement.
-    pub fn mediator_affirmation(&self, proof: MediatorAffirmationProof) -> DispatchResult {
+    pub fn mediator_affirmation(&self, proof: MediatorAffirmationProof<PolymeshLimits>) -> DispatchResult {
         self.ensure_pending()?;
 
         let accept = proof.accept;
@@ -356,7 +356,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify the sender's counter update proof for a specific leg in the settlement.
     pub fn sender_counter_update(
         &self,
-        proof: SenderCounterUpdateProof<AccountTreeConfig>,
+        proof: SenderCounterUpdateProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         // The sender can only update the counter if the settlement has been executed.
@@ -385,7 +385,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// This can only be done if the settlement has been rejected or is still pending.
     pub fn sender_reversal(
         &self,
-        proof: SenderReversalProof<AccountTreeConfig>,
+        proof: SenderReversalProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         let status = self.status;
@@ -418,7 +418,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify the receiver's claim proof for a specific leg in the settlement.
     pub fn receiver_claim(
         &self,
-        proof: ReceiverClaimProof<AccountTreeConfig>,
+        proof: ReceiverClaimProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         // The receiver can only claim if the settlement has been executed.

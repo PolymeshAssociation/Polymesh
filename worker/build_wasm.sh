@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 target="wasm32-unknown-unknown"
-crate="polymesh-worker-protocol-dart-v0"
-lib_name="polymesh_worker_protocol_dart_v0"
+crate="polymesh-worker-protocol-dart-v1"
+lib_name="polymesh_worker_protocol_dart_v1"
 wasm_path="../target/$target/release/$lib_name.wasm"
 
 output_path="$crate.wasm"

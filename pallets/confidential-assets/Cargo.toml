@@ -22,7 +22,7 @@ rand_chacha = { workspace = true, default-features = false, optional = true }
 polymesh-dart = { workspace = true, default-features = false, features = [
   "backend_bp", "sp-io"
 ] }
-polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["runtime"] }
+polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["runtime"] }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -67,7 +67,7 @@ std = [
   "polymesh-runtime-common/std",
   "polymesh-primitives/std",
   "polymesh-worker-extension/std",
-	"polymesh-worker-protocol-dart-v0/std",
+	"polymesh-worker-protocol-dart-v1/std",
   "sp-runtime/std",
   "sp-std/std",
   "sp-io/std",
@@ -80,7 +80,7 @@ runtime-benchmarks = [
   "pallet-identity/runtime-benchmarks",
   "polymesh-primitives/runtime-benchmarks",
   "polymesh-worker-extension/runtime-benchmarks",
-	"polymesh-worker-protocol-dart-v0/runtime-benchmarks",
+	"polymesh-worker-protocol-dart-v1/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
 ]
 try-runtime = []

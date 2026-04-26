@@ -14,7 +14,7 @@ use polymesh_dart::{
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
     FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
     InstantSenderAffirmationProof, LegEncrypted, LegRef, MediatorAffirmationProof,
-    PolymeshPrivateLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
+    PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
     SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof, SettlementProof,
     SettlementRef, blake2_256,
 };
@@ -28,87 +28,87 @@ use crate::{AccountTreeRoot, AssetTreeRoot, Did, Error, FeeAccountTreeRoot};
 pub enum VerifyDartAssetRequest {
     AccountRegistration {
         did: Did,
-        proof: AccountRegistrationProof<PolymeshPrivateLimits>,
+        proof: AccountRegistrationProof<PolymeshLimits>,
     },
     EncryptionKeyRegistration {
         did: Did,
-        proof: EncryptionKeyRegistrationProof<PolymeshPrivateLimits>,
+        proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
     },
     BatchedAccountAssetRegistration {
         did: Did,
-        proof: BatchedAccountAssetRegistrationProof<PolymeshPrivateLimits>,
+        proof: BatchedAccountAssetRegistrationProof<PolymeshLimits>,
     },
     MintAsset {
         did: Did,
         root: AccountTreeRoot,
-        proof: AssetMintingProof,
+        proof: AssetMintingProof<PolymeshLimits>,
     },
     CreateSettlement {
         root: AssetTreeRoot,
         asset_lookup: AssetKeysLookup,
-        proof: SettlementProof<PolymeshPrivateLimits>,
+        proof: SettlementProof<PolymeshLimits>,
     },
     SenderAffirmation {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: SenderAffirmationProof,
+        proof: SenderAffirmationProof<PolymeshLimits>,
     },
     ReceiverAffirmation {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: ReceiverAffirmationProof,
+        proof: ReceiverAffirmationProof<PolymeshLimits>,
     },
     MediatorAffirmation {
         leg_enc: LegEncrypted,
-        proof: MediatorAffirmationProof,
+        proof: MediatorAffirmationProof<PolymeshLimits>,
     },
     SenderCounterUpdate {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: SenderCounterUpdateProof,
+        proof: SenderCounterUpdateProof<PolymeshLimits>,
     },
     SenderReversal {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: SenderReversalProof,
+        proof: SenderReversalProof<PolymeshLimits>,
     },
     ReceiverClaim {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: ReceiverClaimProof,
+        proof: ReceiverClaimProof<PolymeshLimits>,
     },
     FeeAccountRegistration {
         did: Did,
-        proof: FeeAccountRegistrationProof,
+        proof: FeeAccountRegistrationProof<PolymeshLimits>,
     },
     BatchedFeeAccountRegistration {
         did: Did,
-        proof: BatchedFeeAccountRegistrationProof<PolymeshPrivateLimits>,
+        proof: BatchedFeeAccountRegistrationProof<PolymeshLimits>,
     },
     FeeAccountTopup {
         did: Did,
         root: FeeAccountTreeRoot,
-        proof: FeeAccountTopupProof,
+        proof: FeeAccountTopupProof<PolymeshLimits>,
     },
     BatchedFeeAccountTopup {
         did: Did,
         root: FeeAccountTreeRoot,
-        proof: BatchedFeeAccountTopupProof<PolymeshPrivateLimits>,
+        proof: BatchedFeeAccountTopupProof<PolymeshLimits>,
     },
     FeeAccountPayment {
         ctx: ProofHash,
         root: FeeAccountTreeRoot,
-        proof: FeeAccountPaymentProof,
+        proof: FeeAccountPaymentProof<PolymeshLimits>,
     },
     InstantSenderAffirmation {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: InstantSenderAffirmationProof,
+        proof: InstantSenderAffirmationProof<PolymeshLimits>,
     },
     InstantReceiverAffirmation {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: InstantReceiverAffirmationProof,
+        proof: InstantReceiverAffirmationProof<PolymeshLimits>,
     },
 }
 
@@ -478,7 +478,7 @@ pub struct FeeAccountUpdate {
 }
 
 #[derive(Encode, Decode, Clone)]
-pub enum VerifyDartProofResponse<T: DartLimits = PolymeshPrivateLimits> {
+pub enum VerifyDartProofResponse<T: DartLimits = PolymeshLimits> {
     AccountRegistration {
         did: Did,
         accounts: BoundedVec<AccountPublicKeys, T::MaxKeysPerRegProof>,

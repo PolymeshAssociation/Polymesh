@@ -5,7 +5,7 @@ use polymesh_dart::{
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
-use polymesh_worker_protocol_dart_v0::{
+use polymesh_worker_protocol_dart_v1::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
 
@@ -109,7 +109,7 @@ pub fn main() {
     };
     if let Some(ref ctx) = saved_ctx {
         const REF_CONTEXT_DATA: &[u8] =
-            include_bytes!("../../polymesh-worker-protocol-dart-v0.context.bin");
+            include_bytes!("../../polymesh-worker-protocol-dart-v1.context.bin");
         let ref_hash = hex::encode(sp_core::blake2_256(REF_CONTEXT_DATA));
         let hash = hex::encode(sp_core::blake2_256(ctx));
         println!("Saved context size: {} bytes", ctx.len());

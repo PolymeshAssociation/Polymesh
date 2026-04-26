@@ -609,7 +609,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -1841,7 +1841,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
 dependencies = [
  "ahash 0.8.12",
  "ark-ec 0.5.0",
@@ -3818,7 +3818,7 @@ dependencies = [
 [[package]]
 name = "dock_crypto_utils"
 version = "0.22.0"
-source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#20330676486cbe54d05bf8a9c200b4ed630bcb73"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#23da69bd41300fca555c69ea6accf04802eb1aed"
 dependencies = [
  "aead",
  "ark-ec 0.5.0",
@@ -3833,6 +3833,7 @@ dependencies = [
  "hkdf",
  "integer-sqrt",
  "itertools 0.14.0",
+ "log",
  "num",
  "rayon",
  "serde",
@@ -3843,7 +3844,7 @@ dependencies = [
 [[package]]
 name = "dock_merlin"
 version = "3.0.0"
-source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#20330676486cbe54d05bf8a9c200b4ed630bcb73"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#23da69bd41300fca555c69ea6accf04802eb1aed"
 dependencies = [
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
@@ -8750,7 +8751,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-worker-extension",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-protocol-dart-v1",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "scale-info",
@@ -10844,7 +10845,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1bffbe4496dbd49b168bf5299ae997f51ae526b5"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#22576a7b176b9405930fa709a25524f870afeda4"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10882,7 +10883,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1bffbe4496dbd49b168bf5299ae997f51ae526b5"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#22576a7b176b9405930fa709a25524f870afeda4"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10913,7 +10914,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1bffbe4496dbd49b168bf5299ae997f51ae526b5"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#22576a7b176b9405930fa709a25524f870afeda4"
 
 [[package]]
 name = "polymesh-exec-macro"
@@ -11529,11 +11530,11 @@ version = "0.1.0"
 dependencies = [
  "polymesh-worker",
  "polymesh-worker-common",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-protocol-dart-v1",
 ]
 
 [[package]]
-name = "polymesh-worker-protocol-dart-v0"
+name = "polymesh-worker-protocol-dart-v1"
 version = "0.1.0"
 dependencies = [
  "ark-ec 0.5.0",
@@ -11575,7 +11576,7 @@ dependencies = [
  "polymesh-worker",
  "polymesh-worker-common",
  "polymesh-worker-native",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-protocol-dart-v1",
  "sp-core",
  "test-log",
 ]
@@ -12583,7 +12584,7 @@ dependencies = [
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#6a895e033757b9abd1f075c3c128a19253a76b6d"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",
@@ -14661,7 +14662,7 @@ dependencies = [
 [[package]]
 name = "schnorr_pok"
 version = "0.22.0"
-source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#20330676486cbe54d05bf8a9c200b4ed630bcb73"
+source = "git+https://github.com/PolymeshAssociation/crypto?branch=main#23da69bd41300fca555c69ea6accf04802eb1aed"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",

@@ -10,7 +10,7 @@ log = "0.4"
 polymesh-worker = { workspace = true, default-features = false }
 polymesh-worker-native = { workspace = true, default-features = false }
 polymesh-worker-common = { workspace = true, default-features = false }
-polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["native"] }
+polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["native"] }
 
 polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"]}
 
@@ -68,5 +68,5 @@ std = [
 	"sp-core/std",
 	"polymesh-worker/std",
 	"polymesh-worker-native/std",
-	"polymesh-worker-protocol-dart-v0/std",
+	"polymesh-worker-protocol-dart-v1/std",
 ]

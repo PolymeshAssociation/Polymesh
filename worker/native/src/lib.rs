@@ -1,7 +1,7 @@
 use polymesh_worker::backend::{Backend, BackendModule, BackendModuleInstance};
 use polymesh_worker_common::*;
 
-use polymesh_worker_protocol_dart_v0::*;
+use polymesh_worker_protocol_dart_v1::*;
 
 #[derive(Clone, Debug)]
 pub struct NativeModuleInstance;

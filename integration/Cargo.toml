@@ -46,6 +46,8 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 # Polymesh changes to Arkworks.
 #ark-serialize = { path = "../../arkworks-algebra/serialize" }
 #ark-ec = { path = "../../arkworks-algebra/ec" }
+#ark-host-msm = { path = "../arkworks-algebra/host-msm" }
+##ark-host-msm-impl = { path = "../arkworks-algebra/host-msm-impl" }
 #ark-ff = { path = "../../arkworks-algebra/ff" }
 #ark-pallas = { path = "../../arkworks-algebra/curves/pallas" }
 #ark-vesta = { path = "../../arkworks-algebra/curves/vesta" }
@@ -57,6 +59,8 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 
 ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+#ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }

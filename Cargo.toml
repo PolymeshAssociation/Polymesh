@@ -84,7 +84,7 @@ members = [
     "worker/tools",
     "worker/common",
     "worker/native",
-    "worker/protocol/dart-v0",
+    "worker/protocol/dart-v1",
     "pallets/asset",
     "pallets/base",
     "pallets/committee",
@@ -142,7 +142,7 @@ polymesh-worker = { path = "worker", default-features = false }
 polymesh-worker-extension = { path = "worker/extension", default-features = false }
 polymesh-worker-common = { path = "worker/common", default-features = false }
 polymesh-worker-native = { path = "worker/native", default-features = false }
-polymesh-worker-protocol-dart-v0 = { path = "worker/protocol/dart-v0", default-features = false }
+polymesh-worker-protocol-dart-v1 = { path = "worker/protocol/dart-v1", default-features = false }
 schnellru = { version = "0.2.4", default-features = false }
 
 # Polymesh native MSM

@@ -1,6 +1,8 @@
 use sp_std::vec::Vec;
 
-use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use codec::Decode;
+use codec::Encode;
 
 #[cfg(feature = "std")]
 use polymesh_worker::blake2b256_hash;

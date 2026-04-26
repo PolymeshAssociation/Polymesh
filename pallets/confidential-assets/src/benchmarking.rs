@@ -12,7 +12,7 @@ use polymesh_dart::{
     curve_tree::{CurveTreeLookup, MultiLeafPathAndRoot},
     FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
 };
-use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
+use polymesh_worker_protocol_dart_v1::{GenerateDartProofRequest, GenerateDartProofResponse};
 
 use polymesh_primitives::erc20::{Name, Symbol};
 
@@ -36,7 +36,7 @@ benchmarks! {
         for asset_id in 0..l {
             // Generate an initial account state for each asset.
             let (account_state, _rho_rand) = keys.account_state(asset_id, 0, &[42]).expect("Failed to create account state");
-            let account_state_commitment = account_state.commitment(&keys).expect("Failed to get account state commitment");
+            let account_state_commitment = account_state.commitment().expect("Failed to get account state commitment");
             let nullifier = account_state.nullifier().expect("Failed to get account state nullifier");
             account_commitments.push((account_state_commitment, nullifier));
         }
@@ -64,9 +64,9 @@ benchmarks! {
         let mut fee_account_commitments = Vec::with_capacity(l as usize);
         for asset_id in 0..l {
             // Generate an initial fee account state for the fee asset.
-            let account_state = FeeAccountState::new(&mut rng, &keys.acct, FEE_ASSET_ID, 42)
+            let account_state = FeeAccountState::new(&mut rng, &keys.acct.public, FEE_ASSET_ID, 42)
                 .expect("Failed to create fee account state");
-            let account_state_commitment = account_state.commitment(&keys.acct).expect("Failed to get fee account state commitment");
+            let account_state_commitment = account_state.commitment().expect("Failed to get fee account state commitment");
             let nullifier = account_state.nullifier().expect("Failed to get fee account state nullifier");
             fee_account_commitments.push((account_state_commitment, nullifier));
         }
@@ -288,7 +288,7 @@ benchmarks! {
         let mut paths = Vec::new();
         for (acct_key, state) in accounts.into_iter().zip(states.into_iter()) {
             let current_state_commitment = state
-                .current_commitment(&acct_key)
+                .current_commitment()
                 .expect("current commitment")
                 .as_leaf_value()
                 .expect("as leaf value");
@@ -337,7 +337,7 @@ benchmarks! {
         off_chain.apply_new_leaves();
 
         let current_state_commitment = account_state
-            .current_commitment(&account)
+            .current_commitment()
             .expect("current commitment")
             .as_leaf_value()
             .expect("as leaf value");
@@ -387,7 +387,7 @@ benchmarks! {
         let venue = DartUser::<T>::new("Venue");
 
         // Create a settlement to transfer some assets from the issuer to the investor.
-        let mut settlement = SettlementBuilder::<PolymeshPrivateLimits>::new(b"Test");
+        let mut settlement = SettlementBuilder::<PolymeshLimits>::new(b"Test");
 
         for asset_idx in 0..l {
             // Create asset issuer and an asset.
