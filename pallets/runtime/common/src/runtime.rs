@@ -620,7 +620,7 @@ macro_rules! misc_pallet_impls {
             type FeeInfo = pallet_revive::evm::fees::Info<Address, polymesh_primitives::Signature, EthExtraImpl>;
             type MaxEthExtrinsicWeight = polymesh_runtime_common::MaxEthExtrinsicWeight;
             type DebugEnabled = frame_support::traits::ConstBool<false>;
-            type GasScale = frame_support::traits::ConstU32<1>;
+            type GasScale = frame_support::traits::ConstU32<100>;
             type OnBurn = ();
         }
 

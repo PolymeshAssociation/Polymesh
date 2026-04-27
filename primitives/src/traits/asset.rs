@@ -3,6 +3,7 @@ use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
 
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::DispatchError;
+use frame_support::weights::Weight;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
@@ -36,6 +37,10 @@ pub trait AssetFnTrait<AccountId> {
 
     /// Returns the next [`AssetID`] for the `caller_acc`.
     fn generate_asset_id(caller_acc: AccountId) -> AssetId;
+
+    /// Worst-case weight for `spend_allowance` (check + decrement).
+    /// Charged dynamically only when the caller is a spender (not the asset owner).
+    fn spend_allowance_weight() -> Weight;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(caller: AccountId, ticker: Ticker) -> DispatchResult;

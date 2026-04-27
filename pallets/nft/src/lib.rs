@@ -315,9 +315,9 @@ pub mod pallet {
         /// * `memo` — Optional memo attached to the transfer.
         #[pallet::call_index(4)]
         #[pallet::weight(
-            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight(
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(
                 None,
-                &Fund { description: FundDescription::NonFungible(nfts.clone()), memo: None },
+                &Fund { description: FundDescription::NonFungible(nfts.clone()), memo: memo.clone() },
             )
         )]
         pub fn transfer_nft(
@@ -784,8 +784,9 @@ impl<T: Config> Pallet<T> {
             memo,
         };
 
-        let mut weight_meter = WeightMeter::max_limit(
-            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight(None, &fund),
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            Weight::zero(),
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(None, &fund),
         );
 
         <T as pallet_asset::Config>::SettlementFn::transfer_funds(

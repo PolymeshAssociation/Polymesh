@@ -795,4 +795,12 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    // Storage: `Asset::Allowances` (r:1 w:1)
+    // Proof: `Asset::Allowances` (`max_values`: None, `max_size`: Some(144), added: 2619, mode: `MaxEncodedLen`)
+    fn spend_allowance() -> Weight {
+        // Minimum execution time: 14_000 nanoseconds.
+        Weight::from_parts(15_000_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }
