@@ -29,6 +29,13 @@ pub struct Fund {
     pub memo: Option<Memo>,
 }
 
+impl Fund {
+    /// Creates a new [`Fund`] with the given description and memo.
+    pub fn new(description: FundDescription, memo: Option<Memo>) -> Self {
+        Self { description, memo }
+    }
+}
+
 /// Defines the types of tokens that can be moved.
 #[derive(Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
 #[derive(Clone, Debug)]

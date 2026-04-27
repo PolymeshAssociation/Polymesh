@@ -2302,9 +2302,7 @@ impl<T: AssetConfig> Pallet<T> {
         let destination =
             Self::ensure_asset_and_holding_permissions(origin, asset_id, destination_kind, false)?;
 
-        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&source)?;
         let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&destination)?;
-        ensure!(sender_did != holder_did, Error::<T>::SenderSameAsReceiver);
 
         Self::validate_asset_transfer(
             asset_id,
@@ -3228,6 +3226,8 @@ impl<T: AssetConfig> Pallet<T> {
         let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
         let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
 
+        ensure!(sender_did != receiver_did, Error::<T>::SenderSameAsReceiver);
+
         ensure!(
             BalanceOf::<T>::get(asset_id, &sender_did) >= transfer_value,
             Error::<T>::InsufficientBalance
@@ -3653,7 +3653,7 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// If the asset is granular (see: [`Pallet::ensure_asset_granular`]) and the holder has at least
     /// `value` balance that is not locked, returns what would be the new balance of `holder` after a transfer of `value`.
-    fn ensure_sufficient_balance(
+    pub fn ensure_sufficient_balance(
         holder: &AssetHolder,
         asset_id: &AssetId,
         value: Balance,
