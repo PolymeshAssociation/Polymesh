@@ -27,6 +27,7 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 sp-genesis-builder = { workspace = true, default-features = false }
@@ -67,6 +68,7 @@ runtime-benchmarks = [
     "pallet-committee/runtime-benchmarks",
     "pallet-election-provider-multi-phase/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
+    "pallet-migrations/runtime-benchmarks",
     "pallet-multisig/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
     "polymesh-transaction-payment/runtime-benchmarks",
