@@ -623,7 +623,7 @@ jobs:
             forge script script/Counter.s.sol:CounterScript \
               --rpc-url "$ETH_RPC_URL" \
               --private-key "$PRIVATE_KEY" \
-              --broadcast --legacy
+              --broadcast --gas-estimate-multiplier 500
           working_directory: /tmp/contract_example
           no_output_timeout: 3m
       - run:
