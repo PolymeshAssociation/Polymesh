@@ -557,6 +557,108 @@ jobs:
           command: yarn test
           working_directory: ./scripts/cli
           no_output_timeout: 10m
+  contract-deploy-test-foundry:
+    docker:
+      - image: debian:stable
+    resource_class: medium
+    environment:
+      VERBOSE: "1"
+      ETH_RPC_URL: http://127.0.0.1:8545
+      # Pre-funded EVM dev account (Alith) from the --dev chain spec.
+      # Safe for local devnets only.
+      PRIVATE_KEY: "0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: Install dependencies (curl, git, ca-certificates, jq)
+          command: |
+            apt-get update
+            apt-get install -y --no-install-recommends curl git ca-certificates jq
+            rm -rf /var/lib/apt/lists/*
+      - run:
+          name: Install Foundry (forge, cast)
+          command: |
+            curl -L https://foundry.paradigm.xyz | bash
+            echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> $BASH_ENV
+            source $BASH_ENV
+            foundryup
+            forge --version
+            cast --version
+          no_output_timeout: 5m
+      - run:
+          name: Start Polymesh dev chain
+          command: >-
+            ./assets/polymesh --dev \
+              --no-prometheus --no-telemetry --tmp \
+              --wasm-execution compiled \
+              --pool-limit 100000
+          background: true
+      - run:
+          name: Wait for chain to start
+          command: sleep 30
+      - run:
+          name: Start eth-rpc
+          command: >-
+            ./assets/eth-rpc-amd64 \
+              --node-rpc-url ws://127.0.0.1:9944 \
+              --rpc-port 8545 --rpc-cors=all
+          background: true
+      - run:
+          name: Wait for eth-rpc to start
+          command: sleep 30
+      - run:
+          name: Initialize Foundry project
+          command: |
+            forge init contract_example --no-git
+          working_directory: /tmp
+      - run:
+          name: Build Counter contract
+          command: forge build
+          working_directory: /tmp/contract_example
+      - run:
+          name: Deploy Counter contract via forge script
+          command: |
+            forge script script/Counter.s.sol:CounterScript \
+              --rpc-url "$ETH_RPC_URL" \
+              --private-key "$PRIVATE_KEY" \
+              --broadcast --legacy
+          working_directory: /tmp/contract_example
+          no_output_timeout: 3m
+      - run:
+          name: Parse deployed contract address
+          command: |
+            CHAIN_ID_DEC=$(printf '%d' "$(cast chain-id --rpc-url "$ETH_RPC_URL")")
+            BROADCAST_FILE="broadcast/Counter.s.sol/${CHAIN_ID_DEC}/run-latest.json"
+            test -f "$BROADCAST_FILE"
+            jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress' \
+              "$BROADCAST_FILE" > contract.addr
+            test -s contract.addr && grep -q '^0x' contract.addr
+            echo "deployed to: $(cat contract.addr)"
+          working_directory: /tmp/contract_example
+      - run:
+          name: Read initial value (expect 0)
+          command: |
+            ADDR=$(cat contract.addr)
+            VALUE=$(cast call "$ADDR" 'number()(uint256)' --rpc-url "$ETH_RPC_URL")
+            echo "number = $VALUE"
+            test "$VALUE" = "0"
+          working_directory: /tmp/contract_example
+      - run:
+          name: Increment and verify
+          command: |
+            ADDR=$(cat contract.addr)
+            STATUS=$(cast send "$ADDR" 'increment()' \
+              --rpc-url "$ETH_RPC_URL" \
+              --private-key "$PRIVATE_KEY" \
+              --json | jq -r '.status')
+            test "$STATUS" = "0x1"
+            VALUE=$(cast call "$ADDR" 'number()(uint256)' --rpc-url "$ETH_RPC_URL")
+            echo "number = $VALUE"
+            test "$VALUE" = "1"
+          working_directory: /tmp/contract_example
+          no_output_timeout: 2m
   clippy:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2025-12-01
@@ -881,6 +983,13 @@ workflows:
       - integration-test:
           requires:
             - build-ci
+      # NOTE: requires `build` (full develop_chain_spec), NOT `build-ci`.
+      # The `build-ci` / `running-ci` features use ci_chain_spec which does
+      # not fund the EVM dev accounts (Alith, etc.) at genesis, so contract
+      # deployment via Alith would fail with NoProviders.
+      - contract-deploy-test-foundry:
+          requires:
+            - build
       - benchmark:
           requires:
             - benchmark-build
