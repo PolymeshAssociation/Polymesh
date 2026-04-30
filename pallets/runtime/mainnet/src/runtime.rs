@@ -476,6 +476,9 @@ mod runtime {
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
 
+    #[runtime::pallet_index(55)]
+    pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
+
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
 }

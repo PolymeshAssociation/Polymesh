@@ -179,6 +179,6 @@ pub const TECHNICAL_DID: IdentityId = IdentityId(*did::TECHNICAL_COMMITTEE_DID);
 pub const UPGRADE_DID: IdentityId = IdentityId(*did::UPGRADE_COMMITTEE_DID);
 
 /// Prefixes for scheduled actions
-pub const SETTLEMENT_INSTRUCTION_EXECUTION: [u8; 20] = *b"SETTLEMENT_INST_EXEC";
+pub const SETTLEMENT_INSTRUCTION_EXECUTION: [u8; 27] = *b"SETTLEMENT_INSTRUCTION_EXEC";
 pub const PIP_EXECUTION: [u8; 8] = *b"PIP_EXEC";
 pub const PIP_EXPIRY: [u8; 10] = *b"PIP_EXPIRY";

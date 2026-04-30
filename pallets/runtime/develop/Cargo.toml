@@ -78,6 +78,7 @@ pallet-election-provider-multi-phase = { workspace = true, default-features = fa
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
@@ -197,6 +198,7 @@ runtime-benchmarks = [
     "pallet-group/runtime-benchmarks",
     "pallet-im-online/runtime-benchmarks",
     "pallet-indices/runtime-benchmarks",
+    "pallet-migrations/runtime-benchmarks",
     "pallet-multisig/runtime-benchmarks",
     "pallet-nft/runtime-benchmarks",
     "pallet-pips/runtime-benchmarks",
