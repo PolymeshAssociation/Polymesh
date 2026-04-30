@@ -21,6 +21,7 @@ use frame_support::traits::LockIdentifier;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
+use sp_io::hashing::blake2_256;
 use sp_std::convert::From;
 use sp_std::vec::Vec;
 
@@ -55,29 +56,15 @@ impl_checked_inc!(PipId);
 
 impl PipId {
     /// Converts [`PipId`] into a [`TaskName`] of a PIP scheduled for execution.
-    pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
-        let mut task_name: TaskName = [0; 32];
+    pub fn execution_name(&self) -> TaskName {
         let encoded_task = (PIP_EXECUTION, self.0).encode();
-
-        if encoded_task.len() >= task_name.len() {
-            return Err(b"Task name too long".to_vec());
-        }
-
-        task_name[..encoded_task.len()].copy_from_slice(&encoded_task[..]);
-        Ok(task_name)
+        blake2_256(&encoded_task[..])
     }
 
     /// Converts [`PipId`] into a [`TaskName`] of a PIP scheduled for expiry.
-    pub fn expiry_name(&self) -> Result<TaskName, Vec<u8>> {
-        let mut task_name: TaskName = [0; 32];
+    pub fn expiry_name(&self) -> TaskName {
         let encoded_task = (PIP_EXPIRY, self.0).encode();
-
-        if encoded_task.len() >= task_name.len() {
-            return Err(b"Task name too long".to_vec());
-        }
-
-        task_name[..encoded_task.len()].copy_from_slice(&encoded_task[..]);
-        Ok(task_name)
+        blake2_256(&encoded_task[..])
     }
 }
 

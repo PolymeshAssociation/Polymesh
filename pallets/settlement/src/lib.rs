@@ -580,8 +580,6 @@ pub mod pallet {
         ReceiverIdentityNotFound,
         /// Invalid account id.
         InvalidAccountId,
-        /// TaskName cannot exceed 32 bytes.
-        InvalidTaskName,
         /// The receipt has expired and can no longer be claimed.
         ReceiptExpired,
         /// Source and destination are the exact same AssetHolder.
@@ -2393,9 +2391,7 @@ impl<T: Config> Pallet<T> {
 
         let execute_inst_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
 
-        let task_name = id
-            .execution_name()
-            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let task_name = id.execution_name();
 
         T::Scheduler::schedule_named(
             task_name,
@@ -2797,9 +2793,7 @@ impl<T: Config> Pallet<T> {
         Self::release_locks(&inst_id, &inst_legs)?;
 
         // Note: ignoring the error here is fine, since the instruction might not be scheduled yet
-        let task_name = inst_id
-            .execution_name()
-            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let task_name = inst_id.execution_name();
         let _ = T::Scheduler::cancel_named(task_name);
 
         Self::prune_instruction(&inst_id, &inst_legs)?;

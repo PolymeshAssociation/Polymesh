@@ -1357,7 +1357,7 @@ checksum = "90dbd31c98227229239363921e60fcf5e558e43ec69094d46fc4996f08d1d5bc"
 dependencies = [
  "bitcoin_hashes",
  "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -7915,6 +7915,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-migrations"
+version = "16.0.0"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603#02f0bdeecdca97a122aca35b029e23534bf4aa53"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-mmr"
 version = "46.0.0"
 source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603#02f0bdeecdca97a122aca35b029e23534bf4aa53"
@@ -9437,6 +9456,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-permissions",
  "pallet-pips",
@@ -9643,6 +9663,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-relayer",
  "pallet-transaction-payment",
@@ -9691,6 +9712,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nft",
@@ -9779,6 +9801,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nft",
@@ -9867,6 +9890,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nft",
@@ -9957,6 +9981,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nft",

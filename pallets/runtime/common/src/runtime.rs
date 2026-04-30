@@ -119,7 +119,7 @@ macro_rules! misc_pallet_impls {
                 pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
                 pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
             );
-            type MultiBlockMigrator = ();
+            type MultiBlockMigrator = MultiBlockMigrations;
             type PreInherents = ();
             type PostInherents = ();
             type PostTransactions = ();
@@ -676,6 +676,9 @@ macro_rules! misc_pallet_impls {
 
             pub const BridgePalletName: &'static str = "Bridge";
             pub const RandomnessCollectiveFlipPalletName: &'static str = "RandomnessCollectiveFlip";
+
+            pub MbmServiceWeight: Weight =
+                Perbill::from_percent(80) * polymesh_runtime_common::RuntimeBlockWeights::get().max_block;
         }
 
         type RemoveRandomnessCollectiveFlipStorage = frame_support::migrations::RemovePallet<
@@ -961,6 +964,21 @@ macro_rules! misc_pallet_impls {
                       pallet_election_provider_multi_phase::WeightInfo
                   >::submit_unsigned(v, t, a, d)
               }
+        }
+
+        impl pallet_migrations::Config for Runtime {
+	        type RuntimeEvent = RuntimeEvent;
+	        #[cfg(not(feature = "runtime-benchmarks"))]
+	        type Migrations = ();
+	        // Benchmarks need mocked migrations to guarantee that they succeed.
+	        #[cfg(feature = "runtime-benchmarks")]
+	        type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	        type CursorMaxLen = frame_support::traits::ConstU32<65_536>;
+	        type IdentifierMaxLen = frame_support::traits::ConstU32<256>;
+	        type MigrationStatusHandler = ();
+	        type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	        type MaxServiceWeight = MbmServiceWeight;
+	        type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
         }
     };
 }

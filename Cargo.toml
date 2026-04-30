@@ -149,6 +149,7 @@ pallet-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", 
 pallet-im-online = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 pallet-indices = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 pallet-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
+pallet-migrations = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 pallet-offences = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 pallet-preimage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 pallet-revive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
@@ -333,6 +334,7 @@ pallet-balances = { workspace = true, default-features = false, features = [
 ] }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-revive = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true, default-features = false }

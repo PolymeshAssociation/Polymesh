@@ -187,8 +187,6 @@ pub mod pallet {
         ProposalNotInScheduledState,
         /// Invalid PIP ID. Pip id was not expected to be in the live queue.
         InvalidPipId,
-        /// TaskName cannot exceed 32 bytes.
-        InvalidTaskName,
         /// The provided `limit` is less than the actual queue length.
         SnapshotLimitTooSmall,
     }
@@ -1054,9 +1052,7 @@ pub mod pallet {
 
             // Update enactment period & reschedule it.
             PipToSchedule::<T>::insert(id, new_until);
-            let task_name = id
-                .execution_name()
-                .map_err(|_| Error::<T>::InvalidTaskName)?;
+            let task_name = id.execution_name();
             let res = T::Scheduler::reschedule_named(task_name, DispatchTime::At(new_until));
             Self::handle_exec_scheduling_result(id, new_until, res);
             Ok(())
@@ -1384,7 +1380,7 @@ impl<T: Config> Pallet<T> {
         let expire_pip_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
 
         match T::Scheduler::schedule_named(
-            id.expiry_name().map_err(|_| Error::<T>::InvalidTaskName)?,
+            id.expiry_name(),
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
@@ -1515,9 +1511,7 @@ impl<T: Config> Pallet<T> {
 
         let execute_pip_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
 
-        let task_name = id
-            .execution_name()
-            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let task_name = id.execution_name();
 
         let res = T::Scheduler::schedule_named(
             task_name,
@@ -1609,9 +1603,7 @@ impl<T: Config> Pallet<T> {
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) -> DispatchResult {
-        let task_name = id
-            .execution_name()
-            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let task_name = id.execution_name();
 
         PipToSchedule::<T>::remove(id);
         if T::Scheduler::cancel_named(task_name).is_err() {

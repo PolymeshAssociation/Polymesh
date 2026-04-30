@@ -23,6 +23,7 @@ pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-multisig = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
