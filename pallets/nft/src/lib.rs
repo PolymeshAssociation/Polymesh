@@ -713,7 +713,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns `Ok` if `sender` has all nfts and they are not locked. Otherwise, returns an `Err`.
-    fn ensure_nft_ownership(sender: &AssetHolder, nfts: &NFTs) -> DispatchResult {
+    pub fn ensure_nft_ownership(sender: &AssetHolder, nfts: &NFTs) -> DispatchResult {
         for nft_id in nfts.ids() {
             ensure!(
                 Self::is_holder_of_nft(nfts.asset_id(), nft_id, sender),
@@ -763,11 +763,20 @@ impl<T: Config> Pallet<T> {
             *balance = balance.saturating_add(transferred_amount)
         });
 
+        Self::transfer_holders_nfts(sender, receiver, nfts)?;
+
+        Ok(())
+    }
+
+    pub fn transfer_holders_nfts(
+        sender: &AssetHolder,
+        receiver: AssetHolder,
+        nfts: &NFTs,
+    ) -> DispatchResult {
         for nft_id in nfts.ids() {
             Self::remove_nft_from_asset_holder(nfts.asset_id(), nft_id, sender)?;
             Self::add_nft_holding(nfts.asset_id().clone(), *nft_id, receiver.clone())?;
         }
-
         Ok(())
     }
 

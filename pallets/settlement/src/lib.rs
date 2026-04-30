@@ -192,6 +192,14 @@ pub mod pallet {
         /// - `IdentityId`: The [`IdentityId`] of the mediator.
         /// - `InstructionId`: The [`InstructionId`] of the instruction.
         InstructionUnlocked(IdentityId, InstructionId),
+        /// Funds have been transferred
+        ///
+        /// Parameters:
+        /// - `IdentityId`: The [`IdentityId`] of the caller.
+        /// - `AssetHolder`: The source [`AssetHolder`] of the transfer.
+        /// - `AssetHolder`: The destination [`AssetHolder`] of the transfer.
+        /// - `Fund`: The [`Fund`] being transferred.
+        FundsTransferred(IdentityId, AssetHolder, AssetHolder, Fund),
     }
 
     pub trait WeightInfo {
@@ -1610,28 +1618,27 @@ impl<T: Config> Pallet<T> {
             )?;
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
-                    Asset::<T>::base_transfer(
-                        resolved_from,
-                        to,
+                    ensure!(amount > 0, Error::<T>::ZeroAmount);
+                    Asset::<T>::ensure_sufficient_balance(&resolved_from, &asset_id, amount)?;
+                    Asset::<T>::transfer_holders_balance(
+                        resolved_from.clone(),
+                        to.clone(),
                         asset_id,
                         amount,
-                        None,
-                        fund.memo,
-                        origin_did,
-                        weight_meter,
                     )?;
                 }
-                FundDescription::NonFungible(nfts) => {
-                    Nft::<T>::simplified_nft_transfer(
-                        resolved_from,
-                        to,
-                        nfts,
-                        None,
-                        fund.memo,
-                        origin_did,
-                    )?;
+                FundDescription::NonFungible(ref nfts) => {
+                    ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
+                    Nft::<T>::ensure_nft_ownership(&resolved_from, nfts)?;
+                    Nft::<T>::transfer_holders_nfts(&resolved_from, to.clone(), nfts)?;
                 }
             }
+            Self::deposit_event(Event::FundsTransferred(
+                origin_did,
+                resolved_from,
+                to,
+                fund.clone(),
+            ));
             None
         } else {
             // Cross-identity: authorize and create settlement instruction.
