@@ -184,6 +184,24 @@ parameter_types! {
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
 
+#[cfg(feature = "ci-runtime")]
+parameter_types! {
+    // Confidential assets parameters
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 18_000; // 18 sec
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 60_000; // 1 min
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 120_000; // 2 min
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 120_000; // 2 min
+}
+
+#[cfg(not(feature = "ci-runtime"))]
+parameter_types! {
+    // Confidential assets parameters
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+}
+
 /// Confidential assets parameters
 type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
 
@@ -542,7 +560,11 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
     type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
     type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
-}
+    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
+    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
+    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
+    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
+ }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

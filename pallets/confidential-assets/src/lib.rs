@@ -34,6 +34,7 @@ use polymesh_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::Saturating;
 use sp_runtime::{BoundedBTreeMap, BoundedBTreeSet};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::From;
@@ -283,7 +284,10 @@ pub mod pallet {
     /// Configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + pallet_identity::Config + pallet_transaction_payment::Config
+        frame_system::Config
+        + pallet_identity::Config
+        + pallet_transaction_payment::Config
+        + pallet_timestamp::Config
     {
         /// Confidential asset pallet weights.
         type WeightInfo: WeightInfo;
@@ -338,6 +342,24 @@ pub mod pallet {
         /// The maximum number of asset encryption keys (mediators + auditors).
         #[pallet::constant]
         type MaxAssetEncryptionKeys: Get<u32>;
+
+        /// The minimum time between curve tree root updates.
+        ///
+        /// If there hasn't been transactions to cause a curve tree root update for a while, a new root will be recorded.
+        #[pallet::constant]
+        type MinCurveTreeRootUpdateInterval: Get<Self::Moment>;
+
+        /// The maximum age of historical asset curve tree roots.
+        #[pallet::constant]
+        type MaxAssetCurveTreeRootAge: Get<Self::Moment>;
+
+        /// The maximum age of historical account curve tree roots.
+        #[pallet::constant]
+        type MaxAccountCurveTreeRootAge: Get<Self::Moment>;
+
+        /// The maximum age of historical fee account curve tree roots.
+        #[pallet::constant]
+        type MaxFeeAccountCurveTreeRootAge: Get<Self::Moment>;
     }
 
     #[pallet::event]
@@ -511,17 +533,17 @@ pub mod pallet {
         /// Asset curve tree root updated.
         AssetCurveTreeRootUpdated {
             /// The new root.
-            root: AssetTreeRoot,
+            root: TimestampedAssetTreeRoot<T>,
         },
         /// Account curve tree root updated.
         AccountCurveTreeRootUpdated {
             /// The new root.
-            root: AccountTreeRoot,
+            root: TimestampedAccountTreeRoot<T>,
         },
         /// Fee account curve tree root updated.
         FeeAccountCurveTreeRootUpdated {
             /// The new root.
-            root: FeeAccountTreeRoot,
+            root: TimestampedFeeAccountTreeRoot<T>,
         },
         /// POLYX deposited into the fee account.
         FeeAccountDeposited {
@@ -773,7 +795,7 @@ pub mod pallet {
     /// The current CurveTree Root for Confidential assets curve tree.
     #[pallet::storage]
     pub(super) type AssetCurveTreeCurrentRoot<T: Config> =
-        StorageValue<_, AssetTreeRoot, OptionQuery>;
+        StorageValue<_, TimestampedAssetTreeRoot<T>, OptionQuery>;
 
     /// CurveTree Roots for Confidential assets curve tree.
     ///
@@ -781,13 +803,20 @@ pub mod pallet {
     /// The map key is the block number and the value is the root of the assets curve tree.
     #[pallet::storage]
     pub(super) type AssetCurveTreeRoots<T: Config> =
-        StorageMap<_, Identity, BlockNumberFor<T>, AssetTreeRoot, OptionQuery>;
+        StorageMap<_, Identity, BlockNumberFor<T>, TimestampedAssetTreeRoot<T>, OptionQuery>;
 
     /// The block number of the last asset curve tree root update.
     ///
     /// This is used to track the last time the asset curve tree was updated.
     #[pallet::storage]
     pub(crate) type AssetCurveTreeLastUpdate<T: Config> =
+        StorageValue<_, CurveTreeTimestamp<T>, ValueQuery>;
+
+    /// The block number of the last asset curve tree root pruned.
+    ///
+    /// For keeping track of the current pruning point of the asset curve tree roots.
+    #[pallet::storage]
+    pub(crate) type AssetCurveTreeLastPruned<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Leaf storage for Confidential accounts curve tree.
@@ -818,7 +847,7 @@ pub mod pallet {
     /// The current CurveTree Root for Confidential accounts curve tree.
     #[pallet::storage]
     pub(super) type AccountCurveTreeCurrentRoot<T: Config> =
-        StorageValue<_, AccountTreeRoot, OptionQuery>;
+        StorageValue<_, TimestampedAccountTreeRoot<T>, OptionQuery>;
 
     /// CurveTree Roots for Confidential accounts curve tree.
     ///
@@ -826,13 +855,20 @@ pub mod pallet {
     /// The map key is the block number and the value is the root of the accounts curve tree.
     #[pallet::storage]
     pub(super) type AccountCurveTreeRoots<T: Config> =
-        StorageMap<_, Identity, BlockNumberFor<T>, AccountTreeRoot, OptionQuery>;
+        StorageMap<_, Identity, BlockNumberFor<T>, TimestampedAccountTreeRoot<T>, OptionQuery>;
 
     /// The block number of the last account curve tree root update.
     ///
     /// This is used to track the last time the account curve tree was updated.
     #[pallet::storage]
     pub(crate) type AccountCurveTreeLastUpdate<T: Config> =
+        StorageValue<_, CurveTreeTimestamp<T>, ValueQuery>;
+
+    /// The block number of the last account curve tree root pruned.
+    ///
+    /// For keeping track of the current pruning point of the account curve tree roots.
+    #[pallet::storage]
+    pub(crate) type AccountCurveTreeLastPruned<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Nullifiers for Confidential account state commitments.
@@ -877,7 +913,7 @@ pub mod pallet {
     /// The current CurveTree Root for Confidential fee accounts curve tree.
     #[pallet::storage]
     pub(super) type FeeAccountCurveTreeCurrentRoot<T: Config> =
-        StorageValue<_, FeeAccountTreeRoot, OptionQuery>;
+        StorageValue<_, TimestampedFeeAccountTreeRoot<T>, OptionQuery>;
 
     /// CurveTree Roots for Confidential fee accounts curve tree.
     ///
@@ -885,13 +921,20 @@ pub mod pallet {
     /// The map key is the block number and the value is the root of the fee accounts curve tree.
     #[pallet::storage]
     pub(super) type FeeAccountCurveTreeRoots<T: Config> =
-        StorageMap<_, Identity, BlockNumberFor<T>, FeeAccountTreeRoot, OptionQuery>;
+        StorageMap<_, Identity, BlockNumberFor<T>, TimestampedFeeAccountTreeRoot<T>, OptionQuery>;
 
     /// The block number of the last fee account curve tree root update.
     ///
     /// This is used to track the last time the fee account curve tree was updated.
     #[pallet::storage]
     pub(crate) type FeeAccountCurveTreeLastUpdate<T: Config> =
+        StorageValue<_, CurveTreeTimestamp<T>, ValueQuery>;
+
+    /// The block number of the last fee account curve tree root pruned.
+    ///
+    /// For keeping track of the current pruning point of the fee account curve tree roots.
+    #[pallet::storage]
+    pub(crate) type FeeAccountCurveTreeLastPruned<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Nullifiers for Confidential fee account state commitments.
@@ -1557,8 +1600,7 @@ pub mod pallet {
 
             // Get the root block and curve tree root.
             let root_block: BlockNumberFor<T> = proof.root_block.into();
-            let root = FeeAccountCurveTreeRoots::<T>::get(root_block)
-                .ok_or(Error::<T>::CurveTreeRootNotFound)?;
+            let root = Self::get_fee_account_curve_tree_root(root_block)?;
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedFeeAccountTopup {
@@ -1839,8 +1881,7 @@ impl<T: Config> Pallet<T> {
         let root_block: BlockNumberFor<T> = proof.root_block.into();
 
         // Verify the settlement proof.
-        let root =
-            AssetCurveTreeRoots::<T>::get(root_block).ok_or(Error::<T>::CurveTreeRootNotFound)?;
+        let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
             root,
             asset_lookup: Default::default(),
@@ -1955,7 +1996,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_sender_affirmation(proof: SenderAffirmationProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_sender_affirmation(
+        proof: SenderAffirmationProof<PolymeshLimits>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -1972,7 +2015,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_receiver_affirmation(proof: ReceiverAffirmationProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_receiver_affirmation(
+        proof: ReceiverAffirmationProof<PolymeshLimits>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -2094,7 +2139,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_mediator_affirmation(proof: MediatorAffirmationProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_mediator_affirmation(
+        proof: MediatorAffirmationProof<PolymeshLimits>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let accept = proof.accept;
         let key_index = proof.key_index;
@@ -2114,7 +2161,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_sender_update_counter(proof: SenderCounterUpdateProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_sender_update_counter(
+        proof: SenderCounterUpdateProof<PolymeshLimits>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -2242,8 +2291,7 @@ impl<T: Config> Pallet<T> {
 
         // Get the root block and curve tree root.
         let root_block: BlockNumberFor<T> = proof.root_block.into();
-        let root = FeeAccountCurveTreeRoots::<T>::get(root_block)
-            .ok_or(Error::<T>::CurveTreeRootNotFound)?;
+        let root = Self::get_fee_account_curve_tree_root(root_block)?;
 
         // Verify the proof.
         Self::submit_and_wait(VerifyDartAssetRequest::FeeAccountPayment {
@@ -2312,8 +2360,7 @@ impl<T: Config> Pallet<T> {
 
         // Verify the account state update proof.
         let root_block: BlockNumberFor<T> = proof.root_block().into();
-        let root =
-            AccountCurveTreeRoots::<T>::get(root_block).ok_or(Error::<T>::CurveTreeRootNotFound)?;
+        let root = Self::get_account_curve_tree_root(root_block)?;
         verify(proof, root)?;
 
         // Insert the update account state commitment into the account curve tree.
@@ -2559,6 +2606,144 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Ensure that there are new curve tree roots produced at a minimum interval.
+    ///
+    /// This help make the root pruning easier, since we don't have to worry about the inactive period to be larger than the pruning interval.
+    pub fn curve_tree_min_update() {
+        let min_update_interval = T::MinCurveTreeRootUpdateInterval::get();
+        let now = CurveTreeTimestamp::new();
+
+        // Asset curve tree.
+        {
+            // Check curve trees for minimum update interval.
+            let last_update = AssetCurveTreeLastUpdate::<T>::get();
+            if last_update.needs_update(now.timestamp, min_update_interval) {
+                // Get the current root to update it's timestamp in storage.
+                if let Some(mut root) = AssetCurveTreeCurrentRoot::<T>::get() {
+                    root.timestamp = now.clone();
+
+                    // Store asset curve tree root in storage with the new timestamp.
+                    Self::store_asset_curve_tree_root(root);
+                }
+            }
+        }
+
+        // Account curve tree.
+        {
+            // Check curve trees for minimum update interval.
+            let last_update = AccountCurveTreeLastUpdate::<T>::get();
+            if last_update.needs_update(now.timestamp, min_update_interval) {
+                // Get the current root to update it's timestamp in storage.
+                if let Some(mut root) = AccountCurveTreeCurrentRoot::<T>::get() {
+                    root.timestamp = now.clone();
+
+                    // Store account curve tree root in storage with the new timestamp.
+                    Self::store_account_curve_tree_root(root);
+                }
+            }
+        }
+
+        // Fee account curve tree.
+        {
+            // Check curve trees for minimum update interval.
+            let last_update = FeeAccountCurveTreeLastUpdate::<T>::get();
+            if last_update.needs_update(now.timestamp, min_update_interval) {
+                // Get the current root to update it's timestamp in storage.
+                if let Some(mut root) = FeeAccountCurveTreeCurrentRoot::<T>::get() {
+                    root.timestamp = now;
+
+                    // Store fee account curve tree root in storage with the new timestamp.
+                    Self::store_fee_account_curve_tree_root(root);
+                }
+            }
+        }
+    }
+
+    fn root_pruning<Root>(
+        now: T::Moment,
+        stop_at: BlockNumberFor<T>,
+        max_root_age: T::Moment,
+        get_last_pruned_block: impl Fn() -> BlockNumberFor<T>,
+        update_last_pruned_block: impl Fn(BlockNumberFor<T>),
+        get_root: impl Fn(BlockNumberFor<T>) -> Option<TimestampedTreeRoot<T, Root>>,
+        remove_root: impl Fn(BlockNumberFor<T>),
+    ) -> BlockNumberFor<T> {
+        const MAX_ROOTS_TO_PRUNE: u32 = 10;
+
+        // Prune old curve tree roots that have expired based on the maximum root age.
+        let mut last_pruned_block = get_last_pruned_block();
+        let mut update_last_pruned = false;
+        for _ in 0..MAX_ROOTS_TO_PRUNE {
+            let block_number = last_pruned_block.saturating_add(1u32.into());
+            if block_number >= stop_at {
+                // Don't prune roots for recent blocks.
+                break;
+            }
+            // Get the next curve tree root block number to prune.
+            if let Some(root) = get_root(block_number) {
+                // If the next prune root has expired based on the maximum root age, prune it.
+                if root.is_valid(now, max_root_age) {
+                    // If the root has not expired, stop pruning.
+                    break;
+                } else {
+                    remove_root(block_number);
+                }
+            }
+            // Either no root exists for the block or the root has expired and has been removed, in both cases we can update the last pruned block number.
+            last_pruned_block = block_number;
+            update_last_pruned = true;
+        }
+        // Update the last pruned block number in storage.
+        if update_last_pruned {
+            update_last_pruned_block(last_pruned_block);
+        }
+        last_pruned_block
+    }
+
+    /// Prunning historical curve tree roots to prevent storage bloat.  This should be called at the end of each block.
+    // TODO: Benchmark the worse case cost.
+    pub fn curve_tree_pruning() {
+        let now = pallet_timestamp::Pallet::<T>::get();
+        const RECENT_BLOCKS_TO_KEEP: u32 = 100;
+
+        // Don't try pruning from recent blocks.
+        let stop_at =
+            frame_system::Pallet::<T>::block_number().saturating_sub(RECENT_BLOCKS_TO_KEEP.into());
+
+        // Asset curve tree root pruning.
+        Self::root_pruning(
+            now,
+            stop_at,
+            T::MaxAssetCurveTreeRootAge::get(),
+            AssetCurveTreeLastPruned::<T>::get,
+            AssetCurveTreeLastPruned::<T>::put,
+            AssetCurveTreeRoots::<T>::get,
+            AssetCurveTreeRoots::<T>::remove,
+        );
+
+        // Account curve tree root pruning.
+        Self::root_pruning(
+            now,
+            stop_at,
+            T::MaxAccountCurveTreeRootAge::get(),
+            AccountCurveTreeLastPruned::<T>::get,
+            AccountCurveTreeLastPruned::<T>::put,
+            AccountCurveTreeRoots::<T>::get,
+            AccountCurveTreeRoots::<T>::remove,
+        );
+
+        // Fee account curve tree root pruning.
+        Self::root_pruning(
+            now,
+            stop_at,
+            T::MaxFeeAccountCurveTreeRootAge::get(),
+            FeeAccountCurveTreeLastPruned::<T>::get,
+            FeeAccountCurveTreeLastPruned::<T>::put,
+            FeeAccountCurveTreeRoots::<T>::get,
+            FeeAccountCurveTreeRoots::<T>::remove,
+        );
+    }
+
     pub fn update_account_curve_tree_root() {
         // Get the account curve tree.
         let mut tree =
@@ -2602,6 +2787,10 @@ impl<T: Config> Pallet<T> {
     pub fn finalize_block() {
         Self::update_account_curve_tree_root();
         Self::update_fee_account_curve_tree_root();
+
+        // Manage historical curve tree roots.
+        Self::curve_tree_min_update();
+        Self::curve_tree_pruning();
 
         // Close the batch.
         if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
