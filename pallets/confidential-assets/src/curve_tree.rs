@@ -6,9 +6,8 @@ use polymesh_dart::{
         CompressedCurveTreeRoot, CompressedInner, CompressedLeafValue, CurveTreeBackend,
         CurveTreeParameters, CurveTreeWithBackend, NodeLocation, ValidateCurveTreeRoot,
     },
-    BlockNumber, LeafIndex, NodeLevel, ACCOUNT_TREE_HEIGHT, ACCOUNT_TREE_L, ACCOUNT_TREE_M,
-    ASSET_TREE_HEIGHT, ASSET_TREE_L, ASSET_TREE_M, FEE_ACCOUNT_TREE_HEIGHT, FEE_ACCOUNT_TREE_L,
-    FEE_ACCOUNT_TREE_M,
+    BlockNumber, LeafIndex, NodeLevel, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M,
+    FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
 use polymesh_worker_protocol_dart_v1::{GetSessionId, HostCurveTreeUpdater};
 
@@ -393,11 +392,12 @@ impl<T: Config> CurveTreeBackend<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
         }
     }
 
-    fn height(&self) -> NodeLevel {
-        ASSET_TREE_HEIGHT
+    fn height(&self, _block_number: Option<BlockNumber>) -> Result<NodeLevel, Self::Error> {
+        Ok(AssetCurveTreeHeight::<T>::get())
     }
 
-    fn set_height(&mut self, _height: NodeLevel) -> Result<(), Self::Error> {
+    fn set_height(&mut self, height: NodeLevel) -> Result<(), Self::Error> {
+        AssetCurveTreeHeight::<T>::put(height);
         Ok(())
     }
 
@@ -521,11 +521,12 @@ impl<T: Config> CurveTreeBackend<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConf
         }
     }
 
-    fn height(&self) -> NodeLevel {
-        ACCOUNT_TREE_HEIGHT
+    fn height(&self, _block_number: Option<BlockNumber>) -> Result<NodeLevel, Self::Error> {
+        Ok(AccountCurveTreeHeight::<T>::get())
     }
 
-    fn set_height(&mut self, _height: NodeLevel) -> Result<(), Self::Error> {
+    fn set_height(&mut self, height: NodeLevel) -> Result<(), Self::Error> {
+        AccountCurveTreeHeight::<T>::put(height);
         Ok(())
     }
 
@@ -666,11 +667,12 @@ impl<T: Config> CurveTreeBackend<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAcco
         }
     }
 
-    fn height(&self) -> NodeLevel {
-        FEE_ACCOUNT_TREE_HEIGHT
+    fn height(&self, _block_number: Option<BlockNumber>) -> Result<NodeLevel, Self::Error> {
+        Ok(FeeAccountCurveTreeHeight::<T>::get())
     }
 
-    fn set_height(&mut self, _height: NodeLevel) -> Result<(), Self::Error> {
+    fn set_height(&mut self, height: NodeLevel) -> Result<(), Self::Error> {
+        FeeAccountCurveTreeHeight::<T>::put(height);
         Ok(())
     }
 

@@ -564,7 +564,7 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
     type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
     type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
- }
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

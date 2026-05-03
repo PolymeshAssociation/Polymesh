@@ -330,7 +330,10 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a mediator affirmation proof for a specific leg in the settlement.
-    pub fn mediator_affirmation(&self, proof: MediatorAffirmationProof<PolymeshLimits>) -> DispatchResult {
+    pub fn mediator_affirmation(
+        &self,
+        proof: MediatorAffirmationProof<PolymeshLimits>,
+    ) -> DispatchResult {
         self.ensure_pending()?;
 
         let accept = proof.accept;

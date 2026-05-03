@@ -50,10 +50,9 @@ use polymesh_dart::{
     FeeAccountPaymentProof, FeeAccountStateCommitment, FeeAccountStateNullifier,
     FeePaymentWithBatchedProofs, InstantReceiverAffirmationProof, InstantSenderAffirmationProof,
     InstantSettlementProof, LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof,
-    PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
+    NodeLevel, PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
     SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof, SettlementCounts,
-    SettlementProof, SettlementRef, ACCOUNT_TREE_HEIGHT, ASSET_TREE_HEIGHT,
-    FEE_ACCOUNT_TREE_HEIGHT, FEE_ASSET_ID,
+    SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
 
 use polymesh_worker_extension::{
@@ -94,6 +93,20 @@ pub use settlement::*;
 ///
 /// This is used to hold the POLYX used in private fee payments.
 pub const CONFIDENTIAL_ASSETS_FEE_ID: PalletId = PalletId(*b"pm/dartf");
+
+#[cfg(feature = "testing")]
+pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
+#[cfg(feature = "testing")]
+pub const ACCOUNT_TREE_HEIGHT: NodeLevel = 5;
+#[cfg(feature = "testing")]
+pub const FEE_ACCOUNT_TREE_HEIGHT: NodeLevel = 5;
+
+#[cfg(not(feature = "testing"))]
+pub const ASSET_TREE_HEIGHT: NodeLevel = 1;
+#[cfg(not(feature = "testing"))]
+pub const ACCOUNT_TREE_HEIGHT: NodeLevel = 1;
+#[cfg(not(feature = "testing"))]
+pub const FEE_ACCOUNT_TREE_HEIGHT: NodeLevel = 1;
 
 pub trait WeightInfo {
     fn update_account_curve_tree_root(l: u32) -> Weight;
@@ -797,6 +810,10 @@ pub mod pallet {
     pub(super) type AssetCurveTreeCurrentRoot<T: Config> =
         StorageValue<_, TimestampedAssetTreeRoot<T>, OptionQuery>;
 
+    /// The height of the assets curve tree.
+    #[pallet::storage]
+    pub(crate) type AssetCurveTreeHeight<T: Config> = StorageValue<_, NodeLevel, ValueQuery>;
+
     /// CurveTree Roots for Confidential assets curve tree.
     ///
     /// At the end of each block we will store the root of the assets curve tree.
@@ -848,6 +865,10 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type AccountCurveTreeCurrentRoot<T: Config> =
         StorageValue<_, TimestampedAccountTreeRoot<T>, OptionQuery>;
+
+    /// The height of the accounts curve tree.
+    #[pallet::storage]
+    pub(crate) type AccountCurveTreeHeight<T: Config> = StorageValue<_, NodeLevel, ValueQuery>;
 
     /// CurveTree Roots for Confidential accounts curve tree.
     ///
@@ -914,6 +935,10 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type FeeAccountCurveTreeCurrentRoot<T: Config> =
         StorageValue<_, TimestampedFeeAccountTreeRoot<T>, OptionQuery>;
+
+    /// The height of the fee accounts curve tree.
+    #[pallet::storage]
+    pub(crate) type FeeAccountCurveTreeHeight<T: Config> = StorageValue<_, NodeLevel, ValueQuery>;
 
     /// CurveTree Roots for Confidential fee accounts curve tree.
     ///
@@ -1017,31 +1042,10 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            // ============================= TODO: This might not be needed.
-            //
-            // The host functions are not available in the genesis build, so we cannot initialize the curve trees here.
-            // // Initialize the Asset Curve Tree.
-            // {
-            //     let mut tree = Pallet::<T>::get_asset_curve_tree()
-            //         .expect("Asset curve tree should be initialized; qed");
-            //     tree.init_root()
-            //         .expect("Asset curve tree should be able to init root; qed");
-            // }
-            // // Initialize the Account Curve Tree.
-            // {
-            //     let mut tree = Pallet::<T>::get_account_curve_tree()
-            //         .expect("Account curve tree should be initialized; qed");
-            //     tree.init_root()
-            //         .expect("Account curve tree should be able to init root; qed");
-            // }
-            // // Initialize the Fee Account Curve Tree.
-            // {
-            //     let mut tree = Pallet::<T>::get_fee_account_curve_tree()
-            //         .expect("Fee account curve tree should be initialized; qed");
-            //     tree.init_root()
-            //         .expect("Fee account curve tree should be able to init root; qed");
-            // }
-            // =============================
+            // Initialize the curve tree heights.
+            AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
+            AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
+            FeeAccountCurveTreeHeight::<T>::put(FEE_ACCOUNT_TREE_HEIGHT);
         }
     }
 
