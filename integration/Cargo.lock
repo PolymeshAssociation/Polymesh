@@ -210,7 +210,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -273,7 +273,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -928,7 +928,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
 dependencies = [
  "ahash",
  "ark-ec 0.5.0",
@@ -3723,7 +3723,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#22576a7b176b9405930fa709a25524f870afeda4"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#f86d0310b71249293909fc0cc367df6a6247c93a"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -3759,7 +3759,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#22576a7b176b9405930fa709a25524f870afeda4"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#f86d0310b71249293909fc0cc367df6a6247c93a"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -3790,7 +3790,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#22576a7b176b9405930fa709a25524f870afeda4"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#f86d0310b71249293909fc0cc367df6a6247c93a"
 
 [[package]]
 name = "portable-atomic"
@@ -4058,7 +4058,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#3ecf7a0ac7e48251eecc94c2374be5c74929c95a"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",
