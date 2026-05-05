@@ -148,6 +148,7 @@ where
         key_len: u32,
         output_len: usize,
     ) -> Self {
+        let mut in_ptr: i32 = 0;
         let code = WasmModule::<T>::from(ModuleDefinition {
             memory: Some(ImportedMemory::max::<T>()),
             imported_functions: vec![ImportedFunction {
@@ -166,18 +167,19 @@ where
                     value: output_len.to_le_bytes().into(),
                 },
             ],
-            call_body: Some(body::repeated(
-                repetitions,
-                &[
+            call_body: Some(body::repeated_with_locals_using(&[], repetitions, || {
+                let current_in_ptr = in_ptr;
+                in_ptr += key_len as i32;
+                [
                     Instruction::I32Const(FuncId::GetKeyDid.into()),
-                    Instruction::I32Const(0),
+                    Instruction::I32Const(current_in_ptr),
                     Instruction::I32Const(key_len as i32),
                     Instruction::I32Const(input.len() as i32 + 4),
                     Instruction::I32Const(input.len() as i32),
                     Instruction::Call(0),
                     Instruction::Drop,
-                ],
-            )),
+                ]
+            })),
             ..Default::default()
         });
         Self::new(code)
