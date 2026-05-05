@@ -919,10 +919,12 @@ impl<T: Config> Pallet<T> {
                         unique_assets.insert(asset_id),
                         Error::<T>::NoDuplicateAssetsAllowed
                     );
+                    T::AssetFn::asset_is_not_frozen(asset_id)?;
                     Self::ensure_sufficient_balance(sender_portfolio, &asset_id, *amount)?;
                 }
                 FundDescription::NonFungible(nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::EmptyTransfer);
+                    T::AssetFn::asset_is_not_frozen(nfts.asset_id())?;
                     Self::ensure_valid_nfts(sender_portfolio, nfts.asset_id(), nfts.ids())?;
                 }
             }
