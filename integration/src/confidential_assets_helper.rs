@@ -2484,6 +2484,7 @@ pub struct DartLeg {
     pub receiver: DartUser,
     pub asset_id: DartAssetId,
     pub amount: DartBalance,
+    pub config: LegConfig,
 }
 
 #[derive(Clone)]
@@ -2544,7 +2545,7 @@ impl DartSettlementState {
                 receiver: leg.receiver.public_keys().await,
                 asset: asset_state,
                 amount,
-                config: LegConfig::default(),
+                config: leg.config.clone(),
                 public_enc_keys: vec![],
             });
             leg_states.push(DartSettlementLegState {
@@ -2658,6 +2659,7 @@ impl DartSettlementState {
                 receiver: investor.clone(),
                 asset_id,
                 amount,
+                config: LegConfig::default(),
             })
             .collect::<Vec<_>>();
 
@@ -2792,6 +2794,7 @@ pub async fn create_test_settlement(
         receiver: receiver.clone(),
         asset_id,
         amount,
+        config: LegConfig::default(),
     }];
 
     DartSettlementState::new(tester, venue, &legs, Some(b"TestSettlement")).await

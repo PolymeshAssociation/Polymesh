@@ -17,6 +17,7 @@ use polymesh_dart::{
     ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
     SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
     SettlementProof, SettlementRef, blake2_256,
+    Error as DartError,
 };
 use polymesh_dart_common::NullifierSkGenCounter;
 use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
@@ -119,25 +120,34 @@ pub enum VerifyDartAssetRequest {
 
 impl VerifyDartAssetRequest {
     pub fn verify_with_seed(&self, seed: WorkSeed) -> Result<VerifyDartProofResponse, Error> {
+        self._verify(seed).map_err(|err| {
+            #[cfg(feature = "std")]
+            {
+                log::warn!("Proof verification failed: {err}");
+            }
+            Error::VerifyFailed
+        })?;
+        self.get_response()
+    }
+
+    fn _verify(&self, seed: WorkSeed) -> Result<(), DartError> {
         match self {
             Self::AccountRegistration { did, proof } => {
-                proof.verify(&did[..]).map_err(|_| Error::VerifyFailed)?;
+                proof.verify(&did[..])?;
             }
             Self::EncryptionKeyRegistration { did, proof } => {
-                proof.verify(&did[..]).map_err(|_| Error::VerifyFailed)?;
+                proof.verify(&did[..])?;
             }
             Self::BatchedAccountAssetRegistration { did, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 let params = get_account_curve_tree_parameters();
                 proof
-                    .batched_verify(&did[..], &params, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .batched_verify(&did[..], &params, &mut rng)?;
             }
             Self::MintAsset { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&did[..], root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&did[..], root, &mut rng)?;
             }
             Self::CreateSettlement {
                 root,
@@ -146,8 +156,8 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .batched_verify(root, &asset_lookup, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    //.batched_verify(root, &asset_lookup, &mut rng)?;
+                    .verify(root, &asset_lookup, &mut rng)?;
             }
             Self::SenderAffirmation {
                 leg_enc,
@@ -156,8 +166,7 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::ReceiverAffirmation {
                 leg_enc,
@@ -166,8 +175,7 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::InstantSenderAffirmation {
                 leg_enc,
@@ -176,8 +184,7 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::InstantReceiverAffirmation {
                 leg_enc,
@@ -186,12 +193,11 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::MediatorAffirmation { leg_enc, proof } => {
                 let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
-                proof.verify(&med_enc).map_err(|_| Error::VerifyFailed)?;
+                proof.verify(&med_enc)?;
             }
             Self::SenderCounterUpdate {
                 leg_enc,
@@ -200,8 +206,7 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::SenderRevertAffirmation {
                 leg_enc,
@@ -210,8 +215,7 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::ReceiverRevertAffirmation {
                 leg_enc,
@@ -220,8 +224,7 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::ReceiverClaim {
                 leg_enc,
@@ -230,36 +233,33 @@ impl VerifyDartAssetRequest {
             } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&leg_enc, root, &mut rng)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&leg_enc, root, &mut rng)?;
             }
             Self::FeeAccountRegistration { did, proof } => {
-                proof.verify(&did[..]).map_err(|_| Error::VerifyFailed)?;
+                proof.verify(&did[..])?;
             }
             Self::BatchedFeeAccountRegistration { did, proof } => {
-                proof.verify(&did[..]).map_err(|_| Error::VerifyFailed)?;
+                proof.verify(&did[..])?;
             }
             Self::FeeAccountTopup { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 let root = root.root_node()?;
                 proof
-                    .verify(&mut rng, &did[..], &root)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&mut rng, &did[..], &root)?;
             }
             Self::BatchedFeeAccountTopup { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .batched_verify(&mut rng, &did[..], root)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .batched_verify(&mut rng, &did[..], root)?;
             }
             Self::FeeAccountPayment { ctx, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 proof
-                    .verify(&mut rng, &ctx.0, root)
-                    .map_err(|_| Error::VerifyFailed)?;
+                    .verify(&mut rng, &ctx.0, root)?;
             }
         }
-        self.get_response()
+
+        Ok(())
     }
 
     pub fn get_response(&self) -> Result<VerifyDartProofResponse, Error> {

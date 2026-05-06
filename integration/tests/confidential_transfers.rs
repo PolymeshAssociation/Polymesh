@@ -4,6 +4,7 @@ mod confidential_assets_tests {
     use anyhow::Result;
 
     use integration::confidential_assets_helper::*;
+    use polymesh_dart::LegConfig;
 
     #[tokio::test]
     #[test_log::test]
@@ -144,6 +145,7 @@ mod confidential_assets_tests {
                 receiver: investor.clone(),
                 asset_id: asset.id,
                 amount: 100,
+                config: Default::default(),
             }],
             Some(b"Test fee payment"),
         )
@@ -251,12 +253,143 @@ mod confidential_assets_tests {
                             receiver: investor2.clone(),
                             asset_id: asset1_id,
                             amount: 250,
+                            config: Default::default(),
                         },
                         DartLeg {
                             sender: investor2.clone(),
                             receiver: investor1.clone(),
                             asset_id: asset2_id,
                             amount: 3_000,
+                            config: Default::default(),
+                        },
+                    ],
+                    Some(b"Test atomic swap"),
+                )
+                .await
+            })
+        };
+        // Wait for all tasks to complete.
+        let swap = swap_task.await??;
+
+        // All parties affirm all legs.
+        swap.affirm_legs(&tester).await?;
+
+        // The investors can now claim their assets.
+        swap.receivers_claim_assets(&tester).await?;
+
+        Ok(())
+    }
+
+    /// Atomic swap of two assets between two investors with revealed asset ids.
+    ///
+    #[tokio::test]
+    #[test_log::test]
+    async fn atomic_swap_revealed_assets() -> Result<()> {
+        let tester = DartAssetTester::init_with_relayer(
+            &[
+                "Asset1_Issuer",
+                "Asset2_Issuer",
+                "Venue",
+                "SwapInvestor1",
+                "SwapInvestor2",
+                "Asset1_Auditor",
+                "Asset2_Mediator",
+            ],
+            "Relayer",
+        )
+        .await?;
+        let asset1_issuer = tester.user("Asset1_Issuer").await;
+        let asset2_issuer = tester.user("Asset2_Issuer").await;
+        let venue = tester.user("Venue").await;
+        let investor1 = tester.user("SwapInvestor1").await;
+        let investor2 = tester.user("SwapInvestor2").await;
+        let asset1_auditor = tester.user("Asset1_Auditor").await;
+        let asset2_mediator = tester.user("Asset2_Mediator").await;
+
+        // Create two assets (one with a mediator and one with an auditor) with different issuers and fund one investor each.
+        let asset1 = {
+            let tester = tester.clone();
+            let investor1 = investor1.clone();
+            let investor2 = investor2.clone();
+            tokio::spawn(async move {
+                let asset = tester
+                    .create_asset_and_fund_investors(
+                        &asset1_issuer,
+                        "Asset1",
+                        &[],
+                        &[&asset1_auditor],
+                        Some(50_000),
+                        &[&investor1],
+                        500,
+                        false,
+                    )
+                    .await?;
+
+                // Register the other investor for the asset.
+                investor2.register_account_asset(asset.id).await?;
+
+                Ok::<_, anyhow::Error>(asset)
+            })
+        };
+        let asset2 = {
+            let tester = tester.clone();
+            let investor1 = investor1.clone();
+            let investor2 = investor2.clone();
+            tokio::spawn(async move {
+                let asset = tester
+                    .create_asset_and_fund_investors(
+                        &asset2_issuer,
+                        "Asset2",
+                        &[&asset2_mediator],
+                        &[],
+                        Some(100_000),
+                        &[&investor2],
+                        20_000,
+                        false,
+                    )
+                    .await?;
+
+                // Register the other investor for the asset.
+                investor1.register_account_asset(asset.id).await?;
+
+                Ok::<_, anyhow::Error>(asset)
+            })
+        };
+        let asset1 = asset1.await??;
+        let asset2 = asset2.await??;
+        let asset1_id = asset1.id;
+        let asset2_id = asset2.id;
+
+        // Create atomic swap settlement.
+        let swap_task = {
+            let tester = tester.clone();
+            let venue = venue.clone();
+            let investor1 = investor1.clone();
+            let investor2 = investor2.clone();
+            tokio::spawn(async move {
+                DartSettlementState::new(
+                    &tester,
+                    &venue,
+                    &[
+                        DartLeg {
+                            sender: investor1.clone(),
+                            receiver: investor2.clone(),
+                            asset_id: asset1_id,
+                            amount: 250,
+                            config: LegConfig {
+                                reveal_asset_id: true,
+                                ..Default::default()
+                            },
+                        },
+                        DartLeg {
+                            sender: investor2.clone(),
+                            receiver: investor1.clone(),
+                            asset_id: asset2_id,
+                            amount: 3_000,
+                            config: LegConfig {
+                                reveal_asset_id: true,
+                                ..Default::default()
+                            },
                         },
                     ],
                     Some(b"Test atomic swap"),

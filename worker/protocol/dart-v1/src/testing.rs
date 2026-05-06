@@ -164,17 +164,27 @@ pub enum GenerateDartProofRequest {
 
 impl GenerateDartProofRequest {
     pub fn generate_with_seed(self, seed: WorkSeed) -> Result<GenerateDartProofResponse, Error> {
+        let resp = self._generate(seed).map_err(|err| {
+            #[cfg(feature = "std")]
+            {
+                log::warn!("Proof generation failed: {err}");
+            }
+            Error::GenerateProofFailed
+        })?;
+
+        Ok(resp)
+    }
+
+    fn _generate(self, seed: WorkSeed) -> Result<GenerateDartProofResponse, DartError> {
         let mut rng = Rng::from_seed(seed);
         match self {
             Self::AccountRegistration { accounts, did } => {
-                let proof = AccountRegistrationProof::new(&mut rng, accounts.as_slice(), &did[..])
-                    .map_err(|_| Error::GenerateProofFailed)?;
+                let proof = AccountRegistrationProof::new(&mut rng, accounts.as_slice(), &did[..])?;
                 Ok(GenerateDartProofResponse::AccountRegistration { proof })
             }
             Self::EncryptionKeyRegistration { keys, did } => {
                 let proof =
-                    EncryptionKeyRegistrationProof::new(&mut rng, keys.as_slice(), &did[..])
-                        .map_err(|_| Error::GenerateProofFailed)?;
+                    EncryptionKeyRegistrationProof::new(&mut rng, keys.as_slice(), &did[..])?;
                 Ok(GenerateDartProofResponse::EncryptionKeyRegistration { proof })
             }
             Self::AccountAssetRegistration {
@@ -191,8 +201,7 @@ impl GenerateDartProofRequest {
                     counter,
                     &did[..],
                     params,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::AccountAssetRegistration {
                     proof,
                     account_state,
@@ -208,8 +217,7 @@ impl GenerateDartProofRequest {
                     &account_assets,
                     &did[..],
                     params,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::BatchedAccountAssetRegistration {
                     proof,
                     account_states,
@@ -223,8 +231,7 @@ impl GenerateDartProofRequest {
                 mut account_state,
             } => {
                 let proof =
-                    AssetMintingProof::new(&mut rng, &keys, &did, &mut account_state, path, amount)
-                        .map_err(|_| Error::GenerateProofFailed)?;
+                    AssetMintingProof::new(&mut rng, &keys, &did, &mut account_state, path, amount)?;
                 Ok(GenerateDartProofResponse::MintAsset {
                     proof,
                     account_state,
@@ -235,8 +242,7 @@ impl GenerateDartProofRequest {
                 settlement: builder,
             } => {
                 let proof = builder
-                    .encrypt_and_prove(&mut rng, paths)
-                    .map_err(|_| Error::GenerateProofFailed)?;
+                    .encrypt_and_prove(&mut rng, paths)?;
                 Ok(GenerateDartProofResponse::CreateSettlement { proof })
             }
             Self::SenderAffirmation {
@@ -255,8 +261,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     &path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
 
                 Ok(GenerateDartProofResponse::SenderAffirmation {
                     proof,
@@ -277,8 +282,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
 
                 Ok(GenerateDartProofResponse::ReceiverAffirmation {
                     proof,
@@ -301,8 +305,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
 
                 Ok(GenerateDartProofResponse::InstantSenderAffirmation {
                     proof,
@@ -325,8 +328,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     &path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
 
                 Ok(GenerateDartProofResponse::InstantReceiverAffirmation {
                     proof,
@@ -341,12 +343,10 @@ impl GenerateDartProofRequest {
                 accept,
             } => {
                 let med_enc = leg_enc
-                    .mediator_encryption(key_index)
-                    .map_err(|_| Error::GenerateProofFailed)?;
+                    .mediator_encryption(key_index)?;
                 let proof = MediatorAffirmationProof::new(
                     &mut rng, &leg_ref, &med_enc, &keys, key_index, accept,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::MediatorAffirmation { proof })
             }
             Self::ReceiverClaim {
@@ -365,8 +365,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::ReceiverClaim {
                     proof,
                     account_state,
@@ -386,8 +385,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::SenderCounterUpdate {
                     proof,
                     account_state,
@@ -409,8 +407,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::SenderRevertAffirmation {
                     proof,
                     account_state,
@@ -430,8 +427,7 @@ impl GenerateDartProofRequest {
                     &leg_enc,
                     &mut account_state,
                     path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::ReceiverRevertAffirmation {
                     proof,
                     account_state,
@@ -449,8 +445,7 @@ impl GenerateDartProofRequest {
                     asset_id,
                     amount,
                     &did[..],
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::FeeAccountRegistration {
                     proof,
                     account_state,
@@ -465,8 +460,7 @@ impl GenerateDartProofRequest {
                     &mut rng,
                     registrations.as_slice(),
                     &did[..],
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::BatchedFeeAccountRegistration {
                     proof,
                     account_states,
@@ -486,8 +480,7 @@ impl GenerateDartProofRequest {
                     amount,
                     &did[..],
                     &path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::FeeAccountTopup {
                     proof,
                     account_state,
@@ -503,8 +496,7 @@ impl GenerateDartProofRequest {
                     topups.as_mut_slice(),
                     &did[..],
                     &paths,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::BatchedFeeAccountTopup {
                     proof,
                     account_states: topups.into_iter().map(|(_, _, s)| s).collect(),
@@ -524,8 +516,7 @@ impl GenerateDartProofRequest {
                     &mut account_state,
                     amount,
                     &path,
-                )
-                .map_err(|_| Error::GenerateProofFailed)?;
+                )?;
                 Ok(GenerateDartProofResponse::FeeAccountPayment {
                     proof,
                     account_state,

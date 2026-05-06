@@ -28,7 +28,7 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::ReceiverRevertAffirmationProof;
+use polymesh_dart::{AssetKeysLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, IdentityId,
@@ -1920,11 +1920,23 @@ impl<T: Config> Pallet<T> {
         let proof_legs = proof.legs.clone();
         let root_block: BlockNumberFor<T> = proof.root_block.into();
 
+        // Handle revealed asset ids.
+        let mut asset_lookup = AssetKeysLookup::new();
+        for asset_id in proof.revealed_asset_ids() {
+            // Ensure the asset exists and get the asset keys.
+            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+            let asset_state = AssetState {
+                asset_id,
+                keys,
+            };
+            asset_lookup.add(asset_state);
+        }
+
         // Verify the settlement proof.
         let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
             root,
-            asset_lookup: Default::default(),
+            asset_lookup,
             proof,
         })?;
 
