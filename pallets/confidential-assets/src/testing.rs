@@ -13,9 +13,9 @@ use polymesh_dart::{
     AccountAssetRegistrationProof, AccountAssetState, AccountKeyPair, AccountKeys,
     AccountPublicKeys, AssetMintingProof, AssetState, Balance as DartBalance, EncryptionKeyPair,
     FeeAccountAssetState, LegBuilder, LegRole, MediatorAffirmationProof, ReceiverAffirmationProof,
-    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof,
-    SettlementBuilder, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M,
-    FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
+    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof,
+    SenderRevertAffirmationProof, SettlementBuilder, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L,
+    ASSET_TREE_M, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
 use polymesh_primitives::erc20::{Name, Symbol};
 use polymesh_worker_protocol_dart_v1::{GenerateDartProofRequest, GenerateDartProofResponse};
@@ -656,14 +656,14 @@ impl<T: Config> DartUserInner<T> {
             .expect("Failed to commit pending state");
     }
 
-    pub fn sender_revert_proof(
+    pub fn sender_revert_affirmation_proof(
         &mut self,
         off_chain: &OffchainProverState<T>,
         leg_ref: LegRef,
         asset_id: ConfidentialAssetId,
         amount: DartBalance,
     ) -> (
-        SenderReversalProof<PolymeshLimits, AccountTreeConfig>,
+        SenderRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         &mut AccountAssetState,
     ) {
         let leg_enc = off_chain.get_settlement_leg(leg_ref);
@@ -678,7 +678,7 @@ impl<T: Config> DartUserInner<T> {
         let current_state_commitment = account_state
             .current_commitment()
             .expect("current commitment");
-        let req = GenerateDartProofRequest::SenderRevert {
+        let req = GenerateDartProofRequest::SenderRevertAffirmation {
             keys: self.keys.clone(),
             leg_ref,
             amount,
@@ -689,7 +689,7 @@ impl<T: Config> DartUserInner<T> {
                 .expect("Failed to get path to leaf"),
             account_state: account_state.clone(),
         };
-        if let GenerateDartProofResponse::SenderRevert {
+        if let GenerateDartProofResponse::SenderRevertAffirmation {
             proof,
             account_state: new_state,
         } = generate::<T>(req)
@@ -701,7 +701,7 @@ impl<T: Config> DartUserInner<T> {
         }
     }
 
-    pub fn sender_revert(
+    pub fn sender_revert_affirmation(
         &mut self,
         off_chain: &OffchainProverState<T>,
         leg_ref: LegRef,
@@ -709,9 +709,10 @@ impl<T: Config> DartUserInner<T> {
         amount: DartBalance,
     ) {
         let origin = self.origin();
-        let (proof, account_state) = self.sender_revert_proof(off_chain, leg_ref, asset_id, amount);
+        let (proof, account_state) =
+            self.sender_revert_affirmation_proof(off_chain, leg_ref, asset_id, amount);
 
-        assert_ok!(Pallet::<T>::sender_revert(origin, proof));
+        assert_ok!(Pallet::<T>::sender_revert_affirmation(origin, proof));
 
         // Update pending state in the account state.
         account_state
@@ -1082,24 +1083,24 @@ impl<T: Config> DartUser<T> {
         inner.receiver_claim(off_chain, leg_ref, asset_id, amount);
     }
 
-    pub fn sender_revert_proof(
+    pub fn sender_revert_affirmation_proof(
         &self,
         off_chain: &OffchainProverState<T>,
         leg_ref: LegRef,
         asset_id: ConfidentialAssetId,
         amount: DartBalance,
     ) -> (
-        SenderReversalProof<PolymeshLimits, AccountTreeConfig>,
+        SenderRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         AccountAssetState,
     ) {
         let mut inner = self.0.borrow_mut();
         let (proof, account_state) =
-            inner.sender_revert_proof(off_chain, leg_ref, asset_id, amount);
+            inner.sender_revert_affirmation_proof(off_chain, leg_ref, asset_id, amount);
 
         (proof, account_state.clone())
     }
 
-    pub fn sender_revert(
+    pub fn sender_revert_affirmation(
         &self,
         off_chain: &OffchainProverState<T>,
         leg_ref: LegRef,
@@ -1107,7 +1108,7 @@ impl<T: Config> DartUser<T> {
         amount: DartBalance,
     ) {
         let mut inner = self.0.borrow_mut();
-        inner.sender_revert(off_chain, leg_ref, asset_id, amount);
+        inner.sender_revert_affirmation(off_chain, leg_ref, asset_id, amount);
     }
 
     pub fn sender_counter_update_proof(

@@ -22,8 +22,9 @@ use polymesh_dart::{
     EncryptionKeyRegistrationProof, EncryptionPublicKey, InstantReceiverAffirmationProof,
     InstantSenderAffirmationProof, InstantSettlementProof, LeafIndex, LegBuilder, LegEncrypted,
     LegRef, LegRole, MediatorAffirmationProof, MediatorId, ReceiverAffirmationProof,
-    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof,
-    SettlementBuilder, SettlementProof, SettlementRef, ACCOUNT_TREE_L, ACCOUNT_TREE_M,
+    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof,
+    SenderRevertAffirmationProof, SettlementBuilder, SettlementProof, SettlementRef,
+    ACCOUNT_TREE_L, ACCOUNT_TREE_M,
 };
 pub use polymesh_dart::{AccountAssetState, AccountKeys, AssetId as DartAssetId};
 
@@ -1552,7 +1553,11 @@ impl DartUserInner {
         Ok(())
     }
 
-    pub async fn sender_revert(&mut self, tester: &DartAssetTester, leg_ref: LegRef) -> Result<()> {
+    pub async fn sender_revert_affirmation(
+        &mut self,
+        tester: &DartAssetTester,
+        leg_ref: LegRef,
+    ) -> Result<()> {
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1577,7 +1582,7 @@ impl DartUserInner {
         // Generate sender revert proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            SenderReversalProof::new(
+            SenderRevertAffirmationProof::new(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
@@ -1591,12 +1596,12 @@ impl DartUserInner {
         // Submit the sender revert proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::SenderReversal(proof))
+            .submit_batch_proof(BatchedProof::SenderRevertAffirmation(proof))
             .await?;
 
         // Update the asset state with the new leaf index.
         asset_state
-            .update_leaf_index(&mut res, "Sender revert")
+            .update_leaf_index(&mut res, "Sender revert affirmation")
             .await?;
 
         Ok(())
@@ -1825,8 +1830,16 @@ impl DartUser {
         self.0.write().await.receiver_claim(tester, leg_ref).await
     }
 
-    pub async fn sender_revert(&self, tester: &DartAssetTester, leg_ref: LegRef) -> Result<()> {
-        self.0.write().await.sender_revert(tester, leg_ref).await
+    pub async fn sender_revert_affirmation(
+        &self,
+        tester: &DartAssetTester,
+        leg_ref: LegRef,
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .sender_revert_affirmation(tester, leg_ref)
+            .await
     }
 }
 
@@ -2353,8 +2366,10 @@ impl DartSettlementLegState {
         Ok(())
     }
 
-    pub async fn sender_revert(&self, tester: &DartAssetTester) -> Result<()> {
-        self.sender.sender_revert(tester, self.leg_ref).await?;
+    pub async fn sender_revert_affirmation(&self, tester: &DartAssetTester) -> Result<()> {
+        self.sender
+            .sender_revert_affirmation(tester, self.leg_ref)
+            .await?;
         Ok(())
     }
 
@@ -2602,10 +2617,10 @@ impl DartSettlementState {
         Ok(())
     }
 
-    pub async fn senders_revert_legs(&self, tester: &DartAssetTester) -> Result<()> {
-        // All senders revert their legs.
+    pub async fn senders_revert_affirmation_legs(&self, tester: &DartAssetTester) -> Result<()> {
+        // All senders revert their affirmation for their legs.
         for leg in &self.legs {
-            leg.sender_revert(tester).await?;
+            leg.sender_revert_affirmation(tester).await?;
         }
         Ok(())
     }

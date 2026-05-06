@@ -14,8 +14,8 @@ use polymesh_dart::{
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountTopupProof,
     InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
     MediatorAffirmationProof, PolymeshLimits, ProofHash, ReceiverAffirmationProof,
-    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof,
-    SettlementBuilder, SettlementProof, blake2_256,
+    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof,
+    SenderRevertAffirmationProof, SettlementBuilder, SettlementProof, blake2_256,
     curve_tree::{
         AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig, LeafPathAndRoot,
         MultiLeafPathAndRoot,
@@ -99,7 +99,7 @@ pub enum GenerateDartProofRequest {
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
-    SenderRevert {
+    SenderRevertAffirmation {
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -385,7 +385,7 @@ impl GenerateDartProofRequest {
                     account_state,
                 })
             }
-            Self::SenderRevert {
+            Self::SenderRevertAffirmation {
                 keys,
                 leg_ref,
                 leg_enc,
@@ -393,7 +393,7 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = SenderReversalProof::new(
+                let proof = SenderRevertAffirmationProof::new(
                     &mut rng,
                     &keys,
                     &leg_ref,
@@ -403,7 +403,7 @@ impl GenerateDartProofRequest {
                     path,
                 )
                 .map_err(|_| Error::GenerateProofFailed)?;
-                Ok(GenerateDartProofResponse::SenderRevert {
+                Ok(GenerateDartProofResponse::SenderRevertAffirmation {
                     proof,
                     account_state,
                 })
@@ -586,8 +586,8 @@ pub enum GenerateDartProofResponse {
         proof: SenderCounterUpdateProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
-    SenderRevert {
-        proof: SenderReversalProof<PolymeshLimits>,
+    SenderRevertAffirmation {
+        proof: SenderRevertAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     FeeAccountRegistration {

@@ -51,8 +51,8 @@ use polymesh_dart::{
     FeePaymentWithBatchedProofs, InstantReceiverAffirmationProof, InstantSenderAffirmationProof,
     InstantSettlementProof, LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof,
     NodeLevel, PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
-    SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof, SettlementCounts,
-    SettlementProof, SettlementRef, FEE_ASSET_ID,
+    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
+    SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
 
 use polymesh_worker_extension::{
@@ -132,7 +132,7 @@ pub trait WeightInfo {
     fn instant_sender_affirmation() -> Weight;
     fn instant_receiver_affirmation() -> Weight;
     fn sender_update_counter() -> Weight;
-    fn sender_revert() -> Weight;
+    fn sender_revert_affirmation() -> Weight;
     fn receiver_claim() -> Weight;
 
     fn batched_settlement(counts: SettlementCounts) -> Weight {
@@ -178,8 +178,8 @@ pub trait WeightInfo {
                 BatchedProof::SenderCounterUpdate(_proof) => {
                     weight = weight.saturating_add(Self::sender_update_counter_with_leaf());
                 }
-                BatchedProof::SenderReversal(_proof) => {
-                    weight = weight.saturating_add(Self::sender_revert_with_leaf());
+                BatchedProof::SenderRevertAffirmation(_proof) => {
+                    weight = weight.saturating_add(Self::sender_revert_affirmation_with_leaf());
                 }
                 BatchedProof::ReceiverClaim(_proof) => {
                     weight = weight.saturating_add(Self::receiver_claim_with_leaf());
@@ -262,8 +262,8 @@ pub trait WeightInfo {
         Self::sender_update_counter().saturating_add(Self::insert_account_leaf(1))
     }
 
-    fn sender_revert_with_leaf() -> Weight {
-        Self::sender_revert().saturating_add(Self::insert_account_leaf(1))
+    fn sender_revert_affirmation_with_leaf() -> Weight {
+        Self::sender_revert_affirmation().saturating_add(Self::insert_account_leaf(1))
     }
 
     fn receiver_claim_with_leaf() -> Weight {
@@ -499,8 +499,8 @@ pub mod pallet {
             /// Settlement Leg reference.
             leg_ref: LegRef,
         },
-        /// Sender has reverted a leg.
-        SenderReverted {
+        /// Sender has reverted their affirmation for a leg.
+        SenderAffirmationReverted {
             /// Settlement Leg reference.
             leg_ref: LegRef,
         },
@@ -1411,7 +1411,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.
-        /// * `proof` - The sender revert proof.
+        /// * `proof` - The sender revert affirmation proof.
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
@@ -1419,14 +1419,14 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(9)]
-        #[pallet::weight(<T as Config>::WeightInfo::sender_revert_with_leaf())]
-        pub fn sender_revert(
+        #[pallet::weight(<T as Config>::WeightInfo::sender_revert_affirmation_with_leaf())]
+        pub fn sender_revert_affirmation(
             origin: OriginFor<T>,
-            proof: SenderReversalProof<PolymeshLimits>,
+            proof: SenderRevertAffirmationProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_sender_revert(proof)
+            Self::base_sender_revert_affirmation(proof)
         }
 
         /// Receiver claims their assets after a settlement has been executed.
@@ -2184,19 +2184,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_sender_revert(proof: SenderReversalProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_sender_revert_affirmation(
+        proof: SenderRevertAffirmationProof<PolymeshLimits>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
             // Create an update settlement status instance.
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
-            // Verify the sender reversal proof and update the settlement and leg status.
-            update_settlement.sender_reversal(proof, root)
+            // Verify the sender revert affirmation proof and update the settlement and leg status.
+            update_settlement.sender_revert_affirmation(proof, root)
         })?;
 
-        // Emit an event for the sender revert.
-        Self::deposit_event(Event::<T>::SenderReverted { leg_ref });
+        // Emit an event for the sender revert affirmation.
+        Self::deposit_event(Event::<T>::SenderAffirmationReverted { leg_ref });
 
         Ok(())
     }
@@ -2336,7 +2338,9 @@ impl<T: Config> Pallet<T> {
                 BatchedProof::ReceiverAffirmation(p) => Self::base_receiver_affirmation(p)?,
                 BatchedProof::MediatorAffirmation(p) => Self::base_mediator_affirmation(p)?,
                 BatchedProof::SenderCounterUpdate(p) => Self::base_sender_update_counter(p)?,
-                BatchedProof::SenderReversal(p) => Self::base_sender_revert(p)?,
+                BatchedProof::SenderRevertAffirmation(p) => {
+                    Self::base_sender_revert_affirmation(p)?
+                }
                 BatchedProof::ReceiverClaim(p) => Self::base_receiver_claim(p)?,
                 BatchedProof::ExecuteInstantSettlement(p) => {
                     Self::base_execute_instant_settlement(p)?

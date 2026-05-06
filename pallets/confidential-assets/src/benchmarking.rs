@@ -610,7 +610,7 @@ benchmarks! {
         let (proof, _) = leg.sender.sender_counter_update_proof(&off_chain, leg.leg_ref, leg.asset_id);
     }: _(leg.sender.raw_origin(), proof)
 
-    sender_revert {
+    sender_revert_affirmation {
         // Offchain prover state.
         let mut off_chain = OffchainProverState::<T>::new();
 
@@ -636,7 +636,7 @@ benchmarks! {
         // Mediator rejects the leg.  The settlement will go into a rejected state.
         leg.mediator_affirmation(&off_chain, false);
 
-        // Generate the sender's revert proof.
-        let (proof, _) = leg.sender.sender_revert_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
+        // Generate the sender's revert affirmation proof.
+        let (proof, _) = leg.sender.sender_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.sender.raw_origin(), proof)
 }

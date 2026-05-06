@@ -6,7 +6,7 @@ use scale_info::TypeInfo;
 use polymesh_dart::{
     InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegId, LegRef,
     MediatorAffirmationProof, MediatorId, ReceiverAffirmationProof, ReceiverClaimProof,
-    SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof, SettlementRef,
+    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementRef,
 };
 
 use super::*;
@@ -383,12 +383,12 @@ impl<T: Config> UpdateSettlementStatus<T> {
         Ok(())
     }
 
-    /// Verify the sender's reversal proof for a specific leg in the settlement to claim back their assets.
+    /// Verify the sender's revert affirmation proof for a specific leg in the settlement to claim back their assets.
     ///
     /// This can only be done if the settlement has been rejected or is still pending.
-    pub fn sender_reversal(
+    pub fn sender_revert_affirmation(
         &self,
-        proof: SenderReversalProof<PolymeshLimits, AccountTreeConfig>,
+        proof: SenderRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
     ) -> DispatchResult {
         let status = self.status;
@@ -402,7 +402,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         let pending_final = self.party_finalizes(LegAffirmParty::Sender)?;
 
         // verify the proof.
-        Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::SenderReversal {
+        Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::SenderRevertAffirmation {
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),

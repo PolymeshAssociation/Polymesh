@@ -535,7 +535,7 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::NextAccountLeafIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn sender_revert() -> Weight {
+    fn sender_revert_affirmation() -> Weight {
         // Minimum execution time: 5_263_841 nanoseconds.
         Weight::from_parts(5_295_352_000, 0)
             .saturating_add(DbWeight::get().reads(9))

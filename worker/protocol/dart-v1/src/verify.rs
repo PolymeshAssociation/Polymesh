@@ -13,10 +13,10 @@ use polymesh_dart::{
     BatchedFeeAccountTopupProof, DartLimits, EncryptionKeyRegistrationProof, EncryptionPublicKey,
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
     FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
-    InstantSenderAffirmationProof, LegEncrypted, LegRef, MediatorAffirmationProof,
-    PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
-    SenderAffirmationProof, SenderCounterUpdateProof, SenderReversalProof, SettlementProof,
-    SettlementRef, blake2_256,
+    InstantSenderAffirmationProof, LegEncrypted, LegRef, MediatorAffirmationProof, PolymeshLimits,
+    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, SenderAffirmationProof,
+    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementProof, SettlementRef,
+    blake2_256,
 };
 use polymesh_dart_common::NullifierSkGenCounter;
 use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
@@ -67,10 +67,10 @@ pub enum VerifyDartAssetRequest {
         root: AccountTreeRoot,
         proof: SenderCounterUpdateProof<PolymeshLimits>,
     },
-    SenderReversal {
+    SenderRevertAffirmation {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
-        proof: SenderReversalProof<PolymeshLimits>,
+        proof: SenderRevertAffirmationProof<PolymeshLimits>,
     },
     ReceiverClaim {
         leg_enc: LegEncrypted,
@@ -198,7 +198,7 @@ impl VerifyDartAssetRequest {
                     .verify(&leg_enc, root, &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
-            Self::SenderReversal {
+            Self::SenderRevertAffirmation {
                 leg_enc,
                 root,
                 proof,
@@ -336,8 +336,8 @@ impl VerifyDartAssetRequest {
                     nullifier: proof.nullifier,
                 });
             }
-            Self::SenderReversal { proof, .. } => {
-                return Ok(VerifyDartProofResponse::SenderReversal {
+            Self::SenderRevertAffirmation { proof, .. } => {
+                return Ok(VerifyDartProofResponse::SenderRevertAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
@@ -523,7 +523,7 @@ pub enum VerifyDartProofResponse<T: DartLimits = PolymeshLimits> {
         account_state_commitment: AccountStateCommitment,
         nullifier: AccountStateNullifier,
     },
-    SenderReversal {
+    SenderRevertAffirmation {
         leg_ref: LegRef,
         account_state_commitment: AccountStateCommitment,
         nullifier: AccountStateNullifier,

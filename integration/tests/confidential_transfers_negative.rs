@@ -131,8 +131,8 @@ mod confidential_assets_negative_tests {
     // ========================================================================
     // Test Case: Sender claiming without prior affirmation
     // ========================================================================
-    /// Create settlement, skip sender affirmation, try `sender_revert()` immediately
-    /// Expected: Reversal fails with on-chain state validation error
+    /// Create settlement, skip sender affirmation, try `sender_revert_affirmation()` immediately
+    /// Expected: Revert affirmation fails with on-chain state validation error
     #[tokio::test]
     #[test_log::test]
     async fn sender_claiming_without_affirmation() -> Result<()> {
@@ -156,11 +156,11 @@ mod confidential_assets_negative_tests {
         let settlement =
             create_test_settlement(&tester, &venue, &sender, &receiver, asset.id, 100).await?;
 
-        // Try to have sender revert without affirming first (should fail)
-        let revert_result = settlement.senders_revert_legs(&tester).await;
+        // Try to have sender revert affirmation without affirming first (should fail)
+        let revert_result = settlement.senders_revert_affirmation_legs(&tester).await;
 
         assert_operation_fails(revert_result, "Sender revert without prior affirmation");
-        log::info!("Test Case passed: Sender revert correctly rejected without prior affirmation");
+        log::info!("Test Case passed: Sender revert affirmation correctly rejected without prior affirmation");
 
         Ok(())
     }
@@ -168,9 +168,9 @@ mod confidential_assets_negative_tests {
     // ========================================================================
     // Test Case: Sender claiming multiple times
     // ========================================================================
-    /// Create settlement, sender affirms, sender reverts successfully
-    /// Try to call `sender_revert()` again on same leg
-    /// Expected: Second reversal fails with "Leg not found" or state validation error
+    /// Create settlement, sender affirms, sender reverts affirmation successfully
+    /// Try to call `sender_revert_affirmation()` again on same leg
+    /// Expected: Second revert affirmation fails with "Leg not found" or state validation error
     #[tokio::test]
     #[test_log::test]
     async fn sender_claim_multiple_times() -> Result<()> {
@@ -204,13 +204,16 @@ mod confidential_assets_negative_tests {
         settlement.senders_affirm_legs(&tester).await?;
 
         // First revert succeeds
-        settlement.senders_revert_legs(&tester).await?;
+        settlement.senders_revert_affirmation_legs(&tester).await?;
 
         // Second revert on same leg should fail
-        let second_revert = settlement.senders_revert_legs(&tester).await;
+        let second_revert = settlement.senders_revert_affirmation_legs(&tester).await;
 
-        assert_operation_fails(second_revert, "Second sender revert should fail");
-        log::info!("Test Case passed: Second sender revert correctly rejected");
+        assert_operation_fails(
+            second_revert,
+            "Second sender revert affirmation should fail",
+        );
+        log::info!("Test Case passed: Second sender revert affirmation correctly rejected");
 
         Ok(())
     }
@@ -219,7 +222,7 @@ mod confidential_assets_negative_tests {
     // Test Case: Sender claiming from executed settlement
     // ========================================================================
     /// Create settlement with mediator, all parties affirm, settlement executes
-    /// Try `sender_revert()` on executed settlement
+    /// Try `sender_revert_affirmation()` on executed settlement
     /// Expected: Fails with "Can only reverse pending/rejected settlement" on-chain check
     #[tokio::test]
     #[test_log::test]
@@ -255,14 +258,14 @@ mod confidential_assets_negative_tests {
         // All parties affirm including mediator (settlement becomes executed)
         settlement.affirm_legs(&tester).await?;
 
-        // Try to have sender revert from executed settlement (should fail)
-        let revert_result = settlement.senders_revert_legs(&tester).await;
+        // Try to have sender revert affirmation from executed settlement (should fail)
+        let revert_result = settlement.senders_revert_affirmation_legs(&tester).await;
 
         assert_operation_fails(
             revert_result,
-            "Sender revert from executed settlement should fail",
+            "Sender revert affirmation from executed settlement should fail",
         );
-        log::info!("Test Case passed: Sender revert correctly rejected from executed settlement");
+        log::info!("Test Case passed: Sender revert affirmation correctly rejected from executed settlement");
 
         Ok(())
     }

@@ -317,7 +317,9 @@ mod confidential_assets_tests {
         pending_settlement.senders_affirm_legs(&tester).await?;
 
         // Sender reverts while still pending
-        pending_settlement.senders_revert_legs(&tester).await?;
+        pending_settlement
+            .senders_revert_affirmation_legs(&tester)
+            .await?;
         log::info!("Test A passed: Sender successfully reverted pending settlement");
 
         // Test B: Rejected settlement revert
@@ -332,8 +334,10 @@ mod confidential_assets_tests {
             .mediators_affirm_legs(&tester, false)
             .await?;
 
-        // Sender reverts after rejection
-        rejected_settlement.senders_revert_legs(&tester).await?;
+        // Sender reverts affirmation after rejection
+        rejected_settlement
+            .senders_revert_affirmation_legs(&tester)
+            .await?;
         log::info!("Test B passed: Sender successfully reverted rejected settlement");
 
         Ok(())
