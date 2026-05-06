@@ -1,4 +1,6 @@
 use codec::{Decode, Encode};
+use polymesh_dart::EncryptionPublicKey;
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
 use sp_std::vec::Vec;
 
 use rand_chacha::ChaCha20Rng as Rng;
@@ -160,6 +162,11 @@ pub enum GenerateDartProofRequest {
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
+    KeyDistribution {
+        did: Did,
+        key: EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    },
 }
 
 impl GenerateDartProofRequest {
@@ -179,12 +186,11 @@ impl GenerateDartProofRequest {
         let mut rng = Rng::from_seed(seed);
         match self {
             Self::AccountRegistration { accounts, did } => {
-                let proof = AccountRegistrationProof::new(&mut rng, accounts.as_slice(), &did[..])?;
+                let proof = AccountRegistrationProof::new(&mut rng, accounts.as_slice(), &did)?;
                 Ok(GenerateDartProofResponse::AccountRegistration { proof })
             }
             Self::EncryptionKeyRegistration { keys, did } => {
-                let proof =
-                    EncryptionKeyRegistrationProof::new(&mut rng, keys.as_slice(), &did[..])?;
+                let proof = EncryptionKeyRegistrationProof::new(&mut rng, keys.as_slice(), &did)?;
                 Ok(GenerateDartProofResponse::EncryptionKeyRegistration { proof })
             }
             Self::AccountAssetRegistration {
@@ -195,12 +201,7 @@ impl GenerateDartProofRequest {
             } => {
                 let params = get_account_curve_tree_parameters();
                 let (proof, account_state) = AccountAssetRegistrationProof::new(
-                    &mut rng,
-                    &keys,
-                    asset_id,
-                    counter,
-                    &did[..],
-                    params,
+                    &mut rng, &keys, asset_id, counter, &did, params,
                 )?;
                 Ok(GenerateDartProofResponse::AccountAssetRegistration {
                     proof,
@@ -215,7 +216,7 @@ impl GenerateDartProofRequest {
                 let (proof, account_states) = BatchedAccountAssetRegistrationProof::new(
                     &mut rng,
                     &account_assets,
-                    &did[..],
+                    &did,
                     params,
                 )?;
                 Ok(GenerateDartProofResponse::BatchedAccountAssetRegistration {
@@ -230,8 +231,14 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof =
-                    AssetMintingProof::new(&mut rng, &keys, &did, &mut account_state, path, amount)?;
+                let proof = AssetMintingProof::new(
+                    &mut rng,
+                    &keys,
+                    &did,
+                    &mut account_state,
+                    path,
+                    amount,
+                )?;
                 Ok(GenerateDartProofResponse::MintAsset {
                     proof,
                     account_state,
@@ -241,8 +248,7 @@ impl GenerateDartProofRequest {
                 paths,
                 settlement: builder,
             } => {
-                let proof = builder
-                    .encrypt_and_prove(&mut rng, paths)?;
+                let proof = builder.encrypt_and_prove(&mut rng, paths)?;
                 Ok(GenerateDartProofResponse::CreateSettlement { proof })
             }
             Self::SenderAffirmation {
@@ -342,8 +348,7 @@ impl GenerateDartProofRequest {
                 key_index,
                 accept,
             } => {
-                let med_enc = leg_enc
-                    .mediator_encryption(key_index)?;
+                let med_enc = leg_enc.mediator_encryption(key_index)?;
                 let proof = MediatorAffirmationProof::new(
                     &mut rng, &leg_ref, &med_enc, &keys, key_index, accept,
                 )?;
@@ -439,13 +444,8 @@ impl GenerateDartProofRequest {
                 asset_id,
                 amount,
             } => {
-                let (proof, account_state) = FeeAccountRegistrationProof::new(
-                    &mut rng,
-                    &account,
-                    asset_id,
-                    amount,
-                    &did[..],
-                )?;
+                let (proof, account_state) =
+                    FeeAccountRegistrationProof::new(&mut rng, &account, asset_id, amount, &did)?;
                 Ok(GenerateDartProofResponse::FeeAccountRegistration {
                     proof,
                     account_state,
@@ -459,7 +459,7 @@ impl GenerateDartProofRequest {
                 let (proof, account_states) = BatchedFeeAccountRegistrationProof::new(
                     &mut rng,
                     registrations.as_slice(),
-                    &did[..],
+                    &did,
                 )?;
                 Ok(GenerateDartProofResponse::BatchedFeeAccountRegistration {
                     proof,
@@ -478,7 +478,7 @@ impl GenerateDartProofRequest {
                     &account,
                     &mut account_state,
                     amount,
-                    &did[..],
+                    &did,
                     &path,
                 )?;
                 Ok(GenerateDartProofResponse::FeeAccountTopup {
@@ -494,7 +494,7 @@ impl GenerateDartProofRequest {
                 let proof = BatchedFeeAccountTopupProof::new(
                     &mut rng,
                     topups.as_mut_slice(),
-                    &did[..],
+                    &did,
                     &paths,
                 )?;
                 Ok(GenerateDartProofResponse::BatchedFeeAccountTopup {
@@ -521,6 +521,18 @@ impl GenerateDartProofRequest {
                     proof,
                     account_state,
                 })
+            }
+            Self::KeyDistribution {
+                did,
+                key,
+                recipients,
+            } => {
+                let params = get_account_curve_tree_parameters();
+                let sk = key.secret;
+                let pk = key.public;
+                let proof =
+                    KeyDistributionProof::new(&mut rng, sk, &pk, &recipients, &did, params)?;
+                Ok(GenerateDartProofResponse::KeyDistribution { proof })
             }
         }
     }
@@ -641,5 +653,8 @@ pub enum GenerateDartProofResponse {
     InstantReceiverAffirmation {
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
+    },
+    KeyDistribution {
+        proof: KeyDistributionProof<PolymeshLimits>,
     },
 }

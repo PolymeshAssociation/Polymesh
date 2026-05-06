@@ -1,5 +1,6 @@
 use bounded_collections::BoundedVec;
 use codec::{Decode, Encode};
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
 use sp_std::vec::Vec;
 
 use rand_chacha::ChaCha20Rng as Rng;
@@ -11,13 +12,13 @@ use polymesh_dart::{
     AccountStateNullifier, AccountStateUpdate, AssetId, AssetKeysLookup, AssetMintingProof,
     Balance, BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, DartLimits, EncryptionKeyRegistrationProof, EncryptionPublicKey,
-    FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
-    FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
-    InstantSenderAffirmationProof, LegEncrypted, LegRef, MediatorAffirmationProof, PolymeshLimits,
-    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
-    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
-    SettlementProof, SettlementRef, blake2_256,
-    Error as DartError,
+    Error as DartError, FeeAccountPaymentProof, FeeAccountRegistrationProof,
+    FeeAccountStateCommitment, FeeAccountStateNullifier, FeeAccountTopupProof,
+    InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
+    MediatorAffirmationProof, PolymeshLimits, ProofHash, ReceiverAffirmationProof,
+    ReceiverClaimProof, ReceiverRevertAffirmationProof, SenderAffirmationProof,
+    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementProof, SettlementRef,
+    blake2_256,
 };
 use polymesh_dart_common::NullifierSkGenCounter;
 use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
@@ -116,6 +117,10 @@ pub enum VerifyDartAssetRequest {
         root: AccountTreeRoot,
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
     },
+    KeyDistribution {
+        did: Did,
+        proof: KeyDistributionProof<PolymeshLimits>,
+    },
 }
 
 impl VerifyDartAssetRequest {
@@ -133,21 +138,19 @@ impl VerifyDartAssetRequest {
     fn _verify(&self, seed: WorkSeed) -> Result<(), DartError> {
         match self {
             Self::AccountRegistration { did, proof } => {
-                proof.verify(&did[..])?;
+                proof.verify(did)?;
             }
             Self::EncryptionKeyRegistration { did, proof } => {
-                proof.verify(&did[..])?;
+                proof.verify(did)?;
             }
             Self::BatchedAccountAssetRegistration { did, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 let params = get_account_curve_tree_parameters();
-                proof
-                    .batched_verify(&did[..], &params, &mut rng)?;
+                proof.batched_verify(did, &params, &mut rng)?;
             }
             Self::MintAsset { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&did[..], root, &mut rng)?;
+                proof.verify(did, root, &mut rng)?;
             }
             Self::CreateSettlement {
                 root,
@@ -165,8 +168,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::ReceiverAffirmation {
                 leg_enc,
@@ -174,8 +176,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::InstantSenderAffirmation {
                 leg_enc,
@@ -183,8 +184,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::InstantReceiverAffirmation {
                 leg_enc,
@@ -192,8 +192,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::MediatorAffirmation { leg_enc, proof } => {
                 let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
@@ -205,8 +204,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::SenderRevertAffirmation {
                 leg_enc,
@@ -214,8 +212,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::ReceiverRevertAffirmation {
                 leg_enc,
@@ -223,8 +220,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::ReceiverClaim {
                 leg_enc,
@@ -232,30 +228,31 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&leg_enc, root, &mut rng)?;
+                proof.verify(&leg_enc, root, &mut rng)?;
             }
             Self::FeeAccountRegistration { did, proof } => {
-                proof.verify(&did[..])?;
+                proof.verify(did)?;
             }
             Self::BatchedFeeAccountRegistration { did, proof } => {
-                proof.verify(&did[..])?;
+                proof.verify(did)?;
             }
             Self::FeeAccountTopup { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
                 let root = root.root_node()?;
-                proof
-                    .verify(&mut rng, &did[..], &root)?;
+                proof.verify(&mut rng, did, &root)?;
             }
             Self::BatchedFeeAccountTopup { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .batched_verify(&mut rng, &did[..], root)?;
+                proof.batched_verify(&mut rng, did, root)?;
             }
             Self::FeeAccountPayment { ctx, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    .verify(&mut rng, &ctx.0, root)?;
+                proof.verify(&mut rng, &ctx.0, root)?;
+            }
+            Self::KeyDistribution { did, proof } => {
+                let mut rng = Rng::from_seed(seed);
+                let params = get_account_curve_tree_parameters();
+                proof.verify(did, params, &mut rng)?;
             }
         }
 
@@ -435,6 +432,10 @@ impl VerifyDartAssetRequest {
                     nullifier: proof.nullifier,
                 })
             }
+            Self::KeyDistribution { proof, .. } => Ok(VerifyDartProofResponse::KeyDistribution {
+                public_key: proof.public_key,
+                recipients: proof.recipient_pks.iter().cloned().collect(),
+            }),
         }
     }
 }
@@ -587,5 +588,9 @@ pub enum VerifyDartProofResponse<T: DartLimits = PolymeshLimits> {
         leg_ref: LegRef,
         account_state_commitment: AccountStateCommitment,
         nullifier: AccountStateNullifier,
+    },
+    KeyDistribution {
+        public_key: EncryptionPublicKey,
+        recipients: Vec<EncryptionPublicKey>,
     },
 }
