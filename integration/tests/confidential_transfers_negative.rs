@@ -166,6 +166,49 @@ mod confidential_assets_negative_tests {
     }
 
     // ========================================================================
+    // Test Case: Receiver revert without prior affirmation
+    // ========================================================================
+    /// Create settlement, skip receiver affirmation, try `receiver_revert_affirmation()` immediately
+    /// Expected: Revert affirmation fails with on-chain state validation error
+    #[tokio::test]
+    #[test_log::test]
+    async fn receiver_revert_without_affirmation() -> Result<()> {
+        let tester = DartAssetTester::init(&["Auditor", "Sender", "Receiver", "Venue"]).await?;
+        let auditor = tester.user("Auditor").await;
+        let sender = tester.user("Sender").await;
+        let receiver = tester.user("Receiver").await;
+        let venue = tester.user("Venue").await;
+
+        // Setup
+        let asset = tester
+            .create_asset(
+                &sender,
+                "Receiver No Affirm Test",
+                &[],
+                &[&auditor],
+                Some(1000),
+            )
+            .await?;
+
+        sender.register_account().await?;
+        sender.register_account_asset(asset.id).await?;
+        receiver.register_account().await?;
+        receiver.register_account_asset(asset.id).await?;
+
+        // Create settlement
+        let settlement =
+            create_test_settlement(&tester, &venue, &sender, &receiver, asset.id, 100).await?;
+
+        // Try to have receiver revert affirmation without affirming first (should fail)
+        let revert_result = settlement.receivers_revert_affirmation_legs(&tester).await;
+
+        assert_operation_fails(revert_result, "Receiver revert without prior affirmation");
+        log::info!("Test Case passed: Receiver revert affirmation correctly rejected without prior affirmation");
+
+        Ok(())
+    }
+
+    // ========================================================================
     // Test Case: Sender claiming multiple times
     // ========================================================================
     /// Create settlement, sender affirms, sender reverts affirmation successfully
@@ -219,6 +262,61 @@ mod confidential_assets_negative_tests {
     }
 
     // ========================================================================
+    // Test Case: Receiver revert affirmation multiple times
+    // ========================================================================
+    /// Create settlement, receiver affirms, receiver reverts affirmation successfully
+    /// Try to call `receiver_revert_affirmation()` again on same leg
+    /// Expected: Second revert affirmation fails with "Leg not found" or state validation error
+    #[tokio::test]
+    #[test_log::test]
+    async fn receiver_reverts_multiple_times() -> Result<()> {
+        let tester = DartAssetTester::init(&["Auditor", "Sender", "Receiver", "Venue"]).await?;
+        let auditor = tester.user("Auditor").await;
+        let sender = tester.user("Sender").await;
+        let receiver = tester.user("Receiver").await;
+        let venue = tester.user("Venue").await;
+
+        // Setup
+        let asset = tester
+            .create_asset(
+                &sender,
+                "Receiver Multiple Revert Test",
+                &[],
+                &[&auditor],
+                Some(1000),
+            )
+            .await?;
+
+        sender.register_account().await?;
+        sender.register_account_asset(asset.id).await?;
+        receiver.register_account().await?;
+        receiver.register_account_asset(asset.id).await?;
+
+        // Create settlement
+        let settlement =
+            create_test_settlement(&tester, &venue, &sender, &receiver, asset.id, 100).await?;
+
+        // Receiver affirms
+        settlement.receivers_affirm_legs(&tester).await?;
+
+        // First revert succeeds
+        settlement
+            .receivers_revert_affirmation_legs(&tester)
+            .await?;
+
+        // Second revert on same leg should fail
+        let second_revert = settlement.receivers_revert_affirmation_legs(&tester).await;
+
+        assert_operation_fails(
+            second_revert,
+            "Second receiver revert affirmation should fail",
+        );
+        log::info!("Test Case passed: Second receiver revert affirmation correctly rejected");
+
+        Ok(())
+    }
+
+    // ========================================================================
     // Test Case: Sender claiming from executed settlement
     // ========================================================================
     /// Create settlement with mediator, all parties affirm, settlement executes
@@ -266,6 +364,58 @@ mod confidential_assets_negative_tests {
             "Sender revert affirmation from executed settlement should fail",
         );
         log::info!("Test Case passed: Sender revert affirmation correctly rejected from executed settlement");
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Test Case: Receiver revert affirmation from executed settlement
+    // ========================================================================
+    /// Create settlement with mediator, all parties affirm, settlement executes
+    /// Try `receiver_revert_affirmation()` on executed settlement
+    /// Expected: Fails with "Can only reverse pending/rejected settlement" on-chain check
+    #[tokio::test]
+    #[test_log::test]
+    async fn receiver_revert_from_executed_settlement() -> Result<()> {
+        let tester =
+            DartAssetTester::init(&["Auditor", "Mediator", "Sender", "Receiver", "Venue"]).await?;
+        let auditor = tester.user("Auditor").await;
+        let mediator = tester.user("Mediator").await;
+        let sender = tester.user("Sender").await;
+        let receiver = tester.user("Receiver").await;
+        let venue = tester.user("Venue").await;
+
+        // Create asset with mediator
+        let asset = tester
+            .create_asset(
+                &sender,
+                "Receiver Revert Executed Test",
+                &[&mediator],
+                &[&auditor],
+                Some(1000),
+            )
+            .await?;
+
+        sender.register_account().await?;
+        sender.register_account_asset(asset.id).await?;
+        receiver.register_account().await?;
+        receiver.register_account_asset(asset.id).await?;
+
+        // Create settlement
+        let settlement =
+            create_test_settlement(&tester, &venue, &sender, &receiver, asset.id, 100).await?;
+
+        // All parties affirm including mediator (settlement becomes executed)
+        settlement.affirm_legs(&tester).await?;
+
+        // Try to have receiver revert affirmation from executed settlement (should fail)
+        let revert_result = settlement.receivers_revert_affirmation_legs(&tester).await;
+
+        assert_operation_fails(
+            revert_result,
+            "Receiver revert affirmation from executed settlement should fail",
+        );
+        log::info!("Test Case passed: Receiver revert affirmation correctly rejected from executed settlement");
 
         Ok(())
     }

@@ -22,9 +22,9 @@ use polymesh_dart::{
     EncryptionKeyRegistrationProof, EncryptionPublicKey, InstantReceiverAffirmationProof,
     InstantSenderAffirmationProof, InstantSettlementProof, LeafIndex, LegBuilder, LegEncrypted,
     LegRef, LegRole, MediatorAffirmationProof, MediatorId, ReceiverAffirmationProof,
-    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof,
-    SenderRevertAffirmationProof, SettlementBuilder, SettlementProof, SettlementRef,
-    ACCOUNT_TREE_L, ACCOUNT_TREE_M,
+    ReceiverClaimProof, ReceiverRevertAffirmationProof, SenderAffirmationProof,
+    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementBuilder, SettlementProof,
+    SettlementRef, ACCOUNT_TREE_L, ACCOUNT_TREE_M,
 };
 pub use polymesh_dart::{AccountAssetState, AccountKeys, AssetId as DartAssetId};
 
@@ -1606,6 +1606,58 @@ impl DartUserInner {
 
         Ok(())
     }
+
+    pub async fn receiver_revert_affirmation(
+        &mut self,
+        tester: &DartAssetTester,
+        leg_ref: LegRef,
+    ) -> Result<()> {
+        // Get the encrypted settlement leg from the chain.
+        let leg_enc = tester
+            .get_settlement_leg(leg_ref)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Settlement leg not found"))?;
+
+        // Try to decrypt the leg as the receiver
+        let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
+        let asset_id = leg.asset_id();
+
+        // Get our current account asset state.
+        let asset_state = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or_else(|| anyhow::anyhow!("Asset not registered: {}", leg.asset_id()))?;
+
+        // Lookup our current account asset state in the on-chain account tree.
+        let account_tree = tester.account_tree().await;
+        let account_lookup = asset_state.get_path_and_root(&account_tree).await?;
+
+        // Generate receiver revert proof.
+        let proof = {
+            let mut rng = rand::thread_rng();
+            ReceiverRevertAffirmationProof::new(
+                &mut rng,
+                &self.keys,
+                &leg_ref,
+                &leg_enc,
+                asset_state.as_mut(),
+                account_lookup,
+            )?
+        };
+
+        // Submit the receiver revert proof.
+        let mut res = self
+            .submitter
+            .submit_batch_proof(BatchedProof::ReceiverRevertAffirmation(proof))
+            .await?;
+
+        // Update the asset state with the new leaf index.
+        asset_state
+            .update_leaf_index(&mut res, "Receiver revert affirmation")
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -1839,6 +1891,18 @@ impl DartUser {
             .write()
             .await
             .sender_revert_affirmation(tester, leg_ref)
+            .await
+    }
+
+    pub async fn receiver_revert_affirmation(
+        &self,
+        tester: &DartAssetTester,
+        leg_ref: LegRef,
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .receiver_revert_affirmation(tester, leg_ref)
             .await
     }
 }
@@ -2373,6 +2437,13 @@ impl DartSettlementLegState {
         Ok(())
     }
 
+    pub async fn receiver_revert_affirmation(&self, tester: &DartAssetTester) -> Result<()> {
+        self.receiver
+            .receiver_revert_affirmation(tester, self.leg_ref)
+            .await?;
+        Ok(())
+    }
+
     pub async fn mediators_affirm(&self, tester: &DartAssetTester, accept: bool) -> Result<()> {
         for (id, mediator) in self.mediators.iter().enumerate() {
             log::debug!(
@@ -2621,6 +2692,14 @@ impl DartSettlementState {
         // All senders revert their affirmation for their legs.
         for leg in &self.legs {
             leg.sender_revert_affirmation(tester).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn receivers_revert_affirmation_legs(&self, tester: &DartAssetTester) -> Result<()> {
+        // All receivers revert their affirmation for their legs.
+        for leg in &self.legs {
+            leg.receiver_revert_affirmation(tester).await?;
         }
         Ok(())
     }

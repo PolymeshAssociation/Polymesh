@@ -14,9 +14,9 @@ use polymesh_dart::{
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
     FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
     InstantSenderAffirmationProof, LegEncrypted, LegRef, MediatorAffirmationProof, PolymeshLimits,
-    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, SenderAffirmationProof,
-    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementProof, SettlementRef,
-    blake2_256,
+    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
+    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
+    SettlementProof, SettlementRef, blake2_256,
 };
 use polymesh_dart_common::NullifierSkGenCounter;
 use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
@@ -71,6 +71,11 @@ pub enum VerifyDartAssetRequest {
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
+    },
+    ReceiverRevertAffirmation {
+        leg_enc: LegEncrypted,
+        root: AccountTreeRoot,
+        proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
     },
     ReceiverClaim {
         leg_enc: LegEncrypted,
@@ -208,6 +213,16 @@ impl VerifyDartAssetRequest {
                     .verify(&leg_enc, root, &mut rng)
                     .map_err(|_| Error::VerifyFailed)?;
             }
+            Self::ReceiverRevertAffirmation {
+                leg_enc,
+                root,
+                proof,
+            } => {
+                let mut rng = Rng::from_seed(seed);
+                proof
+                    .verify(&leg_enc, root, &mut rng)
+                    .map_err(|_| Error::VerifyFailed)?;
+            }
             Self::ReceiverClaim {
                 leg_enc,
                 root,
@@ -250,16 +265,16 @@ impl VerifyDartAssetRequest {
     pub fn get_response(&self) -> Result<VerifyDartProofResponse, Error> {
         match self {
             Self::AccountRegistration { did, proof } => {
-                return Ok(VerifyDartProofResponse::AccountRegistration {
+                Ok(VerifyDartProofResponse::AccountRegistration {
                     did: *did,
                     accounts: proof.accounts.clone(),
-                });
+                })
             }
             Self::EncryptionKeyRegistration { did, proof } => {
-                return Ok(VerifyDartProofResponse::EncryptionKeyRegistration {
+                Ok(VerifyDartProofResponse::EncryptionKeyRegistration {
                     did: *did,
                     keys: proof.keys.clone(),
-                });
+                })
             }
             Self::BatchedAccountAssetRegistration { did, proof } => {
                 let registrations = proof
@@ -272,86 +287,89 @@ impl VerifyDartAssetRequest {
                         account_state_commitment: state.account_state_commitment,
                     })
                     .collect();
-                return Ok(VerifyDartProofResponse::BatchedAccountAssetRegistration {
+                Ok(VerifyDartProofResponse::BatchedAccountAssetRegistration {
                     did: *did,
                     registrations,
-                });
+                })
             }
-            Self::MintAsset { did, proof, .. } => {
-                return Ok(VerifyDartProofResponse::MintAsset {
-                    did: *did,
-                    account: proof.pk,
-                    asset_id: proof.asset_id,
-                    amount: proof.amount,
-                    account_state_commitment: proof.account_state_commitment(),
-                    nullifier: proof.nullifier,
-                });
-            }
+            Self::MintAsset { did, proof, .. } => Ok(VerifyDartProofResponse::MintAsset {
+                did: *did,
+                account: proof.pk,
+                asset_id: proof.asset_id,
+                amount: proof.amount,
+                account_state_commitment: proof.account_state_commitment(),
+                nullifier: proof.nullifier,
+            }),
             Self::CreateSettlement { proof, .. } => {
                 let legs = proof.legs.iter().map(|leg| leg.leg_enc().clone()).collect();
-                return Ok(VerifyDartProofResponse::CreateSettlement {
+                Ok(VerifyDartProofResponse::CreateSettlement {
                     id: proof.settlement_ref(),
                     memo: proof.memo.clone(),
                     legs,
-                });
+                })
             }
             Self::SenderAffirmation { proof, .. } => {
-                return Ok(VerifyDartProofResponse::SenderAffirmation {
+                Ok(VerifyDartProofResponse::SenderAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
             Self::ReceiverAffirmation { proof, .. } => {
-                return Ok(VerifyDartProofResponse::ReceiverAffirmation {
+                Ok(VerifyDartProofResponse::ReceiverAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
             Self::InstantSenderAffirmation { proof, .. } => {
-                return Ok(VerifyDartProofResponse::InstantSenderAffirmation {
+                Ok(VerifyDartProofResponse::InstantSenderAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
             Self::InstantReceiverAffirmation { proof, .. } => {
-                return Ok(VerifyDartProofResponse::InstantReceiverAffirmation {
+                Ok(VerifyDartProofResponse::InstantReceiverAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
             Self::MediatorAffirmation { proof, .. } => {
-                return Ok(VerifyDartProofResponse::MediatorAffirmation {
+                Ok(VerifyDartProofResponse::MediatorAffirmation {
                     leg_ref: proof.leg_ref,
                     accept: proof.accept,
-                });
+                })
             }
             Self::SenderCounterUpdate { proof, .. } => {
-                return Ok(VerifyDartProofResponse::SenderCounterUpdate {
+                Ok(VerifyDartProofResponse::SenderCounterUpdate {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
             Self::SenderRevertAffirmation { proof, .. } => {
-                return Ok(VerifyDartProofResponse::SenderRevertAffirmation {
+                Ok(VerifyDartProofResponse::SenderRevertAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
-            Self::ReceiverClaim { proof, .. } => {
-                return Ok(VerifyDartProofResponse::ReceiverClaim {
+            Self::ReceiverRevertAffirmation { proof, .. } => {
+                Ok(VerifyDartProofResponse::ReceiverRevertAffirmation {
                     leg_ref: proof.leg_ref,
                     account_state_commitment: proof.account_state_commitment(),
                     nullifier: proof.nullifier,
-                });
+                })
             }
+            Self::ReceiverClaim { proof, .. } => Ok(VerifyDartProofResponse::ReceiverClaim {
+                leg_ref: proof.leg_ref,
+                account_state_commitment: proof.account_state_commitment(),
+                nullifier: proof.nullifier,
+            }),
             Self::FeeAccountRegistration { did, proof } => {
-                return Ok(VerifyDartProofResponse::FeeAccountRegistration {
+                Ok(VerifyDartProofResponse::FeeAccountRegistration {
                     did: *did,
                     registration: FeeAccountUpdate {
                         account: proof.account,
@@ -361,7 +379,7 @@ impl VerifyDartAssetRequest {
                         account_state_commitment: proof.account_state_commitment,
                         nullifier: None,
                     },
-                });
+                })
             }
             Self::BatchedFeeAccountRegistration { did, proof } => {
                 let registrations = proof
@@ -376,13 +394,13 @@ impl VerifyDartAssetRequest {
                         nullifier: None,
                     })
                     .collect();
-                return Ok(VerifyDartProofResponse::BatchedFeeAccountRegistration {
+                Ok(VerifyDartProofResponse::BatchedFeeAccountRegistration {
                     did: *did,
                     registrations,
-                });
+                })
             }
             Self::FeeAccountTopup { did, proof, .. } => {
-                return Ok(VerifyDartProofResponse::FeeAccountTopup {
+                Ok(VerifyDartProofResponse::FeeAccountTopup {
                     did: *did,
                     topup: FeeAccountUpdate {
                         account: proof.account,
@@ -392,7 +410,7 @@ impl VerifyDartAssetRequest {
                         account_state_commitment: proof.updated_account_state_commitment,
                         nullifier: Some(proof.nullifier),
                     },
-                });
+                })
             }
             Self::BatchedFeeAccountTopup { did, proof, .. } => {
                 let topups = proof
@@ -407,15 +425,15 @@ impl VerifyDartAssetRequest {
                         nullifier: Some(proof.nullifier),
                     })
                     .collect();
-                return Ok(VerifyDartProofResponse::BatchedFeeAccountTopup { did: *did, topups });
+                Ok(VerifyDartProofResponse::BatchedFeeAccountTopup { did: *did, topups })
             }
             Self::FeeAccountPayment { proof, .. } => {
-                return Ok(VerifyDartProofResponse::FeeAccountPayment {
+                Ok(VerifyDartProofResponse::FeeAccountPayment {
                     asset_id: proof.asset_id,
                     amount: proof.amount,
                     account_state_commitment: proof.updated_account_state_commitment,
                     nullifier: proof.nullifier,
-                });
+                })
             }
         }
     }
@@ -524,6 +542,11 @@ pub enum VerifyDartProofResponse<T: DartLimits = PolymeshLimits> {
         nullifier: AccountStateNullifier,
     },
     SenderRevertAffirmation {
+        leg_ref: LegRef,
+        account_state_commitment: AccountStateCommitment,
+        nullifier: AccountStateNullifier,
+    },
+    ReceiverRevertAffirmation {
         leg_ref: LegRef,
         account_state_commitment: AccountStateCommitment,
         nullifier: AccountStateNullifier,

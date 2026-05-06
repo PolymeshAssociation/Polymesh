@@ -639,4 +639,34 @@ benchmarks! {
         // Generate the sender's revert affirmation proof.
         let (proof, _) = leg.sender.sender_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.sender.raw_origin(), proof)
+
+    receiver_revert_affirmation {
+        // Offchain prover state.
+        let mut off_chain = OffchainProverState::<T>::new();
+
+        // Create asset issuer and an asset.
+        let mut asset = DartTestAsset::<T>::new(&mut off_chain, "Test Asset", 0, 1, 0, Some(1000));
+
+        // Create settlement and one investor.
+        let (settlement, _) =
+            DartSettlementState::create_investors_and_fund(&mut asset, 1, 500, &mut off_chain);
+
+        // Get the first leg of the settlement.
+        let leg = settlement.legs[0].clone();
+
+        // Update the curve tree roots.
+        off_chain.apply_new_leaves();
+
+        // Receiver affirms the leg.
+        leg.receiver_affirmation(&mut off_chain);
+
+        // Update the curve tree roots.
+        off_chain.apply_new_leaves();
+
+        // Mediator rejects the leg.  The settlement will go into a rejected state.
+        leg.mediator_affirmation(&off_chain, false);
+
+        // Generate the receiver's revert affirmation proof.
+        let (proof, _) = leg.receiver.receiver_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id);
+    }: _(leg.receiver.raw_origin(), proof)
 }

@@ -342,4 +342,71 @@ mod confidential_assets_tests {
 
         Ok(())
     }
+
+    // ========================================================================
+    // Test Case: Receiver reverting pending/rejected settlement
+    // ========================================================================
+    /// Test A: Settlement pending → receiver reverses → verify reversal succeeds
+    /// Test B: Settlement rejected by mediator → receiver reverses → verify reversal succeeds
+    /// Expected: Both reversals succeed with correct state transitions
+    #[tokio::test]
+    #[test_log::test]
+    async fn receiver_revert_pending_and_rejected_settlement() -> Result<()> {
+        let tester =
+            DartAssetTester::init(&["Auditor", "Mediator", "Sender", "Receiver", "Venue"]).await?;
+        let auditor = tester.user("Auditor").await;
+        let mediator = tester.user("Mediator").await;
+        let sender = tester.user("Sender").await;
+        let receiver = tester.user("Receiver").await;
+        let venue = tester.user("Venue").await;
+
+        // Create asset with mediator
+        let asset = tester
+            .create_asset(
+                &sender,
+                "Pending and Rejected Revert Test",
+                &[&mediator],
+                &[&auditor],
+                Some(1000),
+            )
+            .await?;
+
+        sender.register_account().await?;
+        sender.register_account_asset(asset.id).await?;
+        receiver.register_account().await?;
+        receiver.register_account_asset(asset.id).await?;
+
+        // Test A: Pending settlement revert
+        let pending_settlement =
+            create_test_settlement(&tester, &venue, &sender, &receiver, asset.id, 100).await?;
+
+        // Receiver affirms
+        pending_settlement.receivers_affirm_legs(&tester).await?;
+
+        // Receiver reverts while still pending
+        pending_settlement
+            .receivers_revert_affirmation_legs(&tester)
+            .await?;
+        log::info!("Test A passed: Receiver successfully reverted pending settlement");
+
+        // Test B: Rejected settlement revert
+        let rejected_settlement =
+            create_test_settlement(&tester, &venue, &sender, &receiver, asset.id, 100).await?;
+
+        // Receiver affirm.
+        rejected_settlement.receivers_affirm_legs(&tester).await?;
+
+        // Mediator rejects.
+        rejected_settlement
+            .mediators_affirm_legs(&tester, false)
+            .await?;
+
+        // Receiver reverts affirmation after rejection
+        rejected_settlement
+            .receivers_revert_affirmation_legs(&tester)
+            .await?;
+        log::info!("Test B passed: Receiver successfully reverted rejected settlement");
+
+        Ok(())
+    }
 }

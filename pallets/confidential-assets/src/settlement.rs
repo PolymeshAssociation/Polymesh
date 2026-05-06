@@ -6,7 +6,8 @@ use scale_info::TypeInfo;
 use polymesh_dart::{
     InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegId, LegRef,
     MediatorAffirmationProof, MediatorId, ReceiverAffirmationProof, ReceiverClaimProof,
-    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementRef,
+    ReceiverRevertAffirmationProof, SenderAffirmationProof, SenderCounterUpdateProof,
+    SenderRevertAffirmationProof, SettlementRef,
 };
 
 use super::*;
@@ -395,7 +396,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         // The sender can only reverse if the settlement has been rejected or is still pending.
         ensure!(
             status == SettlementStatus::Rejected || status == SettlementStatus::Pending,
-            Error::<T>::SettlementNotRejected
+            Error::<T>::SettlementAlreadyExecuted
         );
 
         // The sender is only allowed to submit this proof if they have affirmed and the settlement has been rejected or is still pending.
@@ -411,6 +412,41 @@ impl<T: Config> UpdateSettlementStatus<T> {
         // If the settlement was rejected.
         if status == SettlementStatus::Rejected {
             // Finalize the settlement if the sender has finalized the leg.
+            self.check_for_finalization(pending_final)
+        } else {
+            // If the settlement was pending, then reject the settlement.
+            self.reject(pending_final)
+        }
+    }
+
+    /// Verify the receiver's revert affirmation proof for a specific leg in the settlement to return the assets to the sender.
+    ///
+    /// This can only be done if the settlement has been rejected or is still pending.
+    pub fn receiver_revert_affirmation(
+        &self,
+        proof: ReceiverRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
+        root: AccountTreeRoot,
+    ) -> DispatchResult {
+        let status = self.status;
+        // The receiver can only reverse if the settlement has been rejected or is still pending.
+        ensure!(
+            status == SettlementStatus::Rejected || status == SettlementStatus::Pending,
+            Error::<T>::SettlementAlreadyExecuted
+        );
+
+        // The receiver is only allowed to submit this proof if they have affirmed and the settlement has been rejected or is still pending.
+        let pending_final = self.party_finalizes(LegAffirmParty::Receiver)?;
+
+        // verify the proof.
+        Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::ReceiverRevertAffirmation {
+            leg_enc: self.get_leg()?,
+            root,
+            proof: proof.clone(),
+        })?;
+
+        // If the settlement was rejected.
+        if status == SettlementStatus::Rejected {
+            // Finalize the settlement if the receiver has finalized the leg.
             self.check_for_finalization(pending_final)
         } else {
             // If the settlement was pending, then reject the settlement.

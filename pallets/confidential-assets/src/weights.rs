@@ -541,4 +541,30 @@ impl crate::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(5))
     }
+    // Storage: `ConfidentialAssets::AccountStateCommitmentNullifiers` (r:1 w:1)
+    // Proof: `ConfidentialAssets::AccountStateCommitmentNullifiers` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AccountCurveTreeRoots` (r:1 w:0)
+    // Proof: `ConfidentialAssets::AccountCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Timestamp::Now` (r:1 w:0)
+    // Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `ConfidentialAssets::SettlementState` (r:1 w:0)
+    // Proof: `ConfidentialAssets::SettlementState` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::LegAffirmationStatus` (r:1 w:1)
+    // Proof: `ConfidentialAssets::LegAffirmationStatus` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::SettlementPendingFinalizations` (r:1 w:1)
+    // Proof: `ConfidentialAssets::SettlementPendingFinalizations` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::SettlementLegs` (r:1 w:0)
+    // Proof: `ConfidentialAssets::SettlementLegs` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::CurrentWorkerSessionId` (r:1 w:0)
+    // Proof: `ConfidentialAssets::CurrentWorkerSessionId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::NextAccountLeafIndex` (r:1 w:1)
+    // Proof: `ConfidentialAssets::NextAccountLeafIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
+    // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn receiver_revert_affirmation() -> Weight {
+        // Minimum execution time: 4_936_745 nanoseconds.
+        Weight::from_parts(5_049_171_000, 0)
+            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().writes(5))
+    }
 }

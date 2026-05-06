@@ -28,6 +28,7 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
+use polymesh_dart::ReceiverRevertAffirmationProof;
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, IdentityId,
@@ -133,6 +134,7 @@ pub trait WeightInfo {
     fn instant_receiver_affirmation() -> Weight;
     fn sender_update_counter() -> Weight;
     fn sender_revert_affirmation() -> Weight;
+    fn receiver_revert_affirmation() -> Weight;
     fn receiver_claim() -> Weight;
 
     fn batched_settlement(counts: SettlementCounts) -> Weight {
@@ -180,6 +182,9 @@ pub trait WeightInfo {
                 }
                 BatchedProof::SenderRevertAffirmation(_proof) => {
                     weight = weight.saturating_add(Self::sender_revert_affirmation_with_leaf());
+                }
+                BatchedProof::ReceiverRevertAffirmation(_proof) => {
+                    weight = weight.saturating_add(Self::receiver_revert_affirmation_with_leaf());
                 }
                 BatchedProof::ReceiverClaim(_proof) => {
                     weight = weight.saturating_add(Self::receiver_claim_with_leaf());
@@ -264,6 +269,10 @@ pub trait WeightInfo {
 
     fn sender_revert_affirmation_with_leaf() -> Weight {
         Self::sender_revert_affirmation().saturating_add(Self::insert_account_leaf(1))
+    }
+
+    fn receiver_revert_affirmation_with_leaf() -> Weight {
+        Self::receiver_revert_affirmation().saturating_add(Self::insert_account_leaf(1))
     }
 
     fn receiver_claim_with_leaf() -> Weight {
@@ -504,6 +513,11 @@ pub mod pallet {
             /// Settlement Leg reference.
             leg_ref: LegRef,
         },
+        /// Receiver has reverted their affirmation for a leg.
+        ReceiverAffirmationReverted {
+            /// Settlement Leg reference.
+            leg_ref: LegRef,
+        },
         /// Receiver has claimed assets.
         ReceiverClaimed {
             /// Settlement Leg reference.
@@ -659,8 +673,8 @@ pub mod pallet {
         SettlementNotPending,
         /// Settlement not executed.
         SettlementNotExecuted,
-        /// Settlement not rejected.
-        SettlementNotRejected,
+        /// Settlement has executed, cannot be reverted.
+        SettlementAlreadyExecuted,
         /// CurveTree parameters not set.
         CurveTreeParametersNotSet,
         /// No current worker session.
@@ -1131,6 +1145,47 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Register encryption keys for auditors/mediators.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call.
+        /// * `proof` - The auditor/mediator encryption registration proof.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `EncryptionKeyAlreadyRegistered` if the encryption key is already registered.
+        /// * `InvalidProof` if the proof is invalid.
+        #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::register_encryption_keys(proof.len() as u32))]
+        pub fn register_encryption_keys(
+            origin: OriginFor<T>,
+            proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            for encryption_key in &proof.keys {
+                // Ensure the encryption key doesn't exist.
+                ensure!(
+                    !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+                    Error::<T>::EncryptionKeyAlreadyRegistered
+                );
+                EncryptionKeyDid::<T>::insert(&encryption_key, caller_did);
+
+                Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
+                    caller_did,
+                    encryption_key: *encryption_key,
+                });
+            }
+
+            // Verify the proof.
+            Self::submit_and_wait(VerifyDartAssetRequest::EncryptionKeyRegistration {
+                did: caller_did.into(),
+                proof,
+            })?;
+
+            Ok(())
+        }
+
         /// Create a new Confidential Asset.
         ///
         /// # Arguments
@@ -1140,7 +1195,7 @@ pub mod pallet {
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `AccountMissing` if the auditor or mediator is not registered.
         /// * `EncryptionKeyMissing` if the encryption key of the auditor or mediator is not registered.
-        #[pallet::call_index(1)]
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::create_asset())]
         pub fn create_asset(
             origin: OriginFor<T>,
@@ -1172,7 +1227,7 @@ pub mod pallet {
         /// * `AccountAssetAlreadyRegistered` if the Confidential account has already registered the Confidential asset.
         /// * `NotAccountOwner` if the caller is not the owner of the Confidential account.
         /// * `InvalidProof` if the proof is invalid.
-        #[pallet::call_index(2)]
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::register_account_assets_with_leaf(proof.len() as u32))]
         pub fn register_account_assets(
             origin: OriginFor<T>,
@@ -1243,7 +1298,7 @@ pub mod pallet {
         /// * `NotAssetOwner` if the caller is not the owner of the Confidential asset.
         /// * `MaxTotalSupplyExceeded` if the total supply of the Confidential asset exceeds the maximum total supply.
         /// * `NullifierAlreadyUsed` if the nullifier for the account state commitment has already been used.
-        #[pallet::call_index(3)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::mint_asset_with_leaf())]
         pub fn mint_asset(
             origin: OriginFor<T>,
@@ -1304,7 +1359,7 @@ pub mod pallet {
         /// * `InvalidProof` if the proof is invalid.
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::create_settlement(proof.legs.len() as u32))]
         pub fn create_settlement(
             origin: OriginFor<T>,
@@ -1327,7 +1382,7 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the sender.
-        #[pallet::call_index(5)]
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::sender_affirmation_with_leaf())]
         pub fn sender_affirmation(
             origin: OriginFor<T>,
@@ -1350,7 +1405,7 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the receiver.
-        #[pallet::call_index(6)]
+        #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::receiver_affirmation_with_leaf())]
         pub fn receiver_affirmation(
             origin: OriginFor<T>,
@@ -1374,7 +1429,7 @@ pub mod pallet {
         /// * `LegNotFound` if the leg is not found in the settlement.
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the mediator.
         /// * `WrongMediatorId` if the mediator ID does not match the expected mediator for the leg.
-        #[pallet::call_index(7)]
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as Config>::WeightInfo::mediator_affirmation())]
         pub fn mediator_affirmation(
             origin: OriginFor<T>,
@@ -1396,7 +1451,7 @@ pub mod pallet {
         /// * `SettlementNotExecuted` if the settlement has not been executed.
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        #[pallet::call_index(8)]
+        #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::sender_update_counter_with_leaf())]
         pub fn sender_update_counter(
             origin: OriginFor<T>,
@@ -1407,7 +1462,7 @@ pub mod pallet {
             Self::base_sender_update_counter(proof)
         }
 
-        /// Sender reverts their affirmation after a settlement has been rejected.
+        /// Sender reverts their affirmation.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.
@@ -1415,10 +1470,10 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotRejected` if the settlement has not been rejected.
+        /// * `SettlementAlreadyExecuted` if the settlement has already been executed.
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        #[pallet::call_index(9)]
+        #[pallet::call_index(10)]
         #[pallet::weight(<T as Config>::WeightInfo::sender_revert_affirmation_with_leaf())]
         pub fn sender_revert_affirmation(
             origin: OriginFor<T>,
@@ -1427,6 +1482,28 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             Self::base_sender_revert_affirmation(proof)
+        }
+
+        /// Receiver reverts their affirmation.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call.
+        /// * `proof` - The receiver revert affirmation proof.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `SettlementAlreadyExecuted` if the settlement has already been executed.
+        /// * `SettlementNotFound` if the settlement is not found.
+        /// * `LegNotFound` if the leg is not found in the settlement.
+        #[pallet::call_index(11)]
+        #[pallet::weight(<T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf())]
+        pub fn receiver_revert_affirmation(
+            origin: OriginFor<T>,
+            proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            Self::base_receiver_revert_affirmation(proof)
         }
 
         /// Receiver claims their assets after a settlement has been executed.
@@ -1440,7 +1517,7 @@ pub mod pallet {
         /// * `SettlementNotExecuted` if the settlement has not been executed.
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        #[pallet::call_index(10)]
+        #[pallet::call_index(12)]
         #[pallet::weight(<T as Config>::WeightInfo::receiver_claim_with_leaf())]
         pub fn receiver_claim(
             origin: OriginFor<T>,
@@ -1462,7 +1539,7 @@ pub mod pallet {
         /// * `InvalidProof` if the proof is invalid.
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
-        #[pallet::call_index(11)]
+        #[pallet::call_index(13)]
         #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(proof.count_leg_affirmations()))]
         pub fn batched_settlement(
             origin: OriginFor<T>,
@@ -1488,7 +1565,7 @@ pub mod pallet {
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
         /// * `InvalidProof` if the proof is invalid.
         /// * `InsufficientBalance` if the caller has insufficient balance to pay the deposit.
-        #[pallet::call_index(12)]
+        #[pallet::call_index(14)]
         #[pallet::weight(<T as Config>::WeightInfo::register_fee_accounts_with_leaf(proof.len() as u32))]
         pub fn register_fee_accounts(
             origin: OriginFor<T>,
@@ -1557,7 +1634,7 @@ pub mod pallet {
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
         /// * `InvalidProof` if the proof is invalid.
         /// * `InsufficientBalance` if the caller has insufficient balance to pay the deposit.
-        #[pallet::call_index(13)]
+        #[pallet::call_index(15)]
         #[pallet::weight(<T as Config>::WeightInfo::topup_fee_accounts_with_leaf(proof.len() as u32))]
         pub fn topup_fee_accounts(
             origin: OriginFor<T>,
@@ -1639,7 +1716,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidProof` if any of the proofs are invalid.
-        #[pallet::call_index(14)]
+        #[pallet::call_index(16)]
         #[pallet::weight(<T as Config>::WeightInfo::batched_proofs(&proof))]
         pub fn submit_batched_proofs(
             origin: OriginFor<T>,
@@ -1668,7 +1745,7 @@ pub mod pallet {
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
         /// * `InsufficientFeePayment` if the fee payment is insufficient to cover the relayer fee.
-        #[pallet::call_index(15)]
+        #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof))]
         pub fn relayer_submit_batched_proofs(
             origin: OriginFor<T>,
@@ -1677,47 +1754,6 @@ pub mod pallet {
             let relayer = ensure_signed(origin)?;
 
             Self::base_relayer_submit_batched_proofs(relayer, proof)
-        }
-
-        /// Register encryption keys for auditors/mediators.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call.
-        /// * `proof` - The auditor/mediator encryption registration proof.
-        ///
-        /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
-        /// * `EncryptionKeyAlreadyRegistered` if the encryption key is already registered.
-        /// * `InvalidProof` if the proof is invalid.
-        #[pallet::call_index(16)]
-        #[pallet::weight(<T as Config>::WeightInfo::register_encryption_keys(proof.len() as u32))]
-        pub fn register_encryption_keys(
-            origin: OriginFor<T>,
-            proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
-        ) -> DispatchResult {
-            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
-
-            for encryption_key in &proof.keys {
-                // Ensure the encryption key doesn't exist.
-                ensure!(
-                    !EncryptionKeyDid::<T>::contains_key(&encryption_key),
-                    Error::<T>::EncryptionKeyAlreadyRegistered
-                );
-                EncryptionKeyDid::<T>::insert(&encryption_key, caller_did);
-
-                Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
-                    caller_did,
-                    encryption_key: *encryption_key,
-                });
-            }
-
-            // Verify the proof.
-            Self::submit_and_wait(VerifyDartAssetRequest::EncryptionKeyRegistration {
-                did: caller_did.into(),
-                proof,
-            })?;
-
-            Ok(())
         }
 
         /// Create and execute an instant settlement.
@@ -1731,7 +1767,7 @@ pub mod pallet {
         /// * `InvalidProof` if the proof is invalid.
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
-        #[pallet::call_index(17)]
+        #[pallet::call_index(18)]
         #[pallet::weight(<T as Config>::WeightInfo::execute_instant_settlement(proof.count_leg_affirmations()))]
         pub fn execute_instant_settlement(
             origin: OriginFor<T>,
@@ -1757,7 +1793,7 @@ pub mod pallet {
         /// * `LegNotFound` if the leg is not found in the settlement.
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the sender.
         /// * `NotLastPendingAffirmation` if the sender affirmation is not the last pending affirmation for the settlement.
-        #[pallet::call_index(18)]
+        #[pallet::call_index(19)]
         #[pallet::weight(<T as Config>::WeightInfo::instant_sender_affirmation_with_leaf())]
         pub fn instant_sender_affirmation(
             origin: OriginFor<T>,
@@ -1784,7 +1820,7 @@ pub mod pallet {
         /// * `LegNotFound` if the leg is not found in the settlement.
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the receiver.
         /// * `NotLastPendingAffirmation` if the receiver affirmation is not the last pending affirmation for the settlement.
-        #[pallet::call_index(19)]
+        #[pallet::call_index(20)]
         #[pallet::weight(<T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf())]
         pub fn instant_receiver_affirmation(
             origin: OriginFor<T>,
@@ -2203,6 +2239,25 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn base_receiver_revert_affirmation(
+        proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
+    ) -> DispatchResult {
+        let leg_ref = proof.leg_ref;
+        // Handle the account state update proof and verify the nullifier.
+        Self::handle_account_state_update_proof(proof, |proof, root| {
+            // Create an update settlement status instance.
+            let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
+
+            // Verify the receiver revert affirmation proof and update the settlement and leg status.
+            update_settlement.receiver_revert_affirmation(proof, root)
+        })?;
+
+        // Emit an event for the receiver revert affirmation.
+        Self::deposit_event(Event::<T>::ReceiverAffirmationReverted { leg_ref });
+
+        Ok(())
+    }
+
     pub fn base_receiver_claim(proof: ReceiverClaimProof<PolymeshLimits>) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2340,6 +2395,9 @@ impl<T: Config> Pallet<T> {
                 BatchedProof::SenderCounterUpdate(p) => Self::base_sender_update_counter(p)?,
                 BatchedProof::SenderRevertAffirmation(p) => {
                     Self::base_sender_revert_affirmation(p)?
+                }
+                BatchedProof::ReceiverRevertAffirmation(p) => {
+                    Self::base_receiver_revert_affirmation(p)?
                 }
                 BatchedProof::ReceiverClaim(p) => Self::base_receiver_claim(p)?,
                 BatchedProof::ExecuteInstantSettlement(p) => {

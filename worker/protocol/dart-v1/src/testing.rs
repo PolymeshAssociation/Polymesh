@@ -14,8 +14,9 @@ use polymesh_dart::{
     FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountTopupProof,
     InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
     MediatorAffirmationProof, PolymeshLimits, ProofHash, ReceiverAffirmationProof,
-    ReceiverClaimProof, SenderAffirmationProof, SenderCounterUpdateProof,
-    SenderRevertAffirmationProof, SettlementBuilder, SettlementProof, blake2_256,
+    ReceiverClaimProof, ReceiverRevertAffirmationProof, SenderAffirmationProof,
+    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementBuilder, SettlementProof,
+    blake2_256,
     curve_tree::{
         AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig, LeafPathAndRoot,
         MultiLeafPathAndRoot,
@@ -104,6 +105,13 @@ pub enum GenerateDartProofRequest {
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
         amount: Balance,
+        path: AccountLeafPathAndRoot,
+        account_state: AccountAssetState,
+    },
+    ReceiverRevertAffirmation {
+        keys: AccountKeys,
+        leg_ref: LegRef,
+        leg_enc: LegEncrypted,
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
@@ -408,6 +416,27 @@ impl GenerateDartProofRequest {
                     account_state,
                 })
             }
+            Self::ReceiverRevertAffirmation {
+                keys,
+                leg_ref,
+                leg_enc,
+                path,
+                mut account_state,
+            } => {
+                let proof = ReceiverRevertAffirmationProof::new(
+                    &mut rng,
+                    &keys,
+                    &leg_ref,
+                    &leg_enc,
+                    &mut account_state,
+                    path,
+                )
+                .map_err(|_| Error::GenerateProofFailed)?;
+                Ok(GenerateDartProofResponse::ReceiverRevertAffirmation {
+                    proof,
+                    account_state,
+                })
+            }
             Self::FeeAccountRegistration {
                 did,
                 account,
@@ -588,6 +617,10 @@ pub enum GenerateDartProofResponse {
     },
     SenderRevertAffirmation {
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
+        account_state: AccountAssetState,
+    },
+    ReceiverRevertAffirmation {
+        proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
         account_state: AccountAssetState,
     },
     FeeAccountRegistration {

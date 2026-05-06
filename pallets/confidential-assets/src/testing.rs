@@ -720,6 +720,67 @@ impl<T: Config> DartUserInner<T> {
             .expect("Failed to commit pending state");
     }
 
+    pub fn receiver_revert_affirmation_proof(
+        &mut self,
+        off_chain: &OffchainProverState<T>,
+        leg_ref: LegRef,
+        asset_id: ConfidentialAssetId,
+    ) -> (
+        ReceiverRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
+        &mut AccountAssetState,
+    ) {
+        let leg_enc = off_chain.get_settlement_leg(leg_ref);
+
+        // Get the account state for the asset.
+        let account_state = self
+            .assets
+            .get_mut(&asset_id)
+            .expect("Asset not registered for user");
+
+        // Generate the receiver revert proof.
+        let current_state_commitment = account_state
+            .current_commitment()
+            .expect("current commitment");
+        let req = GenerateDartProofRequest::ReceiverRevertAffirmation {
+            keys: self.keys.clone(),
+            leg_ref,
+            leg_enc: leg_enc.clone(),
+            path: off_chain
+                .account_tree
+                .get_path_and_root(current_state_commitment.as_leaf_value().expect("leaf path"))
+                .expect("Failed to get path to leaf"),
+            account_state: account_state.clone(),
+        };
+        if let GenerateDartProofResponse::ReceiverRevertAffirmation {
+            proof,
+            account_state: new_state,
+        } = generate::<T>(req)
+        {
+            *account_state = new_state;
+            return (proof, account_state);
+        } else {
+            panic!("Failed to generate receiver revert proof");
+        }
+    }
+
+    pub fn receiver_revert_affirmation(
+        &mut self,
+        off_chain: &OffchainProverState<T>,
+        leg_ref: LegRef,
+        asset_id: ConfidentialAssetId,
+    ) {
+        let origin = self.origin();
+        let (proof, account_state) =
+            self.receiver_revert_affirmation_proof(off_chain, leg_ref, asset_id);
+
+        assert_ok!(Pallet::<T>::receiver_revert_affirmation(origin, proof));
+
+        // Update pending state in the account state.
+        account_state
+            .commit_pending_state()
+            .expect("Failed to commit pending state");
+    }
+
     pub fn sender_counter_update_proof(
         &mut self,
         off_chain: &OffchainProverState<T>,
@@ -1109,6 +1170,32 @@ impl<T: Config> DartUser<T> {
     ) {
         let mut inner = self.0.borrow_mut();
         inner.sender_revert_affirmation(off_chain, leg_ref, asset_id, amount);
+    }
+
+    pub fn receiver_revert_affirmation_proof(
+        &self,
+        off_chain: &OffchainProverState<T>,
+        leg_ref: LegRef,
+        asset_id: ConfidentialAssetId,
+    ) -> (
+        ReceiverRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
+        AccountAssetState,
+    ) {
+        let mut inner = self.0.borrow_mut();
+        let (proof, account_state) =
+            inner.receiver_revert_affirmation_proof(off_chain, leg_ref, asset_id);
+
+        (proof, account_state.clone())
+    }
+
+    pub fn receiver_revert_affirmation(
+        &self,
+        off_chain: &OffchainProverState<T>,
+        leg_ref: LegRef,
+        asset_id: ConfidentialAssetId,
+    ) {
+        let mut inner = self.0.borrow_mut();
+        inner.receiver_revert_affirmation(off_chain, leg_ref, asset_id);
     }
 
     pub fn sender_counter_update_proof(
