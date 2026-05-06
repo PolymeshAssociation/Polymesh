@@ -158,9 +158,7 @@ impl VerifyDartAssetRequest {
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof
-                    //.batched_verify(root, &asset_lookup, &mut rng)?;
-                    .verify(root, &asset_lookup, &mut rng)?;
+                proof.batched_verify(root, &asset_lookup, &mut rng)?;
             }
             Self::SenderAffirmation {
                 leg_enc,

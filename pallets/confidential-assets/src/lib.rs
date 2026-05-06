@@ -1925,10 +1925,7 @@ impl<T: Config> Pallet<T> {
         for asset_id in proof.revealed_asset_ids() {
             // Ensure the asset exists and get the asset keys.
             let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
-            let asset_state = AssetState {
-                asset_id,
-                keys,
-            };
+            let asset_state = AssetState { asset_id, keys };
             asset_lookup.add(asset_state);
         }
 

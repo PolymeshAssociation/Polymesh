@@ -12,13 +12,13 @@ use polymesh_dart::{
     AccountAssetState, AccountKeyPair, AccountKeys, AccountRegistrationProof, AssetId,
     AssetMintingProof, Balance, BatchedAccountAssetRegistrationProof,
     BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, EncryptionKeyPair,
-    EncryptionKeyRegistrationProof, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountAssetState,
-    FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountTopupProof,
-    InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
-    MediatorAffirmationProof, PolymeshLimits, ProofHash, ReceiverAffirmationProof,
-    ReceiverClaimProof, ReceiverRevertAffirmationProof, SenderAffirmationProof,
-    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementBuilder, SettlementProof,
-    blake2_256,
+    EncryptionKeyRegistrationProof, Error as DartError, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
+    FeeAccountAssetState, FeeAccountPaymentProof, FeeAccountRegistrationProof,
+    FeeAccountTopupProof, InstantReceiverAffirmationProof, InstantSenderAffirmationProof,
+    LegEncrypted, LegRef, MediatorAffirmationProof, PolymeshLimits, ProofHash,
+    ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
+    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
+    SettlementBuilder, SettlementProof, blake2_256,
     curve_tree::{
         AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig, LeafPathAndRoot,
         MultiLeafPathAndRoot,
@@ -528,10 +528,7 @@ impl GenerateDartProofRequest {
                 recipients,
             } => {
                 let params = get_account_curve_tree_parameters();
-                let sk = key.secret;
-                let pk = key.public;
-                let proof =
-                    KeyDistributionProof::new(&mut rng, sk, &pk, &recipients, &did, params)?;
+                let proof = KeyDistributionProof::new(&mut rng, &key, &recipients, &did, params)?;
                 Ok(GenerateDartProofResponse::KeyDistribution { proof })
             }
         }
