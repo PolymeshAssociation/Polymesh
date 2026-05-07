@@ -128,6 +128,25 @@ where
     I: IntoIterator,
     I::Item: Into<std::ffi::OsString> + Clone,
 {
+    // Add the `AbortGuard` to rayon thread pool.  So panics from threads do not bring down the entire process, but instead are caught and logged, and the work request is rejected.
+    rayon::ThreadPoolBuilder::new()
+        .spawn_handler(|thread| {
+            let mut b = std::thread::Builder::new();
+            if let Some(name) = thread.name() {
+                b = b.name(name.to_owned());
+            }
+            if let Some(stack_size) = thread.stack_size() {
+                b = b.stack_size(stack_size);
+            }
+            b.spawn(|| {
+                let _guard = sp_panic_handler::AbortGuard::force_unwind();
+                thread.run()
+            })?;
+            Ok(())
+        })
+        .build_global()
+        .unwrap();
+
     let cli = Cli::from_iter(args);
 
     // Determine which backends to initialize based on the environment variable, or default to all backends if the variable is not set or invalid.

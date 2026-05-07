@@ -473,6 +473,22 @@ impl PolymeshWorker {
             builder = builder.num_threads(num_threads);
         }
 
+        // Add the `AbortGuard` to rayon thread pool.  So panics from threads do not bring down the entire process, but instead are caught and logged, and the work request is rejected.
+        let builder = builder.spawn_handler(|thread| {
+            let mut b = std::thread::Builder::new();
+            if let Some(name) = thread.name() {
+                b = b.name(name.to_owned());
+            }
+            if let Some(stack_size) = thread.stack_size() {
+                b = b.stack_size(stack_size);
+            }
+            b.spawn(|| {
+                let _guard = sp_panic_handler::AbortGuard::force_unwind();
+                thread.run()
+            })?;
+            Ok(())
+        });
+
         let pool = match builder.build() {
             Ok(pool) => Some(pool),
             Err(err) => {

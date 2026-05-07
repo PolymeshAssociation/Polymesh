@@ -107,8 +107,11 @@ impl BackendModuleInstance for PolkavmModuleInstance {
     fn call_execute(&mut self, req_len: u32) -> Result<u64, WorkerError> {
         self.instance
             .call_typed_and_get_result::<u64, (u32,)>(&mut (), self.execute, (req_len,))
-            .map_err(|err| {
-                log::error!("Error during calling execute: {err:?}");
+            .map_err(|_err| {
+                #[cfg(feature = "debug_logging")]
+                {
+                    log::warn!("Error during calling execute: {_err:?}");
+                }
                 WorkerError::ModuleExecutionFailed
             })
     }

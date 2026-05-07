@@ -46,7 +46,31 @@ impl BackendModuleInstance for NativeModuleInstance {
     }
 
     fn execute(&mut self, req: &WorkRequest) -> Result<WorkResponseResult, WorkerError> {
-        Ok(execute_work_request(req))
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = sp_panic_handler::AbortGuard::force_unwind();
+            execute_work_request(req)
+        }));
+        match result {
+            Ok(result) => Ok(result),
+            Err(panic) => {
+                let message = if let Some(message) = panic.downcast_ref::<String>() {
+                    format!(
+                        "native worker panicked while executing a work request: {}",
+                        message
+                    )
+                } else if let Some(message) = panic.downcast_ref::<&'static str>() {
+                    format!(
+                        "native worker panicked while executing a work request: {}",
+                        message
+                    )
+                } else {
+                    "native worker panicked while executing a work request".to_owned()
+                };
+                log::warn!("NATIVE_WORKER: {}", message);
+                // The work request execution panicked, reject the work request (for proof validation this means the proof is rejected).
+                Ok(Err(ProtocolError::ExecuteWorkFailed))
+            }
+        }
     }
 }
 

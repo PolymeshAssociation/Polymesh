@@ -144,6 +144,7 @@ polymesh-worker-common = { path = "worker/common", default-features = false }
 polymesh-worker-native = { path = "worker/native", default-features = false }
 polymesh-worker-protocol-dart-v1 = { path = "worker/protocol/dart-v1", default-features = false }
 schnellru = { version = "0.2.4", default-features = false }
+rayon = { version = "1.8" }
 
 # Polymesh native MSM and hash to curve
 polymesh-native-crypto = { path = "native-crypto", default-features = false }
@@ -276,6 +277,7 @@ sp-maybe-compressed-blob = { git = "https://github.com/PolymeshAssociation/polka
 sp-mmr-primitives = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-npos-elections = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-offchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
+sp-panic-handler = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
 sp-weights = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603", default-features = false }
@@ -403,6 +405,8 @@ serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
 array-bytes = { version = "6.2.2", default-features = false }
+rayon = { workspace = true }
+sp-panic-handler = { workspace = true, default-features = false }
 
 # Substrate client deps.
 mmr-gadget = { workspace = true }

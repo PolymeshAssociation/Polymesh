@@ -116,8 +116,11 @@ impl BackendModuleInstance for WasmerModuleInstance {
     }
 
     fn call_execute(&mut self, req_len: u32) -> Result<u64, WorkerError> {
-        self.execute.call(&mut self.store, req_len).map_err(|err| {
-            log::error!("Error during calling execute: {err:?}");
+        self.execute.call(&mut self.store, req_len).map_err(|_err| {
+            #[cfg(feature = "debug_logging")]
+            {
+                log::warn!("Error during calling execute: {_err:?}");
+            }
             WorkerError::ModuleExecutionFailed
         })
     }

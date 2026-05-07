@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 log = "0.4"
 
+sp-panic-handler = { workspace = true, default-features = false }
+
 # Protocols
 polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["native"] }
 
@@ -23,6 +25,8 @@ testing = [
 	"polymesh-worker-common/testing",
 	"polymesh-worker-protocol-dart-v1/testing",
 ]
+
+debug_logging = []
 
 asm = [
 	"polymesh-worker-protocol-dart-v1/asm"

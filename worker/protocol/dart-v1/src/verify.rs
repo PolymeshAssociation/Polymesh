@@ -125,10 +125,10 @@ pub enum VerifyDartAssetRequest {
 
 impl VerifyDartAssetRequest {
     pub fn verify_with_seed(&self, seed: WorkSeed) -> Result<VerifyDartProofResponse, Error> {
-        self._verify(seed).map_err(|err| {
+        self._verify(seed).map_err(|_err| {
             #[cfg(feature = "std")]
             {
-                log::warn!("Proof verification failed: {err}");
+                log::warn!("Proof verification failed: {_err}");
             }
             Error::VerifyFailed
         })?;

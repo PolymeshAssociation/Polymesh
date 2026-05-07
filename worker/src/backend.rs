@@ -316,9 +316,16 @@ pub trait BackendModuleInstance: Send + Sync {
         let res_fat_ptr = match self.call_execute(req_len) {
             Ok(fat_ptr) => fat_ptr,
             Err(err) => {
-                log::error!("Failed to call execute: {err:?}");
+                // The `execute` call should only fail if the work request execution panicked,
+                // in which case we want to reject the work request (for proof validation this means the proof is rejected)
+                // instead of treating it as a module execution error, so we return an `ExecuteWorkFailed` protocol error
+                // instead of a `ModuleExecutionFailed` worker error.
+                log::warn!(
+                    "Backend[{}] Failed to call execute: {err:?}",
+                    std::any::type_name::<Self>()
+                );
                 self.release_scratch_pad(ptr, size)?;
-                return Err(err);
+                return Ok(Err(ProtocolError::ExecuteWorkFailed));
             }
         };
 

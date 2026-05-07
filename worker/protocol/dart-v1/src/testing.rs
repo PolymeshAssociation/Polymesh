@@ -171,10 +171,10 @@ pub enum GenerateDartProofRequest {
 
 impl GenerateDartProofRequest {
     pub fn generate_with_seed(self, seed: WorkSeed) -> Result<GenerateDartProofResponse, Error> {
-        let resp = self._generate(seed).map_err(|err| {
+        let resp = self._generate(seed).map_err(|_err| {
             #[cfg(feature = "std")]
             {
-                log::warn!("Proof generation failed: {err}");
+                log::warn!("Proof generation failed: {_err}");
             }
             Error::GenerateProofFailed
         })?;

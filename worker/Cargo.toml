@@ -19,6 +19,7 @@ polymesh-worker-common = { workspace = true, default-features = false }
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-maybe-compressed-blob = { workspace = true, default-features = false }
+sp-panic-handler = { workspace = true, default-features = false }
 
 # RiscV based engine
 polkavm = { workspace = true, default-features = true, optional = true }
@@ -31,7 +32,7 @@ wasmer-compiler-llvm = { version = "7.1.0", optional = true }
 
 # Work execution.
 crossbeam = { version = "0.8" }
-rayon = { version = "1.8" }
+rayon = { workspace = true }
 blake2 = { version = "0.10", default-features = true }
 digest = { version = "0.10.7", default-features = false }
 
@@ -47,6 +48,8 @@ default = [
 	"wasmer",
 	"testing"
 ]
+
+debug_logging = []
 
 polkavm = [
 	"dep:polkavm",
