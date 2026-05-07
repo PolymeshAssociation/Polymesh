@@ -3247,11 +3247,7 @@ impl<T: AssetConfig> Pallet<T> {
             return Ok(());
         }
 
-        // Verifies that the asset is not frozen
-        ensure!(
-            !Frozen::<T>::get(asset_id),
-            Error::<T>::InvalidTransferFrozenAsset
-        );
+        Self::ensure_asset_is_not_frozen(&asset_id)?;
 
         ensure!(
             IdentityPallet::<T>::is_did_active(receiver_did),
@@ -3275,6 +3271,15 @@ impl<T: AssetConfig> Pallet<T> {
             return Err(Error::<T>::InvalidTransferComplianceFailure.into());
         }
 
+        Ok(())
+    }
+
+    /// Returns `Ok` if the asset is not frozen.
+    pub fn ensure_asset_is_not_frozen(asset_id: &AssetId) -> DispatchResult {
+        ensure!(
+            !Frozen::<T>::get(asset_id),
+            Error::<T>::InvalidTransferFrozenAsset
+        );
         Ok(())
     }
 
@@ -4215,6 +4220,10 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn spend_allowance_weight() -> Weight {
         <T as Config>::WeightInfo::spend_allowance()
+    }
+
+    fn asset_is_not_frozen(asset_id: &AssetId) -> DispatchResult {
+        Self::ensure_asset_is_not_frozen(asset_id)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

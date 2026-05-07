@@ -30,6 +30,8 @@ const PROPOSAL_PADDING_WORDS: usize = 1_000;
 // aye vote leads to acceptance of that proposal.
 const PROPOSAL_ALMOST_APPROVED: u32 = COMMITTEE_MEMBERS_MAX - 3;
 
+const PROPOSALS_MAX: u32 = 500;
+
 fn make_proposal<T, I>(
     n: u32,
 ) -> (
