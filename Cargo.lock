@@ -10750,7 +10750,7 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-contracts",
- "polymesh-native-msm",
+ "polymesh-native-crypto",
  "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -10927,7 +10927,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-native-msm"
+name = "polymesh-native-crypto"
 version = "1.0.0"
 dependencies = [
  "ark-host-msm",

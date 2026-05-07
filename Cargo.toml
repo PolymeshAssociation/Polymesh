@@ -123,7 +123,7 @@ members = [
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
-    "native-msm",
+    "native-crypto",
 ]
 exclude = ["contracts", "integration", "metadata-tools"]
 
@@ -145,8 +145,8 @@ polymesh-worker-native = { path = "worker/native", default-features = false }
 polymesh-worker-protocol-dart-v1 = { path = "worker/protocol/dart-v1", default-features = false }
 schnellru = { version = "0.2.4", default-features = false }
 
-# Polymesh native MSM
-polymesh-native-msm = { path = "native-msm", default-features = false }
+# Polymesh native MSM and hash to curve
+polymesh-native-crypto = { path = "native-crypto", default-features = false }
 
 # Polkavm for protocol workers.
 polkavm = { version = "0.32", default-features = false }
@@ -369,8 +369,8 @@ polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
-# Host MSM
-polymesh-native-msm = { workspace = true, default-features = false }
+# Host MSM and hash to curve.
+polymesh-native-crypto = { workspace = true, default-features = false }
 
 # Polymesh worker service
 polymesh-worker = { workspace = true, default-features = false }
@@ -531,7 +531,7 @@ worker_wasmtime = [
 
 std = [
     "serde/std",
-    "polymesh-native-msm/std",
+    "polymesh-native-crypto/std",
     "polymesh-worker/std",
     "polymesh-worker-extension/std",
     "polymesh-worker-native/std",

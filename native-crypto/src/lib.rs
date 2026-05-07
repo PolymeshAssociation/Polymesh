@@ -97,9 +97,9 @@ const HOST_FUNCTIONS: [HostFn; 2] = [
     },
 ];
 
-pub struct MSMHostFunctions;
+pub struct HostFunctions;
 
-impl HostFunctions for MSMHostFunctions {
+impl sp_wasm_interface::HostFunctions for HostFunctions {
     fn host_functions() -> Vec<&'static dyn Function> {
         HOST_FUNCTIONS.iter().map(|f| f as &dyn Function).collect()
     }
