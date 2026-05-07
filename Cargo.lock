@@ -609,7 +609,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -674,7 +674,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
 dependencies = [
  "ark-curve25519",
  "ark-ec 0.5.0",
@@ -1585,7 +1585,7 @@ checksum = "90dbd31c98227229239363921e60fcf5e558e43ec69094d46fc4996f08d1d5bc"
 dependencies = [
  "bitcoin_hashes",
  "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -1841,7 +1841,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
 dependencies = [
  "ahash 0.8.12",
  "ark-ec 0.5.0",
@@ -8314,7 +8314,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 3.5.0",
+ "proc-macro-crate 1.1.3",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -10848,7 +10848,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#eb767d5fcc535b3ceb7ac9382bed7dc0e221f846"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#6369dd5858eae8318f009caef4e0aa1a0ffff072"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10886,7 +10886,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#eb767d5fcc535b3ceb7ac9382bed7dc0e221f846"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#6369dd5858eae8318f009caef4e0aa1a0ffff072"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10917,7 +10917,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#eb767d5fcc535b3ceb7ac9382bed7dc0e221f846"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart_v1_updates#6369dd5858eae8318f009caef4e0aa1a0ffff072"
 
 [[package]]
 name = "polymesh-exec-macro"
@@ -11945,8 +11945,8 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
- "itertools 0.14.0",
+ "heck 0.4.1",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -11965,8 +11965,8 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "343d3bd7056eda839b03204e68deff7d1b13aba7af2b2fd16890697274262ee7"
 dependencies = [
- "heck 0.5.0",
- "itertools 0.14.0",
+ "heck 0.4.1",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "petgraph 0.8.3",
@@ -11998,7 +11998,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -12011,7 +12011,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -12591,7 +12591,7 @@ dependencies = [
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#ec4e07fec4fbcff6d4f36cbd96975dda5d64cffc"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=polymesh#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",
