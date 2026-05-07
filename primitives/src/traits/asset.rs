@@ -42,6 +42,9 @@ pub trait AssetFnTrait<AccountId> {
     /// Charged dynamically only when the caller is a spender (not the asset owner).
     fn spend_allowance_weight() -> Weight;
 
+    /// Returns `Ok` if the asset is not frozen.
+    fn asset_is_not_frozen(asset_id: &AssetId) -> DispatchResult;
+
     #[cfg(feature = "runtime-benchmarks")]
     fn register_unique_ticker(caller: AccountId, ticker: Ticker) -> DispatchResult;
 

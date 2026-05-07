@@ -687,11 +687,7 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // Verifies that the asset is not frozen
-        ensure!(
-            !Frozen::<T>::get(nfts.asset_id()),
-            Error::<T>::InvalidNFTTransferFrozenAsset
-        );
+        pallet_asset::Pallet::<T>::ensure_asset_is_not_frozen(nfts.asset_id())?;
 
         // Verifies if the receiver has an active DID.
         ensure!(
