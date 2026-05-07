@@ -55,12 +55,15 @@ impl_protocol = []
 polkavm = [
   "ark-ec/polkavm",
   "bulletproofs/polkavm",
+  "polymesh-worker-common/host_logger",
+  "polymesh-worker-common/polkavm",
   "impl_protocol",
 ]
 
 wasm = [
   "ark-ec/host_msm",
   "bulletproofs/host_hash_to_curve",
+  "polymesh-worker-common/host_logger",
   "impl_protocol",
 ]
 

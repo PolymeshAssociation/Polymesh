@@ -15,7 +15,7 @@ lazy_static = { version = "1.5.0", default-features = false }
 schnellru = { workspace = true, default-features = true }
 
 # Protocols
-polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false, features = ["impl_host_logger"] }
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-maybe-compressed-blob = { workspace = true, default-features = false }

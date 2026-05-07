@@ -1,4 +1,7 @@
-use polymesh_worker_common::*;
+use polymesh_worker_common::{
+    WorkerError,
+    logger::{self, host_logger_enabled, host_logger_max_level},
+};
 
 use polkavm::{
     Caller, Config, Engine, Instance, InstancePre, Linker, Module, ProgramBlob, ProgramCounter,
@@ -46,6 +49,31 @@ fn host_batch_hash_to_curve(caller: Caller<()>, fat_ptr: u64) -> u32 {
         return 0;
     }
     res_len
+}
+
+fn host_logger_log(caller: Caller<()>, level: u32, target_fat_ptr: u64, msg_fat_ptr: u64) {
+    let target_buffer = {
+        let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(target_fat_ptr);
+        match caller.instance.read_memory(ptr, len) {
+            Ok(data) => data,
+            Err(err) => {
+                log::error!("Failed to read memory from module: {err}");
+                return;
+            }
+        }
+    };
+    let msg_buffer = {
+        let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(msg_fat_ptr);
+        match caller.instance.read_memory(ptr, len) {
+            Ok(data) => data,
+            Err(err) => {
+                log::error!("Failed to read memory from module: {err}");
+                return;
+            }
+        }
+    };
+
+    logger::host_logger_log(level, &target_buffer, &msg_buffer);
 }
 
 /// Polkavm module instance.
@@ -185,6 +213,15 @@ impl Backend for PolkavmBackend {
             .ok()?;
         linker
             .define_typed("host_batch_hash_to_curve", host_batch_hash_to_curve)
+            .ok()?;
+        linker
+            .define_typed("host_logger_max_level", host_logger_max_level)
+            .ok()?;
+        linker
+            .define_typed("host_logger_enabled", host_logger_enabled)
+            .ok()?;
+        linker
+            .define_typed("host_logger_log", host_logger_log)
             .ok()?;
 
         // Find the `initialize` and `execute` functions from the module exports.

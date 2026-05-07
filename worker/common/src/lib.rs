@@ -1,13 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use sp_std::vec::Vec;
+use ark_std::vec::Vec;
 
 pub mod error;
 pub use error::*;
 
 pub mod config;
 pub use config::*;
+
+#[cfg(feature = "host_logger")]
+pub mod logger;
 
 /// Seed used for verifying or generating proofs.
 pub type WorkSeed = [u8; 32];

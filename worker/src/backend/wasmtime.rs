@@ -1,4 +1,7 @@
-use polymesh_worker_common::WorkerError;
+use polymesh_worker_common::{
+    WorkerError,
+    logger::{self, host_logger_enabled, host_logger_max_level},
+};
 
 use wasmtime::*;
 
@@ -40,6 +43,44 @@ fn host_batch_hash_to_curve(mut caller: Caller<'_, ()>, fat_ptr: u64) -> wasmtim
     let res = bulletproofs::batch_hash_to_curve(buffer, len as u32);
 
     Ok(res)
+}
+
+fn host_logger_log(
+    mut caller: Caller<'_, ()>,
+    level: u32,
+    target_fat_ptr: u64,
+    msg_fat_ptr: u64,
+) -> wasmtime::Result<()> {
+    let mem = match caller.get_export("memory") {
+        Some(Extern::Memory(mem)) => mem,
+        _ => bail!("failed to find host memory"),
+    };
+
+    let target_buffer = {
+        let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(target_fat_ptr);
+        let ptr = ptr as usize;
+        let len = len as usize;
+        if let Some(buffer) = mem.data(&caller).get(ptr..ptr + len) {
+            buffer
+        } else {
+            bail!("pointer/length out of bounds");
+        }
+    };
+
+    let msg_buffer = {
+        let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(msg_fat_ptr);
+        let ptr = ptr as usize;
+        let len = len as usize;
+        if let Some(buffer) = mem.data(&caller).get(ptr..ptr + len) {
+            buffer
+        } else {
+            bail!("pointer/length out of bounds");
+        }
+    };
+
+    logger::host_logger_log(level, &target_buffer, &msg_buffer);
+
+    Ok(())
 }
 
 /// Wasmtime module instance.
@@ -120,7 +161,16 @@ impl BackendModule for WasmtimeModule {
         let mut store = Store::new(&self.engine, ());
         let host_msm = Func::wrap(&mut store, host_msm_unchecked);
         let host_batch_hash_to_curve = Func::wrap(&mut store, host_batch_hash_to_curve);
-        let imports = [host_msm.into(), host_batch_hash_to_curve.into()];
+        let host_logger_max_level = Func::wrap(&mut store, host_logger_max_level);
+        let host_logger_enabled = Func::wrap(&mut store, host_logger_enabled);
+        let host_logger_log = Func::wrap(&mut store, host_logger_log);
+        let imports = [
+            host_msm.into(),
+            host_batch_hash_to_curve.into(),
+            host_logger_max_level.into(),
+            host_logger_enabled.into(),
+            host_logger_log.into(),
+        ];
 
         // Once we've got that all set up we can then move to the instantiation
         // phase, pairing together a compiled module as well as a set of imports.

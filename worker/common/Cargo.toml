@@ -8,17 +8,27 @@ description = "Polymesh worker common types"
 edition = "2024"
 
 [dependencies]
-log = "0.4"
+log = { version = "0.4", default-features = false }
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
-sp-std = { workspace = true, default-features = false }
+ark-std = { workspace = true, default-features = false }
+
+polkavm-derive = { version = "0.32.0", optional = true }
 
 [features]
 default = ["std", "testing"]
+
+host_logger = []
+
+# For the host-side.
+impl_host_logger = ["host_logger"]
+
+polkavm = ["polkavm-derive"]
 
 testing = []
 
 std = [
 	"codec/std",
-	"sp-std/std",
+	"ark-std/std",
+	"log/std",
 ]

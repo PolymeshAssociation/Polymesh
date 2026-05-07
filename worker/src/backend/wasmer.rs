@@ -1,4 +1,7 @@
-use polymesh_worker_common::WorkerError;
+use polymesh_worker_common::{
+    WorkerError,
+    logger::{self, host_logger_enabled, host_logger_max_level},
+};
 
 use wasmer::{
     sys::{EngineBuilder, Features},
@@ -14,6 +17,22 @@ use crate::backend::{Backend, BackendKind, BackendModule, BackendModuleInstance}
 #[derive(Default)]
 struct FnEnv {
     memory: Option<Memory>,
+}
+
+impl FnEnv {
+    fn read(&self, store: &StoreMut<'_>, fat_ptr: u64) -> Option<Vec<u8>> {
+        let (ptr, len) = ark_host_msm_impl::unpack_fat_pointer(fat_ptr);
+        let Some(memory) = self.memory.as_ref().map(|m| m.view(&store)) else {
+            log::error!("Memory not found in host environment");
+            return None;
+        };
+        let mut buffer = vec![0u8; len as usize];
+        if let Err(err) = memory.read(ptr as u64, &mut buffer) {
+            log::error!("Failed to read from module memory: {err}");
+            return None;
+        }
+        Some(buffer)
+    }
 }
 
 fn host_msm_unchecked(mut env: FunctionEnvMut<FnEnv>, fat_ptr: u64) -> u32 {
@@ -58,6 +77,32 @@ fn host_batch_hash_to_curve(mut env: FunctionEnvMut<FnEnv>, fat_ptr: u64) -> u32
     }
 
     res_len
+}
+
+fn host_logger_log(
+    mut env: FunctionEnvMut<FnEnv>,
+    level: u32,
+    target_fat_ptr: u64,
+    msg_fat_ptr: u64,
+) {
+    let (env, store) = env.data_and_store_mut();
+    let target_buffer = match env.read(&store, target_fat_ptr) {
+        Some(buf) => buf,
+        None => {
+            log::error!("Failed to read target string from module memory");
+            return;
+        }
+    };
+
+    let msg_buffer = match env.read(&store, msg_fat_ptr) {
+        Some(buf) => buf,
+        None => {
+            log::error!("Failed to read message string from module memory");
+            return;
+        }
+    };
+
+    logger::host_logger_log(level, &target_buffer, &msg_buffer);
 }
 
 /// Wasmer module instance.
@@ -142,6 +187,9 @@ impl BackendModule for WasmerModule {
             "env" => {
                 "host_msm_unchecked" => Function::new_typed_with_env(&mut store, &env, host_msm_unchecked),
                 "host_batch_hash_to_curve" => Function::new_typed_with_env(&mut store, &env, host_batch_hash_to_curve),
+                "host_logger_max_level" => Function::new_typed(&mut store, host_logger_max_level),
+                "host_logger_enabled" => Function::new_typed(&mut store, host_logger_enabled),
+                "host_logger_log" => Function::new_typed_with_env(&mut store, &env, host_logger_log),
             },
         };
         let instance = Instance::new(&mut store, &self.module, &imports).ok()?;

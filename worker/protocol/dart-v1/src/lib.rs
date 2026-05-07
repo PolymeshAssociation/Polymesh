@@ -402,6 +402,9 @@ pub fn save_context() -> Result<Vec<u8>, Error> {
 #[cfg_attr(feature = "polkavm", polkavm_derive::polkavm_export)]
 #[unsafe(no_mangle)]
 pub extern "C" fn initialize(params_len: u32, save: u32) -> u64 {
+    // Try to initialize the host logger.  Only the first call to `initialize` will be able to initialize the logger.
+    let _ = polymesh_worker_common::logger::init();
+
     let params_len = params_len;
     if params_len > 0 {
         let params_bytes = &scratch()[..params_len as usize];
