@@ -109,6 +109,13 @@ parameter_types! {
     pub const RelockCooldown: Moment = 14_400_000; // 4 hours
     pub const MaxRelockCount: u32 = 3;
 
+    // Confidential asset parameters
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
 
@@ -187,6 +194,23 @@ parameter_types! {
     // Election Provider Multi Phase
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
+
+/// Confidential assets parameters
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<16>;
+
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<100>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<50>;
+
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<4>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -487,8 +511,36 @@ mod runtime {
     #[runtime::pallet_index(55)]
     pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
 
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
+
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
+}
+
+impl pallet_confidential_assets::Config for Runtime {
+    type Currency = Balances;
+
+    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
+
+    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+    type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
+
+    // These are for publishing as constants in the pallet metadata.
+    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
+    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
+    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
+    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
+    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
+    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
+    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
+    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
+    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
+    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
+    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
+    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
+    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
 }
 
 polymesh_runtime_common::runtime_apis! {}
