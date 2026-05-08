@@ -51,8 +51,13 @@ impl PolymeshWorkerExt {
         requests: Vec<u8>,
     ) -> Vec<WorkStatusFlagsAndId> {
         let config = WorkRequestConfig::new(flags);
-        let requests =
-            codec::Decode::decode(&mut &requests[..]).expect("Failed to decode work requests");
+        let requests = match codec::Decode::decode(&mut &requests[..]) {
+            Ok(reqs) => reqs,
+            Err(err) => {
+                log::warn!("Failed to decode work requests: {err}");
+                return Vec::new();
+            }
+        };
 
         let results = self.0.session_execute_batch(session_id, config, requests);
         log::debug!(
