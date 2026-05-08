@@ -5,6 +5,7 @@ use sp_weights::Weight;
 use integration::*;
 
 #[tokio::test]
+#[test_log::test]
 async fn contract_constructor_reverted() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester.users(&["ContractRevertedDID"]).await?;

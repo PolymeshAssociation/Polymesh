@@ -28,10 +28,10 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use crate::asset::AssetHolder;
 use crate::{AccountId, EventOnly, SecondaryKey};
 
-const _POLY_DID_PREFIX: &str = "did:poly:";
-const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
-const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
-const UUID_LEN: usize = 32usize;
+const POLY_DID_PREFIX: &str = "did:poly:";
+const POLY_DID_PREFIX_LEN: usize = 9; // POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
+const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + DID_LEN * 2;
+const DID_LEN: usize = 32usize;
 
 /// The record to initialize an identity in the chain spec.
 #[derive(Clone)]
@@ -74,7 +74,7 @@ impl GenesisIdentityRecord<AccountId> {
 }
 
 /// Polymesh Identifier ID.
-/// It is stored internally as an `u128` but it can be load from string with the following format:
+/// It is stored internally as `[u8; 32]` but it can be load from string with the following format:
 /// "did:poly:<32 Hex characters>".
 ///
 /// # From str
@@ -89,7 +89,7 @@ impl GenesisIdentityRecord<AccountId> {
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[derive(Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 #[derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)]
-pub struct IdentityId(pub [u8; UUID_LEN]);
+pub struct IdentityId(pub [u8; DID_LEN]);
 
 /// Alias for `EventOnly<IdentityId>`.
 // Exists because schema checks don't know how to handle `EventOnly`.
@@ -110,13 +110,13 @@ impl IdentityId {
 
     /// Extracts a reference to the byte array containing the entire fixed id.
     #[inline]
-    pub fn as_fixed_bytes(&self) -> &[u8; UUID_LEN] {
+    pub fn as_fixed_bytes(&self) -> &[u8; DID_LEN] {
         &self.0
     }
 
     /// Transform this IdentityId into raw bytes.
     #[inline]
-    pub fn to_bytes(self) -> [u8; UUID_LEN] {
+    pub fn to_bytes(self) -> [u8; DID_LEN] {
         self.0
     }
 
@@ -172,7 +172,7 @@ impl TryFrom<&str> for IdentityId {
 
         // Check prefix
         let prefix = &did[..POLY_DID_PREFIX_LEN];
-        ensure!(prefix == _POLY_DID_PREFIX, "Missing 'did:poly:' prefix");
+        ensure!(prefix == POLY_DID_PREFIX, "Missing 'did:poly:' prefix");
 
         // Check hex code
         let did_code = (POLY_DID_PREFIX_LEN..POLY_DID_LEN)
@@ -189,10 +189,10 @@ impl TryFrom<&[u8]> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
-        if did.len() <= UUID_LEN {
+        if did.len() <= DID_LEN {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
-            fixed[(UUID_LEN - did.len())..].copy_from_slice(did);
+            fixed[(DID_LEN - did.len())..].copy_from_slice(did);
             Ok(Self(fixed))
         } else {
             // case where a string represented as u8 is being converted
@@ -202,9 +202,15 @@ impl TryFrom<&[u8]> for IdentityId {
     }
 }
 
-impl From<[u8; UUID_LEN]> for IdentityId {
-    fn from(s: [u8; UUID_LEN]) -> Self {
+impl From<[u8; DID_LEN]> for IdentityId {
+    fn from(s: [u8; DID_LEN]) -> Self {
         Self(s)
+    }
+}
+
+impl From<IdentityId> for [u8; DID_LEN] {
+    fn from(did: IdentityId) -> Self {
+        did.0
     }
 }
 

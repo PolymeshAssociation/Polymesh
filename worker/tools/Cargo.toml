@@ -1,0 +1,45 @@
+[package]
+name = "polymesh-worker-tools"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4"
+
+# Worker and protocols
+polymesh-worker = { workspace = true, default-features = false }
+polymesh-worker-native = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false }
+
+sp-maybe-compressed-blob = { workspace = true, default-features = false }
+
+sp-core = { workspace = true, default-features = false }
+hex = { version = "0.4.3", default-features = false }
+
+env_logger = { version = "0.10.0", default-features = false }
+
+[features]
+default = [
+	"std",
+	"polkavm",
+	"wasmtime",
+	"wasmer"
+]
+
+polkavm = [
+	"polymesh-worker/polkavm",
+]
+
+wasmtime = [
+	"polymesh-worker/wasmtime",
+]
+
+wasmer = [
+	"polymesh-worker/wasmer",
+]
+
+std = [
+	"sp-core/std",
+	"polymesh-worker/std",
+	"polymesh-worker-native/std",
+]

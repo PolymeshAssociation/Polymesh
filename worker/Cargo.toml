@@ -1,0 +1,90 @@
+[package]
+name = "polymesh-worker"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+license-file = "../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Polymesh protocol worker"
+edition = "2024"
+
+[dependencies]
+log = "0.4"
+
+lazy_static = { version = "1.5.0", default-features = false }
+
+schnellru = { workspace = true, default-features = true }
+
+# Protocols
+polymesh-worker-common = { workspace = true, default-features = false, features = ["impl_host_logger"] }
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+sp-maybe-compressed-blob = { workspace = true, default-features = false }
+sp-panic-handler = { workspace = true, default-features = false }
+
+# RiscV based engine
+polkavm = { workspace = true, default-features = true, optional = true }
+
+# WASM engines
+wasmtime = { version = "43.0.0", optional = true }
+wasmer = { version = "7.1.0", optional = true }
+wasmer-compiler-cranelift = { version = "7.1.0", optional = true }
+wasmer-compiler-llvm = { version = "7.1.0", optional = true }
+
+# Work execution.
+crossbeam = { version = "0.8" }
+rayon = { workspace = true }
+blake2 = { version = "0.10", default-features = true }
+digest = { version = "0.10.7", default-features = false }
+
+# EC Math
+ark-host-msm-impl = { workspace = true, default-features = false }
+bulletproofs = { workspace = true, default-features = false, features = ["impl_host_hash_to_curve"] }
+
+[features]
+default = [
+	"std",
+	"polkavm",
+	"wasmtime",
+	"wasmer",
+	"testing"
+]
+
+debug_logging = []
+
+polkavm = [
+	"dep:polkavm",
+]
+
+wasmtime = [
+	"dep:wasmtime",
+]
+
+wasmer = [
+	"dep:wasmer",
+	"wasmer-compiler-cranelift",
+	# Disbled for now.  (requires installing LLVM 21).
+	#"llvm",
+]
+
+llvm = [
+	"wasmer/llvm",
+	"wasmer-compiler-llvm",
+]
+
+testing = [
+	"polymesh-worker-common/testing",
+]
+
+asm = ["ark-host-msm-impl/asm"]
+parallel = [
+	"ark-host-msm-impl/parallel",
+]
+
+std = [
+	"asm",
+	"parallel",
+	"codec/std",
+	"polymesh-worker-common/std",
+	"ark-host-msm-impl/std",
+	"bulletproofs/std",
+]

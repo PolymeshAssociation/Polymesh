@@ -342,6 +342,7 @@ impl MuliSigState {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn multisig_as_secondary_key_change_identity() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let users = tester
@@ -424,6 +425,7 @@ async fn multisig_as_secondary_key_change_identity() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn secondary_key_ms_make_primary() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     // Create a user with secondary keys to be the MS creator.
@@ -481,6 +483,7 @@ async fn secondary_key_ms_make_primary() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn secondary_key_creates_multisig() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     // Create a user with secondary keys to be the MS creator.
@@ -520,6 +523,7 @@ async fn secondary_key_creates_multisig() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn ms_make_secondary() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     // Create a user with secondary keys to be the MS creator.
@@ -541,6 +545,7 @@ async fn ms_make_secondary() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn ms_change_identity() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let users = tester
@@ -595,6 +600,7 @@ async fn ms_change_identity() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn ms_needs_to_be_linked_to_an_identity() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let users = tester.users(&["MultiSigNeedsDID"]).await?;
@@ -630,6 +636,7 @@ async fn ms_needs_to_be_linked_to_an_identity() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn ms_remove_payer() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let users = tester.users(&["MultiSigRemovePayer"]).await?;
@@ -677,6 +684,7 @@ async fn ms_remove_payer() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn ms_remove_payer_via_payer() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let users = tester.users(&["MultiSigRemovePayerViaPayer"]).await?;
@@ -725,6 +733,7 @@ async fn ms_remove_payer_via_payer() -> Result<()> {
 
 /// Test transaction fees for a MS when the primary key of the paying DID has a subsidy.
 #[tokio::test]
+#[test_log::test]
 #[cfg(feature = "current_release")]
 async fn ms_subsidy_payer() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
@@ -777,6 +786,7 @@ async fn ms_subsidy_payer() -> Result<()> {
 
 /// Test subsidy transaction fees for a MS.
 #[tokio::test]
+#[test_log::test]
 #[cfg(feature = "current_release")]
 async fn ms_subsidy() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;

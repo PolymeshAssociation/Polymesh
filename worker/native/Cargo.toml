@@ -1,0 +1,44 @@
+[package]
+name = "polymesh-worker-native"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4"
+
+sp-panic-handler = { workspace = true, default-features = false }
+
+# Protocols
+polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["native"] }
+
+# Worker interface
+polymesh-worker = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false }
+
+[features]
+default = [
+	"std",
+	"testing"
+]
+
+testing = [
+	"polymesh-worker-common/testing",
+	"polymesh-worker-protocol-dart-v1/testing",
+]
+
+debug_logging = []
+
+asm = [
+	"polymesh-worker-protocol-dart-v1/asm"
+]
+parallel = [
+	"polymesh-worker-protocol-dart-v1/parallel",
+]
+
+std = [
+	"asm",
+	"parallel",
+	"polymesh-worker/std",
+	"polymesh-worker-common/std",
+	"polymesh-worker-protocol-dart-v1/std",
+]

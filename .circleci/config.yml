@@ -341,14 +341,14 @@ jobs:
       - run:
           name: Start Polymesh dev chain
           command: >-
-            ./assets/polymesh --dev \
+            ./assets/polymesh --chain dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 30
+          command: sleep 40
       - run:
           name: Run metadata-tools check
           command: |
@@ -375,7 +375,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 30
+          command: sleep 40
       - run:
           name: Run metadata-tools check
           command: |
@@ -402,7 +402,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 30
+          command: sleep 40
       - run:
           name: Run metadata-tools check
           command: |
@@ -414,7 +414,7 @@ jobs:
   benchmark:
     docker:
       - image: debian:stable
-    resource_class: small
+    resource_class: large
     environment:
       - VERBOSE: "1"
     steps:
@@ -492,6 +492,7 @@ jobs:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
       - RUST_BACKTRACE: "1"
+      - WAIT_FOR_FINALIZE: "1"
     steps:
       - checkout
       - attach_workspace:
@@ -512,21 +513,21 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests against the previous version.
-          command: cargo nextest run --features previous_release --locked
+          command: cargo nextest run --release --no-default-features --features previous_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
           name: Upgrade chain to current version.
-          command: cargo run --features previous_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
+          command: cargo run --no-default-features --features previous_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
           working_directory: ./integration
           no_output_timeout: 30m
       - run:
           name: Clear polymesh-api to force re-compile (chain metadata might have changed).
-          command: cargo clean -p polymesh-api
+          command: cargo clean -p polymesh-api && cargo clean --release -p polymesh-api
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests against the upgraded chain.
-          command: cargo nextest run --features current_release --locked
+          command: cargo nextest run --release --features current_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
   integration-test:
@@ -547,6 +548,9 @@ jobs:
               --wasm-execution compiled \
               --pool-limit 100000
           background: true
+      - run:
+          name: Wait for chain build the genesis config and start producing blocks
+          command: sleep 15
       - run:
           name: install and build integration tests
           command: yarn install && yarn build:types && yarn build
