@@ -1065,6 +1065,18 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            if AssetCurveTreeHeight::<T>::get() == 0 {
+                // We need to initialize the curve tree heights to the correct values.
+                AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
+                AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
+                FeeAccountCurveTreeHeight::<T>::put(FEE_ACCOUNT_TREE_HEIGHT);
+                T::DbWeight::get().reads_writes(1, 3)
+            } else {
+                T::DbWeight::get().reads_writes(1, 0)
+            }
+        }
+
         fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
             Self::init_block()
         }
