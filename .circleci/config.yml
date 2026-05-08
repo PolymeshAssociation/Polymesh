@@ -341,14 +341,14 @@ jobs:
       - run:
           name: Start Polymesh dev chain
           command: >-
-            ./assets/polymesh --dev \
+            ./assets/polymesh --chain dev \
               --no-prometheus --no-telemetry --tmp \
               --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 50
+          command: sleep 40
       - run:
           name: Run metadata-tools check
           command: |
@@ -375,7 +375,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 50
+          command: sleep 40
       - run:
           name: Run metadata-tools check
           command: |
@@ -402,7 +402,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 50
+          command: sleep 40
       - run:
           name: Run metadata-tools check
           command: |
