@@ -22,6 +22,13 @@ use crate::*;
 benchmarks! {
     where_clause { where T: Config }
 
+    generate_and_save_dart_params {
+    }: {
+        // Make sure to unload the previously loaded parameters, to force generating new parameters for the benchmarks.
+        polymesh_dart::init::unload_params();
+        Pallet::<T>::generate_and_save_dart_params();
+    }
+
     update_account_curve_tree_root {
         // Number of leaves to insert.
         let l in 0 .. (ACCOUNT_TREE_L as u32 + 1);

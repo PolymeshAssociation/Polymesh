@@ -528,7 +528,7 @@ impl GenerateDartProofRequest {
                 recipients,
             } => {
                 let params = get_account_curve_tree_parameters();
-                let proof = KeyDistributionProof::new(&mut rng, &key, &recipients, &did, params)?;
+                let proof = KeyDistributionProof::new(&mut rng, &key, recipients, &did, params)?;
                 Ok(GenerateDartProofResponse::KeyDistribution { proof })
             }
         }

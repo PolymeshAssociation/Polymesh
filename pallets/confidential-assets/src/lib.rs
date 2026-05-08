@@ -42,9 +42,8 @@ use sp_std::convert::From;
 use sp_std::vec::Vec;
 
 use polymesh_dart::{
-    curve_tree::WrappedCurveTreeParameters, AccountPublicKey, AccountRegistrationProof,
-    AccountStateCommitment, AccountStateNullifier, AccountStateUpdate,
-    AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
+    AccountPublicKey, AccountRegistrationProof, AccountStateCommitment, AccountStateNullifier,
+    AccountStateUpdate, AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
     BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, BatchedProof, BatchedProofs, BatchedSettlementProof, DartLimits,
     EncryptionKeyRegistrationProof, EncryptionPublicKey, Error as DartError,
@@ -110,6 +109,8 @@ pub const ACCOUNT_TREE_HEIGHT: NodeLevel = 1;
 pub const FEE_ACCOUNT_TREE_HEIGHT: NodeLevel = 1;
 
 pub trait WeightInfo {
+    fn generate_and_save_dart_params() -> Weight;
+
     fn update_account_curve_tree_root(l: u32) -> Weight;
     fn update_fee_account_curve_tree_root(l: u32) -> Weight;
 
@@ -701,15 +702,9 @@ pub mod pallet {
         }
     }
 
-    /// Cache wrapped asset curve tree parameters.
+    /// Cache DART parameters.
     #[pallet::storage]
-    pub(crate) type CachedAssetCurveTreeParameters<T: Config> =
-        StorageValue<_, WrappedCurveTreeParameters, OptionQuery>;
-
-    /// Cache wrapped account curve tree parameters.
-    #[pallet::storage]
-    pub(crate) type CachedAccountCurveTreeParameters<T: Config> =
-        StorageValue<_, WrappedCurveTreeParameters, OptionQuery>;
+    pub(crate) type CachedDartParameters<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
     /// Next Asset ID to be used for Confidential assets.
     #[pallet::storage]
@@ -1066,15 +1061,22 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
+            let mut weight = Weight::zero();
             if AssetCurveTreeHeight::<T>::get() == 0 {
+                if Self::generate_and_save_dart_params() {
+                    weight = weight
+                        .saturating_add(<T as Config>::WeightInfo::generate_and_save_dart_params());
+                }
                 // We need to initialize the curve tree heights to the correct values.
                 AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
                 AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
                 FeeAccountCurveTreeHeight::<T>::put(FEE_ACCOUNT_TREE_HEIGHT);
-                T::DbWeight::get().reads_writes(1, 3)
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 3));
             } else {
-                T::DbWeight::get().reads_writes(1, 0)
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
             }
+
+            weight
         }
 
         fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -2849,6 +2851,17 @@ impl<T: Config> Pallet<T> {
         // Commit the delayed updates to the account curve tree.
         tree.commit_leaves_to_tree()
             .expect("Fee Account curve tree should be able to commit leaves; qed");
+    }
+
+    fn generate_and_save_dart_params() -> bool {
+        if CachedDartParameters::<T>::exists() {
+            // If the DART parameters are already cached, do nothing.
+            return false;
+        }
+        if let Ok(ctx) = polymesh_worker_protocol_dart_v1::save_context() {
+            CachedDartParameters::<T>::put(ctx);
+        }
+        true
     }
 
     pub fn init_block() -> Weight {

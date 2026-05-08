@@ -4,15 +4,14 @@ use codec::DecodeWithMemTracking;
 use polymesh_dart::{
     curve_tree::{
         CompressedCurveTreeRoot, CompressedInner, CompressedLeafValue, CurveTreeBackend,
-        CurveTreeParameters, CurveTreeWithBackend, NodeLocation, ValidateCurveTreeRoot,
+        CurveTreeConfig, CurveTreeParameters, CurveTreeWithBackend, NodeLocation,
+        ValidateCurveTreeRoot,
     },
     BlockNumber, LeafIndex, NodeLevel, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M,
     FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
 use polymesh_worker_protocol_dart_v1::{GetSessionId, HostCurveTreeUpdater};
 
-#[cfg(feature = "std")]
-use polymesh_dart::curve_tree::CurveTreeConfig;
 pub use polymesh_dart::curve_tree::{AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig};
 use sp_runtime::Saturating;
 
@@ -38,17 +37,6 @@ pub type TimestampedFeeAccountTreeRoot<T> = TimestampedTreeRoot<T, FeeAccountTre
 
 use super::*;
 
-#[cfg(feature = "std")]
-lazy_static::lazy_static! {
-    static ref ASSET_CURVE_TREE_PARAMETERS: CurveTreeParameters<AssetTreeConfig> = AssetTreeConfig::build_parameters();
-    static ref ACCOUNT_CURVE_TREE_PARAMETERS: CurveTreeParameters<AccountTreeConfig> = AccountTreeConfig::build_parameters();
-}
-
-#[cfg(not(feature = "std"))]
-static mut ASSET_CURVE_TREE_PARAMETERS: Option<CurveTreeParameters<AssetTreeConfig>> = None;
-#[cfg(not(feature = "std"))]
-static mut ACCOUNT_CURVE_TREE_PARAMETERS: Option<CurveTreeParameters<AccountTreeConfig>> = None;
-
 impl<T: Config> GetSessionId for Pallet<T> {
     fn session_id(&self) -> Option<WorkerSessionId> {
         Pallet::<T>::session_id().ok()
@@ -56,70 +44,6 @@ impl<T: Config> GetSessionId for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-    #[cfg(feature = "std")]
-    pub fn get_asset_curve_tree_parameters() -> &'static CurveTreeParameters<AssetTreeConfig> {
-        &ASSET_CURVE_TREE_PARAMETERS
-    }
-
-    #[allow(static_mut_refs)]
-    #[cfg(not(feature = "std"))]
-    pub fn get_asset_curve_tree_parameters() -> &'static CurveTreeParameters<AssetTreeConfig> {
-        unsafe {
-            if ASSET_CURVE_TREE_PARAMETERS.is_none() {
-                let parameters = Self::get_cached_asset_curve_tree_parameters()
-                    .expect("Failed to decode curve tree parameters");
-                ASSET_CURVE_TREE_PARAMETERS = Some(parameters);
-            }
-            ASSET_CURVE_TREE_PARAMETERS.as_ref().unwrap()
-        }
-    }
-
-    #[cfg(feature = "std")]
-    pub fn get_account_curve_tree_parameters() -> &'static CurveTreeParameters<AccountTreeConfig> {
-        &ACCOUNT_CURVE_TREE_PARAMETERS
-    }
-
-    #[allow(static_mut_refs)]
-    #[cfg(not(feature = "std"))]
-    pub fn get_account_curve_tree_parameters() -> &'static CurveTreeParameters<AccountTreeConfig> {
-        unsafe {
-            if ACCOUNT_CURVE_TREE_PARAMETERS.is_none() {
-                let parameters = Self::get_cached_account_curve_tree_parameters()
-                    .expect("Failed to decode curve tree parameters");
-                ACCOUNT_CURVE_TREE_PARAMETERS = Some(parameters);
-            }
-            ACCOUNT_CURVE_TREE_PARAMETERS.as_ref().unwrap()
-        }
-    }
-
-    pub fn get_cached_asset_curve_tree_parameters() -> Option<CurveTreeParameters<AssetTreeConfig>>
-    {
-        CachedAssetCurveTreeParameters::<T>::get()
-            .or_else(|| {
-                // If the parameters are not found in the storage, generate and cache them.
-                let params = WrappedCurveTreeParameters::new::<AssetTreeConfig>().ok();
-                if let Some(ref params) = params {
-                    CachedAssetCurveTreeParameters::<T>::put(params);
-                }
-                params
-            })
-            .and_then(|p| p.decode::<AssetTreeConfig>().ok())
-    }
-
-    pub fn get_cached_account_curve_tree_parameters(
-    ) -> Option<CurveTreeParameters<AccountTreeConfig>> {
-        CachedAccountCurveTreeParameters::<T>::get()
-            .or_else(|| {
-                // If the parameters are not found in the storage, generate and cache them.
-                let params = WrappedCurveTreeParameters::new::<AccountTreeConfig>().ok();
-                if let Some(ref params) = params {
-                    CachedAccountCurveTreeParameters::<T>::put(params);
-                }
-                params
-            })
-            .and_then(|p| p.decode::<AccountTreeConfig>().ok())
-    }
-
     /// Get the asset curve tree root for a given block number if it is still valid based on the current timestamp and the maximum age defined in the pallet configuration.
     ///
     /// Returns an error if the root is not found or has expired.
@@ -348,7 +272,7 @@ impl<T: Config> CurveTreeBackend<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>
     }
 
     fn parameters(&self) -> &CurveTreeParameters<AssetTreeConfig> {
-        Pallet::<T>::get_asset_curve_tree_parameters()
+        AssetTreeConfig::parameters()
     }
 
     fn get_block_number(&self) -> Result<BlockNumber, Self::Error> {
@@ -473,7 +397,7 @@ impl<T: Config> CurveTreeBackend<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConf
     }
 
     fn parameters(&self) -> &CurveTreeParameters<AccountTreeConfig> {
-        Pallet::<T>::get_account_curve_tree_parameters()
+        AccountTreeConfig::parameters()
     }
 
     fn get_block_number(&self) -> Result<BlockNumber, Self::Error> {
@@ -619,7 +543,7 @@ impl<T: Config> CurveTreeBackend<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAcco
     }
 
     fn parameters(&self) -> &CurveTreeParameters<FeeAccountTreeConfig> {
-        Pallet::<T>::get_account_curve_tree_parameters()
+        FeeAccountTreeConfig::parameters()
     }
 
     fn get_block_number(&self) -> Result<BlockNumber, Self::Error> {

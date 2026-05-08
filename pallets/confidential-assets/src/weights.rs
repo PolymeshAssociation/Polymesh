@@ -40,6 +40,14 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_confidential_assets using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
 impl crate::WeightInfo for SubstrateWeight {
+    // Storage: `ConfidentialAssets::CachedDartParameters` (r:1 w:1)
+    // Proof: `ConfidentialAssets::CachedDartParameters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    fn generate_and_save_dart_params() -> Weight {
+        // Minimum execution time: 60_419_251 nanoseconds.
+        Weight::from_parts(62_399_107_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
     // Storage: `ConfidentialAssets::LastCommittedAccountLeafIndex` (r:1 w:1)
     // Proof: `ConfidentialAssets::LastCommittedAccountLeafIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `ConfidentialAssets::NextAccountLeafIndex` (r:1 w:0)
