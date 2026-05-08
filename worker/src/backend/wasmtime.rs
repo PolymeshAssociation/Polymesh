@@ -152,30 +152,18 @@ impl BackendModuleInstance for WasmtimeModuleInstance {
 }
 
 pub struct WasmtimeModule {
-    module: Module,
+    instance_pre: InstancePre<()>,
     engine: Engine,
 }
 
 impl BackendModule for WasmtimeModule {
     fn instantiate(&self) -> Option<Box<dyn BackendModuleInstance>> {
         let mut store = Store::new(&self.engine, ());
-        let host_msm = Func::wrap(&mut store, host_msm_unchecked);
-        let host_batch_hash_to_curve = Func::wrap(&mut store, host_batch_hash_to_curve);
-        let host_logger_max_level = Func::wrap(&mut store, host_logger_max_level);
-        let host_logger_enabled = Func::wrap(&mut store, host_logger_enabled);
-        let host_logger_log = Func::wrap(&mut store, host_logger_log);
-        let imports = [
-            host_msm.into(),
-            host_batch_hash_to_curve.into(),
-            host_logger_max_level.into(),
-            host_logger_enabled.into(),
-            host_logger_log.into(),
-        ];
 
         // Once we've got that all set up we can then move to the instantiation
         // phase, pairing together a compiled module as well as a set of imports.
         // Note that this is where the wasm `start` function, if any, would run.
-        let instance = Instance::new(&mut store, &self.module, &imports).ok()?;
+        let instance = self.instance_pre.instantiate(&mut store).ok()?;
 
         // Get the scratch buffer pointer.
         let get_scratch_pad = instance
@@ -253,8 +241,26 @@ impl Backend for WasmtimeBackend {
     fn load_module(&self, module_bytes: &[u8]) -> Option<Box<dyn BackendModule>> {
         let module = Module::from_binary(&self.engine, &module_bytes).ok()?;
 
+        let mut linker = Linker::new(&self.engine);
+        linker
+            .func_wrap("env", "host_msm_unchecked", host_msm_unchecked)
+            .ok()?;
+        linker
+            .func_wrap("env", "host_batch_hash_to_curve", host_batch_hash_to_curve)
+            .ok()?;
+        linker
+            .func_wrap("env", "host_logger_max_level", host_logger_max_level)
+            .ok()?;
+        linker
+            .func_wrap("env", "host_logger_enabled", host_logger_enabled)
+            .ok()?;
+        linker
+            .func_wrap("env", "host_logger_log", host_logger_log)
+            .ok()?;
+        let instance_pre = linker.instantiate_pre(&module).ok()?;
+
         Some(Box::new(WasmtimeModule {
-            module,
+            instance_pre,
             engine: self.engine.clone(),
         }))
     }
