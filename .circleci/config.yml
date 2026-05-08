@@ -348,7 +348,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 30
+          command: sleep 50
       - run:
           name: Run metadata-tools check
           command: |
@@ -375,7 +375,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 30
+          command: sleep 50
       - run:
           name: Run metadata-tools check
           command: |
@@ -402,7 +402,7 @@ jobs:
           background: true
       - run:
           name: Wait for chain to start
-          command: sleep 30
+          command: sleep 50
       - run:
           name: Run metadata-tools check
           command: |
