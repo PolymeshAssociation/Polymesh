@@ -453,6 +453,11 @@ pub extern "C" fn execute(req_len: u32) -> u64 {
             let res_bytes = res.0;
             let res_len = res_bytes.len();
             let scratch = mut_scratch();
+            if scratch.len() < res_len {
+                // The response is too large to fit in the scratch buffer, return an error.
+                let err = ProtocolError::UnexpectedResponse.to_u32();
+                return pack_fat_pointer(err, u32::MAX) as u64;
+            }
             scratch[..res_len].copy_from_slice(&res_bytes);
 
             pack_fat_pointer(scratch.as_ptr() as u32, res_len as u32) as u64

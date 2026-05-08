@@ -74,7 +74,7 @@ impl GenesisIdentityRecord<AccountId> {
 }
 
 /// Polymesh Identifier ID.
-/// It is stored internally as an `u128` but it can be load from string with the following format:
+/// It is stored internally as `[u8; 32]` but it can be load from string with the following format:
 /// "did:poly:<32 Hex characters>".
 ///
 /// # From str

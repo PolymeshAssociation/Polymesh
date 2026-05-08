@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 target="wasm32-unknown-unknown"
 crate="polymesh-worker-protocol-dart-v1"
@@ -6,7 +7,7 @@ lib_name="polymesh_worker_protocol_dart_v1"
 wasm_path="../target/$target/release/$lib_name.wasm"
 
 output_path="$crate.wasm"
-rm $output_path $wasm_path
+rm -f "$output_path" "$wasm_path"
 
 echo "> Building: '$crate' (-> $output_path)"
 

@@ -30,10 +30,12 @@ pub const WORKER_VERSION: WorkerVersion = 1;
 
 /// Decompress the given module code bytes if they are compressed, otherwise return the original bytes.
 pub fn decompress_module_code(bytes: &[u8]) -> Option<Vec<u8>> {
-    // Try to decompress the bytes, if it fails, assume it's not compressed and return the original bytes.
     match sp_maybe_compressed_blob::decompress(bytes, MODULE_CODE_SIZE_LIMIT) {
         Ok(decompressed) => Some(decompressed.to_vec()),
-        Err(_) => Some(bytes.to_vec()),
+        Err(err) => {
+            log::error!("Failed to decompress module code: {err}");
+            None
+        }
     }
 }
 
