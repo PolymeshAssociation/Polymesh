@@ -36,9 +36,9 @@ schnorr_pok = { git = "https://github.com/PolymeshAssociation/crypto", branch = 
 #polymesh-dart = { path = "../polymesh-dart" }
 #polymesh-dart-bp = { path = "../polymesh-dart/dart-bp" }
 #polymesh-dart-common = { path = "../polymesh-dart/dart-common" }
-polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "stable2603-2" }
-polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "stable2603-2" }
-polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "stable2603-2" }
+polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
 
 # Polymesh changes to Arkworks.
 #ark-serialize = { path = "../arkworks-algebra/serialize" }
