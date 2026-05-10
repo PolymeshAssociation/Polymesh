@@ -3723,7 +3723,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#191f827a513bf24a35b31c8da6b06ea93b115326"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#68cde49f5c5ffbedd2a78be52affbe9034d2340d"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -3759,7 +3759,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#191f827a513bf24a35b31c8da6b06ea93b115326"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#68cde49f5c5ffbedd2a78be52affbe9034d2340d"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -3790,7 +3790,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#191f827a513bf24a35b31c8da6b06ea93b115326"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#68cde49f5c5ffbedd2a78be52affbe9034d2340d"
 
 [[package]]
 name = "portable-atomic"
