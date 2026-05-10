@@ -10704,7 +10704,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "8.0.0-rc1"
+version = "8.0.0-rc2"
 dependencies = [
  "array-bytes 6.2.3",
  "clap",
