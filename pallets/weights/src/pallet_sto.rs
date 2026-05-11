@@ -66,9 +66,11 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Storage: `Sto::Fundraisers` (r:0 w:1)
     // Proof: `Sto::Fundraisers` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `i` is `[1, 10]`.
-    fn create_fundraiser(_i: u32) -> Weight {
+    fn create_fundraiser(i: u32) -> Weight {
         // Minimum execution time: 110_559 nanoseconds.
         Weight::from_parts(117_941_926, 0)
+            // Manually added
+            .saturating_add(Weight::from_parts(91_319, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(4))
     }

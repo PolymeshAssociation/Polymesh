@@ -301,9 +301,13 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 2000]`.
     /// The range of component `l` is `[0, 80]`.
     /// The range of component `e` is `[0, 80]`.
-    fn permissions_cost(_a: u32, _p: u32, l: u32, e: u32) -> Weight {
+    fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight {
         // Minimum execution time: 215_517 nanoseconds.
         Weight::from_parts(216_952_000, 0)
+            // Manually set for `a`
+            .saturating_add(Weight::from_parts(100_000, 0).saturating_mul(a.into()))
+            // Manually set for `p`
+            .saturating_add(Weight::from_parts(100_000, 0).saturating_mul(p.into()))
             // Standard Error: 211_176
             .saturating_add(Weight::from_parts(16_980_593, 0).saturating_mul(l.into()))
             // Standard Error: 211_176

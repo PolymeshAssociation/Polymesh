@@ -629,11 +629,13 @@ impl pallet_contracts::WeightInfo for SubstrateWeight {
     // Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
     /// The range of component `t` is `[0, 1]`.
     /// The range of component `i` is `[0, 1048576]`.
-    fn seal_call(t: u32, _i: u32) -> Weight {
+    fn seal_call(t: u32, i: u32) -> Weight {
         // Minimum execution time: 156_095 nanoseconds.
         Weight::from_parts(168_442_436, 0)
             // Standard Error: 385_325
             .saturating_add(Weight::from_parts(68_732_092, 0).saturating_mul(t.into()))
+            // Manually added for `i`
+            .saturating_add(Weight::from_parts(7, 0).saturating_mul(i.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(t.into())))
             .saturating_add(DbWeight::get().writes(1))

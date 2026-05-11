@@ -43,7 +43,7 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[1, 10]`.
     /// The range of component `c` is `[1, 10]`.
     /// The range of component `d` is `[1, 10]`.
-    fn condition_costs(a: u32, b: u32, c: u32, _d: u32) -> Weight {
+    fn condition_costs(a: u32, b: u32, c: u32, d: u32) -> Weight {
         // Minimum execution time: 11_422 nanoseconds.
         Weight::from_parts(11_832_000, 0)
             // Standard Error: 49_396
@@ -52,6 +52,8 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_parts(596_007, 0).saturating_mul(b.into()))
             // Standard Error: 49_396
             .saturating_add(Weight::from_parts(1_757_677, 0).saturating_mul(c.into()))
+            // Manually set for `d`
+            .saturating_add(Weight::from_parts(721_394, 0).saturating_mul(d.into()))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
