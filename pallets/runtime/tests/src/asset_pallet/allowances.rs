@@ -121,3 +121,108 @@ fn allowance_query_nonexistent_returns_zero() {
         );
     });
 }
+
+/// Partial spend decrements storage and emits AllowanceSpent with remaining balance.
+#[test]
+fn spend_allowance_partial_emits_event() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 1000));
+        System::set_block_number(1);
+        assert_ok!(Asset::spend_allowance(
+            &alice.acc(),
+            &bob.acc(),
+            asset_id,
+            300
+        ));
+        assert_eq!(
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
+            700
+        );
+        assert_eq!(
+            System::events().pop().unwrap().event,
+            EventTest::Asset(pallet_asset::Event::AllowanceSpent {
+                owner: alice.acc(),
+                spender: bob.acc(),
+                asset_id,
+                amount_spent: 300,
+                remaining_allowance: 700,
+            })
+        );
+    });
+}
+
+/// Spending the full allowance removes the storage entry and emits remaining=0.
+#[test]
+fn spend_allowance_depletes_removes_entry_and_emits_event() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
+        System::set_block_number(1);
+        assert_ok!(Asset::spend_allowance(
+            &alice.acc(),
+            &bob.acc(),
+            asset_id,
+            500
+        ));
+        assert!(!Allowances::<TestStorage>::contains_key((
+            &alice.acc(),
+            &bob.acc(),
+            asset_id
+        )));
+        assert_eq!(
+            System::events().pop().unwrap().event,
+            EventTest::Asset(pallet_asset::Event::AllowanceSpent {
+                owner: alice.acc(),
+                spender: bob.acc(),
+                asset_id,
+                amount_spent: 500,
+                remaining_allowance: 0,
+            })
+        );
+    });
+}
+
+/// Infinite allowance (Balance::MAX) is not decremented but still emits AllowanceSpent.
+#[test]
+fn spend_allowance_infinite_emits_event_without_decrement() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        assert_ok!(Asset::approve(
+            alice.origin(),
+            asset_id,
+            bob.acc(),
+            polymesh_primitives::Balance::MAX
+        ));
+        System::set_block_number(1);
+        assert_ok!(Asset::spend_allowance(
+            &alice.acc(),
+            &bob.acc(),
+            asset_id,
+            1000
+        ));
+        assert_eq!(
+            Allowances::<TestStorage>::get((&alice.acc(), &bob.acc(), asset_id)),
+            polymesh_primitives::Balance::MAX
+        );
+        assert_eq!(
+            System::events().pop().unwrap().event,
+            EventTest::Asset(pallet_asset::Event::AllowanceSpent {
+                owner: alice.acc(),
+                spender: bob.acc(),
+                asset_id,
+                amount_spent: 1000,
+                remaining_allowance: polymesh_primitives::Balance::MAX,
+            })
+        );
+    });
+}
