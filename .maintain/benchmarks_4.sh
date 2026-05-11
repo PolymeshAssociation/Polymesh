@@ -1,3 +1,6 @@
+./target/release/polymesh benchmark pallet -s 100 -r 5 -p=pallet_beefy_mmr -e=* --heap-pages 4096 --db-cache 512 --output ./pallets/weights/src/ --template ./.maintain/frame-weight-template.hbs  >> data.txt 2>> log.txt
+./target/release/polymesh benchmark pallet -s 100 -r 5 -p=pallet_mmr -e=* --heap-pages 4096 --db-cache 512 --output ./pallets/weights/src/ --template ./.maintain/frame-weight-template.hbs  >> data.txt 2>> log.txt
+./target/release/polymesh benchmark pallet -s 100 -r 5 -p=pallet_migrations -e=* --heap-pages 4096 --db-cache 512 --output ./pallets/weights/src/ --template ./.maintain/frame-weight-template.hbs  >> data.txt 2>> log.txt
 ./target/release/polymesh benchmark pallet -s 100 -r 5 -p=pallet_validators -e=* --heap-pages 4096 --db-cache 512 --output ./pallets/weights/src/ --template ./.maintain/frame-weight-template.hbs  >> data.txt 2>> log.txt
 ./target/release/polymesh benchmark pallet -s 100 -r 5 -p=polymesh_transaction_payment -e=* --heap-pages 4096 --db-cache 512 --output ./pallets/weights/src/ --template ./.maintain/frame-weight-template.hbs  >> data.txt 2>> log.txt
 ./target/release/polymesh benchmark pallet -s 100 -r 5 -p=pallet_confidential_assets -e=* --heap-pages 4096 --db-cache 512 --output ./pallets/confidential-assets/src/weights.rs --template ./.maintain/crate-weight-template.hbs  >> data.txt 2>> log.txt

@@ -573,6 +573,7 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [pallet_asset, Asset]
         [pallet_balances, Balances]
+        [pallet_mmr, Mmr]
         [pallet_beefy_mmr, MmrLeaf]
         [pallet_identity, Identity]
         [pallet_pips, Pips]

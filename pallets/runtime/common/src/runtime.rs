@@ -150,7 +150,7 @@ macro_rules! misc_pallet_impls {
             type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
             type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
             type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
-            type WeightInfo = ();
+            type WeightInfo = polymesh_weights::pallet_mmr::SubstrateWeight;
             #[cfg(feature = "runtime-benchmarks")]
             type BenchmarkHelper = ();
         }
@@ -164,7 +164,7 @@ macro_rules! misc_pallet_impls {
             type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
             type LeafExtra = Vec<u8>;
             type BeefyDataProvider = ();
-            type WeightInfo = ();
+            type WeightInfo = polymesh_weights::pallet_beefy_mmr::SubstrateWeight;
         }
 
         parameter_types! {
@@ -967,18 +967,18 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_migrations::Config for Runtime {
-	        type RuntimeEvent = RuntimeEvent;
-	        #[cfg(not(feature = "runtime-benchmarks"))]
-	        type Migrations = ();
-	        // Benchmarks need mocked migrations to guarantee that they succeed.
-	        #[cfg(feature = "runtime-benchmarks")]
-	        type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
-	        type CursorMaxLen = frame_support::traits::ConstU32<65_536>;
-	        type IdentifierMaxLen = frame_support::traits::ConstU32<256>;
-	        type MigrationStatusHandler = ();
-	        type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
-	        type MaxServiceWeight = MbmServiceWeight;
-	        type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
+            type RuntimeEvent = RuntimeEvent;
+            #[cfg(not(feature = "runtime-benchmarks"))]
+            type Migrations = ();
+            // Benchmarks need mocked migrations to guarantee that they succeed.
+            #[cfg(feature = "runtime-benchmarks")]
+            type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+            type CursorMaxLen = frame_support::traits::ConstU32<65_536>;
+            type IdentifierMaxLen = frame_support::traits::ConstU32<256>;
+            type MigrationStatusHandler = ();
+            type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+            type MaxServiceWeight = MbmServiceWeight;
+            type WeightInfo = polymesh_weights::pallet_migrations::SubstrateWeight;
         }
     };
 }
