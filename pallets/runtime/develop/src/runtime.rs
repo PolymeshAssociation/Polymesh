@@ -208,9 +208,9 @@ type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
 #[cfg(feature = "ci-runtime")]
 type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<4>;
 #[cfg(not(feature = "ci-runtime"))]
-type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<16>;
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<10>;
 
-type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<100>;
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<20>;
 type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
 type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
 type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
@@ -218,12 +218,12 @@ type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
 #[cfg(feature = "ci-runtime")]
 type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<4>;
 #[cfg(not(feature = "ci-runtime"))]
-type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<50>;
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<10>;
 
 type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
 type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
 type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
-type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<4>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
