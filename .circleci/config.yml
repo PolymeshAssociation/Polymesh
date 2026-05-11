@@ -343,7 +343,6 @@ jobs:
           command: >-
             ./assets/polymesh --chain dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -370,7 +369,6 @@ jobs:
           command: >-
             ./assets/polymesh --chain testnet-dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -397,7 +395,6 @@ jobs:
           command: >-
             ./assets/polymesh --chain mainnet-dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -422,7 +419,7 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./polymesh-benchmarks benchmark pallet --min-duration=0 -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
+          command: ./polymesh-benchmarks benchmark pallet --min-duration=0 -p=* -e=* -r 1 -s 2 --db-cache 512 --heap-pages=4096
           no_output_timeout: 30m
   migration-tests:
     docker:
@@ -504,7 +501,6 @@ jobs:
               --chain .ci-chain-specs/v7.4.0.json \
               --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -545,7 +541,6 @@ jobs:
           command: >-
             ./assets/ci-runtime/polymesh --bob --dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -596,7 +591,6 @@ jobs:
           command: >-
             ./assets/polymesh --dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
