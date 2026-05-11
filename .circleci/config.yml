@@ -498,7 +498,7 @@ jobs:
           name: Start a Polymesh ci-runtime dev chain using the previous chain version.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
-              --chain .ci-chain-specs/v7.4.0.json \
+              --chain .ci-chain-specs/v7.4.0_2_sec_blocks.json \
               --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --pool-limit 100000
