@@ -343,7 +343,6 @@ jobs:
           command: >-
             ./assets/polymesh --chain dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -370,7 +369,6 @@ jobs:
           command: >-
             ./assets/polymesh --chain testnet-dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -397,7 +395,6 @@ jobs:
           command: >-
             ./assets/polymesh --chain mainnet-dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -422,7 +419,7 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./polymesh-benchmarks benchmark pallet --min-duration=0 -p=* -e=* -r 1 -s 2 --execution wasm --wasm-execution compiled --db-cache 512 --heap-pages=4096
+          command: ./polymesh-benchmarks benchmark pallet --min-duration=0 -p=* -e=* -r 1 -s 2 --db-cache 512 --heap-pages=4096
           no_output_timeout: 30m
   migration-tests:
     docker:
@@ -501,10 +498,9 @@ jobs:
           name: Start a Polymesh ci-runtime dev chain using the previous chain version.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
-              --chain .ci-chain-specs/v7.4.0.json \
+              --chain .ci-chain-specs/v7.4.0_2_sec_blocks.json \
               --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -545,7 +541,6 @@ jobs:
           command: >-
             ./assets/ci-runtime/polymesh --bob --dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:
@@ -563,7 +558,8 @@ jobs:
           no_output_timeout: 10m
   contract-deploy-test-foundry:
     docker:
-      - image: debian:stable
+      - image: ghcr.io/foundry-rs/foundry:v1.7.1
+        user: root
     resource_class: medium
     environment:
       VERBOSE: "1"
@@ -576,27 +572,21 @@ jobs:
       - attach_workspace:
           at: ./assets
       - run:
-          name: Install dependencies (curl, git, ca-certificates, jq)
+          name: Install dependencies
           command: |
             apt-get update
-            apt-get install -y --no-install-recommends curl git ca-certificates jq
+            apt-get install -y --no-install-recommends jq
             rm -rf /var/lib/apt/lists/*
       - run:
-          name: Install Foundry (forge, cast)
+          name: Verify Foundry toolchain
           command: |
-            curl -L https://foundry.paradigm.xyz | bash
-            echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> $BASH_ENV
-            source $BASH_ENV
-            foundryup
             forge --version
             cast --version
-          no_output_timeout: 5m
       - run:
           name: Start Polymesh dev chain
           command: >-
             ./assets/polymesh --dev \
               --no-prometheus --no-telemetry --tmp \
-              --wasm-execution compiled \
               --pool-limit 100000
           background: true
       - run:

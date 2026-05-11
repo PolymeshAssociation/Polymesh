@@ -5,7 +5,7 @@ pub mod time {
     use polymesh_primitives::{BlockNumber, Moment};
 
     #[cfg(feature = "ci-runtime")]
-    pub const MILLISECS_PER_BLOCK: Moment = 500;
+    pub const MILLISECS_PER_BLOCK: Moment = 2000;
     #[cfg(not(feature = "ci-runtime"))]
     pub const MILLISECS_PER_BLOCK: Moment = 6000;
     pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;

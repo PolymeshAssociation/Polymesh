@@ -106,6 +106,21 @@ benchmarks! {
         assert_subsidy(user, Some((payer, limit)));
     }
 
+    revoke_subsidy {
+        let (payer, user) = setup_users::<T>();
+        let limit = 100u128;
+        // setup authorization
+        Relayer::<T>::approve_subsidy(
+            payer.origin().into(), user.account(), limit
+        ).unwrap();
+    }: _(payer.origin(), user.account())
+    verify {
+        let user_key = user.account();
+        let payer_key = payer.account();
+        assert!(PendingSubsidies::<T>::take(&user_key, &payer_key).is_none());
+        assert_subsidy(user, None);
+    }
+
     remove_subsidy {
         let (payer, user) = setup_subsidy::<T>(0u128);
     }: _(payer.origin(), user.account(), payer.account())
