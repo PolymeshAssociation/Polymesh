@@ -3700,9 +3700,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-tester"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5baf6433b8ebd0cfae673d173746081f97ce9b3dd5f5f9b847472187208e917"
+checksum = "150d7caeece67e2c7d7f2c27de0803adf4b354bc3262b5b030c86f86a01c55b4"
 dependencies = [
  "async-trait",
  "env_logger 0.11.10",

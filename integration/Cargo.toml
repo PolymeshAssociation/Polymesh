@@ -112,6 +112,8 @@ polymesh-api-client-extras = { version = "3.6.3", default-features = false, feat
 ] }
 polymesh-api-tester = { version = "0.10.1", default-features = false, features = [
     "download_metadata",
+		# Slow down signers for the ci-runtime.
+		"signer_delay",
 ] }
 
 # DART Assets
