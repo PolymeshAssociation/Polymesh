@@ -36,36 +36,34 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 pub struct SubstrateWeight;
 impl pallet_beefy_mmr::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[2, 512]`.
-    fn n_leafs_proof_is_optimal(n: u32, ) -> Weight {
-        // Minimum execution time: 1_142 nanoseconds.
-        Weight::from_parts(1_798_088, 0)
-            // Standard Error: 94
-            .saturating_add(Weight::from_parts(2_014, 0).saturating_mul(n.into()))
+    fn n_leafs_proof_is_optimal(n: u32) -> Weight {
+        // Minimum execution time: 1_032 nanoseconds.
+        Weight::from_parts(1_771_279, 0)
+            // Standard Error: 81
+            .saturating_add(Weight::from_parts(1_659, 0).saturating_mul(n.into()))
     }
     // Storage: `System::BlockHash` (r:1 w:0)
     // Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
     fn extract_validation_context() -> Weight {
-        // Minimum execution time: 11_381 nanoseconds.
-        Weight::from_parts(13_285_000, 0)
-            .saturating_add(DbWeight::get().reads(1))
+        // Minimum execution time: 11_342 nanoseconds.
+        Weight::from_parts(12_744_000, 0).saturating_add(DbWeight::get().reads(1))
     }
     // Storage: `Mmr::Nodes` (r:1 w:0)
     // Proof: `Mmr::Nodes` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
     fn read_peak() -> Weight {
-        // Minimum execution time: 7_563 nanoseconds.
-        Weight::from_parts(8_677_000, 0)
-            .saturating_add(DbWeight::get().reads(1))
+        // Minimum execution time: 7_555 nanoseconds.
+        Weight::from_parts(8_306_000, 0).saturating_add(DbWeight::get().reads(1))
     }
     // Storage: `Mmr::RootHash` (r:1 w:0)
     // Proof: `Mmr::RootHash` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
     // Storage: `Mmr::NumberOfLeaves` (r:1 w:0)
     // Proof: `Mmr::NumberOfLeaves` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[2, 512]`.
-    fn n_items_proof_is_non_canonical(n: u32, ) -> Weight {
-        // Minimum execution time: 15_410 nanoseconds.
-        Weight::from_parts(28_836_410, 0)
-            // Standard Error: 3_983
-            .saturating_add(Weight::from_parts(1_437_275, 0).saturating_mul(n.into()))
+    fn n_items_proof_is_non_canonical(n: u32) -> Weight {
+        // Minimum execution time: 15_370 nanoseconds.
+        Weight::from_parts(25_793_268, 0)
+            // Standard Error: 3_891
+            .saturating_add(Weight::from_parts(1_261_651, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(2))
     }
 }
