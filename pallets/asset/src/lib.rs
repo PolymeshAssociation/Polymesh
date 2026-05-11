@@ -352,6 +352,14 @@ pub mod pallet {
             asset_id: AssetId,
             amount: Balance,
         },
+        /// A spender used part of an allowance.
+        AllowanceSpent {
+            owner: T::AccountId,
+            spender: T::AccountId,
+            asset_id: AssetId,
+            amount_spent: Balance,
+            remaining_allowance: Balance,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -2695,7 +2703,7 @@ impl<T: AssetConfig> Pallet<T> {
     ///
     /// - `Balance::MAX` (infinite allowance): no storage write.
     /// - Depletes to zero: removes the storage entry.
-    /// - No `Approval` event is emitted on spend.
+    /// - Emits `AllowanceSpent` on every successful spend (including the infinite-allowance path).
     pub fn spend_allowance(
         owner: &T::AccountId,
         spender: &T::AccountId,
@@ -2706,16 +2714,25 @@ impl<T: AssetConfig> Pallet<T> {
         ensure!(current >= amount, Error::<T>::InsufficientAllowance);
 
         // Infinite allowance — no deduction.
-        if current == Balance::MAX {
-            return Ok(());
-        }
-
-        let new_allowance = current.saturating_sub(amount);
-        if new_allowance == 0 {
-            Allowances::<T>::remove((owner, spender, &asset_id));
+        let remaining_allowance = if current == Balance::MAX {
+            Balance::MAX
         } else {
-            Allowances::<T>::insert((owner, spender, &asset_id), new_allowance);
-        }
+            let new_allowance = current.saturating_sub(amount);
+            if new_allowance == 0 {
+                Allowances::<T>::remove((owner, spender, &asset_id));
+            } else {
+                Allowances::<T>::insert((owner, spender, &asset_id), new_allowance);
+            }
+            new_allowance
+        };
+
+        Self::deposit_event(Event::AllowanceSpent {
+            owner: owner.clone(),
+            spender: spender.clone(),
+            asset_id,
+            amount_spent: amount,
+            remaining_allowance,
+        });
         Ok(())
     }
 
