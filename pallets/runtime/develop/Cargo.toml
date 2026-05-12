@@ -250,4 +250,4 @@ metadata-hash = ["polymesh-build-tool?/metadata-hash"]
 
 # A convenience feature for enabling things when doing a build
 # for an on-chain release.
-on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash"]
