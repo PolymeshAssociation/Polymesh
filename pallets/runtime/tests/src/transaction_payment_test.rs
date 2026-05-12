@@ -357,7 +357,7 @@ fn query_info_works() {
                 RuntimeDispatchInfo {
                     weight: info.call_weight,
                     class: info.class,
-                    partial_fee: 65498
+                    partial_fee: 64439
                 },
             );
         });
