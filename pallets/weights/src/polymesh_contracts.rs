@@ -60,6 +60,8 @@ impl polymesh_contracts::WeightInfo for SubstrateWeight {
         Weight::from_parts(328_491_610, 0)
             // Standard Error: 250
             .saturating_add(Weight::from_parts(6_697, 0).saturating_mul(k.into()))
+            // Standard Error: 152
+            .saturating_add(Weight::from_parts(671, 0).saturating_mul(v.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(1))
     }
