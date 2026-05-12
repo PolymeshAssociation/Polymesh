@@ -6,7 +6,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 54.0.0
 //! DATE: 2026-05-11, STEPS: `100`, REPEAT: 5, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: None, DB CACHE: 512
-//! HOSTNAME: `ubuntu-8gb-hel1-bench`, CPU: `AMD EPYC-Rome Processor`
+//! HOSTNAME: `ubuntu-8gb-hel1-bench`, CPU: `AMD EPYC-Milan Processor`
 
 // Executed Command:
 // ./target/release/polymesh
@@ -38,56 +38,56 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Storage: `Relayer::PendingSubsidies` (r:0 w:1)
     // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
     fn approve_subsidy() -> Weight {
-        // Minimum execution time: 13_085 nanoseconds.
-        Weight::from_parts(14_918_000, 0).saturating_add(DbWeight::get().writes(1))
+        // Minimum execution time: 8_240 nanoseconds.
+        Weight::from_parts(9_640_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Relayer::PendingSubsidies` (r:1 w:1)
     // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
     // Storage: `Relayer::Subsidies` (r:1 w:1)
     // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
     fn accept_subsidy() -> Weight {
-        // Minimum execution time: 26_060 nanoseconds.
-        Weight::from_parts(29_125_000, 0)
+        // Minimum execution time: 17_740 nanoseconds.
+        Weight::from_parts(19_600_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: `Relayer::PendingSubsidies` (r:1 w:1)
     // Proof: `Relayer::PendingSubsidies` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
     fn revoke_subsidy() -> Weight {
-        // Minimum execution time: 20_379 nanoseconds.
-        Weight::from_parts(22_732_000, 0)
+        // Minimum execution time: 13_720 nanoseconds.
+        Weight::from_parts(15_250_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Relayer::Subsidies` (r:1 w:1)
     // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
     fn remove_subsidy() -> Weight {
-        // Minimum execution time: 21_471 nanoseconds.
-        Weight::from_parts(24_066_000, 0)
+        // Minimum execution time: 13_950 nanoseconds.
+        Weight::from_parts(15_890_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Relayer::Subsidies` (r:1 w:1)
     // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
     fn update_polyx_limit() -> Weight {
-        // Minimum execution time: 21_812 nanoseconds.
-        Weight::from_parts(24_386_000, 0)
+        // Minimum execution time: 14_160 nanoseconds.
+        Weight::from_parts(16_180_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Relayer::Subsidies` (r:1 w:1)
     // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
     fn increase_polyx_limit() -> Weight {
-        // Minimum execution time: 21_631 nanoseconds.
-        Weight::from_parts(24_216_000, 0)
+        // Minimum execution time: 14_100 nanoseconds.
+        Weight::from_parts(16_230_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Relayer::Subsidies` (r:1 w:1)
     // Proof: `Relayer::Subsidies` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
     fn decrease_polyx_limit() -> Weight {
-        // Minimum execution time: 21_812 nanoseconds.
-        Weight::from_parts(24_205_000, 0)
+        // Minimum execution time: 14_370 nanoseconds.
+        Weight::from_parts(16_150_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -102,8 +102,8 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Storage: `Permissions::CurrentDispatchableName` (r:1 w:1)
     // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn relay_tx() -> Weight {
-        // Minimum execution time: 89_649 nanoseconds.
-        Weight::from_parts(94_749_000, 0)
+        // Minimum execution time: 68_680 nanoseconds.
+        Weight::from_parts(72_500_000, 0)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(3))
     }
