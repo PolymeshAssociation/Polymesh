@@ -11495,6 +11495,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parity-scale-codec",
+ "parking_lot 0.12.5",
  "polkavm 0.32.0",
  "polymesh-worker-common",
  "rayon",

@@ -1,8 +1,9 @@
 use codec::Encode;
+use parking_lot::RwLock;
 use std::{
     collections::{BTreeMap, HashMap},
     ops::Deref,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
@@ -210,7 +211,7 @@ impl WorkerSession {
         req_hash: Option<WorkRequestHash>,
         cached_value: Option<WorkResponseResult>,
     ) -> WorkRequestId {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         inner.new_request(req_hash, cached_value)
     }
 
@@ -235,7 +236,7 @@ impl WorkerSession {
                 request_id
             );
             // Fallback to directly pushing the response.
-            let mut inner = self.inner.write().unwrap();
+            let mut inner = self.inner.write();
             inner.push_response(request_id, result);
         }
     }
@@ -246,7 +247,7 @@ impl WorkerSession {
         req_id: WorkRequestId,
         cache: Option<&WorkRequestCache>,
     ) -> Option<WorkResponseResult> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         inner.get_or_wait_for(req_id, cache)
     }
 
@@ -255,13 +256,13 @@ impl WorkerSession {
         &self,
         cache: Option<&WorkRequestCache>,
     ) -> Option<(WorkRequestId, WorkResponseResult)> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         inner.next_result(cache)
     }
 
     /// Get the number of requests in the session.
     pub fn num_requests(&self) -> u32 {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.read();
         inner.next_id
     }
 
@@ -525,7 +526,7 @@ impl PolymeshWorker {
         &self,
         session_id: WorkerSessionId,
     ) -> Result<WorkerSessionRef, WorkerError> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.read();
         inner.get_session(session_id)
     }
 
@@ -576,7 +577,7 @@ impl PolymeshWorker {
             .backend
             .load_protocol(config.backends, protocol, loader);
 
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         let session = inner.create_session(config, protocol, module);
         log::debug!("Started session with id: {}", session.id);
         session
@@ -731,7 +732,7 @@ impl PolymeshWorker {
 
     /// End the worker session with the given session id.
     pub fn end_session(&self, session_id: WorkerSessionId) -> Result<(), WorkerError> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         log::debug!("Ending session with id: {}", session_id);
         inner
             .remove_session(session_id)
