@@ -472,11 +472,6 @@ impl WorkRequest {
     pub fn decode<T: Decode>(&self) -> Result<T, ProtocolError> {
         T::decode(&mut &self.0[..]).map_err(|_| ProtocolError::DecodingFailed)
     }
-
-    /// Hash the work request data using the given hash function, which is used for caching work responses.
-    pub fn hash_using<F: FnOnce(&[u8]) -> [u8; 32]>(&self, hash_fn: F) -> WorkRequestHash {
-        hash_fn(&self.0)
-    }
 }
 
 pub type WorkResponseResult = Result<WorkResponse, ProtocolError>;

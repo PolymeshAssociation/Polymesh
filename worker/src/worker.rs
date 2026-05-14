@@ -1,3 +1,4 @@
+use codec::Encode;
 use std::{
     collections::{BTreeMap, HashMap},
     ops::Deref,
@@ -14,8 +15,8 @@ use crate::{
     },
 };
 use polymesh_worker_common::{
-    BackendBitmask, Protocol, WorkRequest, WorkRequestHash, WorkRequestId, WorkResponseResult,
-    WorkStatus, WorkerSessionId, config::*, error::*,
+    BackendBitmask, BackendCodeHash, Protocol, WorkRequest, WorkRequestHash, WorkRequestId,
+    WorkResponseResult, WorkStatus, WorkerSessionId, config::*, error::*,
 };
 
 pub const WORK_CACHE_CAPACITY: usize = 10_000;
@@ -194,6 +195,15 @@ impl WorkerSession {
         }))
     }
 
+    /// Get the module code hash if the session has a module reference, otherwise get the protocol hash as the fallback.
+    pub fn module_or_protocol_hash(&self) -> BackendCodeHash {
+        if let Some(module) = &self.module {
+            module.code_hash()
+        } else {
+            self.protocol.using_encoded(crate::blake2b256_hash)
+        }
+    }
+
     /// New work request.
     pub fn new_request(
         &self,
@@ -303,6 +313,12 @@ impl WorkerSession {
 }
 
 impl WorkerSessionRef {
+    /// Hash the work request using the module code hash and the work request data, to get the cache key for caching the work response.
+    pub fn hash_request(&self, work: &WorkRequest) -> WorkRequestHash {
+        let code_hash = self.module_or_protocol_hash();
+        (code_hash, work).using_encoded(crate::blake2b256_hash)
+    }
+
     /// Execute a protocol-specific work request for the given session id.
     pub fn execute_request(
         &self,
@@ -314,7 +330,7 @@ impl WorkerSessionRef {
         let config = self.merge_config(config);
 
         let (req_hash, cached_value) = if config.use_cache {
-            let hash = work.hash_using(crate::blake2b256_hash);
+            let hash = self.hash_request(&work);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
             let cached = worker.cache.get(&hash).and_then(|cached_resp| {
@@ -625,7 +641,7 @@ impl PolymeshWorker {
 
         // If caching is enabled, hash the work request to get the cache key and check if the response for the work request is already cached, and if so, return the cached response.
         let req_hash = if config.use_cache {
-            let hash = work.hash_using(crate::blake2b256_hash);
+            let hash = session.hash_request(&work);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
             if let Some(cached_resp) = self.cache.get(&hash) {

@@ -235,6 +235,11 @@ impl ProtocolModuleRef {
         let mut cache = self.0.cache.write().unwrap();
         cache.return_instance(instance);
     }
+
+    /// Get the code hash of the module, which is used for caching work responses.
+    pub fn code_hash(&self) -> BackendCodeHash {
+        self.0.code_hash
+    }
 }
 
 pub(crate) struct BackendModuleCache {
