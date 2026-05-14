@@ -100,7 +100,17 @@ impl<'a> polymesh_worker::backend::BackendModuleLoader for SubstrateModuleLoader
         protocol: Protocol,
     ) -> Option<ProtocolModuleConfigHash> {
         self.storage(&worker_modules_config_hash_key(protocol))
-            .and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
+            .and_then(|bytes| match Decode::decode(&mut &bytes[..]) {
+                Ok(hash) => Some(hash),
+                Err(e) => {
+                    log::error!(
+                        "Failed to decode protocol module config hash for protocol {:?}: {:?}",
+                        protocol,
+                        e
+                    );
+                    None
+                }
+            })
     }
 
     fn get_protocol_module_config(
@@ -120,7 +130,17 @@ impl<'a> polymesh_worker::backend::BackendModuleLoader for SubstrateModuleLoader
                     bytes,
                 )
             })
-            .and_then(|config| Decode::decode(&mut &config[..]).ok())
+            .and_then(|config| match Decode::decode(&mut &config[..]) {
+                Ok(decoded) => Some(decoded),
+                Err(e) => {
+                    log::error!(
+                        "Failed to decode protocol module config for protocol {:?}: {:?}",
+                        protocol,
+                        e
+                    );
+                    None
+                }
+            })
     }
 
     fn get_module_code_bytes(

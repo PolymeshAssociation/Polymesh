@@ -1875,7 +1875,7 @@ impl<T: Config> Pallet<T> {
         // Allocate a new asset ID.
         let asset_id = NextAssetId::<T>::get();
         // Increment the next asset ID for the next call.
-        NextAssetId::<T>::put(asset_id + 1);
+        NextAssetId::<T>::put(asset_id.saturating_add(1));
 
         // Create the asset details.
         let asset_detail = AssetDetails {
@@ -1960,7 +1960,9 @@ impl<T: Config> Pallet<T> {
             let leg_idx = leg_idx as LegId;
             let mediators = leg.mediator_count().map_err(Error::<T>::from)? as u32;
 
-            pending_affirmations += 2 + mediators; // Sender + Receiver + Mediators
+            pending_affirmations = pending_affirmations
+                .saturating_add(2)
+                .saturating_add(mediators); // Sender + Receiver + Mediators
             LegAffirmationStatus::<T>::insert(
                 (settlement_ref, leg_idx, LegAffirmParty::Sender),
                 AffirmationStatus::Pending,
@@ -2335,14 +2337,14 @@ impl<T: Config> Pallet<T> {
 
         // Process the batched Confidential proofs.  The proofs are processed inside of a transaction so that
         // if any proof fails, the entire batch is reverted (but the relayer is still paid).
-        Self::process_batched_proofs_atomic(proof.batched_proofs)?;
+        let batch_result = Self::process_batched_proofs_atomic(proof.batched_proofs);
 
         // Emit an event for the relayer batched proofs submission.
         Self::deposit_event(Event::<T>::RelayerBatchedProofs {
             relayer,
             batch_hash,
             amount,
-            batch_result: Ok(()),
+            batch_result,
         });
 
         Ok(().into())
@@ -2483,7 +2485,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // Require at least one auditor/mediator.
         ensure!(
-            (mediators.len() + auditors.len()) > 0,
+            (mediators.len().saturating_add(auditors.len())) > 0,
             Error::<T>::NoAuditorsOrMediators
         );
 
@@ -2584,7 +2586,7 @@ impl<T: Config> Pallet<T> {
     pub fn next_account_leaf_index() -> LeafIndex {
         let leaf_index = NextAccountLeafIndex::<T>::get();
         // Increment the next leaf index for the next call.
-        NextAccountLeafIndex::<T>::put(leaf_index + 1);
+        NextAccountLeafIndex::<T>::put(leaf_index.saturating_add(1));
         leaf_index
     }
 
@@ -2592,7 +2594,7 @@ impl<T: Config> Pallet<T> {
     pub fn next_fee_account_leaf_index() -> LeafIndex {
         let leaf_index = NextFeeAccountLeafIndex::<T>::get();
         // Increment the next leaf index for the next call.
-        NextFeeAccountLeafIndex::<T>::put(leaf_index + 1);
+        NextFeeAccountLeafIndex::<T>::put(leaf_index.saturating_add(1));
         leaf_index
     }
 
