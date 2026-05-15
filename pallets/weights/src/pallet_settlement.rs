@@ -587,12 +587,12 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 2_447_068 nanoseconds.
-        Weight::from_parts(2_456_418_000, 0)
-            // Standard Error: 3_394_089
-            .saturating_add(Weight::from_parts(168_125_200, 0).saturating_mul(f.into()))
-            // Standard Error: 327_722
-            .saturating_add(Weight::from_parts(179_449_897, 0).saturating_mul(n.into()))
+        // Minimum execution time: 2_375_918 nanoseconds.
+        Weight::from_parts(2_377_898_000, 0)
+            // Standard Error: 3_208_595
+            .saturating_add(Weight::from_parts(124_872_344, 0).saturating_mul(f.into()))
+            // Standard Error: 309_811
+            .saturating_add(Weight::from_parts(186_211_398, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((25_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((18_u64).saturating_mul(n.into())))
@@ -678,12 +678,12 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight {
-        // Minimum execution time: 4_226_146 nanoseconds.
-        Weight::from_parts(53_941_104, 0)
-            // Standard Error: 4_025_595
-            .saturating_add(Weight::from_parts(458_753_692, 0).saturating_mul(f.into()))
-            // Standard Error: 372_378
-            .saturating_add(Weight::from_parts(195_739_500, 0).saturating_mul(n.into()))
+        // Minimum execution time: 4_558_728 nanoseconds.
+        Weight::from_parts(4_566_523_000, 0)
+            // Standard Error: 4_670_965
+            .saturating_add(Weight::from_parts(246_913_722, 0).saturating_mul(f.into()))
+            // Standard Error: 451_013
+            .saturating_add(Weight::from_parts(184_954_571, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(13))
             .saturating_add(DbWeight::get().reads((59_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((18_u64).saturating_mul(n.into())))
