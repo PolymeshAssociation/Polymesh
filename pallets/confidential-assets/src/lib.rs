@@ -94,6 +94,16 @@ pub use settlement::*;
 /// This is used to hold the POLYX used in private fee payments.
 pub const CONFIDENTIAL_ASSETS_FEE_ID: PalletId = PalletId(*b"pm/dartf");
 
+/// Maximum number of curve tree roots to prune in one block.
+///
+/// This is to prevent the pruning process from taking too long in one block.
+pub const MAX_ROOTS_TO_PRUNE: u32 = 10;
+
+/// Number of recent blocks to keep when pruning curve tree roots.
+///
+/// Avoid wasting time checking recent blocks, since the roots in those blocks will not be older than the maximum root age.
+pub const RECENT_BLOCKS_TO_KEEP: u32 = 100;
+
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
 #[cfg(feature = "testing")]
@@ -110,6 +120,10 @@ pub const FEE_ACCOUNT_TREE_HEIGHT: NodeLevel = 1;
 
 pub trait WeightInfo {
     fn generate_and_save_dart_params() -> Weight;
+
+    fn session_overhead() -> Weight;
+    fn curve_tree_min_update() -> Weight;
+    fn root_pruning(r: u32) -> Weight;
 
     fn update_account_curve_tree_root(l: u32) -> Weight;
     fn update_fee_account_curve_tree_root(l: u32) -> Weight;
@@ -214,8 +228,13 @@ pub trait WeightInfo {
     }
 
     fn on_init() -> Weight {
+        Self::session_overhead().saturating_add(Self::on_finalize())
+    }
+
+    fn on_finalize() -> Weight {
         Self::update_account_curve_tree_root(0)
             .saturating_add(Self::update_fee_account_curve_tree_root(0))
+            .saturating_add(Self::curve_tree_min_update())
     }
 
     fn insert_account_leaf(l: u32) -> Weight {
@@ -1930,7 +1949,6 @@ impl<T: Config> Pallet<T> {
 
         // Get details of the settlement.
         let memo = proof.memo.clone();
-        // TODO: Only copy needed data from the legs (leg_enc and mediator count).
         let proof_legs = proof.legs.clone();
         let root_block: BlockNumberFor<T> = proof.root_block.into();
 
@@ -2476,7 +2494,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Update the asset leaf in the asset curve tree.
-    fn update_asset_leaf(
+    pub fn update_asset_leaf(
         caller_did: IdentityId,
         asset_id: ConfidentialAssetId,
         mediators: &MediatorKeys,
@@ -2758,12 +2776,11 @@ impl<T: Config> Pallet<T> {
         update_last_pruned_block: impl Fn(BlockNumberFor<T>),
         get_root: impl Fn(BlockNumberFor<T>) -> Option<TimestampedTreeRoot<T, Root>>,
         remove_root: impl Fn(BlockNumberFor<T>),
-    ) -> BlockNumberFor<T> {
-        const MAX_ROOTS_TO_PRUNE: u32 = 10;
-
+    ) -> Weight {
         // Prune old curve tree roots that have expired based on the maximum root age.
         let mut last_pruned_block = get_last_pruned_block();
         let mut update_last_pruned = false;
+        let mut pruned_count = 0;
         for _ in 0..MAX_ROOTS_TO_PRUNE {
             let block_number = last_pruned_block.saturating_add(1u32.into());
             if block_number >= stop_at {
@@ -2777,6 +2794,7 @@ impl<T: Config> Pallet<T> {
                     // If the root has not expired, stop pruning.
                     break;
                 } else {
+                    pruned_count += 1;
                     remove_root(block_number);
                 }
             }
@@ -2788,20 +2806,12 @@ impl<T: Config> Pallet<T> {
         if update_last_pruned {
             update_last_pruned_block(last_pruned_block);
         }
-        last_pruned_block
+
+        <T as Config>::WeightInfo::root_pruning(pruned_count)
     }
 
-    /// Prunning historical curve tree roots to prevent storage bloat.  This should be called at the end of each block.
-    // TODO: Benchmark the worse case cost.
-    pub fn curve_tree_pruning() {
-        let now = pallet_timestamp::Pallet::<T>::get();
-        const RECENT_BLOCKS_TO_KEEP: u32 = 100;
-
-        // Don't try pruning from recent blocks.
-        let stop_at =
-            frame_system::Pallet::<T>::block_number().saturating_sub(RECENT_BLOCKS_TO_KEEP.into());
-
-        // Asset curve tree root pruning.
+    // Asset curve tree root pruning.
+    fn asset_curve_tree_pruning(now: T::Moment, stop_at: BlockNumberFor<T>) -> Weight {
         Self::root_pruning(
             now,
             stop_at,
@@ -2810,9 +2820,11 @@ impl<T: Config> Pallet<T> {
             AssetCurveTreeLastPruned::<T>::put,
             AssetCurveTreeRoots::<T>::get,
             AssetCurveTreeRoots::<T>::remove,
-        );
+        )
+    }
 
-        // Account curve tree root pruning.
+    // Account curve tree root pruning.
+    fn account_curve_tree_pruning(now: T::Moment, stop_at: BlockNumberFor<T>) -> Weight {
         Self::root_pruning(
             now,
             stop_at,
@@ -2821,9 +2833,11 @@ impl<T: Config> Pallet<T> {
             AccountCurveTreeLastPruned::<T>::put,
             AccountCurveTreeRoots::<T>::get,
             AccountCurveTreeRoots::<T>::remove,
-        );
+        )
+    }
 
-        // Fee account curve tree root pruning.
+    // Fee account curve tree root pruning.
+    fn fee_account_curve_tree_pruning(now: T::Moment, stop_at: BlockNumberFor<T>) -> Weight {
         Self::root_pruning(
             now,
             stop_at,
@@ -2832,7 +2846,25 @@ impl<T: Config> Pallet<T> {
             FeeAccountCurveTreeLastPruned::<T>::put,
             FeeAccountCurveTreeRoots::<T>::get,
             FeeAccountCurveTreeRoots::<T>::remove,
-        );
+        )
+    }
+
+    /// Prunning historical curve tree roots to prevent storage bloat.
+    pub fn curve_tree_pruning(now: T::Moment) -> Weight {
+        let mut weight = Weight::zero();
+
+        // Don't try pruning from recent blocks.
+        let stop_at =
+            frame_system::Pallet::<T>::block_number().saturating_sub(RECENT_BLOCKS_TO_KEEP.into());
+
+        // Asset curve tree root pruning.
+        weight = weight.saturating_add(Self::asset_curve_tree_pruning(now, stop_at));
+        // Account curve tree root pruning.
+        weight = weight.saturating_add(Self::account_curve_tree_pruning(now, stop_at));
+        // Fee account curve tree root pruning.
+        weight = weight.saturating_add(Self::fee_account_curve_tree_pruning(now, stop_at));
+
+        weight
     }
 
     pub fn update_account_curve_tree_root() {
@@ -2867,6 +2899,26 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn init_block() -> Weight {
+        Self::start_session();
+
+        // Prune old curve tree roots.
+        let now = pallet_timestamp::Pallet::<T>::get();
+        let prune_weight = Self::curve_tree_pruning(now);
+
+        <T as Config>::WeightInfo::on_init().saturating_add(prune_weight)
+    }
+
+    pub fn finalize_block() {
+        Self::update_account_curve_tree_root();
+        Self::update_fee_account_curve_tree_root();
+
+        // Manage historical curve tree roots.
+        Self::curve_tree_min_update();
+
+        Self::end_session();
+    }
+
+    pub fn start_session() {
         // Start worker session.
         let config = WorkerSessionConfig {
             work: WorkRequestConfig {
@@ -2881,19 +2933,9 @@ impl<T: Config> Pallet<T> {
         let session_id = native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
 
         CurrentWorkerSessionId::<T>::put(session_id);
-
-        // TODO: add missing writes to weight.
-        <T as Config>::WeightInfo::on_init()
     }
 
-    pub fn finalize_block() {
-        Self::update_account_curve_tree_root();
-        Self::update_fee_account_curve_tree_root();
-
-        // Manage historical curve tree roots.
-        Self::curve_tree_min_update();
-        Self::curve_tree_pruning();
-
+    pub fn end_session() {
         // Close the batch.
         if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
             native_polymesh_worker::end_session(session_id);
