@@ -507,7 +507,6 @@ where
         Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
-    let prometheus_registry = config.prometheus_registry().cloned();
     let enable_offchain_worker = config.offchain_worker.enabled;
 
     let hwbench = (!disable_hardware_benchmarks)
@@ -530,6 +529,7 @@ where
         other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
     } = new_partial(&mut config)?;
 
+    let prometheus_registry = config.prometheus_registry().cloned();
     let metrics = N::register_notification_metrics(
         config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
     );
