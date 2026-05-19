@@ -94,23 +94,23 @@ tokio = { version = "1.44.2", features = ["full"] }
 serde_json = "1.0.140"
 rand = { version = "0.8" }
 
-sp-core = "36.1"
-sp-runtime = "41.1"
-sp-keyring = "41.0"
-sp-weights = "31.1"
+sp-core = "40.0"
+sp-runtime = "46.0"
+sp-keyring = "46.0"
+sp-weights = "34.0"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [
     "derive",
     "max-encoded-len",
 ] }
 
-polymesh-api = { version = "3.13.1", default-features = false, features = [
+polymesh-api = { version = "3.14.0", default-features = false, features = [
     "download_metadata",
 ] }
-polymesh-api-client-extras = { version = "3.6.3", default-features = false, features = [
+polymesh-api-client-extras = { version = "3.7.0", default-features = false, features = [
     "std",
     "serde",
 ] }
-polymesh-api-tester = { version = "0.10.1", default-features = false, features = [
+polymesh-api-tester = { version = "0.11.0", default-features = false, features = [
     "download_metadata",
 		# Slow down signers for the ci-runtime.
 		"signer_delay",
