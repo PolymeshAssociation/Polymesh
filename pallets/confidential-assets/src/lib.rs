@@ -1090,10 +1090,27 @@ pub mod pallet {
                 AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
                 AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
                 FeeAccountCurveTreeHeight::<T>::put(FEE_ACCOUNT_TREE_HEIGHT);
-                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 3));
+
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 6));
             } else {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
             }
+
+            // If the curve-trees are empty initialize the last pruned block numbers to the current block number to prevent pruning old historical blocks.
+            let block_number = frame_system::Pallet::<T>::block_number();
+            if NextAssetId::<T>::get() == 0 {
+                AssetCurveTreeLastPruned::<T>::put(block_number);
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
+            }
+            if NextAccountLeafIndex::<T>::get() == 0 {
+                AccountCurveTreeLastPruned::<T>::put(block_number);
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
+            }
+            if NextFeeAccountLeafIndex::<T>::get() == 0 {
+                FeeAccountCurveTreeLastPruned::<T>::put(block_number);
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
+            }
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 0));
 
             weight
         }
@@ -2494,7 +2511,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Update the asset leaf in the asset curve tree.
-    pub fn update_asset_leaf(
+    fn update_asset_leaf(
         caller_did: IdentityId,
         asset_id: ConfidentialAssetId,
         mediators: &MediatorKeys,
