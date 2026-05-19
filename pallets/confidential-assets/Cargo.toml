@@ -30,8 +30,10 @@ scale-info = { workspace = true, default-features = false, features = [
   "derive",
 ] }
 frame-system = { workspace = true, default-features = false }
+pallet-babe = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
+sp-consensus-babe = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
@@ -62,6 +64,7 @@ std = [
   "rand_chacha?/std",
   "frame-support/std",
   "frame-system/std",
+  "pallet-babe/std",
   "pallet-timestamp/std",
   "frame-benchmarking?/std",
   "pallet-identity/std",
@@ -70,6 +73,7 @@ std = [
   "polymesh-primitives/std",
   "polymesh-worker-extension/std",
 	"polymesh-worker-protocol-dart-v1/std",
+  "sp-consensus-babe/std",
   "sp-runtime/std",
   "sp-std/std",
   "sp-io/std",

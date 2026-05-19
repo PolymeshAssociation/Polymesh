@@ -1,7 +1,5 @@
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, RwLock},
-};
+use parking_lot::Mutex;
+use std::{collections::BTreeMap, sync::Arc};
 
 use polymesh_worker_common::*;
 
@@ -76,7 +74,7 @@ pub struct ProtocolModule {
     pub code_hash: BackendCodeHash,
     module: Box<dyn BackendModule>,
     initialization_method: ResolvedInitializationMethod,
-    cache: RwLock<ProtocolModuleInstanceCache>,
+    cache: Mutex<ProtocolModuleInstanceCache>,
 }
 
 impl ProtocolModule {
@@ -153,7 +151,7 @@ impl ProtocolModule {
             code_hash: module_def.code_hash,
             module,
             initialization_method,
-            cache: RwLock::new(ProtocolModuleInstanceCache::new()),
+            cache: Mutex::new(ProtocolModuleInstanceCache::new()),
         })))
     }
 
@@ -163,7 +161,7 @@ impl ProtocolModule {
         config_hash: ProtocolModuleConfigHash,
         loader: &mut dyn BackendModuleLoader,
     ) -> Option<ProtocolModuleRef> {
-        let backends = BACKENDS.read().unwrap();
+        let backends = BACKENDS.read();
 
         // Load protocol config.
         let config = loader.get_protocol_module_config(protocol, config_hash)?;
@@ -191,7 +189,7 @@ impl ProtocolModuleRef {
     pub fn get_instance(&self) -> Option<ProtocolModuleInstance> {
         // First try getting an instance from the cache.
         {
-            let mut cache = self.0.cache.write().unwrap();
+            let mut cache = self.0.cache.lock();
             if let Some(instance) = cache.get_instance() {
                 log::debug!(
                     "Reusing cached module instance for protocol: {:?}",
@@ -232,8 +230,13 @@ impl ProtocolModuleRef {
 
     /// Return a module instance to the cache for future reuse.
     pub fn return_instance(&self, instance: Box<dyn BackendModuleInstance>) {
-        let mut cache = self.0.cache.write().unwrap();
+        let mut cache = self.0.cache.lock();
         cache.return_instance(instance);
+    }
+
+    /// Get the code hash of the module, which is used for caching work responses.
+    pub fn code_hash(&self) -> BackendCodeHash {
+        self.0.code_hash
     }
 }
 

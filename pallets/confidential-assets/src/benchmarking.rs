@@ -2,6 +2,7 @@
 // Copyright (c) 2023 Polymesh
 
 use frame_benchmarking::benchmarks;
+use sp_consensus_babe::Slot;
 use sp_std::vec;
 use sp_std::vec::Vec;
 
@@ -19,14 +20,122 @@ use polymesh_primitives::erc20::{Name, Symbol};
 use crate::testing::*;
 use crate::*;
 
+fn set_timestamp<T: Config + pallet_babe::Config>(n: T::Moment)
+where
+    Slot: From<T::Moment>,
+{
+    let duration = pallet_babe::Pallet::<T>::slot_duration();
+    pallet_babe::CurrentSlot::<T>::set(Slot::from(n / duration));
+    pallet_timestamp::Pallet::<T>::set_timestamp(n.into());
+}
+
+fn init_curve_trees<T: Config>() {
+    // Init the session.
+    init_block::<T>();
+
+    let mut rng = Rng::from_seed([42u8; 32]);
+    // Create an Confidential user.
+    let user = DartUser::<T>::new("FeeAccountUser");
+    let keys = user.keys();
+    let pub_keys = user.public_keys();
+    let asset_id = 0;
+
+    // Initialize one asset leaf in the asset curve tree.
+    let auditor_keys = BoundedBTreeSet::new();
+    let mut mediator_keys = BoundedBTreeMap::new();
+    mediator_keys
+        .try_insert(pub_keys.acct, pub_keys.enc)
+        .expect("Failed to push 'mediator' keys");
+    Pallet::<T>::update_asset_leaf(user.did(), asset_id, &mediator_keys, &auditor_keys, true)
+        .expect("Failed to update asset leaf");
+
+    // Generate new fee account state commitment.
+    {
+        // Generate an initial fee account state for the fee asset.
+        let account_state = FeeAccountState::new(&mut rng, &keys.acct.public, FEE_ASSET_ID, 42)
+            .expect("Failed to create fee account state");
+        let commitment = account_state
+            .commitment()
+            .expect("Failed to get fee account state commitment");
+        let nullifier = account_state
+            .nullifier()
+            .expect("Failed to get fee account state nullifier");
+        Pallet::<T>::insert_fee_account_leaf(commitment, Some(nullifier))
+            .expect("Failed to insert fee account leaf");
+    }
+
+    // Generate an initial account state for each asset.
+    {
+        let (account_state, _rho_rand) = keys
+            .account_state(asset_id, 0, &[42])
+            .expect("Failed to create account state");
+        let account_commitment = account_state
+            .commitment()
+            .expect("Failed to get account state commitment");
+        let nullifier = account_state
+            .nullifier()
+            .expect("Failed to get account state nullifier");
+        Pallet::<T>::insert_account_leaf(account_commitment, Some(nullifier))
+            .expect("Failed to insert account leaf");
+    }
+
+    // Initialize the current curve tree roots.
+    Pallet::<T>::update_account_curve_tree_root();
+    Pallet::<T>::update_fee_account_curve_tree_root();
+}
+
 benchmarks! {
-    where_clause { where T: Config }
+    where_clause { where T: Config + pallet_babe::Config, Slot: From<T::Moment> }
 
     generate_and_save_dart_params {
     }: {
         // Make sure to unload the previously loaded parameters, to force generating new parameters for the benchmarks.
         polymesh_dart::init::unload_params();
         Pallet::<T>::generate_and_save_dart_params();
+    }
+
+    session_overhead {
+    }: {
+        Pallet::<T>::start_session();
+        Pallet::<T>::end_session();
+    }
+
+    curve_tree_min_update {
+        init_curve_trees::<T>();
+
+        // Move current timestamp forward by the minimum curve tree root update interval to make sure the curve tree root will be updated.
+        let min_update_interval = T::MinCurveTreeRootUpdateInterval::get();
+        let now = pallet_timestamp::Pallet::<T>::get();
+        set_timestamp::<T>(now + min_update_interval);
+    }: {
+        Pallet::<T>::curve_tree_min_update();
+    }
+
+    root_pruning {
+        let r in 0 .. MAX_ROOT_PRUNING_BLOCKS as u32;
+
+        init_curve_trees::<T>();
+        let max_age = T::MaxAssetCurveTreeRootAge::get();
+        let mut timestamp = pallet_timestamp::Pallet::<T>::get();
+        let mut block_number = frame_system::Pallet::<T>::block_number();
+        for _ in 0..=r {
+            // Move time and block number forward to make the current curve tree root old enough for pruning.
+            timestamp = timestamp.saturating_add(max_age);
+            set_timestamp::<T>(timestamp);
+            block_number = block_number.saturating_add(1u32.into());
+            frame_system::Pallet::<T>::set_block_number(block_number);
+
+            // Record new curve tree root to create more roots for pruning.
+            Pallet::<T>::curve_tree_min_update();
+        }
+
+        // Move block number forward past the recent blocks to keep, to make sure the old roots will be pruned.
+        timestamp = timestamp.saturating_add(max_age);
+        block_number = block_number.saturating_add(1u32.into());
+
+        let stop_at = block_number;
+    }: {
+        Pallet::<T>::asset_curve_tree_pruning(timestamp, stop_at);
     }
 
     update_account_curve_tree_root {

@@ -35,6 +35,57 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_confidential_assets using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
 impl crate::WeightInfo for SubstrateWeight {
+    // Storage: UNKNOWN KEY `0xe67cf3f4b484981dea7be98c7cbbd9797ada29e3bb7bec6691576e935738af7b` (r:1 w:0)
+    // Proof: UNKNOWN KEY `0xe67cf3f4b484981dea7be98c7cbbd9797ada29e3bb7bec6691576e935738af7b` (r:1 w:0)
+    // Storage: `ConfidentialAssets::CurrentWorkerSessionId` (r:0 w:1)
+    // Proof: `ConfidentialAssets::CurrentWorkerSessionId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    fn session_overhead() -> Weight {
+        // Minimum execution time: 3_730 nanoseconds.
+        Weight::from_parts(4_449_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Timestamp::Now` (r:1 w:0)
+    // Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `ConfidentialAssets::AssetCurveTreeLastUpdate` (r:1 w:1)
+    // Proof: `ConfidentialAssets::AssetCurveTreeLastUpdate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AssetCurveTreeCurrentRoot` (r:1 w:1)
+    // Proof: `ConfidentialAssets::AssetCurveTreeCurrentRoot` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AccountCurveTreeLastUpdate` (r:1 w:1)
+    // Proof: `ConfidentialAssets::AccountCurveTreeLastUpdate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AccountCurveTreeCurrentRoot` (r:1 w:1)
+    // Proof: `ConfidentialAssets::AccountCurveTreeCurrentRoot` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::FeeAccountCurveTreeLastUpdate` (r:1 w:1)
+    // Proof: `ConfidentialAssets::FeeAccountCurveTreeLastUpdate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::FeeAccountCurveTreeCurrentRoot` (r:1 w:1)
+    // Proof: `ConfidentialAssets::FeeAccountCurveTreeCurrentRoot` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AccountCurveTreeRoots` (r:0 w:1)
+    // Proof: `ConfidentialAssets::AccountCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::FeeAccountCurveTreeRoots` (r:0 w:1)
+    // Proof: `ConfidentialAssets::FeeAccountCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AssetCurveTreeRoots` (r:0 w:1)
+    // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn curve_tree_min_update() -> Weight {
+        // Minimum execution time: 49_030 nanoseconds.
+        Weight::from_parts(52_410_000, 0)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(9))
+    }
+    // Storage: `ConfidentialAssets::AssetCurveTreeLastPruned` (r:1 w:1)
+    // Proof: `ConfidentialAssets::AssetCurveTreeLastPruned` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::AssetCurveTreeRoots` (r:10 w:10)
+    // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    /// The range of component `r` is `[0, 10]`.
+    fn root_pruning(r: u32) -> Weight {
+        // Minimum execution time: 13_790 nanoseconds.
+        Weight::from_parts(16_348_882, 0)
+            // Standard Error: 19_659
+            .saturating_add(Weight::from_parts(4_578_371, 0).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(r.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(r.into())))
+    }
     // Storage: `ConfidentialAssets::CachedDartParameters` (r:1 w:1)
     // Proof: `ConfidentialAssets::CachedDartParameters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn generate_and_save_dart_params() -> Weight {

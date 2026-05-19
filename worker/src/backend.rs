@@ -1,4 +1,5 @@
-use std::sync::{Arc, RwLock};
+use parking_lot::{Mutex, RwLock};
+use std::sync::Arc;
 
 use codec::Encode;
 use polymesh_worker_common::*;
@@ -28,7 +29,7 @@ impl Backends {
     pub fn init_global_backends<N: Backend>(kinds: &[BackendKind]) {
         let native = N::new_boxed().ok();
         // Try loading all backends and see which ones are available.
-        *BACKENDS.write().unwrap() = Self::with_backends(kinds, native);
+        *BACKENDS.write() = Self::with_backends(kinds, native);
     }
 
     pub fn new(native: Option<Box<dyn Backend>>) -> Self {
@@ -111,27 +112,21 @@ impl Backends {
 
     /// Get avaiable backends.
     pub fn get_available_backends() -> Vec<BackendKind> {
-        BACKENDS
-            .read()
-            .unwrap()
-            .backends
-            .iter()
-            .map(|b| b.kind())
-            .collect()
+        BACKENDS.read().backends.iter().map(|b| b.kind()).collect()
     }
 }
 
 pub type BackendManagerRef = Arc<BackendManager>;
 
 pub struct BackendManager {
-    inner: RwLock<BackendModuleCache>,
+    inner: Mutex<BackendModuleCache>,
 }
 
 impl BackendManager {
     /// Create a new backend manager with all available backends.
     pub fn new() -> BackendManagerRef {
         Arc::new(Self {
-            inner: RwLock::new(BackendModuleCache::new()),
+            inner: Mutex::new(BackendModuleCache::new()),
         })
     }
 
@@ -146,10 +141,7 @@ impl BackendManager {
             return None;
         }
 
-        self.inner
-            .write()
-            .unwrap()
-            .load_protocol(allowed, protocol, loader)
+        self.inner.lock().load_protocol(allowed, protocol, loader)
     }
 }
 

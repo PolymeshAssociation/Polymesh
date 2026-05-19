@@ -1,7 +1,9 @@
+use codec::Encode;
+use parking_lot::RwLock;
 use std::{
     collections::{BTreeMap, HashMap},
     ops::Deref,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
@@ -14,8 +16,8 @@ use crate::{
     },
 };
 use polymesh_worker_common::{
-    BackendBitmask, Protocol, WorkRequest, WorkRequestHash, WorkRequestId, WorkResponseResult,
-    WorkStatus, WorkerSessionId, config::*, error::*,
+    BackendBitmask, BackendCodeHash, Protocol, WorkRequest, WorkRequestHash, WorkRequestId,
+    WorkResponseResult, WorkStatus, WorkerSessionId, config::*, error::*,
 };
 
 pub const WORK_CACHE_CAPACITY: usize = 10_000;
@@ -194,13 +196,22 @@ impl WorkerSession {
         }))
     }
 
+    /// Get the module code hash if the session has a module reference, otherwise get the protocol hash as the fallback.
+    pub fn module_or_protocol_hash(&self) -> BackendCodeHash {
+        if let Some(module) = &self.module {
+            module.code_hash()
+        } else {
+            self.protocol.using_encoded(crate::blake2b256_hash)
+        }
+    }
+
     /// New work request.
     pub fn new_request(
         &self,
         req_hash: Option<WorkRequestHash>,
         cached_value: Option<WorkResponseResult>,
     ) -> WorkRequestId {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         inner.new_request(req_hash, cached_value)
     }
 
@@ -225,7 +236,7 @@ impl WorkerSession {
                 request_id
             );
             // Fallback to directly pushing the response.
-            let mut inner = self.inner.write().unwrap();
+            let mut inner = self.inner.write();
             inner.push_response(request_id, result);
         }
     }
@@ -236,7 +247,7 @@ impl WorkerSession {
         req_id: WorkRequestId,
         cache: Option<&WorkRequestCache>,
     ) -> Option<WorkResponseResult> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         inner.get_or_wait_for(req_id, cache)
     }
 
@@ -245,13 +256,13 @@ impl WorkerSession {
         &self,
         cache: Option<&WorkRequestCache>,
     ) -> Option<(WorkRequestId, WorkResponseResult)> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         inner.next_result(cache)
     }
 
     /// Get the number of requests in the session.
     pub fn num_requests(&self) -> u32 {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.read();
         inner.next_id
     }
 
@@ -303,6 +314,12 @@ impl WorkerSession {
 }
 
 impl WorkerSessionRef {
+    /// Hash the work request using the module code hash and the work request data, to get the cache key for caching the work response.
+    pub fn hash_request(&self, work: &WorkRequest) -> WorkRequestHash {
+        let code_hash = self.module_or_protocol_hash();
+        (code_hash, work).using_encoded(crate::blake2b256_hash)
+    }
+
     /// Execute a protocol-specific work request for the given session id.
     pub fn execute_request(
         &self,
@@ -314,7 +331,7 @@ impl WorkerSessionRef {
         let config = self.merge_config(config);
 
         let (req_hash, cached_value) = if config.use_cache {
-            let hash = work.hash_using(crate::blake2b256_hash);
+            let hash = self.hash_request(&work);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
             let cached = worker.cache.get(&hash).and_then(|cached_resp| {
@@ -509,7 +526,7 @@ impl PolymeshWorker {
         &self,
         session_id: WorkerSessionId,
     ) -> Result<WorkerSessionRef, WorkerError> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.read();
         inner.get_session(session_id)
     }
 
@@ -560,7 +577,7 @@ impl PolymeshWorker {
             .backend
             .load_protocol(config.backends, protocol, loader);
 
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         let session = inner.create_session(config, protocol, module);
         log::debug!("Started session with id: {}", session.id);
         session
@@ -625,7 +642,7 @@ impl PolymeshWorker {
 
         // If caching is enabled, hash the work request to get the cache key and check if the response for the work request is already cached, and if so, return the cached response.
         let req_hash = if config.use_cache {
-            let hash = work.hash_using(crate::blake2b256_hash);
+            let hash = session.hash_request(&work);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
             if let Some(cached_resp) = self.cache.get(&hash) {
@@ -715,7 +732,7 @@ impl PolymeshWorker {
 
     /// End the worker session with the given session id.
     pub fn end_session(&self, session_id: WorkerSessionId) -> Result<(), WorkerError> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.write();
         log::debug!("Ending session with id: {}", session_id);
         inner
             .remove_session(session_id)
