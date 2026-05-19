@@ -1,4 +1,4 @@
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::SecurityTokensOwnedByUser;
@@ -69,6 +69,31 @@ fn transfer_token_ownership_agents_check() {
         assert_eq!(
             GroupOfAgent::<TestStorage>::get(asset_id, dave.did),
             Some(AgentGroup::Full)
+        );
+    })
+}
+
+#[test]
+fn block_self_ownership_transfers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        let asset_transfer_auth_id = pallet_identity::Pallet::<TestStorage>::add_auth(
+            alice.did,
+            Signatory::from(alice.did),
+            AuthorizationData::TransferAssetOwnership(asset_id),
+            None,
+        )
+        .unwrap();
+
+        assert_noop!(
+            pallet_asset::Pallet::<TestStorage>::accept_asset_ownership_transfer(
+                alice.origin(),
+                asset_transfer_auth_id
+            ),
+            pallet_asset::Error::<TestStorage>::SelfOwnershipTransferNotAllowed
         );
     })
 }

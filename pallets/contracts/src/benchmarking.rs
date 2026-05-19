@@ -26,14 +26,12 @@ use sp_runtime::Perbill;
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
-use pallet_identity::benchmarking::{did_registrar, user, User, UserBuilder};
-use pallet_identity::{Config as IdentityConfig, ParentDid};
+use pallet_identity::benchmarking::{user, User, UserBuilder};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::identity::limits::{MAX_ASSETS, MAX_EXTRINSICS};
 use polymesh_primitives::identity::limits::{MAX_PALLETS, MAX_PORTFOLIOS};
 use polymesh_primitives::secondary_key::ExtrinsicNames;
-use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::{AssetPermissions, Balance, ExtrinsicName, ExtrinsicPermissions};
 use polymesh_primitives::{PalletName, PalletPermissions, Permissions, PortfolioId};
 use polymesh_primitives::{PortfolioNumber, PortfolioPermissions};
@@ -48,60 +46,6 @@ pub const CHAIN_EXTENSION_BATCHES: u32 = 20;
 const ENDOWMENT: Balance = 1_000 * POLY;
 
 const SALT_BYTE: u8 = 0xFF;
-
-pub struct BenchmarkContractPolymeshHooks;
-
-impl<T: Config> pallet_contracts::PolymeshHooks<T> for BenchmarkContractPolymeshHooks
-where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-{
-    fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
-        pallet_permissions::Pallet::<T>::ensure_call_permissions(caller)?;
-        Ok(())
-    }
-
-    fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
-        // Get the caller's identity.
-        let did = IdentityPallet::<T>::get_identity(&caller)
-            .ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
-        // Check if contact is already linked.
-        match IdentityPallet::<T>::get_identity(&contract) {
-            Some(contract_did) => {
-                if contract_did != did && ParentDid::<T>::get(contract_did) != Some(did) {
-                    // Contract address already linked to a different identity.
-                    Err(IdentityError::<T>::AlreadyLinked.into())
-                } else {
-                    // Contract is already linked to caller's identity.
-                    Ok(())
-                }
-            }
-            None => {
-                // Linked new contract address to caller's identity.  With empty permissions.
-                IdentityPallet::<T>::unsafe_join_identity(
-                    did,
-                    Permissions::empty(),
-                    contract.clone(),
-                );
-                Ok(())
-            }
-        }
-    }
-
-    fn register_did(account_id: T::AccountId) -> DispatchResult {
-        let did_registrar_origin = {
-            match <T as IdentityConfig>::DidRegistrars::get_members().first() {
-                Some(did_registrar) => {
-                    let did_registrar_acc =
-                        pallet_identity::Pallet::<T>::get_primary_key(*did_registrar).unwrap();
-                    RawOrigin::Signed(did_registrar_acc).into()
-                }
-                None => did_registrar::<T>("did_registrar", 0).origin.into(),
-            }
-        };
-
-        pallet_identity::Pallet::<T>::register_did(did_registrar_origin, account_id)
-    }
-}
 
 /// Construct the default salt used for most benchmarks.
 fn salt() -> Vec<u8> {
@@ -204,6 +148,7 @@ where
         key_len: u32,
         output_len: usize,
     ) -> Self {
+        let mut in_ptr: i32 = 0;
         let code = WasmModule::<T>::from(ModuleDefinition {
             memory: Some(ImportedMemory::max::<T>()),
             imported_functions: vec![ImportedFunction {
@@ -222,18 +167,19 @@ where
                     value: output_len.to_le_bytes().into(),
                 },
             ],
-            call_body: Some(body::repeated(
-                repetitions,
-                &[
+            call_body: Some(body::repeated_with_locals_using(&[], repetitions, || {
+                let current_in_ptr = in_ptr;
+                in_ptr += key_len as i32;
+                [
                     Instruction::I32Const(FuncId::GetKeyDid.into()),
-                    Instruction::I32Const(0),
+                    Instruction::I32Const(current_in_ptr),
                     Instruction::I32Const(key_len as i32),
                     Instruction::I32Const(input.len() as i32 + 4),
                     Instruction::I32Const(input.len() as i32),
                     Instruction::Call(0),
                     Instruction::Drop,
-                ],
-            )),
+                ]
+            })),
             ..Default::default()
         });
         Self::new(code)
@@ -471,9 +417,9 @@ benchmarks! {
 
         let user = funded_user::<T>(SEED);
         let caller = user.account();
-        let perms = Some(Permissions::default());
+        let perms = Permissions::default();
     }: {
-        Pallet::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
+        Pallet::<T>::polymesh_additions_and_contract_address_weight(&caller, &code, &input, &salt, &perms)
     }
 
     base_weight_with_code {
@@ -490,9 +436,9 @@ benchmarks! {
 
         let user = funded_user::<T>(SEED);
         let caller = user.account();
-        let perms = Some(Permissions::default());
+        let perms = Permissions::default();
     }: {
-        Pallet::<T>::base_weight_and_contract_address(&caller, &code, &input, &salt, perms.as_ref())
+        Pallet::<T>::polymesh_additions_and_contract_address_weight(&caller, &code, &input, &salt, &perms)
     }
 
     update_call_runtime_whitelist {
@@ -503,7 +449,7 @@ benchmarks! {
             .collect();
     }: _(RawOrigin::Root, updates)
 
-    link_contract_as_secondary_key {
+    link_contract_to_did {
         let alice = UserBuilder::<T>::default()
             .generate_did()
             .become_did_registrar()
@@ -513,23 +459,9 @@ benchmarks! {
 
         let wasm = WasmModule::<T>::dummy();
         let addr = FrameContracts::<T>::contract_address(&caller, &wasm.hash, &[], &[]);
-        let perms = Some(Permissions::default());
+        let perms = Permissions::default();
     }: {
-        Pallet::<T>::link_contract_to_did(&caller, addr, perms, false)?;
-    }
-
-    link_contract_as_primary_key {
-        let alice = UserBuilder::<T>::default()
-            .generate_did()
-            .become_did_registrar()
-            .build("Alice");
-        T::Currency::make_free_balance_be(&alice.account(), 1_000_000 * POLY);
-        let caller = alice.account();
-
-        let wasm = WasmModule::<T>::dummy();
-        let addr = FrameContracts::<T>::contract_address(&caller, &wasm.hash, &[], &[]);
-    }: {
-        Pallet::<T>::link_contract_to_did(&caller, addr, None, true)?;
+        Pallet::<T>::link_contract_to_did(&caller, addr, perms)?;
     }
 
     upgrade_api {

@@ -129,10 +129,6 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       InvalidTransferInvalidReceiverDID: AugmentedError<ApiType>;
       /**
-       * The sender identity can't be the same as the receiver identity.
-       **/
-      InvalidTransferSenderDidMatchesReceiverDid: AugmentedError<ApiType>;
-      /**
        * Investor Uniqueness claims are not allowed for this asset.
        **/
       InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
@@ -1674,10 +1670,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Only owned NFTs can be moved between portfolios.
        **/
       InvalidTransferNFTNotOwned: AugmentedError<ApiType>;
-      /**
-       * The sender identity can't be the same as the receiver identity.
-       **/
-      InvalidTransferSenderDidMatchesReceiverDid: AugmentedError<ApiType>;
       /**
        * Key not found for caller.
        **/

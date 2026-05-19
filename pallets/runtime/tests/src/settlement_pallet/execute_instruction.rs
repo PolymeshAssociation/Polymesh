@@ -115,11 +115,6 @@ fn storage_rollback() {
             instruction_id,
             default_asset_holder_set(alice.did),
         ));
-        assert_ok!(Settlement::affirm_instruction(
-            bob.origin(),
-            instruction_id,
-            default_asset_holder_set(bob.did),
-        ));
         // Removes asset_id2 balance to force an error
         BalanceOf::<TestStorage>::insert(asset_id2, alice.did, 0);
         next_block();

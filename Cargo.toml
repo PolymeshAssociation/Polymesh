@@ -1,7 +1,10 @@
 [package]
 name = "polymesh"
-version = "8.0.0"
-authors = ["PolymeshAssociation"]
+version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+homepage.workspace = true
 build = "build.rs"
 edition = "2021"
 
@@ -11,15 +14,82 @@ path = "src/bin/main.rs"
 
 [patch.crates-io]
 # Patch this to avoid duplicate deps (subxt uses this dep).
-sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
+sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+
+# DART
+# Curve tree dependencies
+#curve_tree_bulletproofs = { package = "bulletproofs", path = "../curve-trees/bulletproofs" }
+#curve_tree_relations = { package = "relations", path = "../curve-trees/relations" }
+#ark-ec-divisors = { package = "ark-ec-divisors", path = "../curve-trees/ark-ec-divisors"}
+#ark-dlog-gadget = { package = "ark-dlog-gadget", path = "../curve-trees/ark-dlog-gadget"}
+# If want to pull code for curve-trees from git, comment above 2 relations and uncomment below 2
+curve_tree_bulletproofs = { package = "bulletproofs", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+curve_tree_relations = { package = "relations", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+ark-ec-divisors = { package = "ark-ec-divisors", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+ark-dlog-gadget = { package = "ark-dlog-gadget", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+
+#dock_crypto_utils = { path = "../crypto/utils" }
+#schnorr_pok = { path = "../crypto/schnorr_pok" }
+dock_crypto_utils = { git = "https://github.com/PolymeshAssociation/crypto", branch = "main" }
+schnorr_pok = { git = "https://github.com/PolymeshAssociation/crypto", branch = "main" }
+
+#polymesh-dart = { path = "../polymesh-dart" }
+#polymesh-dart-bp = { path = "../polymesh-dart/dart-bp" }
+#polymesh-dart-common = { path = "../polymesh-dart/dart-common" }
+polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+
+# Polymesh changes to Arkworks.
+#ark-serialize = { path = "../arkworks-algebra/serialize" }
+#ark-ec = { path = "../arkworks-algebra/ec" }
+#ark-host-msm = { path = "../arkworks-algebra/host-msm" }
+#ark-host-msm-impl = { path = "../arkworks-algebra/host-msm-impl" }
+#ark-ff = { path = "../arkworks-algebra/ff" }
+#ark-pallas = { path = "../arkworks-algebra/curves/pallas" }
+#ark-vesta = { path = "../arkworks-algebra/curves/vesta" }
+#ark-helios = { path = "../arkworks-algebra/curves/helios" }
+#ark-selene = { path = "../arkworks-algebra/curves/selene" }
+#ark-wei25519 = { path = "../arkworks-algebra/curves/wei25519" }
+#ark-curve25519 = { path = "../arkworks-algebra/curves/curve25519" }
+#ark-ed25519 = { path = "../arkworks-algebra/curves/ed25519" }
+#ark-bn254 = { path = "../arkworks-algebra/curves/bn254" }
+#ark-bls12-381 = { path = "../arkworks-algebra/curves/bls12_381" }
+
+ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+
+#ark-bls12-377 = { path = "../arkworks-algebra/curves/bls12_377" }
+#ark-bls12-377 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
 
 [workspace]
 members = [
+    "eth-rpc",
     "node-rpc",
+    "worker",
+    "worker/extension",
+    "worker/tester",
+    "worker/tools",
+    "worker/common",
+    "worker/native",
+    "worker/protocol/dart-v1",
     "pallets/asset",
     "pallets/base",
     "pallets/committee",
     "pallets/compliance-manager",
+    "pallets/confidential-assets",
     "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
@@ -53,16 +123,42 @@ members = [
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
+    "native-crypto",
 ]
 exclude = ["contracts", "integration", "metadata-tools"]
 
+[workspace.package]
+version = "8.0.1"
+authors = ["PolymeshAssociation"]
+license-file = "./LICENSE"
+edition = "2021"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+homepage = "https://github.com/PolymeshAssociation/Polymesh"
+
 ## Keep common dependencies here.
 [workspace.dependencies]
+# Polymesh worker host functions and protocols.
+polymesh-worker = { path = "worker", default-features = false }
+polymesh-worker-extension = { path = "worker/extension", default-features = false }
+polymesh-worker-common = { path = "worker/common", default-features = false }
+polymesh-worker-native = { path = "worker/native", default-features = false }
+polymesh-worker-protocol-dart-v1 = { path = "worker/protocol/dart-v1", default-features = false }
+schnellru = { version = "0.2.4", default-features = false }
+rayon = { version = "1.8" }
+
+# Polymesh native MSM and hash to curve
+polymesh-native-crypto = { path = "native-crypto", default-features = false }
+
+# Polkavm for protocol workers.
+polkavm = { version = "0.32", default-features = false }
+polkavm-derive = { version = "0.32", default-features = false }
+
 # Our pallets
 pallet-asset = { path = "pallets/asset", default-features = false }
 pallet-base = { path = "pallets/base", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-compliance-manager = { path = "pallets/compliance-manager", default-features = false }
+pallet-confidential-assets = { path = "pallets/confidential-assets", default-features = false }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-external-agents = { path = "pallets/external-agents", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
@@ -114,128 +210,153 @@ codec = { package = "parity-scale-codec", version = "3.7.4", default-features = 
 scale-info = { version = "2.11.6", default-features = false, features = [
     "derive",
 ] }
+bounded-collections = { version = "0.3.2", default-features = false }
+hex-literal = { version = "1.1.0", default-features = false }
 
 # Substrate pallet/runtime deps.
-frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-benchmarking-cli = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-executive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-support = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-election-provider-support = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-system = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-system-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-frame-system-rpc-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-mmr-gadget = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-mmr-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false, features = [
+frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-benchmarking-cli = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-executive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-metadata-hash-extension = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-support = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-election-provider-support = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-system = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-system-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+frame-system-rpc-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+mmr-gadget = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+mmr-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false, features = [
     'insecure_zero_ed',
 ] }
-pallet-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-beefy-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-contracts = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-election-provider-multi-phase = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-im-online = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-indices = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-offences = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-preimage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-scheduler = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-staking-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-sudo = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-transaction-payment = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-pallet-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-application-crypto = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-arithmetic = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-block-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-blockchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-consensus = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-consensus-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-consensus-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-consensus-slots = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-core = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-debug-derive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-externalities = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-consensus-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-genesis-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-inherents = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-io = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-keystore = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-keyring = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-mmr-primitives = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-npos-elections = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-offchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-weights = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-state-machine = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-std = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-storage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-tracing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-transaction-pool = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-transaction-storage-proof = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-trie = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sp-version = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
+pallet-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-beefy-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-contracts = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-election-provider-multi-phase = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-im-online = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-indices = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-migrations = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-offences = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-preimage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-revive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-revive-fixtures = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-scheduler = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-session-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-staking-runtime-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-sudo = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+pallet-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-application-crypto = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-arithmetic = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-block-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-blockchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-consensus = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-consensus-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-consensus-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-consensus-slots = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-core = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sp-debug-derive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-externalities = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-consensus-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-genesis-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-inherents = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-io = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-keystore = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-keyring = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-maybe-compressed-blob = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-mmr-primitives = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-npos-elections = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-offchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-panic-handler = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-runtime = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-weights = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-wasm-interface = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-session = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-staking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-state-machine = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-std = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-storage = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-timestamp = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-tracing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-transaction-pool = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-transaction-storage-proof = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-trie = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sp-version = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
 
 # Substrate client/node deps.
-sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-block-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-chain-spec = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-cli = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-client-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-client-db = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512", default-features = false }
-sc-consensus = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-babe-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-beefy-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-epochs = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-slots = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-executor = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-consensus-grandpa-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-keystore = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-network = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-network-common = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-network-sync = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-rpc-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-rpc-spec-v2 = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-service = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-storage-monitor = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-sync-state-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-sysinfo = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-telemetry = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-transaction-pool = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-transaction-pool-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-sc-offchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-substrate-test-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
-substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
+sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-block-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-chain-spec = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-cli = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-client-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-client-db = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
+sc-consensus = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-babe-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-beefy-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-epochs = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-slots = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-executor = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-consensus-grandpa-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-keystore = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-network = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-network-common = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-network-sync = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-rpc-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-rpc-spec-v2 = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-service = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-storage-monitor = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-sync-state-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-sysinfo = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-telemetry = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-transaction-pool = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-transaction-pool-api = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+sc-offchain = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+substrate-test-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+substrate-build-script-utils = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2" }
 
 # Crypto
 rand = { version = "0.8", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 rand_chacha = { version = "0.3", default-features = false }
 
+# DART
+polymesh-dart = { version = "0.1.0", default-features = false }
+polymesh-dart-common = { version = "0.1.0", default-features = false }
+ark-serialize = { version = "0.5", default-features = false }
+ark-ec = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
+ark-host-msm = { version = "0.5", default-features = false }
+ark-host-msm-impl = { version = "0.5", default-features = false }
+bulletproofs = { version = "2.0.0", default-features = false }
+ark-pallas = { version = "0.5", default-features = false }
+ark-vesta = { version = "0.5", default-features = false }
+ark-std = { version = "0.5", default-features = false }
+
 [dependencies]
 pallet-asset = { workspace = true }
 pallet-committee = { workspace = true, default-features = false }
+pallet-confidential-assets = { workspace = true, default-features = false }
 pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
@@ -249,6 +370,14 @@ polymesh-transaction-payment = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
+
+# Host MSM and hash to curve.
+polymesh-native-crypto = { workspace = true, default-features = false }
+
+# Polymesh worker service
+polymesh-worker = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false }
+polymesh-worker-native = { workspace = true, default-features = false }
 
 # RPC
 node-rpc = { workspace = true }
@@ -275,6 +404,9 @@ serde = { version = "1.0.136", default-features = false, features = [
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
+array-bytes = { version = "6.2.2", default-features = false }
+rayon = { workspace = true }
+sp-panic-handler = { workspace = true, default-features = false }
 
 # Substrate client deps.
 mmr-gadget = { workspace = true }
@@ -319,12 +451,14 @@ pallet-balances = { workspace = true, default-features = false, features = [
 ] }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
+pallet-migrations = { workspace = true, default-features = false }
+pallet-revive = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true, default-features = false }
 pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2512" }
+prometheus-endpoint = { workspace = true, default-features = false }
 sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -354,7 +488,13 @@ frame-benchmarking-cli = { workspace = true }
 substrate-build-script-utils = { workspace = true }
 
 [features]
-default = ["std"]
+default = [
+    "std",
+    "worker_polkavm",
+    "worker_wasmtime",
+    "worker_wasmer",
+]
+
 disable_fees = [
     "polymesh-transaction-payment/disable_fees",
     "polymesh-runtime-develop/disable_fees",
@@ -369,6 +509,8 @@ runtime-benchmarks = [
     "polymesh-runtime-develop/runtime-benchmarks",
     "polymesh-runtime-testnet/runtime-benchmarks",
     "polymesh-runtime-mainnet/runtime-benchmarks",
+    "polymesh-worker-extension/runtime-benchmarks",
+    "polymesh-worker/testing",
 ]
 
 # Only build a "ci" runtime.
@@ -380,4 +522,21 @@ metadata-hash = [
     "polymesh-runtime-testnet/metadata-hash",
 ]
 
-std = ["serde/std"]
+# Polymesh worker backends
+worker_polkavm = [
+    "polymesh-worker/polkavm",
+]
+worker_wasmer = [
+    "polymesh-worker/wasmer",
+]
+worker_wasmtime = [
+    "polymesh-worker/wasmtime",
+]
+
+std = [
+    "serde/std",
+    "polymesh-native-crypto/std",
+    "polymesh-worker/std",
+    "polymesh-worker-extension/std",
+    "polymesh-worker-native/std",
+]

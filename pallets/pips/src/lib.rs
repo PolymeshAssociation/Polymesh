@@ -130,7 +130,7 @@ pub trait WeightInfo {
     fn prune_proposal() -> Weight;
     fn reschedule_execution() -> Weight;
     fn clear_snapshot() -> Weight;
-    fn snapshot() -> Weight;
+    fn snapshot(q: u32) -> Weight;
     fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight;
     fn execute_scheduled_pip() -> Weight;
     fn expire_scheduled_pip() -> Weight;
@@ -187,8 +187,8 @@ pub mod pallet {
         ProposalNotInScheduledState,
         /// Invalid PIP ID. Pip id was not expected to be in the live queue.
         InvalidPipId,
-        /// TaskName cannot exceed 32 bytes.
-        InvalidTaskName,
+        /// The provided `limit` is less than the actual queue length.
+        SnapshotLimitTooSmall,
     }
 
     #[pallet::event]
@@ -734,10 +734,9 @@ pub mod pallet {
             if let Proposer::Community(ref proposer) = proposer {
                 // ...but first make sure active PIP limit isn't crossed.
                 // This doesn't apply to committee PIPs.
-                // `0` is special and denotes no limit.
                 let limit = ActivePipLimit::<T>::get();
                 ensure!(
-                    limit == 0 || ActivePipCount::<T>::get() < limit,
+                    ActivePipCount::<T>::get() < limit,
                     Error::<T>::TooManyActivePips
                 );
 
@@ -1053,9 +1052,7 @@ pub mod pallet {
 
             // Update enactment period & reschedule it.
             PipToSchedule::<T>::insert(id, new_until);
-            let task_name = id
-                .execution_name()
-                .map_err(|_| Error::<T>::InvalidTaskName)?;
+            let task_name = id.execution_name();
             let res = T::Scheduler::reschedule_named(task_name, DispatchTime::At(new_until));
             Self::handle_exec_scheduling_result(id, new_until, res);
             Ok(())
@@ -1102,6 +1099,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be a GC member.
+        /// * `limit` - Weight witness for the expected queue length (typically the active PIP limit). The actual weight is refunded based on the real queue size.
         ///
         /// # Events
         /// * `SnapshotTaken` - Emitted when a snapshot is successfully taken, containing the ID of the snapshot and the queue of PIPs.
@@ -1109,8 +1107,10 @@ pub mod pallet {
         /// # Errors
         /// * `NotACommitteeMember` - If the call is not made by a GC member.
         #[pallet::call_index(13)]
-        #[pallet::weight((<T as Config>::WeightInfo::snapshot(), Operational))]
-        pub fn snapshot(origin: OriginFor<T>) -> DispatchResult {
+        #[pallet::weight((<T as Config>::WeightInfo::snapshot(
+            *limit
+        ), Operational))]
+        pub fn snapshot(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
             // Ensure a GC member is executing this.
             let PermissionedCallOriginData {
                 sender: made_by,
@@ -1131,12 +1131,14 @@ pub mod pallet {
                 id,
             }));
             let queue = LiveQueue::<T>::get();
+            let queue_len = queue.len() as u32;
+            ensure!(limit >= queue_len, Error::<T>::SnapshotLimitTooSmall);
             SnapshotQueue::<T>::set(queue.clone());
 
             // Emit event.
             Self::deposit_event(Event::SnapshotTaken(did, id, queue));
 
-            Ok(())
+            Ok(Some(<T as Config>::WeightInfo::snapshot(queue_len)).into())
         }
 
         /// Enacts the results for the PIPs in the snapshot queue.
@@ -1378,7 +1380,7 @@ impl<T: Config> Pallet<T> {
         let expire_pip_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
 
         match T::Scheduler::schedule_named(
-            id.expiry_name().map_err(|_| Error::<T>::InvalidTaskName)?,
+            id.expiry_name(),
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
@@ -1509,9 +1511,7 @@ impl<T: Config> Pallet<T> {
 
         let execute_pip_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
 
-        let task_name = id
-            .execution_name()
-            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let task_name = id.execution_name();
 
         let res = T::Scheduler::schedule_named(
             task_name,
@@ -1603,9 +1603,7 @@ impl<T: Config> Pallet<T> {
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) -> DispatchResult {
-        let task_name = id
-            .execution_name()
-            .map_err(|_| Error::<T>::InvalidTaskName)?;
+        let task_name = id.execution_name();
 
         PipToSchedule::<T>::remove(id);
         if T::Scheduler::cancel_named(task_name).is_err() {

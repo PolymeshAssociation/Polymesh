@@ -95,8 +95,8 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use frame_support::BoundedBTreeSet;
+use frame_system::ensure_root;
 use frame_system::pallet_prelude::*;
-use frame_system::{ensure_root, ensure_signed};
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
@@ -117,10 +117,12 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::constants::*;
+use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::settlement::InstructionId;
+use polymesh_primitives::settlement::{AssetCount, InstructionId};
 use polymesh_primitives::traits::{
-    AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait, SettlementFnTrait,
+    AffirmationFnTrait, AssetFnConfig, AssetFnTrait, ComplianceFnConfig, NFTTrait,
+    SettlementFnTrait,
 };
 use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
@@ -144,7 +146,7 @@ pub trait AssetConfig: Config + checkpoint::Config {}
 
 impl<T: Config + checkpoint::Config> AssetConfig for T {}
 
-storage_migration_ver!(6);
+storage_migration_ver!(7);
 
 pub use pallet::*;
 
@@ -343,6 +345,21 @@ pub mod pallet {
             memo: Option<Memo>,
             pending_transfer_id: Option<InstructionId>,
         },
+        /// A spender allowance was set for an asset.
+        Approval {
+            owner: T::AccountId,
+            spender: T::AccountId,
+            asset_id: AssetId,
+            amount: Balance,
+        },
+        /// A spender used part of an allowance.
+        AllowanceSpent {
+            owner: T::AccountId,
+            spender: T::AccountId,
+            asset_id: AssetId,
+            amount_spent: Balance,
+            remaining_allowance: Balance,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -523,6 +540,7 @@ pub mod pallet {
     pub type PreApprovedAsset<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
+    /// Identities that require receiver affirmation for all incoming transfers.
     /// The list of mandatory mediators for every ticker.
     #[pallet::storage]
     pub type MandatoryMediators<T: Config> = StorageMap<
@@ -591,6 +609,25 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// Maps (owner, spender, asset_id) to the approved allowance amount.
+    ///
+    /// A non-existent entry returns 0 (via `ValueQuery`), matching ERC-20 behavior.
+    /// When an allowance is revoked (set to 0), the entry is removed to bound storage growth.
+    ///
+    /// Uses `StorageNMap` so that all allowances for a given owner can be iterated
+    /// via prefix.
+    #[pallet::storage]
+    pub type Allowances<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>,
+            NMapKey<Blake2_128Concat, T::AccountId>,
+            NMapKey<Blake2_128Concat, AssetId>,
+        ),
+        Balance,
+        ValueQuery,
+    >;
+
     /// Storage version.
     #[pallet::storage]
     pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -598,11 +635,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::<T>, 6, {
-                migrations::migrate_to_v6::<T>();
+            let mut weight = Weight::zero();
+
+            storage_migrate_on!(StorageVersion::<T>, 7, {
+                weight = migrations::migrate_to_v7::<T>();
             });
 
-            Weight::zero()
+            weight
         }
     }
 
@@ -622,7 +661,7 @@ pub mod pallet {
         T: AssetConfig,
     {
         fn build(&self) {
-            StorageVersion::<T>::put(Version::new(6));
+            StorageVersion::<T>::put(Version::new(7));
 
             // Set ticker registratoin config.
             TickerConfig::<T>::put(TickerRegistrationConfig {
@@ -1052,7 +1091,8 @@ pub mod pallet {
         /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
         /// * `asset_id` - The [`AssetId`] associated to the asset.
         /// * `value` - The [`Balance`] of tokens that will be transferred.
-        /// * `asset_holder` - The [`AssetHolder`] that will have its balance reduced.
+        /// * `source` - The [`AssetHolder`] that will have its balance reduced.
+        /// * `destination_kind` - The [`AssetHolderKind`] of the destination.
         ///
         /// # Permissions
         /// * Asset
@@ -1071,10 +1111,18 @@ pub mod pallet {
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
-            asset_holder: AssetHolder,
+            source: AssetHolder,
+            destination_kind: AssetHolderKind,
         ) -> DispatchResult {
             let mut weight_meter = WeightMeter::max_limit_no_minimum();
-            Self::base_controller_transfer(origin, asset_id, value, asset_holder, &mut weight_meter)
+            Self::base_controller_transfer(
+                origin,
+                asset_id,
+                value,
+                source,
+                destination_kind,
+                &mut weight_meter,
+            )
         }
 
         /// Registers a custom asset type.
@@ -1634,7 +1682,12 @@ pub mod pallet {
         /// * `UnexpectedOFFChainAsset` - If the asset could not be found on-chain.
         /// * `MissingIdentity` - The caller doesn't have an identity.
         #[pallet::call_index(34)]
-        #[pallet::weight(<T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::transfer_asset_base_weight(), true).limit())]
+        #[pallet::weight(
+            <T as Config>::SettlementFn::transfer_funds_weight_limit(
+                None,
+                &Fund { description: FundDescription::Fungible { asset_id: *asset_id, amount: *amount }, memo: memo.clone() },
+            )
+        )]
         pub fn transfer_asset(
             origin: OriginFor<T>,
             asset_id: AssetId,
@@ -1675,7 +1728,7 @@ pub mod pallet {
         /// * `UnknownInstruction` - If the instruction associated to the given transfer ID does not exist.
         /// * `InvalidTransfer` - If the transfer validation check fails.
         #[pallet::call_index(35)]
-        #[pallet::weight(<T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), true).limit())]
+        #[pallet::weight(<T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), AssetCount::new(1, 0, 0)).limit())]
         pub fn receiver_affirm_asset_transfer(
             origin: OriginFor<T>,
             transfer_id: InstructionId,
@@ -1707,12 +1760,56 @@ pub mod pallet {
         /// # Errors
         /// * `InvalidInstructionStatusForRejection` - Either the instruction doesn't exist or it has already been executed or rejected.
         #[pallet::call_index(36)]
-        #[pallet::weight(<T as Config>::SettlementFn::reject_transfer_weight_meter(true).limit())]
+        #[pallet::weight(<T as Config>::SettlementFn::reject_transfer_weight_meter(AssetCount::new(1, 0, 0)).limit())]
         pub fn reject_asset_transfer(
             origin: OriginFor<T>,
             transfer_id: InstructionId,
         ) -> DispatchResultWithPostInfo {
             Self::base_reject_asset_transfer(origin, transfer_id)
+        }
+
+        /// Set the allowance for `spender` to transfer up to `amount` of `asset_id` from
+        /// the caller's account.
+        ///
+        /// Replaces any existing allowance for this (owner, spender, asset_id) combination.
+        /// Setting `amount` to 0 revokes the allowance (removes the storage entry).
+        /// Setting `amount` to `Balance::MAX` grants an unlimited allowance that is never
+        /// decremented on spend.
+        ///
+        /// # Arguments
+        /// * `origin` — Signed origin. Caller must have a registered DID.
+        /// * `asset_id` — The asset for which the allowance is set.
+        /// * `spender` — The AccountId authorized to spend.
+        /// * `amount` — Maximum amount the spender may transfer. 0 = revoke. Balance::MAX = unlimited.
+        ///
+        /// # Errors
+        /// * `BadOrigin` — Unsigned origin.
+        /// * `MissingIdentity` — Caller's key is not linked to a DID.
+        #[pallet::call_index(37)]
+        #[pallet::weight(<T as Config>::WeightInfo::approve())]
+        pub fn approve(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            spender: T::AccountId,
+            amount: Balance,
+        ) -> DispatchResult {
+            let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+            let owner = caller_data.sender;
+
+            if amount == 0 {
+                Allowances::<T>::remove((&owner, &spender, &asset_id));
+            } else {
+                Allowances::<T>::insert((&owner, &spender, &asset_id), amount);
+            }
+
+            Self::deposit_event(Event::Approval {
+                owner,
+                spender,
+                asset_id,
+                amount,
+            });
+
+            Ok(())
         }
     }
 
@@ -1822,6 +1919,10 @@ pub mod pallet {
         KeyNotFoundForDid,
         /// Insufficient tokens are locked.
         InsufficientTokensLocked,
+        /// The spender's allowance for this asset is insufficient for the requested transfer amount.
+        InsufficientAllowance,
+        /// Transfering ownership to the same owner is not allowed.
+        SelfOwnershipTransferNotAllowed,
     }
 
     pub trait WeightInfo {
@@ -1859,8 +1960,9 @@ pub mod pallet {
         fn link_ticker_to_asset_id() -> Weight;
         fn unlink_ticker_from_asset_id() -> Weight;
         fn update_global_metadata_spec() -> Weight;
-        fn transfer_asset_base_weight() -> Weight;
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
+        fn approve() -> Weight;
+        fn spend_allowance() -> Weight;
     }
 }
 
@@ -1922,6 +2024,11 @@ impl<T: AssetConfig> Pallet<T> {
             let asset_id = extract_auth!(auth_data, TransferAssetOwnership(asset_id));
 
             let mut asset_details = Self::try_get_asset_details(&asset_id)?;
+
+            ensure!(
+                asset_details.owner_did != caller_did,
+                Error::<T>::SelfOwnershipTransferNotAllowed
+            );
 
             // Ensure the authorization was created by a permissioned agent.
             <ExternalAgents<T>>::ensure_agent_permissioned(&asset_id, auth_by)?;
@@ -2196,29 +2303,26 @@ impl<T: AssetConfig> Pallet<T> {
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
         transfer_value: Balance,
-        sender: AssetHolder,
+        source: AssetHolder,
+        destination_kind: AssetHolderKind,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let caller_holding_ctx = Self::ensure_asset_and_holding_permissions(
-            origin,
-            asset_id,
-            AssetHolderKind::DefaultPortfolio,
-            false,
-        )?;
+        let destination =
+            Self::ensure_asset_and_holding_permissions(origin, asset_id, destination_kind, false)?;
+
+        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&destination)?;
 
         Self::validate_asset_transfer(
             asset_id,
-            &sender,
-            &caller_holding_ctx,
+            &source,
+            &destination,
             transfer_value,
             true,
             weight_meter,
         )?;
-
-        let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&caller_holding_ctx)?;
         Self::unverified_transfer_asset(
-            sender.clone(),
-            caller_holding_ctx,
+            source.clone(),
+            destination,
             asset_id,
             transfer_value,
             None,
@@ -2230,7 +2334,7 @@ impl<T: AssetConfig> Pallet<T> {
         Self::deposit_event(Event::ControllerTransfer(
             holder_did,
             asset_id,
-            sender,
+            source,
             transfer_value,
         ));
         Ok(())
@@ -2595,6 +2699,43 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
+    /// Check and decrement spender allowance for a fungible transfer.
+    ///
+    /// - `Balance::MAX` (infinite allowance): no storage write.
+    /// - Depletes to zero: removes the storage entry.
+    /// - Emits `AllowanceSpent` on every successful spend (including the infinite-allowance path).
+    pub fn spend_allowance(
+        owner: &T::AccountId,
+        spender: &T::AccountId,
+        asset_id: AssetId,
+        amount: Balance,
+    ) -> DispatchResult {
+        let current = Allowances::<T>::get((owner, spender, &asset_id));
+        ensure!(current >= amount, Error::<T>::InsufficientAllowance);
+
+        // Infinite allowance — no deduction.
+        let remaining_allowance = if current == Balance::MAX {
+            Balance::MAX
+        } else {
+            let new_allowance = current.saturating_sub(amount);
+            if new_allowance == 0 {
+                Allowances::<T>::remove((owner, spender, &asset_id));
+            } else {
+                Allowances::<T>::insert((owner, spender, &asset_id), new_allowance);
+            }
+            new_allowance
+        };
+
+        Self::deposit_event(Event::AllowanceSpent {
+            owner: owner.clone(),
+            spender: spender.clone(),
+            asset_id,
+            amount_spent: amount,
+            remaining_allowance,
+        });
+        Ok(())
+    }
+
     pub fn base_link_ticker_to_asset_id(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
@@ -2708,25 +2849,30 @@ impl<T: AssetConfig> Pallet<T> {
         memo: Option<Memo>,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
-        let from = ensure_signed(origin.clone())?;
-        let mut weight_meter = <T as Config>::SettlementFn::transfer_and_try_execute_weight_meter(
-            <T as Config>::WeightInfo::transfer_asset_base_weight(),
-            true,
+        let from = frame_system::ensure_signed(origin.clone())?;
+
+        let to_holder = AssetHolder::try_from(to.encode())
+            .map_err(|_| pallet_base::Error::<T>::InvalidAccountId)?;
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount },
+            memo: memo.clone(),
+        };
+
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            Weight::zero(),
+            <T as Config>::SettlementFn::transfer_funds_weight_limit(None, &fund),
         );
 
-        // Create the transfer instruction via the settlement engine and affirm it as the sender.
-        let instruction_id = T::SettlementFn::transfer_asset_and_try_execute(
+        let instruction_id = T::SettlementFn::transfer_funds(
             origin,
-            to.clone(),
-            asset_id,
-            amount,
-            memo.clone(),
+            None,
+            to_holder,
+            fund,
             &mut weight_meter,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
         )?;
 
-        // Emit a transfer event.
         Self::deposit_event(Event::CreatedAssetTransfer {
             asset_id,
             from,
@@ -2744,17 +2890,18 @@ impl<T: AssetConfig> Pallet<T> {
         transfer_id: InstructionId,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
     ) -> DispatchResultWithPostInfo {
+        let asset_count = AssetCount::new(1, 0, 0);
         let mut weight_meter =
             <T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(
                 <T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(),
-                true,
+                asset_count,
             );
 
         // Affirm the transfer as the receiver and execute it.
         T::SettlementFn::receiver_affirm_transfer_and_try_execute(
             origin,
             transfer_id,
-            true,
+            asset_count,
             &mut weight_meter,
             #[cfg(feature = "runtime-benchmarks")]
             bench_base_weight,
@@ -2767,10 +2914,12 @@ impl<T: AssetConfig> Pallet<T> {
         origin: T::RuntimeOrigin,
         transfer_id: InstructionId,
     ) -> DispatchResultWithPostInfo {
-        let mut weight_meter = <T as Config>::SettlementFn::reject_transfer_weight_meter(true);
+        let asset_count = AssetCount::new(1, 0, 0);
+        let mut weight_meter =
+            <T as Config>::SettlementFn::reject_transfer_weight_meter(asset_count);
 
         // Reject the transfer.
-        T::SettlementFn::reject_transfer(origin, transfer_id, true, &mut weight_meter)?;
+        T::SettlementFn::reject_transfer(origin, transfer_id, asset_count, &mut weight_meter)?;
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
@@ -3094,6 +3243,8 @@ impl<T: AssetConfig> Pallet<T> {
         let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
         let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
 
+        ensure!(sender_did != receiver_did, Error::<T>::SenderSameAsReceiver);
+
         ensure!(
             BalanceOf::<T>::get(asset_id, &sender_did) >= transfer_value,
             Error::<T>::InsufficientBalance
@@ -3113,11 +3264,7 @@ impl<T: AssetConfig> Pallet<T> {
             return Ok(());
         }
 
-        // Verifies that the asset is not frozen
-        ensure!(
-            !Frozen::<T>::get(asset_id),
-            Error::<T>::InvalidTransferFrozenAsset
-        );
+        Self::ensure_asset_is_not_frozen(&asset_id)?;
 
         ensure!(
             IdentityPallet::<T>::is_did_active(receiver_did),
@@ -3141,6 +3288,15 @@ impl<T: AssetConfig> Pallet<T> {
             return Err(Error::<T>::InvalidTransferComplianceFailure.into());
         }
 
+        Ok(())
+    }
+
+    /// Returns `Ok` if the asset is not frozen.
+    pub fn ensure_asset_is_not_frozen(asset_id: &AssetId) -> DispatchResult {
+        ensure!(
+            !Frozen::<T>::get(asset_id),
+            Error::<T>::InvalidTransferFrozenAsset
+        );
         Ok(())
     }
 
@@ -3519,7 +3675,7 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// If the asset is granular (see: [`Pallet::ensure_asset_granular`]) and the holder has at least
     /// `value` balance that is not locked, returns what would be the new balance of `holder` after a transfer of `value`.
-    fn ensure_sufficient_balance(
+    pub fn ensure_sufficient_balance(
         holder: &AssetHolder,
         asset_id: &AssetId,
         value: Balance,
@@ -3603,19 +3759,33 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Returns `true` if the affirmation of the asset holder can be skipped for the given `asset_id`.
+    ///
+    /// Default is `true` (skip affirmation) unless:
+    /// - The identity has opted in to mandatory receiver affirmation via [`MandatoryReceiverAffirmation`], AND
+    /// - The asset is not globally exempt, AND
+    /// - The identity has not pre-approved this specific asset.
+    ///
+    /// Returns an error if the asset holder does not have a valid identity.
     pub fn skip_asset_holder_affirmation(
         asset_holder: &AssetHolder,
         asset_id: &AssetId,
     ) -> Result<bool, DispatchError> {
-        match asset_holder {
-            AssetHolder::Account(_) => {
-                let acc_did = pallet_identity::Pallet::<T>::asset_holder_did(asset_holder)?;
-                Ok(Self::skip_asset_affirmation(&acc_did, asset_id))
-            }
-            AssetHolder::Portfolio(portfolio_id) => Ok(
-                PortfolioPallet::<T>::skip_portfolio_affirmation(portfolio_id, asset_id),
-            ),
+        if let AssetHolder::Portfolio(portfolio_id) = asset_holder {
+            return Ok(PortfolioPallet::<T>::skip_portfolio_affirmation(
+                portfolio_id,
+                asset_id,
+            ));
         }
+
+        // For Account holders: default is to skip affirmation (no affirmation required).
+        // Only require affirmation if the identity has opted in via MandatoryReceiverAffirmation.
+        let did = IdentityPallet::<T>::asset_holder_did(asset_holder)?;
+        if T::AffirmationFn::identity_requires_affirmation(&did) {
+            return Ok(Self::skip_asset_affirmation(&did, asset_id));
+        }
+
+        // Default: no affirmation required.
+        Ok(true)
     }
 
     /// Returns `Ok` if:
@@ -3986,6 +4156,7 @@ impl<T: AssetConfig> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
 
         ensure!(
             BalanceOf::<T>::get(&asset_id, &sender_did) >= transfer_value,
@@ -3996,12 +4167,21 @@ impl<T: AssetConfig> Pallet<T> {
             AssetHolder::Portfolio(receiver_pid) => {
                 PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?
             }
-            AssetHolder::Account(_) => {
-                let _ = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
-            }
+            AssetHolder::Account(_) => {}
         }
 
         Self::ensure_sufficient_balance(&sender, &asset_id, transfer_value)?;
+
+        Statistics::<T>::verify_transfer_restrictions(
+            asset_id,
+            &sender_did,
+            &receiver_did,
+            BalanceOf::<T>::get(asset_id, &sender_did),
+            BalanceOf::<T>::get(asset_id, &receiver_did),
+            transfer_value,
+            Self::try_get_asset_details(&asset_id)?.total_supply,
+            weight_meter,
+        )?;
 
         Self::unverified_transfer_asset(
             sender,
@@ -4053,6 +4233,14 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
 
     fn generate_asset_id(caller_acc: T::AccountId) -> AssetId {
         Self::generate_asset_id(caller_acc, false)
+    }
+
+    fn spend_allowance_weight() -> Weight {
+        <T as Config>::WeightInfo::spend_allowance()
+    }
+
+    fn asset_is_not_frozen(asset_id: &AssetId) -> DispatchResult {
+        Self::ensure_asset_is_not_frozen(asset_id)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

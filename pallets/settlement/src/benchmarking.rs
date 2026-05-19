@@ -28,7 +28,8 @@ use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
-use polymesh_primitives::settlement::ReceiptMetadata;
+use polymesh_primitives::portfolio::{Fund, FundDescription};
+use polymesh_primitives::settlement::{AffirmationRequirement, ReceiptMetadata};
 use polymesh_primitives::{AssetHolder, IdentityId, Memo, NFTId, NFTs, Ticker, WeightMeter};
 
 use crate::*;
@@ -120,6 +121,13 @@ fn setup_legs<T>(
 where
     T: Config,
 {
+    // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+    Pallet::<T>::set_mandatory_receiver_affirmation(
+        receiver.origin().into(),
+        AffirmationRequirement::Required,
+    )
+    .unwrap();
+
     let mut asset_holders = AssetHolders::default();
     let mut asset_mediators = Vec::new();
 
@@ -177,6 +185,7 @@ where
                 Some(&rcv_portfolio_name),
                 pause_compliance,
                 4,
+                false,
             );
             asset_mediators.append(&mut mediators);
             asset_holders.senders.push(sdr_holding.clone());
@@ -349,13 +358,13 @@ benchmarks! {
         let d in 1 .. MAX_VENUE_DETAILS_LENGTH;
         // Variations for the no. of signers allowed.
         let s in 0 .. MAX_SIGNERS_ALLOWED;
-        let mut signers = Vec::with_capacity(s as usize);
+        let mut signers = BTreeSet::new();
         let User {origin, did, .. } = UserBuilder::<T>::default().generate_did().build("caller");
         let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
         let venue_type = VenueType::Distribution;
-        // Create signers vector.
+        // Create signers set.
         for signer in 0 .. s {
-            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+            signers.insert(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
         }
     }: _(origin, venue_details, signers, venue_type)
     verify {
@@ -390,12 +399,12 @@ benchmarks! {
     update_venue_signers {
         // Variations for the no. of signers allowed.
         let s in 0 .. MAX_SIGNERS_ALLOWED;
-        let mut signers = Vec::with_capacity(s as usize);
+        let mut signers = BTreeSet::new();
         let User {account, origin, did, .. } = creator::<T>();
         let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
-        // Create signers vector.
+        // Create signers set.
         for signer in 0 .. s {
-            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+            signers.insert(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
         }
     }: _(origin, venue_id, signers.clone(), true)
     verify {
@@ -422,6 +431,7 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(VenueId(i.into()));
         }
+        VenueCounter::<T>::put(VenueId(v.into()));
         let s_venues = venues.clone();
     }: _(user.origin, ticker, s_venues)
     verify {
@@ -439,6 +449,7 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(VenueId(i.into()));
         }
+        VenueCounter::<T>::put(VenueId(v.into()));
         let s_venues = venues.clone();
     }: _(user.origin, ticker, s_venues)
     verify {
@@ -560,23 +571,6 @@ benchmarks! {
         ).unwrap();
     }: _(alice.origin, InstructionId(1), sdr_holdings)
 
-    withdraw_affirmation {
-        // Number of fungible, non-fungible and offchain LEGS in the portfolios
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
-
-        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let sdr_holdings = parameters.sdr_holdings();
-    }: _(alice.origin, InstructionId(1),  sdr_holdings)
-
     execute_instruction_paused {
         // Number of fungible, non-fungible and offchain assets in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
@@ -672,22 +666,117 @@ benchmarks! {
         ).unwrap();
     }: affirm_instruction(bob.origin, InstructionId(1), rcv_holdings)
 
-    withdraw_affirmation_rcv {
-        // Number of fungible, non-fungible and offchain LEGS in the portfolios
-        let f in 1..T::MaxNumberOfFungibleAssets::get();
-        let n in 0..T::MaxNumberOfNFTs::get();
-        let o in 0..T::MaxNumberOfOffChainAssets::get();
-
-        let m = T::MaxInstructionMediators::get();
-
+    unsafe_affirm_instruction_receiver_portfolio {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
-        let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, m, false, false);
-        let rcv_holdings = parameters.rcv_holdings();
-    }: withdraw_affirmation(bob.origin, InstructionId(1),  rcv_holdings)
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
+        let asset_id = create_and_issue_sample_asset::<T>(
+            alice.account(),
+            true,
+            None,
+            b"PortAsset",
+            true,
+        );
+
+        let sender_portfolio = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+        let receiver_portfolio = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: bob.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+
+        let leg = Leg::Fungible {
+            sender: sender_portfolio,
+            receiver: receiver_portfolio.clone(),
+            asset_id,
+            amount: ONE_UNIT,
+        };
+
+        Pallet::<T>::base_add_instruction(
+            alice.did(),
+            None,
+            SettlementType::SettleManual(System::<T>::block_number()),
+            None,
+            None,
+            vec![leg],
+            Some(Memo::default()),
+            None,
+        ).unwrap();
+        let holder_set = BTreeSet::from([receiver_portfolio]);
+    }: {
+        Pallet::<T>::unsafe_affirm_instruction(
+            bob.did(),
+            InstructionId(1),
+            holder_set,
+            None,
+            None,
+        ).unwrap();
+    }
+
+    unsafe_affirm_instruction_receiver_account {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
+        let asset_id = create_and_issue_sample_asset::<T>(
+            alice.account(),
+            true,
+            None,
+            b"AcctAsset",
+            true,
+        );
+
+        let sender_account = AssetHolder::try_from(alice.account().encode()).unwrap();
+        let receiver_account = AssetHolder::try_from(bob.account().encode()).unwrap();
+
+        let leg = Leg::Fungible {
+            sender: sender_account,
+            receiver: receiver_account.clone(),
+            asset_id,
+            amount: ONE_UNIT,
+        };
+
+        Pallet::<T>::base_add_instruction(
+            alice.did(),
+            None,
+            SettlementType::SettleManual(System::<T>::block_number()),
+            None,
+            None,
+            vec![leg],
+            Some(Memo::default()),
+            None,
+        ).unwrap();
+        let holder_set = BTreeSet::from([receiver_account]);
+    }: {
+        Pallet::<T>::unsafe_affirm_instruction(
+            bob.did(),
+            InstructionId(1),
+            holder_set,
+            None,
+            None,
+        ).unwrap();
+    }
+
+    set_instruction_memo {
+        let instruction_id = InstructionId(1);
+        let memo = Memo::default();
+    }: {
+        InstructionMemos::<T>::insert(instruction_id, &memo);
+    }
+    verify {
+        assert_eq!(InstructionMemos::<T>::get(instruction_id), Some(memo));
+    }
 
     add_instruction_with_mediators {
         // Number of fungible, non-fungible, offchain legs and mediators
@@ -752,41 +841,6 @@ benchmarks! {
             mediators.try_into().unwrap()
         ).unwrap();
     }: _(david.origin, InstructionId(1), None)
-
-
-    withdraw_affirmation_as_mediator {
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let david = UserBuilder::<T>::default().generate_did().build("David");
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let memo = Some(Memo::default());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
-        let mediators = BTreeSet::from([david.did()]);
-
-        let parameters = setup_legs::<T>(
-            &alice,
-            &bob,
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get(),
-            false,
-            false,
-        );
-        Pallet::<T>::add_instruction_with_mediators(
-            alice.origin.clone().into(),
-            Some(venue_id),
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            parameters.legs,
-            memo,
-            mediators.try_into().unwrap()
-        ).unwrap();
-        Pallet::<T>::affirm_instruction_as_mediator(
-            david.origin.clone().into(),
-            InstructionId(1),
-            None
-        ).unwrap();
-    }: _(david.origin, InstructionId(1))
 
     base_reject_instruction {
         let f in 0..T::MaxNumberOfFungibleAssets::get();
@@ -922,4 +976,200 @@ benchmarks! {
         )
         .unwrap();
     }
+
+    set_mandatory_receiver_affirmation {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+    }: _(alice.origin, AffirmationRequirement::Required)
+
+    transfer_funds_portfolio_same_did {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (sender_holding, _, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, false);
+
+        let to = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), to.clone(), fund)
+    verify {
+        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
+    }
+
+    transfer_funds_portfolio_diff_did {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (sender_holding, receiver_holding, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, false);
+
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding, fund)
+    verify {
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
+    }
+
+    transfer_funds_account_same_did {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (_, _, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, true);
+
+        let to = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), None, to.clone(), fund)
+    verify {
+        assert_eq!(pallet_asset::Pallet::<T>::get_holders_balance(&to, &asset_id), ONE_UNIT);
+    }
+
+    transfer_funds_account_diff_did {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (_, _, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, false, true);
+
+        let to = AssetHolder::try_from(bob.account().encode()).unwrap();
+        let fund = Fund {
+            description: FundDescription::Fungible { asset_id, amount: ONE_UNIT },
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), None, to, fund)
+    verify {
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
+    }
+
+    transfer_funds_nft_portfolio_same_did {
+        let n in 1..T::MaxNumberOfNFTsPerLeg::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (asset_id, sender_holding, _, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, false);
+
+        let to = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let fund = Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), to.clone(), fund)
+    verify {
+        assert_eq!(pallet_nft::Owner::<T>::get(asset_id, NFTId(1)), Some(to));
+    }
+
+    transfer_funds_nft_portfolio_diff_did {
+        let n in 1..T::MaxNumberOfNFTsPerLeg::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (asset_id, sender_holding, receiver_holding, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, false);
+
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let fund = Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), Some(sender_holding), receiver_holding, fund)
+    verify {
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
+    }
+
+    transfer_funds_nft_account_same_did {
+        let n in 1..T::MaxNumberOfNFTsPerLeg::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (asset_id, _, _, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, true);
+
+        let from = Some(AssetHolder::try_from(alice.account().encode()).unwrap());
+        let to = AssetHolder::from(polymesh_primitives::PortfolioId {
+            did: alice.did(),
+            kind: polymesh_primitives::PortfolioKind::Default,
+        });
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let fund = Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), from, to.clone(), fund)
+    verify {
+        assert_eq!(pallet_nft::Owner::<T>::get(asset_id, NFTId(1)), Some(to));
+    }
+
+    transfer_funds_nft_account_diff_did {
+        let n in 1..T::MaxNumberOfNFTsPerLeg::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let (asset_id, _, _, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, true);
+
+        Pallet::<T>::set_mandatory_receiver_affirmation(
+            bob.origin().into(),
+            AffirmationRequirement::Required,
+        ).unwrap();
+
+        let to = AssetHolder::try_from(bob.account().encode()).unwrap();
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let fund = Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo: None,
+        };
+    }: transfer_funds(alice.origin.clone(), None, to, fund)
+    verify {
+        // Instruction created but not executed (receiver affirmation pending).
+        assert!(InstructionStatuses::<T>::get(InstructionId(1)) == InstructionStatus::Pending);
+    }
+
+    unlock_instruction {
+        let m = T::MaxInstructionMediators::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let settlement_type = SettlementType::SettleAfterLock;
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let p = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, 1, 0, 0, m, false, false);
+
+        Pallet::<T>::base_lock_instruction(
+            p.asset_mediators[0].clone().origin.into(),
+            InstructionId(1),
+            false,
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
+    }: _(p.asset_mediators[0].clone().origin, InstructionId(1))
 }

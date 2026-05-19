@@ -3,7 +3,7 @@ use sp_keyring::Sr25519Keyring;
 
 use pallet_portfolio::PortfolioLockedAssets;
 use pallet_settlement::{AffirmsReceived, InstructionAffirmsPending, InstructionLegs};
-use pallet_settlement::{Error, InstructionLegStatus, InstructionStatuses};
+use pallet_settlement::{Error, InstructionLegStatus, InstructionStatuses, LockedTimestamp};
 use pallet_settlement::{InstructionMediatorsAffirmations, UserAffirmations};
 use polymesh_primitives::settlement::{AssetCount, InstructionId};
 use polymesh_primitives::settlement::{InstructionStatus, SettlementType};
@@ -160,6 +160,8 @@ fn success() {
             ),
             0
         );
+
+        assert!(LockedTimestamp::<TestStorage>::get(InstructionId(0)).is_none());
     });
 }
 

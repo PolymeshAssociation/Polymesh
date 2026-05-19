@@ -84,9 +84,11 @@ pallet-election-provider-multi-phase = { workspace = true, default-features = fa
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
+pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false, features = [
     "historical",
@@ -159,6 +161,7 @@ std = [
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-relayer/std",
+    "pallet-revive/std",
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-staking/std",

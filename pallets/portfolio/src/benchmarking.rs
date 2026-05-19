@@ -135,7 +135,7 @@ benchmarks! {
         Pallet::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
         let nft_asset_id = AssetId::new([0; 16]);
-        (1..n + 1).for_each(|id| PortfolioNFT::<T>::insert(&alice_default_portfolio, (nft_asset_id, NFTId(id.into())), true));
+        (1..n + 1).for_each(|id| PortfolioNFT::<T>::insert((&alice_default_portfolio, nft_asset_id, NFTId(id.into())), true));
 
         let nfts = NFTs::new_unverified(nft_asset_id, (1..n + 1).map(|id| NFTId(id.into())).collect());
         let mut funds = vec![Fund { description: FundDescription::NonFungible(nfts), memo: None }];
@@ -146,8 +146,8 @@ benchmarks! {
     }: _(alice.origin, alice_default_portfolio.clone(), alice_custom_portfolio.clone(), funds)
     verify {
         for i in 1..n + 1 {
-            assert_eq!(PortfolioNFT::<T>::get(&alice_default_portfolio, (&nft_asset_id, NFTId(i as u64))), false);
-            assert_eq!(PortfolioNFT::<T>::get(&alice_custom_portfolio, (&nft_asset_id, NFTId(i as u64))), true);
+            assert_eq!(PortfolioNFT::<T>::get((&alice_default_portfolio, nft_asset_id, NFTId(i as u64))), false);
+            assert_eq!(PortfolioNFT::<T>::get((&alice_custom_portfolio, nft_asset_id, NFTId(i as u64))), true);
         }
     }
 

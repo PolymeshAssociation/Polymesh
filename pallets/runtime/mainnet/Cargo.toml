@@ -23,6 +23,7 @@ pallet-corporate-actions = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-group = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-multisig = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
@@ -83,6 +84,7 @@ pallet-indices = { workspace = true, default-features = false }
 pallet-mmr = { workspace = true, default-features = false }
 pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
+pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false }
 pallet-staking = { workspace = true, default-features = false }
@@ -157,6 +159,7 @@ std = [
     "pallet-protocol-fee-rpc-runtime-api/std",
     "pallet-protocol-fee/std",
     "pallet-relayer/std",
+    "pallet-revive/std",
     "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-settlement/std",
@@ -217,6 +220,7 @@ runtime-benchmarks = [
     "pallet-preimage/runtime-benchmarks",
     "pallet-protocol-fee/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
+    "pallet-revive/runtime-benchmarks",
     "pallet-scheduler/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
@@ -242,4 +246,4 @@ metadata-hash = ["polymesh-build-tool?/metadata-hash"]
 
 # A convenience feature for enabling things when doing a build
 # for an on-chain release.
-on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash"]

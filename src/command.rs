@@ -21,7 +21,9 @@ use std::sync::Arc;
 use core::future::Future;
 use frame_benchmarking_cli::*;
 use log::info;
-use sc_cli::{Result, SubstrateCli};
+use polymesh_worker::backend::Backends;
+use polymesh_worker::BackendKind;
+use sc_cli::SubstrateCli;
 use sc_service::{Configuration, TaskManager};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::HashingFor;
@@ -44,7 +46,7 @@ impl SubstrateCli for Cli {
     }
 
     fn impl_version() -> String {
-        env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+        env!("CARGO_PKG_VERSION").into()
     }
 
     fn description() -> String {
@@ -110,9 +112,58 @@ impl SubstrateCli for Cli {
     }
 }
 
+/// Parse command line arguments into Polymesh-specific CLI struct and run the service.
+pub fn run() -> sc_cli::Result<()> {
+    run_with_args(std::env::args_os())
+}
+
 /// Parses Polymesh specific CLI arguments and run the service.
-pub fn run() -> Result<()> {
-    let cli = Cli::from_args();
+pub fn run_with_args<I>(args: I) -> sc_cli::Result<()>
+where
+    I: IntoIterator,
+    I::Item: Into<std::ffi::OsString> + Clone,
+{
+    // Add the `AbortGuard` to rayon thread pool.  So panics from threads do not bring down the entire process, but instead are caught and logged, and the work request is rejected.
+    rayon::ThreadPoolBuilder::new()
+        .spawn_handler(|thread| {
+            let mut b = std::thread::Builder::new();
+            if let Some(name) = thread.name() {
+                b = b.name(name.to_owned());
+            }
+            if let Some(stack_size) = thread.stack_size() {
+                b = b.stack_size(stack_size);
+            }
+            b.spawn(|| {
+                let _guard = sp_panic_handler::AbortGuard::force_unwind();
+                thread.run()
+            })?;
+            Ok(())
+        })
+        .build_global()
+        .unwrap();
+
+    let cli = Cli::from_iter(args);
+
+    // Determine which backends to initialize based on the environment variable, or default to all backends if the variable is not set or invalid.
+    let supported_kinds = std::env::var("POLYMESH_WORKER_BACKENDS").ok().and_then(|kinds_str| {
+        match BackendKind::from_str_to_kinds(&kinds_str) {
+            Ok(kinds) => Some(kinds),
+            Err(err) => {
+                eprintln!(
+                    "Failed to parse POLYMESH_WORKER_BACKENDS environment variable, using all backends: {err:?}"
+                );
+                None
+            }
+        }
+    }).unwrap_or_else(|| {
+        // Default to all backends.
+        BackendKind::ALL_KINDS.to_vec()
+    });
+    // Initialize Polymesh worker backends.
+    Backends::init_global_backends::<polymesh_worker_native::NativeBackend>(&supported_kinds);
+    // Print the available backends after initialization.
+    let backends = Backends::get_available_backends();
+    println!("Polymesh Worker: Available backends: {:?}", backends);
 
     match &cli.subcommand {
         None => {

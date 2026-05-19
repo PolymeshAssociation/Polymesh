@@ -34,6 +34,7 @@ use polymesh_primitives::constants::currency::{DOLLARS, POLY};
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
 use polymesh_primitives::traits::{group::GroupTrait, CurrentFeePayer};
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::{AccountId, Authorization, AuthorizationData, BlockNumber};
 use polymesh_primitives::{Moment, Permissions as AuthPermissions};
 use polymesh_primitives::{PortfolioNumber, Scope, SecondaryKey, TrustedFor, TrustedIssuer};
@@ -209,6 +210,8 @@ parameter_types! {
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;
     pub const MaximumLockPeriod: Moment = 2;
+    pub const RelockCooldown: Moment = 1;
+    pub const MaxRelockCount: u32 = 3;
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
@@ -412,6 +415,12 @@ mod runtime {
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
 
+    #[runtime::pallet_index(55)]
+    pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
+
+    #[runtime::pallet_index(80)]
+    pub type Revive = pallet_revive::Pallet<Runtime>;
+
     #[runtime::pallet_index(200)]
     pub type Example = example::Pallet<Runtime>;
 }
@@ -527,7 +536,9 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFees {
 
 parameter_types! {
     pub const SS58Prefix: u8 = 12;
+    pub const EvmChainId: u64 = 1_641_818;
     pub const ExistentialDeposit: u64 = 0;
+    pub const BenchmarkEd: Balance = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxHolds: u32 = 32;
     pub const MaxFreezes: u32 = 32;
@@ -575,23 +586,23 @@ thread_local! {
 pub type NegativeImbalance<T> =
     <balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-type TxFeeHandler = TestStorage;
+pub(crate) type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<TestStorage>;
+
 impl CurrentFeePayer<AccountId, RuntimeCall> for TestStorage {
-    fn get_valid_payer(
-        _: &RuntimeCall,
+    fn call_payment_info(
+        call: &RuntimeCall,
         caller: AccountId,
-    ) -> Result<Option<AccountId>, InvalidTransaction> {
-        Ok(Some(caller))
+    ) -> Result<CallPaymentInfo<AccountId>, InvalidTransaction> {
+        TxFeeHandler::call_payment_info(call, caller)
     }
     fn set_payer_context(payer: Option<AccountId>) {
-        PolymeshTransactionPayment::set_current_payer(payer);
+        TxFeeHandler::set_payer_context(payer)
     }
     fn get_payer_from_context() -> Option<AccountId> {
-        PolymeshTransactionPayment::current_payer()
+        TxFeeHandler::get_payer_from_context()
     }
-    fn decrease_authorization_count(_caller: &AccountId, _auth_id: Option<u64>) {}
-    fn get_authorization_id(_call: &RuntimeCall) -> Option<u64> {
-        None
+    fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
+        TxFeeHandler::decrease_authorization_count(call_payment_info);
     }
 }
 
@@ -670,7 +681,7 @@ impl pallet_identity::Config for TestStorage {
     type Proposal = RuntimeCall;
     type DidRegistrars = DidRegistrar;
     type Balances = balances::Pallet<TestStorage>;
-    type TxFeeHandler = TestStorage;
+    type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<TestStorage>;
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Pallet<TestStorage>;
@@ -1079,27 +1090,31 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
     };
 
     let function = checked_extrinsic.function;
-    UncheckedExtrinsic {
+    generic::UncheckedExtrinsic {
         preamble,
         function,
         encoded_call: None,
     }
+    .into()
 }
 
 /// Returns transaction extra.
 fn signed_extra(nonce: Nonce) -> TxExtension {
     (
-        frame_system::AuthorizeCall::new(),
-        frame_system::CheckNonZeroSender::new(),
-        frame_system::CheckSpecVersion::new(),
-        frame_system::CheckTxVersion::new(),
-        frame_system::CheckGenesis::new(),
+        (
+            frame_system::AuthorizeCall::new(),
+            frame_system::CheckNonZeroSender::new(),
+            frame_system::CheckSpecVersion::new(),
+            frame_system::CheckTxVersion::new(),
+            frame_system::CheckGenesis::new(),
+        ),
         frame_system::CheckEra::from(Era::mortal(256, 0)),
         frame_system::CheckNonce::from(nonce),
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     )
 }

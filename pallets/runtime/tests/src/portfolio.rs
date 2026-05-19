@@ -1,5 +1,6 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
+use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_nft::Owner;
 use pallet_portfolio::{
@@ -12,7 +13,7 @@ use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{Leg, SettlementType};
+use polymesh_primitives::settlement::{AffirmationRequirement, Leg, SettlementType};
 use polymesh_primitives::{
     AssetHolderKind, AuthorizationData, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
@@ -702,7 +703,7 @@ fn delete_portfolio_with_locked_nfts() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             Default::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             Default::default()
         ));
         // Locks the NFT - Adds and affirms the instruction
@@ -842,19 +843,19 @@ fn move_portfolio_nfts() {
             funds,
         ));
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(alice_default_portfolio.clone(), (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get((&alice_default_portfolio, asset_id, NFTId(1))),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_default_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get((&alice_default_portfolio, asset_id, NFTId(2))),
             false
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_custom_portfolio, (asset_id, NFTId(1))),
+            PortfolioNFT::<TestStorage>::get((&alice_custom_portfolio, asset_id, NFTId(1))),
             true
         );
         assert_eq!(
-            PortfolioNFT::<TestStorage>::get(&alice_custom_portfolio, (asset_id, NFTId(2))),
+            PortfolioNFT::<TestStorage>::get((&alice_custom_portfolio, asset_id, NFTId(2))),
             true
         );
         assert_eq!(
@@ -998,6 +999,13 @@ fn pre_approve_portfolio() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         let asset_id = AssetId::new([0; 16]);
+
+        // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Required
+        ));
+
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
             .unwrap();
 
@@ -1029,6 +1037,13 @@ fn remove_portfolio_pre_approval() {
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
         let asset_id = AssetId::new([0; 16]);
+
+        // Alice opts in to mandatory receiver affirmation so pre-approval is exercised.
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            alice.origin(),
+            AffirmationRequirement::Required
+        ));
+
         Portfolio::pre_approve_portfolio(alice.origin(), asset_id, alice_default_portfolio.clone())
             .unwrap();
         Portfolio::remove_portfolio_pre_approval(

@@ -19,6 +19,7 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 
 use crate::asset::AssetId;
 use crate::asset_metadata::AssetMetadataKey;
+use crate::transaction_payment::CallPaymentInfo;
 use crate::{Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -30,16 +31,17 @@ use frame_support::pallet_prelude::DispatchResult;
 mod asset;
 pub mod group;
 mod settlement;
+
 pub use asset::*;
 pub use settlement::*;
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CurrentFeePayer<AccountId, Call> {
-    /// Returns the account that will pay for the call.
-    fn get_valid_payer(
+    /// Returns [`CallPaymentInfo`] for the given `call` and `caller`.
+    fn call_payment_info(
         call: &Call,
         caller: AccountId,
-    ) -> Result<Option<AccountId>, InvalidTransaction>;
+    ) -> Result<CallPaymentInfo<AccountId>, InvalidTransaction>;
     /// Sets payer in context. Should be called by the signed extension that first charges fee.
     fn set_payer_context(payer: Option<AccountId>);
     /// Fetches fee payer for further payments (forwarded calls)
@@ -47,11 +49,7 @@ pub trait CurrentFeePayer<AccountId, Call> {
     /// Decreases the authorization count if any of the following extrinsics failed:
     /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
     /// - pallet-multisig (accept_multisig_signer)
-    fn decrease_authorization_count(caller: &AccountId, auth_id: Option<u64>);
-    /// Returns Some(auth_id) of the call if any of the following extrinsics are called:
-    /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
-    /// - pallet-multisig (accept_multisig_signer)
-    fn get_authorization_id(call: &Call) -> Option<u64>;
+    fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>);
 }
 
 pub trait IdentityFnTrait<AccountId> {
@@ -81,6 +79,39 @@ pub trait SubsidiserTrait<AccountId, RuntimeCall> {
         user_key: &AccountId,
         fee: Balance,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
+
+    /// Reserve `fee` from the remaining balance without emitting events.
+    /// Called in `prepare` to prevent protocol fees from exhausting the budget.
+    fn reserve_subsidy(
+        user_key: &AccountId,
+        fee: Balance,
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
+
+    /// Settle a previously reserved subsidy. Refunds `reserved - actual` to remaining
+    /// and emits `SubsidyDebited` for `actual`.
+    ///
+    /// `paying_key` is the original subsidiser captured at prepare time, so the event
+    /// is emitted even if the subsidy was removed or changed during dispatch.
+    fn settle_subsidy(
+        user_key: &AccountId,
+        paying_key: &AccountId,
+        reserved: Balance,
+        actual: Balance,
+    );
+}
+
+pub trait PortfolioFnTrait {
+    /// Returns `Ok(())` if `custodian` has custody over the portfolio.
+    /// The portfolio owner is the default custodian when none is assigned.
+    fn ensure_portfolio_custody(
+        portfolio: &PortfolioId,
+        custodian: IdentityId,
+    ) -> Result<(), DispatchError>;
+}
+
+/// Supertrait config for pallets that need portfolio custody queries.
+pub trait PortfolioFnConfig: frame_system::Config {
+    type PortfolioFn: PortfolioFnTrait;
 }
 
 pub trait ComplianceFnConfig {

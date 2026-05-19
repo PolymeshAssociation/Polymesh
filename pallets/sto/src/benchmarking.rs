@@ -8,7 +8,8 @@ use pallet_asset::BalanceOf;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_settlement::VenueCounter;
 use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
-use polymesh_primitives::settlement::VenueDetails;
+use polymesh_primitives::settlement::{AffirmationRequirement, VenueDetails};
+use polymesh_primitives::traits::AffirmationFnTrait;
 use polymesh_primitives::{Ticker, TrustedIssuer};
 
 use crate::*;
@@ -99,7 +100,7 @@ fn create_venue<T: Config>(user: &User<T>) -> Result<VenueId, DispatchError> {
     <Settlement<T>>::create_venue(
         user.origin().into(),
         VenueDetails::default(),
-        vec![user.account()],
+        BTreeSet::from([user.account()]),
         VenueType::Sto,
     )
     .unwrap();
@@ -199,6 +200,9 @@ benchmarks! {
         let alice = <UserBuilder<T>>::default().generate_did().build("Alice");
         let bob = <UserBuilder<T>>::default().generate_did().build("Bob");
         let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
+        // Opt-in receivers to mandatory affirmation so benchmarks measure worst-case weights.
+        T::AffirmationFn::set_mandatory_receiver_affirmation(alice.did(), AffirmationRequirement::Required);
+        T::AffirmationFn::set_mandatory_receiver_affirmation(bob.did(), AffirmationRequirement::Required);
     }: invest(
             bob.origin(),
             setup_portfolios.offering_asset_id,
@@ -219,6 +223,8 @@ benchmarks! {
         let ticker = Ticker::from_slice_truncated(b"TEST");
 
         let setup_portfolios = setup_fundraiser::<T>(&alice, &bob, MAX_TIERS as u32);
+        // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+        T::AffirmationFn::set_mandatory_receiver_affirmation(bob.did(), AffirmationRequirement::Required);
         Sto::<T>::enable_offchain_funding(
             alice.origin().into(),
             setup_portfolios.offering_asset_id,

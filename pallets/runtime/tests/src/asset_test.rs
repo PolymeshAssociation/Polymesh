@@ -418,6 +418,7 @@ fn controller_transfer() {
             asset_id,
             100,
             PortfolioId::default_portfolio(alice.did).into(),
+            AssetHolderKind::DefaultPortfolio
         ));
         assert_eq!(balance_of(owner.did), balance_owner + 100);
         assert_eq!(balance_of(alice.did), balance_alice - 100);
@@ -1987,7 +1988,7 @@ fn controller_transfer_locked_asset() {
         assert_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
-            vec![alice.acc()],
+            BTreeSet::from([alice.acc()]),
             VenueType::Other
         ));
         assert_ok!(Settlement::add_instruction(
@@ -2012,7 +2013,13 @@ fn controller_transfer_locked_asset() {
 
         // Controller transfer should fail since the tokens are locked
         assert_noop!(
-            Asset::controller_transfer(bob.origin(), asset_id, 200, alice_default_portfolio.into()),
+            Asset::controller_transfer(
+                bob.origin(),
+                asset_id,
+                200,
+                alice_default_portfolio.into(),
+                AssetHolderKind::DefaultPortfolio
+            ),
             AssetError::InsufficientBalance
         );
     });

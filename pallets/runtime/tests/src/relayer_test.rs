@@ -15,13 +15,16 @@ use pallet_relayer::{RelayTxNonces, Subsidy};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::traits::CurrentFeePayer;
+use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::{AccountId, Balance, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{RuntimeCall as DevRuntimeCall, TxFeeHandler};
 use polymesh_transaction_payment::Val;
 
 use super::asset_test::set_timestamp;
 use super::pips_test::assert_balance;
-use super::storage::{register_keyring_account_with_balance, RuntimeCall, TestStorage, User};
+use super::storage::{
+    register_keyring_account_with_balance, EventTest, RuntimeCall, System, TestStorage, User,
+};
 use super::ExtBuilder;
 
 type Relayer = pallet_relayer::Pallet<TestStorage>;
@@ -672,14 +675,122 @@ fn do_relayer_accept_cdd_and_fees_test() {
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
-        TxFeeHandler::get_valid_payer(
+        TxFeeHandler::call_payment_info(
             &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_subsidy {
                 paying_key: alice.acc()
             }),
             bob.acc()
         ),
-        Ok(Some(alice.acc()))
+        Ok(CallPaymentInfo::new(alice.acc(), None, None))
     );
+}
+
+#[test]
+fn subsidy_reserve_and_settle_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(&do_subsidy_reserve_and_settle_test);
+}
+
+fn do_subsidy_reserve_and_settle_test() {
+    System::set_block_number(1);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+
+    let len = 10;
+    let call_info = info_from_weight(100);
+    let tx_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
+
+    // --- Part 1: tight budget, protocol fee fails, imbalance settled ---
+    let call = call_asset_register_ticker(b"A");
+    setup_subsidy(bob, alice, tx_fee);
+
+    let val = ChargeTransactionPayment::from(0)
+        .validate(
+            RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
+    let pre = ChargeTransactionPayment::from(0)
+        .prepare(
+            val.1,
+            &RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+        )
+        .unwrap();
+
+    assert_eq!(get_subsidy(bob).unwrap().remaining, 0);
+
+    let dispatch_result = call.dispatch(bob.origin());
+    assert!(dispatch_result.is_err());
+
+    let mut actual_post_info = post_info_from_weight(100);
+    assert_ok!(ChargeTransactionPayment::post_dispatch(
+        pre,
+        &call_info,
+        &mut actual_post_info,
+        len,
+        &dispatch_result.map(|_| ()).map_err(|e| e.error),
+    ));
+
+    // --- Part 2: subsidy removed mid-dispatch, event still emitted ---
+    let call = call_asset_register_ticker(b"B");
+    // Re-create subsidy with enough budget.
+    Subsidies::remove(&bob.acc());
+    setup_subsidy(bob, alice, tx_fee * 2);
+
+    let val = ChargeTransactionPayment::from(0)
+        .validate(
+            RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+
+    let pre = ChargeTransactionPayment::from(0)
+        .prepare(
+            val.1,
+            &RuntimeOrigin::signed(bob.acc()),
+            &call,
+            &call_info,
+            len,
+        )
+        .unwrap();
+
+    // Simulate subsidy removal during dispatch (e.g. last call in a batch).
+    Subsidies::remove(&bob.acc());
+    assert!(get_subsidy(bob).is_none());
+
+    let mut actual_post_info = post_info_from_weight(100);
+    assert_ok!(ChargeTransactionPayment::post_dispatch(
+        pre,
+        &call_info,
+        &mut actual_post_info,
+        len,
+        &Ok(()),
+    ));
+
+    assert!(System::events().iter().any(|e| matches!(
+        &e.event,
+        EventTest::Relayer(pallet_relayer::Event::SubsidyDebited {
+            paying_key,
+            ..
+        }) if *paying_key == alice.acc()
+    )));
 }
 
 #[test]

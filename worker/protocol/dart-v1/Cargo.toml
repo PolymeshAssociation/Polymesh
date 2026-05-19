@@ -1,0 +1,103 @@
+[package]
+name = "polymesh-worker-protocol-dart-v1"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+license-file = "../../../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Polymesh DART Confidential Assets host functions"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+log = "0.4"
+
+polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
+
+# Crypto
+rand_core = { workspace = true, default-features = false }
+rand_chacha = { workspace = true, default-features = false }
+
+# DART
+polymesh-dart = { workspace = true, default-features = false, features = [
+  "backend_bp"
+] }
+polymesh-dart-common = { workspace = true, default-features = false }
+ark-ec = { workspace = true, default-features = false }
+bulletproofs = { workspace = true, default-features = false }
+
+# Substrate
+scale-info = { workspace = true, default-features = false, features = [
+  "derive",
+] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
+sp-std = { workspace = true, default-features = false }
+bounded-collections = { workspace = true, default-features = false, features = ["scale-codec"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+picoalloc = "5.2.0"
+
+[target.'cfg(target_env = "polkavm")'.dependencies]
+polkavm-derive = { workspace = true, default-features = true }
+picoalloc = "5.2.0"
+
+[features]
+default = ["std", "testing"]
+
+testing = []
+
+# Directly implement protocol logic (i.e. don't use a host function).
+impl_protocol = []
+
+polkavm = [
+  "ark-ec/polkavm",
+  "bulletproofs/polkavm",
+  "polymesh-worker-common/host_logger",
+  "polymesh-worker-common/polkavm",
+  "impl_protocol",
+]
+
+wasm = [
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+  "polymesh-worker-common/host_logger",
+  "impl_protocol",
+]
+
+native = []
+
+runtime = [
+  "native",
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+  "polymesh-worker-extension",
+]
+
+sp-io = [
+  "polymesh-dart/sp-io",
+]
+
+asm = ["polymesh-dart/asm"]
+parallel = [
+  "polymesh-dart/verifier_parallel",
+  "polymesh-dart/parallel",
+]
+
+no_std = ["polymesh-dart/no_std"]
+std = [
+  "impl_protocol",
+  "asm",
+  "parallel",
+  "rand_core/std",
+  "rand_chacha/std",
+  "polymesh-dart/std",
+  "ark-ec/std",
+  "codec/std",
+  "sp-std/std",
+  "bounded-collections/std",
+  "bulletproofs/std",
+]
+runtime-benchmarks = ["testing"]

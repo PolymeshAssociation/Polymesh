@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use integration::*;
@@ -9,6 +11,7 @@ use polymesh_api::types::polymesh_primitives::{
 
 /// Test a STO with onchain asset funding.
 #[tokio::test]
+#[test_log::test]
 async fn sto_onchain_funding() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -26,7 +29,7 @@ async fn sto_onchain_funding() -> Result<()> {
         .settlement()
         .create_venue(
             VenueDetails(format!("Venue for STO").into()),
-            vec![],
+            Default::default(),
             VenueType::Sto,
         )?
         .submit_and_watch(&mut v)
@@ -37,14 +40,21 @@ async fn sto_onchain_funding() -> Result<()> {
     let api = tester.api.clone();
     let offering_asset = tokio::spawn(async move {
         // Mint 10,000.0 tokens.
-        AssetHelper::new(&api, &mut v, "TestOfferingAsset", 10_000_000_000, vec![]).await
+        AssetHelper::new(
+            &api,
+            &mut v,
+            "TestOfferingAsset",
+            10_000_000_000,
+            BTreeSet::new(),
+        )
+        .await
     });
     let mut v = venue.clone();
     let api = tester.api.clone();
     let mut investor = investor1.clone();
     let funding_asset = tokio::spawn(async move {
         let mut funding_asset =
-            AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, vec![]).await?;
+            AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, BTreeSet::new()).await?;
 
         // Give 1,000.0 funds to the investor.
         funding_asset
@@ -158,6 +168,7 @@ mod sto_v7_tests {
 
     /// Test STO with offchain asset funding.
     #[tokio::test]
+    #[test_log::test]
     async fn sto_offchain_funding() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester
@@ -176,7 +187,7 @@ mod sto_v7_tests {
             .settlement()
             .create_venue(
                 VenueDetails(format!("Venue for STO").into()),
-                vec![signer1.account()],
+                [signer1.account()].into(),
                 VenueType::Sto,
             )?
             .submit_and_watch(&mut v)
@@ -187,14 +198,22 @@ mod sto_v7_tests {
         let api = tester.api.clone();
         let offering_asset = tokio::spawn(async move {
             // Mint 10,000.0 tokens.
-            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 10_000_000_000, vec![]).await
+            AssetHelper::new(
+                &api,
+                &mut v,
+                "TestOfferingAsset",
+                10_000_000_000,
+                BTreeSet::new(),
+            )
+            .await
         });
         let mut v = venue.clone();
         let api = tester.api.clone();
         let mut investor = investor1.clone();
         let funding_asset = tokio::spawn(async move {
             let mut funding_asset =
-                AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, vec![]).await?;
+                AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, BTreeSet::new())
+                    .await?;
 
             // Give 3,000.0 funds to the investor.
             funding_asset
@@ -362,6 +381,7 @@ mod sto_v8_tests {
 
     /// Test STO with offchain asset funding.
     #[tokio::test]
+    #[test_log::test]
     async fn sto_offchain_funding() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester
@@ -380,7 +400,7 @@ mod sto_v8_tests {
             .settlement()
             .create_venue(
                 VenueDetails(format!("Venue for STO").into()),
-                vec![signer1.account()],
+                BTreeSet::from([signer1.account()]),
                 VenueType::Sto,
             )?
             .submit_and_watch(&mut v)
@@ -391,14 +411,22 @@ mod sto_v8_tests {
         let api = tester.api.clone();
         let offering_asset = tokio::spawn(async move {
             // Mint 10,000.0 tokens.
-            AssetHelper::new(&api, &mut v, "TestOfferingAsset", 10_000_000_000, vec![]).await
+            AssetHelper::new(
+                &api,
+                &mut v,
+                "TestOfferingAsset",
+                10_000_000_000,
+                BTreeSet::new(),
+            )
+            .await
         });
         let mut v = venue.clone();
         let api = tester.api.clone();
         let mut investor = investor1.clone();
         let funding_asset = tokio::spawn(async move {
             let mut funding_asset =
-                AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, vec![]).await?;
+                AssetHelper::new(&api, &mut v, "TestFundingCoin", 1_000_000, BTreeSet::new())
+                    .await?;
 
             // Give 3,000.0 funds to the investor.
             funding_asset

@@ -124,7 +124,11 @@ impl<Api> RuntimeApiCollection for Api where
 
 /// Host functions available to the runtime.
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = (sp_io::SubstrateHostFunctions,);
+pub type HostFunctions = (
+    sp_io::SubstrateHostFunctions,
+    polymesh_worker_extension::native_polymesh_worker::HostFunctions,
+    polymesh_native_crypto::HostFunctions,
+);
 
 /// Host functions available to the runtime.
 #[cfg(feature = "runtime-benchmarks")]
@@ -132,6 +136,8 @@ pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
     polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
+    polymesh_worker_extension::native_polymesh_worker::HostFunctions,
+    polymesh_native_crypto::HostFunctions,
 );
 
 /// A specialized `WasmExecutor` intended to use across substrate node. It provides all required HostFunctions.
@@ -199,17 +205,20 @@ pub fn create_extrinsic(
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
     let tx_ext: polymesh_runtime_develop::TxExtension = (
-        frame_system::AuthorizeCall::new(),
-        frame_system::CheckNonZeroSender::new(),
-        frame_system::CheckSpecVersion::new(),
-        frame_system::CheckTxVersion::new(),
-        frame_system::CheckGenesis::new(),
+        (
+            frame_system::AuthorizeCall::new(),
+            frame_system::CheckNonZeroSender::new(),
+            frame_system::CheckSpecVersion::new(),
+            frame_system::CheckTxVersion::new(),
+            frame_system::CheckGenesis::new(),
+        ),
         frame_system::CheckEra::from(generic::Era::mortal(period, best_block.saturated_into())),
         frame_system::CheckNonce::from(nonce),
         frame_system::CheckWeight::new(),
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     );
 
@@ -217,17 +226,20 @@ pub fn create_extrinsic(
         function.clone(),
         tx_ext.clone(),
         (
-            (),
-            (),
-            polymesh_runtime_develop::runtime::VERSION.spec_version,
-            polymesh_runtime_develop::runtime::VERSION.transaction_version,
-            genesis_hash,
+            (
+                (),
+                (),
+                polymesh_runtime_develop::runtime::VERSION.spec_version,
+                polymesh_runtime_develop::runtime::VERSION.transaction_version,
+                genesis_hash,
+            ),
             best_hash,
             (),
             (),
             (),
             (),
             None,
+            (),
             (),
         ),
     );
@@ -305,6 +317,7 @@ where
             config,
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
             executor,
+            vec![Arc::new(grandpa::GrandpaPruningFilter)],
         )?;
     let client = Arc::new(client);
 
@@ -494,7 +507,6 @@ where
         Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
-    let prometheus_registry = config.prometheus_registry().cloned();
     let enable_offchain_worker = config.offchain_worker.enabled;
 
     let hwbench = (!disable_hardware_benchmarks)
@@ -517,6 +529,7 @@ where
         other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
     } = new_partial(&mut config)?;
 
+    let prometheus_registry = config.prometheus_registry().cloned();
     let metrics = N::register_notification_metrics(
         config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
     );
@@ -585,6 +598,7 @@ where
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
+            spawn_essential_handle: task_manager.spawn_essential_handle(),
             import_queue,
             block_announce_validator_builder: None,
             warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
@@ -644,7 +658,6 @@ where
             telemetry.as_ref().map(|x| x.handle()),
         );
 
-        let client_clone = client.clone();
         let slot_duration = babe_link.config().slot_duration();
         let babe_config = sc_consensus_babe::BabeParams {
             keystore: keystore_container.keystore(),
@@ -654,25 +667,16 @@ where
             block_import,
             sync_oracle: sync_service.clone(),
             justification_sync_link: sync_service.clone(),
-            create_inherent_data_providers: move |parent, ()| {
-                let client_clone = client_clone.clone();
-                async move {
-                    let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+            create_inherent_data_providers: move |_parent, ()| async move {
+                let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-                    let slot =
+                let slot =
                         sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                             *timestamp,
                             slot_duration,
                         );
 
-                    let storage_proof =
-                        sp_transaction_storage_proof::registration::new_data_provider(
-                            &*client_clone,
-                            &parent,
-                        )?;
-
-                    Ok((slot, timestamp, storage_proof))
-                }
+                Ok((slot, timestamp))
             },
             force_authoring,
             backoff_authoring_blocks,

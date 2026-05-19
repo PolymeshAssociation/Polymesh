@@ -52,7 +52,7 @@ impl AssetHelper {
         issuer: &mut User,
         name: &str,
         mint: u128,
-        signers: Vec<AccountId>,
+        signers: BTreeSet<AccountId>,
     ) -> Result<Self> {
         Self::new_full(api, issuer, name, mint, signers, true, None).await
     }
@@ -63,11 +63,13 @@ impl AssetHelper {
         issuer: &mut User,
         name: &str,
         mint: u128,
-        signers: Vec<AccountId>,
+        signers: BTreeSet<AccountId>,
         need_venue: bool,
         #[cfg(feature = "current_release")] kind: Option<AssetHolderKind>,
         #[cfg(feature = "previous_release")] kind: Option<PortfolioKind>,
     ) -> Result<Self> {
+        #[cfg(feature = "previous_release")]
+        let signers = signers.into_iter().collect();
         // Create a new venue.
         let venue_res = if need_venue {
             Some(
@@ -235,32 +237,30 @@ impl AssetHelper {
                 .await?
                 .expect("Settlement ID not found");
 
-            // The investors need to affirm the settlement.
-            let mut pending_affirms = Vec::new();
-            for investor in batch.iter_mut() {
-                let investor_portfolio = PortfolioId {
-                    did: investor.did.expect("Investor DID"),
-                    kind: PortfolioKind::Default,
-                };
+            // On the previous release, investors need to affirm the settlement.
+            #[cfg(feature = "previous_release")]
+            {
+                let mut pending_affirms = Vec::new();
+                for investor in batch.iter_mut() {
+                    let inv_holding = PortfolioId {
+                        did: investor.did.expect("Investor DID"),
+                        kind: PortfolioKind::Default,
+                    };
 
-                #[cfg(feature = "current_release")]
-                let inv_holding = AssetHolder::Portfolio(investor_portfolio);
-                #[cfg(feature = "previous_release")]
-                let inv_holding = investor_portfolio;
+                    let affirm_res = self
+                        .api
+                        .call()
+                        .settlement()
+                        .affirm_instruction(settlement_id, vec![inv_holding].into_iter().collect())?
+                        .submit_and_watch(*investor)
+                        .await?;
+                    pending_affirms.push(affirm_res);
+                }
 
-                let affirm_res = self
-                    .api
-                    .call()
-                    .settlement()
-                    .affirm_instruction(settlement_id, vec![inv_holding].into_iter().collect())?
-                    .submit_and_watch(*investor)
-                    .await?;
-                pending_affirms.push(affirm_res);
-            }
-
-            // Wait for investors affirmations to complete.
-            for mut affirm_res in pending_affirms {
-                affirm_res.ok().await?;
+                // Wait for investors affirmations to complete.
+                for mut affirm_res in pending_affirms {
+                    affirm_res.ok().await?;
+                }
             }
 
             // Execute the settlement

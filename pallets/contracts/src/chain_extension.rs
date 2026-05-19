@@ -294,8 +294,8 @@ where
     // Charge weight as a linear function of `in_len`.
     let weight = match size {
         HashSize::B64 => <T as Config>::WeightInfo::hash_twox_64(in_len),
-        HashSize::B128 => <T as Config>::WeightInfo::hash_twox_64(in_len),
-        HashSize::B256 => <T as Config>::WeightInfo::hash_twox_64(in_len),
+        HashSize::B128 => <T as Config>::WeightInfo::hash_twox_128(in_len),
+        HashSize::B256 => <T as Config>::WeightInfo::hash_twox_256(in_len),
     };
     env.charge_weight(weight)?;
 

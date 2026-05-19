@@ -53,7 +53,6 @@ use frame_system::{ensure_signed, RawOrigin};
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_std::prelude::*;
-use sp_std::vec;
 
 use polymesh_primitives::crypto::{ChainScopedMessage, RELAY_TX_LABEL};
 use polymesh_primitives::identity::AuthorizationNonce;
@@ -707,5 +706,47 @@ where
         } else {
             Ok(None)
         }
+    }
+
+    fn reserve_subsidy(
+        user_key: &T::AccountId,
+        fee: Balance,
+    ) -> Result<Option<T::AccountId>, InvalidTransaction> {
+        if let Some(mut subsidy) = Self::get_subsidy(user_key, fee)? {
+            let paying_key = subsidy.paying_key.clone();
+            subsidy.remaining = subsidy
+                .remaining
+                .checked_sub(fee)
+                .ok_or(InvalidTransaction::Payment)?;
+            Subsidies::<T>::insert(user_key, subsidy);
+            Ok(Some(paying_key))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn settle_subsidy(
+        user_key: &T::AccountId,
+        paying_key: &T::AccountId,
+        reserved: Balance,
+        actual: Balance,
+    ) {
+        if let Some(mut subsidy) = Subsidies::<T>::get(user_key) {
+            // Only refund to the subsidy if the paying_key still matches.
+            // The user may have switched to a different subsidiser during dispatch.
+            if subsidy.paying_key == *paying_key {
+                let refund = reserved.saturating_sub(actual);
+                subsidy.remaining = subsidy.remaining.saturating_add(refund);
+                Subsidies::<T>::insert(user_key, subsidy);
+            }
+        }
+
+        // Always emit the event using the original paying_key from prepare,
+        // even if the subsidy was removed or changed during dispatch.
+        Self::deposit_event(Event::SubsidyDebited {
+            user_key: user_key.clone(),
+            paying_key: paying_key.clone(),
+            amount: actual,
+        });
     }
 }

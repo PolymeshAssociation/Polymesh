@@ -4,6 +4,7 @@ use integration::*;
 use polymesh_api::types::polymesh_primitives::settlement::{VenueDetails, VenueType};
 
 #[tokio::test]
+#[test_log::test]
 async fn create_venue() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester.users(&["CreateVenueUser1"]).await?;
@@ -12,14 +13,22 @@ async fn create_venue() -> Result<()> {
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test1".to_vec()), vec![], VenueType::Other)?
+        .create_venue(
+            VenueDetails(b"Test1".to_vec()),
+            Default::default(),
+            VenueType::Other,
+        )?
         .submit_and_watch(&mut users[0])
         .await?;
     let mut res2 = tester
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test2".to_vec()), vec![], VenueType::Other)?
+        .create_venue(
+            VenueDetails(b"Test2".to_vec()),
+            Default::default(),
+            VenueType::Other,
+        )?
         .submit_and_watch(&mut users[0])
         .await?;
     println!("venue1 = {:?}", get_venue_id(&mut res1).await?);

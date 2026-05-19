@@ -34,7 +34,7 @@ use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::merge_active_and_inactive;
 use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
@@ -58,7 +58,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 8_000_000,
+    spec_version: 8_000_010,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 8,
@@ -76,6 +76,9 @@ parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
     pub const SS58Prefix: u8 = 42;
+
+    // Revive/EVM
+    pub const EvmChainId: u64 = 1_641_819;
 
     // Base:
     pub const MaxLen: u32 = ENSURED_MAX_LEN;
@@ -103,6 +106,15 @@ parameter_types! {
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaximumLockPeriod: Moment = 86_400_000; // 24 hours
+    pub const RelockCooldown: Moment = 14_400_000; // 4 hours
+    pub const MaxRelockCount: u32 = 3;
+
+    // Confidential asset parameters
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
@@ -182,6 +194,23 @@ parameter_types! {
     // Election Provider Multi Phase
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
+
+/// Confidential assets parameters
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<10>;
+
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<20>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<10>;
+
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -478,6 +507,40 @@ mod runtime {
 
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(55)]
+    pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
+
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
+
+    #[runtime::pallet_index(80)]
+    pub type Revive = pallet_revive::Pallet<Runtime>;
+}
+
+impl pallet_confidential_assets::Config for Runtime {
+    type Currency = Balances;
+
+    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
+
+    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+    type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
+
+    // These are for publishing as constants in the pallet metadata.
+    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
+    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
+    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
+    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
+    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
+    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
+    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
+    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
+    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
+    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
+    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
+    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
+    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
 }
 
 polymesh_runtime_common::runtime_apis! {}

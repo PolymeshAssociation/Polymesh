@@ -77,12 +77,6 @@ use polymesh_primitives::traits::GovernanceGroupTrait;
 use polymesh_primitives::{IdentityId, MaybeBlock, SystematicIssuers, GC_DID};
 
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
-
-/// The maximum number of concurrently active proposals defined for the sake of weight computation.
-/// This is not defined as a trait parameter but rather as a plain constant because this value has
-/// to be the same for all instances.
-pub const PROPOSALS_MAX: u32 = 500;
-
 pub trait WeightInfo {
     fn set_vote_threshold() -> Weight;
     fn set_release_coordinator() -> Weight;
@@ -641,12 +635,6 @@ pub mod pallet {
         fn propose(origin: OriginFor<T>, proposal: <T as Config<I>>::Proposal) -> DispatchResult {
             // 1. Ensure `origin` is a committee member.
             let did = Self::ensure_is_member(origin)?;
-
-            // 1.1 Ensure proposal limit has not been reached.
-            ensure!(
-                ProposalCount::<T, I>::get() < PROPOSALS_MAX,
-                Error::<T, I>::ProposalsLimitReached
-            );
 
             // 2. Get hash & reject duplicate proposals.
             let proposal_hash = T::Hashing::hash_of(&proposal);

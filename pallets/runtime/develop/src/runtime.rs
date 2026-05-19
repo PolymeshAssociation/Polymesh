@@ -27,7 +27,7 @@ use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
-use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
 use polymesh_runtime_common::impls::Author;
 use polymesh_runtime_common::merge_active_and_inactive;
 use polymesh_runtime_common::runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO};
@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 8_000_000,
+    spec_version: 8_000_010,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 8,
@@ -75,6 +75,9 @@ parameter_types! {
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
     pub const SS58Prefix: u8 = 42;
 
+    // Revive/EVM
+    pub const EvmChainId: u64 = 1_641_818;
+
     // Base:
     pub const MaxLen: u32 = ENSURED_MAX_LEN;
 
@@ -82,7 +85,7 @@ parameter_types! {
     pub const IndexDeposit: Balance = DOLLARS;
 
     // Balances:
-    pub const ExistentialDeposit: Balance = 0u128;
+    pub const ExistentialDeposit: Balance = 1u128;
     pub const BenchmarkEd: Balance = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxReserves: u32 = 50;
@@ -101,6 +104,11 @@ parameter_types! {
     pub const MaxNumberOfVenueSigners: u32 = 50;
     pub const MaxInstructionMediators: u32 = 4;
     pub const MaximumLockPeriod: Moment = 1_440_000; // 24 min
+    pub const RelockCooldown: Moment = 600_000; // 10 min
+    pub const MaxRelockCount: u32 = 3;
+
+    // Confidential asset parameters
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
@@ -175,6 +183,47 @@ parameter_types! {
     // Election Provider Multi Phase
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
+
+#[cfg(feature = "ci-runtime")]
+parameter_types! {
+    // Confidential assets parameters
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 18_000; // 18 sec
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 60_000; // 1 min
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 120_000; // 2 min
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 120_000; // 2 min
+}
+
+#[cfg(not(feature = "ci-runtime"))]
+parameter_types! {
+    // Confidential assets parameters
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+}
+
+/// Confidential assets parameters
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+
+#[cfg(feature = "ci-runtime")]
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<4>;
+#[cfg(not(feature = "ci-runtime"))]
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<10>;
+
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<20>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+
+#[cfg(feature = "ci-runtime")]
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<4>;
+#[cfg(not(feature = "ci-runtime"))]
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<10>;
+
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -481,15 +530,50 @@ mod runtime {
 
     #[runtime::pallet_index(54)]
     pub type MmrLeaf = pallet_beefy_mmr::Pallet<Runtime>;
+
+    #[runtime::pallet_index(55)]
+    pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
+
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
+
+    #[runtime::pallet_index(80)]
+    pub type Revive = pallet_revive::Pallet<Runtime>;
+}
+
+impl pallet_confidential_assets::Config for Runtime {
+    type Currency = Balances;
+
+    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
+
+    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+    type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
+
+    // These are for publishing as constants in the pallet metadata.
+    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
+    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
+    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
+    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
+    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
+    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
+    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
+    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
+    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
+    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
+    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
+    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
+    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 mod benches {
-    define_benchmarks!(
+    frame_benchmarking::define_benchmarks!(
         [frame_benchmarking, BaselineBench::<Runtime>]
         [pallet_asset, Asset]
         [pallet_balances, Balances]
+        [pallet_mmr, Mmr]
         [pallet_beefy_mmr, MmrLeaf]
         [pallet_identity, Identity]
         [pallet_pips, Pips]
@@ -505,6 +589,7 @@ mod benches {
         [pallet_corporate_actions, CorporateAction]
         [pallet_corporate_ballot, CorporateBallot]
         [pallet_capital_distribution, CapitalDistribution]
+        [pallet_confidential_assets, ConfidentialAssets]
         [pallet_external_agents, ExternalAgents]
         [pallet_relayer, Relayer]
         [pallet_committee, PolymeshCommittee]
@@ -526,6 +611,8 @@ mod benches {
         [polymesh_contracts, PolymeshContracts]
         [pallet_nft, Nft]
         [pallet_contracts, Contracts]
+        [pallet_revive, Revive]
+        [pallet_migrations, MultiBlockMigrations]
     );
 }
 
@@ -539,13 +626,18 @@ polymesh_runtime_common::runtime_apis! {
             use frame_benchmarking::{baseline, BenchmarkBatch};
             use frame_support::traits::TrackedStorageKey;
 
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
             impl baseline::Config for Runtime {}
-            impl crate::benchmarks::pallet_session::Config for Runtime {}
+            impl pallet_session_benchmarking::Config for Runtime {
+                fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+                    let keys = SessionKeys::generate(&owner.encode(), None);
+                    (keys.keys, keys.proof.encode())
+                }
+            }
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -575,7 +667,7 @@ polymesh_runtime_common::runtime_apis! {
             use frame_benchmarking::{baseline, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
-            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 

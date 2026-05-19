@@ -45,7 +45,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
@@ -57,10 +56,13 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::traits::{AssetFnConfig, AssetFnTrait, NFTTrait};
+use polymesh_primitives::traits::{
+    AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait,
+    PortfolioFnTrait,
+};
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, Balance, Fund, FundDescription, IdentityId, Memo, NFTId,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
+    extract_auth, Balance, Fund, FundDescription, IdentityId, Memo, NFTId, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey,
 };
 
 fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
@@ -99,6 +101,8 @@ pub trait WeightInfo {
 
 pub use pallet::*;
 
+mod migrations;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -107,7 +111,11 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + pallet_permissions::Config + pallet_identity::Config + AssetFnConfig
+        frame_system::Config
+        + pallet_permissions::Config
+        + pallet_identity::Config
+        + AssetFnConfig
+        + AffirmationFnConfig
     {
         type WeightInfo: WeightInfo;
         /// Maximum number of fungible assets that can be moved in a single transfer call.
@@ -199,12 +207,20 @@ pub mod pallet {
         RevokeCreatePortfoliosPermission(IdentityId, IdentityId),
     }
 
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
+            if Pallet::<T>::on_chain_storage_version() < STORAGE_VERSION {
+                let weight = migrations::migrate_to_v4::<T>();
+                STORAGE_VERSION.put::<Pallet<T>>();
+                return weight;
+            }
             Weight::zero()
         }
     }
@@ -287,12 +303,13 @@ pub mod pallet {
 
     /// The nft associated to the portfolio.
     #[pallet::storage]
-    pub type PortfolioNFT<T: Config> = StorageDoubleMap<
+    pub type PortfolioNFT<T: Config> = StorageNMap<
         _,
-        Twox64Concat,
-        PortfolioId,
-        Blake2_128Concat,
-        (AssetId, NFTId),
+        (
+            NMapKey<Twox64Concat, PortfolioId>,
+            NMapKey<Blake2_128Concat, AssetId>,
+            NMapKey<Blake2_128Concat, NFTId>,
+        ),
         bool,
         ValueQuery,
     >;
@@ -319,12 +336,6 @@ pub mod pallet {
     pub type AllowedCustodians<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
 
-    /// Storage version.
-    #[pallet::storage]
-    pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
-
-    storage_migration_ver!(3);
-
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
@@ -335,7 +346,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            StorageVersion::<T>::put(Version::new(3));
+            STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
@@ -426,7 +437,7 @@ pub mod pallet {
                 Error::<T>::PortfolioNotEmpty
             );
             ensure!(
-                PortfolioNFT::<T>::iter_prefix(&pid).next().is_none(),
+                PortfolioNFT::<T>::iter_prefix((&pid,)).next().is_none(),
                 Error::<T>::PortfolioNotEmpty
             );
 
@@ -908,10 +919,12 @@ impl<T: Config> Pallet<T> {
                         unique_assets.insert(asset_id),
                         Error::<T>::NoDuplicateAssetsAllowed
                     );
+                    T::AssetFn::asset_is_not_frozen(asset_id)?;
                     Self::ensure_sufficient_balance(sender_portfolio, &asset_id, *amount)?;
                 }
                 FundDescription::NonFungible(nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::EmptyTransfer);
+                    T::AssetFn::asset_is_not_frozen(nfts.asset_id())?;
                     Self::ensure_valid_nfts(sender_portfolio, nfts.asset_id(), nfts.ids())?;
                 }
             }
@@ -1113,7 +1126,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns `true` if the given portfolio owns the `nft_id` of `asset_id` collection.
     pub fn is_nft_owner(portfolio_id: &PortfolioId, asset_id: &AssetId, nft_id: &NFTId) -> bool {
-        PortfolioNFT::<T>::contains_key(portfolio_id, (asset_id, nft_id))
+        PortfolioNFT::<T>::contains_key((portfolio_id, asset_id, nft_id))
     }
 
     /// Returns `true` if the nft is locked.
@@ -1127,12 +1140,12 @@ impl<T: Config> Pallet<T> {
         asset_id: &AssetId,
         nft_id: &NFTId,
     ) {
-        PortfolioNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
+        PortfolioNFT::<T>::remove((portfolio_id, asset_id, nft_id));
     }
 
     /// Adds the nft to the owner's portfolio.
     pub fn add_nft_to_portfolio(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
-        PortfolioNFT::<T>::insert(portfolio_id, (asset_id, nft_id), true);
+        PortfolioNFT::<T>::insert((portfolio_id, asset_id, nft_id), true);
     }
 
     /// Locks the given nft.
@@ -1145,16 +1158,29 @@ impl<T: Config> Pallet<T> {
         PortfolioLockedNFT::<T>::remove(portfolio_id, (asset_id, nft_id));
     }
 
-    /// Returns `true` if the portfolio has pre-approved the receivement of `asset_id`, otherwise returns `false`.
+    /// Returns `true` if the portfolio should skip receiver affirmation for `asset_id`.
+    ///
+    /// The governing identity is the custodian (for custodial portfolios) or the portfolio
+    /// owner (for non-custodial portfolios). If the governing identity has not opted in to
+    /// mandatory receiver affirmation, affirmation is skipped. If opted in, asset-level and
+    /// portfolio+asset pre-approvals can still override.
     pub fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
-        if PortfolioCustodian::<T>::get(portfolio_id).is_some() {
-            if T::AssetFn::asset_affirmation_exemption(asset_id) {
-                return true;
-            }
-            return PreApprovedPortfolios::<T>::get(portfolio_id, asset_id);
+        // For custodial portfolios, the custodian's policy governs; otherwise the owner's.
+        let affirmation_did =
+            PortfolioCustodian::<T>::get(portfolio_id).unwrap_or(portfolio_id.did);
+
+        // If the governing identity hasn't opted in to mandatory receiver affirmation, skip.
+        if !T::AffirmationFn::identity_requires_affirmation(&affirmation_did) {
+            return true;
         }
 
-        if T::AssetFn::skip_asset_affirmation(&portfolio_id.did, asset_id) {
+        // Identity opted in — check if asset is globally exempt.
+        if T::AssetFn::asset_affirmation_exemption(asset_id) {
+            return true;
+        }
+
+        // Check per-identity and per-portfolio pre-approvals.
+        if T::AssetFn::skip_asset_affirmation(&affirmation_did, asset_id) {
             return true;
         }
         PreApprovedPortfolios::<T>::get(portfolio_id, asset_id)
@@ -1184,5 +1210,14 @@ impl<T: Config> Pallet<T> {
         );
         Self::set_portfolio_locked_balance(portfolio, asset_id, current_locked - amount);
         Ok(())
+    }
+}
+
+impl<T: Config> PortfolioFnTrait for Pallet<T> {
+    fn ensure_portfolio_custody(
+        portfolio: &PortfolioId,
+        custodian: IdentityId,
+    ) -> Result<(), DispatchError> {
+        Self::ensure_portfolio_custody(portfolio, custodian)
     }
 }

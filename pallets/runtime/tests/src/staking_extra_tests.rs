@@ -1,5 +1,6 @@
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::Perbill;
 
 use polymesh_primitives::{AuthorizationData, Permissions};
 
@@ -77,4 +78,50 @@ fn updating_controller() {
                 )
             );
         });
+}
+
+#[test]
+fn existing_validator_cannot_bypass_commission_cap() {
+    ExtBuilder::default().build().execute_with(|| {
+        let cap = Perbill::from_percent(20);
+        pallet_validators::ValidatorCommissionCap::<TestStorage>::put(cap);
+
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        assert_ok!(
+            pallet_validators::Pallet::<TestStorage>::add_permissioned_validator(
+                Origin::root(),
+                alice.did,
+                None
+            )
+        );
+        assert_ok!(pallet_staking::Pallet::<TestStorage>::bond(
+            alice.origin(),
+            10_000_000,
+            pallet_staking::RewardDestination::Account(alice.acc())
+        ));
+
+        let prefs_at_cap = pallet_staking::ValidatorPrefs {
+            commission: cap,
+            blocked: false,
+        };
+        let prefs_over_cap = pallet_staking::ValidatorPrefs {
+            commission: Perbill::from_percent(100),
+            blocked: false,
+        };
+
+        // Register at the cap — succeeds.
+        assert_ok!(pallet_staking::Pallet::<TestStorage>::validate(
+            Origin::signed(alice.acc()),
+            prefs_at_cap,
+        ));
+
+        // Already-registered validator tries to exceed cap — must be rejected.
+        assert_noop!(
+            pallet_staking::Pallet::<TestStorage>::validate(
+                Origin::signed(alice.acc()),
+                prefs_over_cap,
+            ),
+            pallet_validators::Error::<TestStorage>::CommissionTooHigh
+        );
+    });
 }

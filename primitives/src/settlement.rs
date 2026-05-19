@@ -23,6 +23,7 @@ use frame_support::traits::schedule::v3::TaskName;
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
+use sp_io::hashing::blake2_256;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
 
@@ -103,6 +104,24 @@ pub enum AffirmationStatus {
     Affirmed,
 }
 
+/// Controls whether an identity requires explicit receiver affirmation for incoming transfers.
+#[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum AffirmationRequirement {
+    /// Incoming transfers are affirmed automatically; no explicit receiver action required.
+    #[default]
+    Automatic,
+    /// The receiver must explicitly affirm each incoming transfer instruction.
+    Required,
+}
+
+impl From<AffirmationRequirement> for bool {
+    fn from(requirement: AffirmationRequirement) -> bool {
+        requirement == AffirmationRequirement::Required
+    }
+}
+
 /// Type of settlement
 #[derive(Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Copy, Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
@@ -133,17 +152,9 @@ impl_checked_inc!(InstructionId);
 
 impl InstructionId {
     /// Converts an instruction id into [`TaskName`].
-    pub fn execution_name(&self) -> Result<TaskName, Vec<u8>> {
-        let mut task_name: TaskName = [0; 32];
-
+    pub fn execution_name(&self) -> TaskName {
         let encoded_task = (SETTLEMENT_INSTRUCTION_EXECUTION, self.0).encode();
-
-        if encoded_task.len() >= task_name.len() {
-            return Err(b"Task name too long".to_vec());
-        }
-
-        task_name[..encoded_task.len()].copy_from_slice(&encoded_task[..]);
-        Ok(task_name)
+        blake2_256(&encoded_task[..])
     }
 }
 

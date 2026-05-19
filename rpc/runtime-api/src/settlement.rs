@@ -19,14 +19,17 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::settlement::{AffirmationCount, ExecuteInstructionInfo};
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::settlement::{
+    AffirmationCount, AffirmationRequirement, ExecuteInstructionInfo,
+};
 use polymesh_primitives::settlement::{AssetCount, InstructionId, Leg};
 use polymesh_primitives::{AssetHolder, PortfolioId};
 
 sp_api::decl_runtime_apis! {
-    #[api_version(2)]
+    #[api_version(3)]
     pub trait SettlementApi {
-        #[changed_in(2)]
+        #[changed_in(3)]
         fn get_affirmation_count(instruction_id: InstructionId, portfolios: Vec<PortfolioId>) -> AffirmationCount;
 
         /// Returns an [`ExecuteInstructionInfo`] instance containing the consumed weight and the number of fungible and non fungible
@@ -95,5 +98,18 @@ sp_api::decl_runtime_apis! {
 
         /// Returns the [`AssetCount`] for the given `instruction_id`.
         fn instruction_asset_count(instruction_id: InstructionId) -> AssetCount;
+
+        /// Returns the [`AffirmationRequirement`] for the given `receiver` and `asset_id`.
+        ///
+        /// [`AffirmationRequirement::Required`] means a receiver affirmation is needed before the
+        /// instruction can execute. [`AffirmationRequirement::Automatic`] means the instruction
+        /// will execute without waiting for the receiver to affirm.
+        ///
+        /// Senders can call this before initiating a transfer to determine whether the resulting
+        /// instruction will auto-execute or enter a pending state awaiting receiver affirmation.
+        fn get_receiver_affirmation_requirement(
+            receiver: AssetHolder,
+            asset_id: AssetId,
+        ) -> AffirmationRequirement;
     }
 }

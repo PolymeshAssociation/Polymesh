@@ -116,6 +116,7 @@ async fn test_sk_calls(
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn secondary_keys_permissions() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     const SK_COUNT: usize = 10;
@@ -135,7 +136,7 @@ async fn secondary_keys_permissions() -> Result<()> {
     // Prepare `settlement.create_venue` call.
     let create_venue_call = Arc::new(tester.api.call().settlement().create_venue(
         VenueDetails(vec![]),
-        vec![],
+        Default::default(),
         VenueType::Other,
     )?);
     // Prepare `identity.add_authorization` call.
@@ -219,6 +220,7 @@ async fn secondary_keys_permissions() -> Result<()> {
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn secondary_key_change_identity() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -255,7 +257,7 @@ async fn secondary_key_change_identity() -> Result<()> {
     // Prepare `settlement.create_venue` call.
     let create_venue_call = Arc::new(tester.api.call().settlement().create_venue(
         VenueDetails(vec![]),
-        vec![],
+        Default::default(),
         VenueType::Other,
     )?);
     // Prepare `identity.add_authorization` call.

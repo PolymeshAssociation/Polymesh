@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use integration::*;
@@ -12,6 +14,7 @@ use polymesh_api::types::polymesh_primitives::asset::{AssetHolder, AssetHolderKi
 
 /// Test the asset helper.
 #[tokio::test]
+#[test_log::test]
 async fn asset_helper() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -27,7 +30,7 @@ async fn asset_helper() -> Result<()> {
         &mut asset_issuer,
         "TestAsset",
         1_000_000,
-        vec![],
+        BTreeSet::new(),
     )
     .await?;
 
@@ -41,6 +44,7 @@ async fn asset_helper() -> Result<()> {
 
 /// Test for a simple settlement.
 #[tokio::test]
+#[test_log::test]
 async fn simple_settlement() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -49,7 +53,7 @@ async fn simple_settlement() -> Result<()> {
         .into_iter();
     let mut venue = users.next().expect("Venue user");
     let mut asset_issuer = users.next().expect("Asset issuer");
-    let mut investor = users.next().expect("Investor");
+    let investor = users.next().expect("Investor");
 
     // Get the DIDs of the users.
     let issuer_did = asset_issuer.did.expect("Asset issuer DID");
@@ -75,13 +79,16 @@ async fn simple_settlement() -> Result<()> {
     #[cfg(feature = "previous_release")]
     let investor_holding = investor_portfolio;
 
-
     // Create a new venue.
     let mut venue_res = tester
         .api
         .call()
         .settlement()
-        .create_venue(VenueDetails(b"Test1".to_vec()), vec![], VenueType::Other)?
+        .create_venue(
+            VenueDetails(b"Test1".to_vec()),
+            Default::default(),
+            VenueType::Other,
+        )?
         .submit_and_watch(&mut venue)
         .await?;
 
@@ -172,21 +179,22 @@ async fn simple_settlement() -> Result<()> {
         .submit_and_watch(&mut asset_issuer)
         .await?;
 
-    // The investor needs to affirm the settlement.
-    let mut affirm_res2 = tester
-        .api
-        .call()
-        .settlement()
-        .affirm_instruction(
-            settlement_id,
-            vec![investor_holding].into_iter().collect(),
-        )?
-        .submit_and_watch(&mut investor)
-        .await?;
-
-    // Wait for the affirmations to complete.
+    // Wait for the issuer affirmation to complete.
     affirm_res.ok().await?;
-    affirm_res2.ok().await?;
+
+    // On the previous release, the investor needs to affirm the settlement.
+    #[cfg(feature = "previous_release")]
+    {
+        let mut investor = investor;
+        let mut affirm_res2 = tester
+            .api
+            .call()
+            .settlement()
+            .affirm_instruction(settlement_id, vec![investor_holding].into_iter().collect())?
+            .submit_and_watch(&mut investor)
+            .await?;
+        affirm_res2.ok().await?;
+    }
 
     // Execute the settlement
     let mut execute_res = tester
@@ -205,6 +213,7 @@ async fn simple_settlement() -> Result<()> {
 
 /// Test a settlement with offchain leg and onchain fungible leg.
 #[tokio::test]
+#[test_log::test]
 async fn offchain_settlement() -> Result<()> {
     let mut tester = PolymeshTester::new().await?;
     let mut users = tester
@@ -221,7 +230,7 @@ async fn offchain_settlement() -> Result<()> {
         &mut venue,
         "TestAsset",
         1_000_000_000,
-        vec![signer1.account()],
+        BTreeSet::from([signer1.account()]),
     )
     .await?;
     let venue_id = asset_helper.issuer_venue_id;
@@ -345,11 +354,16 @@ async fn offchain_settlement() -> Result<()> {
         .api
         .call()
         .settlement()
-        .affirm_with_receipts(
-            instruction_id,
-            vec![receipt_details],
-            [investor_holding].into(),
-        )?
+        .affirm_with_receipts(instruction_id, vec![receipt_details], {
+            #[cfg(feature = "previous_release")]
+            {
+                [investor_holding].into()
+            }
+            #[cfg(feature = "current_release")]
+            {
+                [].into()
+            }
+        })?
         .submit_and_watch(&mut investor1)
         .await?;
 

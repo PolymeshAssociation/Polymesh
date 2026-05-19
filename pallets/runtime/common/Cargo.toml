@@ -27,7 +27,9 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-authorship = { workspace = true, default-features = false }
+pallet-migrations = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
+pallet-transaction-payment = { workspace = true, default-features = false }
 sp-genesis-builder = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
@@ -47,6 +49,7 @@ std = [
     "pallet-balances/std",
     "pallet-committee/std",
     "pallet-election-provider-multi-phase/std",
+    "pallet-transaction-payment/std",
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",
@@ -65,9 +68,11 @@ runtime-benchmarks = [
     "pallet-committee/runtime-benchmarks",
     "pallet-election-provider-multi-phase/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
+    "pallet-migrations/runtime-benchmarks",
     "pallet-multisig/runtime-benchmarks",
     "pallet-relayer/runtime-benchmarks",
     "polymesh-transaction-payment/runtime-benchmarks",
+    "pallet-transaction-payment/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

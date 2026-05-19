@@ -133,6 +133,12 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       mandatoryMediators: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => Observable<BTreeSet<PolymeshPrimitivesIdentityId>>, [PolymeshPrimitivesAssetAssetId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesAssetAssetId]>;
       /**
+       * Identities that require receiver affirmation for all incoming transfers.
+       * When `true`, the identity has opted in to mandatory receiver affirmation.
+       * Default is `false` (no affirmation required).
+       **/
+      mandatoryReceiverAffirmation: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId]>;
+      /**
        * All assets that don't need an affirmation to be received by an identity.
        **/
       preApprovedAsset: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: PolymeshPrimitivesAssetAssetId | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesAssetAssetId]>;
@@ -1703,10 +1709,6 @@ declare module '@polkadot/api-base/types/storage' {
        * Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
        **/
       receiptsUsed: AugmentedQuery<ApiType, (arg1: AccountId32 | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<bool>, [AccountId32, u64]> & QueryableStorageEntry<ApiType, [AccountId32, u64]>;
-      /**
-       * Storage version.
-       **/
-      storageVersion: AugmentedQuery<ApiType, () => Observable<u8>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Helps a user track their pending instructions and affirmations (only needed for UI).
        * (counter_party, instruction_id) -> AffirmationStatus

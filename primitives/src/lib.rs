@@ -32,7 +32,6 @@ use frame_support::traits::Get;
 use polymesh_primitives_derive::{SliceU8StrongTyped, StringStrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_debug_derive::RuntimeDebug;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 use sp_std::prelude::Vec;
 
@@ -246,6 +245,9 @@ pub mod crypto;
 pub mod asset;
 pub use asset::{AssetHolder, AssetHolderKind, HoldingsUpdateReason};
 
+/// ERC-20 type definitions.
+pub mod erc20;
+
 /// Asset Metadata type definitions.
 pub mod asset_metadata;
 
@@ -303,6 +305,9 @@ pub use constants::{SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS, TECHNICAL_DID
 /// Multisig type definitions.
 pub mod multisig;
 
+/// Transaction payment related types.
+pub mod transaction_payment;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
@@ -316,6 +321,8 @@ pub enum TransactionError {
     InvalidAuthorization = 3,
     /// Subsidy is not available for this pallet.
     PalletNotSubsidised = 4,
+    /// The caller has already voted.
+    AlreadyVoted = 5,
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
@@ -378,7 +385,7 @@ impl ExtrinsicName {
     Eq,
     Clone,
     Copy,
-    RuntimeDebug,
+    Debug,
     Default,
     MaxEncodedLen,
     TypeInfo
