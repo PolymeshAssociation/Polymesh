@@ -40,8 +40,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::CurrentWorkerSessionId` (r:0 w:1)
     // Proof: `ConfidentialAssets::CurrentWorkerSessionId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn session_overhead() -> Weight {
-        // Minimum execution time: 1_923 nanoseconds.
-        Weight::from_parts(2_284_000, 0)
+        // Minimum execution time: 3_730 nanoseconds.
+        Weight::from_parts(4_449_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -66,8 +66,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AssetCurveTreeRoots` (r:0 w:1)
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn curve_tree_min_update() -> Weight {
-        // Minimum execution time: 28_945 nanoseconds.
-        Weight::from_parts(32_642_000, 0)
+        // Minimum execution time: 49_030 nanoseconds.
+        Weight::from_parts(52_410_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -77,10 +77,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `r` is `[0, 10]`.
     fn root_pruning(r: u32) -> Weight {
-        // Minimum execution time: 8_226 nanoseconds.
-        Weight::from_parts(10_566_541, 0)
-            // Standard Error: 11_497
-            .saturating_add(Weight::from_parts(2_677_453, 0).saturating_mul(r.into()))
+        // Minimum execution time: 13_790 nanoseconds.
+        Weight::from_parts(16_348_882, 0)
+            // Standard Error: 19_659
+            .saturating_add(Weight::from_parts(4_578_371, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(1))
