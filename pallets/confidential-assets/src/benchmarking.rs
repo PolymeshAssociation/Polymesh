@@ -112,7 +112,7 @@ benchmarks! {
     }
 
     root_pruning {
-        let r in 0 .. MAX_ROOTS_TO_PRUNE as u32;
+        let r in 0 .. MAX_ROOT_PRUNING_BLOCKS as u32;
 
         init_curve_trees::<T>();
         let max_age = T::MaxAssetCurveTreeRootAge::get();

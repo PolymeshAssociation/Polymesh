@@ -94,10 +94,10 @@ pub use settlement::*;
 /// This is used to hold the POLYX used in private fee payments.
 pub const CONFIDENTIAL_ASSETS_FEE_ID: PalletId = PalletId(*b"pm/dartf");
 
-/// Maximum number of curve tree roots to prune in one block.
+/// Maximum number of blocks to sweep when pruning old curve tree roots.
 ///
 /// This is to prevent the pruning process from taking too long in one block.
-pub const MAX_ROOTS_TO_PRUNE: u32 = 10;
+pub const MAX_ROOT_PRUNING_BLOCKS: u32 = 10;
 
 /// Number of recent blocks to keep when pruning curve tree roots.
 ///
@@ -2781,12 +2781,14 @@ impl<T: Config> Pallet<T> {
         let mut last_pruned_block = get_last_pruned_block();
         let mut update_last_pruned = false;
         let mut pruned_count = 0;
-        for _ in 0..MAX_ROOTS_TO_PRUNE {
+        let mut scanned_blocks = 0;
+        for _ in 0..MAX_ROOT_PRUNING_BLOCKS {
             let block_number = last_pruned_block.saturating_add(1u32.into());
             if block_number >= stop_at {
                 // Don't prune roots for recent blocks.
                 break;
             }
+            scanned_blocks += 1;
             // Get the next curve tree root block number to prune.
             if let Some(root) = get_root(block_number) {
                 // If the next prune root has expired based on the maximum root age, prune it.
@@ -2807,7 +2809,13 @@ impl<T: Config> Pallet<T> {
             update_last_pruned_block(last_pruned_block);
         }
 
-        <T as Config>::WeightInfo::root_pruning(pruned_count)
+        let mut weight = <T as Config>::WeightInfo::root_pruning(pruned_count);
+        let extra_reads = scanned_blocks.saturating_sub(pruned_count);
+        if extra_reads > 0 {
+            // Make sure to cover the extra reads for blocks that don't have a root or has a valid root.
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(extra_reads as u64, 0));
+        }
+        weight
     }
 
     // Asset curve tree root pruning.
@@ -2849,7 +2857,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    /// Prunning historical curve tree roots to prevent storage bloat.
+    /// Pruning historical curve tree roots to prevent storage bloat.
     pub fn curve_tree_pruning(now: T::Moment) -> Weight {
         let mut weight = Weight::zero();
 
