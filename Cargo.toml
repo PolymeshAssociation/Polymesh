@@ -150,8 +150,8 @@ rayon = { version = "1.8" }
 polymesh-native-crypto = { path = "native-crypto", default-features = false }
 
 # Polkavm for protocol workers.
-polkavm = { version = "0.32", default-features = false }
-polkavm-derive = { version = "0.32", default-features = false }
+polkavm = { version = "0.33", default-features = false }
+polkavm-derive = { version = "0.33", default-features = false }
 
 # Our pallets
 pallet-asset = { path = "pallets/asset", default-features = false }
