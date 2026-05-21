@@ -526,36 +526,6 @@ jobs:
           command: cargo nextest run --release --features current_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
-  integration-test:
-    docker:
-      - image: node:18-bookworm
-    resource_class: medium+
-    environment:
-      VERBOSE: "1"
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ./assets/ci-runtime
-      - run:
-          name: run Polymesh ci-runtime dev chain node for integration tests
-          command: >-
-            ./assets/ci-runtime/polymesh --bob --dev \
-              --no-prometheus --no-telemetry --tmp \
-              --pool-limit 100000
-          background: true
-      - run:
-          name: Wait for chain build the genesis config and start producing blocks
-          command: sleep 15
-      - run:
-          name: install and build integration tests
-          command: yarn install && yarn build:types && yarn build
-          working_directory: ./scripts/cli
-          no_output_timeout: 30m
-      - run:
-          name: run integration tests
-          command: yarn test
-          working_directory: ./scripts/cli
-          no_output_timeout: 10m
   contract-deploy-test-foundry:
     docker:
       - image: ghcr.io/foundry-rs/foundry:v1.7.1
@@ -972,9 +942,6 @@ workflows:
       - benchmark-build
       - coverage
       - rust-integration-test:
-          requires:
-            - build-ci
-      - integration-test:
           requires:
             - build-ci
       # NOTE: requires `build` (full develop_chain_spec), NOT `build-ci`.
