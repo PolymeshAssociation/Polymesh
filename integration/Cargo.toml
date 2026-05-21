@@ -98,6 +98,7 @@ sp-core = "40.0"
 sp-runtime = "46.0"
 sp-keyring = "46.0"
 sp-weights = "34.0"
+sp-arithmetic = "28.0"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [
     "derive",
     "max-encoded-len",

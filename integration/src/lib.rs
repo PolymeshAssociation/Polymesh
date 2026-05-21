@@ -310,6 +310,45 @@ pub async fn get_contract_address(res: &mut TransactionResults) -> Result<Option
     Ok(None)
 }
 
+#[cfg(feature = "current_release")]
+pub async fn get_ag_id(
+    res: &mut TransactionResults,
+) -> Result<Option<polymesh_api::types::polymesh_primitives::agent::AGId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::ExternalAgents(ExternalAgentsEvent::GroupCreated(_, _, ag_id, _)) => {
+                    return Ok(Some(ag_id.clone()));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "current_release")]
+pub async fn get_ca_id(
+    res: &mut TransactionResults,
+) -> Result<Option<polymesh_api::types::pallet_corporate_actions::CAId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::CorporateAction(CorporateActionEvent::CAInitiated(
+                    _,
+                    ca_id,
+                    _,
+                    _,
+                )) => {
+                    return Ok(Some(ca_id.clone()));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Helper trait to add methods to `User`
 #[async_trait::async_trait]
 pub trait IntegrationUser: Signer {
