@@ -94,7 +94,6 @@ Run unit tests:
 - The `mainnet` branch tracks code deployed to the Polymesh Public Mainnet.
 - The `testnet` branch tracks code deployed to the Polymesh Public Testnet.
 - The `staging` branch tracks mainnet except during a release cycle where it is upgraded ahead of mainnet.
-- The `tooling` branch tracks the next candidate release for mainnet.
 - The `develop` branch is the working branch with the latest code changes.
 
 # Development
@@ -124,30 +123,6 @@ To access the Polymesh Chain using the [Web Interface] do the following:
 
 3. Reload the page.
 
-## Multi-node local testnet
-
-If you want to see the multi-node consensus algorithm in action locally, then you can create a local testnet with two validator nodes for Alice and Bob, who are the initial authorities of the genesis chain that have been endowed with testnet units.
-
-```bash
-cd scripts/cli
-npm install
-./run.sh
-```
-
-This uses pm2 to run a local three node network for demonstrate simple consensus.
-
-To stop the chain you can use:
-
-```bash
-./stop.sh
-```
-
-and to display log files you can use:
-
-```bash
-./log.sh
-```
-
 # Unit Tests
 
 Unit tests are packaged with the Rust code. To run these, you can execute:
@@ -160,17 +135,6 @@ cargo test --package polymesh-primitives
 cargo test --package pallet-pips-rpc
 cargo test --package pallet-transaction-payment
 ```
-
-# Initialise
-
-You can seed the network with some identities, claims, signing keys and assets by running the functional test.
-
-```bash
-cd scripts/cli
-node run test
-```
-
-See [README](https://github.com/PolymeshAssociation/Polymesh/tree/develop/scripts/cli) for details.
 
 # Benchmarks
 

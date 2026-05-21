@@ -2765,6 +2765,7 @@ dependencies = [
  "polymesh-dart",
  "rand",
  "serde_json",
+ "sp-arithmetic",
  "sp-core",
  "sp-keyring",
  "sp-runtime",
