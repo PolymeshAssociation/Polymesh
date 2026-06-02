@@ -1630,6 +1630,7 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(ref nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
+                    Asset::<T>::ensure_asset_is_not_frozen(nfts.asset_id())?;
                     Nft::<T>::ensure_nft_ownership(&resolved_from, nfts)?;
                     Nft::<T>::transfer_holders_nfts(&resolved_from, to.clone(), nfts)?;
                 }

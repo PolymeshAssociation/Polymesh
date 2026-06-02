@@ -492,3 +492,23 @@ fn nft_spender_rejected() {
         );
     });
 }
+
+#[test]
+fn nft_reject_frozen_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+
+        assert_ok!(Asset::freeze(alice.origin(), asset_id));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+                nft_fund(asset_id, NFTId(1)),
+            ),
+            AssetError::InvalidTransferFrozenAsset
+        );
+    });
+}

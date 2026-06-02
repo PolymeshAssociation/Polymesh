@@ -409,7 +409,7 @@ pub mod pallet {
             } else {
                 Self::deposit_event(Event::<T>::BatchCompleted);
             }
-            let base_weight = <T as Config>::WeightInfo::batch(calls_len as u32);
+            let base_weight = <T as Config>::WeightInfo::force_batch(calls_len as u32);
             Ok(Some(base_weight.saturating_add(weight)).into())
         }
 
