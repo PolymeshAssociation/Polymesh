@@ -1213,11 +1213,19 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> PortfolioFnTrait for Pallet<T> {
+impl<T: Config> PortfolioFnTrait<T::AccountId> for Pallet<T> {
     fn ensure_portfolio_custody(
         portfolio: &PortfolioId,
         custodian: IdentityId,
     ) -> Result<(), DispatchError> {
         Self::ensure_portfolio_custody(portfolio, custodian)
+    }
+
+    fn ensure_portfolio_custody_and_permission(
+        portfolio: &PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> Result<(), DispatchError> {
+        Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
 }

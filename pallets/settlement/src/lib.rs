@@ -1692,7 +1692,11 @@ impl<T: Config> Pallet<T> {
                 }
             }
             AssetHolder::Portfolio(ref portfolio_id) => {
-                T::PortfolioFn::ensure_portfolio_custody(portfolio_id, caller_data.primary_did)?;
+                T::PortfolioFn::ensure_portfolio_custody_and_permission(
+                    portfolio_id,
+                    caller_data.primary_did,
+                    caller_data.secondary_key.as_ref(),
+                )?;
             }
         }
         Ok(())
