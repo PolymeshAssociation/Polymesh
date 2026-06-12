@@ -20,7 +20,7 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use crate::asset::AssetId;
 use crate::asset_metadata::AssetMetadataKey;
 use crate::transaction_payment::CallPaymentInfo;
-use crate::{Balance, IdentityId, NFTId, PortfolioId, WeightMeter};
+use crate::{Balance, IdentityId, NFTId, PortfolioId, SecondaryKey, WeightMeter};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{asset::NonFungibleType, NFTCollectionKeys};
@@ -100,18 +100,26 @@ pub trait SubsidiserTrait<AccountId, RuntimeCall> {
     );
 }
 
-pub trait PortfolioFnTrait {
+pub trait PortfolioFnTrait<AccountId> {
     /// Returns `Ok(())` if `custodian` has custody over the portfolio.
     /// The portfolio owner is the default custodian when none is assigned.
     fn ensure_portfolio_custody(
         portfolio: &PortfolioId,
         custodian: IdentityId,
     ) -> Result<(), DispatchError>;
+
+    /// Ensures that the portfolio's custody is with the provided identity and the secondary key
+    /// has the relevant portfolio permission.
+    fn ensure_portfolio_custody_and_permission(
+        portfolio: &PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<AccountId>>,
+    ) -> Result<(), DispatchError>;
 }
 
 /// Supertrait config for pallets that need portfolio custody queries.
 pub trait PortfolioFnConfig: frame_system::Config {
-    type PortfolioFn: PortfolioFnTrait;
+    type PortfolioFn: PortfolioFnTrait<Self::AccountId>;
 }
 
 pub trait ComplianceFnConfig {

@@ -4,10 +4,12 @@ use sp_keyring::Sr25519Keyring;
 use pallet_asset::{Allowances, BalanceOf};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
 use polymesh_primitives::nft::{NFTId, NFTOwnerStatus};
-use polymesh_primitives::{Balance, Fund, FundDescription, NFTs, PortfolioId};
+use polymesh_primitives::{
+    Balance, Fund, FundDescription, NFTs, Permissions, PortfolioId, SubsetRestriction,
+};
 
-use crate::asset_pallet::setup::ISSUE_AMOUNT;
-use crate::storage::User;
+use crate::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
+use crate::storage::{add_secondary_key_with_perms, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -509,6 +511,35 @@ fn nft_reject_frozen_asset() {
                 nft_fund(asset_id, NFTId(1)),
             ),
             AssetError::InvalidTransferFrozenAsset
+        );
+    });
+}
+
+#[test]
+fn reject_secondary_key_transfer_without_permission() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new_with(alice.did, Sr25519Keyring::Charlie);
+
+        // Add charlie as secondary key for alice, but without portfolio permissions.
+        let mut permissions = Permissions::default();
+        permissions.portfolio = SubsetRestriction::empty();
+        add_secondary_key_with_perms(alice.did, charlie.acc(), permissions);
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        // charlie tries to transfer from alice's default portfolio without portfolio permissions
+        let from = AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did));
+        let to = AssetHolder::Account(charlie.acc());
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                charlie.origin(),
+                Some(from),
+                to,
+                fungible_fund(asset_id, 100)
+            ),
+            PortfolioError::SecondaryKeyNotAuthorizedForPortfolio
         );
     });
 }
