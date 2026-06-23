@@ -544,6 +544,9 @@ mod runtime {
     #[runtime::pallet_index(55)]
     pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
 
+    #[runtime::pallet_index(60)]
+    pub type WorkerModules = pallet_worker_modules::Pallet<Runtime>;
+
     #[runtime::pallet_index(70)]
     pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
 
@@ -600,6 +603,7 @@ mod benches {
         [pallet_corporate_ballot, CorporateBallot]
         [pallet_capital_distribution, CapitalDistribution]
         [pallet_confidential_assets, ConfidentialAssets]
+        [pallet_worker_modules, WorkerModules]
         [pallet_external_agents, ExternalAgents]
         [pallet_relayer, Relayer]
         [pallet_committee, PolymeshCommittee]
