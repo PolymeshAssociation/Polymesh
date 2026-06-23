@@ -861,6 +861,17 @@ macro_rules! misc_pallet_impls {
             type MaxServiceWeight = MbmServiceWeight;
             type WeightInfo = polymesh_weights::pallet_migrations::SubstrateWeight;
         }
+
+        pub type MaxModuleCodeSize = polymesh_primitives::ConstSize<{ 2 * 1024 * 1024 }>; // 2 MiB
+        pub type MaxModuleContextSize = polymesh_primitives::ConstSize<{ 2 * 1024 * 1024 }>; // 2 MiB
+        pub type MaxModulesPerConfig = polymesh_primitives::ConstSize<4>; // 4 modules per config
+
+        impl pallet_worker_modules::Config for Runtime {
+            type WeightInfo = pallet_worker_modules::weights::SubstrateWeight;
+            type MaxModuleCodeSize = MaxModuleCodeSize;
+            type MaxModuleContextSize = MaxModuleContextSize;
+            type MaxModulesPerConfig = MaxModulesPerConfig;
+        }
     };
 }
 

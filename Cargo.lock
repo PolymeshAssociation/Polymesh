@@ -9402,6 +9402,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-worker-modules"
+version = "8.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
+ "scale-info",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "parity-db"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10794,6 +10813,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
@@ -10881,6 +10901,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-primitives",
@@ -10970,6 +10991,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
@@ -11062,6 +11084,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-exec-macro",
  "polymesh-primitives",
@@ -11195,6 +11218,8 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkavm-derive 0.32.0",
+ "scale-info",
+ "serde",
 ]
 
 [[package]]

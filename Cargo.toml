@@ -117,12 +117,13 @@ members = [
     "pallets/treasury",
     "pallets/utility",
     "pallets/weights",
+    "pallets/worker-modules",
     "primitives",
     "primitives_derive",
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
-    "native-crypto",
+    "native-crypto", "pallets/worker-modules",
 ]
 exclude = ["contracts", "integration", "metadata-tools"]
 
@@ -177,6 +178,7 @@ polymesh-transaction-payment = { path = "pallets/transaction-payment", default-f
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
 pallet-precompiles = { path = "pallets/precompiles", default-features = false }
+pallet-worker-modules = { path = "pallets/worker-modules", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
