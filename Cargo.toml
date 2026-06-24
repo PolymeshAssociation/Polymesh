@@ -84,6 +84,7 @@ members = [
     "worker/common",
     "worker/native",
     "worker/protocol/dart-v1",
+    "worker/protocol/testing",
     "pallets/asset",
     "pallets/base",
     "pallets/committee",

@@ -1,0 +1,75 @@
+[package]
+name = "polymesh-worker-protocol-testing"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+license-file = "../../../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Worker module for testing Polymesh Worker"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+log = "0.4"
+
+polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
+
+# Substrate
+scale-info = { workspace = true, default-features = false, features = [
+  "derive",
+] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
+sp-std = { workspace = true, default-features = false }
+bounded-collections = { workspace = true, default-features = false, features = ["scale-codec"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+picoalloc = "5.2.0"
+
+[target.'cfg(target_env = "polkavm")'.dependencies]
+polkavm-derive = { workspace = true, default-features = true }
+picoalloc = "5.2.0"
+
+[features]
+default = ["std", "testing", "version_v0"]
+
+testing = []
+
+# Use feature flags to generate multiple versions of the testing module.
+version_v0 = []
+version_v1 = []
+version_v2 = []
+
+# Directly implement protocol logic (i.e. don't use a host function).
+impl_protocol = []
+
+polkavm = [
+  "polymesh-worker-common/host_logger",
+  "polymesh-worker-common/polkavm",
+  "impl_protocol",
+]
+
+wasm = [
+  "polymesh-worker-common/host_logger",
+  "impl_protocol",
+]
+
+native = []
+
+runtime = [
+  "native",
+  "polymesh-worker-extension",
+]
+
+sp-io = []
+
+no_std = []
+std = [
+  "impl_protocol",
+  "codec/std",
+  "sp-std/std",
+  "bounded-collections/std",
+]
+runtime-benchmarks = ["testing"]
