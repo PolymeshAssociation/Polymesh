@@ -13,7 +13,7 @@ polymesh-primitives = { workspace = true, default-features = false }
 
 # Workers
 polymesh-worker-extension = { workspace = true, default-features = false }
-polymesh-worker-common = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false, features = ["serde"] }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
