@@ -11272,6 +11272,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-worker-protocol-testing"
+version = "0.1.0"
+dependencies = [
+ "bounded-collections",
+ "log",
+ "parity-scale-codec",
+ "picoalloc",
+ "polkavm-derive 0.33.0",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
+ "scale-info",
+ "sp-std",
+]
+
+[[package]]
 name = "polymesh-worker-tester"
 version = "0.1.0"
 dependencies = [
