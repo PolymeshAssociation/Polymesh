@@ -119,12 +119,13 @@ members = [
     "pallets/utility",
     "pallets/weights",
     "pallets/worker-modules",
+    "pallets/worker-modules/worker-testing",
     "primitives",
     "primitives_derive",
     "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
-    "native-crypto", "pallets/worker-modules",
+    "native-crypto",
 ]
 exclude = ["contracts", "integration", "metadata-tools"]
 
@@ -181,6 +182,7 @@ pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
 pallet-precompiles = { path = "pallets/precompiles", default-features = false }
 pallet-worker-modules = { path = "pallets/worker-modules", default-features = false }
+pallet-worker-testing = { path = "pallets/worker-modules/worker-testing", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
