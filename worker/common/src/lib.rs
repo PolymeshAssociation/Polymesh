@@ -3,6 +3,7 @@
 use ark_std::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 pub mod error;
@@ -328,8 +329,6 @@ impl core::ops::BitOr<BackendKind> for BackendBitmask {
     Copy,
     Debug,
     Default,
-    Serialize,
-    Deserialize,
     Encode,
     Decode,
     PartialEq,
@@ -340,9 +339,13 @@ impl core::ops::BitOr<BackendKind> for BackendBitmask {
     MaxEncodedLen,
     TypeInfo
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProtocolId(pub u16);
 
 pub type ProtocolNumber = u64;
+
+/// The protocol id for the TESTING protocol.
+pub const PROTOCOL_TESTING: ProtocolId = ProtocolId(0xFF);
 
 /// The protocol id for the P-DART protocol.
 ///
@@ -426,8 +429,6 @@ impl Protocol {
     Default,
     Encode,
     Decode,
-    Serialize,
-    Deserialize,
     PartialEq,
     Eq,
     PartialOrd,
@@ -436,6 +437,7 @@ impl Protocol {
     MaxEncodedLen,
     TypeInfo
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProtocolVersion {
     pub major: u16,
     pub minor: u16,
