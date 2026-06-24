@@ -536,11 +536,18 @@ mod runtime {
     #[runtime::pallet_index(60)]
     pub type WorkerModules = pallet_worker_modules::Pallet<Runtime>;
 
+    #[runtime::pallet_index(200)]
+    pub type WorkerTesting = pallet_worker_testing::Pallet<Runtime>;
+
     #[runtime::pallet_index(70)]
     pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
 
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
+}
+
+impl pallet_worker_testing::Config for Runtime {
+    type WeightInfo = pallet_worker_testing::weights::SubstrateWeight;
 }
 
 impl pallet_confidential_assets::Config for Runtime {

@@ -74,7 +74,8 @@ use polymesh_worker_common::{
 #[cfg(not(feature = "impl_protocol"))]
 use polymesh_worker_extension::*;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
 use sp_std::{vec, vec::Vec};
 
 const fn protocol_version() -> ProtocolVersion {
@@ -98,7 +99,17 @@ pub const PROTOCOL: Protocol = Protocol {
 };
 
 /// Verify version request.
-#[derive(Encode, Decode, Clone)]
+#[derive(
+    Clone,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    DecodeWithMemTracking,
+    MaxEncodedLen
+)]
 pub struct VerifyVersionRequest {
     pub protocol: Protocol,
 }
@@ -113,7 +124,17 @@ impl VerifyVersionRequest {
 }
 
 /// Test work request.
-#[derive(Encode, Decode, Clone)]
+#[derive(
+    Clone,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    DecodeWithMemTracking,
+    MaxEncodedLen
+)]
 pub enum TestWorkRequest {
     VerifyVersion(VerifyVersionRequest),
 }
@@ -195,7 +216,7 @@ impl TestWorkRequest {
                     session_id,
                     request_id
                 );
-                let result = self.do_execute().map(TestWorkResponse::new);
+                let result = self.do_execute().map(WorkResponse::new);
 
                 // Push the results back to the session, and return the request id if the push is successful.
                 WorkerError::result_from_u64(native_polymesh_worker::session_push_result(
@@ -248,11 +269,31 @@ impl TestWorkRequest {
 }
 
 /// Verify version response.
-#[derive(Encode, Decode, Clone)]
+#[derive(
+    Clone,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    DecodeWithMemTracking,
+    MaxEncodedLen
+)]
 pub struct VerifyVersionResponse {}
 
 /// Test work response.
-#[derive(Encode, Decode, Clone)]
+#[derive(
+    Clone,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    DecodeWithMemTracking,
+    MaxEncodedLen
+)]
 pub enum TestWorkResponse {
     VerifyVersion(VerifyVersionResponse),
 }

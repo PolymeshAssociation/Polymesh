@@ -368,6 +368,7 @@ pub const PROTOCOL_PDART: ProtocolId = ProtocolId(0x50);
     MaxEncodedLen,
     TypeInfo
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Protocol {
     pub id: ProtocolId,
     pub version: ProtocolVersion,

@@ -7,10 +7,6 @@ repository = "https://github.com/PolymeshAssociation/Polymesh"
 description = "Worker module for testing Polymesh Worker"
 edition = "2024"
 
-[lib]
-path = "src/lib.rs"
-crate-type = ["lib", "cdylib"]
-
 [dependencies]
 log = "0.4"
 
@@ -62,8 +58,6 @@ runtime = [
   "native",
   "polymesh-worker-extension",
 ]
-
-sp-io = []
 
 no_std = []
 std = [

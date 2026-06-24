@@ -9421,6 +9421,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-worker-testing"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
+ "polymesh-worker-protocol-testing",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "parity-db"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10814,6 +10834,7 @@ dependencies = [
  "pallet-utility",
  "pallet-validators",
  "pallet-worker-modules",
+ "pallet-worker-testing",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
