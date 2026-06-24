@@ -14,7 +14,7 @@ rm -f "$output_path" "$elf_path"
 echo "> Building: '$crate' (-> $output_path)"
 
 RUSTFLAGS="--remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C codegen-units=1" \
-cargo build  \
+cargo rustc --crate-type cdylib \
     -Z build-std=core,alloc \
     --target $TARGET_JSON_PATH \
 		--no-default-features \
