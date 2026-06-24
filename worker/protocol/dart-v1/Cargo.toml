@@ -7,10 +7,6 @@ repository = "https://github.com/PolymeshAssociation/Polymesh"
 description = "Polymesh DART Confidential Assets host functions"
 edition = "2024"
 
-[lib]
-path = "src/lib.rs"
-crate-type = ["lib", "cdylib"]
-
 [dependencies]
 log = "0.4"
 
