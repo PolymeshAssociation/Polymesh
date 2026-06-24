@@ -9685,7 +9685,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-worker-modules"
-version = "8.1.0"
+version = "8.1.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11543,6 +11543,21 @@ dependencies = [
  "polymesh-worker-extension",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+ "scale-info",
+ "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker-protocol-testing"
+version = "0.1.0"
+dependencies = [
+ "bounded-collections",
+ "log",
+ "parity-scale-codec",
+ "picoalloc",
+ "polkavm-derive 0.33.0",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
  "scale-info",
  "sp-std",
 ]
