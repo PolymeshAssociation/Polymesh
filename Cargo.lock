@@ -11244,9 +11244,11 @@ name = "polymesh-worker-native"
 version = "0.1.0"
 dependencies = [
  "log",
+ "parity-scale-codec",
  "polymesh-worker",
  "polymesh-worker-common",
  "polymesh-worker-protocol-dart-v1",
+ "polymesh-worker-protocol-testing",
  "sp-panic-handler",
 ]
 
