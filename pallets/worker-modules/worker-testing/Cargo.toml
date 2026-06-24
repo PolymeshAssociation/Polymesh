@@ -1,0 +1,66 @@
+[package]
+name = "pallet-worker-testing"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+edition = "2021"
+
+[dependencies]
+# Common
+polymesh-primitives = { workspace = true, default-features = false }
+polymesh-runtime-common = { workspace = true, default-features = false }
+
+# Polymesh worker extension
+polymesh-worker-extension = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false, features = ["serde"] }
+
+# Testing protocol
+polymesh-worker-protocol-testing = { workspace = true, default-features = false, features = ["runtime"] }
+
+# Substrate
+codec = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = [
+  "derive",
+] }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+
+# Only Benchmarking
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
+
+log = { version = "0.4", default-features = false }
+
+[features]
+equalize = []
+default = ["std", "equalize"]
+
+testing = ["polymesh-worker-extension/testing", "polymesh-worker-common/testing"]
+
+no_std = [
+  "polymesh-worker-protocol-testing/no_std"
+]
+std = [
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "frame-benchmarking?/std",
+  "polymesh-runtime-common/std",
+  "polymesh-primitives/std",
+  "polymesh-worker-extension/std",
+  "polymesh-worker-common/std",
+	"polymesh-worker-protocol-testing/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-io/std",
+]
+runtime-benchmarks = [
+  "testing",
+  "frame-benchmarking/runtime-benchmarks",
+  "polymesh-primitives/runtime-benchmarks",
+  "polymesh-worker-extension/runtime-benchmarks",
+	"polymesh-worker-protocol-testing/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+]
+try-runtime = []
