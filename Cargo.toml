@@ -144,6 +144,7 @@ polymesh-worker-extension = { path = "worker/extension", default-features = fals
 polymesh-worker-common = { path = "worker/common", default-features = false }
 polymesh-worker-native = { path = "worker/native", default-features = false }
 polymesh-worker-protocol-dart-v1 = { path = "worker/protocol/dart-v1", default-features = false }
+polymesh-worker-protocol-testing = { path = "worker/protocol/testing", default-features = false }
 schnellru = { version = "0.2.4", default-features = false }
 rayon = { version = "1.8" }
 

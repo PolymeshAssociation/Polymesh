@@ -161,7 +161,9 @@ impl backend::BackendModuleLoader for StaticModules {
                 BackendModuleKind::Wasm if code_hash == self.wasm_code_hash => {
                     decompress_module_code(self.wasm_bytes())
                 }
-                BackendModuleKind::Native if code_hash == self.native_code_hash => Some(vec![]),
+                BackendModuleKind::Native if code_hash == self.native_code_hash => {
+                    Some(protocol.encode())
+                }
                 _ => None,
             }
         } else {
