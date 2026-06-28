@@ -1730,7 +1730,7 @@ pub mod pallet {
         #[pallet::call_index(35)]
         #[pallet::weight(
             <T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(
-                <T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), 
+                <T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(),
                 AssetCount::new(1, 0, 0)
             ).limit()
         )]
