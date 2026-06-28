@@ -100,6 +100,7 @@ members = [
     "pallets/multisig",
     "pallets/nft",
     "pallets/pips",
+    "pallets/precompiles",
     "pallets/protocol-fee",
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
@@ -178,6 +179,7 @@ polymesh-transaction-payment = { path = "pallets/transaction-payment", default-f
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
 polymesh-contracts = { path = "pallets/contracts", default-features = false }
+polymesh-precompiles = { path = "pallets/precompiles", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
@@ -214,6 +216,7 @@ bounded-collections = { version = "0.3.2", default-features = false }
 hex-literal = { version = "1.1.0", default-features = false }
 
 # Substrate pallet/runtime deps.
+ethereum-standards = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
 frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
 frame-executive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-2", default-features = false }
@@ -441,6 +444,7 @@ codec = { package = "parity-scale-codec", version = "3.7.4", default-features = 
     "derive",
     "max-encoded-len",
 ] }
+ethereum-standards = { workspace = true, default-features = false }
 frame-metadata-hash-extension = { workspace = true, default-features = false }
 frame-support = { workspace = true }
 frame-system = { workspace = true }

@@ -1,0 +1,58 @@
+[package]
+name = "polymesh-precompiles"
+version = "0.1.0"
+authors = ["PolymeshAssociation"]
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+ethereum-standards = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system-rpc-runtime-api = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-api = { workspace = true, default-features = false }
+sp-consensus-grandpa = { workspace = true, default-features = false }
+sp-offchain = { workspace = true, default-features = false }
+sp-session = { workspace = true, default-features = false }
+sp-transaction-pool = { workspace = true, default-features = false }
+sp-block-builder = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+
+# Substrate pallets
+pallet-revive = { workspace = true, default-features = false }
+
+# Polymesh pallets
+pallet-asset = { workspace = true, default-features = false }
+pallet-settlement = { workspace = true, default-features = false }
+
+# Polymesh primitives
+polymesh-primitives = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "frame-support/std",
+    "sp-core/std",
+    "sp-api/std",
+    "sp-consensus-grandpa/std",
+    "sp-offchain/std",
+    "sp-session/std",
+    "sp-transaction-pool/std",
+    "sp-block-builder/std",
+    "sp-runtime/std",
+    "frame-system-rpc-runtime-api/std",
+    "pallet-revive/std",
+    "pallet-asset/std",
+    "pallet-settlement/std",
+    "polymesh-primitives/std",
+]
+runtime-benchmarks = [
+    "pallet-revive/runtime-benchmarks",
+    "pallet-asset/runtime-benchmarks",
+    "pallet-settlement/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
+]
+try-runtime = ["pallet-revive/try-runtime"]

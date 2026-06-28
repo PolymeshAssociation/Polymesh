@@ -10756,6 +10756,7 @@ version = "8.0.1"
 dependencies = [
  "array-bytes 6.2.3",
  "clap",
+ "ethereum-standards",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
@@ -11024,6 +11025,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-precompiles"
+version = "0.1.0"
+dependencies = [
+ "ethereum-standards",
+ "frame-support",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-asset",
+ "pallet-revive",
+ "pallet-settlement",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-transaction-pool",
+]
+
+[[package]]
 name = "polymesh-primitives"
 version = "5.0.0"
 dependencies = [
@@ -11162,6 +11186,7 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-contracts",
  "polymesh-dart",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11249,6 +11274,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-contracts",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11340,6 +11366,7 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-contracts",
  "polymesh-dart",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11432,6 +11459,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-contracts",
  "polymesh-exec-macro",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",

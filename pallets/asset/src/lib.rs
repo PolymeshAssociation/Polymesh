@@ -1728,7 +1728,12 @@ pub mod pallet {
         /// * `UnknownInstruction` - If the instruction associated to the given transfer ID does not exist.
         /// * `InvalidTransfer` - If the transfer validation check fails.
         #[pallet::call_index(35)]
-        #[pallet::weight(<T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(<T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), AssetCount::new(1, 0, 0)).limit())]
+        #[pallet::weight(
+            <T as Config>::SettlementFn::receiver_affirm_transfer_and_try_execute_weight_meter(
+                <T as Config>::WeightInfo::receiver_affirm_asset_transfer_base_weight(), 
+                AssetCount::new(1, 0, 0)
+            ).limit()
+        )]
         pub fn receiver_affirm_asset_transfer(
             origin: OriginFor<T>,
             transfer_id: InstructionId,

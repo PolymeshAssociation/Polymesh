@@ -40,6 +40,7 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-contracts = { workspace = true, default-features = false }
+polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Others
@@ -48,9 +49,7 @@ log = { version = "0.4.8", default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { workspace = true, default-features = false, features = [
-    "derive",
-] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 sp-core = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
@@ -150,7 +149,7 @@ std = [
     "pallet-balances/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-		"pallet-confidential-assets/std",
+    "pallet-confidential-assets/std",
     "pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-grandpa/std",
@@ -177,6 +176,7 @@ std = [
     "pallet-utility/std",
     "pallet-validators/std",
     "polymesh-contracts/std",
+    "polymesh-precompiles/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
     "polymesh-dart/std",
@@ -204,7 +204,7 @@ runtime-benchmarks = [
     "pallet-mmr/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
     "pallet-compliance-manager/runtime-benchmarks",
-		"pallet-confidential-assets/runtime-benchmarks",
+	"pallet-confidential-assets/runtime-benchmarks",
     "pallet-contracts/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
     "pallet-grandpa/runtime-benchmarks",
@@ -231,6 +231,7 @@ runtime-benchmarks = [
     "pallet-utility/runtime-benchmarks",
     "pallet-validators/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
+    "polymesh-precompiles/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
 ]
 running-ci = [
