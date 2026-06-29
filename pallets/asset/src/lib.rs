@@ -628,6 +628,20 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// The next available asset index for foreign assets.
+    /// This is incremented each time a new foreign asset mapping is created.
+    #[pallet::storage]
+    pub type NextAssetIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Mapping an asset index (derived from the precompile address) to a `AssetId`.
+    #[pallet::storage]
+    pub type Erc20IndexToAssetId<T: Config> = StorageMap<_, Identity, u32, AssetId, OptionQuery>;
+
+    /// Mapping a `ForeignAssetId` to an asset index (used for deriving precompile addresses).
+    #[pallet::storage]
+    pub type Erc20AssetIdToIndex<T: Config> =
+        StorageMap<_, Blake2_128Concat, AssetId, u32, OptionQuery>;
+
     /// Storage version.
     #[pallet::storage]
     pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -3868,6 +3882,14 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         SecurityTokensOwnedByUser::<T>::insert(caller_did, asset_id, true);
+
+        // Updating ERC20 precompile storage
+        let asset_index = NextAssetIndex::<T>::get();
+        Erc20IndexToAssetId::<T>::insert(asset_index, asset_id);
+        Erc20AssetIdToIndex::<T>::insert(asset_id, asset_index);
+        let next_index = asset_index.saturating_add(1);
+        NextAssetIndex::<T>::put(next_index);
+
         Self::deposit_event(Event::AssetCreated(
             caller_did,
             asset_id,

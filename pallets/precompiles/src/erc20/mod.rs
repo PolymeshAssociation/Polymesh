@@ -48,18 +48,6 @@ const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
 // ========================================================
 
-/// An [`AssetIdConverter`] that stores the asset id directly inside the address.
-pub struct AssetIdConverter;
-
-impl AssetIdConverter {
-    /// Extracts the asset id from the address.
-    fn asset_id_from_address(addr: &[u8; 20]) -> Result<AssetId, Error> {
-        let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
-        let _index = u32::from_be_bytes(bytes);
-        unimplemented!()
-    }
-}
-
 /// An ERC20 precompile with EIP-2612 permit support.
 pub struct ERC20<T>(PhantomData<T>);
 
@@ -86,7 +74,7 @@ where
             pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
         );
 
-        let asset_id = AssetIdConverter::asset_id_from_address(address)?.into();
+        let asset_id = Self::asset_id_from_address(address)?;
         let contract_addr = H160::from(*address);
 
         match input {
@@ -132,6 +120,18 @@ where
         + pallet_asset::checkpoint::Config
         + pallet_settlement::Config,
 {
+    /// Returns the [`AssetId`] from the address.
+    fn asset_id_from_address(address: &[u8; 20]) -> Result<AssetId, Error> {
+        let bytes: [u8; 4] = address[0..4].try_into().expect("slice is 4 bytes; qed");
+        let asset_index = u32::from_be_bytes(bytes);
+
+        pallet_asset::Erc20IndexToAssetId::<T>::get(asset_index).ok_or_else(|| {
+            Error::Revert(Revert {
+                reason: ERR_ASSET_NOT_FOUND.into(),
+            })
+        })
+    }
+
     /// Get the caller as an `H160` address.
     fn caller(env: &mut impl Ext<T = T>) -> Result<H160, Error> {
         env.caller()
