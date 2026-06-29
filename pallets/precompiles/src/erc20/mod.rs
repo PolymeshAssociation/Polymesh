@@ -39,11 +39,7 @@ use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::{AccountId as AccountId32, AssetHolder, Balance};
 
-/// 4-byte prefix for ERC20 precompile instance.
-const POLYMESH_ERC20_PREFIX: &[u8; 4] = b"POLY";
-
 // ==================== Error Messages ====================
-const ERR_INVALID_ADDRESS: &str = "Address does not map to a native Polymesh Asset";
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
@@ -58,17 +54,9 @@ pub struct AssetIdConverter;
 impl AssetIdConverter {
     /// Extracts the asset id from the address.
     fn asset_id_from_address(addr: &[u8; 20]) -> Result<AssetId, Error> {
-        // Verify that the address belongs to this precompile's domain space
-        if &addr[0..4] != POLYMESH_ERC20_PREFIX {
-            return Err(Error::Revert(Revert {
-                reason: ERR_INVALID_ADDRESS.into(),
-            }));
-        }
-
-        // Extract the remaining 16 bytes into the native AssetId type
-        let mut asset_id = [0u8; 16];
-        asset_id.copy_from_slice(&addr[4..20]);
-        Ok(asset_id.into())
+        let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
+        let _index = u32::from_be_bytes(bytes);
+        unimplemented!()
     }
 }
 
@@ -85,7 +73,7 @@ where
     type T = T;
     type Interface = IERC20::IERC20Calls;
 
-    const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(8).unwrap());
+    const MATCHER: AddressMatcher = AddressMatcher::Prefix(NonZero::new(8).unwrap());
     const HAS_CONTRACT_INFO: bool = false;
 
     fn call(
