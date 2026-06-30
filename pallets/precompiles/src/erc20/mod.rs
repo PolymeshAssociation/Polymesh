@@ -206,6 +206,8 @@ where
             ),
             amount,
             None,
+            #[cfg(feature = "runtime-benchmarks")]
+            false,
         ) {
             // TODO: improve error message
             return Err(Error::Revert(Revert {
