@@ -628,8 +628,8 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// The next available asset index for foreign assets.
-    /// This is incremented each time a new foreign asset mapping is created.
+    /// The next available asset index for the ERC20 asset id mapping.
+    /// This is incremented each time a new ERC20 asset mapping is created.
     #[pallet::storage]
     pub type NextAssetIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
@@ -637,7 +637,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type Erc20IndexToAssetId<T: Config> = StorageMap<_, Identity, u32, AssetId, OptionQuery>;
 
-    /// Mapping a `ForeignAssetId` to an asset index (used for deriving precompile addresses).
+    /// Mapping a `ERC20AssetId` to an asset index (used for deriving precompile addresses).
     #[pallet::storage]
     pub type Erc20AssetIdToIndex<T: Config> =
         StorageMap<_, Blake2_128Concat, AssetId, u32, OptionQuery>;
