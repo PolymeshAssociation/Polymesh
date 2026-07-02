@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -44,7 +44,7 @@ func testPrometheus() {
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	_, err2 := ioutil.ReadAll(resp.Body)
+	_, err2 := io.ReadAll(resp.Body)
 	if err2 != nil {
 		fmt.Printf("Error reading prometheus metrics! %v\n", err2)
 		os.Exit(1)
