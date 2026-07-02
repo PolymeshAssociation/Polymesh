@@ -308,7 +308,10 @@ impl<T: Config> Pallet<T> {
         era: EraIndex,
     ) -> DispatchResultWithPostInfo {
         ensure_root(origin)?;
-        StakingPallet::<T>::do_payout_stakers(validator_stash, era)
+        for page in 0..pallet_staking::EraInfo::<T>::get_page_count(era, &validator_stash) {
+            StakingPallet::<T>::do_payout_stakers_by_page(validator_stash.clone(), era, page)?;
+        }
+        Ok(().into())
     }
 
     pub(crate) fn base_change_slashing_allowed_for(
