@@ -1,3 +1,4 @@
+use frame_support::dispatch::PostDispatchInfo;
 use frame_support::traits::fungible::Inspect;
 use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
 use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
@@ -308,10 +309,22 @@ impl<T: Config> Pallet<T> {
         era: EraIndex,
     ) -> DispatchResultWithPostInfo {
         ensure_root(origin)?;
+        let mut n_calls = 0;
+
+        let claimed_pages = pallet_staking::ClaimedRewards::<T>::get(&era, &validator_stash);
+
         for page in 0..pallet_staking::EraInfo::<T>::get_page_count(era, &validator_stash) {
-            StakingPallet::<T>::do_payout_stakers_by_page(validator_stash.clone(), era, page)?;
+            if !claimed_pages.contains(&page) {
+                n_calls += 1;
+                StakingPallet::<T>::do_payout_stakers_by_page(validator_stash.clone(), era, page)?;
+            }
         }
-        Ok(().into())
+
+        let actual_weight = <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
+            T::MaxExposurePageSize::get(),
+        )
+        .saturating_mul(n_calls);
+        Ok(PostDispatchInfo::from(Some(actual_weight)))
     }
 
     pub(crate) fn base_change_slashing_allowed_for(

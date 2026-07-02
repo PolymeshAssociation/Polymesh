@@ -323,7 +323,10 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
+        #[pallet::weight(
+            <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get())
+                .saturating_mul(T::MaxValidatorSet::get().into())
+        )]
         pub fn payout_stakers_by_system(
             origin: OriginFor<T>,
             validator_stash: T::AccountId,
