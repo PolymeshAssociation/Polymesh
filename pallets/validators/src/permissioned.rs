@@ -45,6 +45,9 @@ impl<
     }
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_system::RawOrigin;
+
 impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     /// Onboard an account.
     #[cfg(feature = "runtime-benchmarks")]
