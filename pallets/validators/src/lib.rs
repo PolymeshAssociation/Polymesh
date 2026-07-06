@@ -348,19 +348,6 @@ pub mod pallet {
             Self::base_remove_permissioned_validator(origin, identity)
         }
 
-        #[pallet::call_index(2)]
-        #[pallet::weight(
-            <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get())
-                .saturating_mul(T::MaxValidatorSet::get().into())
-        )]
-        pub fn payout_stakers_by_system(
-            origin: OriginFor<T>,
-            validator_stash: T::AccountId,
-            era: EraIndex,
-        ) -> DispatchResultWithPostInfo {
-            Self::base_payout_stakers_by_system(origin, validator_stash, era)
-        }
-
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::change_slashing_allowed_for())]

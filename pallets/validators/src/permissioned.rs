@@ -1,4 +1,3 @@
-use frame_support::dispatch::PostDispatchInfo;
 use frame_support::storage::bounded_vec::BoundedVec;
 use frame_support::traits::fungible::Inspect;
 use frame_support::weights::Weight;
@@ -343,30 +342,6 @@ impl<T: Config> Pallet<T> {
             validators_identity: identity,
         });
         Ok(())
-    }
-
-    pub(crate) fn base_payout_stakers_by_system(
-        origin: OriginFor<T>,
-        validator_stash: T::AccountId,
-        era: EraIndex,
-    ) -> DispatchResultWithPostInfo {
-        ensure_root(origin)?;
-        let mut n_calls = 0;
-
-        let claimed_pages = pallet_staking::ClaimedRewards::<T>::get(&era, &validator_stash);
-
-        for page in 0..pallet_staking::EraInfo::<T>::get_page_count(era, &validator_stash) {
-            if !claimed_pages.contains(&page) {
-                n_calls += 1;
-                StakingPallet::<T>::do_payout_stakers_by_page(validator_stash.clone(), era, page)?;
-            }
-        }
-
-        let actual_weight = <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
-            T::MaxExposurePageSize::get(),
-        )
-        .saturating_mul(n_calls);
-        Ok(PostDispatchInfo::from(Some(actual_weight)))
     }
 
     pub(crate) fn base_change_slashing_allowed_for(
