@@ -3968,6 +3968,8 @@ impl<T: AssetConfig> Pallet<T> {
         let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(&sender)?;
         let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&receiver)?;
 
+        ensure!(sender_did != receiver_did, Error::<T>::SenderSameAsReceiver);
+
         let sender_current_balance = BalanceOf::<T>::get(&asset_id, &sender_did);
         let receiver_current_balance = BalanceOf::<T>::get(&asset_id, &receiver_did);
         <Checkpoint<T>>::advance_update_balances(

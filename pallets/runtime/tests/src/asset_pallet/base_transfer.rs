@@ -1,11 +1,14 @@
-use frame_support::{assert_noop, assert_ok};
+use frame_support::weights::Weight;
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
 use sp_keyring::Sr25519Keyring;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::{AssetBalance, BalanceOf};
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_primitives::asset::AssetType;
-use polymesh_primitives::settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType};
+use polymesh_primitives::settlement::{
+    InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
+};
 use polymesh_primitives::{
     AssetHolder, AssetHolderKind, Claim, ClaimType, Condition, ConditionType, CountryCode,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, TrustedFor, TrustedIssuer,
@@ -13,7 +16,7 @@ use polymesh_primitives::{
 };
 
 use super::setup::{create_and_issue_sample_asset, create_and_issue_sample_nft, ISSUE_AMOUNT};
-use crate::storage::{default_asset_holder_set, User};
+use crate::storage::{add_secondary_key, default_asset_holder_set, User};
 use crate::{ExtBuilder, TestStorage};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -25,6 +28,7 @@ type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
+type RuntimeOrigin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
 fn base_transfer() {
@@ -418,5 +422,70 @@ fn base_acc_transfer() {
             BalanceOf::<TestStorage>::get(&asset_id, &bob.did),
             ISSUE_AMOUNT
         );
+    })
+}
+
+#[test]
+fn sender_same_as_receiver_after_leaving_did() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let mediator = User::new(Sr25519Keyring::Charlie);
+
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new_with(bob.did, Sr25519Keyring::Dave);
+        add_secondary_key(bob.did, dave.acc());
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        let sender = AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did));
+        let receiver = AssetHolder::Account(dave.acc());
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            None,
+            SettlementType::SettleAfterLock,
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: sender.clone(),
+                receiver: receiver.clone(),
+                asset_id,
+                amount: 1_000
+            }],
+            None,
+            BTreeSet::from([mediator.did]).try_into().unwrap(),
+        ));
+
+        assert_ok!(Settlement::affirm_instruction(
+            alice.origin(),
+            InstructionId(0),
+            BTreeSet::from([sender.clone()]).try_into().unwrap(),
+        ));
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            mediator.origin(),
+            InstructionId(0),
+            None,
+        ));
+        assert_ok!(Settlement::lock_instruction(
+            mediator.origin(),
+            InstructionId(0),
+            Weight::MAX
+        ));
+
+        assert_ok!(Identity::leave_identity_as_key(RuntimeOrigin::signed(
+            dave.acc()
+        )));
+        add_secondary_key(alice.did, dave.acc());
+        assert_storage_noop!(assert_err_ignore_postinfo!(
+            Settlement::execute_manual_instruction(
+                mediator.origin(),
+                InstructionId(0),
+                None,
+                1,
+                0,
+                0,
+                None,
+            ),
+            AssetError::SenderSameAsReceiver
+        ));
     })
 }
