@@ -389,7 +389,10 @@ where
         _call: &IERC20::permitCall,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        unimplemented!()
+        log::warn!("ERC20permitPermit is not implemented yet");
+        Err(Error::Revert(Revert {
+            reason: "permit is not implemented yet".into(),
+        }))
     }
 
     /// Get the current nonce for an owner address.
@@ -398,7 +401,10 @@ where
         _call: &IERC20::noncesCall,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        unimplemented!()
+        log::warn!("nonces is not implemented yet");
+        Err(Error::Revert(Revert {
+            reason: "nonces is not implemented yet".into(),
+        }))
     }
 
     /// Get the EIP-712 domain separator for this contract.
@@ -407,7 +413,10 @@ where
         _verifying_contract: H160,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        unimplemented!()
+        log::warn!("domain_separator is not implemented yet");
+        Err(Error::Revert(Revert {
+            reason: "domain_separator is not implemented yet".into(),
+        }))
     }
 
     /// Returns the name of the token.
