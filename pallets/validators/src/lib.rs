@@ -39,11 +39,10 @@ pub mod types;
 pub use pallet_staking::permissioned_staking::PermissionedStaking;
 
 use frame_support::pallet_prelude::*;
-use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
-use frame_support::traits::{Get, IsSubType, QueryPreimage, StorePreimage};
+use frame_support::storage::bounded_vec::BoundedVec;
+use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
-use sp_runtime::traits::Dispatchable;
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill, Permill};
 use sp_staking::EraIndex;
 use sp_std::prelude::*;
@@ -51,8 +50,8 @@ use sp_std::prelude::*;
 use polymesh_primitives::{IdentityId, GC_DID};
 
 pub(crate) use pallet_staking::{
-    ActiveEraInfo, BalanceOf, Bonded, Config as StakingConfig, EraPayout, Error as StakingError,
-    Ledger, MinValidatorBond, Pallet as StakingPallet, SessionInterface as _, ValidatorCount,
+    BalanceOf, Bonded, Config as StakingConfig, EraPayout, Error as StakingError, Ledger,
+    MinValidatorBond, Pallet as StakingPallet, SessionInterface as _, ValidatorCount,
     ValidatorPrefs, Validators, WeightInfo as _,
 };
 
@@ -130,6 +129,21 @@ pub mod pallet {
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
+    #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+    pub struct AwaitingPayout<AccountId, T: Get<u32>> {
+        pub era_index: EraIndex,
+        pub validators: BoundedVec<AccountId, T>,
+    }
+
+    impl<AccountId, T: Get<u32>> AwaitingPayout<AccountId, T> {
+        pub fn new(era_index: EraIndex, validators: BoundedVec<AccountId, T>) -> Self {
+            Self {
+                era_index,
+                validators,
+            }
+        }
+    }
+
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
@@ -157,22 +171,20 @@ pub mod pallet {
         #[pallet::constant]
         type FixedYearlyReward: Get<BalanceOf<Self>>;
 
-        /// The overarching call type.
-        type SchedulerCall: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone + Encode;
-
         /// Overarching type of all pallets origins.
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
-        /// To schedule the rewards for the stakers after the end of era.
-        type RewardScheduler: ScheduleAnon<
-            BlockNumberFor<Self>,
-            Self::SchedulerCall,
-            Self::PalletsOrigin,
-            Hasher = Self::Hashing,
-        >;
+        /// Maximum weight for paying out stakers.
+        #[pallet::constant]
+        type MaxPayoutWeight: Get<Weight>;
 
-        /// Preimage provider for the scheduler.
-        type SchedulerPreimage: QueryPreimage<H = Self::Hashing> + StorePreimage;
+        /// Maximum number of eras that can be awaiting payout.
+        #[pallet::constant]
+        type MaxEraAwaitingPayout: Get<u32>;
+
+        /// Maximum number of validators that can be awaiting payout for a given era.
+        #[pallet::constant]
+        type MaxValidatorsPerEraAwaitingPayout: Get<u32> + TypeInfo;
     }
 
     /// Entities that are allowed to run operator/validator nodes.
@@ -190,6 +202,18 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn validator_commission_cap)]
     pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+    /// All validators that are awaiting payout for a given era.
+    #[pallet::storage]
+    #[pallet::getter(fn pending_payouts)]
+    pub type PendingPayouts<T: Config> = StorageValue<
+        _,
+        BoundedVec<
+            AwaitingPayout<T::AccountId, T::MaxValidatorsPerEraAwaitingPayout>,
+            T::MaxEraAwaitingPayout,
+        >,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -282,6 +306,8 @@ pub mod pallet {
         CommissionTooHigh,
         /// New commission must be different from previous commission.
         CommissionUnchanged,
+        /// Too many validators are awaiting payout for a given era.
+        TooManyValidatorsForEra,
     }
 
     #[pallet::hooks]

@@ -1,15 +1,13 @@
 use frame_support::dispatch::PostDispatchInfo;
+use frame_support::storage::bounded_vec::BoundedVec;
 use frame_support::traits::fungible::Inspect;
-use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
-use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
+use frame_support::weights::Weight;
 use frame_support::{pallet_prelude::*, traits::Get};
-use frame_system::RawOrigin;
 use frame_system::{ensure_root, pallet_prelude::*};
-use sp_runtime::traits::SaturatedConversion;
 use sp_std::prelude::*;
 
 use polymesh_primitives::IdentityId;
-use polymesh_primitives::GC_DID;
+use polymesh_primitives::{WeightMeter, GC_DID};
 
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
@@ -153,59 +151,103 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         true
     }
 
-    /// Schedule reward payouts.
-    fn schedule_payouts(active_era: &ActiveEraInfo) -> DispatchResult {
-        let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
-        for (index, validator_id) in <T as StakingConfig>::SessionInterface::validators()
-            .into_iter()
-            .enumerate()
-        {
-            let schedule_block_number =
-                next_block_number + index.saturated_into::<BlockNumberFor<T>>();
-
-            let scheduler_call =
-                <T as pallet::Config>::SchedulerCall::from(Call::<T>::payout_stakers_by_system {
-                    validator_stash: validator_id.clone(),
-                    era: active_era.index,
-                });
-
-            let payout_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
-
-            match T::RewardScheduler::schedule(
-                DispatchTime::At(schedule_block_number),
-                None,
-                HIGHEST_PRIORITY,
-                RawOrigin::Root.into(),
-                payout_call
-            ) {
-                Ok(_) => log!(
-                    info,
-                    "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
-                    &validator_id,
-                    schedule_block_number,
-                ),
-                Err(error) => {
-                    log!(
-                        error,
-                        "⛔ Detected error in scheduling the reward payment: {:?}",
-                        error
-                    );
-                    Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
-                        account_id: validator_id,
-                        era: active_era.index,
-                        error
-                    });
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Who should be slashed?
     /// Returns `None` if no one should be slashed.
     fn who_to_slash() -> Option<WhoToSlash> {
         SlashingAllowedFor::<T>::get().into()
+    }
+
+    /// Adds all validators to the list of pending payouts for the given era.
+    fn add_pending_payouts(era_index: EraIndex) -> DispatchResult {
+        match BoundedVec::<T::AccountId, T::MaxValidatorsPerEraAwaitingPayout>::try_from(
+            <T as StakingConfig>::SessionInterface::validators(),
+        ) {
+            Ok(validators) => {
+                let awaiting_payout = AwaitingPayout::new(era_index, validators);
+                if let Err(_) = PendingPayouts::<T>::try_mutate(|v| v.try_push(awaiting_payout)) {
+                    log::error!(
+                        "Failed to add pending payouts for era {}: too many eras awaiting payout",
+                        era_index
+                    );
+                }
+            }
+            Err(_) => {
+                log::error!(
+                    "Failed to add pending payouts for era {}: too many validators",
+                    era_index
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// Loops through all validators and makes payouts.
+    fn make_payments() -> Weight {
+        let mut weight_meter =
+            WeightMeter::from_limit_unchecked(Weight::zero(), T::MaxPayoutWeight::get());
+
+        let single_page_payout_weight =
+            <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
+                T::MaxExposurePageSize::get(),
+            );
+
+        // All eras and validators before should be cleared from storage.
+        // None means everything should be cleared.
+        let mut remove_until: Option<(usize, usize)> = None;
+
+        'era_payout: for (era_index, awaiting_payout) in
+            PendingPayouts::<T>::get().iter().enumerate()
+        {
+            for (validator_index, validator) in awaiting_payout.validators.iter().enumerate() {
+                let claimed_pages = pallet_staking::ClaimedRewards::<T>::get(
+                    &awaiting_payout.era_index,
+                    &validator,
+                );
+
+                for page in 0..pallet_staking::EraInfo::<T>::get_page_count(
+                    awaiting_payout.era_index,
+                    &validator,
+                ) {
+                    if !claimed_pages.contains(&page) {
+                        // The maximum number of payouts have already been made, so we stop further payouts
+                        if let Err(_) = weight_meter.check_accrue(single_page_payout_weight) {
+                            remove_until = Some((era_index, validator_index));
+                            break 'era_payout;
+                        }
+
+                        if let Err(e) = StakingPallet::<T>::do_payout_stakers_by_page(
+                            validator.clone(),
+                            awaiting_payout.era_index,
+                            page,
+                        ) {
+                            log::error!(
+                                "Failed to payout stakers for validator {:?} in era {} page {}: {:?}",
+                                validator,
+                                awaiting_payout.era_index,
+                                page,
+                                e
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        match remove_until {
+            Some((era_index, validator_index)) => {
+                PendingPayouts::<T>::mutate(|v| {
+                    v.drain(..era_index);
+                    if let Some(awaiting_payout) = v.as_mut().first_mut() {
+                        awaiting_payout.validators.drain(..validator_index);
+                    }
+                });
+            }
+            None => {
+                PendingPayouts::<T>::kill();
+            }
+        }
+
+        return weight_meter.consumed();
     }
 }
 
