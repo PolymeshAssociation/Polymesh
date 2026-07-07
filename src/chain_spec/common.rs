@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use sc_chain_spec::ChainSpecExtension;
@@ -234,18 +232,6 @@ pub(crate) fn corporate_actions_genesis_config() -> serde_json::Value {
     })
 }
 
-pub(crate) fn polymesh_contracts_genesis_config(upgradable_owner: AccountId) -> serde_json::Value {
-    let upgradable_description: [u8; 4] = "POLY".as_bytes().try_into().unwrap();
-
-    serde_json::json!({
-        "callWhitelist": contracts_call_whitelist(),
-        "upgradableCode": upgradable_code(),
-        "upgradableDescription": upgradable_description,
-        "upgradableMajor": 7,
-        "upgradableOwner": upgradable_owner,
-    })
-}
-
 fn currency_codes() -> Vec<Ticker> {
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct FiatCurrency<String> {
@@ -267,17 +253,6 @@ fn asset_metadata() -> Vec<(AssetMetadataName, AssetMetadataSpec)> {
     let asset_metadata_file = include_str!("../data/asset_metadata.json");
     serde_json::from_str(&asset_metadata_file)
         .expect("unable do parse/deserialize asset_metadata file")
-}
-
-fn contracts_call_whitelist() -> Vec<polymesh_contracts::ExtrinsicId> {
-    let whitelist_file = include_str!("../data/contracts_call_whitelist.json");
-    serde_json::from_str::<Vec<polymesh_contracts::ExtrinsicId>>(&whitelist_file)
-        .expect("unable do parse/deserialize contracts_call_whitelist file")
-}
-
-fn upgradable_code() -> Vec<u8> {
-    // Contract should match the `upgradable_major` version above.
-    include_bytes!("../data/contracts/polymesh_ink_7.wasm").to_vec()
 }
 
 //==========================================================================

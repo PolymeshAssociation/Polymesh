@@ -390,12 +390,6 @@ mod runtime {
     #[runtime::pallet_index(44)]
     pub type Relayer = pallet_relayer::Pallet<Runtime>;
 
-    #[runtime::pallet_index(46)]
-    pub type Contracts = pallet_contracts::Pallet<Runtime>;
-
-    #[runtime::pallet_index(47)]
-    pub type PolymeshContracts = polymesh_contracts::Pallet<Runtime>;
-
     #[runtime::pallet_index(48)]
     pub type Preimage = pallet_preimage::Pallet<Runtime>;
 
@@ -573,10 +567,6 @@ parameter_types! {
     pub const StorageSizeOffset: u32 = 8;
     pub const MaxDepth: u32 = 100;
     pub const MaxValueSize: u32 = 16_384;
-
-    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub MaxInLen: u32 = 8 * 1024;
-    pub MaxOutLen: u32 = 8 * 1024;
 }
 
 thread_local! {

@@ -90,7 +90,6 @@ members = [
     "pallets/committee",
     "pallets/compliance-manager",
     "pallets/confidential-assets",
-    "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
     "pallets/group",
@@ -177,7 +176,6 @@ pallet-statistics = { path = "pallets/statistics", default-features = false }
 polymesh-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
-polymesh-contracts = { path = "pallets/contracts", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
@@ -233,7 +231,6 @@ pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk",
 ] }
 pallet-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-beefy-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
-pallet-contracts = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-election-provider-multi-phase = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-grandpa = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-im-online = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
@@ -367,7 +364,6 @@ pallet-pips = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
-polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 

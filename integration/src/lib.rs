@@ -296,20 +296,6 @@ pub async fn get_auth_id(res: &mut TransactionResults) -> Result<Option<u64>> {
     Ok(None)
 }
 
-pub async fn get_contract_address(res: &mut TransactionResults) -> Result<Option<AccountId>> {
-    if let Some(events) = res.events().await? {
-        for rec in &events.0 {
-            match &rec.event {
-                RuntimeEvent::Contracts(ContractsEvent::Instantiated { contract, .. }) => {
-                    return Ok(Some(*contract));
-                }
-                _ => (),
-            }
-        }
-    }
-    Ok(None)
-}
-
 #[cfg(feature = "current_release")]
 pub async fn get_ag_id(
     res: &mut TransactionResults,
