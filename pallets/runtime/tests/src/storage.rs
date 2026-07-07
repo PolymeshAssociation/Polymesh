@@ -206,9 +206,6 @@ parameter_types! {
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MaxPayoutWeight: Weight = Weight::from_parts(1_000_000_000, 0);
-    pub const MaxEraAwaitingPayout: u32 = 128;
-    #[derive(scale_info::TypeInfo)]
-    pub const MaxValidatorsPerEraAwaitingPayout: u32 = 1_024;
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxNumberOfFungibleAssets: u32 = 100;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;

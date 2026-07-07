@@ -185,10 +185,7 @@ parameter_types! {
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * ONE_POLY;
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
-    pub const MaxPayoutWeight: Weight = Weight::from_parts(1_000_000_000, 0);
-    pub const MaxEraAwaitingPayout: u32 = 128;
-    #[derive(scale_info::TypeInfo)]
-    pub const MaxValidatorsPerEraAwaitingPayout: u32 = 1_024;
+    pub MaxPayoutWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
 
     // Babe
     pub const MaxNominatorRewardedPerValidator: u32 = 1_024;

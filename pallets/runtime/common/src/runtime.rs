@@ -417,8 +417,6 @@ macro_rules! misc_pallet_impls {
             type FixedYearlyReward = FixedYearlyReward;
             type PalletsOrigin = OriginCaller;
             type MaxPayoutWeight = MaxPayoutWeight;
-            type MaxEraAwaitingPayout = MaxEraAwaitingPayout;
-            type MaxValidatorsPerEraAwaitingPayout = MaxValidatorsPerEraAwaitingPayout;
         }
 
         impl pallet_authority_discovery::Config for Runtime {

@@ -44,7 +44,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill, Permill};
-use sp_staking::EraIndex;
+use sp_staking::{EraIndex, Page};
 use sp_std::prelude::*;
 
 use polymesh_primitives::{IdentityId, GC_DID};
@@ -162,14 +162,6 @@ pub mod pallet {
         /// Maximum weight for paying out stakers.
         #[pallet::constant]
         type MaxPayoutWeight: Get<Weight>;
-
-        /// Maximum number of eras that can be awaiting payout.
-        #[pallet::constant]
-        type MaxEraAwaitingPayout: Get<u32>;
-
-        /// Maximum number of validators that can be awaiting payout for a given era.
-        #[pallet::constant]
-        type MaxValidatorsPerEraAwaitingPayout: Get<u32> + TypeInfo;
     }
 
     /// Entities that are allowed to run operator/validator nodes.
@@ -272,6 +264,13 @@ pub mod pallet {
             governance_councill_did: IdentityId,
             old_commission_cap: Perbill,
             new_commission_cap: Perbill,
+        },
+        /// Validator payout failed.
+        VaidatorPayoutFailed {
+            validator: T::AccountId,
+            era: EraIndex,
+            page: Page,
+            error: DispatchError,
         },
     }
 

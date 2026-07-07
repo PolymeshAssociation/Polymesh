@@ -403,6 +403,12 @@ impl<T: Config> Pallet<T> {
                                 page,
                                 e
                             );
+                            Self::deposit_event(Event::<T>::VaidatorPayoutFailed {
+                                validator: validator.clone(),
+                                era: current_payout_era,
+                                page,
+                                error: e.error,
+                            });
                         }
                     }
                 }
