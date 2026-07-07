@@ -249,10 +249,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
             type Balance = Balance;
             type DustRemoval = ();
-            #[cfg(not(feature = "runtime-benchmarks"))]
             type ExistentialDeposit = ExistentialDeposit;
-            #[cfg(feature = "runtime-benchmarks")]
-            type ExistentialDeposit = BenchmarkEd;
             type AccountStore = frame_system::Pallet<Runtime>;
             type ReserveIdentifier = [u8; 8];
             type FreezeIdentifier = [u8; 8];

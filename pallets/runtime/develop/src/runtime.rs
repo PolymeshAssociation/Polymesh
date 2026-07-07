@@ -86,7 +86,6 @@ parameter_types! {
 
     // Balances:
     pub const ExistentialDeposit: Balance = 1u128;
-    pub const BenchmarkEd: Balance = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxReserves: u32 = 50;
     pub const MaxHolds: u32 = 32;
