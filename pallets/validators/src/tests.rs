@@ -4666,6 +4666,14 @@ fn do_not_die_when_active_is_ed() {
 }
 
 #[test]
+fn on_finalize_weight_is_nonzero() {
+	ExtBuilder::default().build_and_execute(|| {
+		let on_finalize_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+		assert!(<Staking as Hooks<u64>>::on_initialize(1).all_gte(on_finalize_weight));
+	})
+}
+
+#[test]
 fn restricted_accounts_can_only_withdraw() {
 	ExtBuilder::default().build_and_execute(|| {
 		start_active_era(1);
