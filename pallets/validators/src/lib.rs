@@ -266,7 +266,7 @@ pub mod pallet {
             new_commission_cap: Perbill,
         },
         /// Validator payout failed.
-        VaidatorPayoutFailed {
+        ValidatorPayoutFailed {
             validator: T::AccountId,
             era: EraIndex,
             page: Page,

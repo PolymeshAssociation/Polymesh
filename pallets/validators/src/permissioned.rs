@@ -403,7 +403,7 @@ impl<T: Config> Pallet<T> {
                                 page,
                                 e
                             );
-                            Self::deposit_event(Event::<T>::VaidatorPayoutFailed {
+                            Self::deposit_event(Event::<T>::ValidatorPayoutFailed {
                                 validator: validator.clone(),
                                 era: current_payout_era,
                                 page,
@@ -423,7 +423,9 @@ impl<T: Config> Pallet<T> {
                     return weight_meter.consumed();
                 }
                 None => {
-                    // All validators have been processed checks if there are validators from the next era to payout
+                    PendingPayouts::<T>::remove(current_payout_era);
+
+                    // All validators have been processed. Checks if there are validators from the next era to payout
                     let next_era = current_payout_era.saturating_add(1);
 
                     if PendingPayouts::<T>::contains_key(next_era) {
