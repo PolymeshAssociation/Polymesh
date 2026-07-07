@@ -129,21 +129,6 @@ pub mod pallet {
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
-    #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
-    pub struct AwaitingPayout<AccountId, T: Get<u32>> {
-        pub era_index: EraIndex,
-        pub validators: BoundedVec<AccountId, T>,
-    }
-
-    impl<AccountId, T: Get<u32>> AwaitingPayout<AccountId, T> {
-        pub fn new(era_index: EraIndex, validators: BoundedVec<AccountId, T>) -> Self {
-            Self {
-                era_index,
-                validators,
-            }
-        }
-    }
-
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
@@ -203,15 +188,19 @@ pub mod pallet {
     #[pallet::getter(fn validator_commission_cap)]
     pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
-    /// All validators that are awaiting payout for a given era.
+    /// Current payout era index.
+    #[pallet::storage]
+    #[pallet::getter(fn current_payout_era)]
+    pub type CurrentPayoutEra<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
+
+    /// Validators that are awaiting payout for a given era.
     #[pallet::storage]
     #[pallet::getter(fn pending_payouts)]
-    pub type PendingPayouts<T: Config> = StorageValue<
+    pub type PendingPayouts<T: Config> = StorageMap<
         _,
-        BoundedVec<
-            AwaitingPayout<T::AccountId, T::MaxValidatorsPerEraAwaitingPayout>,
-            T::MaxEraAwaitingPayout,
-        >,
+        Twox64Concat,
+        EraIndex,
+        BoundedVec<T::AccountId, T::MaxValidatorSet>,
         ValueQuery,
     >;
 
@@ -314,6 +303,10 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             migrations::migrate_v1::<T>()
+        }
+
+        fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+            Self::payouts()
         }
     }
 

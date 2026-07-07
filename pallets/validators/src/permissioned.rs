@@ -161,95 +161,18 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
 
     /// Adds all validators to the list of pending payouts for the given era.
     fn add_pending_payouts(era_index: EraIndex) -> DispatchResult {
-        match BoundedVec::<T::AccountId, T::MaxValidatorsPerEraAwaitingPayout>::try_from(
-            <T as StakingConfig>::SessionInterface::validators(),
-        ) {
-            Ok(validators) => {
-                let awaiting_payout = AwaitingPayout::new(era_index, validators);
-                if let Err(_) = PendingPayouts::<T>::try_mutate(|v| v.try_push(awaiting_payout)) {
-                    log::error!(
-                        "Failed to add pending payouts for era {}: too many eras awaiting payout",
-                        era_index
-                    );
-                }
-            }
-            Err(_) => {
-                log::error!(
-                    "Failed to add pending payouts for era {}: too many validators",
-                    era_index
-                );
-            }
+        let validators = <T as StakingConfig>::SessionInterface::validators();
+        let validators = BoundedVec::<T::AccountId, T::MaxValidatorSet>::try_from(validators)
+            .map_err(|_| Error::<T>::TooManyValidatorsForEra)?;
+
+        PendingPayouts::<T>::insert(era_index, validators);
+
+        // If the current payout era is some, there are still validators to payout from a previous era
+        if CurrentPayoutEra::<T>::get().is_none() {
+            CurrentPayoutEra::<T>::put(era_index);
         }
+
         Ok(())
-    }
-
-    /// Loops through all validators and makes payouts.
-    fn make_payments() -> Weight {
-        let mut weight_meter =
-            WeightMeter::from_limit_unchecked(Weight::zero(), T::MaxPayoutWeight::get());
-
-        let single_page_payout_weight =
-            <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
-                T::MaxExposurePageSize::get(),
-            );
-
-        // All eras and validators before should be cleared from storage.
-        // None means everything should be cleared.
-        let mut remove_until: Option<(usize, usize)> = None;
-
-        'era_payout: for (era_index, awaiting_payout) in
-            PendingPayouts::<T>::get().iter().enumerate()
-        {
-            for (validator_index, validator) in awaiting_payout.validators.iter().enumerate() {
-                let claimed_pages = pallet_staking::ClaimedRewards::<T>::get(
-                    &awaiting_payout.era_index,
-                    &validator,
-                );
-
-                for page in 0..pallet_staking::EraInfo::<T>::get_page_count(
-                    awaiting_payout.era_index,
-                    &validator,
-                ) {
-                    if !claimed_pages.contains(&page) {
-                        // The maximum number of payouts have already been made, so we stop further payouts
-                        if let Err(_) = weight_meter.check_accrue(single_page_payout_weight) {
-                            remove_until = Some((era_index, validator_index));
-                            break 'era_payout;
-                        }
-
-                        if let Err(e) = StakingPallet::<T>::do_payout_stakers_by_page(
-                            validator.clone(),
-                            awaiting_payout.era_index,
-                            page,
-                        ) {
-                            log::error!(
-                                "Failed to payout stakers for validator {:?} in era {} page {}: {:?}",
-                                validator,
-                                awaiting_payout.era_index,
-                                page,
-                                e
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        match remove_until {
-            Some((era_index, validator_index)) => {
-                PendingPayouts::<T>::mutate(|v| {
-                    v.drain(..era_index);
-                    if let Some(awaiting_payout) = v.as_mut().first_mut() {
-                        awaiting_payout.validators.drain(..validator_index);
-                    }
-                });
-            }
-            None => {
-                PendingPayouts::<T>::kill();
-            }
-        }
-
-        return weight_meter.consumed();
     }
 }
 
@@ -432,5 +355,82 @@ impl<T: Config> Pallet<T> {
             validators_identity: identity,
         });
         Ok(())
+    }
+
+    /// Loops through all validators and makes payouts.
+    pub fn payouts() -> Weight {
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            T::DbWeight::get().reads(1),
+            T::MaxPayoutWeight::get(),
+        );
+
+        let single_page_payout_weight =
+            <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
+                T::MaxExposurePageSize::get(),
+            );
+
+        if let Some(current_payout_era) = CurrentPayoutEra::<T>::get() {
+            // If the weight meter is exhausted, we will remove all validators that have been paid
+            // None means that all validators have been paid
+            let mut remove_until: Option<usize> = None;
+
+            'validator_payout: for (i, validator) in PendingPayouts::<T>::get(current_payout_era)
+                .iter()
+                .enumerate()
+            {
+                let claimed_pages =
+                    pallet_staking::ClaimedRewards::<T>::get(current_payout_era, &validator);
+
+                for page in
+                    0..pallet_staking::EraInfo::<T>::get_page_count(current_payout_era, &validator)
+                {
+                    if !claimed_pages.contains(&page) {
+                        // The maximum number of payouts have already been made, so we stop further payouts
+                        if let Err(_) = weight_meter.check_accrue(single_page_payout_weight) {
+                            remove_until = Some(i);
+                            break 'validator_payout;
+                        }
+
+                        if let Err(e) = StakingPallet::<T>::do_payout_stakers_by_page(
+                            validator.clone(),
+                            current_payout_era,
+                            page,
+                        ) {
+                            log::error!(
+                                "Failed to payout stakers for validator {:?} in era {} page {}: {:?}",
+                                validator,
+                                current_payout_era,
+                                page,
+                                e
+                            );
+                        }
+                    }
+                }
+            }
+
+            match remove_until {
+                Some(first_unpaid_index) => {
+                    PendingPayouts::<T>::mutate(current_payout_era, |validators| {
+                        validators.drain(..first_unpaid_index);
+                    });
+
+                    return weight_meter.consumed();
+                }
+                None => {
+                    // All validators have been processed checks if there are validators from the next era to payout
+                    let next_era = current_payout_era.saturating_add(1);
+
+                    if PendingPayouts::<T>::contains_key(next_era) {
+                        CurrentPayoutEra::<T>::put(next_era);
+                        return weight_meter.consumed();
+                    }
+
+                    CurrentPayoutEra::<T>::kill();
+                    return weight_meter.consumed();
+                }
+            }
+        }
+
+        weight_meter.consumed()
     }
 }
