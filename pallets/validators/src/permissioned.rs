@@ -374,11 +374,11 @@ impl<T: Config> Pallet<T> {
             // None means that all validators have been paid
             let mut remove_until: Option<usize> = None;
 
-            let pending_payouts = PendingPayouts::<T>::get(current_payout_era);
-
             if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(1)) {
                 return weight_meter.consumed();
             }
+
+            let pending_payouts = PendingPayouts::<T>::get(current_payout_era);
 
             'validator_payout: for (i, validator) in pending_payouts.iter().enumerate() {
                 if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(2)) {
