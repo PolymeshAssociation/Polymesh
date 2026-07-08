@@ -447,6 +447,7 @@ impl<T: Config> Pallet<T> {
                         // All validators have been paid. Checks if there are validators from the next era to payout
                         let next_era = current_payout_era.saturating_add(1);
 
+                        // This write has already been accounted for
                         PendingPayouts::<T>::remove(current_payout_era);
 
                         if PendingPayouts::<T>::contains_key(next_era) {
