@@ -374,16 +374,25 @@ impl<T: Config> Pallet<T> {
             // None means that all validators have been paid
             let mut remove_until: Option<usize> = None;
 
-            'validator_payout: for (i, validator) in PendingPayouts::<T>::get(current_payout_era)
-                .iter()
-                .enumerate()
-            {
+            let pending_payouts = PendingPayouts::<T>::get(current_payout_era);
+
+            if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(1)) {
+                return weight_meter.consumed();
+            }
+
+            'validator_payout: for (i, validator) in pending_payouts.iter().enumerate() {
+                if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(2)) {
+                    remove_until = Some(i);
+                    break;
+                }
+
                 let claimed_pages =
                     pallet_staking::ClaimedRewards::<T>::get(current_payout_era, &validator);
 
-                for page in
-                    0..pallet_staking::EraInfo::<T>::get_page_count(current_payout_era, &validator)
-                {
+                let n_pages =
+                    pallet_staking::EraInfo::<T>::get_page_count(current_payout_era, &validator);
+
+                for page in 0..n_pages {
                     if !claimed_pages.contains(&page) {
                         // The maximum number of payouts have already been made, so we stop further payouts
                         if let Err(_) = weight_meter.check_accrue(single_page_payout_weight) {
@@ -416,6 +425,18 @@ impl<T: Config> Pallet<T> {
 
             match remove_until {
                 Some(first_unpaid_index) => {
+                    // The Payouts have already been made. No point in returning early.
+                    if let Err(_) = weight_meter.consume_weight_until_limit(
+                        T::DbWeight::get()
+                            .reads(1)
+                            .saturating_add(T::DbWeight::get().writes(1)),
+                    ) {
+                        log::error!(
+                            "Weight Limit Exceeded for era {}: Consider increasing MaxPayoutWeight",
+                            current_payout_era
+                        );
+                    }
+
                     PendingPayouts::<T>::mutate(current_payout_era, |validators| {
                         validators.drain(..first_unpaid_index);
                     });
@@ -423,6 +444,18 @@ impl<T: Config> Pallet<T> {
                     return weight_meter.consumed();
                 }
                 None => {
+                    // The Payouts have already been made. No point in returning early.
+                    if let Err(_) = weight_meter.consume_weight_until_limit(
+                        T::DbWeight::get()
+                            .reads(1)
+                            .saturating_add(T::DbWeight::get().writes(2)),
+                    ) {
+                        log::error!(
+                            "Weight Limit Exceeded for era {}: Consider increasing MaxPayoutWeight",
+                            current_payout_era
+                        );
+                    }
+
                     PendingPayouts::<T>::remove(current_payout_era);
 
                     // All validators have been processed. Checks if there are validators from the next era to payout
