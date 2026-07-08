@@ -40,18 +40,19 @@ pub(crate) fn migrate_to_v7<T: Config + pallet_identity::Config>() -> Weight {
 fn initialize_erc20_index<T: Config>() -> Weight {
     log::info!("Initializing ERC20 index for existing assets.");
 
-    let mut reads = 0;
+    let mut reads = 1;
     let mut writes = 0;
 
+    let mut next_index = NextAssetIndex::<T>::get();
     for asset_id in Assets::<T>::iter_keys() {
-        let asset_index = NextAssetIndex::<T>::get();
-        Erc20IndexToAssetId::<T>::insert(asset_index, asset_id);
-        Erc20AssetIdToIndex::<T>::insert(asset_id, asset_index);
-        let next_index = asset_index.saturating_add(1);
-        NextAssetIndex::<T>::put(next_index);
-        writes += 3;
-        reads += 2;
+        Erc20IndexToAssetId::<T>::insert(next_index, asset_id);
+        Erc20AssetIdToIndex::<T>::insert(asset_id, next_index);
+        next_index = next_index.saturating_add(1);
+        writes += 2;
+        reads += 1;
     }
+    writes += 1;
+    NextAssetIndex::<T>::put(next_index);
 
     T::DbWeight::get().reads_writes(reads, writes)
 }
