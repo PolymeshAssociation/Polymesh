@@ -1,4 +1,6 @@
 version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@5.4.2
 commands:
   get-solc:
     steps:
@@ -735,6 +737,35 @@ jobs:
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian
           docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian
+  push-ecr-debian:
+    environment:
+      DOCKERHUB_IMAGE: polymeshassociation/polymesh
+      ECR_REGISTRY: 378371845002.dkr.ecr.us-west-2.amazonaws.com
+      ECR_REPOSITORY: polymesh/polymesh
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - aws-cli/setup:
+          role_arn: ${ECR_PUSH_ROLE_ARN}
+          region: us-west-2
+      - run:
+          name: Copy debian manifest to ECR
+          command: |
+            export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+            aws ecr get-login-password --region us-west-2 \
+              | docker login --username AWS --password-stdin $ECR_REGISTRY
+            docker buildx imagetools create \
+              --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest-$CIRCLE_BRANCH-debian \
+              $DOCKERHUB_IMAGE:latest-$CIRCLE_BRANCH-debian
+            docker buildx imagetools create \
+              --tag $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION-$CIRCLE_BRANCH-debian \
+              $DOCKERHUB_IMAGE:$VERSION-$CIRCLE_BRANCH-debian
+            docker buildx imagetools create \
+              --tag $ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1 \
+              $DOCKERHUB_IMAGE:$VERSION-$CIRCLE_BRANCH-debian
   build-docker-distroless:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
@@ -1005,6 +1036,16 @@ workflows:
           requires:
             - build-docker-amd64-debian
             - build-docker-arm64-debian
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - push-ecr-debian:
+          requires:
+            - build-docker-debian
           filters:
             branches:
               only:
