@@ -87,7 +87,7 @@ parameter_types! {
     pub const IndexDeposit: Balance = DOLLARS;
 
     // Balances:
-    pub const ExistentialDeposit: Balance = 0u128;
+    pub const ExistentialDeposit: Balance = 1u128;
     pub const MaxLocks: u32 = 50;
     pub const MaxReserves: u32 = 50;
     pub const MaxHolds: u32 = 32;

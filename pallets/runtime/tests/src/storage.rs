@@ -532,7 +532,7 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFees {
 parameter_types! {
     pub const SS58Prefix: u8 = 12;
     pub const EvmChainId: u64 = 1_641_818;
-    pub const ExistentialDeposit: u64 = 0;
+    pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxHolds: u32 = 32;
     pub const MaxFreezes: u32 = 32;
