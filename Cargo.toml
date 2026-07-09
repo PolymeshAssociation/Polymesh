@@ -226,9 +226,7 @@ mmr-rpc = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch 
 pallet-authority-discovery = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-authorship = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-babe = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
-pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false, features = [
-    'insecure_zero_ed',
-] }
+pallet-balances = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-beefy = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-beefy-mmr = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 pallet-election-provider-multi-phase = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
@@ -442,9 +440,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-babe = { workspace = true }
-pallet-balances = { workspace = true, default-features = false, features = [
-    "insecure_zero_ed",
-] }
+pallet-balances = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-migrations = { workspace = true, default-features = false }
