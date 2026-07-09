@@ -765,7 +765,6 @@ polymesh_runtime_common::misc_pallet_impls!();
 pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
 pub type DidRegistrar = group::Pallet<TestStorage, group::Instance2>;
 pub type Committee = committee::Pallet<TestStorage, committee::Instance1>;
-//pub type WrapperContracts = polymesh_contracts::Pallet<TestStorage>;
 pub type CorporateActions = corporate_actions::Pallet<TestStorage>;
 
 pub fn make_account(
