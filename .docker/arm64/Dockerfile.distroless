@@ -1,4 +1,4 @@
-ARG golangbase=1.15
+ARG golangbase=1.24
 FROM golang:${golangbase} as gobuild
 
 ADD .docker/src/health-check/ /opt/health-check/
