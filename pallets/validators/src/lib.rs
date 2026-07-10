@@ -273,7 +273,7 @@ pub mod pallet {
             error: DispatchError,
         },
         /// All validators have been rewarded for the given era.
-        AllValidatorsRewarded { era: EraIndex },
+        AutomaticPayoutFinished { era: EraIndex },
     }
 
     #[pallet::error]

@@ -445,7 +445,7 @@ impl<T: Config> Pallet<T> {
             });
 
             if let None = incomplete_payout {
-                Self::deposit_event(Event::<T>::AllValidatorsRewarded {
+                Self::deposit_event(Event::<T>::AutomaticPayoutFinished {
                     era: current_payout_era,
                 });
 
