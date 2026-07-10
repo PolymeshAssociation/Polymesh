@@ -272,6 +272,8 @@ pub mod pallet {
             page: Page,
             error: DispatchError,
         },
+        /// All validators have been rewarded for the given era.
+        AllValidatorsRewarded { era: EraIndex },
     }
 
     #[pallet::error]

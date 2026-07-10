@@ -383,10 +383,10 @@ impl<T: Config> Pallet<T> {
                 return weight_meter.consumed();
             }
 
-            PendingPayouts::<T>::mutate(current_payout_era, |pending_payouts| {
-                // If we can't pay all pages, the last validator needs to be pushed back to the pending payouts
-                let mut incomplete_payout = None;
+            // If we can't pay all pages, the last validator needs to be pushed back to the pending payouts
+            let mut incomplete_payout = None;
 
+            PendingPayouts::<T>::mutate(current_payout_era, |pending_payouts| {
                 'validator_payout: while let Some(validator) = pending_payouts.pop() {
                     // Reads: ClaimedRewards (1) and ErasStakersOverview (1)
                     if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(2)) {
@@ -434,36 +434,39 @@ impl<T: Config> Pallet<T> {
                     }
                 }
 
-                match incomplete_payout {
-                    Some(validator) => {
-                        // The last validator was not fully paid, push it back to the pending payouts for the next block.
-                        // The error should never happen
-                        if let Err(_) = pending_payouts.try_push(validator) {
-                            log::error!("Failed to requeue validator for pending payouts");
-                        }
-                        total_weight = weight_meter.consumed();
+                if let Some(validator) = &incomplete_payout {
+                    // The last validator was not fully paid, push it back to the pending payouts for the next block.
+                    // The error should never happen
+                    if let Err(_) = pending_payouts.try_push(validator.clone()) {
+                        log::error!("Failed to requeue validator for pending payouts");
                     }
-                    None => {
-                        // All validators have been paid. Checks if there are validators from the next era to payout
-                        let next_era = current_payout_era.saturating_add(1);
-
-                        // This write has already been accounted for
-                        PendingPayouts::<T>::remove(current_payout_era);
-
-                        if PendingPayouts::<T>::contains_key(next_era) {
-                            CurrentPayoutEra::<T>::put(next_era);
-                        } else {
-                            CurrentPayoutEra::<T>::kill();
-                        }
-
-                        // Reads: PendingPayouts (1)
-                        // Writes: CurrentPayoutEra (1)
-                        total_weight = weight_meter
-                            .consumed()
-                            .saturating_add(T::DbWeight::get().reads_writes(1, 1));
-                    }
+                    total_weight = weight_meter.consumed();
                 }
             });
+
+            if let None = incomplete_payout {
+                Self::deposit_event(Event::<T>::AllValidatorsRewarded {
+                    era: current_payout_era,
+                });
+
+                // All validators have been paid. Checks if there are validators from the next era to payout
+                let next_era = current_payout_era.saturating_add(1);
+
+                // This write has already been accounted for
+                PendingPayouts::<T>::remove(current_payout_era);
+
+                if PendingPayouts::<T>::contains_key(next_era) {
+                    CurrentPayoutEra::<T>::put(next_era);
+                } else {
+                    CurrentPayoutEra::<T>::kill();
+                }
+
+                // Reads: PendingPayouts (1)
+                // Writes: CurrentPayoutEra (1)
+                total_weight = weight_meter
+                    .consumed()
+                    .saturating_add(T::DbWeight::get().reads_writes(1, 1));
+            }
         }
 
         total_weight
