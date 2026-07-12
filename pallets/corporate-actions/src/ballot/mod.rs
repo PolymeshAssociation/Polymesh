@@ -82,6 +82,7 @@ use core::convert::TryInto;
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
+use frame_support::BoundedVec;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -98,6 +99,9 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 
 use crate as ca;
 use ca::{CAId, CAKind, CorporateAction};
+
+type MaxMotions = frame_support::traits::ConstU32<8>;
+type MaxChoicesPerMotion = frame_support::traits::ConstU32<128>;
 
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type CA<T> = ca::Pallet<T>;
@@ -133,7 +137,7 @@ pub struct Motion {
 
     /// Choices for the motion excluding abstain.
     /// Voting power not used is considered abstained.
-    pub choices: Vec<ChoiceTitle>,
+    pub choices: BoundedVec<ChoiceTitle, MaxChoicesPerMotion>,
 }
 
 /// A wrapper for a ballot's title.]
@@ -156,7 +160,7 @@ pub struct BallotMeta {
     pub title: BallotTitle,
 
     /// All motions with their associated titles, choices, etc.
-    pub motions: Vec<Motion>,
+    pub motions: BoundedVec<Motion, MaxMotions>,
 }
 
 impl BallotMeta {

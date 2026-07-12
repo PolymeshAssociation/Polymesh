@@ -12,15 +12,15 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
+use frame_benchmarking::benchmarks;
+use pallet_identity::benchmarking::User;
 
 use super::*;
 use crate::benchmarking::{set_ca_targets, setup_ca};
 use crate::CAConfig;
-use core::iter;
-use frame_benchmarking::benchmarks;
-use pallet_identity::benchmarking::User;
 
-const MAX_CHOICES: u32 = 1000;
+const MAX_MOTIONS: u32 = 8;
+const MAX_CHOICES_PER_MOTION: u32 = 128;
 const MAX_TARGETS: u32 = 1000;
 
 const RANGE: BallotTimeRange = BallotTimeRange {
@@ -28,21 +28,35 @@ const RANGE: BallotTimeRange = BallotTimeRange {
     end: 4000,
 };
 
-fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
-    let motion = Motion {
-        title: "".into(),
-        info_link: "".into(),
-        choices: iter::repeat("".into()).take(n_choices as usize).collect(),
+fn meta<T: CAConfig>(n_motions: u32, n_choices: u32) -> BallotMeta {
+    let max_len = T::MaxLen::get();
+
+    let choices = (0..n_choices)
+        .map(|_| vec![0u8; max_len as usize].into())
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
+    let single_motion = Motion {
+        title: vec![0u8; max_len as usize].into(),
+        info_link: vec![0u8; max_len as usize].into(),
+        choices,
     };
-    let motions = iter::repeat(motion).take(n_motions as usize).collect();
+
+    let motions = (0..n_motions)
+        .map(|_| single_motion.clone())
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
     BallotMeta {
-        title: "".into(),
+        title: vec![0u8; max_len as usize].into(),
         motions,
     }
 }
 
 fn attach<T: CAConfig>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
-    let meta = meta(n_motions, n_choices);
+    let meta = meta::<T>(n_motions, n_choices);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     <Pallet<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
     (owner, ca_id)
@@ -52,9 +66,10 @@ benchmarks! {
     where_clause {  where T: CAConfig }
 
     attach_ballot {
-        let c in 0..MAX_CHOICES;
+        let m in 1..MAX_MOTIONS;
+        let c in 0..MAX_CHOICES_PER_MOTION;
 
-        let meta = meta(1, c);
+        let meta = meta::<T>(m, c);
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
@@ -62,7 +77,7 @@ benchmarks! {
     }
 
     vote {
-        let c in 0..MAX_CHOICES;
+        let c in 0..MAX_CHOICES_PER_MOTION;
         let t in 0..MAX_TARGETS;
 
         // Attach and prepare to vote.
@@ -89,17 +104,18 @@ benchmarks! {
     }
 
     change_end {
-        let (owner, ca_id) = attach::<T>(0, 0);
+        let (owner, ca_id) = attach::<T>(1, 1);
     }: _(owner.origin(), ca_id, 5000)
     verify {
         assert_eq!(TimeRanges::<T>::get(ca_id).unwrap().end, 5000, "range not changed");
     }
 
     change_meta {
-        let c in 0..MAX_CHOICES;
+        let m in 1..MAX_MOTIONS;
+        let c in 0..MAX_CHOICES_PER_MOTION;
 
-        let (owner, ca_id) = attach::<T>(0, 0);
-        let meta = meta(1, c);
+        let (owner, ca_id) = attach::<T>(1, 1);
+        let meta = meta::<T>(m, c);
         let meta2 = meta.clone();
     }: _(owner.origin(), ca_id, meta)
     verify {
@@ -107,14 +123,14 @@ benchmarks! {
     }
 
     change_rcv {
-        let (owner, ca_id) = attach::<T>(0, 0);
+        let (owner, ca_id) = attach::<T>(1, 1);
     }: _(owner.origin(), ca_id, false)
     verify {
         assert!(!RCV::<T>::get(ca_id), "RCV not changed");
     }
 
     remove_ballot {
-        let (owner, ca_id) = attach::<T>(0, 0);
+        let (owner, ca_id) = attach::<T>(1, 1);
     }: _(owner.origin(), ca_id)
     verify {
         assert_eq!(TimeRanges::<T>::get(ca_id), None, "ballot not removed");
