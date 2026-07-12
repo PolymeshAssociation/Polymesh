@@ -245,7 +245,7 @@ pub mod pallet {
             governance_councill_did: IdentityId,
             validators_identity: IdentityId,
         },
-        /// Remove the nominators from the valid nominators when there CDD expired.
+        /// Remove the nominators from the valid nominators when their CDD expired.
         InvalidatedNominators {
             governance_councill_did: IdentityId,
             governance_councill_account: IdentityId,
@@ -272,7 +272,7 @@ pub mod pallet {
             page: Page,
             error: DispatchError,
         },
-        /// All validators have been rewarded for the given era.
+        /// Automatic payout finished for the era.
         AutomaticPayoutFinished { era: EraIndex },
     }
 
