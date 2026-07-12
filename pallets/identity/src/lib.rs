@@ -193,7 +193,10 @@ pub trait WeightInfo {
     /// Add complexity cost of Permissions to `add_authorization` extrinsic.
     fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
         let perm_cost = match data {
-            AuthorizationData::JoinIdentity(perms) => Self::permissions_cost_perms(perms),
+            AuthorizationData::JoinIdentity(perms)
+            | AuthorizationData::RotatePrimaryKeyToSecondary(perms) => {
+                Self::permissions_cost_perms(perms)
+            }
             _ => Weight::zero(),
         };
         perm_cost.saturating_add(Self::add_authorization())
