@@ -421,6 +421,15 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
+
+        setup_transfer_restrictions::<T>(
+            alice.origin().into(),
+            alice.did(),
+            asset_id,
+            4,
+            false,
+        );
+
     }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), alice_holdings.into())
     verify {
         assert_eq!(
@@ -433,6 +442,14 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
+
+        setup_transfer_restrictions::<T>(
+            alice.origin().into(),
+            alice.did(),
+            asset_id,
+            4,
+            false,
+        );
 
         Pallet::<T>::issue(
             alice.origin.clone().into(),
