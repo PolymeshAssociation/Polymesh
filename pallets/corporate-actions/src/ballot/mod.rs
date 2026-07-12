@@ -82,10 +82,10 @@ use core::convert::TryInto;
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
-use frame_support::BoundedVec;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use frame_support::BoundedVec;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;
@@ -163,14 +163,6 @@ pub struct BallotMeta {
     pub motions: BoundedVec<Motion, MaxMotions>,
 }
 
-impl BallotMeta {
-    pub(crate) fn saturating_num_choices(&self) -> u32 {
-        self.motions
-            .iter()
-            .fold(0, |a, m| a.saturating_add(m.choices.len() as u32))
-    }
-}
-
 /// Timestamp range details about vote start / end.
 #[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, TypeInfo)]
@@ -240,12 +232,33 @@ pub struct BallotVote {
 
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
-    fn attach_ballot(num_choices: u32) -> Weight;
+    fn attach_ballot(motions: u32, choices: u32) -> Weight;
     fn vote(votes: u32, target_ids: u32) -> Weight;
     fn change_end() -> Weight;
-    fn change_meta(num_choices: u32) -> Weight;
+    fn change_meta(motions: u32, choices: u32) -> Weight;
     fn change_rcv() -> Weight;
     fn remove_ballot() -> Weight;
+
+    fn get_motions_and_choices(ballot_meta: &BallotMeta) -> (u32, u32) {
+        let motions = ballot_meta.motions.len() as u32;
+
+        let mut choices = 0u32;
+        for motion in ballot_meta.motions.iter() {
+            choices = choices.saturating_add(motion.choices.len() as u32);
+        }
+
+        (motions, choices)
+    }
+
+    fn attach_ballot_weight(ballot_meta: &BallotMeta) -> Weight {
+        let (motions, choices) = Self::get_motions_and_choices(ballot_meta);
+        Self::attach_ballot(motions, choices)
+    }
+
+    fn change_meta_weight(ballot_meta: &BallotMeta) -> Weight {
+        let (motions, choices) = Self::get_motions_and_choices(ballot_meta);
+        Self::change_meta(motions, choices)
+    }
 }
 
 storage_migration_ver!(1);
@@ -374,7 +387,7 @@ pub mod pallet {
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
-        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices()))]
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::attach_ballot_weight(&meta))]
         #[pallet::call_index(0)]
         pub fn attach_ballot(
             origin: OriginFor<T>,
@@ -550,7 +563,7 @@ pub mod pallet {
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
-        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices()))]
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_meta_weight(&meta))]
         #[pallet::call_index(3)]
         pub fn change_meta(origin: OriginFor<T>, ca_id: CAId, meta: BallotMeta) -> DispatchResult {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.

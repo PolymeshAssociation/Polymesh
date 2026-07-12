@@ -59,12 +59,15 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Proof: `CorporateBallot::Metas` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `CorporateBallot::RCV` (r:0 w:1)
     // Proof: `CorporateBallot::RCV` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
-    /// The range of component `c` is `[0, 1000]`.
-    fn attach_ballot(c: u32) -> Weight {
-        // Minimum execution time: 64_270 nanoseconds.
-        Weight::from_parts(67_990_622, 0)
-            // Standard Error: 188
-            .saturating_add(Weight::from_parts(40_911, 0).saturating_mul(c.into()))
+    /// The range of component `m` is `[1, 8]`.
+    /// The range of component `c` is `[0, 128]`.
+    fn attach_ballot(m: u32, c: u32) -> Weight {
+        // Minimum execution time: 137_283 nanoseconds.
+        Weight::from_parts(137_392_000, 0)
+            // Standard Error: 4_398_082
+            .saturating_add(Weight::from_parts(135_432_283, 0).saturating_mul(m.into()))
+            // Standard Error: 285_859
+            .saturating_add(Weight::from_parts(9_879_191, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -88,15 +91,15 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Proof: `CorporateBallot::Votes` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `CorporateBallot::Results` (r:1 w:1)
     // Proof: `CorporateBallot::Results` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// The range of component `c` is `[0, 1000]`.
+    /// The range of component `c` is `[0, 128]`.
     /// The range of component `t` is `[0, 1000]`.
     fn vote(c: u32, t: u32) -> Weight {
-        // Minimum execution time: 126_900 nanoseconds.
-        Weight::from_parts(76_783_310, 0)
-            // Standard Error: 1_725
-            .saturating_add(Weight::from_parts(66_729, 0).saturating_mul(c.into()))
-            // Standard Error: 1_725
-            .saturating_add(Weight::from_parts(69_294, 0).saturating_mul(t.into()))
+        // Minimum execution time: 105_606 nanoseconds.
+        Weight::from_parts(99_025_047, 0)
+            // Standard Error: 7_140
+            .saturating_add(Weight::from_parts(140_425, 0).saturating_mul(c.into()))
+            // Standard Error: 917
+            .saturating_add(Weight::from_parts(64_240, 0).saturating_mul(t.into()))
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -113,8 +116,8 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Storage: `Timestamp::Now` (r:1 w:0)
     // Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
     fn change_end() -> Weight {
-        // Minimum execution time: 41_161 nanoseconds.
-        Weight::from_parts(43_820_000, 0)
+        // Minimum execution time: 57_324 nanoseconds.
+        Weight::from_parts(59_345_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -134,12 +137,15 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Proof: `CorporateBallot::MotionNumChoices` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `CorporateBallot::Metas` (r:0 w:1)
     // Proof: `CorporateBallot::Metas` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// The range of component `c` is `[0, 1000]`.
-    fn change_meta(c: u32) -> Weight {
-        // Minimum execution time: 45_080 nanoseconds.
-        Weight::from_parts(49_069_393, 0)
-            // Standard Error: 206
-            .saturating_add(Weight::from_parts(40_211, 0).saturating_mul(c.into()))
+    /// The range of component `m` is `[1, 8]`.
+    /// The range of component `c` is `[0, 128]`.
+    fn change_meta(m: u32, c: u32) -> Weight {
+        // Minimum execution time: 114_549 nanoseconds.
+        Weight::from_parts(115_501_000, 0)
+            // Standard Error: 6_300_478
+            .saturating_add(Weight::from_parts(139_312_783, 0).saturating_mul(m.into()))
+            // Standard Error: 406_646
+            .saturating_add(Weight::from_parts(9_858_571, 0).saturating_mul(c.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -158,8 +164,8 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Storage: `CorporateBallot::RCV` (r:0 w:1)
     // Proof: `CorporateBallot::RCV` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
     fn change_rcv() -> Weight {
-        // Minimum execution time: 40_171 nanoseconds.
-        Weight::from_parts(42_840_000, 0)
+        // Minimum execution time: 56_433 nanoseconds.
+        Weight::from_parts(58_297_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -182,8 +188,8 @@ impl pallet_corporate_actions::ballot::WeightInfo for SubstrateWeight {
     // Storage: `CorporateBallot::RCV` (r:0 w:1)
     // Proof: `CorporateBallot::RCV` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
     fn remove_ballot() -> Weight {
-        // Minimum execution time: 45_151 nanoseconds.
-        Weight::from_parts(48_380_000, 0)
+        // Minimum execution time: 62_370 nanoseconds.
+        Weight::from_parts(64_080_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(4))
     }
