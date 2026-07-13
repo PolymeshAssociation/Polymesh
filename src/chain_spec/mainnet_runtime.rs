@@ -13,11 +13,11 @@ use polymesh_runtime_mainnet::constants::time::DAYS;
 use polymesh_runtime_mainnet::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
 use crate::chain_spec::common::asset_genesis_config;
+use crate::chain_spec::common::pips_genesis_config;
 use crate::chain_spec::common::{adjust_last, get_authority_keys_from_seed};
 use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
 use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
 use crate::chain_spec::common::{group_genesis_config, polymesh_properties, seeded_acc_id};
-use crate::chain_spec::common::{pips_genesis_config, polymesh_contracts_genesis_config};
 use crate::chain_spec::common::{protocol_fee_genesis_config, validators_genesis_config};
 use crate::chain_spec::common::{ChainSpec, ChainSpecMode};
 use crate::chain_spec::common::{GenesisData, InitialAuth, StakersData};
@@ -139,7 +139,6 @@ fn mainnet_genesis_config(
         "upgradeCommittee": committee_genesis_config((1, 2), identity_1), // 1/2 votes required
         "protocolFee": protocol_fee_genesis_config(),
         "corporateAction": corporate_actions_genesis_config(),
-        "polymeshContracts": polymesh_contracts_genesis_config(root_key),
     })
 }
 

@@ -238,7 +238,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
-            if Pallet::<T>::on_chain_storage_version() <= Pallet::<T>::in_code_storage_version() {
+            if Pallet::<T>::on_chain_storage_version() < Pallet::<T>::in_code_storage_version() {
                 let mut count = 0u64;
                 // Remove account key ref counts for all paying keys and user keys in Subsidies.
                 for (user_key, subsidy) in Subsidies::<T>::iter() {

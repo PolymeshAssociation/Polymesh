@@ -87,8 +87,7 @@ parameter_types! {
     pub const IndexDeposit: Balance = DOLLARS;
 
     // Balances:
-    pub const ExistentialDeposit: Balance = 0u128;
-    pub const BenchmarkEd: Balance = 1;
+    pub const ExistentialDeposit: Balance = 1u128;
     pub const MaxLocks: u32 = 50;
     pub const MaxReserves: u32 = 50;
     pub const MaxHolds: u32 = 32;
@@ -154,11 +153,6 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 100_000 * ONE_POLY;
     pub const MaxGivenAuths: u32 = 1024;
     pub MaxAuthRetries: u8 = 10;
-
-    // Contracts:
-    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub MaxInLen: u32 = 8 * 1024;
-    pub MaxOutLen: u32 = 8 * 1024;
 
     // NFT:
     pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
@@ -482,12 +476,6 @@ mod runtime {
 
     #[runtime::pallet_index(44)]
     pub type Relayer = pallet_relayer::Pallet<Runtime>;
-
-    #[runtime::pallet_index(46)]
-    pub type Contracts = pallet_contracts::Pallet<Runtime>;
-
-    #[runtime::pallet_index(47)]
-    pub type PolymeshContracts = polymesh_contracts::Pallet<Runtime>;
 
     #[runtime::pallet_index(48)]
     pub type Preimage = pallet_preimage::Pallet<Runtime>;

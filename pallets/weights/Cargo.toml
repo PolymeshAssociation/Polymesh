@@ -12,7 +12,6 @@ pallet-timestamp = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-beefy-mmr = { workspace = true, default-features = false }
-pallet-contracts = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
 pallet-indices = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
@@ -45,7 +44,6 @@ pallet-statistics = { workspace = true, default-features = false  }
 pallet-sto = { workspace = true, default-features = false  }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
-polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false  }
 
@@ -83,7 +81,6 @@ std = [
     "pallet-timestamp/std",
     "pallet-treasury/std",
     "pallet-utility/std",
-    "polymesh-contracts/std",
     "polymesh-primitives/std",
     "polymesh-transaction-payment/std",
 ]

@@ -10,11 +10,11 @@ use polymesh_runtime_develop::constants::time::MINUTES;
 use polymesh_runtime_develop::runtime::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
 
 use crate::chain_spec::common::asset_genesis_config;
+use crate::chain_spec::common::seeded_acc_id;
 use crate::chain_spec::common::{checkpoint_genesis_config, committee_genesis_config};
 use crate::chain_spec::common::{corporate_actions_genesis_config, staking_genesis_config};
 use crate::chain_spec::common::{get_authority_keys_from_seed, pips_genesis_config};
 use crate::chain_spec::common::{group_genesis_config, polymesh_properties};
-use crate::chain_spec::common::{polymesh_contracts_genesis_config, seeded_acc_id};
 use crate::chain_spec::common::{protocol_fee_genesis_config, validators_genesis_config};
 use crate::chain_spec::common::{ChainSpec, DEV_KEYS, DEV_TREASURY, INITIAL_BOND};
 use crate::chain_spec::common::{ChainSpecMode, GenesisData, InitialAuth, StakersData};
@@ -142,7 +142,6 @@ fn develop_genesis_config(
         "upgradeCommittee": committee_genesis_config,
         "protocolFee": protocol_fee_genesis_config(),
         "corporateAction": corporate_actions_genesis_config(),
-        "polymeshContracts": polymesh_contracts_genesis_config(root_key),
     })
 }
 
