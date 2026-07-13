@@ -205,6 +205,7 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
+    pub const MaxPayoutWeight: Weight = Weight::from_parts(1_000_000_000, 0);
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxNumberOfFungibleAssets: u32 = 100;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
@@ -389,12 +390,6 @@ mod runtime {
     #[runtime::pallet_index(44)]
     pub type Relayer = pallet_relayer::Pallet<Runtime>;
 
-    #[runtime::pallet_index(46)]
-    pub type Contracts = pallet_contracts::Pallet<Runtime>;
-
-    #[runtime::pallet_index(47)]
-    pub type PolymeshContracts = polymesh_contracts::Pallet<Runtime>;
-
     #[runtime::pallet_index(48)]
     pub type Preimage = pallet_preimage::Pallet<Runtime>;
 
@@ -537,8 +532,7 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for DealWithFees {
 parameter_types! {
     pub const SS58Prefix: u8 = 12;
     pub const EvmChainId: u64 = 1_641_818;
-    pub const ExistentialDeposit: u64 = 0;
-    pub const BenchmarkEd: Balance = 1;
+    pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 50;
     pub const MaxHolds: u32 = 32;
     pub const MaxFreezes: u32 = 32;
@@ -572,10 +566,6 @@ parameter_types! {
     pub const StorageSizeOffset: u32 = 8;
     pub const MaxDepth: u32 = 100;
     pub const MaxValueSize: u32 = 16_384;
-
-    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub MaxInLen: u32 = 8 * 1024;
-    pub MaxOutLen: u32 = 8 * 1024;
 }
 
 thread_local! {
@@ -775,7 +765,6 @@ polymesh_runtime_common::misc_pallet_impls!();
 pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
 pub type DidRegistrar = group::Pallet<TestStorage, group::Instance2>;
 pub type Committee = committee::Pallet<TestStorage, committee::Instance1>;
-//pub type WrapperContracts = polymesh_contracts::Pallet<TestStorage>;
 pub type CorporateActions = corporate_actions::Pallet<TestStorage>;
 
 pub fn make_account(

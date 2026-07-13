@@ -14,7 +14,6 @@ mod asset_metadata_test;
 mod balances_test;
 mod committee_test;
 mod compliance_manager_test;
-mod contracts_test;
 mod corporate_actions_test;
 #[macro_use]
 mod external_agents_test;
