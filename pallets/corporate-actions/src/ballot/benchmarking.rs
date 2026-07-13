@@ -16,7 +16,8 @@ use frame_benchmarking::benchmarks;
 use pallet_identity::benchmarking::User;
 
 use super::*;
-use crate::benchmarking::{set_ca_targets, setup_ca, MAX_CHOICES_PER_MOTION, MAX_MOTIONS};
+use crate::ballot::{MAX_CHOICES_PER_MOTION, MAX_MOTIONS};
+use crate::benchmarking::{set_ca_targets, setup_ca};
 use crate::CAConfig;
 
 const MAX_TARGETS: u32 = 1000;
@@ -64,8 +65,8 @@ benchmarks! {
     where_clause {  where T: CAConfig }
 
     attach_ballot {
-        let m in 1..MAX_MOTIONS;
-        let c in 0..MAX_CHOICES_PER_MOTION;
+        let m in 1..MAX_MOTIONS as u32;
+        let c in 0..MAX_CHOICES_PER_MOTION as u32;
 
         let meta = meta::<T>(m, c);
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
@@ -75,7 +76,7 @@ benchmarks! {
     }
 
     vote {
-        let c in 0..MAX_CHOICES_PER_MOTION;
+        let c in 0..MAX_CHOICES_PER_MOTION as u32;
         let t in 0..MAX_TARGETS;
 
         // Attach and prepare to vote.
@@ -109,8 +110,8 @@ benchmarks! {
     }
 
     change_meta {
-        let m in 1..MAX_MOTIONS;
-        let c in 0..MAX_CHOICES_PER_MOTION;
+        let m in 1..MAX_MOTIONS as u32;
+        let c in 0..MAX_CHOICES_PER_MOTION as u32;
 
         let (owner, ca_id) = attach::<T>(1, 1);
         let meta = meta::<T>(m, c);
