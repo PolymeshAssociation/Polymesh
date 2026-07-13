@@ -39,20 +39,19 @@ pub mod types;
 pub use pallet_staking::permissioned_staking::PermissionedStaking;
 
 use frame_support::pallet_prelude::*;
-use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
-use frame_support::traits::{Get, IsSubType, QueryPreimage, StorePreimage};
+use frame_support::storage::bounded_vec::BoundedVec;
+use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::*;
-use sp_runtime::traits::Dispatchable;
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill, Permill};
-use sp_staking::EraIndex;
+use sp_staking::{EraIndex, Page};
 use sp_std::prelude::*;
 
 use polymesh_primitives::{IdentityId, GC_DID};
 
 pub(crate) use pallet_staking::{
-    ActiveEraInfo, BalanceOf, Bonded, Config as StakingConfig, EraPayout, Error as StakingError,
-    Ledger, MinValidatorBond, Pallet as StakingPallet, SessionInterface as _, ValidatorCount,
+    BalanceOf, Bonded, Config as StakingConfig, EraPayout, Error as StakingError, Ledger,
+    MinValidatorBond, Pallet as StakingPallet, SessionInterface as _, ValidatorCount,
     ValidatorPrefs, Validators, WeightInfo as _,
 };
 
@@ -157,22 +156,12 @@ pub mod pallet {
         #[pallet::constant]
         type FixedYearlyReward: Get<BalanceOf<Self>>;
 
-        /// The overarching call type.
-        type SchedulerCall: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone + Encode;
-
         /// Overarching type of all pallets origins.
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
-        /// To schedule the rewards for the stakers after the end of era.
-        type RewardScheduler: ScheduleAnon<
-            BlockNumberFor<Self>,
-            Self::SchedulerCall,
-            Self::PalletsOrigin,
-            Hasher = Self::Hashing,
-        >;
-
-        /// Preimage provider for the scheduler.
-        type SchedulerPreimage: QueryPreimage<H = Self::Hashing> + StorePreimage;
+        /// Maximum weight for paying out stakers.
+        #[pallet::constant]
+        type MaxPayoutWeight: Get<Weight>;
     }
 
     /// Entities that are allowed to run operator/validator nodes.
@@ -190,6 +179,22 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn validator_commission_cap)]
     pub type ValidatorCommissionCap<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+    /// Current payout era index.
+    #[pallet::storage]
+    #[pallet::getter(fn current_payout_era)]
+    pub type CurrentPayoutEra<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
+
+    /// Validators that are awaiting payout for a given era.
+    #[pallet::storage]
+    #[pallet::getter(fn pending_payouts)]
+    pub type PendingPayouts<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        EraIndex,
+        BoundedVec<T::AccountId, T::MaxValidatorSet>,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -240,7 +245,7 @@ pub mod pallet {
             governance_councill_did: IdentityId,
             validators_identity: IdentityId,
         },
-        /// Remove the nominators from the valid nominators when there CDD expired.
+        /// Remove the nominators from the valid nominators when their CDD expired.
         InvalidatedNominators {
             governance_councill_did: IdentityId,
             governance_councill_account: IdentityId,
@@ -260,6 +265,15 @@ pub mod pallet {
             old_commission_cap: Perbill,
             new_commission_cap: Perbill,
         },
+        /// Validator payout failed.
+        ValidatorPayoutFailed {
+            validator: T::AccountId,
+            era: EraIndex,
+            page: Page,
+            error: DispatchError,
+        },
+        /// Automatic payout finished for the era.
+        AutomaticPayoutFinished { era: EraIndex },
     }
 
     #[pallet::error]
@@ -282,12 +296,18 @@ pub mod pallet {
         CommissionTooHigh,
         /// New commission must be different from previous commission.
         CommissionUnchanged,
+        /// Too many validators are awaiting payout for a given era.
+        TooManyValidatorsForEra,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             migrations::migrate_v1::<T>()
+        }
+
+        fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+            Self::payouts()
         }
     }
 
@@ -320,16 +340,6 @@ pub mod pallet {
             identity: IdentityId,
         ) -> DispatchResult {
             Self::base_remove_permissioned_validator(origin, identity)
-        }
-
-        #[pallet::call_index(2)]
-        #[pallet::weight(<T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
-        pub fn payout_stakers_by_system(
-            origin: OriginFor<T>,
-            validator_stash: T::AccountId,
-            era: EraIndex,
-        ) -> DispatchResultWithPostInfo {
-            Self::base_payout_stakers_by_system(origin, validator_stash, era)
         }
 
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.

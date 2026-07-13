@@ -205,6 +205,7 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
+    pub const MaxPayoutWeight: Weight = Weight::from_parts(1_000_000_000, 0);
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxNumberOfFungibleAssets: u32 = 100;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
