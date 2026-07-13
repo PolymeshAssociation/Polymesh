@@ -85,8 +85,8 @@ use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::BoundedVec;
 use scale_info::TypeInfo;
+use scale_info::prelude::string::String;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;
 use sp_std::prelude::*;
@@ -100,8 +100,8 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use crate as ca;
 use ca::{CAId, CAKind, CorporateAction};
 
-type MaxMotions = frame_support::traits::ConstU32<8>;
-type MaxChoicesPerMotion = frame_support::traits::ConstU32<128>;
+pub const MAX_MOTIONS: usize = 8;
+pub const MAX_CHOICES_PER_MOTION: usize = 128;
 
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type CA<T> = ca::Pallet<T>;
@@ -137,7 +137,7 @@ pub struct Motion {
 
     /// Choices for the motion excluding abstain.
     /// Voting power not used is considered abstained.
-    pub choices: BoundedVec<ChoiceTitle, MaxChoicesPerMotion>,
+    pub choices: Vec<ChoiceTitle>,
 }
 
 /// A wrapper for a ballot's title.]
@@ -160,7 +160,7 @@ pub struct BallotMeta {
     pub title: BallotTitle,
 
     /// All motions with their associated titles, choices, etc.
-    pub motions: BoundedVec<Motion, MaxMotions>,
+    pub motions: Vec<Motion>,
 }
 
 /// Timestamp range details about vote start / end.
@@ -239,25 +239,36 @@ pub trait WeightInfo {
     fn change_rcv() -> Weight;
     fn remove_ballot() -> Weight;
 
-    fn get_motions_and_choices(ballot_meta: &BallotMeta) -> (u32, u32) {
-        let motions = ballot_meta.motions.len() as u32;
+    fn get_motions_and_choices(ballot_meta: &BallotMeta) -> Result<(u32, u32), String> {
+        let n_motions = ballot_meta.motions.len();
 
-        let mut choices = 0u32;
-        for motion in ballot_meta.motions.iter() {
-            choices = choices.saturating_add(motion.choices.len() as u32);
+        if n_motions > MAX_MOTIONS {
+            return Err("Exceeded maximum number of motions".into());
         }
 
-        (motions, choices)
+        let mut n_choices = 0;
+        for motion in ballot_meta.motions.iter() {
+            if motion.choices.len() > MAX_CHOICES_PER_MOTION as usize {
+                return Err("Exceeded maximum number of choices per motion".into());
+            }
+            n_choices += motion.choices.len();
+        }
+
+        Ok((n_motions as u32, n_choices as u32))
     }
 
     fn attach_ballot_weight(ballot_meta: &BallotMeta) -> Weight {
-        let (motions, choices) = Self::get_motions_and_choices(ballot_meta);
-        Self::attach_ballot(motions, choices)
+        match Self::get_motions_and_choices(ballot_meta) {
+            Ok((n_motions, n_choices)) => Self::attach_ballot(n_motions, n_choices),
+            Err(_) => Weight::MAX,
+        }
     }
 
     fn change_meta_weight(ballot_meta: &BallotMeta) -> Weight {
-        let (motions, choices) = Self::get_motions_and_choices(ballot_meta);
-        Self::change_meta(motions, choices)
+        match Self::get_motions_and_choices(ballot_meta) {
+            Ok((motions, choices)) => Self::change_meta(motions, choices),
+            Err(_) => Weight::MAX,
+        }
     }
 }
 

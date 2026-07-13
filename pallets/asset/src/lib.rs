@@ -2149,7 +2149,7 @@ impl<T: AssetConfig> Pallet<T> {
             #[cfg(not(feature = "runtime-benchmarks"))]
             <T as pallet::Config>::WeightInfo::issue(),
             #[cfg(feature = "runtime-benchmarks")]
-            Weight::MAX
+            Weight::MAX,
         );
         weight_meter
             .check_accrue(<T as pallet::Config>::WeightInfo::issue_without_statistics())

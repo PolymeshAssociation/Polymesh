@@ -10,8 +10,8 @@ use pallet_asset::checkpoint::{CheckpointIdSequence, ScheduleIdSequence};
 use pallet_asset::checkpoint::{SchedulePoints, ScheduleRefCount, Timestamps};
 use pallet_asset::{Assets, BalanceOf};
 use pallet_corporate_actions::ballot::{BallotMeta, BallotTimeRange, BallotVote};
-use pallet_corporate_actions::ballot::{ChoiceTitle, TimeRanges, Votes, RCV};
 use pallet_corporate_actions::ballot::{Metas, Motion, MotionNumChoices, Results};
+use pallet_corporate_actions::ballot::{TimeRanges, Votes, RCV};
 use pallet_corporate_actions::distribution::{self, Distribution};
 use pallet_corporate_actions::distribution::{Distributions, PER_SHARE_PRECISION};
 use pallet_corporate_actions::TargetTreatment::{Exclude, Include};
@@ -786,11 +786,11 @@ fn remove_ca_works() {
         let motion = Motion {
             title: "".into(),
             info_link: "".into(),
-            choices: vec!["".into()].try_into().unwrap(),
+            choices: vec!["".into()],
         };
         let meta = BallotMeta {
             title: vec![].into(),
-            motions: vec![motion].try_into().unwrap(),
+            motions: vec![motion],
         };
         let mk_ballot = || {
             set_timestamp(0);
@@ -1157,39 +1157,50 @@ fn attach_ballot_already_exists() {
 }
 
 fn overflowing_meta() -> BallotMeta {
-    let choices = iter::repeat("".into())
-        // `u16::MAX` doesn't overflow, but +1 does.
-        .take(1 + u16::MAX as usize)
-        .collect::<Vec<ChoiceTitle>>();
-
     BallotMeta {
         title: "".into(),
         motions: vec![Motion {
             title: "".into(),
             info_link: "".into(),
-            choices: choices.try_into().unwrap(),
-        }]
-        .try_into()
-        .unwrap(),
+            choices: iter::repeat("".into())
+                // `u16::MAX` doesn't overflow, but +1 does.
+                .take(1 + u16::MAX as usize)
+                .collect(),
+        }],
     }
+}
+
+#[test]
+fn attach_ballot_num_choices_overflow_u16() {
+    test(|asset_id, [owner, ..]| {
+        set_schedule_complexity();
+
+        // N.B. we do not test the total-choices-overflows-usize case since
+        // that actually requires allocating an `usize` + 1 number of choices,
+        // which is not reasonable as a test.
+
+        let id = notice_ca(owner, asset_id, Some(1000)).unwrap();
+        assert_noop!(
+            Ballot::attach_ballot(owner.origin(), id, T_RANGE, overflowing_meta(), false),
+            BallotError::NumberOfChoicesOverflow,
+        );
+    });
 }
 
 fn mk_meta() -> BallotMeta {
     let motion_a = Motion {
         title: "foo".into(),
         info_link: "www.acme.com".into(),
-        choices: vec!["foo".into(), "bar".into(), "baz".into()]
-            .try_into()
-            .unwrap(),
+        choices: vec!["foo".into(), "bar".into(), "baz".into()],
     };
     let motion_b = Motion {
         title: "bar".into(),
         info_link: "www.emca.com".into(),
-        choices: vec!["foo".into()].try_into().unwrap(),
+        choices: vec!["foo".into()],
     };
     BallotMeta {
         title: vec![].into(),
-        motions: vec![motion_a, motion_b].try_into().unwrap(),
+        motions: vec![motion_a, motion_b],
     }
 }
 
@@ -1340,29 +1351,29 @@ fn change_meta_works() {
             motions: vec![Motion {
                 title: max_len_bytes(1),
                 ..<_>::default()
-            }]
-            .try_into()
-            .unwrap(),
+            }],
             ..<_>::default()
         }));
         assert_too_long!(change(BallotMeta {
             motions: vec![Motion {
                 info_link: max_len_bytes(1),
                 ..<_>::default()
-            }]
-            .try_into()
-            .unwrap(),
+            }],
             ..<_>::default()
         }));
         assert_too_long!(change(BallotMeta {
             motions: vec![Motion {
-                choices: vec![max_len_bytes(1)].try_into().unwrap(),
+                choices: vec![max_len_bytes(1)],
                 ..<_>::default()
-            }]
-            .try_into()
-            .unwrap(),
+            }],
             ..<_>::default()
         }));
+
+        // Too many choices => error.
+        assert_noop!(
+            change(overflowing_meta()),
+            BallotError::NumberOfChoicesOverflow,
+        );
 
         // Set now := start; so voting has already started => error.
         set_timestamp(4000);
