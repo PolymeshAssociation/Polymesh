@@ -16,11 +16,9 @@ use frame_benchmarking::benchmarks;
 use pallet_identity::benchmarking::User;
 
 use super::*;
-use crate::benchmarking::{set_ca_targets, setup_ca};
+use crate::benchmarking::{set_ca_targets, setup_ca, MAX_CHOICES_PER_MOTION, MAX_MOTIONS};
 use crate::CAConfig;
 
-const MAX_MOTIONS: u32 = 8;
-const MAX_CHOICES_PER_MOTION: u32 = 128;
 const MAX_TARGETS: u32 = 1000;
 
 const RANGE: BallotTimeRange = BallotTimeRange {

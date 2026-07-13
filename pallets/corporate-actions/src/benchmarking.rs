@@ -125,11 +125,11 @@ fn attach<T: CAConfig>(owner: &User<T>, ca_id: CAId) {
     let motion = ballot::Motion {
         title: "".into(),
         info_link: "".into(),
-        choices: vec!["".into()].try_into().unwrap(),
+        choices: vec!["".into()],
     };
     let meta = ballot::BallotMeta {
         title: "".into(),
-        motions: vec![motion].try_into().unwrap(),
+        motions: vec![motion],
     };
     <Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true).unwrap();
 }
