@@ -2146,7 +2146,10 @@ impl<T: AssetConfig> Pallet<T> {
 
         let mut weight_meter = WeightMeter::from_limit_unchecked(
             <T as pallet::Config>::WeightInfo::issue_without_statistics(),
+            #[cfg(not(feature = "runtime-benchmarks"))]
             <T as pallet::Config>::WeightInfo::issue(),
+            #[cfg(feature = "runtime-benchmarks")]
+            Weight::MAX
         );
         weight_meter
             .check_accrue(<T as pallet::Config>::WeightInfo::issue_without_statistics())
