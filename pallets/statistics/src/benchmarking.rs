@@ -146,6 +146,17 @@ pub fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, issuer_id: Id
     );
 }
 
+/// Adds `n` active statistics to `asset_id`.
+pub fn setup_statistics<T: Config>(origin: T::RuntimeOrigin, asset_id: AssetId, n: u32) {
+    let active_stats = (0..n)
+        .map(|i| StatType {
+            operation_type: StatOpType::Count,
+            claim_issuer: Some((ClaimType::Accredited, IdentityId::from(i as u128))),
+        })
+        .collect();
+    Pallet::<T>::set_active_asset_stats(origin.clone(), asset_id, active_stats).unwrap();
+}
+
 /// Adds the maximum number of active statistics, adds `n` transfer restrictions and if `pause_restrictions` is true,
 /// pauses analyzing the restrictions
 pub fn setup_transfer_restrictions<T: Config>(
@@ -155,14 +166,7 @@ pub fn setup_transfer_restrictions<T: Config>(
     n: u32,
     pause_restrictions: bool,
 ) {
-    // Adds the maximum number of active statistics
-    let active_stats = (0..10)
-        .map(|i| StatType {
-            operation_type: StatOpType::Count,
-            claim_issuer: Some((ClaimType::Accredited, IdentityId::from(i as u128))),
-        })
-        .collect();
-    Pallet::<T>::set_active_asset_stats(origin.clone(), asset_id, active_stats).unwrap();
+    setup_statistics::<T>(origin.clone(), asset_id, 10);
 
     let transfer_conditions: BTreeSet<TransferCondition> = (0..n)
         .map(|i| {
