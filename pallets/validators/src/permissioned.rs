@@ -139,6 +139,11 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         Ok(())
     }
 
+    /// On kill hook.
+    fn on_kill(stash: &T::AccountId) {
+        Self::release_running_validator(stash);
+    }
+
     /// Returns `true` if `stash` has an active DID and is permissioned. Otherwise, returns `false`.
     fn is_validator_compliant(stash: &T::AccountId) -> bool {
         pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
