@@ -21,7 +21,7 @@ use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_identity::benchmarking::{user, User, UserBuilder};
 use pallet_portfolio::NextPortfolioNumber;
-use pallet_statistics::benchmarking::setup_transfer_restrictions;
+use pallet_statistics::benchmarking::{setup_statistics, setup_transfer_restrictions};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetName, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
@@ -421,6 +421,9 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
+
+        setup_statistics::<T>(alice.origin().into(), asset_id, T::MaxStatsPerAsset::get());
+
     }: _(alice.origin, asset_id, (1_000_000 * POLY).into(), alice_holdings.into())
     verify {
         assert_eq!(
@@ -433,6 +436,8 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
+
+        setup_statistics::<T>(alice.origin().into(), asset_id, T::MaxStatsPerAsset::get());
 
         Pallet::<T>::issue(
             alice.origin.clone().into(),
@@ -881,5 +886,19 @@ benchmarks! {
             Allowances::<T>::get((&caller.account(), &spender.account(), asset_id)),
             ONE_UNIT * 9
         );
+    }
+
+    issue_without_statistics {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_holdings = create_portfolio::<T>(&alice, "MyPortfolio");
+    }: {
+        Pallet::<T>::issue(
+            alice.origin.into(),
+            asset_id,
+            (1_000_000 * POLY).into(),
+            alice_holdings.into(),
+        )
+        .unwrap();
     }
 }

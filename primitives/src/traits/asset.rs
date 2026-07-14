@@ -6,6 +6,9 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::weights::Weight;
 
 #[cfg(feature = "runtime-benchmarks")]
+use frame_support::pallet_prelude::DispatchResultWithPostInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
 use crate::{
     asset::{AssetHolderKind, AssetName, AssetType, FundingRoundName},
     asset_metadata::{AssetMetadataName, AssetMetadataSpec},
@@ -64,7 +67,7 @@ pub trait AssetFnTrait<AccountId> {
         asset_id: AssetId,
         amount: Balance,
         portfolio_kind: AssetHolderKind,
-    ) -> DispatchResult;
+    ) -> DispatchResultWithPostInfo;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(

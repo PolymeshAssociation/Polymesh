@@ -9,7 +9,7 @@ pub type GovernanceCommittee = pallet_committee::Instance1;
 // and need to make sure that the cost function is correct for
 // large inputs.
 #[cfg(feature = "runtime-benchmarks")]
-pub const BENCHMARK_MAX_INCREASE: u32 = 1000;
+pub const BENCHMARK_MAX_INCREASE: u32 = 50;
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub const BENCHMARK_MAX_INCREASE: u32 = 0;
 

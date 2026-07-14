@@ -852,7 +852,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(initiate_corporate_action_weight::<T>(&ca_args.targets, &ca_args.withholding_tax)
-            .saturating_add(<T as Config>::BallotWeightInfo::attach_ballot(ballot_meta.saturating_num_choices())))]
+            .saturating_add(<T as Config>::BallotWeightInfo::attach_ballot_weight(&ballot_meta)))]
         #[pallet::call_index(9)]
         pub fn initiate_corporate_action_and_ballot(
             origin: OriginFor<T>,

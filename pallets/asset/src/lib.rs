@@ -911,7 +911,7 @@ pub mod pallet {
             asset_id: AssetId,
             amount: Balance,
             asset_holder_kind: AssetHolderKind,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             Self::base_issue(origin, asset_id, amount, asset_holder_kind)
         }
 
@@ -1923,6 +1923,8 @@ pub mod pallet {
         InsufficientAllowance,
         /// Transfering ownership to the same owner is not allowed.
         SelfOwnershipTransferNotAllowed,
+        /// The weight Limit for the extrinsic has been exceeded.
+        WeightLimitExceeded,
     }
 
     pub trait WeightInfo {
@@ -1963,6 +1965,7 @@ pub mod pallet {
         fn receiver_affirm_asset_transfer_base_weight() -> Weight;
         fn approve() -> Weight;
         fn spend_allowance() -> Weight;
+        fn issue_without_statistics() -> Weight;
     }
 }
 
@@ -2134,20 +2137,34 @@ impl<T: AssetConfig> Pallet<T> {
         asset_id: AssetId,
         amount_to_issue: Balance,
         asset_holder_kind: AssetHolderKind,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let caller_holding_ctx =
             Self::ensure_asset_and_holding_permissions(origin, asset_id, asset_holder_kind, false)?;
+
         let mut asset_details = Self::try_get_asset_details(&asset_id)?;
         Self::validate_issuance_rules(&asset_details, amount_to_issue)?;
+
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            <T as pallet::Config>::WeightInfo::issue_without_statistics(),
+            #[cfg(not(feature = "runtime-benchmarks"))]
+            <T as pallet::Config>::WeightInfo::issue(),
+            #[cfg(feature = "runtime-benchmarks")]
+            Weight::MAX,
+        );
+        weight_meter
+            .check_accrue(<T as pallet::Config>::WeightInfo::issue_without_statistics())
+            .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
         Self::unverified_issue_tokens(
             asset_id,
             &mut asset_details,
             caller_holding_ctx,
             amount_to_issue,
             true,
-            &mut WeightMeter::max_limit_no_minimum(),
+            &mut weight_meter,
         )?;
-        Ok(())
+
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
     /// Reduces `value` tokens from `asset_holder_kind` and [`AssetDetails::total_supply`].
@@ -4277,7 +4294,7 @@ impl<T: AssetConfig> AssetFnTrait<T::AccountId> for Pallet<T> {
         asset_id: AssetId,
         amount: Balance,
         asset_holder_kind: AssetHolderKind,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let origin = RawOrigin::Signed(caller);
         Self::issue(origin.into(), asset_id, amount, asset_holder_kind)
     }
