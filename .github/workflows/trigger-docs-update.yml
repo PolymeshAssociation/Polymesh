@@ -4,7 +4,7 @@ name: Trigger Documentation Update on Polymesh develop Update
 
 on:
   push:
-    branches: [ develop ]
+    branches: [develop]
 
 jobs:
   trigger-docs-update:
@@ -17,20 +17,27 @@ jobs:
           EVENT_TYPE: "polymesh-develop-updated"
         run: |
           #!/bin/bash
+          set -euo pipefail
+
           # Script to trigger repository dispatch event in documentation repository
           # Uses GitHub REST API for secure cross-repository communication
-          
+
           # Validate required environment variables
           if [[ -z "$GITHUB_TOKEN" ]]; then
             echo "Error: DOCS_REPO_TRIGGER_TOKEN secret is required"
             exit 1
           fi
-          
+
           if [[ -z "$TARGET_REPO" ]]; then
             echo "Error: TARGET_REPO environment variable is required"
             exit 1
           fi
-          
+
+          if [[ -z "${EVENT_TYPE:-}" ]]; then
+            echo "Error: EVENT_TYPE environment variable is required"
+            exit 1
+          fi
+
           # Prepare payload with current commit information
           PAYLOAD=$(cat <<EOF
           {
@@ -46,20 +53,42 @@ jobs:
           }
           EOF
           )
-          
+
           echo "Triggering documentation update in repository: $TARGET_REPO"
           echo "Event type: $EVENT_TYPE"
           echo "Polymesh commit SHA: $GITHUB_SHA"
-          
+
+          # Validate token can access the target repository.
+          # GitHub returns 404 for private repositories when auth is invalid or lacks access.
+          REPO_CHECK_STATUS=$(curl -s -w "%{http_code}" -o repo_check.json \
+            -X GET \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "User-Agent: GitHub-Actions-Trigger" \
+            "https://api.github.com/repos/$TARGET_REPO")
+
+          if [[ "$REPO_CHECK_STATUS" -ne 200 ]]; then
+            echo "Failed repository access check for $TARGET_REPO. HTTP Status: $REPO_CHECK_STATUS"
+            echo "This usually means the token cannot access the target repository or the repository name is incorrect."
+            echo "Response:"
+            cat repo_check.json
+            rm -f repo_check.json
+            exit 1
+          fi
+
+          rm -f repo_check.json
+
           # Send repository dispatch event using GitHub API
           HTTP_STATUS=$(curl -s -w "%{http_code}" -o response.json \
             -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
             -H "User-Agent: GitHub-Actions-Trigger" \
             -d "$PAYLOAD" \
             "https://api.github.com/repos/$TARGET_REPO/dispatches")
-          
+
           # Check response status
           if [[ "$HTTP_STATUS" -eq 204 ]]; then
             echo "✅ Successfully triggered documentation update in $TARGET_REPO"
@@ -69,6 +98,6 @@ jobs:
             cat response.json
             exit 1
           fi
-          
+
           # Clean up temporary files
           rm -f response.json
