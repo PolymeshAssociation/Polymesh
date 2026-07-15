@@ -758,15 +758,22 @@ jobs:
             aws ecr get-login-password --region us-west-2 \
               | docker login --username AWS --password-stdin $ECR_REGISTRY
 
+            # docker buildx imagetools create races multiple PutImage calls under the
+            # destination tag when copying a multi-arch manifest list cross-registry,
+            # which an IMMUTABLE ECR repo rejects with ImageTagAlreadyExistsException.
+            # crane copies the manifest list atomically and doesn't hit this.
+            CRANE_VERSION="0.21.7"
+            curl -sSL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
+              | tar -xz -C /tmp crane
+            chmod +x /tmp/crane
+
             # polymesh/polymesh is an IMMUTABLE ECR repo, and only the commit SHA
             # is pushed (matching the SHA-tag convention our ECS services use).
             # Skip if the tag is already there so reruns of the same commit don't fail.
-            if docker buildx imagetools inspect "$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1" >/dev/null 2>&1; then
+            if /tmp/crane digest "$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1" >/dev/null 2>&1; then
               echo "Tag $CIRCLE_SHA1 already exists in ECR - skipping"
             else
-              docker buildx imagetools create \
-                --tag $ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1 \
-                $DOCKERHUB_IMAGE:$VERSION-$CIRCLE_BRANCH-debian
+              /tmp/crane copy "$DOCKERHUB_IMAGE:$VERSION-$CIRCLE_BRANCH-debian" "$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1"
             fi
   build-docker-distroless:
     environment:
