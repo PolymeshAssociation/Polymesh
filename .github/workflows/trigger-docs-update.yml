@@ -4,7 +4,7 @@ name: Trigger Documentation Update on Polymesh develop Update
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, fix_docs_trigger]
 
 jobs:
   trigger-docs-update:
