@@ -1,0 +1,9 @@
+Contract name: CREATE2 proxy contract
+Project: https://github.com/Arachnid/deterministic-deployment-proxy
+Contract address: 0x4e59b44847b379578588920ca78fbf26c0b4956c
+
+deployer eth: 0x3fab184622dc19b6109349b94811493bf2a45362
+    Polymesh: 5DWBhXxbUxoGdoRbZsf6X3DaLTxzkqK7eRm3wp71ifzaT7pb
+
+Original contract code: CREATE2.hex (for normal deployment)
+Pristine code: CREATE2_pristine.hex (for upload from genesis config)

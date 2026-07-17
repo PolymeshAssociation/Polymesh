@@ -99,6 +99,36 @@ fn local_chain_spec(code: &[u8]) -> ChainSpec {
         .build()
 }
 
+fn revive_config() -> serde_json::Value {
+    use serde_json::json;
+    let map_accounts = vec![
+        seeded_acc_id("Alice"),
+        seeded_acc_id("Bob"),
+        seeded_acc_id("Charlie"),
+        seeded_acc_id("Dave"),
+        seeded_acc_id("Eve"),
+    ];
+    json!({
+       "mappedAccounts": map_accounts,
+       "accounts": vec![
+            // Multicall3 contract
+            json!({
+                "address": "0xcA11bde05977b3631167028862bE2a173976CA11",
+                "nonce": 1,
+                "code": include_str!("../data/contracts/Multicall3_pristine.hex"),
+                "storage": json!({}),
+            }),
+            // CREATE2 proxy contract
+            json!({
+                "address": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+                "nonce": 1,
+                "code": include_str!("../data/contracts/CREATE2_pristine.hex"),
+                "storage": json!({}),
+            }),
+         ]
+    })
+}
+
 fn develop_genesis_config(
     initial_authorities: Vec<InitialAuth>,
     other_funded_accounts: Vec<AccountId>,
@@ -142,6 +172,7 @@ fn develop_genesis_config(
         "upgradeCommittee": committee_genesis_config,
         "protocolFee": protocol_fee_genesis_config(),
         "corporateAction": corporate_actions_genesis_config(),
+        "revive": revive_config(),
     })
 }
 
