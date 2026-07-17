@@ -99,6 +99,12 @@ fn local_chain_spec(code: &[u8]) -> ChainSpec {
         .build()
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+fn revive_config() -> serde_json::Value {
+    serde_json::json!({})
+}
+
+#[cfg(not(feature = "runtime-benchmarks"))]
 fn revive_config() -> serde_json::Value {
     use serde_json::json;
     let map_accounts = vec![
