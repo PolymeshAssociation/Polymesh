@@ -85,6 +85,7 @@ use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;
@@ -98,6 +99,9 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 
 use crate as ca;
 use ca::{CAId, CAKind, CorporateAction};
+
+pub const MAX_MOTIONS: usize = 8;
+pub const MAX_CHOICES_PER_MOTION: usize = 128;
 
 type Checkpoint<T> = checkpoint::Pallet<T>;
 type CA<T> = ca::Pallet<T>;
@@ -157,14 +161,6 @@ pub struct BallotMeta {
 
     /// All motions with their associated titles, choices, etc.
     pub motions: Vec<Motion>,
-}
-
-impl BallotMeta {
-    pub(crate) fn saturating_num_choices(&self) -> u32 {
-        self.motions
-            .iter()
-            .fold(0, |a, m| a.saturating_add(m.choices.len() as u32))
-    }
 }
 
 /// Timestamp range details about vote start / end.
@@ -236,12 +232,44 @@ pub struct BallotVote {
 
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
-    fn attach_ballot(num_choices: u32) -> Weight;
+    fn attach_ballot(motions: u32, choices: u32) -> Weight;
     fn vote(votes: u32, target_ids: u32) -> Weight;
     fn change_end() -> Weight;
-    fn change_meta(num_choices: u32) -> Weight;
+    fn change_meta(motions: u32, choices: u32) -> Weight;
     fn change_rcv() -> Weight;
     fn remove_ballot() -> Weight;
+
+    fn get_motions_and_choices(ballot_meta: &BallotMeta) -> Result<(u32, u32), String> {
+        let n_motions = ballot_meta.motions.len();
+
+        if n_motions > MAX_MOTIONS {
+            return Err("Exceeded maximum number of motions".into());
+        }
+
+        let mut n_choices = 0;
+        for motion in ballot_meta.motions.iter() {
+            if motion.choices.len() > MAX_CHOICES_PER_MOTION as usize {
+                return Err("Exceeded maximum number of choices per motion".into());
+            }
+            n_choices += motion.choices.len();
+        }
+
+        Ok((n_motions as u32, n_choices as u32))
+    }
+
+    fn attach_ballot_weight(ballot_meta: &BallotMeta) -> Weight {
+        match Self::get_motions_and_choices(ballot_meta) {
+            Ok((n_motions, n_choices)) => Self::attach_ballot(n_motions, n_choices),
+            Err(_) => Weight::MAX,
+        }
+    }
+
+    fn change_meta_weight(ballot_meta: &BallotMeta) -> Weight {
+        match Self::get_motions_and_choices(ballot_meta) {
+            Ok((motions, choices)) => Self::change_meta(motions, choices),
+            Err(_) => Weight::MAX,
+        }
+    }
 }
 
 storage_migration_ver!(1);
@@ -370,7 +398,7 @@ pub mod pallet {
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
-        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices()))]
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::attach_ballot_weight(&meta))]
         #[pallet::call_index(0)]
         pub fn attach_ballot(
             origin: OriginFor<T>,
@@ -546,7 +574,7 @@ pub mod pallet {
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
-        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices()))]
+        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::change_meta_weight(&meta))]
         #[pallet::call_index(3)]
         pub fn change_meta(origin: OriginFor<T>, ca_id: CAId, meta: BallotMeta) -> DispatchResult {
             // Ensure origin is a permissioned agent, a ballot exists, start is in the future.

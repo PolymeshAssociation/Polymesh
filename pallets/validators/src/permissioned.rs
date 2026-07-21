@@ -1,14 +1,12 @@
+use frame_support::storage::bounded_vec::BoundedVec;
 use frame_support::traits::fungible::Inspect;
-use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
-use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
+use frame_support::weights::Weight;
 use frame_support::{pallet_prelude::*, traits::Get};
-use frame_system::RawOrigin;
 use frame_system::{ensure_root, pallet_prelude::*};
-use sp_runtime::traits::SaturatedConversion;
 use sp_std::prelude::*;
 
 use polymesh_primitives::IdentityId;
-use polymesh_primitives::GC_DID;
+use polymesh_primitives::{WeightMeter, GC_DID};
 
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::{traits::IdentityFnTrait, AuthorizationData, Permissions, Signatory};
@@ -46,6 +44,9 @@ impl<
         (validator_payout, rest)
     }
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_system::RawOrigin;
 
 impl<T: Config> PermissionedStaking<T> for Pallet<T> {
     /// Onboard an account.
@@ -138,6 +139,11 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         Ok(())
     }
 
+    /// On kill hook.
+    fn on_kill(stash: &T::AccountId) {
+        Self::release_running_validator(stash);
+    }
+
     /// Returns `true` if `stash` has an active DID and is permissioned. Otherwise, returns `false`.
     fn is_validator_compliant(stash: &T::AccountId) -> bool {
         pallet_identity::Pallet::<T>::get_identity(stash).map_or(false, |id| {
@@ -152,59 +158,26 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
         true
     }
 
-    /// Schedule reward payouts.
-    fn schedule_payouts(active_era: &ActiveEraInfo) -> DispatchResult {
-        let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
-        for (index, validator_id) in <T as StakingConfig>::SessionInterface::validators()
-            .into_iter()
-            .enumerate()
-        {
-            let schedule_block_number =
-                next_block_number + index.saturated_into::<BlockNumberFor<T>>();
-
-            let scheduler_call =
-                <T as pallet::Config>::SchedulerCall::from(Call::<T>::payout_stakers_by_system {
-                    validator_stash: validator_id.clone(),
-                    era: active_era.index,
-                });
-
-            let payout_call = <T as pallet::Config>::SchedulerPreimage::bound(scheduler_call)?;
-
-            match T::RewardScheduler::schedule(
-                DispatchTime::At(schedule_block_number),
-                None,
-                HIGHEST_PRIORITY,
-                RawOrigin::Root.into(),
-                payout_call
-            ) {
-                Ok(_) => log!(
-                    info,
-                    "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
-                    &validator_id,
-                    schedule_block_number,
-                ),
-                Err(error) => {
-                    log!(
-                        error,
-                        "⛔ Detected error in scheduling the reward payment: {:?}",
-                        error
-                    );
-                    Pallet::<T>::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
-                        account_id: validator_id,
-                        era: active_era.index,
-                        error
-                    });
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Who should be slashed?
     /// Returns `None` if no one should be slashed.
     fn who_to_slash() -> Option<WhoToSlash> {
         SlashingAllowedFor::<T>::get().into()
+    }
+
+    /// Adds all validators to the list of pending payouts for the given era.
+    fn add_pending_payouts(era_index: EraIndex) -> DispatchResult {
+        let validators = <T as StakingConfig>::SessionInterface::validators();
+        let validators = BoundedVec::<T::AccountId, T::MaxValidatorSet>::try_from(validators)
+            .map_err(|_| Error::<T>::TooManyValidatorsForEra)?;
+
+        PendingPayouts::<T>::insert(era_index, validators);
+
+        // If the current payout era is some, there are still validators to payout from a previous era
+        if CurrentPayoutEra::<T>::get().is_none() {
+            CurrentPayoutEra::<T>::put(era_index);
+        }
+
+        Ok(())
     }
 }
 
@@ -302,15 +275,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub(crate) fn base_payout_stakers_by_system(
-        origin: OriginFor<T>,
-        validator_stash: T::AccountId,
-        era: EraIndex,
-    ) -> DispatchResultWithPostInfo {
-        ensure_root(origin)?;
-        StakingPallet::<T>::do_payout_stakers(validator_stash, era)
-    }
-
     pub(crate) fn base_change_slashing_allowed_for(
         origin: OriginFor<T>,
         slashing_switch: SlashingSwitch,
@@ -396,5 +360,120 @@ impl<T: Config> Pallet<T> {
             validators_identity: identity,
         });
         Ok(())
+    }
+
+    /// Loops through all validators and makes payouts.
+    pub fn payouts() -> Weight {
+        let mut total_weight = T::DbWeight::get().reads(1);
+
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            T::DbWeight::get().reads(1),
+            T::MaxPayoutWeight::get(),
+        );
+
+        let single_page_payout_weight =
+            <T as StakingConfig>::WeightInfo::payout_stakers_alive_staked(
+                T::MaxExposurePageSize::get(),
+            );
+
+        // Reads: CurrentPayoutEra (1)
+        if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(1)) {
+            return weight_meter.consumed();
+        }
+
+        if let Some(current_payout_era) = CurrentPayoutEra::<T>::get() {
+            // Reads: PendingPayouts (1)
+            // Writes: PendingPayouts (1)
+            if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads_writes(1, 1)) {
+                return weight_meter.consumed();
+            }
+
+            // If we can't pay all pages, the last validator needs to be pushed back to the pending payouts
+            let mut incomplete_payout = None;
+
+            PendingPayouts::<T>::mutate(current_payout_era, |pending_payouts| {
+                'validator_payout: while let Some(validator) = pending_payouts.pop() {
+                    // Reads: ClaimedRewards (1) and ErasStakersOverview (1)
+                    if let Err(_) = weight_meter.check_accrue(T::DbWeight::get().reads(2)) {
+                        incomplete_payout = Some(validator);
+                        break;
+                    }
+
+                    let claimed_pages =
+                        pallet_staking::ClaimedRewards::<T>::get(current_payout_era, &validator);
+
+                    let n_pages = pallet_staking::EraInfo::<T>::get_page_count(
+                        current_payout_era,
+                        &validator,
+                    );
+
+                    for page in 0..n_pages {
+                        if !claimed_pages.contains(&page) {
+                            // Charges the weight for the payout_stakers_by_page call
+                            // If the weight limit is exceeded, we stop the payouts and push the validator back to the pending payouts
+                            if let Err(_) = weight_meter.check_accrue(single_page_payout_weight) {
+                                incomplete_payout = Some(validator);
+                                break 'validator_payout;
+                            }
+
+                            if let Err(e) = StakingPallet::<T>::do_payout_stakers_by_page(
+                                validator.clone(),
+                                current_payout_era,
+                                page,
+                            ) {
+                                log::error!(
+                                "Failed to payout stakers for validator {:?} in era {} page {}: {:?}",
+                                validator,
+                                current_payout_era,
+                                page,
+                                e
+                            );
+                                Self::deposit_event(Event::<T>::ValidatorPayoutFailed {
+                                    validator: validator.clone(),
+                                    era: current_payout_era,
+                                    page,
+                                    error: e.error,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if let Some(validator) = &incomplete_payout {
+                    // The last validator was not fully paid, push it back to the pending payouts for the next block.
+                    // The error should never happen
+                    if let Err(_) = pending_payouts.try_push(validator.clone()) {
+                        log::error!("Failed to requeue validator for pending payouts");
+                    }
+                    total_weight = weight_meter.consumed();
+                }
+            });
+
+            if let None = incomplete_payout {
+                Self::deposit_event(Event::<T>::AutomaticPayoutFinished {
+                    era: current_payout_era,
+                });
+
+                // All validators have been paid. Checks if there are validators from the next era to payout
+                let next_era = current_payout_era.saturating_add(1);
+
+                // This write has already been accounted for
+                PendingPayouts::<T>::remove(current_payout_era);
+
+                if PendingPayouts::<T>::contains_key(next_era) {
+                    CurrentPayoutEra::<T>::put(next_era);
+                } else {
+                    CurrentPayoutEra::<T>::kill();
+                }
+
+                // Reads: PendingPayouts (1)
+                // Writes: CurrentPayoutEra (1)
+                total_weight = weight_meter
+                    .consumed()
+                    .saturating_add(T::DbWeight::get().reads_writes(1, 1));
+            }
+        }
+
+        total_weight
     }
 }

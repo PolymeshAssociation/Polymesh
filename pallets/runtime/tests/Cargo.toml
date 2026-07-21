@@ -32,7 +32,6 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
-polymesh-contracts = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
@@ -76,7 +75,6 @@ pallet-authorship = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
 pallet-beefy = { workspace = true, default-features = false }
 pallet-beefy-mmr = { workspace = true, default-features = false }
-pallet-contracts = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
@@ -142,7 +140,6 @@ std = [
     "pallet-sto/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-election-provider-multi-phase/std",
     "pallet-external-agents/std",
@@ -170,7 +167,6 @@ std = [
     "polymesh-primitives/std",
     "polymesh-precompiles/std",
     "polymesh-runtime-common/std",
-    "polymesh-contracts/std",
     "polymesh-weights/std",
     "serde/std",
     "sp-authority-discovery/std",

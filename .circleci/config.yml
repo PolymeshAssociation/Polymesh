@@ -1,4 +1,6 @@
 version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@5.4.2
 commands:
   get-solc:
     steps:
@@ -735,6 +737,47 @@ jobs:
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian
           docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian
+  push-ecr-debian:
+    environment:
+      DOCKERHUB_IMAGE: polymeshassociation/polymesh
+      ECR_REGISTRY: 378371845002.dkr.ecr.us-west-2.amazonaws.com
+      ECR_REPOSITORY: polymesh/polymesh
+    docker:
+      - image: cimg/deploy:2023.08
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - aws-cli/setup:
+          role_arn: ${ECR_PUSH_ROLE_ARN}
+          region: us-west-2
+      - run:
+          name: Copy debian manifest to ECR
+          command: |
+            export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
+            aws ecr get-login-password --region us-west-2 \
+              | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            # docker buildx imagetools create races multiple PutImage calls under the
+            # destination tag when copying a multi-arch manifest list cross-registry,
+            # which an IMMUTABLE ECR repo rejects with ImageTagAlreadyExistsException.
+            # crane copies the manifest list atomically and doesn't hit this.
+            CRANE_VERSION="0.21.7"
+            CRANE_TARBALL="go-containerregistry_Linux_x86_64.tar.gz"
+            curl -fsSL -o "/tmp/${CRANE_TARBALL}" "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/${CRANE_TARBALL}"
+            curl -fsSL -o /tmp/go-containerregistry_checksums.txt "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/checksums.txt"
+            (cd /tmp && grep " ${CRANE_TARBALL}$" go-containerregistry_checksums.txt | sha256sum -c -)
+            tar -xzf "/tmp/${CRANE_TARBALL}" -C /tmp crane
+            chmod +x /tmp/crane
+
+            # polymesh/polymesh is an IMMUTABLE ECR repo, and only the commit SHA
+            # is pushed (matching the SHA-tag convention our ECS services use).
+            # Skip if the tag is already there so reruns of the same commit don't fail.
+            if /tmp/crane digest "$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1" >/dev/null 2>&1; then
+              echo "Tag $CIRCLE_SHA1 already exists in ECR - skipping"
+            else
+              /tmp/crane copy "$DOCKERHUB_IMAGE:$VERSION-$CIRCLE_BRANCH-debian" "$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1"
+            fi
   build-docker-distroless:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
@@ -1005,6 +1048,16 @@ workflows:
           requires:
             - build-docker-amd64-debian
             - build-docker-arm64-debian
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - push-ecr-debian:
+          requires:
+            - build-docker-debian
           filters:
             branches:
               only:

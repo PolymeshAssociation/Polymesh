@@ -39,7 +39,6 @@ pallet-statistics = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
-polymesh-contracts = { workspace = true, default-features = false }
 polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
@@ -74,7 +73,6 @@ pallet-authorship = { workspace = true, default-features = false }
 pallet-babe = { workspace = true, default-features = false }
 pallet-beefy = { workspace = true, default-features = false }
 pallet-beefy-mmr = { workspace = true, default-features = false }
-pallet-contracts = { workspace = true, default-features = false }
 pallet-election-provider-multi-phase = { workspace = true, default-features = false }
 pallet-grandpa = { workspace = true, default-features = false }
 pallet-im-online = { workspace = true, default-features = false }
@@ -150,7 +148,6 @@ std = [
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-confidential-assets/std",
-    "pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-grandpa/std",
     "pallet-group/std",
@@ -175,7 +172,6 @@ std = [
     "polymesh-transaction-payment/std",
     "pallet-utility/std",
     "pallet-validators/std",
-    "polymesh-contracts/std",
     "polymesh-precompiles/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
@@ -205,7 +201,6 @@ runtime-benchmarks = [
     "pallet-committee/runtime-benchmarks",
     "pallet-compliance-manager/runtime-benchmarks",
 	"pallet-confidential-assets/runtime-benchmarks",
-    "pallet-contracts/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
     "pallet-grandpa/runtime-benchmarks",
     "pallet-group/runtime-benchmarks",
@@ -230,7 +225,6 @@ runtime-benchmarks = [
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
     "pallet-validators/runtime-benchmarks",
-    "polymesh-contracts/runtime-benchmarks",
     "polymesh-precompiles/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
 ]
