@@ -127,7 +127,7 @@ members = [
 exclude = ["contracts", "integration", "metadata-tools"]
 
 [workspace.package]
-version = "8.0.2"
+version = "8.0.3"
 authors = ["PolymeshAssociation"]
 license-file = "./LICENSE"
 edition = "2021"
