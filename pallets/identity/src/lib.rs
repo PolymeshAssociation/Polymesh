@@ -85,7 +85,6 @@ pub mod benchmarking;
 mod auth;
 mod claims;
 mod keys;
-mod migrations;
 
 pub mod types;
 pub use types::{
@@ -575,19 +574,6 @@ pub mod pallet {
                 Pallet::<T>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
                 Pallet::<T>::set_key_permissions(&sk.key, &sk.permissions);
                 Pallet::<T>::deposit_event(Event::SecondaryKeysAdded(did, vec![sk]));
-            }
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            if Pallet::<T>::on_chain_storage_version() < STORAGE_VERSION {
-                let weight = migrations::v7::migrate_to_v8::<T>();
-                STORAGE_VERSION.put::<Pallet<T>>();
-                weight
-            } else {
-                Weight::zero()
             }
         }
     }

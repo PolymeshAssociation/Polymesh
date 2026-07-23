@@ -146,7 +146,7 @@ pub trait AssetConfig: Config + checkpoint::Config {}
 
 impl<T: Config + checkpoint::Config> AssetConfig for T {}
 
-storage_migration_ver!(7);
+storage_migration_ver!(8);
 
 pub use pallet::*;
 
@@ -650,8 +650,8 @@ pub mod pallet {
         fn on_runtime_upgrade() -> Weight {
             let mut weight = Weight::zero();
 
-            storage_migrate_on!(StorageVersion::<T>, 7, {
-                weight = migrations::migrate_to_v7::<T>();
+            storage_migrate_on!(StorageVersion::<T>, 8, {
+                weight = migrations::migrate_to_v8::<T>();
             });
 
             weight
@@ -674,7 +674,7 @@ pub mod pallet {
         T: AssetConfig,
     {
         fn build(&self) {
-            StorageVersion::<T>::put(Version::new(7));
+            StorageVersion::<T>::put(Version::new(8));
 
             // Set ticker registratoin config.
             TickerConfig::<T>::put(TickerRegistrationConfig {
