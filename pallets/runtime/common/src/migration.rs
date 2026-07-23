@@ -43,3 +43,81 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
         DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
     }
 }
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::Decode;
+use frame_support::{
+    migrations::VersionedMigration, storage, traits::UncheckedOnRuntimeUpgrade, weights::Weight,
+};
+use sp_consensus_grandpa::{AuthorityList, SetId};
+
+use pallet_grandpa::migrations::v4::OLD_PREFIX;
+use pallet_grandpa::BoundedAuthorityList;
+
+const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
+const CURRENT_SET_ID_STORAGE: &[u8] = b"CurrentSetId";
+
+fn grandpa_finality_current_set_id() -> Option<SetId> {
+    let mut key = [0u8; 32];
+    key[..16].copy_from_slice(&sp_io::hashing::twox_128(OLD_PREFIX));
+    key[16..].copy_from_slice(&sp_io::hashing::twox_128(CURRENT_SET_ID_STORAGE));
+    storage::unhashed::get::<SetId>(&key)
+}
+
+fn load_authority_list() -> AuthorityList {
+    storage::unhashed::get_raw(GRANDPA_AUTHORITIES_KEY).map_or_else(
+        || Vec::new(),
+        |l| {
+            <(u8, AuthorityList)>::decode(&mut &l[..])
+                .unwrap_or_default()
+                .1
+        },
+    )
+}
+
+/// Actual implementation of [`PolyMigrateToV5`].
+pub struct UncheckedMigrateImpl<T>(PhantomData<T>);
+
+impl<T: pallet_grandpa::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateImpl<T> {
+    fn on_runtime_upgrade() -> Weight {
+        // Note: resyncs CurrentSetId
+        let current_set_id = pallet_grandpa::CurrentSetId::<T>::get();
+        let legacy_current_set_id = {
+            match grandpa_finality_current_set_id() {
+                Some(set_id) => set_id,
+                None => {
+                    log::info!("Legacy current set id not found, assuming 0.");
+                    0
+                }
+            }
+        };
+
+        let new_current_set_id = current_set_id.saturating_add(legacy_current_set_id);
+        pallet_grandpa::CurrentSetId::<T>::put(new_current_set_id);
+
+        // This is the start of the v5 migration
+        pallet_grandpa::Authorities::<T>::put(
+			&BoundedAuthorityList::<T::MaxAuthorities>::force_from(
+				load_authority_list(),
+				Some("Grandpa: `Config::MaxAuthorities` is smaller than the actual number of authorities.")
+			)
+		);
+
+        storage::unhashed::kill(GRANDPA_AUTHORITIES_KEY);
+
+        T::DbWeight::get().reads_writes(3, 3)
+    }
+}
+
+/// Migrate the storage from to V5.
+///
+/// Resyncs CurrentSetId and Switches from `GRANDPA_AUTHORITIES_KEY` to a normal FRAME storage item.
+pub type MigrateGrandpaToV5<T> = VersionedMigration<
+    0,
+    5,
+    UncheckedMigrateImpl<T>,
+    pallet_grandpa::Pallet<T>,
+    <T as frame_system::Config>::DbWeight,
+>;
