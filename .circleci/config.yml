@@ -500,6 +500,7 @@ jobs:
           name: Start a Polymesh ci-runtime dev chain.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
+              -- dev \
               --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --pool-limit 100000
