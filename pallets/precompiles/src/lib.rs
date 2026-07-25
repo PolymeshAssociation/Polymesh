@@ -19,6 +19,6 @@
 
 extern crate alloc;
 
-pub mod erc20;
+pub mod interface;
 
-pub use erc20::ERC20;
+pub use interface::PolymeshInterface;
