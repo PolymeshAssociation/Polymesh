@@ -134,4 +134,22 @@ interface IPolymeshInterface {
     /// as defined by {EIP712}.
     // solhint-disable-next-line func-name-mixedcase
     function DOMAIN_SEPARATOR() external view returns (bytes32);
+
+    // ============================================================
+    // Polymesh Specific Extensions
+    // ============================================================
+
+    /// @dev Mints a `value` amount of tokens to the caller's account.
+    ///
+    /// Returns a boolean value indicating whether the operation succeeded.
+    ///
+    /// Emits a {Transfer} event.
+    function issue(uint256 value) external returns (bool);
+
+    /// @dev Redeems a `value` amount of tokens from the caller's account.
+    ///
+    /// Returns a boolean value indicating whether the operation succeeded.
+    ///
+    /// Emits a {Transfer} event.
+    function redeem(uint256 value) external returns (bool);
 }

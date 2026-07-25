@@ -24,7 +24,7 @@ use pallet_revive::precompiles::{AddressMapper, Error};
 use pallet_revive::H160;
 
 use pallet_asset::AssetIdTicker;
-use pallet_asset::{Allowances, AssetBalance, AssetNames, WeightInfo as AssetWeightInfo};
+use pallet_asset::{Allowances, AssetBalance, AssetNames, WeightInfo};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;

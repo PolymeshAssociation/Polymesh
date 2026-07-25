@@ -31,9 +31,10 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::Balance;
 
 mod erc20;
+mod polymesh_specific;
 
 // Import the Solidity interface. Generates:
-//   - `IPolymeshInterface::IPolymeshInterfaceCalls` enum (23 variants)
+//   - `IPolymeshInterface::IPolymeshInterfaceCalls` enum
 alloy::sol! {
     #[sol(all_derives)]
     "src/interface/IPolymeshInterface.sol"
@@ -82,8 +83,10 @@ where
         match input {
             // State-changing calls - check read-only
             IPolymeshInterfaceCalls::transfer(_)
+            | IPolymeshInterfaceCalls::issue(_)
             | IPolymeshInterfaceCalls::approve(_)
             | IPolymeshInterfaceCalls::transferFrom(_)
+            | IPolymeshInterfaceCalls::redeem(_)
             | IPolymeshInterfaceCalls::permit(_)
                 if env.is_read_only() =>
             {
@@ -113,6 +116,10 @@ where
             IPolymeshInterfaceCalls::name(_) => Self::name(asset_id, env),
             IPolymeshInterfaceCalls::symbol(_) => Self::symbol(asset_id, env),
             IPolymeshInterfaceCalls::decimals(_) => Self::decimals(asset_id, env),
+
+            // Polymesh-specific functions
+            IPolymeshInterfaceCalls::issue(call) => Self::issue(asset_id, call, env),
+            IPolymeshInterfaceCalls::redeem(call) => Self::redeem(asset_id, call, env),
         }
     }
 }
