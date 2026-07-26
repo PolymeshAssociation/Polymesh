@@ -543,7 +543,7 @@ macro_rules! misc_pallet_impls {
             type DepositPerChildTrieItem = polymesh_runtime_common::DepositPerChildTrieItem;
             type DepositPerByte = polymesh_runtime_common::DepositPerByte;
             type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-            type Precompiles = (polymesh_precompiles::ERC20<Runtime>,);
+            type Precompiles = (polymesh_precompiles::PolymeshInterface<Runtime>,);
             type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
             type RuntimeMemory = frame_support::traits::ConstU32<{ 128 * 1024 * 1024 }>;
             type PVFMemory = frame_support::traits::ConstU32<{ 512 * 1024 * 1024 }>;
