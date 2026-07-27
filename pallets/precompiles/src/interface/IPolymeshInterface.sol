@@ -144,12 +144,12 @@ interface IPolymeshInterface {
     /// Returns a boolean value indicating whether the operation succeeded.
     ///
     /// Emits a {Transfer} event.
-    function issue(uint256 value) external returns (bool);
+    function mint(uint256 value) external returns (bool);
 
     /// @dev Redeems a `value` amount of tokens from the caller's account.
     ///
     /// Returns a boolean value indicating whether the operation succeeded.
     ///
     /// Emits a {Transfer} event.
-    function redeem(uint256 value) external returns (bool);
+    function burn(uint256 value) external returns (bool);
 }

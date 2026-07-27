@@ -21,7 +21,7 @@ where
     /// Mints a `value` amount of tokens to the caller's account.
     pub(crate) fn issue(
         asset_id: AssetId,
-        call: &IPolymeshInterface::issueCall,
+        call: &IPolymeshInterface::mintCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::issue())?;
@@ -50,13 +50,13 @@ where
             }),
         )?;
 
-        Ok(IPolymeshInterface::issueCall::abi_encode_returns(&true))
+        Ok(IPolymeshInterface::mintCall::abi_encode_returns(&true))
     }
 
     /// Redeems a `value` amount of tokens from the caller's account.
     pub(crate) fn redeem(
         asset_id: AssetId,
-        call: &IPolymeshInterface::redeemCall,
+        call: &IPolymeshInterface::burnCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::redeem())?;
@@ -85,6 +85,6 @@ where
             }),
         )?;
 
-        Ok(IPolymeshInterface::redeemCall::abi_encode_returns(&true))
+        Ok(IPolymeshInterface::burnCall::abi_encode_returns(&true))
     }
 }

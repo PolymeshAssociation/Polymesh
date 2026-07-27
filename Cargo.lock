@@ -10687,7 +10687,6 @@ version = "8.0.3"
 dependencies = [
  "array-bytes 6.2.3",
  "clap",
- "ethereum-standards",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
@@ -10934,7 +10933,6 @@ dependencies = [
 name = "polymesh-precompiles"
 version = "0.1.0"
 dependencies = [
- "ethereum-standards",
  "frame-support",
  "frame-system-rpc-runtime-api",
  "log",

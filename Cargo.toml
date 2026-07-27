@@ -434,11 +434,7 @@ sc-transaction-pool-api = { workspace = true }
 sc-offchain = { workspace = true }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = [
-    "derive",
-    "max-encoded-len",
-] }
-ethereum-standards = { workspace = true, default-features = false }
+codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = ["derive","max-encoded-len"] }
 frame-metadata-hash-extension = { workspace = true, default-features = false }
 frame-support = { workspace = true }
 frame-system = { workspace = true }

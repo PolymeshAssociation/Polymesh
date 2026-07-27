@@ -83,10 +83,10 @@ where
         match input {
             // State-changing calls - check read-only
             IPolymeshInterfaceCalls::transfer(_)
-            | IPolymeshInterfaceCalls::issue(_)
+            | IPolymeshInterfaceCalls::mint(_)
             | IPolymeshInterfaceCalls::approve(_)
             | IPolymeshInterfaceCalls::transferFrom(_)
-            | IPolymeshInterfaceCalls::redeem(_)
+            | IPolymeshInterfaceCalls::burn(_)
             | IPolymeshInterfaceCalls::permit(_)
                 if env.is_read_only() =>
             {
@@ -118,8 +118,8 @@ where
             IPolymeshInterfaceCalls::decimals(_) => Self::decimals(asset_id, env),
 
             // Polymesh-specific functions
-            IPolymeshInterfaceCalls::issue(call) => Self::issue(asset_id, call, env),
-            IPolymeshInterfaceCalls::redeem(call) => Self::redeem(asset_id, call, env),
+            IPolymeshInterfaceCalls::mint(call) => Self::issue(asset_id, call, env),
+            IPolymeshInterfaceCalls::burn(call) => Self::redeem(asset_id, call, env),
         }
     }
 }
@@ -136,7 +136,7 @@ where
         let bytes: [u8; 4] = address[0..4].try_into().expect("slice is 4 bytes; qed");
         let asset_index = u32::from_be_bytes(bytes);
 
-        pallet_asset::Erc20IndexToAssetId::<T>::get(asset_index).ok_or_else(|| {
+        pallet_asset::IndexToAssetId::<T>::get(asset_index).ok_or_else(|| {
             Error::Revert(Revert {
                 reason: ERR_ASSET_NOT_FOUND.into(),
             })

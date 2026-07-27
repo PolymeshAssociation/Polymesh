@@ -635,12 +635,11 @@ pub mod pallet {
 
     /// Mapping an asset index (derived from the precompile address) to a `AssetId`.
     #[pallet::storage]
-    pub type Erc20IndexToAssetId<T: Config> = StorageMap<_, Identity, u32, AssetId, OptionQuery>;
+    pub type IndexToAssetId<T: Config> = StorageMap<_, Identity, u32, AssetId, OptionQuery>;
 
     /// Mapping a `ERC20AssetId` to an asset index (used for deriving precompile addresses).
     #[pallet::storage]
-    pub type Erc20AssetIdToIndex<T: Config> =
-        StorageMap<_, Blake2_128Concat, AssetId, u32, OptionQuery>;
+    pub type AssetIdToIndex<T: Config> = StorageMap<_, Blake2_128Concat, AssetId, u32, OptionQuery>;
 
     /// Storage version.
     #[pallet::storage]
@@ -3902,8 +3901,8 @@ impl<T: AssetConfig> Pallet<T> {
 
         // Updating ERC20 precompile storage
         let asset_index = NextAssetIndex::<T>::get();
-        Erc20IndexToAssetId::<T>::insert(asset_index, asset_id);
-        Erc20AssetIdToIndex::<T>::insert(asset_id, asset_index);
+        IndexToAssetId::<T>::insert(asset_index, asset_id);
+        AssetIdToIndex::<T>::insert(asset_id, asset_index);
         let next_index = asset_index.saturating_add(1);
         NextAssetIndex::<T>::put(next_index);
 
