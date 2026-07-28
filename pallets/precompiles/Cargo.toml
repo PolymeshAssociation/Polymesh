@@ -25,6 +25,7 @@ pallet-revive = { workspace = true, default-features = false }
 
 # Polymesh pallets
 pallet-asset = { workspace = true, default-features = false }
+pallet-identity = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 
 # Polymesh primitives
@@ -46,6 +47,7 @@ std = [
     "frame-system-rpc-runtime-api/std",
     "pallet-revive/std",
     "pallet-asset/std",
+    "pallet-identity/std",
     "pallet-settlement/std",
     "polymesh-primitives/std",
 ]

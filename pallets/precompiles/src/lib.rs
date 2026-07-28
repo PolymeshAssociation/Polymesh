@@ -19,6 +19,25 @@
 
 extern crate alloc;
 
+pub mod identity;
 pub mod interface;
 
+pub use identity::PolymeshIdentity;
 pub use interface::PolymeshInterface;
+
+use alloc::format;
+use pallet_revive::precompiles::alloy::sol_types::Revert;
+use pallet_revive::precompiles::Error;
+use sp_runtime::DispatchError;
+
+/// Convert a [`DispatchError`] into a precompile revert with a readable reason.
+pub(crate) fn revert_dispatch_error(err: DispatchError) -> Error {
+    let reason = match err {
+        DispatchError::Module(module_error) => format!(
+            "Extrinsic returned an error: {}",
+            module_error.message.unwrap_or("unknown module error")
+        ),
+        other => format!("Extrinsic returned an error: {:?}", other),
+    };
+    Error::Revert(Revert { reason })
+}

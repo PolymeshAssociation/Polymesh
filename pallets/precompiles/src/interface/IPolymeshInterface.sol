@@ -152,4 +152,27 @@ interface IPolymeshInterface {
     ///
     /// Emits a {Transfer} event.
     function redeem(uint256 value) external returns (bool);
+
+    // ============================================================
+    // ERC-7943 / ERC-3643-style extensions
+    // ============================================================
+
+    event Frozen(address indexed account, uint256 amount);
+    event ForcedTransfer(address indexed from, address indexed to, uint256 value);
+
+    function canSend(address account, uint256 value) external view returns (bool);
+    function canReceive(address account, uint256 value) external view returns (bool);
+    function canTransfer(address from, address to, uint256 value) external view returns (bool);
+    function getFrozenTokens(address account) external view returns (uint256);
+    function setFrozenTokens(address account, uint256 amount) external returns (bool);
+    function forcedTransfer(address from, address to, uint256 value) external returns (bool);
+    function freezePartialTokens(address account, uint256 value) external returns (bool);
+    function unfreezePartialTokens(address account, uint256 value) external returns (bool);
+    function pause() external returns (bool);
+    function unpause() external returns (bool);
+    function paused() external view returns (bool);
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+    function version() external view returns (uint256);
+    function mint(uint256 value) external returns (bool);
+    function burn(uint256 value) external returns (bool);
 }

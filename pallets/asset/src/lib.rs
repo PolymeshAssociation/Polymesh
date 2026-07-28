@@ -243,6 +243,12 @@ pub mod pallet {
         /// An event emitted when an asset is unfrozen.
         /// Parameter: caller DID, AssetId.
         AssetUnfrozen(IdentityId, AssetId),
+        /// An event emitted when a frozen balance for an account is updated.
+        /// Parameters: caller DID, AssetId, account, frozen balance.
+        FrozenBalanceSet(IdentityId, AssetId, AccountId32, Balance),
+        /// An event emitted when tokens are forcibly transferred between two accounts.
+        /// Parameters: caller DID, AssetId, source account, destination account, value.
+        AssetForcedTransfer(IdentityId, AssetId, AccountId32, AccountId32, Balance),
         /// An event emitted when a token is renamed.
         /// Parameters: caller DID, AssetId, new token name.
         AssetRenamed(IdentityId, AssetId, AssetName),
@@ -429,6 +435,18 @@ pub mod pallet {
     /// Returns `true` if transfers for the asset are frozen. Otherwise, returns `false`.
     #[pallet::storage]
     pub type Frozen<T: Config> = StorageMap<_, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
+    /// Tracks the amount of tokens that an account holder is prevented from transferring for each asset.
+    #[pallet::storage]
+    pub type FrozenBalance<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
+        Balance,
+        ValueQuery,
+    >;
 
     /// All [`Document`] attached to an asset.
     #[pallet::storage]
@@ -867,6 +885,39 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::unfreeze())]
         pub fn unfreeze(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             Self::base_set_freeze(origin, asset_id, false)
+        }
+
+        /// Sets the frozen transfer amount for a given account and asset.
+        #[pallet::call_index(38)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_frozen_tokens())]
+        pub fn set_frozen_tokens(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            account: AccountId32,
+            amount: Balance,
+        ) -> DispatchResult {
+            Self::base_set_frozen_tokens(origin, asset_id, account, amount)
+        }
+
+        /// Forces a transfer of `value` tokens from the `from` account to the `to` account.
+        ///
+        /// Unlike [`Pallet::controller_transfer`], the destination is an arbitrary account and
+        /// frozen tokens may be consumed: if `value` exceeds the unfrozen balance of `from`,
+        /// the frozen balance is reduced accordingly (ERC-7943 `forcedTransfer` semantics).
+        ///
+        /// # Permissions
+        /// * Asset
+        #[pallet::call_index(39)]
+        #[pallet::weight(<T as Config>::WeightInfo::forced_transfer())]
+        pub fn forced_transfer(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            value: Balance,
+            from: AccountId32,
+            to: AccountId32,
+        ) -> DispatchResult {
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::base_forced_transfer(origin, asset_id, value, from, to, &mut weight_meter)
         }
 
         /// Updates the [`AssetName`] associated to an asset.
@@ -1914,6 +1965,8 @@ pub mod pallet {
         InvalidTickerCharacter,
         /// Failed to transfer the asset - asset is frozen.
         InvalidTransferFrozenAsset,
+        /// Failed to transfer the asset - account frozen balance blocks the transfer.
+        InvalidTransferFrozenBalance,
         /// Failed to transfer an NFT - compliance failed.
         InvalidTransferComplianceFailure,
         /// Failed to transfer the asset - receiver DID is not active.
@@ -1953,6 +2006,8 @@ pub mod pallet {
         fn create_asset(n: u32, i: u32, f: u32) -> Weight;
         fn freeze() -> Weight;
         fn unfreeze() -> Weight;
+        fn set_frozen_tokens() -> Weight;
+        fn forced_transfer() -> Weight;
         fn rename_asset(n: u32) -> Weight;
         fn issue() -> Weight;
         fn redeem() -> Weight;
@@ -2131,6 +2186,86 @@ impl<T: AssetConfig> Pallet<T> {
             Self::deposit_event(Event::AssetUnfrozen(caller_did, asset_id));
         }
 
+        Ok(())
+    }
+
+    /// Sets the frozen transfer amount for an account on a given asset.
+    fn base_set_frozen_tokens(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        account: AccountId32,
+        amount: Balance,
+    ) -> DispatchResult {
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
+
+        Self::ensure_asset_exists(&asset_id)?;
+
+        if amount.is_zero() {
+            FrozenBalance::<T>::remove(&account, &asset_id);
+        } else {
+            FrozenBalance::<T>::insert(&account, asset_id, amount);
+        }
+
+        Self::deposit_event(Event::FrozenBalanceSet(
+            caller_did, asset_id, account, amount,
+        ));
+        Ok(())
+    }
+
+    /// Forces a transfer of `value` tokens from the `from` account to the `to` account,
+    /// consuming frozen tokens if necessary.
+    fn base_forced_transfer(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        value: Balance,
+        from: AccountId32,
+        to: AccountId32,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
+
+        let source = AssetHolder::Account(from.clone());
+        let destination = AssetHolder::Account(to.clone());
+
+        // ERC-7943 semantics: forced transfers may consume frozen tokens. If `value`
+        // dips into the frozen balance, reduce the frozen amount accordingly.
+        let frozen_balance = Self::get_account_frozen_balance(&from, &asset_id);
+        if !frozen_balance.is_zero() {
+            let current_balance = Self::get_account_balance(&from, &asset_id);
+            let available_balance = current_balance.saturating_sub(frozen_balance);
+            if value > available_balance {
+                let new_frozen = current_balance.saturating_sub(value);
+                if new_frozen.is_zero() {
+                    FrozenBalance::<T>::remove(&from, &asset_id);
+                } else {
+                    FrozenBalance::<T>::insert(&from, asset_id, new_frozen);
+                }
+                Self::deposit_event(Event::FrozenBalanceSet(
+                    caller_did,
+                    asset_id,
+                    from.clone(),
+                    new_frozen,
+                ));
+            }
+        }
+
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(&destination)?;
+
+        Self::validate_asset_transfer(asset_id, &source, &destination, value, true, weight_meter)?;
+        Self::unverified_transfer_asset(
+            source,
+            destination,
+            asset_id,
+            value,
+            None,
+            None,
+            receiver_did,
+            weight_meter,
+        )?;
+
+        Self::deposit_event(Event::AssetForcedTransfer(
+            caller_did, asset_id, from, to, value,
+        ));
         Ok(())
     }
 
@@ -3584,6 +3719,11 @@ impl<T: AssetConfig> Pallet<T> {
         }
     }
 
+    /// Returns the frozen transfer balance for `acc_id` and `asset_id`.
+    fn get_account_frozen_balance(acc_id: &AccountId32, asset_id: &AssetId) -> Balance {
+        FrozenBalance::<T>::get(acc_id, asset_id)
+    }
+
     /// If [`AssetHolder::Portfolio`], returns the balance from the portfolio pallet.
     /// If [`AssetHolder::Account`], returns the balance from the asset pallet.
     pub fn get_holders_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
@@ -3592,6 +3732,17 @@ impl<T: AssetConfig> Pallet<T> {
                 PortfolioPallet::<T>::get_portfolio_balance(portfolio_id, asset_id)
             }
             AssetHolder::Account(account_id) => Self::get_account_balance(account_id, asset_id),
+        }
+    }
+
+    /// If [`AssetHolder::Portfolio`], returns zero.
+    /// If [`AssetHolder::Account`], returns the frozen transfer balance from the asset pallet.
+    fn get_holders_frozen_balance(holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match holder {
+            AssetHolder::Portfolio(_) => Zero::zero(),
+            AssetHolder::Account(account_id) => {
+                Self::get_account_frozen_balance(account_id, asset_id)
+            }
         }
     }
 
@@ -3720,6 +3871,15 @@ impl<T: AssetConfig> Pallet<T> {
 
         let current_balance = Self::get_holders_balance(holder, asset_id);
         let locked_balance = Self::get_holders_locked_balance(holder, asset_id);
+        let frozen_balance = Self::get_holders_frozen_balance(holder, asset_id);
+
+        ensure!(current_balance >= value, Error::<T>::InsufficientBalance);
+
+        let available_balance = current_balance.saturating_sub(frozen_balance);
+        ensure!(
+            available_balance >= value,
+            Error::<T>::InvalidTransferFrozenBalance
+        );
 
         let final_balance = current_balance
             .checked_sub(value)

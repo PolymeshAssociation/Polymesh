@@ -31,7 +31,7 @@ use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::{AccountId as AccountId32, AssetHolder};
 
 use crate::interface::{IPolymeshInterface, IPolymeshInterfaceEvents, PolymeshInterface};
-use crate::interface::{ERR_ASSET_NOT_FOUND, ERR_EXTRINSIC_ERROR};
+use crate::interface::ERR_ASSET_NOT_FOUND;
 use crate::interface::{ERR_INVALID_ACCOUNT_ID, ERR_INVALID_ASSET_NAME};
 
 impl<T> PolymeshInterface<T>
@@ -64,7 +64,7 @@ where
         let caller = Self::caller(env)?;
         let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
 
-        if let Err(_e) = pallet_asset::Pallet::<T>::base_transfer_asset(
+        if let Err(e) = pallet_asset::Pallet::<T>::base_transfer_asset(
             RawOrigin::Signed(from).into(),
             asset_id,
             <T as pallet_revive::Config>::AddressMapper::to_account_id(
@@ -75,10 +75,7 @@ where
             #[cfg(feature = "runtime-benchmarks")]
             false,
         ) {
-            // TODO: improve error message
-            return Err(Error::Revert(Revert {
-                reason: ERR_EXTRINSIC_ERROR.into(),
-            }));
+            return Err(crate::revert_dispatch_error(e.error));
         }
 
         Self::deposit_event(
@@ -169,16 +166,13 @@ where
         let spender = call.spender.into_array().into();
         let spender = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
-        if let Err(_e) = pallet_asset::Pallet::<T>::approve(
+        if let Err(e) = pallet_asset::Pallet::<T>::approve(
             RawOrigin::Signed(from).into(),
             asset_id,
             spender,
             Self::to_balance(call.value)?,
         ) {
-            // TODO: improve error message
-            return Err(Error::Revert(Revert {
-                reason: ERR_EXTRINSIC_ERROR.into(),
-            }));
+            return Err(crate::revert_dispatch_error(e));
         };
 
         Self::deposit_event(
@@ -231,16 +225,13 @@ where
             })
         })?;
 
-        if let Err(_e) = pallet_settlement::Pallet::<T>::transfer_funds(
+        if let Err(e) = pallet_settlement::Pallet::<T>::transfer_funds(
             RawOrigin::Signed(spender).into(),
             Some(from),
             AssetHolder::from(to.clone()),
             fund,
         ) {
-            // TODO: improve error message
-            return Err(Error::Revert(Revert {
-                reason: ERR_EXTRINSIC_ERROR.into(),
-            }));
+            return Err(crate::revert_dispatch_error(e.error));
         }
 
         Self::deposit_event(

@@ -31,6 +31,7 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::Balance;
 
 mod erc20;
+mod erc7943;
 mod polymesh_specific;
 
 // Import the Solidity interface. Generates:
@@ -45,7 +46,6 @@ use IPolymeshInterface::{IPolymeshInterfaceCalls, IPolymeshInterfaceEvents};
 // ==================== Error Messages ====================
 pub(crate) const ERR_INVALID_CALLER: &str = "Invalid caller";
 pub(crate) const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-pub(crate) const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub(crate) const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub(crate) const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
@@ -88,6 +88,14 @@ where
             | IPolymeshInterfaceCalls::transferFrom(_)
             | IPolymeshInterfaceCalls::redeem(_)
             | IPolymeshInterfaceCalls::permit(_)
+            | IPolymeshInterfaceCalls::setFrozenTokens(_)
+            | IPolymeshInterfaceCalls::forcedTransfer(_)
+            | IPolymeshInterfaceCalls::freezePartialTokens(_)
+            | IPolymeshInterfaceCalls::unfreezePartialTokens(_)
+            | IPolymeshInterfaceCalls::pause(_)
+            | IPolymeshInterfaceCalls::unpause(_)
+            | IPolymeshInterfaceCalls::mint(_)
+            | IPolymeshInterfaceCalls::burn(_)
                 if env.is_read_only() =>
             {
                 Err(Error::Error(
@@ -120,6 +128,35 @@ where
             // Polymesh-specific functions
             IPolymeshInterfaceCalls::issue(call) => Self::issue(asset_id, call, env),
             IPolymeshInterfaceCalls::redeem(call) => Self::redeem(asset_id, call, env),
+
+            // ERC-7943 / ERC-3643 style functions
+            IPolymeshInterfaceCalls::canSend(call) => Self::can_send(asset_id, call, env),
+            IPolymeshInterfaceCalls::canReceive(call) => Self::can_receive(asset_id, call, env),
+            IPolymeshInterfaceCalls::canTransfer(call) => Self::can_transfer(asset_id, call, env),
+            IPolymeshInterfaceCalls::getFrozenTokens(call) => {
+                Self::get_frozen_tokens(asset_id, call, env)
+            }
+            IPolymeshInterfaceCalls::setFrozenTokens(call) => {
+                Self::set_frozen_tokens(asset_id, call, env)
+            }
+            IPolymeshInterfaceCalls::forcedTransfer(call) => {
+                Self::forced_transfer(asset_id, call, env)
+            }
+            IPolymeshInterfaceCalls::freezePartialTokens(call) => {
+                Self::freeze_partial_tokens(asset_id, call, env)
+            }
+            IPolymeshInterfaceCalls::unfreezePartialTokens(call) => {
+                Self::unfreeze_partial_tokens(asset_id, call, env)
+            }
+            IPolymeshInterfaceCalls::pause(_) => Self::pause(asset_id, env),
+            IPolymeshInterfaceCalls::unpause(_) => Self::unpause(asset_id, env),
+            IPolymeshInterfaceCalls::paused(_) => Self::paused(asset_id, env),
+            IPolymeshInterfaceCalls::supportsInterface(call) => {
+                Self::supports_interface(asset_id, call, env)
+            }
+            IPolymeshInterfaceCalls::version(_) => Self::version(asset_id, env),
+            IPolymeshInterfaceCalls::mint(call) => Self::mint(asset_id, call, env),
+            IPolymeshInterfaceCalls::burn(call) => Self::burn(asset_id, call, env),
         }
     }
 }

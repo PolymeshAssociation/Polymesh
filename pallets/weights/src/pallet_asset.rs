@@ -196,6 +196,16 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
+    fn set_frozen_tokens() -> Weight {
+        Weight::from_parts(40_000_000, 0)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    fn forced_transfer() -> Weight {
+        Weight::from_parts(80_000_000, 0)
+            .saturating_add(DbWeight::get().reads(12))
+            .saturating_add(DbWeight::get().writes(4))
+    }
     // Storage: `Asset::Assets` (r:1 w:0)
     // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Identity::KeyRecords` (r:1 w:0)

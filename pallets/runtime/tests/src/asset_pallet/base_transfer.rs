@@ -199,6 +199,32 @@ fn base_transfer_insufficient_balance() {
 }
 
 #[test]
+fn base_transfer_frozen_balance_blocks_transfer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Asset::issue(
+            alice.origin(),
+            asset_id,
+            100,
+            AssetHolderKind::Account
+        ));
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            alice.acc(),
+            100
+        ));
+
+        assert_noop!(
+            Asset::ensure_sufficient_balance(&AssetHolder::Account(alice.acc()), &asset_id, 100),
+            AssetError::InvalidTransferFrozenBalance
+        );
+    })
+}
+
+#[test]
 fn base_transfer_locked_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let bob = User::new(Sr25519Keyring::Bob);

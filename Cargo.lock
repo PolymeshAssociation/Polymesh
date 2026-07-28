@@ -10939,6 +10939,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "log",
  "pallet-asset",
+ "pallet-identity",
  "pallet-revive",
  "pallet-settlement",
  "parity-scale-codec",
