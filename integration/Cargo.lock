@@ -3829,7 +3829,7 @@ dependencies = [
  "polymesh-api-client-extras",
  "polymesh-api-tester",
  "polymesh-dart",
- "polymesh-precompiles-api",
+ "polymesh-precompiles",
  "rand 0.8.6",
  "serde_json",
  "sp-arithmetic",
@@ -5011,8 +5011,8 @@ version = "0.1.0"
 source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#68cde49f5c5ffbedd2a78be52affbe9034d2340d"
 
 [[package]]
-name = "polymesh-precompiles-api"
-version = "0.1.0"
+name = "polymesh-precompiles"
+version = "0.0.1"
 dependencies = [
  "alloy-core",
 ]
