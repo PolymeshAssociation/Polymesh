@@ -39,6 +39,7 @@ pallet-sto = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
+polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Others
@@ -145,7 +146,7 @@ std = [
     "pallet-mmr/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-		"pallet-confidential-assets/std",
+    "pallet-confidential-assets/std",
     "pallet-election-provider-multi-phase/std",
     "frame-executive/std",
     "pallet-external-agents/std",
@@ -180,6 +181,7 @@ std = [
     "pallet-treasury/std",
     "pallet-utility/std",
     "polymesh-primitives/std",
+    "polymesh-precompiles/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
     "polymesh-dart/std",
@@ -213,7 +215,7 @@ runtime-benchmarks = [
     "pallet-beefy-mmr/runtime-benchmarks",
     "pallet-mmr/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
-		"pallet-confidential-assets/runtime-benchmarks",
+    "pallet-confidential-assets/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
     "pallet-grandpa/runtime-benchmarks",
     "pallet-group/runtime-benchmarks",
@@ -233,6 +235,7 @@ runtime-benchmarks = [
     "pallet-statistics/runtime-benchmarks",
     "pallet-sto/runtime-benchmarks",
     "pallet-transaction-payment/runtime-benchmarks",
+    "polymesh-precompiles/runtime-benchmarks",
     "polymesh-transaction-payment/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",

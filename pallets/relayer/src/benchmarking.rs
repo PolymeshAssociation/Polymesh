@@ -18,6 +18,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
+use sp_std::vec;
 
 use pallet_identity::benchmarking::{user_without_did, User};
 use polymesh_primitives::Balance;

@@ -38,6 +38,7 @@ pallet-sto = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
+polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Others
@@ -48,9 +49,7 @@ smallvec = "1.4.0"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { workspace = true, default-features = false, features = [
-    "derive",
-] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 sp-core = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
@@ -171,6 +170,7 @@ std = [
     "pallet-treasury/std",
     "pallet-utility/std",
     "polymesh-primitives/std",
+    "polymesh-precompiles/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
     "serde/std",
@@ -226,6 +226,7 @@ runtime-benchmarks = [
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
     "pallet-validators/runtime-benchmarks",
+    "polymesh-precompiles/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
 ]
 

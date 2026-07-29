@@ -10930,6 +10930,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-asset",
+ "pallet-revive",
+ "pallet-settlement",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-transaction-pool",
+]
+
+[[package]]
 name = "polymesh-primitives"
 version = "5.0.0"
 dependencies = [
@@ -11066,6 +11088,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11151,6 +11174,7 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-build-tool",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11240,6 +11264,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11330,6 +11355,7 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-exec-macro",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",

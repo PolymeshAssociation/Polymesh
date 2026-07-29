@@ -33,6 +33,7 @@ polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
+polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 polymesh-runtime-develop = { workspace = true }
 polymesh-weights = { workspace = true, default-features = false }
@@ -47,12 +48,8 @@ lazy_static = "1.4"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { workspace = true, default-features = false, features = [
-    "derive",
-] }
-sp-core = { workspace = true, default-features = false, features = [
-    "full_crypto",
-] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-core = { workspace = true, default-features = false, features = ["full_crypto"] }
 sp-std = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-npos-elections = { workspace = true, default-features = false }
@@ -88,9 +85,7 @@ pallet-offences = { workspace = true, default-features = false }
 pallet-preimage = { workspace = true, default-features = false }
 pallet-revive = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
-pallet-session = { workspace = true, default-features = false, features = [
-    "historical",
-] }
+pallet-session = { workspace = true, default-features = false, features = ["historical"] }
 pallet-staking = { workspace = true, default-features = false }
 pallet-staking-reward-curve = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
@@ -170,6 +165,7 @@ std = [
     "pallet-treasury/std",
     "pallet-sudo/std",
     "polymesh-primitives/std",
+    "polymesh-precompiles/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
     "serde/std",
