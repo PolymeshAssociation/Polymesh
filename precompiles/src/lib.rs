@@ -13,12 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//! Polymesh Precompiles for pallet-revive.
+//! Polymesh Precompiles Interfaces
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+use pallet_revive::precompiles::alloy;
 
-pub mod interface;
+// Import the fungible asset interface. Generates:
+//   - `IFungibleAsset::IFungibleAssetCalls` enum
+//   - `IFungibleAsset::IFungibleAssetEvents` enum
+alloy::sol! {
+    #[sol(all_derives)]
+    "src/interfaces/IFungibleAsset.sol"
+}
 
-pub use interface::FungibleAssetInterface;
+pub use IFungibleAsset::{IFungibleAssetCalls, IFungibleAssetEvents};

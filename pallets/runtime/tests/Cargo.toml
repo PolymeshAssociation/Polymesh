@@ -33,7 +33,7 @@ polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
-polymesh-precompiles = { workspace = true, default-features = false }
+pallet-precompiles = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 polymesh-runtime-develop = { workspace = true }
 polymesh-weights = { workspace = true, default-features = false }
@@ -165,7 +165,7 @@ std = [
     "pallet-treasury/std",
     "pallet-sudo/std",
     "polymesh-primitives/std",
-    "polymesh-precompiles/std",
+    "pallet-precompiles/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
     "serde/std",

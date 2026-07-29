@@ -16,7 +16,7 @@ pragma solidity ^0.8.20;
 /// @dev Interface combining the ERC-20 standard, its metadata extension, and EIP-2612 permit.
 /// Note: Due to ABI generation constraints, all interfaces are merged into a single contract.
 ///
-interface IPolymeshInterface {
+interface IFungibleAsset {
     // ============================================================
     // IERC20 - Base ERC-20 Interface
     // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol

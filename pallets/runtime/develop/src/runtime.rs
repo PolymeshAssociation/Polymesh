@@ -197,6 +197,9 @@ parameter_types! {
     pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
 }
 
+// Precompiles
+type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
+
 /// Confidential assets parameters
 type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
 

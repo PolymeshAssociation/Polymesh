@@ -190,6 +190,9 @@ parameter_types! {
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
 
+// Precompiles
+type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
+
 /// Confidential assets parameters
 type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
 

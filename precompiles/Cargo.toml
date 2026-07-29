@@ -1,0 +1,18 @@
+[package]
+name = "polymesh-precompiles"
+version = "0.0.1"
+authors = ["Polymesh Association"]
+license-file = "../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Polymesh Precompiles"
+edition = "2021"
+
+[dependencies]
+# Substrate pallets
+pallet-revive = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+no_std = []
+
+std = ["pallet-revive/std"]

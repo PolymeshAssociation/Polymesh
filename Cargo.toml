@@ -177,13 +177,14 @@ pallet-statistics = { path = "pallets/statistics", default-features = false }
 polymesh-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
-polymesh-precompiles = { path = "pallets/precompiles", default-features = false }
+pallet-precompiles = { path = "pallets/precompiles", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-primitives-derive = { path = "primitives_derive", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
+polymesh-precompiles = { path = "precompiles", default-features = false}
 
 # RPC
 node-rpc = { path = "rpc", default-features = false }
@@ -365,6 +366,7 @@ pallet-pips = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
+polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
