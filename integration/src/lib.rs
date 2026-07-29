@@ -23,31 +23,6 @@ pub mod confidential_assets_helper;
 #[cfg(feature = "current_release")]
 pub mod contracts;
 
-#[cfg(feature = "current_release")]
-mod identity_helper;
-#[cfg(feature = "current_release")]
-pub use identity_helper::*;
-
-#[cfg(feature = "current_release")]
-mod revive_helper;
-#[cfg(feature = "current_release")]
-pub use revive_helper::*;
-
-#[cfg(feature = "current_release")]
-mod eth_helper;
-#[cfg(feature = "current_release")]
-pub use eth_helper::*;
-
-#[cfg(feature = "current_release")]
-mod erc20_helper;
-#[cfg(feature = "current_release")]
-pub use erc20_helper::*;
-
-#[cfg(feature = "current_release")]
-mod swap_helper;
-#[cfg(feature = "current_release")]
-pub use swap_helper::*;
-
 #[cfg(any(feature = "previous_release", feature = "current_release"))]
 mod sto;
 #[cfg(any(feature = "previous_release", feature = "current_release"))]
