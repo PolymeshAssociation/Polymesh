@@ -101,18 +101,11 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
-          name: Build eth-rpc
-          command: cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
-          no_output_timeout: 30m
-      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
           name: Copy binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh
-      - run:
-          name: Copy eth-rpc binary to assets
-          command: cp ./target/release/eth-rpc ./assets/eth-rpc-amd64
       ## This has been commented out due to deterministic wasm build step added
       # - run:
       #     name: Copy wasm to assets
@@ -168,18 +161,11 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
-          name: Build eth-rpc
-          command: cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
-          no_output_timeout: 30m
-      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
           name: Copy arm64 binary to assets
           command: cp ./target/release/polymesh ./assets/polymesh-arm64
-      - run:
-          name: Copy arm64 eth-rpc binary to assets
-          command: cp ./target/release/eth-rpc ./assets/eth-rpc-arm64
       - persist_to_workspace:
           root: ./assets
           paths:
@@ -515,9 +501,8 @@ jobs:
           working_directory: ./integration
           no_output_timeout: 30m
   contract-deploy-test-foundry:
-    docker:
-      - image: ghcr.io/foundry-rs/foundry:v1.7.1
-        user: root
+    machine:
+      image: ubuntu-2204:current
     resource_class: medium
     environment:
       VERBOSE: "1"
@@ -532,9 +517,16 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            apt-get update
-            apt-get install -y --no-install-recommends jq
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends jq
             rm -rf /var/lib/apt/lists/*
+      - run:
+          name: Install Foundry
+          command: |
+            curl -L https://foundry.paradigm.xyz | bash
+            ~/.foundry/bin/foundryup
+            echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> "$BASH_ENV"
+            source "$BASH_ENV"
       - run:
           name: Verify Foundry toolchain
           command: |
@@ -553,7 +545,8 @@ jobs:
       - run:
           name: Start eth-rpc
           command: >-
-            ./assets/eth-rpc-amd64 \
+            docker run --rm --name parity-eth-rpc --network host \
+              paritypr/eth-rpc:stable2606-73b734d9 \
               --node-rpc-url ws://127.0.0.1:9944 \
               --rpc-port 8545 --rpc-cors=all
           background: true
@@ -782,55 +775,6 @@ jobs:
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless
           docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless
-  build-docker-eth-rpc-amd64-debian:
-    environment:
-      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc-amd64
-    docker:
-      - image: cimg/deploy:2023.08
-    resource_class: small
-    steps:
-      - checkout
-      - setup_remote_docker
-      - attach_workspace:
-          at: .
-      - run: |
-          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
-          docker build -f ./.docker/eth-rpc/Dockerfile --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
-          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push --all-tags $IMAGE_NAME
-  build-docker-eth-rpc-arm64-debian:
-    environment:
-      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc-arm64
-    machine:
-      image: ubuntu-2004:current
-    resource_class: arm.medium
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run: |
-          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
-          docker build -f ./.docker/eth-rpc/Dockerfile --build-arg ETH_RPC_BIN=eth-rpc-arm64 --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
-          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push --all-tags $IMAGE_NAME
-  build-docker-eth-rpc-debian:
-    environment:
-      IMAGE_NAME: polymeshassociation/polymesh-eth-rpc
-      IMAGE_AMD_NAME: polymeshassociation/polymesh-eth-rpc-amd64
-      IMAGE_ARM_NAME: polymeshassociation/polymesh-eth-rpc-arm64
-    docker:
-      - image: cimg/deploy:2023.08
-    resource_class: small
-    steps:
-      - checkout
-      - setup_remote_docker
-      - run: |
-          export VERSION=`./scripts/version.sh "$CIRCLE_BRANCH" "$CIRCLE_SHA1"`
-          docker manifest create $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:latest-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:latest-$CIRCLE_BRANCH-debian
-          docker manifest create $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_AMD_NAME:$VERSION-$CIRCLE_BRANCH-debian $IMAGE_ARM_NAME:$VERSION-$CIRCLE_BRANCH-debian
-          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker manifest push $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian
-          docker manifest push $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian
   build-docker-rust-debian:
     environment:
       RUST_BASE: 1.75.0
@@ -1055,37 +999,6 @@ workflows:
           requires:
             - build-docker-amd64-distroless
             - build-docker-arm64-distroless
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-eth-rpc-amd64-debian:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-eth-rpc-arm64-debian:
-          requires:
-            - build-arm64
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-eth-rpc-debian:
-          requires:
-            - build-docker-eth-rpc-amd64-debian
-            - build-docker-eth-rpc-arm64-debian
           filters:
             branches:
               only:
