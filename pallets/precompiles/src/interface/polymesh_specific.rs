@@ -1,14 +1,13 @@
 use alloc::vec::Vec;
 
 use frame_support::dispatch::RawOrigin;
-use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
+use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Ext;
 use pallet_revive::precompiles::{AddressMapper, Error};
 
 use pallet_asset::WeightInfo;
 use polymesh_primitives::asset::{AssetHolderKind, AssetId};
 
-use crate::interface::ERR_EXTRINSIC_ERROR;
 use crate::interface::{IPolymeshInterface, IPolymeshInterfaceEvents, PolymeshInterface};
 
 impl<T> PolymeshInterface<T>
@@ -30,15 +29,13 @@ where
         let caller_account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
         let amount = Self::to_balance(call.value)?;
 
-        if let Err(_e) = pallet_asset::Pallet::<T>::issue(
+        if let Err(e) = pallet_asset::Pallet::<T>::issue(
             RawOrigin::Signed(caller_account).into(),
             asset_id,
             amount,
             AssetHolderKind::Account,
         ) {
-            return Err(Error::Revert(Revert {
-                reason: ERR_EXTRINSIC_ERROR.into(),
-            }));
+            return Err(Self::extrinsic_error(e.error));
         }
 
         Self::deposit_event(
@@ -65,15 +62,13 @@ where
         let caller_account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
         let amount = Self::to_balance(call.value)?;
 
-        if let Err(_e) = pallet_asset::Pallet::<T>::redeem(
+        if let Err(e) = pallet_asset::Pallet::<T>::redeem(
             RawOrigin::Signed(caller_account).into(),
             asset_id,
             amount,
             AssetHolderKind::Account,
         ) {
-            return Err(Error::Revert(Revert {
-                reason: ERR_EXTRINSIC_ERROR.into(),
-            }));
+            return Err(Self::extrinsic_error(e));
         }
 
         Self::deposit_event(

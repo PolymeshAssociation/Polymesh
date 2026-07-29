@@ -155,6 +155,22 @@ where
             })
     }
 
+    /// Convert a dispatch error into a revert error that includes the actual error details.
+    pub(crate) fn extrinsic_error(err: impl Into<sp_runtime::DispatchError>) -> Error {
+        let err: sp_runtime::DispatchError = err.into();
+        log::debug!(target: "runtime::precompiles", "Extrinsic call failed: {:?}", err);
+        let reason = match err {
+            sp_runtime::DispatchError::Module(module_err) => match module_err.message {
+                Some(msg) => alloc::format!("{}{}", ERR_EXTRINSIC_ERROR, msg),
+                None => alloc::format!("{}{:?}", ERR_EXTRINSIC_ERROR, module_err),
+            },
+            err => alloc::format!("{}{:?}", ERR_EXTRINSIC_ERROR, err),
+        };
+        Error::Revert(Revert {
+            reason: reason.into(),
+        })
+    }
+
     /// Convert a `U256` value to the balance type [`Balance`].
     pub(crate) fn to_balance(value: alloy::primitives::U256) -> Result<Balance, Error> {
         value.try_into().map_err(|_| {
