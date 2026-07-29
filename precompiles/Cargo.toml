@@ -9,10 +9,10 @@ edition = "2021"
 
 [dependencies]
 # Substrate pallets
-pallet-revive = { workspace = true, default-features = false }
+alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
 
 [features]
 default = ["std"]
 no_std = []
 
-std = ["pallet-revive/std"]
+std = []

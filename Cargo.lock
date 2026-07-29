@@ -10957,7 +10957,7 @@ dependencies = [
 name = "polymesh-precompiles"
 version = "0.0.1"
 dependencies = [
- "pallet-revive",
+ "alloy-core",
 ]
 
 [[package]]

@@ -17,12 +17,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_revive::precompiles::alloy;
-
 // Import the fungible asset interface. Generates:
 //   - `IFungibleAsset::IFungibleAssetCalls` enum
 //   - `IFungibleAsset::IFungibleAssetEvents` enum
-alloy::sol! {
+alloy_core::sol! {
     #[sol(all_derives)]
     "src/interfaces/IFungibleAsset.sol"
 }
