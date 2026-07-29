@@ -23,6 +23,14 @@ sol! {
     "contracts/ISimpleSwap.sol"
 }
 
+sol! {
+    /// The open mint of `TestERC20.sol`, which is not part of [`IERC20`].
+    #[sol(all_derives)]
+    interface ITestERC20 {
+        function mint(address to, uint256 value) external returns (bool);
+    }
+}
+
 /// Which bytecode flavour to deploy.
 ///
 /// The runtime sets `AllowEVMBytecode = true`, so both are accepted. They take
