@@ -107,16 +107,7 @@ macro_rules! misc_pallet_impls {
             type MaxConsumers = frame_support::traits::ConstU32<16>;
             /// The set code logic, just the default since we're not a parachain.
             type SingleBlockMigrations = (
-                UpgradeSessionKeys,
-                RemoveRandomnessCollectiveFlipStorage,
-                MigrateCddServiceProvidersToDidRegistrars,
-                pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-                pallet_im_online::migration::v1::Migration<Runtime>,
-                pallet_offences::migration::v1::MigrateToV1<Runtime>,
-                pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
-                pallet_staking::migrations::v14::MigrateToV14<Runtime>,
-                pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
-                pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
+                polymesh_runtime_common::migration::MigrateGrandpaToV5<Runtime>
             );
             type MultiBlockMigrator = MultiBlockMigrations;
             type PreInherents = ();
@@ -280,69 +271,12 @@ macro_rules! misc_pallet_impls {
         }
 
         impl_opaque_keys! {
-            pub struct OldSessionKeys {
-                pub grandpa: Grandpa,
-                pub babe: Babe,
-                pub im_online: ImOnline,
-                pub authority_discovery: AuthorityDiscovery,
-            }
-        }
-
-        impl_opaque_keys! {
             pub struct SessionKeys {
                 pub grandpa: Grandpa,
                 pub babe: Babe,
                 pub im_online: ImOnline,
                 pub authority_discovery: AuthorityDiscovery,
                 pub beefy: Beefy,
-            }
-        }
-
-        // remove this when removing `OldSessionKeys`
-        fn transform_session_keys(v: polymesh_primitives::AccountId, old: OldSessionKeys) -> SessionKeys {
-            SessionKeys {
-                grandpa: old.grandpa,
-                babe: old.babe,
-                im_online: old.im_online,
-                authority_discovery: old.authority_discovery,
-                beefy: {
-                    // From Session::upgrade_keys():
-                    //
-                    // Care should be taken that the raw versions of the
-                    // added keys are unique for every `ValidatorId, KeyTypeId` combination.
-                    // This is an invariant that the session pallet typically maintains internally.
-                    //
-                    // So, produce a dummy value that's unique for the `ValidatorId, KeyTypeId` combination.
-                    let mut id: BeefyId = sp_core::ecdsa::Public::from_raw([0u8; 33]).into();
-                    let id_raw: &mut [u8] = id.as_mut();
-                    id_raw[1..33].copy_from_slice(v.as_ref());
-                    id_raw[0..4].copy_from_slice(b"beef");
-                    id
-                },
-            }
-        }
-
-        /// Upgrade Session keys to include BEEFY key.
-        /// When this is removed, should also remove `OldSessionKeys`.
-        pub struct UpgradeSessionKeys;
-        impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
-            fn on_runtime_upgrade() -> Weight {
-                Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
-                Perbill::from_percent(50) * polymesh_runtime_common::RuntimeBlockWeights::get().max_block
-            }
-        }
-
-        /// Migrate storage from the old `CddServiceProviders` prefix to the new `DidRegistrars` prefix.
-        /// This is needed because renaming the pallet type alias in the runtime changes the storage prefix.
-        pub struct MigrateCddServiceProvidersToDidRegistrars;
-        impl frame_support::traits::OnRuntimeUpgrade for MigrateCddServiceProvidersToDidRegistrars {
-            fn on_runtime_upgrade() -> Weight {
-                log::info!("Migrating storage: CddServiceProviders -> DidRegistrars");
-                frame_support::storage::migration::move_pallet(
-                    b"CddServiceProviders",
-                    b"DidRegistrars",
-                );
-                Weight::from_parts(100_000_000, 0)
             }
         }
 
@@ -612,17 +546,9 @@ macro_rules! misc_pallet_impls {
             pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
             pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 
-            pub const BridgePalletName: &'static str = "Bridge";
-            pub const RandomnessCollectiveFlipPalletName: &'static str = "RandomnessCollectiveFlip";
-
             pub MbmServiceWeight: Weight =
                 Perbill::from_percent(80) * polymesh_runtime_common::RuntimeBlockWeights::get().max_block;
         }
-
-        type RemoveRandomnessCollectiveFlipStorage = frame_support::migrations::RemovePallet<
-            RandomnessCollectiveFlipPalletName,
-            <Runtime as frame_system::Config>::DbWeight
-        >;
 
         impl pallet_preimage::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
