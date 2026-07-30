@@ -497,10 +497,10 @@ jobs:
       - attach_workspace:
           at: ./assets/ci-runtime
       - run:
-          name: Start a Polymesh ci-runtime dev chain using the previous chain version.
+          name: Start a Polymesh ci-runtime dev chain.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
-              --chain .ci-chain-specs/v7.4.0_2_sec_blocks.json \
+              --dev \
               --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --pool-limit 100000
@@ -510,21 +510,7 @@ jobs:
           command: ./reset_db.sh
           working_directory: ./integration
       - run:
-          name: Run polymesh-api integration tests against the previous version.
-          command: cargo nextest run --release --no-default-features --features previous_release --locked
-          working_directory: ./integration
-          no_output_timeout: 30m
-      - run:
-          name: Upgrade chain to current version.
-          command: cargo run --no-default-features --features previous_release --locked --bin tools -- upgrade_chain ../assets/ci-runtime/polymesh_runtime_develop.compact.compressed.wasm
-          working_directory: ./integration
-          no_output_timeout: 30m
-      - run:
-          name: Clear polymesh-api to force re-compile (chain metadata might have changed).
-          command: cargo clean -p polymesh-api && cargo clean --release -p polymesh-api
-          working_directory: ./integration
-      - run:
-          name: Run polymesh-api integration tests against the upgraded chain.
+          name: Run polymesh-api integration tests.
           command: cargo nextest run --release --features current_release --locked
           working_directory: ./integration
           no_output_timeout: 30m

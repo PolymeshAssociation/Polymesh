@@ -80,47 +80,6 @@ pub trait WeightInfo {
     fn set_commission_cap(n: u32) -> Weight;
 }
 
-mod migrations {
-    use super::*;
-    use frame_support::traits::{Get, GetStorageVersion};
-
-    pub fn migrate_v1<T: Config>() -> Weight {
-        let in_code = Pallet::<T>::in_code_storage_version();
-        let on_chain = Pallet::<T>::on_chain_storage_version();
-
-        if on_chain == 1 && in_code == 1 {
-            let old_pallet = b"Staking";
-            let new_pallet = Pallet::<T>::name().as_bytes();
-            // Move: PermissionedIdentity
-            frame_support::storage::migration::move_storage_from_pallet(
-                b"PermissionedIdentity",
-                old_pallet,
-                new_pallet,
-            );
-            // Move: SlashingAllowedFor
-            frame_support::storage::migration::move_storage_from_pallet(
-                b"SlashingAllowedFor",
-                old_pallet,
-                new_pallet,
-            );
-            // Move: ValidatorCommissionCap
-            frame_support::storage::migration::move_storage_from_pallet(
-                b"ValidatorCommissionCap",
-                old_pallet,
-                new_pallet,
-            );
-            in_code.put::<Pallet<T>>();
-
-            log::info!(
-                target: crate::LOG_TARGET,
-                "Moved some storage from pallet Staking to pallet Validators",
-            );
-            return T::DbWeight::get().reads_writes(3, 3);
-        }
-        Weight::zero()
-    }
-}
-
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -302,10 +261,6 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            migrations::migrate_v1::<T>()
-        }
-
         fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
             Self::payouts()
         }

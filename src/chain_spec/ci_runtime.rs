@@ -32,7 +32,7 @@ fn dev_chain_spec(code: &[u8]) -> ChainSpec {
 
     let root_key = seeded_acc_id("Alice");
 
-    let genesis_json_config = ci_genesis_config(initial_authorities, root_key);
+    let genesis_json_config = ci_genesis_config(initial_authorities, root_key, true);
 
     ChainSpec::builder(code, Default::default())
         .with_name("Polymesh CI Develop")
@@ -53,7 +53,7 @@ fn local_chain_spec(code: &[u8]) -> ChainSpec {
 
     let root_key = seeded_acc_id("Alice");
 
-    let genesis_json_config = ci_genesis_config(initial_authorities, root_key);
+    let genesis_json_config = ci_genesis_config(initial_authorities, root_key, false);
 
     ChainSpec::builder(code, Default::default())
         .with_name("Polymesh CI Local")
@@ -67,9 +67,16 @@ fn local_chain_spec(code: &[u8]) -> ChainSpec {
 fn ci_genesis_config(
     initial_authorities: Vec<InitialAuth>,
     root_key: AccountId,
+    fund_root: bool,
 ) -> serde_json::Value {
-    let genesis_data =
-        crate::chain_spec::develop_runtime::genesis_data(&initial_authorities, &[root_key.clone()]);
+    let mut other_fund_accounts = Vec::new();
+    if fund_root {
+        other_fund_accounts.push(root_key.clone());
+    }
+    let genesis_data = crate::chain_spec::develop_runtime::genesis_data(
+        &initial_authorities,
+        &other_fund_accounts,
+    );
 
     let session_keys = crate::chain_spec::develop_runtime::session_keys(&initial_authorities);
 

@@ -228,7 +228,6 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::{ValueQuery, *};
-    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:
@@ -442,13 +441,6 @@ pub mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StorageVersion::<T>::put(Version::new(1));
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            Weight::zero()
         }
     }
 

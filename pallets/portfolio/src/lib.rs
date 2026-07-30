@@ -101,8 +101,6 @@ pub trait WeightInfo {
 
 pub use pallet::*;
 
-mod migrations;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -212,18 +210,6 @@ pub mod pallet {
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            if Pallet::<T>::on_chain_storage_version() < STORAGE_VERSION {
-                let weight = migrations::migrate_to_v4::<T>();
-                STORAGE_VERSION.put::<Pallet<T>>();
-                return weight;
-            }
-            Weight::zero()
-        }
-    }
 
     /// The next portfolio sequence number of an identity.
     #[pallet::storage]

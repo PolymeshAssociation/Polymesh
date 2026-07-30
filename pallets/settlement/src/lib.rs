@@ -106,8 +106,6 @@ type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
 // Move imports to pallet module
 pub use pallet::*;
 
-mod migrations;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -803,19 +801,6 @@ pub mod pallet {
             VenueCounter::<T>::put(VenueId(1));
             InstructionCounter::<T>::put(InstructionId(1));
             STORAGE_VERSION.put::<Pallet<T>>();
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            if Pallet::<T>::on_chain_storage_version() < Pallet::<T>::in_code_storage_version() {
-                let weight = migrations::migrate_to_v4::<T>();
-                STORAGE_VERSION.put::<Pallet<T>>();
-                return weight;
-            }
-
-            Weight::zero()
         }
     }
 

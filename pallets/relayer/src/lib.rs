@@ -234,37 +234,6 @@ pub mod pallet {
     pub type RelayTxNonces<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
 
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
-            if Pallet::<T>::on_chain_storage_version() < Pallet::<T>::in_code_storage_version() {
-                let mut count = 0u64;
-                // Remove account key ref counts for all paying keys and user keys in Subsidies.
-                for (user_key, subsidy) in Subsidies::<T>::iter() {
-                    count += 1;
-                    // Decrease paying key usage.
-                    pallet_identity::Pallet::<T>::remove_account_key_ref_count(&subsidy.paying_key);
-                    // Decrease user key usage.
-                    pallet_identity::Pallet::<T>::remove_account_key_ref_count(&user_key);
-                }
-
-                log::info!(
-                    target: "relayer",
-                    "Relayer storage migration: removed {} account key refs",
-                    count * 2
-                );
-                STORAGE_VERSION.put::<Pallet<T>>();
-                let db_weight = DbWeight::get();
-                db_weight
-                    .reads(count * 3)
-                    .saturating_add(db_weight.writes(count * 2))
-            } else {
-                Weight::zero()
-            }
-        }
-    }
-
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Approve a subsidy for a `user_key`.
