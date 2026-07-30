@@ -18,6 +18,7 @@ use codec::Encode;
 
 use frame_support::dispatch::RawOrigin;
 use frame_support::traits::Get;
+use frame_support::weights::Weight;
 use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
 use pallet_revive::precompiles::Ext;
 use pallet_revive::precompiles::{AddressMapper, Error};
@@ -29,10 +30,10 @@ use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
-use polymesh_primitives::{AccountId as AccountId32, AssetHolder};
+use polymesh_primitives::{AccountId as AccountId32, AssetHolder, WeightMeter};
 
 use crate::interface::FungibleAssetInterface;
-use crate::interface::ERR_ASSET_NOT_FOUND;
+use crate::interface::{ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::interface::{ERR_INVALID_ACCOUNT_ID, ERR_INVALID_ASSET_NAME};
 
 impl<T> FungibleAssetInterface<T>
@@ -57,37 +58,54 @@ where
             },
             None,
         );
-        env.charge(
-            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(None, &fund),
-        )?;
+
+        let worst_case_weight =
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(None, &fund);
+        let charged_amount = env.charge(worst_case_weight)?;
 
         // Calls the `base_transfer_asset` function from the pallet_asset
         let caller = Self::caller(env)?;
         let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
 
-        if let Err(e) = pallet_asset::Pallet::<T>::base_transfer_asset(
-            RawOrigin::Signed(from).into(),
-            asset_id,
-            <T as pallet_revive::Config>::AddressMapper::to_account_id(
-                &call.to.into_array().into(),
-            ),
-            amount,
-            None,
-            #[cfg(feature = "runtime-benchmarks")]
-            false,
-        ) {
-            return Err(Self::extrinsic_error(e.error));
-        }
+        let to = call.to.into_array().into();
+        let to = <T as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
-        Self::deposit_event(
-            env,
-            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
-                from: caller.0.into(),
-                to: call.to,
-                value: call.value,
-            }),
-        )?;
-        Ok(IFungibleAsset::transferCall::abi_encode_returns(&true))
+        let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
+
+        match <T as pallet_asset::Config>::SettlementFn::transfer_funds(
+            RawOrigin::Signed(from).into(),
+            None,
+            AssetHolder::try_from(to.encode()).map_err(|_| {
+                Error::Revert(Revert {
+                    reason: ERR_INVALID_ACCOUNT_ID.into(),
+                })
+            })?,
+            fund,
+            &mut weight_meter,
+        ) {
+            Err(e) => return Err(Self::extrinsic_error(e)),
+            Ok(inst_id) => {
+                env.adjust_gas(charged_amount, weight_meter.consumed());
+
+                // Instruction was created but not executed
+                if let Some(_) = inst_id {
+                    return Err(Error::Revert(Revert {
+                        reason: ERR_INST_NOT_EXECUTED.into(),
+                    }));
+                }
+
+                Self::deposit_event(
+                    env,
+                    IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
+                        from: caller.0.into(),
+                        to: call.to,
+                        value: call.value,
+                    }),
+                )?;
+
+                Ok(IFungibleAsset::transferCall::abi_encode_returns(&true))
+            }
+        }
     }
 
     /// Returns the value of tokens in existence.
@@ -204,41 +222,55 @@ where
             None,
         );
 
-        env.charge(pallet_settlement::Pallet::<T>::transfer_funds_weight_limit(
-            Some(&from),
-            &fund,
-        ))?;
+        let worst_case_weight =
+            <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(
+                Some(&from),
+                &fund,
+            );
+        let charged_amount = env.charge(worst_case_weight)?;
 
         let spender = Self::caller(env)?;
         let spender = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
         let to = call.to.into_array().into();
         let to = <T as pallet_revive::Config>::AddressMapper::to_account_id(&to);
-        let to = AssetHolder::try_from(to.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
 
-        if let Err(e) = pallet_settlement::Pallet::<T>::transfer_funds(
+        let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
+
+        match <T as pallet_asset::Config>::SettlementFn::transfer_funds(
             RawOrigin::Signed(spender).into(),
-            Some(from),
-            AssetHolder::from(to.clone()),
+            Some(from.clone()),
+            AssetHolder::try_from(to.encode()).map_err(|_| {
+                Error::Revert(Revert {
+                    reason: ERR_INVALID_ACCOUNT_ID.into(),
+                })
+            })?,
             fund,
+            &mut weight_meter,
         ) {
-            return Err(Self::extrinsic_error(e.error));
+            Err(e) => return Err(Self::extrinsic_error(e)),
+            Ok(inst_id) => {
+                env.adjust_gas(charged_amount, weight_meter.consumed());
+
+                // Instruction was created but not executed
+                if let Some(_) = inst_id {
+                    return Err(Error::Revert(Revert {
+                        reason: ERR_INST_NOT_EXECUTED.into(),
+                    }));
+                }
+
+                Self::deposit_event(
+                    env,
+                    IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
+                        from: call.from,
+                        to: call.to,
+                        value: call.value,
+                    }),
+                )?;
+
+                Ok(IFungibleAsset::transferFromCall::abi_encode_returns(&true))
+            }
         }
-
-        Self::deposit_event(
-            env,
-            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
-                from: call.from,
-                to: call.to,
-                value: call.value,
-            }),
-        )?;
-
-        Ok(IFungibleAsset::transferFromCall::abi_encode_returns(&true))
     }
 
     // ==================== ERC20Permit Functions (EIP-2612) ====================
