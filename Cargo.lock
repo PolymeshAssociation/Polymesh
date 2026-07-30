@@ -9138,6 +9138,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-asset",
+ "pallet-revive",
+ "pallet-settlement",
+ "parity-scale-codec",
+ "polymesh-precompiles",
+ "polymesh-primitives",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-transaction-pool",
+]
+
+[[package]]
 name = "pallet-preimage"
 version = "46.0.0"
 source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-4#f4d81a072c09c9a4e67a73fd35409d674e86b41a"
@@ -10730,6 +10753,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-native-crypto",
  "polymesh-node-rpc",
+ "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
@@ -10931,24 +10955,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-precompiles"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
- "frame-support",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-asset",
- "pallet-revive",
- "pallet-settlement",
- "parity-scale-codec",
- "polymesh-primitives",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-transaction-pool",
+ "alloy-core",
 ]
 
 [[package]]
@@ -11067,6 +11076,7 @@ dependencies = [
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
+ "pallet-precompiles",
  "pallet-preimage",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
@@ -11090,7 +11100,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
- "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11156,6 +11165,7 @@ dependencies = [
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
+ "pallet-precompiles",
  "pallet-preimage",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
@@ -11176,7 +11186,6 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-build-tool",
- "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11245,6 +11254,7 @@ dependencies = [
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
+ "pallet-precompiles",
  "pallet-preimage",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
@@ -11266,7 +11276,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
- "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-transaction-payment",
@@ -11336,6 +11345,7 @@ dependencies = [
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
+ "pallet-precompiles",
  "pallet-preimage",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
@@ -11357,7 +11367,6 @@ dependencies = [
  "pallet-validators",
  "parity-scale-codec",
  "polymesh-exec-macro",
- "polymesh-precompiles",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",

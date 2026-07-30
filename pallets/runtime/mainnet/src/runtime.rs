@@ -175,6 +175,9 @@ parameter_types! {
     pub const UnsignedPhase: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 }
 
+// Precompiles
+type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
+
 // Staking
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'_> = curve!(

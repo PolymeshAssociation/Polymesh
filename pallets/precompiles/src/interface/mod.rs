@@ -27,20 +27,12 @@ use pallet_revive::precompiles::{alloy, AddressMatcher, Ext, Precompile};
 use pallet_revive::precompiles::{AddressMapper, Error, RuntimeCosts, H256};
 use pallet_revive::H160;
 
+use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::Balance;
 
 mod erc20;
 mod polymesh_specific;
-
-// Import the Solidity interface. Generates:
-//   - `IPolymeshInterface::IPolymeshInterfaceCalls` enum
-alloy::sol! {
-    #[sol(all_derives)]
-    "src/interface/IPolymeshInterface.sol"
-}
-
-use IPolymeshInterface::{IPolymeshInterfaceCalls, IPolymeshInterfaceEvents};
 
 // ==================== Error Messages ====================
 pub(crate) const ERR_INVALID_CALLER: &str = "Invalid caller";
@@ -52,9 +44,9 @@ pub(crate) const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
 // ========================================================
 
 /// All precompile calls exposed by the Polymesh runtime.
-pub struct PolymeshInterface<T>(PhantomData<T>);
+pub struct FungibleAssetInterface<T>(PhantomData<T>);
 
-impl<T> Precompile for PolymeshInterface<T>
+impl<T> Precompile for FungibleAssetInterface<T>
 where
     T: pallet_revive::Config
         + pallet_asset::Config
@@ -62,7 +54,7 @@ where
         + pallet_settlement::Config,
 {
     type T = T;
-    type Interface = IPolymeshInterface::IPolymeshInterfaceCalls;
+    type Interface = IFungibleAssetCalls;
 
     const MATCHER: AddressMatcher = AddressMatcher::Prefix(NonZero::new(8).unwrap());
     const HAS_CONTRACT_INFO: bool = false;
@@ -82,12 +74,12 @@ where
 
         match input {
             // State-changing calls - check read-only
-            IPolymeshInterfaceCalls::transfer(_)
-            | IPolymeshInterfaceCalls::mint(_)
-            | IPolymeshInterfaceCalls::approve(_)
-            | IPolymeshInterfaceCalls::transferFrom(_)
-            | IPolymeshInterfaceCalls::burn(_)
-            | IPolymeshInterfaceCalls::permit(_)
+            IFungibleAssetCalls::transfer(_)
+            | IFungibleAssetCalls::mint(_)
+            | IFungibleAssetCalls::approve(_)
+            | IFungibleAssetCalls::transferFrom(_)
+            | IFungibleAssetCalls::burn(_)
+            | IFungibleAssetCalls::permit(_)
                 if env.is_read_only() =>
             {
                 Err(Error::Error(
@@ -96,35 +88,33 @@ where
             }
 
             // ERC20 functions
-            IPolymeshInterfaceCalls::transfer(call) => Self::transfer(asset_id, call, env),
-            IPolymeshInterfaceCalls::totalSupply(_) => Self::total_supply(asset_id, env),
-            IPolymeshInterfaceCalls::balanceOf(call) => Self::balance_of(asset_id, call, env),
-            IPolymeshInterfaceCalls::allowance(call) => Self::allowance(asset_id, call, env),
-            IPolymeshInterfaceCalls::approve(call) => Self::approve(asset_id, call, env),
-            IPolymeshInterfaceCalls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+            IFungibleAssetCalls::transfer(call) => Self::transfer(asset_id, call, env),
+            IFungibleAssetCalls::totalSupply(_) => Self::total_supply(asset_id, env),
+            IFungibleAssetCalls::balanceOf(call) => Self::balance_of(asset_id, call, env),
+            IFungibleAssetCalls::allowance(call) => Self::allowance(asset_id, call, env),
+            IFungibleAssetCalls::approve(call) => Self::approve(asset_id, call, env),
+            IFungibleAssetCalls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
 
             // ERC20Permit functions (EIP-2612)
-            IPolymeshInterfaceCalls::permit(call) => {
-                Self::permit(asset_id, contract_addr, call, env)
-            }
-            IPolymeshInterfaceCalls::nonces(call) => Self::nonces(contract_addr, call, env),
-            IPolymeshInterfaceCalls::DOMAIN_SEPARATOR(_) => {
+            IFungibleAssetCalls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
+            IFungibleAssetCalls::nonces(call) => Self::nonces(contract_addr, call, env),
+            IFungibleAssetCalls::DOMAIN_SEPARATOR(_) => {
                 Self::domain_separator(asset_id, contract_addr, env)
             }
 
             // ERC20Metadata functions
-            IPolymeshInterfaceCalls::name(_) => Self::name(asset_id, env),
-            IPolymeshInterfaceCalls::symbol(_) => Self::symbol(asset_id, env),
-            IPolymeshInterfaceCalls::decimals(_) => Self::decimals(asset_id, env),
+            IFungibleAssetCalls::name(_) => Self::name(asset_id, env),
+            IFungibleAssetCalls::symbol(_) => Self::symbol(asset_id, env),
+            IFungibleAssetCalls::decimals(_) => Self::decimals(asset_id, env),
 
             // Polymesh-specific functions
-            IPolymeshInterfaceCalls::mint(call) => Self::issue(asset_id, call, env),
-            IPolymeshInterfaceCalls::burn(call) => Self::redeem(asset_id, call, env),
+            IFungibleAssetCalls::mint(call) => Self::issue(asset_id, call, env),
+            IFungibleAssetCalls::burn(call) => Self::redeem(asset_id, call, env),
         }
     }
 }
 
-impl<T> PolymeshInterface<T>
+impl<T> FungibleAssetInterface<T>
 where
     T: pallet_revive::Config
         + pallet_asset::Config
@@ -192,7 +182,7 @@ where
     /// Deposit an event to the runtime.
     pub(crate) fn deposit_event(
         env: &mut impl Ext<T = T>,
-        event: IPolymeshInterfaceEvents,
+        event: IFungibleAssetEvents,
     ) -> Result<(), Error> {
         let (topics, data) = event.into_log_data().split();
         let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();

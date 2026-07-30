@@ -177,13 +177,14 @@ pallet-statistics = { path = "pallets/statistics", default-features = false }
 polymesh-transaction-payment = { path = "pallets/transaction-payment", default-features = false }
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
-polymesh-precompiles = { path = "pallets/precompiles", default-features = false }
+pallet-precompiles = { path = "pallets/precompiles", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-primitives-derive = { path = "primitives_derive", default-features = false }
 polymesh-weights = { path = "pallets/weights/", default-features = false }
+polymesh-precompiles = { path = "precompiles", default-features = false}
 
 # RPC
 node-rpc = { path = "rpc", default-features = false }
@@ -214,7 +215,7 @@ bounded-collections = { version = "0.3.2", default-features = false }
 hex-literal = { version = "1.1.0", default-features = false }
 
 # Substrate pallet/runtime deps.
-ethereum-standards = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
+alloy-core = { version = "1.2.1", default-features = false }
 frame-benchmarking = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
 frame-executive = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
@@ -365,6 +366,7 @@ pallet-pips = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false }
 pallet-validators = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
+polymesh-precompiles = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
@@ -394,10 +396,7 @@ polymesh-runtime-testnet = { workspace = true }
 futures = "0.3.21"
 jsonrpsee = { version = "0.24.9", features = ["server"] }
 log = "0.4"
-serde = { version = "1.0.136", default-features = false, features = [
-    "alloc",
-    "derive",
-] }
+serde = { version = "1.0.136", default-features = false, features = ["alloc","derive"] }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"

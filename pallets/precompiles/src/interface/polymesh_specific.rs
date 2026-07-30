@@ -6,11 +6,12 @@ use pallet_revive::precompiles::Ext;
 use pallet_revive::precompiles::{AddressMapper, Error};
 
 use pallet_asset::WeightInfo;
+use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::{AssetHolderKind, AssetId};
 
-use crate::interface::{IPolymeshInterface, IPolymeshInterfaceEvents, PolymeshInterface};
+use crate::interface::FungibleAssetInterface;
 
-impl<T> PolymeshInterface<T>
+impl<T> FungibleAssetInterface<T>
 where
     T: pallet_revive::Config
         + pallet_asset::Config
@@ -20,7 +21,7 @@ where
     /// Mints a `value` amount of tokens to the caller's account.
     pub(crate) fn issue(
         asset_id: AssetId,
-        call: &IPolymeshInterface::mintCall,
+        call: &IFungibleAsset::mintCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::issue())?;
@@ -40,20 +41,20 @@ where
 
         Self::deposit_event(
             env,
-            IPolymeshInterfaceEvents::Transfer(IPolymeshInterface::Transfer {
+            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
                 from: [0u8; 20].into(),
                 to: caller.0.into(),
                 value: call.value,
             }),
         )?;
 
-        Ok(IPolymeshInterface::mintCall::abi_encode_returns(&true))
+        Ok(IFungibleAsset::mintCall::abi_encode_returns(&true))
     }
 
     /// Redeems a `value` amount of tokens from the caller's account.
     pub(crate) fn redeem(
         asset_id: AssetId,
-        call: &IPolymeshInterface::burnCall,
+        call: &IFungibleAsset::burnCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::redeem())?;
@@ -73,13 +74,13 @@ where
 
         Self::deposit_event(
             env,
-            IPolymeshInterfaceEvents::Transfer(IPolymeshInterface::Transfer {
+            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
                 from: caller.0.into(),
                 to: [0u8; 20].into(),
                 value: call.value,
             }),
         )?;
 
-        Ok(IPolymeshInterface::burnCall::abi_encode_returns(&true))
+        Ok(IFungibleAsset::burnCall::abi_encode_returns(&true))
     }
 }

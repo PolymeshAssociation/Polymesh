@@ -422,6 +422,9 @@ mod runtime {
 
 polymesh_runtime_common::runtime_apis! {}
 
+// Precompiles
+type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
+
 #[derive(Copy, Clone)]
 pub struct User {
     /// The `ring` of the `User` used to derive account related data,

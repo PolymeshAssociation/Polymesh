@@ -25,16 +25,17 @@ use pallet_revive::H160;
 
 use pallet_asset::AssetIdTicker;
 use pallet_asset::{Allowances, AssetBalance, AssetNames, WeightInfo};
+use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::{AccountId as AccountId32, AssetHolder};
 
+use crate::interface::FungibleAssetInterface;
 use crate::interface::ERR_ASSET_NOT_FOUND;
-use crate::interface::{IPolymeshInterface, IPolymeshInterfaceEvents, PolymeshInterface};
 use crate::interface::{ERR_INVALID_ACCOUNT_ID, ERR_INVALID_ASSET_NAME};
 
-impl<T> PolymeshInterface<T>
+impl<T> FungibleAssetInterface<T>
 where
     T: pallet_revive::Config
         + pallet_asset::Config
@@ -44,7 +45,7 @@ where
     /// Moves a `value` amount of tokens from the caller’s account to `to`.
     pub(crate) fn transfer(
         asset_id: AssetId,
-        call: &IPolymeshInterface::transferCall,
+        call: &IFungibleAsset::transferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         // Converts `value` and charges the weight for the transfer_asset call
@@ -80,13 +81,13 @@ where
 
         Self::deposit_event(
             env,
-            IPolymeshInterfaceEvents::Transfer(IPolymeshInterface::Transfer {
+            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
                 from: caller.0.into(),
                 to: call.to,
                 value: call.value,
             }),
         )?;
-        Ok(IPolymeshInterface::transferCall::abi_encode_returns(&true))
+        Ok(IFungibleAsset::transferCall::abi_encode_returns(&true))
     }
 
     /// Returns the value of tokens in existence.
@@ -104,15 +105,13 @@ where
             })?;
 
         let value = Self::to_u256(asset_details.total_supply)?;
-        Ok(IPolymeshInterface::totalSupplyCall::abi_encode_returns(
-            &value,
-        ))
+        Ok(IFungibleAsset::totalSupplyCall::abi_encode_returns(&value))
     }
 
     /// Returns the value of tokens owned by account.
     pub(crate) fn balance_of(
         asset_id: AssetId,
-        call: &IPolymeshInterface::balanceOfCall,
+        call: &IFungibleAsset::balanceOfCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(T::DbWeight::get().reads(1))?;
@@ -127,15 +126,13 @@ where
 
         let acc_balance = AssetBalance::<T>::get(&AccountId32::from(account_id), &asset_id);
         let value = Self::to_u256(acc_balance)?;
-        Ok(IPolymeshInterface::balanceOfCall::abi_encode_returns(
-            &value,
-        ))
+        Ok(IFungibleAsset::balanceOfCall::abi_encode_returns(&value))
     }
 
     /// Returns the remaining number of tokens that spender will be allowed to spend on behalf of owner through {transferFrom}.
     pub(crate) fn allowance(
         asset_id: AssetId,
-        call: &IPolymeshInterface::allowanceCall,
+        call: &IFungibleAsset::allowanceCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(T::DbWeight::get().reads(1))?;
@@ -148,15 +145,13 @@ where
 
         let allowance = Allowances::<T>::get((&owner, &spender, &asset_id));
         let value = Self::to_u256(allowance)?;
-        Ok(IPolymeshInterface::allowanceCall::abi_encode_returns(
-            &value,
-        ))
+        Ok(IFungibleAsset::allowanceCall::abi_encode_returns(&value))
     }
 
     /// Sets a value amount of tokens as the allowance of spender over the caller’s tokens.
     pub(crate) fn approve(
         asset_id: AssetId,
-        call: &IPolymeshInterface::approveCall,
+        call: &IFungibleAsset::approveCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::approve())?;
@@ -177,20 +172,20 @@ where
 
         Self::deposit_event(
             env,
-            IPolymeshInterfaceEvents::Approval(IPolymeshInterface::Approval {
+            IFungibleAssetEvents::Approval(IFungibleAsset::Approval {
                 owner: owner.0.into(),
                 spender: call.spender,
                 value: call.value,
             }),
         )?;
 
-        Ok(IPolymeshInterface::approveCall::abi_encode_returns(&true))
+        Ok(IFungibleAsset::approveCall::abi_encode_returns(&true))
     }
 
     /// Moves a value amount of tokens from from to to using the allowance mechanism.
     pub(crate) fn transfer_from(
         asset_id: AssetId,
-        call: &IPolymeshInterface::transferFromCall,
+        call: &IFungibleAsset::transferFromCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let from = call.from.into_array().into();
@@ -236,16 +231,14 @@ where
 
         Self::deposit_event(
             env,
-            IPolymeshInterfaceEvents::Transfer(IPolymeshInterface::Transfer {
+            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
                 from: call.from,
                 to: call.to,
                 value: call.value,
             }),
         )?;
 
-        Ok(IPolymeshInterface::transferFromCall::abi_encode_returns(
-            &true,
-        ))
+        Ok(IFungibleAsset::transferFromCall::abi_encode_returns(&true))
     }
 
     // ==================== ERC20Permit Functions (EIP-2612) ====================
@@ -254,7 +247,7 @@ where
     pub(crate) fn permit(
         _asset_id: AssetId,
         _verifying_contract: H160,
-        _call: &IPolymeshInterface::permitCall,
+        _call: &IFungibleAsset::permitCall,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         log::warn!("ERC20permitPermit is not implemented yet");
@@ -266,7 +259,7 @@ where
     /// Get the current nonce for an owner address.
     pub(crate) fn nonces(
         _verifying_contract: H160,
-        _call: &IPolymeshInterface::noncesCall,
+        _call: &IFungibleAsset::noncesCall,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         log::warn!("nonces is not implemented yet");
@@ -298,7 +291,7 @@ where
             })
         })?;
 
-        Ok(IPolymeshInterface::nameCall::abi_encode_returns(&name))
+        Ok(IFungibleAsset::nameCall::abi_encode_returns(&name))
     }
 
     /// Returns the symbol of the token.
@@ -312,7 +305,7 @@ where
             })
         })?;
 
-        Ok(IPolymeshInterface::symbolCall::abi_encode_returns(&ticker))
+        Ok(IFungibleAsset::symbolCall::abi_encode_returns(&ticker))
     }
 
     /// Returns the decimals places of the token
@@ -320,6 +313,6 @@ where
         _asset_id: AssetId,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        Ok(IPolymeshInterface::decimalsCall::abi_encode_returns(&6))
+        Ok(IFungibleAsset::decimalsCall::abi_encode_returns(&6))
     }
 }
