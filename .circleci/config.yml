@@ -500,7 +500,7 @@ jobs:
           name: Start a Polymesh ci-runtime dev chain.
           command: >-
             ./assets/ci-runtime/polymesh --bob \
-              -- dev \
+              --dev \
               --unsafe-force-node-key-generation \
               --no-prometheus --no-telemetry --tmp \
               --pool-limit 100000
@@ -511,7 +511,7 @@ jobs:
           working_directory: ./integration
       - run:
           name: Run polymesh-api integration tests.
-          command: cargo nextest run --release --no-default-features --features current_release --locked
+          command: cargo nextest run --release --features current_release --locked
           working_directory: ./integration
           no_output_timeout: 30m
   contract-deploy-test-foundry:
