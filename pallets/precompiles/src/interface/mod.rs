@@ -41,7 +41,15 @@ pub(crate) const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub(crate) const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub(crate) const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
-pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
+/// Returned when a transfer could not settle synchronously, because the receiver has opted into
+/// mandatory affirmation or the asset has mandatory mediators. ERC-20 requires "success implies
+/// moved", so the whole call is reverted rather than leaving a pending settlement instruction.
+///
+/// This is a stable sentinel: callers may match on it to distinguish a deferred transfer from a
+/// compliance rejection. It cannot be a typed Solidity error today — `pallet_revive`'s precompile
+/// API only encodes `Error(string)` and `Panic(uint256)` reverts.
+pub(crate) const ERR_INST_NOT_EXECUTED: &str =
+    "TransferDeferred: receiver affirmation or mediator required";
 // ========================================================
 
 /// All precompile calls exposed by the Polymesh runtime.

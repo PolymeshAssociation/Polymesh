@@ -63,7 +63,7 @@ where
             <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(None, &fund);
         let charged_amount = env.charge(worst_case_weight)?;
 
-        // Calls the `base_transfer_asset` function from the pallet_asset
+        // Routes through settlement so the immediate-vs-deferred outcome is visible below.
         let caller = Self::caller(env)?;
         let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
 
@@ -82,13 +82,15 @@ where
             })?,
             fund,
             &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            false,
         ) {
             Err(e) => return Err(Self::extrinsic_error(e)),
             Ok(inst_id) => {
                 env.adjust_gas(charged_amount, weight_meter.consumed());
 
                 // Instruction was created but not executed
-                if let Some(_) = inst_id {
+                if inst_id.is_some() {
                     return Err(Error::Revert(Revert {
                         reason: ERR_INST_NOT_EXECUTED.into(),
                     }));
@@ -239,7 +241,7 @@ where
 
         match <T as pallet_asset::Config>::SettlementFn::transfer_funds(
             RawOrigin::Signed(spender).into(),
-            Some(from.clone()),
+            Some(from),
             AssetHolder::try_from(to.encode()).map_err(|_| {
                 Error::Revert(Revert {
                     reason: ERR_INVALID_ACCOUNT_ID.into(),
@@ -247,13 +249,15 @@ where
             })?,
             fund,
             &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            false,
         ) {
             Err(e) => return Err(Self::extrinsic_error(e)),
             Ok(inst_id) => {
                 env.adjust_gas(charged_amount, weight_meter.consumed());
 
                 // Instruction was created but not executed
-                if let Some(_) = inst_id {
+                if inst_id.is_some() {
                     return Err(Error::Revert(Revert {
                         reason: ERR_INST_NOT_EXECUTED.into(),
                     }));
