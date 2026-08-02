@@ -236,7 +236,11 @@ impl EthWallet {
     ///
     /// A DID is required before the account can hold Polymesh assets, and the
     /// POLYX pays for gas and storage deposits.
-    pub async fn onboard(&mut self, tester: &mut PolymeshTester, polyx: u128) -> Result<IdentityId> {
+    pub async fn onboard(
+        &mut self,
+        tester: &mut PolymeshTester,
+        polyx: u128,
+    ) -> Result<IdentityId> {
         let did = onboard_account(tester, self.account(), polyx).await?;
         self.did = Some(did);
         Ok(did)
@@ -282,7 +286,9 @@ impl EthWallet {
         ctor_args: Vec<u8>,
     ) -> Result<Address> {
         let receipt = self
-            .send(TransactionRequest::default().with_deploy_code(contract.init_code(kind, ctor_args)))
+            .send(
+                TransactionRequest::default().with_deploy_code(contract.init_code(kind, ctor_args)),
+            )
             .await?;
         receipt
             .contract_address
@@ -349,4 +355,3 @@ impl ContractCaller for EthWallet {
             .collect())
     }
 }
-

@@ -61,7 +61,12 @@ pub fn unique_ticker(prefix: &str) -> Ticker {
 
 /// Registers `ticker` and links it to `asset_id`, so that the ERC-20 `symbol()`
 /// method returns it.
-pub async fn link_ticker(api: &Api, owner: &mut User, asset_id: AssetId, ticker: Ticker) -> Result<()> {
+pub async fn link_ticker(
+    api: &Api,
+    owner: &mut User,
+    asset_id: AssetId,
+    ticker: Ticker,
+) -> Result<()> {
     api.call()
         .asset()
         .register_unique_ticker(ticker.clone())?

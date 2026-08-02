@@ -110,7 +110,12 @@ async fn cross_style_calls() -> Result<()> {
     .await?;
     let sub_address = to_eth_address(&sub_contract.address);
     wallet
-        .call(sub_address, &ICounter::setNumberCall { newValue: U256::from(100) })
+        .call(
+            sub_address,
+            &ICounter::setNumberCall {
+                newValue: U256::from(100),
+            },
+        )
         .await?;
     assert_eq!(
         node.call(sub_address, &ICounter::numberCall {}).await?,
@@ -118,12 +123,16 @@ async fn cross_style_calls() -> Result<()> {
     );
 
     // Deployed from Ethereum, called from Substrate.
-    let eth_address = wallet.deploy(&COUNTER, CodeKind::Evm, ctor::counter(0)).await?;
+    let eth_address = wallet
+        .deploy(&COUNTER, CodeKind::Evm, ctor::counter(0))
+        .await?;
     let eth_contract = Contract::new(&api, to_h160(&eth_address));
     eth_contract
         .call(
             &mut users[0],
-            &ICounter::setNumberCall { newValue: U256::from(200) },
+            &ICounter::setNumberCall {
+                newValue: U256::from(200),
+            },
         )
         .await?;
     assert_eq!(

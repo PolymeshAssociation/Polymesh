@@ -102,10 +102,7 @@ async fn native_swap(kind: CodeKind, eth_trader: bool) -> Result<()> {
         TRADER_FUNDS - SWAP_IN
     );
     assert_eq!(erc20_b.balance_of(trader_address).await?, amount_out);
-    assert_eq!(
-        swap.liquidity().await?,
-        (SWAP_IN, LIQUIDITY - amount_out)
-    );
+    assert_eq!(swap.liquidity().await?, (SWAP_IN, LIQUIDITY - amount_out));
     // The allowance was spent by the contract.
     assert_eq!(erc20_a.allowance(trader_address, swap.address).await?, 0);
 
@@ -135,7 +132,9 @@ async fn native_swap_from_eth_wallet() -> Result<()> {
 #[test_log::test]
 async fn native_to_solidity_swap() -> Result<()> {
     let (mut tester, node) = revive_tester().await?;
-    let mut users = tester.users(&["MixedSwapIssuer", "MixedSwapTrader"]).await?;
+    let mut users = tester
+        .users(&["MixedSwapIssuer", "MixedSwapTrader"])
+        .await?;
     let api = tester.api.clone();
     let (issuers, traders) = users.split_at_mut(1);
     let issuer = &mut issuers[0];
@@ -204,7 +203,9 @@ async fn native_to_solidity_swap() -> Result<()> {
     // Solidity token in, native asset out.
     let back = swap.quote_b_to_a(amount_out).await?;
     assert_eq!(back, SWAP_IN);
-    token_b.approve(&mut caller, swap.address, amount_out).await?;
+    token_b
+        .approve(&mut caller, swap.address, amount_out)
+        .await?;
     let logs = swap.swap_b_to_a(&mut caller, amount_out).await?;
 
     let events = swap.swap_events(&logs)?;
