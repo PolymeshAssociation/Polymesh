@@ -29,7 +29,7 @@ use pallet_revive::H160;
 
 use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{Balance};
+use polymesh_primitives::Balance;
 
 mod erc20;
 mod polymesh_specific;
