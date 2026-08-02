@@ -29,7 +29,7 @@ use pallet_revive::H160;
 
 use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{with_transaction, Balance};
+use polymesh_primitives::{Balance};
 
 mod erc20;
 mod polymesh_specific;
@@ -73,49 +73,45 @@ where
         let asset_id = Self::asset_id_from_address(address)?;
         let contract_addr = H160::from(*address);
 
-        with_transaction(|| {
-            match input {
-                // State-changing calls - check read-only
-                IFungibleAssetCalls::transfer(_)
-                | IFungibleAssetCalls::mint(_)
-                | IFungibleAssetCalls::approve(_)
-                | IFungibleAssetCalls::transferFrom(_)
-                | IFungibleAssetCalls::burn(_)
-                | IFungibleAssetCalls::permit(_)
-                    if env.is_read_only() =>
-                {
-                    Err(Error::Error(
-                        pallet_revive::Error::<Self::T>::StateChangeDenied.into(),
-                    ))
-                }
-
-                // ERC20 functions
-                IFungibleAssetCalls::transfer(call) => Self::transfer(asset_id, call, env),
-                IFungibleAssetCalls::totalSupply(_) => Self::total_supply(asset_id, env),
-                IFungibleAssetCalls::balanceOf(call) => Self::balance_of(asset_id, call, env),
-                IFungibleAssetCalls::allowance(call) => Self::allowance(asset_id, call, env),
-                IFungibleAssetCalls::approve(call) => Self::approve(asset_id, call, env),
-                IFungibleAssetCalls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
-
-                // ERC20Permit functions (EIP-2612)
-                IFungibleAssetCalls::permit(call) => {
-                    Self::permit(asset_id, contract_addr, call, env)
-                }
-                IFungibleAssetCalls::nonces(call) => Self::nonces(contract_addr, call, env),
-                IFungibleAssetCalls::DOMAIN_SEPARATOR(_) => {
-                    Self::domain_separator(asset_id, contract_addr, env)
-                }
-
-                // ERC20Metadata functions
-                IFungibleAssetCalls::name(_) => Self::name(asset_id, env),
-                IFungibleAssetCalls::symbol(_) => Self::symbol(asset_id, env),
-                IFungibleAssetCalls::decimals(_) => Self::decimals(asset_id, env),
-
-                // Polymesh-specific functions
-                IFungibleAssetCalls::mint(call) => Self::issue(asset_id, call, env),
-                IFungibleAssetCalls::burn(call) => Self::redeem(asset_id, call, env),
+        match input {
+            // State-changing calls - check read-only
+            IFungibleAssetCalls::transfer(_)
+            | IFungibleAssetCalls::mint(_)
+            | IFungibleAssetCalls::approve(_)
+            | IFungibleAssetCalls::transferFrom(_)
+            | IFungibleAssetCalls::burn(_)
+            | IFungibleAssetCalls::permit(_)
+                if env.is_read_only() =>
+            {
+                Err(Error::Error(
+                    pallet_revive::Error::<Self::T>::StateChangeDenied.into(),
+                ))
             }
-        })
+
+            // ERC20 functions
+            IFungibleAssetCalls::transfer(call) => Self::transfer(asset_id, call, env),
+            IFungibleAssetCalls::totalSupply(_) => Self::total_supply(asset_id, env),
+            IFungibleAssetCalls::balanceOf(call) => Self::balance_of(asset_id, call, env),
+            IFungibleAssetCalls::allowance(call) => Self::allowance(asset_id, call, env),
+            IFungibleAssetCalls::approve(call) => Self::approve(asset_id, call, env),
+            IFungibleAssetCalls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+
+            // ERC20Permit functions (EIP-2612)
+            IFungibleAssetCalls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
+            IFungibleAssetCalls::nonces(call) => Self::nonces(contract_addr, call, env),
+            IFungibleAssetCalls::DOMAIN_SEPARATOR(_) => {
+                Self::domain_separator(asset_id, contract_addr, env)
+            }
+
+            // ERC20Metadata functions
+            IFungibleAssetCalls::name(_) => Self::name(asset_id, env),
+            IFungibleAssetCalls::symbol(_) => Self::symbol(asset_id, env),
+            IFungibleAssetCalls::decimals(_) => Self::decimals(asset_id, env),
+
+            // Polymesh-specific functions
+            IFungibleAssetCalls::mint(call) => Self::issue(asset_id, call, env),
+            IFungibleAssetCalls::burn(call) => Self::redeem(asset_id, call, env),
+        }
     }
 }
 

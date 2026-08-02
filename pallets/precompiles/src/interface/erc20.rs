@@ -88,7 +88,7 @@ where
                 env.adjust_gas(charged_amount, weight_meter.consumed());
 
                 // Instruction was created but not executed
-                if let Some(_) = inst_id {
+                if inst_id.is_some() {
                     return Err(Error::Revert(Revert {
                         reason: ERR_INST_NOT_EXECUTED.into(),
                     }));
@@ -253,7 +253,7 @@ where
                 env.adjust_gas(charged_amount, weight_meter.consumed());
 
                 // Instruction was created but not executed
-                if let Some(_) = inst_id {
+                if inst_id.is_some() {
                     return Err(Error::Revert(Revert {
                         reason: ERR_INST_NOT_EXECUTED.into(),
                     }));
