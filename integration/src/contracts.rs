@@ -130,7 +130,12 @@ pub mod ctor {
     }
 
     /// `SimpleSwap(address a, address b, uint256 rateNum, uint256 rateDen)`.
-    pub fn simple_swap(token_a: Address, token_b: Address, rate_num: u128, rate_den: u128) -> Vec<u8> {
+    pub fn simple_swap(
+        token_a: Address,
+        token_b: Address,
+        rate_num: u128,
+        rate_den: u128,
+    ) -> Vec<u8> {
         (token_a, token_b, U256::from(rate_num), U256::from(rate_den)).abi_encode_params()
     }
 }

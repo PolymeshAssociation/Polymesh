@@ -9,9 +9,7 @@ mod relayer_tests {
     #[test_log::test]
     async fn relayer_subsidy_lifecycle() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let users = tester
-            .users(&["Subsidizer", "Subsidized"])
-            .await?;
+        let users = tester.users(&["Subsidizer", "Subsidized"]).await?;
         let mut subsidizer = users[0].clone();
         let mut subsidized = users[1].clone();
 

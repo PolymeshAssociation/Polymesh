@@ -144,8 +144,7 @@ pub fn decode_contract_logs<E: SolEvent>(logs: &[ContractLog], address: &H160) -
         if &log.address != address {
             continue;
         }
-        let topics: Vec<alloy::primitives::B256> =
-            log.topics.iter().map(|t| t.0.into()).collect();
+        let topics: Vec<alloy::primitives::B256> = log.topics.iter().map(|t| t.0.into()).collect();
         if topics.first() != Some(&E::SIGNATURE_HASH) {
             continue;
         }
@@ -354,17 +353,10 @@ impl<S: Signer> ContractCaller for SubstrateCaller<'_, S> {
             .api
             .call()
             .revive()
-            .call(
-                to,
-                0,
-                CONTRACT_WEIGHT_LIMIT,
-                STORAGE_DEPOSIT_LIMIT,
-                data,
-            )?
+            .call(to, 0, CONTRACT_WEIGHT_LIMIT, STORAGE_DEPOSIT_LIMIT, data)?
             .execute(self.signer)
             .await?;
         res.ok().await?;
         contract_logs(&mut res).await
     }
 }
-

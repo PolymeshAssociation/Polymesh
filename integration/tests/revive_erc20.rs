@@ -10,6 +10,7 @@ use anyhow::Result;
 use alloy::primitives::{Address, U256};
 
 use integration::*;
+use polymesh_api::types::polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_precompiles::IFungibleAsset as ierc20;
 
 /// Initial supply issued to the asset owner's account.
@@ -133,13 +134,18 @@ async fn erc20_approve_and_transfer_from() -> Result<()> {
     recipient.onboard(&mut tester, REVIVE_INIT_POLYX).await?;
 
     let mut owner_caller = SubstrateCaller::new(&api, owner).await?;
-    let logs = erc20.approve(&mut owner_caller, spender_address, 10_000).await?;
+    let logs = erc20
+        .approve(&mut owner_caller, spender_address, 10_000)
+        .await?;
     let events: Vec<ierc20::Approval> = decode_contract_logs(&logs, &erc20.h160())?;
     assert_eq!(events.len(), 1, "expected one Approval event");
     assert_eq!(events[0].owner, owner_address);
     assert_eq!(events[0].spender, spender_address);
     assert_eq!(events[0].value, U256::from(10_000));
-    assert_eq!(erc20.allowance(owner_address, spender_address).await?, 10_000);
+    assert_eq!(
+        erc20.allowance(owner_address, spender_address).await?,
+        10_000
+    );
 
     // The spender moves the owner's tokens to the recipient.
     let mut spender_caller = SubstrateCaller::new(&api, spender).await?;
@@ -155,7 +161,10 @@ async fn erc20_approve_and_transfer_from() -> Result<()> {
     assert_eq!(erc20.balance_of(recipient.address).await?, 4_000);
     assert_eq!(erc20.balance_of(owner_address).await?, MINT - 4_000);
     // Spending the allowance reduces it, and the spender's own balance is untouched.
-    assert_eq!(erc20.allowance(owner_address, spender_address).await?, 6_000);
+    assert_eq!(
+        erc20.allowance(owner_address, spender_address).await?,
+        6_000
+    );
     assert_eq!(erc20.balance_of(spender_address).await?, 0);
 
     // Spending more than the remaining allowance fails.
@@ -230,6 +239,41 @@ async fn erc20_unknown_asset_reverts() -> Result<()> {
         format!("{err:?}").contains("Asset not found"),
         "unexpected error: {err:?}"
     );
+
+    Ok(())
+}
+
+/// Incomplete `transfer` call reverts.
+#[tokio::test]
+#[test_log::test]
+async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc20SubIssuer1", "Erc20SubHolder1"]).await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_asset, erc20) = create_erc20_asset(&api, &node, issuer, "ERC20 Sub", MINT).await?;
+    erc20
+        .api
+        .call()
+        .settlement()
+        .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
+        .execute(holder)
+        .await?;
+
+    let _issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    if erc20
+        .transfer(&mut caller, holder_address, 1_000)
+        .await
+        .is_ok()
+    {
+        panic!("transfer() without receiver affirmation should revert");
+    }
 
     Ok(())
 }

@@ -41,6 +41,7 @@ pub(crate) const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub(crate) const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub(crate) const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
+pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 // ========================================================
 
 /// All precompile calls exposed by the Polymesh runtime.

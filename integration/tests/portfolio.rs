@@ -13,10 +13,7 @@ mod portfolio_tests {
     #[test_log::test]
     async fn portfolio_create_and_move() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["PortfolioOwner"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["PortfolioOwner"]).await?.into_iter();
         let mut owner = users.next().expect("PortfolioOwner");
 
         // Create an asset with some tokens to move
@@ -49,7 +46,9 @@ mod portfolio_tests {
         };
         let user_portfolio = PortfolioId {
             did: owner_did,
-            kind: PortfolioKind::User(polymesh_api::types::polymesh_primitives::identity_id::PortfolioNumber(1)),
+            kind: PortfolioKind::User(
+                polymesh_api::types::polymesh_primitives::identity_id::PortfolioNumber(1),
+            ),
         };
 
         // Move some tokens from default portfolio to the new portfolio
