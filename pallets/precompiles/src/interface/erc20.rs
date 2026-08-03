@@ -82,6 +82,8 @@ where
             })?,
             fund,
             &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            false,
         ) {
             Err(e) => return Err(Self::extrinsic_error(e)),
             Ok(inst_id) => {
@@ -247,6 +249,8 @@ where
             })?,
             fund,
             &mut weight_meter,
+            #[cfg(feature = "runtime-benchmarks")]
+            false,
         ) {
             Err(e) => return Err(Self::extrinsic_error(e)),
             Ok(inst_id) => {
