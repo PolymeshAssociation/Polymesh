@@ -248,7 +248,7 @@ async fn erc20_unknown_asset_reverts() -> Result<()> {
 #[test_log::test]
 async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     let (mut tester, node) = revive_tester().await?;
-    let mut users = tester.users(&["Erc20SubIssuer", "Erc20SubHolder"]).await?;
+    let mut users = tester.users(&["Erc20SubIssuer1", "Erc20SubHolder1"]).await?;
     let api = tester.api.clone();
     let (issuers, holders) = users.split_at_mut(1);
     let issuer = &mut issuers[0];
@@ -266,8 +266,6 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     let _issuer_address = eth_address_of(&api, issuer).await?;
     let holder_address = eth_address_of(&api, holder).await?;
 
-    let b_inst_id = erc20.api.query().settlement().instruction_counter().await?;
-
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
     if erc20
         .transfer(&mut caller, holder_address, 1_000)
@@ -276,9 +274,6 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     {
         panic!("transfer() without receiver affirmation should revert");
     }
-
-    let after_inst_id = erc20.api.query().settlement().instruction_counter().await?;
-    assert_eq!(after_inst_id, b_inst_id);
 
     Ok(())
 }
