@@ -228,8 +228,10 @@ async fn erc20_mint_and_burn() -> Result<()> {
 async fn erc20_unknown_asset_reverts() -> Result<()> {
     let (_tester, node) = revive_tester().await?;
 
-    // An index far beyond the next one to be assigned.
-    let address = to_eth_address(&precompile_address(u32::MAX));
+    let unknown_asset_id = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+        .parse()
+        .expect("valid UUID literal");
+    let address = to_eth_address(&precompile_address(unknown_asset_id));
 
     let err = match node.call(address, &ierc20::totalSupplyCall {}).await {
         Ok(_) => panic!("totalSupply() of an unknown asset should revert"),

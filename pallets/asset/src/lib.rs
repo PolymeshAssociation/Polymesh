@@ -83,7 +83,6 @@ pub mod checkpoint;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_system::RawOrigin;
 
-mod migrations;
 mod types;
 
 use codec::{Decode, Encode};
@@ -125,9 +124,9 @@ use polymesh_primitives::traits::{
     SettlementFnTrait,
 };
 use polymesh_primitives::{
-    extract_auth, storage_migrate_on, storage_migration_ver, AccountId as AccountId32,
-    AssetIdentifier, Balance, Document, DocumentId, HoldingsUpdateReason, IdentityId, Memo,
-    SecondaryKey, Ticker, WeightMeter,
+    extract_auth, storage_migration_ver, AccountId as AccountId32, AssetIdentifier, Balance,
+    Document, DocumentId, HoldingsUpdateReason, IdentityId, Memo, SecondaryKey, Ticker,
+    WeightMeter,
 };
 
 pub use types::{
@@ -628,35 +627,9 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// The next available asset index for the ERC20 asset id mapping.
-    /// This is incremented each time a new ERC20 asset mapping is created.
-    #[pallet::storage]
-    pub type NextAssetIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-    /// Mapping an asset index (derived from the precompile address) to a `AssetId`.
-    #[pallet::storage]
-    pub type IndexToAssetId<T: Config> = StorageMap<_, Identity, u32, AssetId, OptionQuery>;
-
-    /// Mapping a `ERC20AssetId` to an asset index (used for deriving precompile addresses).
-    #[pallet::storage]
-    pub type AssetIdToIndex<T: Config> = StorageMap<_, Blake2_128Concat, AssetId, u32, OptionQuery>;
-
     /// Storage version.
     #[pallet::storage]
     pub type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut weight = Weight::zero();
-
-            storage_migrate_on!(StorageVersion::<T>, 8, {
-                weight = migrations::migrate_to_v8::<T>();
-            });
-
-            weight
-        }
-    }
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -3898,13 +3871,6 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         SecurityTokensOwnedByUser::<T>::insert(caller_did, asset_id, true);
-
-        // Updating ERC20 precompile storage
-        let asset_index = NextAssetIndex::<T>::get();
-        IndexToAssetId::<T>::insert(asset_index, asset_id);
-        AssetIdToIndex::<T>::insert(asset_id, asset_index);
-        let next_index = asset_index.saturating_add(1);
-        NextAssetIndex::<T>::put(next_index);
 
         Self::deposit_event(Event::AssetCreated(
             caller_did,
