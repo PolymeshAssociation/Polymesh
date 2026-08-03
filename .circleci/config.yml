@@ -79,6 +79,9 @@ jobs:
           name: Check the checked-in contract artifacts match their sources.
           command: ./build.sh --check
           working_directory: ./integration/contracts
+      - run:
+          name: Check the checked-in precompile code artifact matches its source.
+          command: ./scripts/build_precompile_stub.sh --check
   check-storage-version:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2025-12-01

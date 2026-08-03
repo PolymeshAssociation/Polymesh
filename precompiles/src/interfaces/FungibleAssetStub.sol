@@ -153,3 +153,93 @@ interface IFungibleAsset {
     /// Emits a {Transfer} event.
     function burn(uint256 value) external returns (bool);
 }
+
+contract FungibleAssetStub is IFungibleAsset {
+
+    error NotExecutable();
+
+    function totalSupply() external pure override returns (uint256) {
+        revert NotExecutable();
+    }
+
+    function balanceOf(address account) external pure override returns (uint256) {
+        account;
+        revert NotExecutable();
+    }
+
+    function transfer(address to, uint256 value) external pure override returns (bool) {
+        to;
+        value;
+        revert NotExecutable();
+    }
+
+    function allowance(address owner, address spender) external pure override returns (uint256) {
+        owner;
+        spender;
+        revert NotExecutable();
+    }
+
+    function approve(address spender, uint256 value) external pure override returns (bool) {
+        spender;
+        value;
+        revert NotExecutable();
+    }
+
+    function transferFrom(address from, address to, uint256 value) external pure override returns (bool) {
+        from;
+        to;
+        value;
+        revert NotExecutable();
+    }
+
+    function name() external pure override returns (string memory) {
+        revert NotExecutable();
+    }
+
+    function symbol() external pure override returns (string memory) {
+        revert NotExecutable();
+    }
+
+    function decimals() external pure override returns (uint8) {
+        revert NotExecutable();
+    }
+
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external pure override {
+        owner;
+        spender;
+        value;
+        deadline;
+        v;
+        r;
+        s;
+        revert NotExecutable();
+    }
+
+    function nonces(address owner) external pure override returns (uint256) {
+        owner;
+        revert NotExecutable();
+    }
+
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external pure override returns (bytes32) {
+        revert NotExecutable();
+    }
+
+    function mint(uint256 value) external pure override returns (bool) {
+        value;
+        revert NotExecutable();
+    }
+
+    function burn(uint256 value) external pure override returns (bool) {
+        value;
+        revert NotExecutable();
+    }
+}

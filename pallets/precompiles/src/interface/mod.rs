@@ -27,7 +27,7 @@ use pallet_revive::precompiles::{alloy, AddressMatcher, Ext, Precompile};
 use pallet_revive::precompiles::{AddressMapper, Error, RuntimeCosts, H256};
 use pallet_revive::H160;
 
-use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents};
+use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::Balance;
 
@@ -62,6 +62,7 @@ where
         data_bytes: 16,
     };
     const HAS_CONTRACT_INFO: bool = false;
+    const CODE: &[u8] = FUNGIBLE_ASSET_CODE;
 
     fn call(
         address: &[u8; 20],
