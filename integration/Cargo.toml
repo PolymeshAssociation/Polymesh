@@ -117,6 +117,21 @@ polymesh-api-tester = { version = "0.11.0", default-features = false, features =
 		"signer_delay",
 ] }
 
+polymesh-precompiles = { path = "../precompiles", default-features = false, features = [
+    "std",
+] }
+
+# Ethereum wallet/JSON-RPC client used to drive the `eth-rpc` node.
+alloy = { version = "=2.1.1", default-features = false, features = [
+    "std",
+    "essentials",
+    "consensus",
+    "network",
+    "reqwest",
+    "json",
+    "sol-types",
+] }
+
 # DART Assets
 polymesh-dart = { version = "0.1.0", default-features = false, features = [
     "std",

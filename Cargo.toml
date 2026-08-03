@@ -76,7 +76,6 @@ ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra
 
 [workspace]
 members = [
-    "eth-rpc",
     "node-rpc",
     "worker",
     "worker/extension",

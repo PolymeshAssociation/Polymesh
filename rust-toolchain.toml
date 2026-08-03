@@ -1,5 +1,5 @@
 [toolchain]
 channel = "nightly-2025-12-01"
 targets = [ "wasm32v1-none" ]
-components = [ "rustfmt", "rust-src" ]
+components = [ "rustfmt", "rust-src", "rust-analyzer" ]
 profile = "minimal"
