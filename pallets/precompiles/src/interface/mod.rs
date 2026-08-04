@@ -27,7 +27,7 @@ use pallet_revive::precompiles::{alloy, AddressMatcher, Ext, Precompile};
 use pallet_revive::precompiles::{AddressMapper, Error, RuntimeCosts, H256};
 use pallet_revive::H160;
 
-use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents};
+use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::Balance;
 
@@ -57,8 +57,12 @@ where
     type T = T;
     type Interface = IFungibleAssetCalls;
 
-    const MATCHER: AddressMatcher = AddressMatcher::Prefix(NonZero::new(8).unwrap());
+    const MATCHER: AddressMatcher = AddressMatcher::VarPrefix {
+        id: NonZero::new(8).unwrap(),
+        data_bytes: 16,
+    };
     const HAS_CONTRACT_INFO: bool = false;
+    const CODE: &[u8] = FUNGIBLE_ASSET_CODE;
 
     fn call(
         address: &[u8; 20],
@@ -124,14 +128,15 @@ where
 {
     /// Returns the [`AssetId`] from the address.
     pub(crate) fn asset_id_from_address(address: &[u8; 20]) -> Result<AssetId, Error> {
-        let bytes: [u8; 4] = address[0..4].try_into().expect("slice is 4 bytes; qed");
-        let asset_index = u32::from_be_bytes(bytes);
-
-        pallet_asset::IndexToAssetId::<T>::get(asset_index).ok_or_else(|| {
-            Error::Revert(Revert {
+        let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
+        let asset_id = AssetId::from_raw(bytes);
+        if pallet_asset::Assets::<T>::contains_key(asset_id) {
+            Ok(asset_id)
+        } else {
+            Err(Error::Revert(Revert {
                 reason: ERR_ASSET_NOT_FOUND.into(),
-            })
-        })
+            }))
+        }
     }
 
     /// Get the caller as an `H160` address.

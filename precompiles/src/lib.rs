@@ -22,7 +22,10 @@
 //   - `IFungibleAsset::IFungibleAssetEvents` enum
 alloy_core::sol! {
     #[sol(all_derives)]
-    "src/interfaces/IFungibleAsset.sol"
+    "src/interfaces/FungibleAssetStub.sol"
 }
 
 pub use IFungibleAsset::{IFungibleAssetCalls, IFungibleAssetEvents};
+
+/// Runtime bytecode for explorer verification of the fungible asset precompile.
+pub const FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/FungibleAssetStub.bin");

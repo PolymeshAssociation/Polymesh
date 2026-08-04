@@ -48,9 +48,19 @@ impl AssetId {
         value.into()
     }
 
+    /// Creates an [`AssetId`] from raw bytes without RFC4122 bit normalization.
+    pub fn from_raw(value: [u8; 16]) -> Self {
+        Self(value)
+    }
+
     /// Converts [`AssetId`] type into a shared reference of bytes.
     pub fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
+    }
+
+    /// Converts [`AssetId`] into its raw bytes.
+    pub fn to_bytes(&self) -> [u8; 16] {
+        self.0
     }
 }
 

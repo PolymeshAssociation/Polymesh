@@ -1,10 +1,11 @@
 //! Helpers for the Polymesh native-asset ERC-20 precompile.
 //!
 //! Every Polymesh asset is reachable from the EVM at a deterministic address
-//! derived from its asset index, where `pallet_precompiles` exposes an ERC-20
+//! derived from its 16-byte asset id, where `pallet_precompiles` exposes an ERC-20
 //! interface backed by `pallet_asset`.
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use codec::Encode;
 
 use alloy::primitives::{Address, U256};
 use alloy::sol_types::SolCall;
@@ -16,32 +17,31 @@ use polymesh_precompiles::IFungibleAsset as ierc20;
 
 use crate::*;
 
-/// The `AddressMatcher::Prefix` value used by `PolymeshInterface`.
+/// The `AddressMatcher` id used by `FungibleAssetInterface`.
 pub const POLYMESH_PRECOMPILE_PREFIX: u16 = 8;
 
 /// All Polymesh assets report 6 decimals through the precompile.
 pub const ERC20_DECIMALS: u8 = 6;
 
-/// The precompile address for the asset with index `asset_index`.
+/// The precompile address for `asset_id`.
 ///
-/// `pallet_revive` matches a `Prefix` precompile on bytes `[16, 17]` of the
-/// address (big endian), reserves bytes `[18, 19]` for builtin precompiles, and
-/// leaves the leading 4 bytes free for the precompile to use:
+/// `pallet_revive` matches this precompile on bytes `[16, 17]` of the address
+/// (big endian), reserves bytes `[18, 19]` for builtin precompiles, and this
+/// precompile uses all leading 16 bytes for `AssetId`:
 ///
 /// ```text
-/// xxxxxxxx000000000000000000000000pppp0000
-/// ^ asset index (BE)              ^ matcher (BE)
+/// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxpppp0000
+/// ^ asset id (16 bytes)           ^ matcher (BE)
 /// ```
-pub fn precompile_address(asset_index: u32) -> H160 {
+pub fn precompile_address(asset_id: AssetId) -> H160 {
     let mut address = [0u8; 20];
-    address[0..4].copy_from_slice(&asset_index.to_be_bytes());
+    let encoded = asset_id.encode();
+    let bytes: [u8; 16] = encoded
+        .try_into()
+        .expect("AssetId scale encoding is 16 bytes; qed");
+    address[0..16].copy_from_slice(&bytes);
     address[16..18].copy_from_slice(&POLYMESH_PRECOMPILE_PREFIX.to_be_bytes());
     H160(address)
-}
-
-/// Looks up the index assigned to `asset_id` when it was created.
-pub async fn asset_index(api: &Api, asset_id: AssetId) -> Result<Option<u32>> {
-    Ok(api.query().asset().asset_id_to_index(asset_id).await?)
 }
 
 /// A random ticker, so that repeated test runs against the same chain don't
@@ -251,7 +251,6 @@ impl Token {
 pub struct Erc20Asset {
     pub api: Api,
     pub asset_id: AssetId,
-    pub index: u32,
     pub token: Token,
 }
 
@@ -266,14 +265,10 @@ impl std::ops::Deref for Erc20Asset {
 impl Erc20Asset {
     /// Resolves the precompile for an existing asset.
     pub async fn new(api: &Api, node: &EthNode, asset_id: AssetId) -> Result<Self> {
-        let index = asset_index(api, asset_id)
-            .await?
-            .ok_or_else(|| anyhow!("asset {asset_id:?} has no asset index"))?;
         Ok(Self {
             api: api.clone(),
             asset_id,
-            index,
-            token: Token::new(node, to_eth_address(&precompile_address(index))),
+            token: Token::new(node, to_eth_address(&precompile_address(asset_id))),
         })
     }
 
