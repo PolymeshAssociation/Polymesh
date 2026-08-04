@@ -254,7 +254,11 @@ contract FungibleAssetStub is IFungibleAsset {
         revert NotExecutable();
     }
 
-    function canTransfer(address from, address to, uint256 value) external pure override returns (bool) {
+    function canTransfer(
+        address from, 
+        address to, 
+        uint256 value
+    ) external view override returns (bool) {
         from;
         to;
         value;
