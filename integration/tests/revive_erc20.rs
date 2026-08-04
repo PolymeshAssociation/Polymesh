@@ -250,7 +250,9 @@ async fn erc20_unknown_asset_reverts() -> Result<()> {
 #[test_log::test]
 async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     let (mut tester, node) = revive_tester().await?;
-    let mut users = tester.users(&["Erc20SubIssuer1", "Erc20SubHolder1"]).await?;
+    let mut users = tester
+        .users(&["Erc20SubIssuer1", "Erc20SubHolder1"])
+        .await?;
     let api = tester.api.clone();
     let (issuers, holders) = users.split_at_mut(1);
     let issuer = &mut issuers[0];

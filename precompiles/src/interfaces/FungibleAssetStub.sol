@@ -152,6 +152,17 @@ interface IFungibleAsset {
     ///
     /// Emits a {Transfer} event.
     function burn(uint256 value) external returns (bool);
+
+    // ============================================================
+    // ERC-7943
+    // ============================================================
+    /// @notice Checks if a transfer is possible according to token rules.
+    /// @dev This involves compliance checks.
+    /// @param from The address sending tokens.
+    /// @param to The address receiving tokens.
+    /// @param value The amount being transferred.
+    /// @return True if the transfer is allowed, false otherwise.
+    function canTransfer(address from, address to, uint256 value) external view returns (bool);
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -239,6 +250,13 @@ contract FungibleAssetStub is IFungibleAsset {
     }
 
     function burn(uint256 value) external pure override returns (bool) {
+        value;
+        revert NotExecutable();
+    }
+
+    function canTransfer(address from, address to, uint256 value) external pure override returns (bool) {
+        from;
+        to;
         value;
         revert NotExecutable();
     }

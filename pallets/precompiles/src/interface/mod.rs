@@ -32,6 +32,7 @@ use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::Balance;
 
 mod erc20;
+mod erc7943;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
@@ -115,6 +116,9 @@ where
             // Polymesh-specific functions
             IFungibleAssetCalls::mint(call) => Self::issue(asset_id, call, env),
             IFungibleAssetCalls::burn(call) => Self::redeem(asset_id, call, env),
+
+            // ERC7943 functions
+            IFungibleAssetCalls::canTransfer(call) => Self::can_transfer(asset_id, call, env),
         }
     }
 }
