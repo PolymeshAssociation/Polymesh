@@ -33,8 +33,8 @@ use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::{AccountId as AccountId32, AssetHolder, WeightMeter};
 
 use crate::interface::FungibleAssetInterface;
+use crate::interface::ERR_INVALID_ACCOUNT_ID;
 use crate::interface::{ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
-use crate::interface::{ERR_INVALID_ACCOUNT_ID, ERR_INVALID_ASSET_NAME};
 
 impl<T> FungibleAssetInterface<T>
 where
@@ -63,7 +63,6 @@ where
             <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(None, &fund);
         let charged_amount = env.charge(worst_case_weight)?;
 
-        // Calls the `base_transfer_asset` function from the pallet_asset
         let caller = Self::caller(env)?;
         let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
 
@@ -241,7 +240,7 @@ where
 
         match <T as pallet_asset::Config>::SettlementFn::transfer_funds(
             RawOrigin::Signed(spender).into(),
-            Some(from.clone()),
+            Some(from),
             AssetHolder::try_from(to.encode()).map_err(|_| {
                 Error::Revert(Revert {
                     reason: ERR_INVALID_ACCOUNT_ID.into(),
@@ -321,11 +320,7 @@ where
         env.charge(T::DbWeight::get().reads(1))?;
 
         let name = AssetNames::<T>::get(asset_id).unwrap_or_default();
-        let name = alloc::string::String::from_utf8(name.0).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ASSET_NAME.into(),
-            })
-        })?;
+        let name = alloc::string::String::from_utf8_lossy(name.0.as_ref()).into_owned();
 
         Ok(IFungibleAsset::nameCall::abi_encode_returns(&name))
     }
@@ -335,11 +330,15 @@ where
         env.charge(T::DbWeight::get().reads(1))?;
 
         let ticker = AssetIdTicker::<T>::get(asset_id).unwrap_or_default();
-        let ticker = alloc::string::String::from_utf8(ticker.as_ref().to_vec()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: "Invalid asset ticker".into(),
-            })
-        })?;
+
+        // Removes all trailing null bytes
+        let trim_ticker = ticker
+            .as_ref()
+            .iter()
+            .take_while(|&&b| b != 0)
+            .copied()
+            .collect::<Vec<_>>();
+        let ticker = alloc::string::String::from_utf8_lossy(&trim_ticker).into_owned();
 
         Ok(IFungibleAsset::symbolCall::abi_encode_returns(&ticker))
     }

@@ -42,7 +42,6 @@ pub(crate) const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub(crate) const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 pub(crate) const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
-pub(crate) const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
 pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 // ========================================================
 
@@ -212,7 +211,7 @@ where
         env.frame_meter_mut()
             .charge_weight_token(RuntimeCosts::DepositEvent {
                 num_topic: topics.len() as u32,
-                len: topics.len() as u32,
+                len: data.len() as u32,
             })?;
         env.deposit_event(topics, data.to_vec());
         Ok(())
