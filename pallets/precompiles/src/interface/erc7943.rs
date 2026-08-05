@@ -93,6 +93,8 @@ where
         call: &IFungibleAsset::forcedTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as pallet_asset::Config>::WeightInfo::controller_transfer())?;
+
         let caller = Self::caller(env)?;
         let destination = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
 
