@@ -119,6 +119,7 @@ where
 
             // ERC7943 functions
             IFungibleAssetCalls::canTransfer(call) => Self::can_transfer(asset_id, call, env),
+            IFungibleAssetCalls::forcedTransfer(call) => Self::forced_transfer(asset_id, call, env),
         }
     }
 }

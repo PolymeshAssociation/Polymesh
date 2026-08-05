@@ -15,6 +15,7 @@
 
 use alloc::vec::Vec;
 use codec::Encode;
+use frame_support::dispatch::RawOrigin;
 
 use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
 use pallet_revive::precompiles::Ext;
@@ -22,7 +23,7 @@ use pallet_revive::precompiles::{AddressMapper, Error};
 
 use pallet_asset::WeightInfo;
 use polymesh_precompiles::IFungibleAsset;
-use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::{AssetHolderKind, AssetId};
 use polymesh_primitives::{AssetHolder, WeightMeter};
 
 use crate::interface::FungibleAssetInterface;
@@ -84,5 +85,38 @@ where
         Ok(IFungibleAsset::canTransferCall::abi_encode_returns(
             &errors.is_empty(),
         ))
+    }
+
+    /// Takes tokens from one address and transfers them to the caller's account.
+    pub(crate) fn forced_transfer(
+        asset_id: AssetId,
+        call: &IFungibleAsset::forcedTransferCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Self::caller(env)?;
+        let destination = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
+
+        let from = call.from.into_array().into();
+        let source = <T as pallet_revive::Config>::AddressMapper::to_account_id(&from);
+        let source = AssetHolder::try_from(source.encode()).map_err(|_| {
+            Error::Revert(Revert {
+                reason: ERR_INVALID_ACCOUNT_ID.into(),
+            })
+        })?;
+
+        let amount = Self::to_balance(call.amount)?;
+
+        match pallet_asset::Pallet::<T>::controller_transfer(
+            RawOrigin::Signed(destination).into(),
+            asset_id,
+            amount,
+            source,
+            AssetHolderKind::Account,
+        ) {
+            Err(e) => return Err(Self::extrinsic_error(e)),
+            Ok(_) => Ok(IFungibleAsset::forcedTransferCall::abi_encode_returns(
+                &true,
+            )),
+        }
     }
 }

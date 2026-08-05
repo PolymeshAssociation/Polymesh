@@ -163,6 +163,13 @@ interface IFungibleAsset {
     /// @param value The amount being transferred.
     /// @return True if the transfer is allowed, false otherwise.
     function canTransfer(address from, address to, uint256 value) external view returns (bool);
+
+    /// @notice Takes tokens from one address and transfers them to the caller's account.
+    /// @dev Requires specific authorization. Used for regulatory compliance or recovery scenarios.
+    /// @param from The address from which `amount` is taken.
+    /// @param amount The amount to force transfer.
+    /// @return True if the transfer executed correctly. Reverts on failure.
+    function forcedTransfer(address from, uint256 amount) external returns (bool);
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -262,6 +269,12 @@ contract FungibleAssetStub is IFungibleAsset {
         from;
         to;
         value;
+        revert NotExecutable();
+    }
+
+    function forcedTransfer(address from, uint256 amount) external override returns (bool) {
+        from;
+        amount;
         revert NotExecutable();
     }
 }
