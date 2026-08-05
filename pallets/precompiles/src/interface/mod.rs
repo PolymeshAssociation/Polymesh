@@ -29,7 +29,7 @@ use pallet_revive::H160;
 
 use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::Balance;
+use polymesh_primitives::{Balance, RocksDbWeight as DbWeight};
 
 mod erc20;
 mod erc7943;
@@ -40,6 +40,7 @@ pub(crate) const ERR_INVALID_CALLER: &str = "Invalid caller";
 pub(crate) const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 pub(crate) const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
+pub(crate) const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 pub(crate) const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub(crate) const ERR_INVALID_ASSET_NAME: &str = "Asset name is not valid UTF-8";
 pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
@@ -75,7 +76,7 @@ where
             pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
         );
 
-        let asset_id = Self::asset_id_from_address(address)?;
+        let asset_id = Self::asset_id_from_address(address, env)?;
         let contract_addr = H160::from(*address);
 
         match input {
@@ -131,15 +132,27 @@ where
         + pallet_settlement::Config,
 {
     /// Returns the [`AssetId`] from the address.
-    pub(crate) fn asset_id_from_address(address: &[u8; 20]) -> Result<AssetId, Error> {
+    pub(crate) fn asset_id_from_address(
+        address: &[u8; 20],
+        env: &mut impl Ext<T = T>,
+    ) -> Result<AssetId, Error> {
+        env.charge(DbWeight::get().reads(1))?;
+
         let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
         let asset_id = AssetId::from_raw(bytes);
-        if pallet_asset::Assets::<T>::contains_key(asset_id) {
-            Ok(asset_id)
-        } else {
-            Err(Error::Revert(Revert {
+
+        match pallet_asset::Assets::<T>::try_get(asset_id) {
+            Ok(asset_details) => {
+                if asset_details.asset_type.is_non_fungible() {
+                    return Err(Error::Revert(Revert {
+                        reason: ERR_ASSET_NOT_FUNGIBLE.into(),
+                    }));
+                }
+                Ok(asset_id)
+            }
+            Err(_) => Err(Error::Revert(Revert {
                 reason: ERR_ASSET_NOT_FOUND.into(),
-            }))
+            })),
         }
     }
 
