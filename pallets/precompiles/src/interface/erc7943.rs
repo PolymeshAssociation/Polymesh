@@ -22,7 +22,7 @@ use pallet_revive::precompiles::Ext;
 use pallet_revive::precompiles::{AddressMapper, Error};
 
 use pallet_asset::WeightInfo;
-use polymesh_precompiles::IFungibleAsset;
+use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::{AssetHolderKind, AssetId};
 use polymesh_primitives::{AssetHolder, WeightMeter};
 
@@ -116,9 +116,20 @@ where
             AssetHolderKind::Account,
         ) {
             Err(e) => return Err(Self::extrinsic_error(e)),
-            Ok(_) => Ok(IFungibleAsset::forcedTransferCall::abi_encode_returns(
-                &true,
-            )),
+            Ok(_) => {
+                Self::deposit_event(
+                    env,
+                    IFungibleAssetEvents::ForcedTransfer(IFungibleAsset::ForcedTransfer {
+                        from: call.from.into(),
+                        to: caller.0.into(),
+                        amount: call.amount,
+                    }),
+                )?;
+
+                Ok(IFungibleAsset::forcedTransferCall::abi_encode_returns(
+                    &true,
+                ))
+            }
         }
     }
 }

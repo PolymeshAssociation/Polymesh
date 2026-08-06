@@ -32,6 +32,12 @@ interface IFungibleAsset {
     /// a call to {approve}. `value` is the new allowance.
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
+    /// @notice Emitted when tokens are taken from one address and transferred to another.
+    /// @param from The address from which tokens were taken.
+    /// @param to The address to which seized tokens were transferred.
+    /// @param amount The amount seized.
+    event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
+
     /// @dev Returns the value of tokens in existence.
     function totalSupply() external view returns (uint256);
 
