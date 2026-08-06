@@ -903,7 +903,7 @@ benchmarks! {
     }
 
     asset_transfer_report_best_case {
-        // No statistics or compliace rules are set
+        // No statistics or compliance rules are set
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();

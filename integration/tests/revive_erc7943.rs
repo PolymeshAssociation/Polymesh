@@ -1,4 +1,4 @@
-//! The ERC-20 precompile interface for Polymesh native assets.
+//! The ERC-7943 precompile interface for Polymesh native assets.
 //!
 //! Requires a running `eth-rpc` node, see `ETH_RPC_URL`.
 

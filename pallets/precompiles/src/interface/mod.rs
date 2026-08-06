@@ -26,10 +26,11 @@ use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::{alloy, AddressMatcher, Ext, Precompile};
 use pallet_revive::precompiles::{AddressMapper, Error, RuntimeCosts, H256};
 use pallet_revive::H160;
+use frame_support::traits::Get;
 
 use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{Balance, RocksDbWeight as DbWeight};
+use polymesh_primitives::Balance;
 
 mod erc20;
 mod erc7943;
@@ -86,6 +87,7 @@ where
             | IFungibleAssetCalls::transferFrom(_)
             | IFungibleAssetCalls::burn(_)
             | IFungibleAssetCalls::permit(_)
+            | IFungibleAssetCalls::forcedTransfer(_)
                 if env.is_read_only() =>
             {
                 Err(Error::Error(
@@ -136,7 +138,7 @@ where
         address: &[u8; 20],
         env: &mut impl Ext<T = T>,
     ) -> Result<AssetId, Error> {
-        env.charge(DbWeight::get().reads(1))?;
+        env.charge(T::DbWeight::get().reads(1))?;
 
         let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
         let asset_id = AssetId::from_raw(bytes);

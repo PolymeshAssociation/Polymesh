@@ -268,8 +268,8 @@ contract FungibleAssetStub is IFungibleAsset {
     }
 
     function canTransfer(
-        address from, 
-        address to, 
+        address from,
+        address to,
         uint256 value
     ) external view override returns (bool) {
         from;
