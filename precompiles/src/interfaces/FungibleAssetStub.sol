@@ -32,6 +32,12 @@ interface IFungibleAsset {
     /// a call to {approve}. `value` is the new allowance.
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
+    /// @notice Emitted when tokens are taken from one address and transferred to another.
+    /// @param from The address from which tokens were taken.
+    /// @param to The address to which seized tokens were transferred.
+    /// @param amount The amount seized.
+    event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
+
     /// @dev Returns the value of tokens in existence.
     function totalSupply() external view returns (uint256);
 
@@ -152,6 +158,24 @@ interface IFungibleAsset {
     ///
     /// Emits a {Transfer} event.
     function burn(uint256 value) external returns (bool);
+
+    // ============================================================
+    // ERC-7943
+    // ============================================================
+    /// @notice Checks if a transfer is possible according to token rules.
+    /// @dev This involves compliance checks.
+    /// @param from The address sending tokens.
+    /// @param to The address receiving tokens.
+    /// @param value The amount being transferred.
+    /// @return True if the transfer is allowed, false otherwise.
+    function canTransfer(address from, address to, uint256 value) external view returns (bool);
+
+    /// @notice Takes tokens from one address and transfers them to the caller's account.
+    /// @dev Requires specific authorization. Used for regulatory compliance or recovery scenarios.
+    /// @param from The address from which `amount` is taken.
+    /// @param amount The amount to force transfer.
+    /// @return True if the transfer executed correctly. Reverts on failure.
+    function forcedTransfer(address from, uint256 amount) external returns (bool);
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -240,6 +264,23 @@ contract FungibleAssetStub is IFungibleAsset {
 
     function burn(uint256 value) external override returns (bool) {
         value;
+        revert NotExecutable();
+    }
+
+    function canTransfer(
+        address from,
+        address to,
+        uint256 value
+    ) external view override returns (bool) {
+        from;
+        to;
+        value;
+        revert NotExecutable();
+    }
+
+    function forcedTransfer(address from, uint256 amount) external override returns (bool) {
+        from;
+        amount;
         revert NotExecutable();
     }
 }

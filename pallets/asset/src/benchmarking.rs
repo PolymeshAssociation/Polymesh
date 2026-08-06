@@ -901,4 +901,48 @@ benchmarks! {
         )
         .unwrap();
     }
+
+    asset_transfer_report_best_case {
+        // No statistics or compliance rules are set
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (sender, receiver, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, true);
+    }: {
+        assert!(
+            Pallet::<T>::asset_transfer_report(
+                &sender,
+                &receiver,
+                &asset_id,
+                ONE_UNIT,
+                false,
+                &mut weight_meter
+            )
+            .is_empty()
+        );
+    }
+
+    asset_transfer_report_worst_case {
+        // Max Statistics and Compliance rules are set
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (sender, receiver, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, false, false, 0, true, true);
+    }: {
+        assert!(
+            Pallet::<T>::asset_transfer_report(
+                &sender,
+                &receiver,
+                &asset_id,
+                ONE_UNIT,
+                false,
+                &mut weight_meter
+            )
+            .is_empty()
+        );
+    }
 }

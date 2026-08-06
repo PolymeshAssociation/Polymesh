@@ -1957,6 +1957,8 @@ pub mod pallet {
         fn approve() -> Weight;
         fn spend_allowance() -> Weight;
         fn issue_without_statistics() -> Weight;
+        fn asset_transfer_report_best_case() -> Weight;
+        fn asset_transfer_report_worst_case() -> Weight;
     }
 }
 

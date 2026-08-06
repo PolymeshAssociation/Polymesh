@@ -181,6 +181,21 @@ impl Token {
         self.node.call_from(from, self.address, call).await
     }
 
+    pub async fn can_transfer(&self, from: Address, to: Address, value: u128) -> Result<bool> {
+        let can_transfer = self
+            .node
+            .call(
+                self.address,
+                &ierc20::canTransferCall {
+                    from,
+                    to,
+                    value: U256::from(value),
+                },
+            )
+            .await?;
+        Ok(can_transfer)
+    }
+
     // --- writes ------------------------------------------------------------
 
     pub async fn transfer(
