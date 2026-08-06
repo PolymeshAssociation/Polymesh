@@ -21,12 +21,12 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::num::NonZero;
 
+use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::primitives::IntoLogData;
 use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::{alloy, AddressMatcher, Ext, Precompile};
 use pallet_revive::precompiles::{AddressMapper, Error, RuntimeCosts, H256};
 use pallet_revive::H160;
-use frame_support::traits::Get;
 
 use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
