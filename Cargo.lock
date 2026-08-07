@@ -10399,7 +10399,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "8.0.3"
+version = "8.1.0"
 dependencies = [
  "array-bytes 6.2.3",
  "clap",
