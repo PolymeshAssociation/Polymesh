@@ -877,4 +877,56 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         // Minimum execution time: 194_666 nanoseconds.
         Weight::from_parts(198_650_000, 0).saturating_add(DbWeight::get().reads(25))
     }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
+    // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Asset::Assets` (r:1 w:0)
+    // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Asset::FrozenBalance` (r:0 w:1)
+    // Proof: `Asset::FrozenBalance` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    fn set_frozen_tokens() -> Weight {
+        // Minimum execution time: 52_367 nanoseconds.
+        Weight::from_parts(54_138_000, 0)
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Asset::FrozenBalance` (r:1 w:0)
+    // Proof: `Asset::FrozenBalance` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    fn get_holders_frozen_balance() -> Weight {
+        // Minimum execution time: 15_089 nanoseconds.
+        Weight::from_parts(15_834_000, 0).saturating_add(DbWeight::get().reads(1))
+    }
+    // Storage: `Asset::Assets` (r:1 w:0)
+    // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `Asset::Frozen` (r:1 w:0)
+    // Proof: `Asset::Frozen` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+    // Storage: `ComplianceManager::AssetCompliances` (r:1 w:0)
+    // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn transfer_is_allowed_for_holder_best_case() -> Weight {
+        // Minimum execution time: 80_396 nanoseconds.
+        Weight::from_parts(82_062_000, 0).saturating_add(DbWeight::get().reads(4))
+    }
+    // Storage: `Asset::Assets` (r:1 w:0)
+    // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `Asset::Frozen` (r:1 w:0)
+    // Proof: `Asset::Frozen` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+    // Storage: `ComplianceManager::AssetCompliances` (r:1 w:0)
+    // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Timestamp::Now` (r:1 w:0)
+    // Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `Identity::Claims` (r:1 w:0)
+    // Proof: `Identity::Claims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn transfer_is_allowed_for_holder_worst_case() -> Weight {
+        // Minimum execution time: 92_745 nanoseconds.
+        Weight::from_parts(94_474_000, 0).saturating_add(DbWeight::get().reads(6))
+    }
 }

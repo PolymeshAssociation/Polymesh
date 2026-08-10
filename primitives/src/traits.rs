@@ -132,6 +132,14 @@ pub trait ComplianceFnConfig {
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError>;
 
+    /// Returns true if the asset holder can send/receive the asset based on the asset's compliance rules.
+    fn is_holder_compliant(
+        holder_did: IdentityId,
+        asset_id: &AssetId,
+        holder_is_the_sender: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> bool;
+
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(
         caler_did: IdentityId,

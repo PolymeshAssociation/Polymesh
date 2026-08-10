@@ -359,6 +359,13 @@ pub mod pallet {
             amount_spent: Balance,
             remaining_allowance: Balance,
         },
+        /// The asset's frozen balance was set for an asset holder.
+        FrozenBalanceSet {
+            caller_did: IdentityId,
+            asset_holder: AssetHolder,
+            asset_id: AssetId,
+            frozen_balance: Balance,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -623,6 +630,18 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>,
             NMapKey<Blake2_128Concat, AssetId>,
         ),
+        Balance,
+        ValueQuery,
+    >;
+
+    /// Tracks the amount of frozen tokens for each asset held by the account.
+    #[pallet::storage]
+    pub type FrozenBalance<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
         Balance,
         ValueQuery,
     >;
@@ -1802,6 +1821,18 @@ pub mod pallet {
 
             Ok(())
         }
+
+        /// Freezes `amount` of `asset_id` tokens from `account`.
+        #[pallet::call_index(38)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_frozen_tokens())]
+        pub fn set_frozen_tokens(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_holder: AssetHolder,
+            amount: Balance,
+        ) -> DispatchResult {
+            Self::base_set_frozen_tokens(origin, asset_id, asset_holder, amount)
+        }
     }
 
     #[pallet::error]
@@ -1959,6 +1990,10 @@ pub mod pallet {
         fn issue_without_statistics() -> Weight;
         fn asset_transfer_report_best_case() -> Weight;
         fn asset_transfer_report_worst_case() -> Weight;
+        fn set_frozen_tokens() -> Weight;
+        fn get_holders_frozen_balance() -> Weight;
+        fn transfer_is_allowed_for_holder_best_case() -> Weight;
+        fn transfer_is_allowed_for_holder_worst_case() -> Weight;
     }
 }
 
@@ -2933,6 +2968,54 @@ impl<T: AssetConfig> Pallet<T> {
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
+
+    /// Sets the frozen transfer amount for an account on a given asset.
+    fn base_set_frozen_tokens(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        asset_holder: AssetHolder,
+        amount: Balance,
+    ) -> DispatchResult {
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
+        ensure!(
+            asset_details.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        match &asset_holder {
+            AssetHolder::Account(account) => {
+                if amount.is_zero() {
+                    FrozenBalance::<T>::remove(account, &asset_id);
+                } else {
+                    FrozenBalance::<T>::insert(account, asset_id, amount);
+                }
+
+                Self::deposit_event(Event::FrozenBalanceSet {
+                    caller_did,
+                    asset_holder,
+                    asset_id,
+                    frozen_balance: amount,
+                });
+            }
+            AssetHolder::Portfolio(portfolio) => {
+                pallet_portfolio::Pallet::<T>::set_portfolio_frozen_balance(
+                    portfolio.clone(),
+                    asset_id,
+                    amount,
+                );
+                Self::deposit_event(Event::FrozenBalanceSet {
+                    caller_did,
+                    asset_holder,
+                    asset_id,
+                    frozen_balance: amount,
+                });
+            }
+        }
+
+        Ok(())
+    }
 }
 
 //==========================================================================
@@ -3694,15 +3777,16 @@ impl<T: AssetConfig> Pallet<T> {
 
         let current_balance = Self::get_holders_balance(holder, asset_id);
         let locked_balance = Self::get_holders_locked_balance(holder, asset_id);
+        let frozen_balance = Self::get_holders_frozen_balance(holder, asset_id);
+
+        let unavailable_balance = locked_balance.saturating_add(frozen_balance);
+        let available_balance = current_balance.saturating_sub(unavailable_balance);
+
+        ensure!(available_balance >= value, Error::<T>::InsufficientBalance);
 
         let final_balance = current_balance
             .checked_sub(value)
             .ok_or(Error::<T>::InsufficientBalance)?;
-
-        ensure!(
-            final_balance >= locked_balance,
-            Error::<T>::InsufficientBalance
-        );
 
         Ok(final_balance)
     }
@@ -3808,6 +3892,54 @@ impl<T: AssetConfig> Pallet<T> {
             PortfolioPallet::<T>::ensure_portfolio_validity(portfolio_id)?;
         }
         Ok(())
+    }
+
+    /// Returns the frozen balance for `asset_holder` and `asset_id`.
+    pub fn get_holders_frozen_balance(asset_holder: &AssetHolder, asset_id: &AssetId) -> Balance {
+        match asset_holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                pallet_portfolio::Pallet::<T>::get_portfolio_frozen_balance(portfolio_id, asset_id)
+            }
+            AssetHolder::Account(account_id) => FrozenBalance::<T>::get(account_id, asset_id),
+        }
+    }
+
+    /// Returns `true` if the asset holder can send/receive the asset based on the asset's compliance rules.
+    /// Note: No balance and no statistics checks are performed.
+    pub fn transfer_is_allowed_for_holder(
+        asset_holder: &AssetHolder,
+        asset_id: &AssetId,
+        holder_is_the_sender: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
+        let asset_details = {
+            match Self::try_get_asset_details(&asset_id) {
+                Ok(details) => details,
+                Err(_) => return false,
+            }
+        };
+
+        if !asset_details.asset_type.is_fungible() {
+            return false;
+        }
+
+        let holder_did = {
+            match pallet_identity::Pallet::<T>::asset_holder_did(&asset_holder) {
+                Ok(did) => did,
+                Err(_) => return false,
+            }
+        };
+
+        if Self::ensure_asset_is_not_frozen(&asset_id).is_err() {
+            return false;
+        }
+
+        T::ComplianceManager::is_holder_compliant(
+            holder_did,
+            asset_id,
+            holder_is_the_sender,
+            weight_meter,
+        )
     }
 }
 
@@ -4176,11 +4308,8 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::InsufficientBalance
         );
 
-        match &receiver {
-            AssetHolder::Portfolio(receiver_pid) => {
-                PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?
-            }
-            AssetHolder::Account(_) => {}
+        if let AssetHolder::Portfolio(receiver_pid) = &receiver {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?;
         }
 
         Self::ensure_sufficient_balance(&sender, &asset_id, transfer_value)?;

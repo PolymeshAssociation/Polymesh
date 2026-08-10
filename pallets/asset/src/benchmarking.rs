@@ -945,4 +945,69 @@ benchmarks! {
             .is_empty()
         );
     }
+
+    set_frozen_tokens {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+    }: _(alice.origin, asset_id, AssetHolder::try_from(alice.account().encode()).unwrap(), ONE_UNIT)
+
+    get_holders_frozen_balance {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_asset_holder = AssetHolder::try_from(alice.account().encode()).unwrap();
+
+        Pallet::<T>::set_frozen_tokens(
+            alice.origin.into(),
+            asset_id,
+            alice_asset_holder.clone(),
+            ONE_UNIT
+        )
+        .unwrap();
+    }: {
+        assert_eq!(
+            Pallet::<T>::get_holders_frozen_balance(
+                &alice_asset_holder,
+                &asset_id,
+            ),
+            ONE_UNIT
+        );
+    }
+
+    transfer_is_allowed_for_holder_best_case {
+        // No statistics or compliance rules are set
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (sender, receiver, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, true, true, 0, true, true);
+    }: {
+        assert!(
+            Pallet::<T>::transfer_is_allowed_for_holder(
+                &sender,
+                &asset_id,
+                true,
+                &mut weight_meter
+            )
+        );
+    }
+
+    transfer_is_allowed_for_holder_worst_case {
+        // Max Statistics and Compliance rules are set
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (sender, receiver, _, asset_id) =
+            setup_asset_transfer::<T>(&alice, &bob, None, None, false, false, 0, true, true);
+    }: {
+        assert!(
+            Pallet::<T>::transfer_is_allowed_for_holder(
+                &sender,
+                &asset_id,
+                true,
+                &mut weight_meter
+            )
+        );
+    }
 }
