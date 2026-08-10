@@ -3764,6 +3764,12 @@ impl<T: AssetConfig> Pallet<T> {
 
         let current_balance = Self::get_holders_balance(holder, asset_id);
         let locked_balance = Self::get_holders_locked_balance(holder, asset_id);
+        let frozen_balance = Self::get_holders_frozen_balance(holder, asset_id);
+
+        let unavailable_balance = locked_balance.saturating_add(frozen_balance);
+        let available_balance = current_balance.saturating_sub(unavailable_balance);
+
+        ensure!(available_balance >= value, Error::<T>::InsufficientBalance);
 
         let available_balance = {
             if is_controller_transfer {
