@@ -123,6 +123,7 @@ fn raise_happy_path() {
         None,
         None,
         IdentityId::default(),
+        false,
         &mut weight_meter
     ));
 
@@ -365,6 +366,7 @@ fn raise_unhappy_path() {
         None,
         None,
         IdentityId::default(),
+        false,
         &mut weight_meter
     ));
 

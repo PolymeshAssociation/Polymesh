@@ -1822,7 +1822,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Freezes `amount` of `asset_id` tokens from `account`.
+        /// Freezes `amount` of `asset_id` tokens from `asset_holder`.
         #[pallet::call_index(38)]
         #[pallet::weight(<T as Config>::WeightInfo::set_frozen_tokens())]
         pub fn set_frozen_tokens(
