@@ -3926,8 +3926,8 @@ impl<T: Config> Pallet<T> {
             Self::validate_affirm_instruction_pre_conditions(
                 origin_data.primary_did,
                 origin_data.secondary_key.as_ref(),
-                [to].into(),
-                instruction_id,
+                &[to.clone()].into(),
+                &instruction_id,
             )?;
 
             Self::unverified_affirm_instruction(
