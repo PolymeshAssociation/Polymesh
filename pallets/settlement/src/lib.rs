@@ -3923,19 +3923,21 @@ impl<T: Config> Pallet<T> {
             };
             Self::check_accrue(weight_meter, receiver_affirm_weight)?;
 
-            Self::validate_affirm_instruction_pre_conditions(
+            if Self::validate_affirm_instruction_pre_conditions(
                 origin_data.primary_did,
                 origin_data.secondary_key.as_ref(),
                 &[to.clone()].into(),
                 &instruction_id,
-            )?;
-
-            Self::unverified_affirm_instruction(
-                origin_data.primary_did,
-                instruction_id,
-                [to].into(),
-                None,
-            )?;
+            )
+            .is_ok()
+            {
+                Self::unverified_affirm_instruction(
+                    origin_data.primary_did,
+                    instruction_id,
+                    [to].into(),
+                    None,
+                )?;
+            }
         }
 
         let instruction_id = if InstructionAffirmsPending::<T>::get(instruction_id) == 0 {
