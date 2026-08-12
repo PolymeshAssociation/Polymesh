@@ -1034,11 +1034,17 @@ impl<T: Config> Pallet<T> {
         )?;
 
         if !fundraiser_portfolios.is_empty() {
-            Settlement::<T>::unsafe_affirm_instruction(
+            Settlement::<T>::validate_affirm_instruction_pre_conditions(
+                fundraiser.creator,
+                None,
+                &fundraiser_portfolios,
+                &instruction_id,
+            )?;
+
+            Settlement::<T>::unverified_affirm_instruction(
                 fundraiser.creator,
                 instruction_id,
                 fundraiser_portfolios,
-                None,
                 None,
             )?;
         }

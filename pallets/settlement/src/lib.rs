@@ -2302,48 +2302,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn unsafe_affirm_instruction(
-        did: IdentityId,
-        id: InstructionId,
-        holder_set: BTreeSet<AssetHolder>,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        affirmation_count: Option<AffirmationCount>,
-    ) -> Result<FilteredLegs, DispatchError> {
-        // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
-        Self::ensure_permissions_and_affirmation_status(
-            id,
-            &holder_set,
-            did,
-            secondary_key,
-            &[AffirmationStatus::Pending],
-        )?;
-
-        let filtered_legs = Self::filtered_legs(id, &holder_set);
-        // If the fee was estimated in advance, the input values must be at least equal to the actual values
-        if let Some(affirmation_count) = affirmation_count {
-            Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?
-        }
-        for (leg_id, leg) in filtered_legs.sender_subset() {
-            Self::lock_asset(&leg)?;
-            <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
-        }
-
-        let affirms_pending = InstructionAffirmsPending::<T>::get(id);
-
-        // Updates storage
-        let n_holders = holder_set.len();
-        for asset_holder in holder_set {
-            UserAffirmations::<T>::insert(&asset_holder, id, AffirmationStatus::Affirmed);
-            AffirmsReceived::<T>::insert(id, &asset_holder, AffirmationStatus::Affirmed);
-            Self::deposit_event(Event::InstructionAffirmed(did, asset_holder, id));
-        }
-        InstructionAffirmsPending::<T>::insert(
-            id,
-            affirms_pending.saturating_sub(u64::try_from(n_holders).unwrap_or_default()),
-        );
-        Ok(filtered_legs)
-    }
-
     fn release_locks(id: &InstructionId, instruction_legs: &[(LegId, Leg)]) -> DispatchResult {
         for (leg_id, leg) in instruction_legs {
             if let LegStatus::ExecutionPending = InstructionLegStatus::<T>::get(id, leg_id) {
@@ -2418,7 +2376,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxNumberOfReceiptsExceeded
         );
 
-        let (did, secondary_key, instruction_details) =
+        let (caller_did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
 
         // The settlement must have a venue to use off-chain receipts.
@@ -2426,13 +2384,11 @@ impl<T: Config> Pallet<T> {
             .venue_id
             .ok_or(Error::<T>::OffChainAssetsMustHaveAVenue)?;
 
-        // Verify portfolio custodianship and check if it is a counter party with a pending affirmation.
-        Self::ensure_permissions_and_affirmation_status(
-            instruction_id,
-            &holder_set,
-            did,
+        Self::validate_affirm_instruction_pre_conditions(
+            caller_did,
             secondary_key.as_ref(),
-            &[AffirmationStatus::Pending],
+            &holder_set,
+            &instruction_id,
         )?;
 
         Self::ensure_valid_receipts_details(venue_id, instruction_id, &receipts_details)?;
@@ -2471,7 +2427,7 @@ impl<T: Config> Pallet<T> {
             );
             ReceiptsUsed::<T>::insert(receipt_detail.signer(), receipt_detail.uid(), true);
             Self::deposit_event(Event::ReceiptClaimed(
-                did,
+                caller_did,
                 instruction_id,
                 receipt_detail.leg_id(),
                 receipt_detail.uid(),
@@ -2492,7 +2448,7 @@ impl<T: Config> Pallet<T> {
                 AffirmationStatus::Affirmed,
             );
             Self::deposit_event(Event::InstructionAffirmed(
-                did,
+                caller_did,
                 asset_holder,
                 instruction_id,
             ));
@@ -2503,13 +2459,79 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_affirm_instruction(
         origin: OriginFor<T>,
-        id: InstructionId,
+        inst_id: InstructionId,
         holder_set: BTreeSet<AssetHolder>,
         affirmation_count: Option<AffirmationCount>,
     ) -> Result<FilteredLegs, DispatchError> {
-        let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
-        // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, id, holder_set, sk.as_ref(), affirmation_count)
+        let (caller_did, sk, _) =
+            Self::ensure_origin_perm_and_instruction_validity(origin, inst_id, false)?;
+
+        Self::validate_affirm_instruction_pre_conditions(
+            caller_did,
+            sk.as_ref(),
+            &holder_set,
+            &inst_id,
+        )?;
+
+        Self::unverified_affirm_instruction(caller_did, inst_id, holder_set, affirmation_count)
+    }
+
+    // Checks that the caller has permission to affirm the instruction and that the affirmation status is pending.
+    pub fn validate_affirm_instruction_pre_conditions(
+        caller_did: IdentityId,
+        sk: Option<&SecondaryKey<T::AccountId>>,
+        holder_set: &BTreeSet<AssetHolder>,
+        inst_id: &InstructionId,
+    ) -> DispatchResult {
+        // The caller must have permission to affirm the instruction and the affirmation status must be pending
+        for asset_holder in holder_set {
+            Asset::<T>::ensure_holder_permissions(asset_holder, caller_did, sk)?;
+            ensure!(
+                UserAffirmations::<T>::get(asset_holder, inst_id) == AffirmationStatus::Pending,
+                Error::<T>::UnexpectedAffirmationStatus
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn unverified_affirm_instruction(
+        caller_did: IdentityId,
+        inst_id: InstructionId,
+        holder_set: BTreeSet<AssetHolder>,
+        affirmation_count: Option<AffirmationCount>,
+    ) -> Result<FilteredLegs, DispatchError> {
+        let filtered_legs = Self::filtered_legs(inst_id, &holder_set);
+
+        // If the fee was estimated in advance, the input values must be at least equal to the actual values
+        if let Some(affirmation_count) = affirmation_count {
+            Self::ensure_valid_affirmation_count(&filtered_legs, &affirmation_count)?
+        }
+
+        for (leg_id, leg) in filtered_legs.sender_subset() {
+            Self::lock_asset(&leg)?;
+            InstructionLegStatus::<T>::insert(inst_id, leg_id, LegStatus::ExecutionPending);
+        }
+
+        let affirms_pending = InstructionAffirmsPending::<T>::get(inst_id);
+        let n_holders = holder_set.len();
+
+        for asset_holder in holder_set {
+            UserAffirmations::<T>::insert(&asset_holder, inst_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::<T>::insert(inst_id, &asset_holder, AffirmationStatus::Affirmed);
+            Self::deposit_event(Event::InstructionAffirmed(
+                caller_did,
+                asset_holder,
+                inst_id,
+            ));
+        }
+
+        InstructionAffirmsPending::<T>::insert(
+            inst_id,
+            affirms_pending.saturating_sub(u64::try_from(n_holders).unwrap_or_default()),
+        );
+
+        Ok(filtered_legs)
     }
 
     /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
@@ -2626,24 +2648,6 @@ impl<T: Config> Pallet<T> {
                 &mut WeightMeter::max_limit_no_minimum(),
                 true,
             )?;
-        }
-        Ok(())
-    }
-
-    fn ensure_permissions_and_affirmation_status(
-        id: InstructionId,
-        holder_set: &BTreeSet<AssetHolder>,
-        custodian: IdentityId,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        expected_statuses: &[AffirmationStatus],
-    ) -> DispatchResult {
-        for asset_holder in holder_set {
-            Asset::<T>::ensure_holder_permissions(asset_holder, custodian, secondary_key)?;
-            let user_affirmation = UserAffirmations::<T>::get(asset_holder, id);
-            ensure!(
-                expected_statuses.contains(&user_affirmation),
-                Error::<T>::UnexpectedAffirmationStatus
-            );
         }
         Ok(())
     }
@@ -3895,16 +3899,13 @@ impl<T: Config> Pallet<T> {
             None,
         )?;
 
-        // In spender mode (sender != caller), pass None to skip the caller's secondary key
-        // check and instead verify the sender's account via their DID's primary key.
-        let sender_sk = if from_did == origin_data.primary_did {
-            origin_data.secondary_key.as_ref()
-        } else {
-            None
-        };
-
         // Affirm the instruction on behalf of the sender.
-        Self::unsafe_affirm_instruction(from_did, instruction_id, [from].into(), sender_sk, None)?;
+        Self::unverified_affirm_instruction(
+            origin_data.primary_did,
+            instruction_id,
+            [from].into(),
+            None,
+        )?;
 
         // Try affirming if caller is the receiver (spender mode) and receiver affirmation is needed.
         if to_did == origin_data.primary_did
@@ -3921,11 +3922,10 @@ impl<T: Config> Pallet<T> {
                 }
             };
             Self::check_accrue(weight_meter, receiver_affirm_weight)?;
-            Self::unsafe_affirm_instruction(
+            Self::unverified_affirm_instruction(
                 origin_data.primary_did,
                 instruction_id,
                 [to].into(),
-                origin_data.secondary_key.as_ref(),
                 None,
             )?;
         }
