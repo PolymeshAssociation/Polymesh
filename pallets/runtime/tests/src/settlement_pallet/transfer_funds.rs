@@ -4,8 +4,10 @@ use sp_keyring::Sr25519Keyring;
 use pallet_asset::{Allowances, BalanceOf};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
 use polymesh_primitives::nft::{NFTId, NFTOwnerStatus};
+use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::{
-    Balance, Fund, FundDescription, NFTs, Permissions, PortfolioId, SubsetRestriction,
+    Balance, Fund, FundDescription, NFTs, Permissions, PortfolioId, PortfolioNumber,
+    SubsetRestriction,
 };
 
 use crate::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
@@ -15,6 +17,7 @@ use crate::{ExtBuilder, TestStorage};
 type Asset = pallet_asset::Pallet<TestStorage>;
 type Nft = pallet_nft::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
+type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type SettlementError = pallet_settlement::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
@@ -514,7 +517,6 @@ fn nft_reject_frozen_asset() {
         );
     });
 }
-
 #[test]
 fn reject_secondary_key_transfer_without_permission() {
     ExtBuilder::default().build().execute_with(|| {
@@ -541,5 +543,155 @@ fn reject_secondary_key_transfer_without_permission() {
             ),
             PortfolioError::SecondaryKeyNotAuthorizedForPortfolio
         );
+    });
+}
+
+#[test]
+fn cross_identity_transfer_when_caller_has_spending_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<TestStorage>::set_block_number(1);
+
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        assert_ok!(Asset::approve(alice.origin(), asset_id, charlie.acc(), 500));
+
+        assert_ok!(Settlement::transfer_funds(
+            charlie.origin(),
+            Some(AssetHolder::Account(alice.acc())),
+            AssetHolder::Account(bob.acc()),
+            fungible_fund(asset_id, 100),
+        ));
+
+        // Balance moved from alice to bob.
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            ISSUE_AMOUNT - 100
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(bob.acc()), &asset_id),
+            100
+        );
+
+        // Settlement instruction was created and executed.
+        let events = frame_system::Pallet::<TestStorage>::events();
+        assert!(events.iter().any(|record| {
+            matches!(
+                &record.event,
+                crate::storage::EventTest::Settlement(
+                    pallet_settlement::Event::InstructionExecuted(_, _)
+                )
+            )
+        }));
+    });
+}
+
+#[test]
+fn cross_identity_transfer_when_caller_has_portfolio_permissions() {
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<TestStorage>::set_block_number(1);
+
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_default_portfolio =
+            AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did));
+        let charlie = User::new_with(alice.did, Sr25519Keyring::Charlie);
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        add_secondary_key_with_perms(alice.did, charlie.acc(), Permissions::default());
+
+        assert_ok!(Settlement::transfer_funds(
+            charlie.origin(),
+            Some(alice_default_portfolio.clone()),
+            AssetHolder::Account(bob.acc()),
+            fungible_fund(asset_id, 100),
+        ));
+
+        // Balance moved from alice to bob.
+        assert_eq!(
+            Asset::get_holders_balance(&alice_default_portfolio, &asset_id),
+            ISSUE_AMOUNT - 100
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(bob.acc()), &asset_id),
+            100
+        );
+
+        // Settlement instruction was created and executed.
+        let events = frame_system::Pallet::<TestStorage>::events();
+        assert!(events.iter().any(|record| {
+            matches!(
+                &record.event,
+                crate::storage::EventTest::Settlement(
+                    pallet_settlement::Event::InstructionExecuted(_, _)
+                )
+            )
+        }));
+    });
+}
+
+#[test]
+fn cross_identity_transfer_when_caller_is_also_the_receiver() {
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<TestStorage>::set_block_number(1);
+
+        let bob = User::new(Sr25519Keyring::Bob);
+        let eve = User::new(Sr25519Keyring::Eve);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new_with(bob.did, Sr25519Keyring::Charlie);
+
+        add_secondary_key_with_perms(bob.did, charlie.acc(), Permissions::default());
+
+        assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+            eve.origin(),
+            AffirmationRequirement::Required
+        ));
+
+        assert_ok!(Portfolio::create_portfolio(
+            charlie.origin(),
+            b"Charlie".into()
+        ));
+        let charlie_portfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
+        crate::portfolio::set_custodian_ok(charlie.clone(), eve.clone(), charlie_portfolio.clone());
+        assert!(
+            pallet_portfolio::PortfolioCustodian::<TestStorage>::get(&charlie_portfolio)
+                == Some(eve.did)
+        );
+
+        let asset_id = create_and_issue_to_account(&alice);
+        assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
+
+        assert_ok!(Settlement::transfer_funds(
+            bob.origin(),
+            Some(AssetHolder::Account(alice.acc())),
+            AssetHolder::Portfolio(charlie_portfolio.clone()),
+            fungible_fund(asset_id, 100),
+        ));
+
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            ISSUE_AMOUNT
+        );
+        assert_eq!(
+            Asset::get_holders_balance(
+                &AssetHolder::Portfolio(charlie_portfolio.clone()),
+                &asset_id
+            ),
+            0
+        );
+
+        // Settlement instruction was created
+        let events = frame_system::Pallet::<TestStorage>::events();
+        assert!(events.iter().any(|record| {
+            matches!(
+                &record.event,
+                crate::storage::EventTest::Settlement(
+                    pallet_settlement::Event::InstructionCreated(..)
+                )
+            )
+        }));
     });
 }
