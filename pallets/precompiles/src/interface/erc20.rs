@@ -320,6 +320,6 @@ impl<T: Config> FungibleAssetInterface<T> {
         _asset_id: AssetId,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        Ok(IFungibleAsset::decimalsCall::abi_encode_returns(&6))
+        Ok(IFungibleAsset::decimalsCall::abi_encode_returns(&DECIMALS))
     }
 }

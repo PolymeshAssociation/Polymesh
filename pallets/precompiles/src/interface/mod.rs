@@ -32,6 +32,7 @@ use crate::common::{revert, revert_err, Common};
 use crate::Config;
 
 mod erc20;
+mod erc3643;
 mod erc7943;
 mod polymesh_specific;
 
@@ -39,7 +40,10 @@ mod polymesh_specific;
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub(crate) const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
+pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long";
 // ========================================================
+
+pub const DECIMALS: u8 = 6;
 
 /// All precompile calls exposed by the Polymesh runtime.
 pub struct FungibleAssetInterface<T>(PhantomData<T>);
@@ -75,6 +79,11 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             | IFungibleAssetCalls::permit(_)
             | IFungibleAssetCalls::forcedTransfer(_)
             | IFungibleAssetCalls::setFrozenTokens(_)
+            | IFungibleAssetCalls::setName(_)
+            | IFungibleAssetCalls::setSymbol(_)
+            | IFungibleAssetCalls::pause(_)
+            | IFungibleAssetCalls::unpause(_)
+            | IFungibleAssetCalls::setAddressFrozen(_)
                 if env.is_read_only() =>
             {
                 Err(Common::<T>::state_change_denied())
@@ -114,6 +123,15 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             }
             IFungibleAssetCalls::setFrozenTokens(call) => {
                 Self::set_frozen_tokens(asset_id, call, env)
+            }
+
+            // ERC3643 functions
+            IFungibleAssetCalls::pause(_) => Self::pause(asset_id, env),
+            IFungibleAssetCalls::unpause(_) => Self::unpause(asset_id, env),
+            IFungibleAssetCalls::setName(call) => Self::set_name(asset_id, call, env),
+            IFungibleAssetCalls::setSymbol(call) => Self::set_symbol(asset_id, call, env),
+            IFungibleAssetCalls::setAddressFrozen(call) => {
+                Self::set_address_frozen(asset_id, call, env)
             }
         }
     }
