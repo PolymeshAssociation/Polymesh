@@ -3925,6 +3925,7 @@ impl<T: Config> Pallet<T> {
             )
             .is_ok();
 
+            // If the caller is not permissioned, the instruction will remain pending until an authorized party affirms it.
             if caller_is_permissioned {
                 Self::unverified_affirm_instruction(
                     origin_data.primary_did,
