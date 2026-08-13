@@ -209,6 +209,40 @@ interface IFungibleAsset {
     /// @param account The address to check.
     /// @return True if the account is allowed to receive, false otherwise.
     function canReceive(address account) external view returns (bool);
+
+    // ============================================================
+    // ERC-3643
+    // ============================================================
+
+    /// @notice Emitted when the token information is updated. This includes updates to the token's name, symbol, decimals, version, and onchainID.
+    event UpdatedTokenInformation(
+        string indexed newName, 
+        string indexed newSymbol, 
+        uint8 newDecimals, 
+        string newVersion, 
+        address indexed newOnchainID
+    );
+
+    /// @notice Emitted when the token contract is paused.
+    event Paused(address userAddress);
+
+    /// @notice Emitted when the token contract is unpaused.
+    event Unpaused(address userAddress);
+
+    /// @notice Sets the token name. Only the owner of the token contract can call this function.
+    function setName(string calldata name) external;
+
+    /// @notice Sets the token symbol. Only the owner of the token contract can call this function.
+    function setSymbol(string calldata symbol) external;
+
+    /// @notice Pauses the token contract, preventing token transfers. Only an agent of the token can call this function.
+    function pause() external;
+
+    /// @notice Unpauses the token contract, allowing token transfers. Only an agent of the token can call this function.
+    function unpause() external;
+
+    /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
+    function setAddressFrozen(address userAddress, bool freeze) external;
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -335,6 +369,35 @@ contract FungibleAssetStub is IFungibleAsset {
 
     function canReceive(address account) external view override returns (bool) {
         account;
+        revert NotExecutable();
+    }
+
+    /// @notice Sets the token name. Only the owner of the token contract can call this function.
+    function setName(string calldata name) external override {
+        name;
+        revert NotExecutable();
+    }
+
+    /// @notice Sets the token symbol. Only the owner of the token contract can call this function.
+    function setSymbol(string calldata symbol) external override {
+        symbol;
+        revert NotExecutable();
+    }
+
+    /// @notice Pauses the token contract, preventing token transfers. Only an agent of the token can call this function.
+    function pause() external override {
+        revert NotExecutable();
+    }
+
+    /// @notice Unpauses the token contract, allowing token transfers. Only an agent of the token can call this function.
+    function unpause() external override {
+        revert NotExecutable();
+    }
+
+    /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
+    function setAddressFrozen(address userAddress, bool freeze) external override {
+        userAddress;
+        freeze;
         revert NotExecutable();
     }
 }
