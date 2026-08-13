@@ -711,7 +711,7 @@ benchmarks! {
         ).unwrap();
         let holder_set = BTreeSet::from([receiver_portfolio]);
     }: {
-        Pallet::<T>::validate_affirm_instruction_pre_conditions(
+        Pallet::<T>::caller_is_permissioned_and_affirmation_is_pending(
             bob.did(),
             None,
             &holder_set,
@@ -767,7 +767,7 @@ benchmarks! {
         ).unwrap();
         let holder_set = BTreeSet::from([receiver_account]);
     }: {
-        Pallet::<T>::validate_affirm_instruction_pre_conditions(
+        Pallet::<T>::caller_is_permissioned_and_affirmation_is_pending(
             bob.did(),
             None,
             &holder_set,

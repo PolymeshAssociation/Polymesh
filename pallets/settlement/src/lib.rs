@@ -1633,9 +1633,7 @@ impl<T: Config> Pallet<T> {
                 origin,
                 &origin_data,
                 resolved_from,
-                from_did,
                 to,
-                to_did,
                 fund,
                 weight_meter,
                 #[cfg(feature = "runtime-benchmarks")]
@@ -2384,7 +2382,7 @@ impl<T: Config> Pallet<T> {
             .venue_id
             .ok_or(Error::<T>::OffChainAssetsMustHaveAVenue)?;
 
-        Self::validate_affirm_instruction_pre_conditions(
+        Self::caller_is_permissioned_and_affirmation_is_pending(
             caller_did,
             secondary_key.as_ref(),
             &holder_set,
@@ -2466,7 +2464,7 @@ impl<T: Config> Pallet<T> {
         let (caller_did, sk, _) =
             Self::ensure_origin_perm_and_instruction_validity(origin, inst_id, false)?;
 
-        Self::validate_affirm_instruction_pre_conditions(
+        Self::caller_is_permissioned_and_affirmation_is_pending(
             caller_did,
             sk.as_ref(),
             &holder_set,
@@ -2477,7 +2475,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Checks that the caller has permission to affirm the instruction and that the affirmation status is pending.
-    pub fn validate_affirm_instruction_pre_conditions(
+    pub fn caller_is_permissioned_and_affirmation_is_pending(
         caller_did: IdentityId,
         sk: Option<&SecondaryKey<T::AccountId>>,
         holder_set: &BTreeSet<AssetHolder>,
@@ -3844,9 +3842,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         origin_data: &pallet_identity::PermissionedCallOriginData<T::AccountId>,
         from: AssetHolder,
-        from_did: IdentityId,
         to: AssetHolder,
-        to_did: IdentityId,
         fund: Fund,
         weight_meter: &mut WeightMeter,
         #[cfg(feature = "runtime-benchmarks")] bench_base_weight: bool,
@@ -3889,7 +3885,7 @@ impl<T: Config> Pallet<T> {
 
         // Create the instruction with the prepared leg
         let instruction_id = Self::base_add_instruction(
-            from_did,
+            origin_data.primary_did,
             None,
             SettlementType::SettleManual(System::<T>::block_number()),
             None,
@@ -3908,9 +3904,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Try affirming if caller is the receiver (spender mode) and receiver affirmation is needed.
-        if to_did == origin_data.primary_did
-            && InstructionAffirmsPending::<T>::get(instruction_id) > 0
-        {
+        if InstructionAffirmsPending::<T>::get(instruction_id) > 0 {
             // Weight differs based on whether the receiver is an account or a portfolio
             // (different permission-check storage).
             let receiver_affirm_weight = match &to {
@@ -3923,14 +3917,15 @@ impl<T: Config> Pallet<T> {
             };
             Self::check_accrue(weight_meter, receiver_affirm_weight)?;
 
-            if Self::validate_affirm_instruction_pre_conditions(
+            let caller_is_permissioned = Self::caller_is_permissioned_and_affirmation_is_pending(
                 origin_data.primary_did,
                 origin_data.secondary_key.as_ref(),
                 &[to.clone()].into(),
                 &instruction_id,
             )
-            .is_ok()
-            {
+            .is_ok();
+
+            if caller_is_permissioned {
                 Self::unverified_affirm_instruction(
                     origin_data.primary_did,
                     instruction_id,
