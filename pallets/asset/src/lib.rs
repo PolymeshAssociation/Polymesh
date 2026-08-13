@@ -2987,6 +2987,10 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        }
+
         Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, amount);
         Ok(())
     }

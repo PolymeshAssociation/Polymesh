@@ -949,7 +949,8 @@ benchmarks! {
     set_frozen_tokens {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-    }: _(alice.origin, asset_id, AssetHolder::try_from(alice.account().encode()).unwrap(), ONE_UNIT)
+        let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+    }: _(alice.origin, asset_id, alice_portfolio, ONE_UNIT)
 
     get_holders_frozen_balance {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");

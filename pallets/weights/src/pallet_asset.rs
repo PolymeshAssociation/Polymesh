@@ -887,12 +887,14 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `Asset::Assets` (r:1 w:0)
     // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    // Storage: `Asset::FrozenBalance` (r:0 w:1)
-    // Proof: `Asset::FrozenBalance` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::Portfolios` (r:1 w:0)
+    // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Portfolio::PortfolioFrozenAssets` (r:0 w:1)
+    // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
     fn set_frozen_tokens() -> Weight {
-        // Minimum execution time: 52_367 nanoseconds.
-        Weight::from_parts(54_138_000, 0)
-            .saturating_add(DbWeight::get().reads(5))
+        // Minimum execution time: 62_991 nanoseconds.
+        Weight::from_parts(64_868_000, 0)
+            .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Asset::FrozenBalance` (r:1 w:0)
