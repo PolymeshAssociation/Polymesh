@@ -3905,12 +3905,13 @@ impl<T: AssetConfig> Pallet<T> {
         holder_is_the_sender: bool,
         weight_meter: &mut WeightMeter,
     ) -> bool {
-        let asset_details = {
-            match Self::try_get_asset_details(&asset_id) {
-                Ok(details) => details,
-                Err(_) => return false,
-            }
-        };
+        if Self::ensure_asset_exists(asset_id).is_err() {
+            return false;
+        }
+
+        if Self::ensure_asset_is_not_frozen(&asset_id).is_err() {
+            return false;
+        }
 
         let holder_did = {
             match pallet_identity::Pallet::<T>::asset_holder_did(&asset_holder) {
@@ -3918,10 +3919,6 @@ impl<T: AssetConfig> Pallet<T> {
                 Err(_) => return false,
             }
         };
-
-        if Self::ensure_asset_is_not_frozen(&asset_id).is_err() {
-            return false;
-        }
 
         T::ComplianceManager::is_holder_compliant(
             holder_did,
