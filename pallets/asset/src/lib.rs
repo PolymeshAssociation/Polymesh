@@ -3912,10 +3912,6 @@ impl<T: AssetConfig> Pallet<T> {
             }
         };
 
-        if !asset_details.asset_type.is_fungible() {
-            return false;
-        }
-
         let holder_did = {
             match pallet_identity::Pallet::<T>::asset_holder_did(&asset_holder) {
                 Ok(did) => did,
