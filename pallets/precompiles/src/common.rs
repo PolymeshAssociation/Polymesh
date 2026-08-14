@@ -20,8 +20,11 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use codec::Encode;
-use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, RawOrigin};
+use frame_support::dispatch::{
+    DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo, RawOrigin,
+};
 use frame_support::traits::{Contains, Get, GetCallMetadata, IsType};
+use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::DispatchError;
@@ -30,7 +33,7 @@ use pallet_permissions::with_call_metadata;
 use pallet_revive::precompiles::alloy::primitives::{Address, IntoLogData, U256};
 use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::{AddressMapper, Error, Ext, RuntimeCosts, H256};
-use pallet_revive::{ExecOrigin, H160};
+use pallet_revive::{DispatchRuntimeCall, ExecOrigin, H160};
 
 use polymesh_primitives::{AccountId, AssetHolder, Balance};
 
@@ -70,6 +73,36 @@ pub fn extrinsic_error(err: impl Into<DispatchError>) -> Error {
     }
 }
 
+/// Weight of swapping the current call metadata in and back out again.
+pub fn call_metadata_weight<T: frame_system::Config>() -> Weight {
+    <T as frame_system::Config>::DbWeight::get().reads_writes(2, 4)
+}
+
+/// Dispatches runtime calls with the call metadata of the call being dispatched.
+///
+/// Wired into `pallet_revive::Config::DispatchHook` so that runtime calls entering the runtime
+/// through the EVM layer are checked against the extrinsic being called and not against the
+/// `pallet_revive` extrinsic that carried them.
+pub struct DispatchWithCallMetadata<T>(PhantomData<T>);
+
+impl<T> DispatchRuntimeCall<<T as pallet_revive::Config>::RuntimeCall>
+    for DispatchWithCallMetadata<T>
+where
+    T: pallet_revive::Config + pallet_permissions::Config,
+    <T as pallet_revive::Config>::RuntimeCall: GetCallMetadata,
+{
+    fn weight() -> Weight {
+        call_metadata_weight::<T>()
+    }
+
+    fn dispatch(
+        call: <T as pallet_revive::Config>::RuntimeCall,
+        origin: OriginFor<T>,
+    ) -> DispatchResultWithPostInfo {
+        with_call_metadata::<T, _>(call.get_call_metadata(), || call.dispatch(origin))
+    }
+}
+
 /// The caller of a precompile, in all the representations the precompiles need.
 pub struct Caller<T: Config> {
     /// The revive origin of the caller.
@@ -92,8 +125,8 @@ pub struct Common<T>(PhantomData<T>);
 
 impl<T: Config> Common<T> {
     /// Weight of swapping the current call metadata in and back out again.
-    fn call_metadata_weight() -> frame_support::weights::Weight {
-        <T as frame_system::Config>::DbWeight::get().reads_writes(2, 4)
+    fn call_metadata_weight() -> Weight {
+        call_metadata_weight::<T>()
     }
 
     /// Get the caller of the precompile.
