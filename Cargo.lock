@@ -8887,9 +8887,11 @@ name = "pallet-precompiles"
 version = "0.1.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "log",
  "pallet-asset",
+ "pallet-permissions",
  "pallet-revive",
  "pallet-settlement",
  "parity-scale-codec",

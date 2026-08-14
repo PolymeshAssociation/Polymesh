@@ -14,35 +14,28 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use alloc::vec::Vec;
-use codec::Encode;
 
-use frame_support::dispatch::RawOrigin;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
+use pallet_revive::precompiles::alloy::sol_types::SolCall;
+use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
-use pallet_revive::precompiles::{AddressMapper, Error};
 use pallet_revive::H160;
 
 use pallet_asset::AssetIdTicker;
-use pallet_asset::{Allowances, AssetBalance, AssetNames, WeightInfo};
+use pallet_asset::{Allowances, AssetBalance, AssetNames};
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
-use polymesh_primitives::{AccountId as AccountId32, AssetHolder, WeightMeter};
+use polymesh_primitives::WeightMeter;
 
+use crate::common::{revert, Common};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::ERR_INVALID_ACCOUNT_ID;
 use crate::interface::{ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
+use crate::Config;
 
-impl<T> FungibleAssetInterface<T>
-where
-    T: pallet_revive::Config
-        + pallet_asset::Config
-        + pallet_asset::checkpoint::Config
-        + pallet_settlement::Config,
-{
+impl<T: Config> FungibleAssetInterface<T> {
     /// Moves a `value` amount of tokens from the caller’s account to `to`.
     pub(crate) fn transfer(
         asset_id: AssetId,
@@ -50,7 +43,7 @@ where
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         // Converts `value` and charges the weight for the transfer_asset call
-        let amount = Self::to_balance(call.value)?;
+        let amount = Common::<T>::to_balance(call.value)?;
         let fund = Fund::new(
             FundDescription::Fungible {
                 asset_id: asset_id,
@@ -63,42 +56,45 @@ where
             <T as pallet_asset::Config>::SettlementFn::transfer_funds_weight_limit(None, &fund);
         let charged_amount = env.charge(worst_case_weight)?;
 
-        let caller = Self::caller(env)?;
-        let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
-
-        let to = call.to.into_array().into();
-        let to = <T as pallet_revive::Config>::AddressMapper::to_account_id(&to);
+        let caller = Common::<T>::caller(env)?;
+        let to = Common::<T>::asset_holder(call.to)?;
 
         let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
 
-        match <T as pallet_asset::Config>::SettlementFn::transfer_funds(
-            RawOrigin::Signed(from).into(),
-            None,
-            AssetHolder::try_from(to.encode()).map_err(|_| {
-                Error::Revert(Revert {
-                    reason: ERR_INVALID_ACCOUNT_ID.into(),
-                })
-            })?,
-            fund,
-            &mut weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            false,
-        ) {
-            Err(e) => return Err(Self::extrinsic_error(e)),
+        let result = Common::<T>::with_runtime_call(
+            env,
+            pallet_settlement::Call::<T>::transfer_funds {
+                from: None,
+                to: to.clone(),
+                fund: fund.clone(),
+            },
+            || {
+                <T as pallet_asset::Config>::SettlementFn::transfer_funds(
+                    caller.runtime_origin(),
+                    None,
+                    to,
+                    fund,
+                    &mut weight_meter,
+                    #[cfg(feature = "runtime-benchmarks")]
+                    false,
+                )
+            },
+        )?;
+
+        match result {
+            Err(e) => return Err(crate::common::extrinsic_error(e)),
             Ok(inst_id) => {
                 env.adjust_gas(charged_amount, weight_meter.consumed());
 
                 // Instruction was created but not executed
                 if inst_id.is_some() {
-                    return Err(Error::Revert(Revert {
-                        reason: ERR_INST_NOT_EXECUTED.into(),
-                    }));
+                    return Err(revert(ERR_INST_NOT_EXECUTED));
                 }
 
-                Self::deposit_event(
+                Common::<T>::deposit_event(
                     env,
                     IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
-                        from: caller.0.into(),
+                        from: caller.address.0.into(),
                         to: call.to,
                         value: call.value,
                     }),
@@ -114,16 +110,12 @@ where
         asset_id: AssetId,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(T::DbWeight::get().reads(1))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let asset_details =
-            pallet_asset::Pallet::<T>::try_get_asset_details(&asset_id).map_err(|_| {
-                Error::Revert(Revert {
-                    reason: ERR_ASSET_NOT_FOUND.into(),
-                })
-            })?;
+        let asset_details = pallet_asset::Pallet::<T>::try_get_asset_details(&asset_id)
+            .map_err(|_| revert(ERR_ASSET_NOT_FOUND))?;
 
-        let value = Self::to_u256(asset_details.total_supply)?;
+        let value = Common::<T>::to_u256(asset_details.total_supply)?;
         Ok(IFungibleAsset::totalSupplyCall::abi_encode_returns(&value))
     }
 
@@ -133,18 +125,12 @@ where
         call: &IFungibleAsset::balanceOfCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(T::DbWeight::get().reads(1))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let account = call.account.into_array().into();
-        let account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&account);
-        let account_id: [u8; 32] = account.encode().try_into().map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        let account = Common::<T>::account_id32(call.account)?;
 
-        let acc_balance = AssetBalance::<T>::get(&AccountId32::from(account_id), &asset_id);
-        let value = Self::to_u256(acc_balance)?;
+        let acc_balance = AssetBalance::<T>::get(&account, &asset_id);
+        let value = Common::<T>::to_u256(acc_balance)?;
         Ok(IFungibleAsset::balanceOfCall::abi_encode_returns(&value))
     }
 
@@ -154,16 +140,13 @@ where
         call: &IFungibleAsset::allowanceCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(T::DbWeight::get().reads(1))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let owner = call.owner.into_array().into();
-        let owner = <T as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
-
-        let spender = call.spender.into_array().into();
-        let spender = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+        let owner = Common::<T>::account_id(call.owner);
+        let spender = Common::<T>::account_id(call.spender);
 
         let allowance = Allowances::<T>::get((&owner, &spender, &asset_id));
-        let value = Self::to_u256(allowance)?;
+        let value = Common::<T>::to_u256(allowance)?;
         Ok(IFungibleAsset::allowanceCall::abi_encode_returns(&value))
     }
 
@@ -173,26 +156,24 @@ where
         call: &IFungibleAsset::approveCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(<T as pallet_asset::Config>::WeightInfo::approve())?;
+        let caller = Common::<T>::caller(env)?;
+        let spender = Common::<T>::account_id(call.spender);
+        let amount = Common::<T>::to_balance(call.value)?;
 
-        let owner = Self::caller(env)?;
-        let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
-        let spender = call.spender.into_array().into();
-        let spender = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::approve {
+                asset_id,
+                spender,
+                amount,
+            },
+        )?;
 
-        if let Err(e) = pallet_asset::Pallet::<T>::approve(
-            RawOrigin::Signed(from).into(),
-            asset_id,
-            spender,
-            Self::to_balance(call.value)?,
-        ) {
-            return Err(Self::extrinsic_error(e));
-        };
-
-        Self::deposit_event(
+        Common::<T>::deposit_event(
             env,
             IFungibleAssetEvents::Approval(IFungibleAsset::Approval {
-                owner: owner.0.into(),
+                owner: caller.address.0.into(),
                 spender: call.spender,
                 value: call.value,
             }),
@@ -207,18 +188,12 @@ where
         call: &IFungibleAsset::transferFromCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        let from = call.from.into_array().into();
-        let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&from);
-        let from = AssetHolder::try_from(from.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        let from = Common::<T>::asset_holder(call.from)?;
 
         let fund = Fund::new(
             FundDescription::Fungible {
                 asset_id: asset_id,
-                amount: Self::to_balance(call.value)?,
+                amount: Common::<T>::to_balance(call.value)?,
             },
             None,
         );
@@ -230,39 +205,42 @@ where
             );
         let charged_amount = env.charge(worst_case_weight)?;
 
-        let spender = Self::caller(env)?;
-        let spender = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
-
-        let to = call.to.into_array().into();
-        let to = <T as pallet_revive::Config>::AddressMapper::to_account_id(&to);
+        let spender = Common::<T>::caller(env)?;
+        let to = Common::<T>::asset_holder(call.to)?;
 
         let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
 
-        match <T as pallet_asset::Config>::SettlementFn::transfer_funds(
-            RawOrigin::Signed(spender).into(),
-            Some(from),
-            AssetHolder::try_from(to.encode()).map_err(|_| {
-                Error::Revert(Revert {
-                    reason: ERR_INVALID_ACCOUNT_ID.into(),
-                })
-            })?,
-            fund,
-            &mut weight_meter,
-            #[cfg(feature = "runtime-benchmarks")]
-            false,
-        ) {
-            Err(e) => return Err(Self::extrinsic_error(e)),
+        let result = Common::<T>::with_runtime_call(
+            env,
+            pallet_settlement::Call::<T>::transfer_funds {
+                from: Some(from.clone()),
+                to: to.clone(),
+                fund: fund.clone(),
+            },
+            || {
+                <T as pallet_asset::Config>::SettlementFn::transfer_funds(
+                    spender.runtime_origin(),
+                    Some(from),
+                    to,
+                    fund,
+                    &mut weight_meter,
+                    #[cfg(feature = "runtime-benchmarks")]
+                    false,
+                )
+            },
+        )?;
+
+        match result {
+            Err(e) => return Err(crate::common::extrinsic_error(e)),
             Ok(inst_id) => {
                 env.adjust_gas(charged_amount, weight_meter.consumed());
 
                 // Instruction was created but not executed
                 if inst_id.is_some() {
-                    return Err(Error::Revert(Revert {
-                        reason: ERR_INST_NOT_EXECUTED.into(),
-                    }));
+                    return Err(revert(ERR_INST_NOT_EXECUTED));
                 }
 
-                Self::deposit_event(
+                Common::<T>::deposit_event(
                     env,
                     IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
                         from: call.from,
@@ -286,9 +264,7 @@ where
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         log::warn!("ERC20permitPermit is not implemented yet");
-        Err(Error::Revert(Revert {
-            reason: "permit is not implemented yet".into(),
-        }))
+        Err(revert("permit is not implemented yet"))
     }
 
     /// Get the current nonce for an owner address.
@@ -298,9 +274,7 @@ where
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         log::warn!("nonces is not implemented yet");
-        Err(Error::Revert(Revert {
-            reason: "nonces is not implemented yet".into(),
-        }))
+        Err(revert("nonces is not implemented yet"))
     }
 
     /// Get the EIP-712 domain separator for this contract.
@@ -310,14 +284,12 @@ where
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         log::warn!("domain_separator is not implemented yet");
-        Err(Error::Revert(Revert {
-            reason: "domain_separator is not implemented yet".into(),
-        }))
+        Err(revert("domain_separator is not implemented yet"))
     }
 
     /// Returns the name of the token.
     pub(crate) fn name(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-        env.charge(T::DbWeight::get().reads(1))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let name = AssetNames::<T>::get(asset_id).unwrap_or_default();
         let name = alloc::string::String::from_utf8_lossy(name.0.as_ref()).into_owned();
@@ -327,7 +299,7 @@ where
 
     /// Returns the symbol of the token.
     pub(crate) fn symbol(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-        env.charge(T::DbWeight::get().reads(1))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let ticker = AssetIdTicker::<T>::get(asset_id).unwrap_or_default();
 
