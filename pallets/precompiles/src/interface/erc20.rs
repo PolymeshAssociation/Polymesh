@@ -30,7 +30,7 @@ use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::WeightMeter;
 
-use crate::common::{revert, Common};
+use crate::common::{revert, revert_err, Common};
 use crate::interface::FungibleAssetInterface;
 use crate::interface::{ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::Config;
@@ -113,7 +113,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let asset_details = pallet_asset::Pallet::<T>::try_get_asset_details(&asset_id)
-            .map_err(|_| revert(ERR_ASSET_NOT_FOUND))?;
+            .map_err(|err| revert_err(err, ERR_ASSET_NOT_FOUND))?;
 
         let value = Common::<T>::to_u256(asset_details.total_supply)?;
         Ok(IFungibleAsset::totalSupplyCall::abi_encode_returns(&value))

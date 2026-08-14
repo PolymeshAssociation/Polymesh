@@ -153,6 +153,8 @@ A root caller is rejected with `ERR_INVALID_CALLER`.
 ### Errors
 
 - `revert(reason)` — a plain Solidity `revert("...")`, catchable by `try`/`catch`.
+- `revert_err(err, reason)` — the same, but logs `err` first; use it instead of
+  `.map_err(|_| revert(reason))` so the original error isn't lost.
 - `extrinsic_error(err)` — a revert that includes the dispatch error's module message.
 - `Common::<T>::state_change_denied()` — for state-changing calls in a read-only (`eth_call`)
   context.

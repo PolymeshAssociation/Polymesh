@@ -28,7 +28,7 @@ use pallet_revive::H160;
 use polymesh_precompiles::{IFungibleAssetCalls, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
 
-use crate::common::{revert, Common};
+use crate::common::{revert, revert_err, Common};
 use crate::Config;
 
 mod erc20;
@@ -128,7 +128,7 @@ impl<T: Config> FungibleAssetInterface<T> {
                 }
                 Ok(asset_id)
             }
-            Err(_) => Err(revert(ERR_ASSET_NOT_FOUND)),
+            Err(err) => Err(revert_err(err, ERR_ASSET_NOT_FOUND)),
         }
     }
 }

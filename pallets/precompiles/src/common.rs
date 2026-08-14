@@ -50,6 +50,13 @@ pub fn revert(reason: impl Into<String>) -> Error {
     })
 }
 
+/// Build a revert error with the given `reason`, logging the `err` that caused it.
+pub fn revert_err<E: core::fmt::Debug>(err: E, reason: impl Into<String>) -> Error {
+    let reason = reason.into();
+    log::debug!(target: "runtime::precompiles", "{}: {:?}", reason, err);
+    Error::Revert(Revert { reason })
+}
+
 /// Convert a dispatch error into a revert error that includes the actual error details.
 pub fn extrinsic_error(err: impl Into<DispatchError>) -> Error {
     let err: DispatchError = err.into();
@@ -94,7 +101,7 @@ impl<T: Config> Common<T> {
         let origin = env.caller();
         let account_id = origin
             .account_id()
-            .map_err(|_| revert(ERR_INVALID_CALLER))?
+            .map_err(|err| revert_err(err, ERR_INVALID_CALLER))?
             .clone();
         let address = <T as pallet_revive::Config>::AddressMapper::to_address(&account_id);
         Ok(Caller {
@@ -134,25 +141,26 @@ impl<T: Config> Common<T> {
         let account_id: [u8; 32] = Self::account_id(address)
             .encode()
             .try_into()
-            .map_err(|_| revert(ERR_INVALID_ACCOUNT_ID))?;
+            .map_err(|err| revert_err(err, ERR_INVALID_ACCOUNT_ID))?;
         Ok(AccountId::from(account_id))
     }
 
     /// Convert a substrate account into an [`AssetHolder`].
     pub fn account_holder(account_id: &T::AccountId) -> Result<AssetHolder, Error> {
-        AssetHolder::try_from(account_id.encode()).map_err(|_| revert(ERR_INVALID_ACCOUNT_ID))
+        AssetHolder::try_from(account_id.encode())
+            .map_err(|err| revert_err(err, ERR_INVALID_ACCOUNT_ID))
     }
 
     /// Convert a `U256` value to the balance type [`Balance`].
     pub fn to_balance(value: U256) -> Result<Balance, Error> {
         value
             .try_into()
-            .map_err(|_| revert(ERR_BALANCE_CONVERSION_FAILED))
+            .map_err(|err| revert_err(err, ERR_BALANCE_CONVERSION_FAILED))
     }
 
     /// Convert a [`Balance`] to a `U256` value.
     pub fn to_u256(value: Balance) -> Result<U256, Error> {
-        U256::try_from(value).map_err(|_| revert(ERR_BALANCE_CONVERSION_FAILED))
+        U256::try_from(value).map_err(|err| revert_err(err, ERR_BALANCE_CONVERSION_FAILED))
     }
 
     /// Deposit an event to the runtime.
