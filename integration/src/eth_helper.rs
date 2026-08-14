@@ -10,13 +10,16 @@
 use anyhow::{anyhow, Result};
 
 use alloy::network::{EthereumWallet, TransactionBuilder};
-use alloy::primitives::{Address, Bytes, U256};
+use alloy::primitives::{address, Address, Bytes, U256};
 use alloy::providers::{DynProvider, Provider, ProviderBuilder};
 use alloy::rpc::types::{TransactionReceipt, TransactionRequest};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol_types::{SolCall, SolEvent};
 
+use codec::Encode;
+
 use polymesh_api::types::primitive_types::{H160, H256};
+use polymesh_api::WrappedCall;
 
 use crate::contracts::{CodeKind, ContractCode};
 use crate::*;
@@ -34,6 +37,31 @@ const ETH_RPC_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_mil
 
 /// How many times [`EthNode::wait_for_sync`] re-checks before giving up.
 const ETH_RPC_SYNC_TRIES: u32 = 150;
+
+/// The address `pallet_revive` reserves for calls into the Substrate runtime.
+///
+/// An Ethereum wallet dispatches a `RuntimeCall` by sending a zero-value transaction to this
+/// address with the SCALE-encoded call as its calldata. `pallet_revive` turns that into a
+/// `revive.eth_substrate_call` extrinsic.
+pub const RUNTIME_PALLETS_ADDR: Address = address!("0x6d6f646c70792f70616464720000000000000000");
+
+/// SCALE-encodes `call` into the calldata for [`RUNTIME_PALLETS_ADDR`].
+///
+/// `polymesh-api` can't sign Ethereum transactions, but it is still the way to build and encode
+/// the runtime call itself.
+pub fn runtime_call_data(call: &WrappedCall) -> Vec<u8> {
+    call.runtime_call().encode()
+}
+
+/// A transaction that dispatches `call` in the Substrate runtime.
+///
+/// The value must stay zero, `pallet_revive` rejects the transaction otherwise.
+pub fn runtime_call_request(call: &WrappedCall) -> TransactionRequest {
+    TransactionRequest::default()
+        .to(RUNTIME_PALLETS_ADDR)
+        .value(U256::ZERO)
+        .input(runtime_call_data(call).into())
+}
 
 /// Well-known development keys funded by the `--dev` chain spec.
 pub mod dev_keys {
@@ -169,6 +197,18 @@ impl EthNode {
         Ok(self.provider.get_balance(address).await?)
     }
 
+    /// Dry-runs `call` through [`RUNTIME_PALLETS_ADDR`] as `from` and returns the gas estimate.
+    ///
+    /// Nothing is submitted, so this exercises `pallet_revive`'s dry-run dispatch, which runs
+    /// without the transaction extensions that a submitted transaction goes through.
+    pub async fn estimate_runtime_call(&self, from: Address, call: &WrappedCall) -> Result<u64> {
+        self.wait_for_sync().await?;
+        Ok(self
+            .provider
+            .estimate_gas(runtime_call_request(call).from(from))
+            .await?)
+    }
+
     /// A wallet backed by a randomly generated key.
     pub fn new_wallet(&self) -> EthWallet {
         EthWallet::new(self, PrivateKeySigner::random())
@@ -252,17 +292,59 @@ impl EthWallet {
             .ok_or_else(|| anyhow!("eth wallet {} has no identity", self.address))
     }
 
+    /// Reads this wallet's next nonce from the chain.
+    ///
+    /// The provider's own nonce filler only fetches once and then counts locally, so a rejected
+    /// transaction would leave it one ahead of the chain and every later transaction would sit in
+    /// the pool unmined. Setting the nonce explicitly makes the filler skip it entirely.
+    async fn next_nonce(&self) -> Result<u64> {
+        Ok(self
+            .provider
+            .get_transaction_count(self.address)
+            .pending()
+            .await?)
+    }
+
     /// Signs and submits `tx`, then waits for its receipt.
     ///
     /// Returns an error if the transaction reverted.
     pub async fn send(&self, tx: TransactionRequest) -> Result<TransactionReceipt> {
         self.node.wait_for_sync().await?;
-        let tx = tx.from(self.address);
+        let tx = tx.from(self.address).nonce(self.next_nonce().await?);
         // Fill in a gas limit ourselves: the estimate returned by `eth-rpc` does
         // not cover the Substrate-side weight and storage deposit.
         let gas = self.provider.estimate_gas(tx.clone()).await?;
         let tx = tx.gas_limit(gas.saturating_mul(self.gas_multiplier));
 
+        let receipt = self
+            .provider
+            .send_transaction(tx)
+            .await?
+            .get_receipt()
+            .await?;
+        if !receipt.status() {
+            return Err(anyhow!(
+                "eth transaction {:?} reverted",
+                receipt.transaction_hash
+            ));
+        }
+        Ok(receipt)
+    }
+
+    /// Same as [`Self::send`], but with an explicit gas limit instead of an estimate.
+    ///
+    /// Needed for transactions that `eth_estimateGas` rejects but that should still be submitted,
+    /// e.g. when a test cares about what happens during execution.
+    pub async fn send_with_gas(
+        &self,
+        tx: TransactionRequest,
+        gas_limit: u64,
+    ) -> Result<TransactionReceipt> {
+        self.node.wait_for_sync().await?;
+        let tx = tx
+            .from(self.address)
+            .nonce(self.next_nonce().await?)
+            .gas_limit(gas_limit);
         let receipt = self
             .provider
             .send_transaction(tx)
@@ -308,6 +390,32 @@ impl EthWallet {
     /// Runs a typed Solidity call as an `eth_call` from this wallet's address.
     pub async fn read<C: SolCall>(&self, to: Address, call: &C) -> Result<C::Return> {
         self.node.call_from(self.address, to, call).await
+    }
+
+    /// Dispatches `call` in the Substrate runtime through [`RUNTIME_PALLETS_ADDR`].
+    ///
+    /// The call runs with the origin of this wallet's Substrate account, so that account needs an
+    /// identity and enough POLYX, see [`Self::onboard`].
+    pub async fn send_runtime_call(&self, call: &WrappedCall) -> Result<TransactionReceipt> {
+        self.send(runtime_call_request(call)).await
+    }
+
+    /// Gas estimate for [`Self::send_runtime_call`], without submitting anything.
+    pub async fn estimate_runtime_call(&self, call: &WrappedCall) -> Result<u64> {
+        self.node.estimate_runtime_call(self.address, call).await
+    }
+
+    /// Same as [`Self::send_runtime_call`], but skips the gas estimate.
+    ///
+    /// A call that the dry-run rejects never reaches [`Self::send_runtime_call`]'s submission, so
+    /// this is the only way to observe how such a call behaves when it is actually executed.
+    pub async fn send_runtime_call_with_gas(
+        &self,
+        call: &WrappedCall,
+        gas_limit: u64,
+    ) -> Result<TransactionReceipt> {
+        self.send_with_gas(runtime_call_request(call), gas_limit)
+            .await
     }
 }
 
