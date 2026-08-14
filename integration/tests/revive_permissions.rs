@@ -148,3 +148,80 @@ async fn substrate_call_checks_secondary_key_permissions() -> Result<()> {
 
     Ok(())
 }
+
+/// `revive.dispatch_as_fallback_account` dispatches a runtime call too, so it needs the same check.
+///
+/// This one is a plain Substrate extrinsic, so it needs no `eth-rpc` node.
+#[tokio::test]
+#[test_log::test]
+async fn dispatch_as_fallback_checks_secondary_key_permissions() -> Result<()> {
+    let mut tester = PolymeshTester::new().await?;
+    let mut users = tester.users(&["FallbackDispatchPerms"]).await?;
+    let api = tester.api.clone();
+
+    // Nobody holds the key to a fallback account, so it joins the identity through the very
+    // extrinsic under test.
+    let fallback = fallback_account(&address_of(&users[0].account()));
+
+    let mut res = api
+        .call()
+        .identity()
+        .add_authorization(
+            Signatory::Account(fallback.clone()),
+            AuthorizationData::JoinIdentity(PermissionsBuilder::whole().build()),
+            None,
+        )?
+        .execute(&mut users[0])
+        .await?;
+    let auth_id = get_auth_id(&mut res)
+        .await?
+        .expect("Missing JoinIdentity auth id");
+
+    let join = api.call().identity().join_identity_as_key(auth_id)?;
+    api.call()
+        .revive()
+        .dispatch_as_fallback_account(join.into_runtime_call())?
+        .execute(&mut users[0])
+        .await?;
+
+    let create_venue = api.call().settlement().create_venue(
+        VenueDetails(vec![]),
+        Default::default(),
+        VenueType::Other,
+    )?;
+    let dispatch_venue = api
+        .call()
+        .revive()
+        .dispatch_as_fallback_account(create_venue.into_runtime_call())?;
+
+    // The fallback key may only use the `Revive` pallet.
+    let mut perms = PermissionsBuilder::whole();
+    perms.clear_extrinsic();
+    perms.allow_pallet("Revive");
+    let set_perms = |perms: &PermissionsBuilder| {
+        api.call()
+            .identity()
+            .set_secondary_key_permissions(fallback.clone(), perms.build())
+    };
+    set_perms(&perms)?.execute(&mut users[0]).await?;
+
+    // `execute` fails on its own if the extrinsic fails, so watch this one instead.
+    let err = dispatch_venue
+        .submit_and_watch(&mut users[0])
+        .await?
+        .ok()
+        .await
+        .expect_err("create_venue should be rejected without `Settlement` permissions");
+    assert!(
+        err.to_string().contains("does not have permissions"),
+        "create_venue should have failed the permission check, got: {err}"
+    );
+
+    // Allow the `Settlement` pallet as well.
+    perms.allow_pallet("Settlement");
+    set_perms(&perms)?.execute(&mut users[0]).await?;
+
+    dispatch_venue.execute(&mut users[0]).await?;
+
+    Ok(())
+}
