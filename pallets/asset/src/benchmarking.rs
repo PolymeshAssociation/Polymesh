@@ -1011,4 +1011,10 @@ benchmarks! {
             )
         );
     }
+
+    set_address_frozen {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+    }: _(alice.origin, asset_id, true, bob.account())
 }

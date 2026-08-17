@@ -181,13 +181,32 @@ where
 
     /// Sets the frozen status of a specific address. Only an agent of the token can call this function.
     pub(crate) fn set_address_frozen(
-        _asset_id: AssetId,
-        _call: &IFungibleAsset::setAddressFrozenCall,
-        _env: &mut impl Ext<T = T>,
+        asset_id: AssetId,
+        call: &IFungibleAsset::setAddressFrozenCall,
+        env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        log::warn!("set_address_frozen is not implemented yet");
-        Err(Error::Revert(Revert {
-            reason: "set_address_frozen is not implemented yet".into(),
-        }))
+        let caller = Common::<T>::caller(env)?;
+
+        let acc_to_freeze = Common::<T>::account_id(call.account);
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::set_address_frozen {
+                asset_id,
+                freeze: call.freeze,
+                account: acc_to_freeze,
+            },
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::AddressFrozen(IFungibleAsset::AddressFrozen {
+                account: call.account,
+                freeze: call.freeze,
+                owner: caller.address.0.into(),
+            }),
+        )?;
+        Ok(Vec::new())
     }
 }

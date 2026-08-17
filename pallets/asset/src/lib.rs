@@ -366,6 +366,13 @@ pub mod pallet {
             asset_id: AssetId,
             frozen_balance: Balance,
         },
+        /// The account status has been set to `freeze`.
+        SetAccountFreeze {
+            caller_did: IdentityId,
+            account: T::AccountId,
+            asset_id: AssetId,
+            freeze: bool,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -643,6 +650,18 @@ pub mod pallet {
         Blake2_128Concat,
         AssetId,
         Balance,
+        ValueQuery,
+    >;
+
+    /// Tracks if the account is frozen.
+    #[pallet::storage]
+    pub type FrozenAccounts<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        T::AccountId,
+        Blake2_128Concat,
+        AssetId,
+        bool,
         ValueQuery,
     >;
 
@@ -1833,6 +1852,18 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_set_frozen_tokens(origin, asset_id, asset_holder, amount)
         }
+
+        /// Set the status of `account` for `asset_id` to `freeze`.
+        #[pallet::call_index(39)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_address_frozen())]
+        pub fn set_address_frozen(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            freeze: bool,
+            account: T::AccountId,
+        ) -> DispatchResult {
+            Self::base_set_address_frozen(origin, asset_id, freeze, account)
+        }
     }
 
     #[pallet::error]
@@ -1994,6 +2025,7 @@ pub mod pallet {
         fn get_holders_frozen_balance() -> Weight;
         fn transfer_is_allowed_for_holder_best_case() -> Weight;
         fn transfer_is_allowed_for_holder_worst_case() -> Weight;
+        fn set_address_frozen() -> Weight;
     }
 }
 
@@ -2992,6 +3024,31 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, amount);
+        Ok(())
+    }
+
+    /// Sets the frozen transfer amount for an account on a given asset.
+    fn base_set_address_frozen(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        freeze: bool,
+        account: T::AccountId,
+    ) -> DispatchResult {
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        if freeze {
+            FrozenAccounts::<T>::insert(account.clone(), asset_id, true);
+        } else {
+            FrozenAccounts::<T>::remove(&account, &asset_id);
+        }
+
+        Self::deposit_event(Event::SetAccountFreeze {
+            caller_did,
+            account,
+            asset_id,
+            freeze,
+        });
+
         Ok(())
     }
 }

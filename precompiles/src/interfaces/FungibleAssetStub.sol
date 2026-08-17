@@ -229,6 +229,9 @@ interface IFungibleAsset {
     /// @notice Emitted when the token contract is unpaused.
     event Unpaused(address userAddress);
 
+    /// @notice Emitted when the account of an investor is frozen or unfrozen.
+    event AddressFrozen(address indexed account, bool freeze, address indexed owner);
+
     /// @notice Sets the token name. Only the owner of the token contract can call this function.
     function setName(string calldata name) external;
 
@@ -242,7 +245,7 @@ interface IFungibleAsset {
     function unpause() external;
 
     /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
-    function setAddressFrozen(address userAddress, bool freeze) external;
+    function setAddressFrozen(address account, bool freeze) external;
 }
 
 contract FungibleAssetStub is IFungibleAsset {
