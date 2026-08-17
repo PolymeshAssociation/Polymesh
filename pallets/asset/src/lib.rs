@@ -369,7 +369,7 @@ pub mod pallet {
         /// The account status has been set to `freeze`.
         SetAccountFreeze {
             caller_did: IdentityId,
-            account: T::AccountId,
+            account: AccountId32,
             asset_id: AssetId,
             freeze: bool,
         },
@@ -655,15 +655,8 @@ pub mod pallet {
 
     /// Tracks if the account is frozen.
     #[pallet::storage]
-    pub type FrozenAccounts<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        T::AccountId,
-        Blake2_128Concat,
-        AssetId,
-        bool,
-        ValueQuery,
-    >;
+    pub type FrozenAccounts<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, AccountId32, Blake2_128Concat, AssetId, bool, ValueQuery>;
 
     /// Storage version.
     #[pallet::storage]
@@ -1860,7 +1853,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             asset_id: AssetId,
             freeze: bool,
-            account: T::AccountId,
+            account: AccountId32,
         ) -> DispatchResult {
             Self::base_set_address_frozen(origin, asset_id, freeze, account)
         }
@@ -1978,6 +1971,8 @@ pub mod pallet {
         SelfOwnershipTransferNotAllowed,
         /// The weight Limit for the extrinsic has been exceeded.
         WeightLimitExceeded,
+        /// The account is frozen and cannot transfer assets.
+        InvalidTransferFrozenAccount,
     }
 
     pub trait WeightInfo {
@@ -3032,7 +3027,7 @@ impl<T: AssetConfig> Pallet<T> {
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
         freeze: bool,
-        account: T::AccountId,
+        account: AccountId32,
     ) -> DispatchResult {
         let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
 
@@ -3434,6 +3429,17 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
+    /// Returns `Ok` if the holder is not frozen for the given asset.
+    fn ensure_holder_is_not_frozen(holder: &AssetHolder, asset_id: &AssetId) -> DispatchResult {
+        if let AssetHolder::Account(account_id) = holder {
+            ensure!(
+                !FrozenAccounts::<T>::get(account_id, asset_id),
+                Error::<T>::InvalidTransferFrozenAccount
+            );
+        }
+        Ok(())
+    }
+
     /// Returns a vector containing all errors for the transfer. An empty vec means there's no error.
     pub fn asset_transfer_report(
         sender: &AssetHolder,
@@ -3826,6 +3832,7 @@ impl<T: AssetConfig> Pallet<T> {
             if is_controller_transfer {
                 current_balance.saturating_sub(locked_balance)
             } else {
+                Self::ensure_holder_is_not_frozen(holder, asset_id)?;
                 let frozen_balance = Self::get_holders_frozen_balance(holder, asset_id);
                 let unavailable_balance = locked_balance.saturating_add(frozen_balance);
                 current_balance.saturating_sub(unavailable_balance)

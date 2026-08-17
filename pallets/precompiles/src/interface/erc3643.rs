@@ -187,7 +187,7 @@ where
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
 
-        let acc_to_freeze = Common::<T>::account_id(call.account);
+        let acc_to_freeze = Common::<T>::account_id32(call.account)?;
 
         Common::<T>::call_runtime(
             env,
