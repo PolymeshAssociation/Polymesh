@@ -9,6 +9,7 @@ log = "0.4"
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
 frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
 frame-system-rpc-runtime-api = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
@@ -24,6 +25,7 @@ pallet-revive = { workspace = true, default-features = false }
 
 # Polymesh pallets
 pallet-asset = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 
 # Polymesh primitives
@@ -35,6 +37,7 @@ default = ["std"]
 no_std = []
 std = [
     "frame-support/std",
+    "frame-system/std",
     "sp-core/std",
     "sp-api/std",
     "sp-consensus-grandpa/std",
@@ -46,6 +49,7 @@ std = [
     "frame-system-rpc-runtime-api/std",
     "pallet-revive/std",
     "pallet-asset/std",
+    "pallet-permissions/std",
     "pallet-settlement/std",
     "polymesh-primitives/std",
     "polymesh-precompiles/std"
@@ -53,6 +57,7 @@ std = [
 runtime-benchmarks = [
     "pallet-revive/runtime-benchmarks",
     "pallet-asset/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
 ]

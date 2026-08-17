@@ -494,6 +494,7 @@ macro_rules! misc_pallet_impls {
             type DebugEnabled = frame_support::traits::ConstBool<false>;
             type GasScale = frame_support::traits::ConstU32<100>;
             type OnBurn = ();
+            type DispatchHook = pallet_precompiles::common::DispatchWithCallMetadata<Runtime>;
         }
 
         impl pallet_compliance_manager::Config for Runtime {

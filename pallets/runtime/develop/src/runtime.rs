@@ -200,6 +200,10 @@ parameter_types! {
 // Precompiles
 type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
 
+impl pallet_precompiles::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+}
+
 /// Confidential assets parameters
 type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
 
