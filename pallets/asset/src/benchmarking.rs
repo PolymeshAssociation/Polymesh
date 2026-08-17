@@ -1016,5 +1016,6 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
-    }: _(alice.origin, asset_id, true, bob.account())
+        let bob_account: [u8; 32] = bob.account().encode().try_into().unwrap();
+    }: _(alice.origin, asset_id, true, bob_account.into())
 }

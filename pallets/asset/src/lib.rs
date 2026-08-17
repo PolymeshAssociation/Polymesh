@@ -3022,7 +3022,7 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(())
     }
 
-    /// Sets the frozen transfer amount for an account on a given asset.
+    /// Sets whether `account` is frozen for transfers of `asset_id`.
     fn base_set_address_frozen(
         origin: T::RuntimeOrigin,
         asset_id: AssetId,
@@ -3987,6 +3987,12 @@ impl<T: AssetConfig> Pallet<T> {
 
         if Self::ensure_asset_is_not_frozen(&asset_id).is_err() {
             return false;
+        }
+
+        if holder_is_the_sender {
+            if Self::ensure_holder_is_not_frozen(asset_holder, asset_id).is_err() {
+                return false;
+            }
         }
 
         let holder_did = {

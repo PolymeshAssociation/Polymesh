@@ -17,6 +17,7 @@ use alloc::vec::Vec;
 use frame_support::traits::Get;
 use frame_support::dispatch::RawOrigin;
 
+use pallet_revive::precompiles::alloy::primitives::keccak256;
 use pallet_revive::precompiles::alloy::primitives::FixedBytes;
 use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::Ext;
@@ -93,33 +94,20 @@ where
                 .saturating_add(T::DbWeight::get().reads(1)),
         )?;
 
-        let caller = Self::caller(env)?;
-        let caller_acc = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
-
-        match pallet_asset::Pallet::<T>::rename_asset(
-            RawOrigin::Signed(caller_acc).into(),
-            asset_id,
-            new_asset_name.clone(),
-        ) {
-            Ok(_) => {
-                let ticker = AssetIdTicker::<T>::get(&asset_id).unwrap_or_default();
-                Self::deposit_event(
-                    env,
-                    IFungibleAssetEvents::UpdatedTokenInformation(
-                        IFungibleAsset::UpdatedTokenInformation {
-                            newName: FixedBytes::try_from(new_asset_name.0.as_slice())
-                                .unwrap_or_default(),
-                            newSymbol: FixedBytes::try_from(ticker.as_ref()).unwrap_or_default(),
-                            newDecimals: DECIMALS,
-                            newVersion: Default::default(),
-                            newOnchainID: Default::default(),
-                        },
-                    ),
-                )?;
-                Ok(Vec::new())
-            }
-            Err(e) => Err(Self::extrinsic_error(e)),
-        }
+        let ticker = AssetIdTicker::<T>::get(&asset_id).unwrap_or_default();
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::UpdatedTokenInformation(
+                IFungibleAsset::UpdatedTokenInformation {
+                    newName: FixedBytes::from(keccak256(new_asset_name.0.as_slice())),
+                    newSymbol: FixedBytes::from(keccak256(ticker.as_ref())),
+                    newDecimals: DECIMALS,
+                    newVersion: Default::default(),
+                    newOnchainID: Default::default(),
+                },
+            ),
+        )?;
+        Ok(Vec::new())
     }
 
     /// Sets the token symbol. Only the owner of the token contract can call this function.
@@ -153,30 +141,20 @@ where
             return Err(Self::extrinsic_error(e));
         }
 
-        match pallet_asset::Pallet::<T>::link_ticker_to_asset_id(
-            RawOrigin::Signed(caller_acc).into(),
-            ticker,
-            asset_id,
-        ) {
-            Ok(_) => {
-                let asset_name = AssetNames::<T>::get(&asset_id).unwrap_or_default();
-                Self::deposit_event(
-                    env,
-                    IFungibleAssetEvents::UpdatedTokenInformation(
-                        IFungibleAsset::UpdatedTokenInformation {
-                            newName: FixedBytes::try_from(asset_name.0.as_slice())
-                                .unwrap_or_default(),
-                            newSymbol: FixedBytes::try_from(ticker.as_ref()).unwrap_or_default(),
-                            newDecimals: DECIMALS,
-                            newVersion: Default::default(),
-                            newOnchainID: Default::default(),
-                        },
-                    ),
-                )?;
-                Ok(Vec::new())
-            }
-            Err(e) => Err(Self::extrinsic_error(e)),
-        }
+        let asset_name = AssetNames::<T>::get(&asset_id).unwrap_or_default();
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::UpdatedTokenInformation(
+                IFungibleAsset::UpdatedTokenInformation {
+                    newName: FixedBytes::from(keccak256(asset_name.0.as_slice())),
+                    newSymbol: FixedBytes::from(keccak256(ticker.as_ref())),
+                    newDecimals: DECIMALS,
+                    newVersion: Default::default(),
+                    newOnchainID: Default::default(),
+                },
+            ),
+        )?;
+        Ok(Vec::new())
     }
 
     /// Sets the frozen status of a specific address. Only an agent of the token can call this function.
