@@ -16,6 +16,10 @@ mod relayer_tests {
         Ok(subsidy.expect("Account Subsidy").remaining)
     }
 
+    async fn get_free_balance(api: &Api, account: &AccountId) -> Result<u128> {
+        Ok(api.query().system().account(*account).await?.data.free)
+    }
+
     async fn test_subsidized_calls(api: &Api, subsidized: &mut User) -> Result<()> {
         let account = subsidized.account();
         // Get current subsidy remaining.
@@ -197,7 +201,7 @@ mod relayer_tests {
         // An eth wallet always acts as its fallback account, so it joins the identity through the
         // very interface under test rather than by signing a substrate extrinsic.
         let mut subsidized = node.new_wallet();
-        subsidized.fund(&mut tester, REVIVE_INIT_POLYX).await?;
+        //subsidized.fund(&mut tester, REVIVE_INIT_POLYX).await?;
         let subsidized_account = subsidized.account();
 
         let mut res = api
@@ -215,6 +219,7 @@ mod relayer_tests {
             .expect("Missing JoinIdentity auth id");
 
         let join = api.call().identity().join_identity_as_key(auth_id)?;
+        log::info!("ETH wallet join identity: auth_id={auth_id:?}");
         subsidized.send_runtime_call(&join).await?;
 
         // Subsidizer approves a subsidy for the subsidized user.
@@ -236,7 +241,17 @@ mod relayer_tests {
         println!("res = {res:?}");
 
         // Test ETH wallet subsidy.
+        let subsidy_before = get_subsidy(&api, &subsidized_account).await?;
+        let balance_before = get_free_balance(&api, &subsidizer_account).await?;
         test_eth_subsidized_calls(&api, &mut subsidized).await?;
+        let subsidy_after = get_subsidy(&api, &subsidized_account).await?;
+        let balance_after = get_free_balance(&api, &subsidizer_account).await?;
+
+        assert_eq!(
+            balance_before.saturating_sub(balance_after),
+            subsidy_before.saturating_sub(subsidy_after),
+            "Subsidizer balance decrease should match subsidy usage",
+        );
 
         Ok(())
     }
