@@ -14,28 +14,21 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use alloc::vec::Vec;
-use codec::Encode;
-use frame_support::dispatch::RawOrigin;
 
-use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
+use pallet_revive::precompiles::alloy::sol_types::SolCall;
+use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
-use pallet_revive::precompiles::{AddressMapper, Error};
 
 use pallet_asset::WeightInfo;
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::{AssetHolderKind, AssetId};
-use polymesh_primitives::{AssetHolder, WeightMeter};
+use polymesh_primitives::WeightMeter;
 
+use crate::common::Common;
 use crate::interface::FungibleAssetInterface;
-use crate::interface::ERR_INVALID_ACCOUNT_ID;
+use crate::Config;
 
-impl<T> FungibleAssetInterface<T>
-where
-    T: pallet_revive::Config
-        + pallet_asset::Config
-        + pallet_asset::checkpoint::Config
-        + pallet_settlement::Config,
-{
+impl<T: Config> FungibleAssetInterface<T> {
     /// Checks if a transfer is possible according to token rules. It includes compliance checks.
     pub(crate) fn can_transfer(
         asset_id: AssetId,
@@ -46,28 +39,15 @@ where
             <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_worst_case();
         let charged = env.charge(transfer_report_worst_case_weight)?;
 
-        let from = call.from.into_array().into();
-        let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&from);
-        let from = AssetHolder::try_from(from.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
-
-        let to = call.to.into_array().into();
-        let to = <T as pallet_revive::Config>::AddressMapper::to_account_id(&to);
-        let to = AssetHolder::try_from(to.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        let from = Common::<T>::asset_holder(call.from)?;
+        let to = Common::<T>::asset_holder(call.to)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let errors = pallet_asset::Pallet::<T>::asset_transfer_report(
             &from,
             &to,
             &asset_id,
-            Self::to_balance(call.value)?,
+            Common::<T>::to_balance(call.value)?,
             false,
             &mut weight_meter,
         );
@@ -93,44 +73,33 @@ where
         call: &IFungibleAsset::forcedTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(<T as pallet_asset::Config>::WeightInfo::controller_transfer())?;
+        let caller = Common::<T>::caller(env)?;
+        let source = Common::<T>::asset_holder(call.from)?;
+        let value = Common::<T>::to_balance(call.amount)?;
 
-        let caller = Self::caller(env)?;
-        let destination = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::controller_transfer {
+                asset_id,
+                value,
+                source,
+                destination_kind: AssetHolderKind::Account,
+            },
+        )?;
 
-        let from = call.from.into_array().into();
-        let source = <T as pallet_revive::Config>::AddressMapper::to_account_id(&from);
-        let source = AssetHolder::try_from(source.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::ForcedTransfer(IFungibleAsset::ForcedTransfer {
+                from: call.from.into(),
+                to: caller.address.0.into(),
+                amount: call.amount,
+            }),
+        )?;
 
-        let amount = Self::to_balance(call.amount)?;
-
-        match pallet_asset::Pallet::<T>::controller_transfer(
-            RawOrigin::Signed(destination).into(),
-            asset_id,
-            amount,
-            source,
-            AssetHolderKind::Account,
-        ) {
-            Err(e) => return Err(Self::extrinsic_error(e)),
-            Ok(_) => {
-                Self::deposit_event(
-                    env,
-                    IFungibleAssetEvents::ForcedTransfer(IFungibleAsset::ForcedTransfer {
-                        from: call.from.into(),
-                        to: caller.0.into(),
-                        amount: call.amount,
-                    }),
-                )?;
-
-                Ok(IFungibleAsset::forcedTransferCall::abi_encode_returns(
-                    &true,
-                ))
-            }
-        }
+        Ok(IFungibleAsset::forcedTransferCall::abi_encode_returns(
+            &true,
+        ))
     }
 
     /// Freezes a specific amount of tokens for a given account.

@@ -711,13 +711,21 @@ benchmarks! {
         ).unwrap();
         let holder_set = BTreeSet::from([receiver_portfolio]);
     }: {
-        Pallet::<T>::unsafe_affirm_instruction(
+        Pallet::<T>::caller_is_permissioned_and_affirmation_is_pending(
+            bob.did(),
+            None,
+            &holder_set,
+            &InstructionId(1),
+        )
+        .unwrap();
+
+        Pallet::<T>::unverified_affirm_instruction(
             bob.did(),
             InstructionId(1),
             holder_set,
             None,
-            None,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     unsafe_affirm_instruction_receiver_account {
@@ -759,13 +767,21 @@ benchmarks! {
         ).unwrap();
         let holder_set = BTreeSet::from([receiver_account]);
     }: {
-        Pallet::<T>::unsafe_affirm_instruction(
+        Pallet::<T>::caller_is_permissioned_and_affirmation_is_pending(
+            bob.did(),
+            None,
+            &holder_set,
+            &InstructionId(1),
+        )
+        .unwrap();
+
+        Pallet::<T>::unverified_affirm_instruction(
             bob.did(),
             InstructionId(1),
             holder_set,
             None,
-            None,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     set_instruction_memo {

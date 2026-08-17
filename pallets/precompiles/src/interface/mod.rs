@@ -22,40 +22,29 @@ use core::marker::PhantomData;
 use core::num::NonZero;
 
 use frame_support::traits::Get;
-use pallet_revive::precompiles::alloy::primitives::IntoLogData;
-use pallet_revive::precompiles::alloy::sol_types::Revert;
-use pallet_revive::precompiles::{alloy, AddressMatcher, Ext, Precompile};
-use pallet_revive::precompiles::{AddressMapper, Error, RuntimeCosts, H256};
+use pallet_revive::precompiles::{AddressMatcher, Error, Ext, Precompile};
 use pallet_revive::H160;
 
-use polymesh_precompiles::{IFungibleAssetCalls, IFungibleAssetEvents, FUNGIBLE_ASSET_CODE};
+use polymesh_precompiles::{IFungibleAssetCalls, FUNGIBLE_ASSET_CODE};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::Balance;
+
+use crate::common::{revert, revert_err, Common};
+use crate::Config;
 
 mod erc20;
 mod erc7943;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
-pub(crate) const ERR_INVALID_CALLER: &str = "Invalid caller";
-pub(crate) const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-pub(crate) const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub(crate) const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
-pub(crate) const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 // ========================================================
 
 /// All precompile calls exposed by the Polymesh runtime.
 pub struct FungibleAssetInterface<T>(PhantomData<T>);
 
-impl<T> Precompile for FungibleAssetInterface<T>
-where
-    T: pallet_revive::Config
-        + pallet_asset::Config
-        + pallet_asset::checkpoint::Config
-        + pallet_settlement::Config,
-{
+impl<T: Config> Precompile for FungibleAssetInterface<T> {
     type T = T;
     type Interface = IFungibleAssetCalls;
 
@@ -71,10 +60,7 @@ where
         input: &Self::Interface,
         env: &mut impl Ext<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
-        frame_support::ensure!(
-            !env.is_delegate_call(),
-            pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
-        );
+        Common::<T>::ensure_direct_call(env)?;
 
         let asset_id = Self::asset_id_from_address(address, env)?;
         let contract_addr = H160::from(*address);
@@ -91,9 +77,7 @@ where
             | IFungibleAssetCalls::setFrozenTokens(_)
                 if env.is_read_only() =>
             {
-                Err(Error::Error(
-                    pallet_revive::Error::<Self::T>::StateChangeDenied.into(),
-                ))
+                Err(Common::<T>::state_change_denied())
             }
 
             // ERC20 functions
@@ -135,19 +119,13 @@ where
     }
 }
 
-impl<T> FungibleAssetInterface<T>
-where
-    T: pallet_revive::Config
-        + pallet_asset::Config
-        + pallet_asset::checkpoint::Config
-        + pallet_settlement::Config,
-{
+impl<T: Config> FungibleAssetInterface<T> {
     /// Returns the [`AssetId`] from the address.
     pub(crate) fn asset_id_from_address(
         address: &[u8; 20],
         env: &mut impl Ext<T = T>,
     ) -> Result<AssetId, Error> {
-        env.charge(T::DbWeight::get().reads(1))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
         let asset_id = AssetId::from_raw(bytes);
@@ -155,77 +133,11 @@ where
         match pallet_asset::Assets::<T>::try_get(asset_id) {
             Ok(asset_details) => {
                 if asset_details.asset_type.is_non_fungible() {
-                    return Err(Error::Revert(Revert {
-                        reason: ERR_ASSET_NOT_FUNGIBLE.into(),
-                    }));
+                    return Err(revert(ERR_ASSET_NOT_FUNGIBLE));
                 }
                 Ok(asset_id)
             }
-            Err(_) => Err(Error::Revert(Revert {
-                reason: ERR_ASSET_NOT_FOUND.into(),
-            })),
+            Err(err) => Err(revert_err(err, ERR_ASSET_NOT_FOUND)),
         }
-    }
-
-    /// Get the caller as an `H160` address.
-    pub(crate) fn caller(env: &mut impl Ext<T = T>) -> Result<H160, Error> {
-        env.caller()
-            .account_id()
-            .map(<T as pallet_revive::Config>::AddressMapper::to_address)
-            .map_err(|_| {
-                Error::Revert(Revert {
-                    reason: ERR_INVALID_CALLER.into(),
-                })
-            })
-    }
-
-    /// Convert a dispatch error into a revert error that includes the actual error details.
-    pub(crate) fn extrinsic_error(err: impl Into<sp_runtime::DispatchError>) -> Error {
-        let err: sp_runtime::DispatchError = err.into();
-        log::debug!(target: "runtime::precompiles", "Extrinsic call failed: {:?}", err);
-        let reason = match err {
-            sp_runtime::DispatchError::Module(module_err) => match module_err.message {
-                Some(msg) => alloc::format!("{}{}", ERR_EXTRINSIC_ERROR, msg),
-                None => alloc::format!("{}{:?}", ERR_EXTRINSIC_ERROR, module_err),
-            },
-            err => alloc::format!("{}{:?}", ERR_EXTRINSIC_ERROR, err),
-        };
-        Error::Revert(Revert {
-            reason: reason.into(),
-        })
-    }
-
-    /// Convert a `U256` value to the balance type [`Balance`].
-    pub(crate) fn to_balance(value: alloy::primitives::U256) -> Result<Balance, Error> {
-        value.try_into().map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_BALANCE_CONVERSION_FAILED.into(),
-            })
-        })
-    }
-
-    /// Convert a [`Balance`] to a `U256` value.
-    pub(crate) fn to_u256(value: Balance) -> Result<alloy::primitives::U256, Error> {
-        alloy::primitives::U256::try_from(value).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_BALANCE_CONVERSION_FAILED.into(),
-            })
-        })
-    }
-
-    /// Deposit an event to the runtime.
-    pub(crate) fn deposit_event(
-        env: &mut impl Ext<T = T>,
-        event: IFungibleAssetEvents,
-    ) -> Result<(), Error> {
-        let (topics, data) = event.into_log_data().split();
-        let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-        env.frame_meter_mut()
-            .charge_weight_token(RuntimeCosts::DepositEvent {
-                num_topic: topics.len() as u32,
-                len: data.len() as u32,
-            })?;
-        env.deposit_event(topics, data.to_vec());
-        Ok(())
     }
 }

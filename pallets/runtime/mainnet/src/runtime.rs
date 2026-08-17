@@ -178,6 +178,10 @@ parameter_types! {
 // Precompiles
 type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
 
+impl pallet_precompiles::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+}
+
 // Staking
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'_> = curve!(

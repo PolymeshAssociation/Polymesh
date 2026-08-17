@@ -45,7 +45,11 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     (owner, num)
 }
 
-fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: PortfolioId) {
+pub(crate) fn set_custodian_ok(
+    current_custodian: User,
+    new_custodian: User,
+    portfolio_id: PortfolioId,
+) {
     let auth_id = Identity::add_auth(
         current_custodian.did,
         Signatory::from(new_custodian.did),
