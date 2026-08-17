@@ -229,30 +229,21 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::set_frozen_tokens())?;
 
-        let caller = Self::caller(env)?;
-        let caller_acc = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
+        let caller = Common::<T>::caller(env)?;
+        let acc_to_freeze = Common::<T>::asset_holder(call.account)?;
+        let amount = Common::<T>::to_balance(call.amount)?;
 
-        let acc_to_freeze = call.account.into_array().into();
-        let acc_to_freeze =
-            <T as pallet_revive::Config>::AddressMapper::to_account_id(&acc_to_freeze);
-        let acc_to_freeze = AssetHolder::try_from(acc_to_freeze.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::set_frozen_tokens {
+                asset_id,
+                asset_holder: acc_to_freeze,
+                amount,
+            },
+        )?;
 
-        let amount = Self::to_balance(call.amount)?;
-
-        if let Err(e) = pallet_asset::Pallet::<T>::set_frozen_tokens(
-            RawOrigin::Signed(caller_acc).into(),
-            asset_id,
-            acc_to_freeze,
-            amount,
-        ) {
-            return Err(Self::extrinsic_error(e));
-        }
-
-        Self::deposit_event(
+        Common::<T>::deposit_event(
             env,
             IFungibleAssetEvents::Frozen(IFungibleAsset::Frozen {
                 account: call.account.into(),
@@ -273,16 +264,10 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
 
-        let from = call.account.into_array().into();
-        let from = <T as pallet_revive::Config>::AddressMapper::to_account_id(&from);
-        let from = AssetHolder::try_from(from.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        let from = Common::<T>::asset_holder(call.account)?;
 
         let frozen_tokens = pallet_asset::Pallet::<T>::get_holders_frozen_balance(&from, &asset_id);
-        let frozen_tokens = Self::to_u256(frozen_tokens)?;
+        let frozen_tokens = Common::<T>::to_u256(frozen_tokens)?;
 
         Ok(IFungibleAsset::getFrozenTokensCall::abi_encode_returns(
             &frozen_tokens,
@@ -299,17 +284,11 @@ impl<T: Config> FungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(transfer_is_allowed_for_holder_worst_case_weight)?;
 
-        let sender_acc = call.account.into_array().into();
-        let sender_acc = <T as pallet_revive::Config>::AddressMapper::to_account_id(&sender_acc);
-        let sender_acc = AssetHolder::try_from(sender_acc.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        let sender = Common::<T>::asset_holder(call.account)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(
-            &sender_acc,
+            &sender,
             &asset_id,
             true,
             &mut weight_meter,
@@ -339,18 +318,11 @@ impl<T: Config> FungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(transfer_is_allowed_for_holder_worst_case_weight)?;
 
-        let receiver_acc = call.account.into_array().into();
-        let receiver_acc =
-            <T as pallet_revive::Config>::AddressMapper::to_account_id(&receiver_acc);
-        let receiver_acc = AssetHolder::try_from(receiver_acc.encode()).map_err(|_| {
-            Error::Revert(Revert {
-                reason: ERR_INVALID_ACCOUNT_ID.into(),
-            })
-        })?;
+        let receiver = Common::<T>::asset_holder(call.account)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(
-            &receiver_acc,
+            &receiver,
             &asset_id,
             false,
             &mut weight_meter,
