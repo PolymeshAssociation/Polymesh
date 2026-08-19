@@ -673,6 +673,9 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
+        // Verifies that the sender is not frozen for the given asset
+        pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(sender, nfts.asset_id())?;
+
         pallet_asset::Pallet::<T>::ensure_asset_is_not_frozen(nfts.asset_id())?;
 
         // Verifies if the receiver has an active DID.
@@ -958,6 +961,8 @@ impl<T: Config> Pallet<T> {
         if let AssetHolder::Portfolio(receiver_pid) = &receiver {
             PortfolioPallet::<T>::ensure_portfolio_validity(receiver_pid)?;
         }
+
+        pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(&sender, nfts.asset_id())?;
 
         Self::ensure_sender_owns_nfts(&sender, &nfts)?;
         Self::unverified_nfts_transfer(&sender, receiver.clone(), &nfts)?;

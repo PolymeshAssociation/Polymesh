@@ -3440,7 +3440,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Returns `Ok` if the holder is not frozen for the given asset.
-    fn ensure_holder_is_not_frozen(holder: &AssetHolder, asset_id: &AssetId) -> DispatchResult {
+    pub fn ensure_holder_is_not_frozen(holder: &AssetHolder, asset_id: &AssetId) -> DispatchResult {
         match holder {
             AssetHolder::Portfolio(portfolio_id) => {
                 ensure!(
