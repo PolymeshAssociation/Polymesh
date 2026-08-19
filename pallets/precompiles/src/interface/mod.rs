@@ -74,6 +74,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             | IFungibleAssetCalls::burn(_)
             | IFungibleAssetCalls::permit(_)
             | IFungibleAssetCalls::forcedTransfer(_)
+            | IFungibleAssetCalls::setFrozenTokens(_)
                 if env.is_read_only() =>
             {
                 Err(Common::<T>::state_change_denied())
@@ -106,6 +107,14 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             // ERC7943 functions
             IFungibleAssetCalls::canTransfer(call) => Self::can_transfer(asset_id, call, env),
             IFungibleAssetCalls::forcedTransfer(call) => Self::forced_transfer(asset_id, call, env),
+            IFungibleAssetCalls::canSend(call) => Self::can_send(asset_id, call, env),
+            IFungibleAssetCalls::canReceive(call) => Self::can_receive(asset_id, call, env),
+            IFungibleAssetCalls::getFrozenTokens(call) => {
+                Self::get_frozen_tokens(asset_id, call, env)
+            }
+            IFungibleAssetCalls::setFrozenTokens(call) => {
+                Self::set_frozen_tokens(asset_id, call, env)
+            }
         }
     }
 }

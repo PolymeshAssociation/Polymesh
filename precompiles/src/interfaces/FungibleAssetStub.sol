@@ -32,12 +32,6 @@ interface IFungibleAsset {
     /// a call to {approve}. `value` is the new allowance.
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
-    /// @notice Emitted when tokens are taken from one address and transferred to another.
-    /// @param from The address from which tokens were taken.
-    /// @param to The address to which seized tokens were transferred.
-    /// @param amount The amount seized.
-    event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
-
     /// @dev Returns the value of tokens in existence.
     function totalSupply() external view returns (uint256);
 
@@ -162,6 +156,19 @@ interface IFungibleAsset {
     // ============================================================
     // ERC-7943
     // ============================================================
+
+    /// @notice Emitted when tokens are taken from one address and transferred to another.
+    /// @param from The address from which tokens were taken.
+    /// @param to The address to which seized tokens were transferred.
+    /// @param amount The amount seized.
+    event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
+
+    /// @notice Emitted when `setFrozenTokens` is called, changing the frozen `amount` of tokens for `account`.
+    /// @param account The address of the account whose tokens are being frozen.
+    /// @param amount The amount of tokens frozen after the change.
+    event Frozen(address indexed account, uint256 amount);
+
+
     /// @notice Checks if a transfer is possible according to token rules.
     /// @dev This involves compliance checks.
     /// @param from The address sending tokens.
@@ -176,6 +183,32 @@ interface IFungibleAsset {
     /// @param amount The amount to force transfer.
     /// @return True if the transfer executed correctly. Reverts on failure.
     function forcedTransfer(address from, uint256 amount) external returns (bool);
+
+    /// @notice Changes the frozen status of `amount` tokens belonging to `account`.
+    /// @dev Overwrites the current value, similar to an `approve` function.
+    /// Requires specific authorization. Frozen tokens cannot be transferred by the account.
+    /// @param account The address of the account whose tokens are to be frozen.
+    /// @param amount The amount of tokens to freeze. It can be greater than the account balance.
+    /// @return True if the freezing executed correctly. Reverts on failure.
+    function setFrozenTokens(address account, uint256 amount) external returns (bool);
+
+    /// @notice Checks the frozen status/amount.
+    /// @param account The address of the account.
+    /// @dev It could return an amount higher than the account's balance.
+    /// @return The amount of tokens currently frozen for `account`.
+    function getFrozenTokens(address account) external view returns (uint256);
+
+    /// @notice Checks if a specific account is allowed to send tokens according to token rules.
+    /// @dev This is often used for allowlist/KYC/KYB/AML checks.
+    /// @param account The address to check.
+    /// @return True if the account is allowed to send, false otherwise.
+    function canSend(address account) external view returns (bool);
+
+    /// @notice Checks if a specific account is allowed to receive tokens according to token rules.
+    /// @dev This is often used for allowlist/KYC/KYB/AML checks.
+    /// @param account The address to check.
+    /// @return True if the account is allowed to receive, false otherwise.
+    function canReceive(address account) external view returns (bool);
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -281,6 +314,27 @@ contract FungibleAssetStub is IFungibleAsset {
     function forcedTransfer(address from, uint256 amount) external override returns (bool) {
         from;
         amount;
+        revert NotExecutable();
+    }
+
+    function setFrozenTokens(address account, uint256 amount) external override returns (bool) {
+        account;
+        amount;
+        revert NotExecutable();
+    }
+
+    function getFrozenTokens(address account) external view override returns (uint256) {
+        account;
+        revert NotExecutable();
+    }
+
+    function canSend(address account) external view override returns (bool) {
+        account;
+        revert NotExecutable();
+    }
+
+    function canReceive(address account) external view override returns (bool) {
+        account;
         revert NotExecutable();
     }
 }

@@ -322,6 +322,18 @@ pub mod pallet {
     pub type AllowedCustodians<T: Config> =
         StorageDoubleMap<_, Identity, IdentityId, Identity, IdentityId, bool, ValueQuery>;
 
+    /// Amount of assets frozen in a portfolio.
+    #[pallet::storage]
+    pub type PortfolioFrozenAssets<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        PortfolioId,
+        Blake2_128Concat,
+        AssetId,
+        Balance,
+        ValueQuery,
+    >;
+
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
@@ -1196,6 +1208,24 @@ impl<T: Config> Pallet<T> {
         );
         Self::set_portfolio_locked_balance(portfolio, asset_id, current_locked - amount);
         Ok(())
+    }
+
+    /// Sets the frozen balance of `asset_id` in `portfolio` to `new_frozen_balance`.
+    pub fn set_portfolio_frozen_balance(
+        portfolio: PortfolioId,
+        asset_id: AssetId,
+        new_frozen_balance: Balance,
+    ) {
+        if new_frozen_balance.is_zero() {
+            PortfolioFrozenAssets::<T>::remove(&portfolio, &asset_id);
+        } else {
+            PortfolioFrozenAssets::<T>::insert(portfolio, asset_id, new_frozen_balance);
+        }
+    }
+
+    /// Returns the frozen balance of `asset_id` in `portfolio`.
+    pub fn get_portfolio_frozen_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
+        PortfolioFrozenAssets::<T>::get(portfolio, asset_id)
     }
 }
 

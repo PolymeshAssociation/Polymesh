@@ -303,6 +303,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             &PortfolioId::user_portfolio(bob.did, PortfolioNumber(666)).into(),
             &asset_id,
             1,
+            false,
         ),
         Error::PortfolioDoesNotExist
     );

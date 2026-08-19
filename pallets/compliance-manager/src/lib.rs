@@ -889,6 +889,45 @@ impl<T: Config> ComplianceFnConfig for Pallet<T> {
         )
     }
 
+    fn is_holder_compliant(
+        holder_did: IdentityId,
+        asset_id: &AssetId,
+        holder_is_the_sender: bool,
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
+        let asset_compliance = AssetCompliances::<T>::get(asset_id);
+
+        if asset_compliance.paused || asset_compliance.requirements.is_empty() {
+            return true;
+        }
+
+        for requirement in &asset_compliance.requirements {
+            let req_conditions = {
+                if holder_is_the_sender {
+                    &requirement.sender_conditions
+                } else {
+                    &requirement.receiver_conditions
+                }
+            };
+
+            match Self::are_all_conditions_satisfied(
+                asset_id,
+                holder_did,
+                req_conditions,
+                weight_meter,
+            ) {
+                Ok(condition_satisfied) => {
+                    if condition_satisfied {
+                        return true;
+                    }
+                }
+                Err(_) => return false,
+            }
+        }
+
+        false
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn setup_asset_compliance(
         caller_did: IdentityId,
