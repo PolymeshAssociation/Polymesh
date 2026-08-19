@@ -108,8 +108,6 @@ impl<T: Config> FungibleAssetInterface<T> {
         call: &IFungibleAsset::setFrozenTokensCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(<T as pallet_asset::Config>::WeightInfo::set_frozen_tokens())?;
-
         let caller = Common::<T>::caller(env)?;
         let acc_to_freeze = Common::<T>::asset_holder(call.account)?;
         let amount = Common::<T>::to_balance(call.amount)?;
