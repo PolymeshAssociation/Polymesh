@@ -14,23 +14,19 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use alloc::vec::Vec;
-use frame_support::traits::Get;
-use frame_support::dispatch::RawOrigin;
 
-use pallet_revive::precompiles::alloy::primitives::keccak256;
-use pallet_revive::precompiles::alloy::primitives::FixedBytes;
 use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::Ext;
 use pallet_revive::precompiles::{AddressMapper, Error};
 
-use pallet_asset::{AssetIdTicker, AssetNames, WeightInfo};
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
 use crate::interface::FungibleAssetInterface;
-use crate::interface::{DECIMALS, ERR_INVALID_SYMBOL};
+use crate::interface::ERR_INVALID_SYMBOL;
+use crate::Config;
 
 impl<T> FungibleAssetInterface<T>
 where
@@ -87,26 +83,18 @@ where
         call: &IFungibleAsset::setNameCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        let asset_name_str = &call.name;
-        let new_asset_name = AssetName::from(asset_name_str.as_bytes().to_vec());
-        env.charge(
-            <T as pallet_asset::Config>::WeightInfo::rename_asset(new_asset_name.len() as u32)
-                .saturating_add(T::DbWeight::get().reads(1)),
+        let caller = Common::<T>::caller(env)?;
+        let new_asset_name = AssetName::from(&call.name.as_bytes().to_vec());
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::rename_asset {
+                asset_id,
+                asset_name: new_asset_name.clone(),
+            },
         )?;
 
-        let ticker = AssetIdTicker::<T>::get(&asset_id).unwrap_or_default();
-        Common::<T>::deposit_event(
-            env,
-            IFungibleAssetEvents::UpdatedTokenInformation(
-                IFungibleAsset::UpdatedTokenInformation {
-                    newName: FixedBytes::from(keccak256(new_asset_name.0.as_slice())),
-                    newSymbol: FixedBytes::from(keccak256(ticker.as_ref())),
-                    newDecimals: DECIMALS,
-                    newVersion: Default::default(),
-                    newOnchainID: Default::default(),
-                },
-            ),
-        )?;
         Ok(Vec::new())
     }
 
@@ -116,12 +104,6 @@ where
         call: &IFungibleAsset::setSymbolCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(
-            <T as pallet_asset::Config>::WeightInfo::link_ticker_to_asset_id()
-                .saturating_add(<T as pallet_asset::Config>::WeightInfo::register_unique_ticker())
-                .saturating_add(T::DbWeight::get().reads(1)),
-        )?;
-
         let new_symbol = &call.symbol.as_bytes();
 
         if new_symbol.len() > TICKER_LEN {
@@ -141,19 +123,6 @@ where
             return Err(Self::extrinsic_error(e));
         }
 
-        let asset_name = AssetNames::<T>::get(&asset_id).unwrap_or_default();
-        Common::<T>::deposit_event(
-            env,
-            IFungibleAssetEvents::UpdatedTokenInformation(
-                IFungibleAsset::UpdatedTokenInformation {
-                    newName: FixedBytes::from(keccak256(asset_name.0.as_slice())),
-                    newSymbol: FixedBytes::from(keccak256(ticker.as_ref())),
-                    newDecimals: DECIMALS,
-                    newVersion: Default::default(),
-                    newOnchainID: Default::default(),
-                },
-            ),
-        )?;
         Ok(Vec::new())
     }
 
@@ -165,15 +134,15 @@ where
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
 
-        let acc_to_freeze = Common::<T>::account_id32(call.account)?;
+        let acc_to_freeze = Common::<T>::asset_holder(call.account)?;
 
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
             pallet_asset::Call::<T>::set_address_frozen {
+                asset_holder: acc_to_freeze,
                 asset_id,
                 freeze: call.freeze,
-                account: acc_to_freeze,
             },
         )?;
 

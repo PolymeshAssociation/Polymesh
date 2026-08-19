@@ -1015,7 +1015,7 @@ benchmarks! {
     set_address_frozen {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob_portfolio = create_portfolio::<T>(&bob, "SenderPortfolio");
         let asset_id = create_sample_asset::<T>(&alice, true);
-        let bob_account: [u8; 32] = bob.account().encode().try_into().unwrap();
-    }: _(alice.origin, asset_id, true, bob_account.into())
+    }: _(alice.origin, bob_portfolio.into(), asset_id, true)
 }

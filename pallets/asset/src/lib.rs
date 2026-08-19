@@ -369,7 +369,7 @@ pub mod pallet {
         /// The account status has been set to `freeze`.
         SetAccountFreeze {
             caller_did: IdentityId,
-            account: AccountId32,
+            holder: AssetHolder,
             asset_id: AssetId,
             freeze: bool,
         },
@@ -1851,11 +1851,11 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::set_address_frozen())]
         pub fn set_address_frozen(
             origin: OriginFor<T>,
+            asset_holder: AssetHolder,
             asset_id: AssetId,
             freeze: bool,
-            account: AccountId32,
         ) -> DispatchResult {
-            Self::base_set_address_frozen(origin, asset_id, freeze, account)
+            Self::base_set_address_frozen(origin, asset_holder, asset_id, freeze)
         }
     }
 
@@ -1971,8 +1971,8 @@ pub mod pallet {
         SelfOwnershipTransferNotAllowed,
         /// The weight Limit for the extrinsic has been exceeded.
         WeightLimitExceeded,
-        /// The account is frozen and cannot transfer assets.
-        InvalidTransferFrozenAccount,
+        /// The sender is frozen and cannot transfer assets.
+        InvalidTransferSenderIsFrozen,
     }
 
     pub trait WeightInfo {
@@ -3025,25 +3025,35 @@ impl<T: AssetConfig> Pallet<T> {
     /// Sets whether `account` is frozen for transfers of `asset_id`.
     fn base_set_address_frozen(
         origin: T::RuntimeOrigin,
+        holder: AssetHolder,
         asset_id: AssetId,
         freeze: bool,
-        account: AccountId32,
     ) -> DispatchResult {
         let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
 
-        if freeze {
-            FrozenAccounts::<T>::insert(account.clone(), asset_id, true);
-        } else {
-            FrozenAccounts::<T>::remove(&account, &asset_id);
+        match &holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                pallet_portfolio::Pallet::<T>::set_portfolio_freeze(
+                    portfolio_id.clone(),
+                    asset_id,
+                    freeze,
+                )?;
+            }
+            AssetHolder::Account(account) => {
+                if freeze {
+                    FrozenAccounts::<T>::insert(account.clone(), asset_id, true);
+                } else {
+                    FrozenAccounts::<T>::remove(account, &asset_id);
+                }
+            }
         }
 
         Self::deposit_event(Event::SetAccountFreeze {
             caller_did,
-            account,
+            holder,
             asset_id,
             freeze,
         });
-
         Ok(())
     }
 }
@@ -3431,11 +3441,19 @@ impl<T: AssetConfig> Pallet<T> {
 
     /// Returns `Ok` if the holder is not frozen for the given asset.
     fn ensure_holder_is_not_frozen(holder: &AssetHolder, asset_id: &AssetId) -> DispatchResult {
-        if let AssetHolder::Account(account_id) = holder {
-            ensure!(
-                !FrozenAccounts::<T>::get(account_id, asset_id),
-                Error::<T>::InvalidTransferFrozenAccount
-            );
+        match holder {
+            AssetHolder::Portfolio(portfolio_id) => {
+                ensure!(
+                    !pallet_portfolio::Pallet::<T>::is_portfolio_frozen(portfolio_id, asset_id),
+                    Error::<T>::InvalidTransferSenderIsFrozen
+                );
+            }
+            AssetHolder::Account(account_id) => {
+                ensure!(
+                    !FrozenAccounts::<T>::get(account_id, asset_id),
+                    Error::<T>::InvalidTransferSenderIsFrozen
+                );
+            }
         }
         Ok(())
     }

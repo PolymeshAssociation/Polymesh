@@ -214,15 +214,6 @@ interface IFungibleAsset {
     // ERC-3643
     // ============================================================
 
-    /// @notice Emitted when the token information is updated. This includes updates to the token's name, symbol, decimals, version, and onchainID.
-    event UpdatedTokenInformation(
-        string indexed newName, 
-        string indexed newSymbol, 
-        uint8 newDecimals, 
-        string newVersion, 
-        address indexed newOnchainID
-    );
-
     /// @notice Emitted when the token contract is paused.
     event Paused(address userAddress);
 

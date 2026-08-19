@@ -334,6 +334,10 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    pub type FrozenPortfolios<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, PortfolioId, Blake2_128Concat, AssetId, bool, ValueQuery>;
+
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
@@ -396,6 +400,8 @@ pub mod pallet {
         KeyNotFoundForCaller,
         /// Insufficient balance (tokens might not exist or are locked).
         InsufficientBalance,
+        /// The portfolio is frozen for the given asset.
+        PortfolioIsFrozen,
     }
 
     #[pallet::call]
@@ -917,11 +923,19 @@ impl<T: Config> Pallet<T> {
                         unique_assets.insert(asset_id),
                         Error::<T>::NoDuplicateAssetsAllowed
                     );
+                    ensure!(
+                        !Self::is_portfolio_frozen(sender_portfolio, asset_id),
+                        Error::<T>::PortfolioIsFrozen
+                    );
                     T::AssetFn::asset_is_not_frozen(asset_id)?;
                     Self::ensure_sufficient_balance(sender_portfolio, &asset_id, *amount)?;
                 }
                 FundDescription::NonFungible(nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::EmptyTransfer);
+                    ensure!(
+                        !Self::is_portfolio_frozen(sender_portfolio, nfts.asset_id()),
+                        Error::<T>::PortfolioIsFrozen
+                    );
                     T::AssetFn::asset_is_not_frozen(nfts.asset_id())?;
                     Self::ensure_valid_nfts(sender_portfolio, nfts.asset_id(), nfts.ids())?;
                 }
@@ -1226,6 +1240,28 @@ impl<T: Config> Pallet<T> {
     /// Returns the frozen balance of `asset_id` in `portfolio`.
     pub fn get_portfolio_frozen_balance(portfolio: &PortfolioId, asset_id: &AssetId) -> Balance {
         PortfolioFrozenAssets::<T>::get(portfolio, asset_id)
+    }
+
+    /// Sets the status of a `portfolio_id` to `freeze`.
+    pub fn set_portfolio_freeze(
+        portfolio_id: PortfolioId,
+        asset_id: AssetId,
+        freeze: bool,
+    ) -> DispatchResult {
+        Self::ensure_portfolio_validity(&portfolio_id)?;
+
+        if freeze {
+            FrozenPortfolios::<T>::insert(portfolio_id, asset_id, true);
+        } else {
+            FrozenPortfolios::<T>::remove(&portfolio_id, &asset_id);
+        }
+
+        Ok(())
+    }
+
+    /// Returns `true` if the `portfolio_id` is frozen.
+    pub fn is_portfolio_frozen(portfolio_id: &PortfolioId, asset_id: &AssetId) -> bool {
+        FrozenPortfolios::<T>::get(portfolio_id, asset_id)
     }
 }
 
