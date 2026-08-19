@@ -12,6 +12,7 @@ use polymesh_primitives::{
 };
 
 use crate::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
+use crate::nft::{create_nft_collection, mint_nft};
 use crate::storage::{add_secondary_key_with_perms, User};
 use crate::{ExtBuilder, TestStorage};
 
@@ -48,6 +49,13 @@ fn create_and_issue_to_account(owner: &User) -> polymesh_primitives::asset::Asse
 fn fungible_fund(asset_id: polymesh_primitives::asset::AssetId, amount: Balance) -> Fund {
     Fund {
         description: FundDescription::Fungible { asset_id, amount },
+        memo: None,
+    }
+}
+
+fn non_fungible_fund(asset_id: polymesh_primitives::asset::AssetId, nft_id: NFTId) -> Fund {
+    Fund {
+        description: FundDescription::NonFungible(NFTs::new_unverified(asset_id, vec![nft_id])),
         memo: None,
     }
 }
@@ -1014,6 +1022,81 @@ fn cross_identity_transfer_when_portfolio_is_frozen() {
                 Some(alice_portfolio.into()),
                 AssetHolder::Account(bob.acc()),
                 fungible_fund(asset_id, 100),
+            ),
+            AssetError::InvalidTransferSenderIsFrozen
+        );
+    });
+}
+
+#[test]
+fn cross_identity_nft_transfer_when_portfolio_is_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            Vec::new(),
+            AssetHolderKind::DefaultPortfolio,
+        );
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            alice_portfolio.clone().into(),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(alice_portfolio.into()),
+                AssetHolder::Account(bob.acc()),
+                non_fungible_fund(asset_id, NFTId(1)),
+            ),
+            SettlementError::FailedAssetTransferringConditions
+        );
+    });
+}
+
+#[test]
+fn same_identity_nft_transfer_when_portfolio_is_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            asset_id,
+            Vec::new(),
+            AssetHolderKind::Account,
+        );
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            AssetHolder::Account(alice.acc()),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                alice_portfolio.into(),
+                non_fungible_fund(asset_id, NFTId(1)),
             ),
             AssetError::InvalidTransferSenderIsFrozen
         );
