@@ -16,65 +16,56 @@
 use alloc::vec::Vec;
 
 use pallet_revive::precompiles::alloy::sol_types::Revert;
+use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
-use pallet_revive::precompiles::{AddressMapper, Error};
 
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
+use crate::common::Common;
 use crate::interface::FungibleAssetInterface;
 use crate::interface::ERR_INVALID_SYMBOL;
 use crate::Config;
 
-impl<T> FungibleAssetInterface<T>
-where
-    T: pallet_revive::Config
-        + pallet_asset::Config
-        + pallet_asset::checkpoint::Config
-        + pallet_settlement::Config,
-{
+impl<T: Config> FungibleAssetInterface<T> {
     /// Freezes the asset, preventing token transfers. Only an agent of the token can call this function.
     pub(crate) fn pause(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-        env.charge(<T as pallet_asset::Config>::WeightInfo::freeze())?;
+        let caller = Common::<T>::caller(env)?;
 
-        let caller = Self::caller(env)?;
-        let caller_acc = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::freeze { asset_id },
+        )?;
 
-        match pallet_asset::Pallet::<T>::freeze(RawOrigin::Signed(caller_acc).into(), asset_id) {
-            Ok(_) => {
-                Self::deposit_event(
-                    env,
-                    IFungibleAssetEvents::Paused(IFungibleAsset::Paused {
-                        userAddress: caller.0.into(),
-                    }),
-                )?;
-                Ok(Vec::new())
-            }
-            Err(e) => Err(Self::extrinsic_error(e)),
-        }
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::Paused(IFungibleAsset::Paused {
+                userAddress: caller.address.0.into(),
+            }),
+        )?;
+        Ok(Vec::new())
     }
 
     /// Unfreezes the token contract, allowing token transfers. Only an agent of the token can call this function.
     pub(crate) fn unpause(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-        env.charge(<T as pallet_asset::Config>::WeightInfo::unfreeze())?;
+        let caller = Common::<T>::caller(env)?;
 
-        let caller = Self::caller(env)?;
-        let caller_acc = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::unfreeze { asset_id },
+        )?;
 
-        match pallet_asset::Pallet::<T>::unfreeze(RawOrigin::Signed(caller_acc).into(), asset_id) {
-            Ok(_) => {
-                Self::deposit_event(
-                    env,
-                    IFungibleAssetEvents::Unpaused(IFungibleAsset::Unpaused {
-                        userAddress: caller.0.into(),
-                    }),
-                )?;
-                Ok(Vec::new())
-            }
-            Err(e) => Err(Self::extrinsic_error(e)),
-        }
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::Unpaused(IFungibleAsset::Unpaused {
+                userAddress: caller.address.0.into(),
+            }),
+        )?;
+        Ok(Vec::new())
     }
 
     /// Sets the token name. Only the owner of the token contract can call this function.
@@ -113,15 +104,18 @@ where
         }
 
         let ticker = Ticker::from_slice_truncated(new_symbol);
-        let caller = Self::caller(env)?;
-        let caller_acc = <T as pallet_revive::Config>::AddressMapper::to_account_id(&caller);
+        let caller = Common::<T>::caller(env)?;
 
-        if let Err(e) = pallet_asset::Pallet::<T>::register_unique_ticker(
-            RawOrigin::Signed(caller_acc.clone()).into(),
-            ticker,
-        ) {
-            return Err(Self::extrinsic_error(e));
-        }
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::register_unique_ticker { ticker },
+        )?;
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::link_ticker_to_asset_id { ticker, asset_id },
+        )?;
 
         Ok(Vec::new())
     }
