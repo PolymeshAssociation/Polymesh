@@ -196,6 +196,22 @@ impl Token {
         Ok(can_transfer)
     }
 
+    pub async fn get_frozen_tokens(&self, account: Address) -> Result<u128> {
+        let value = self
+            .node
+            .call(self.address, &ierc20::getFrozenTokensCall { account })
+            .await?;
+        Ok(value.try_into()?)
+    }
+
+    pub async fn can_send(&self, account: Address) -> Result<bool> {
+        let value = self
+            .node
+            .call(self.address, &ierc20::canSendCall { account })
+            .await?;
+        Ok(value)
+    }
+
     // --- writes ------------------------------------------------------------
 
     pub async fn transfer(
@@ -255,6 +271,56 @@ impl Token {
         call: C,
     ) -> Result<Vec<ContractLog>> {
         caller.send_call(self.h160(), call.abi_encode()).await
+    }
+
+    pub async fn set_frozen_tokens(
+        &self,
+        caller: &mut dyn ContractCaller,
+        account: Address,
+        amount: u128,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(
+            caller,
+            ierc20::setFrozenTokensCall {
+                account,
+                amount: U256::from(amount),
+            },
+        )
+        .await
+    }
+
+    pub async fn set_address_frozen(
+        &self,
+        caller: &mut dyn ContractCaller,
+        account: Address,
+        freeze: bool,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(caller, ierc20::setAddressFrozenCall { account, freeze })
+            .await
+    }
+
+    pub async fn set_symbol(
+        &self,
+        caller: &mut dyn ContractCaller,
+        symbol: String,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(caller, ierc20::setSymbolCall { symbol }).await
+    }
+
+    pub async fn set_name(
+        &self,
+        caller: &mut dyn ContractCaller,
+        name: String,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(caller, ierc20::setNameCall { name }).await
+    }
+
+    pub async fn pause(&self, caller: &mut dyn ContractCaller) -> Result<Vec<ContractLog>> {
+        self.send(caller, ierc20::pauseCall {}).await
+    }
+
+    pub async fn unpause(&self, caller: &mut dyn ContractCaller) -> Result<Vec<ContractLog>> {
+        self.send(caller, ierc20::unpauseCall {}).await
     }
 }
 

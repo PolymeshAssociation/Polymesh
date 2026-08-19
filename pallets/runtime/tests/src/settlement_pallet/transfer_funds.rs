@@ -1,10 +1,11 @@
 use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
+use sp_std::collections::btree_set::BTreeSet;
 
-use pallet_asset::{Allowances, BalanceOf};
+use pallet_asset::{Allowances, AssetBalance, BalanceOf, LockedBalance};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
 use polymesh_primitives::nft::{NFTId, NFTOwnerStatus};
-use polymesh_primitives::settlement::AffirmationRequirement;
+use polymesh_primitives::settlement::{AffirmationRequirement, Leg, SettlementType};
 use polymesh_primitives::{
     Balance, Fund, FundDescription, NFTs, Permissions, PortfolioId, PortfolioNumber,
     SubsetRestriction,
@@ -693,5 +694,328 @@ fn cross_identity_transfer_when_caller_is_also_the_receiver() {
                 )
             )
         }));
+    });
+}
+
+#[test]
+fn cross_identity_transfer_when_tokens_are_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        assert_ok!(Asset::approve(alice.origin(), asset_id, charlie.acc(), 500));
+
+        // At this point alice has only 500 tokens not locked
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            None,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: AssetHolder::Account(alice.acc()),
+                receiver: AssetHolder::Account(bob.acc()),
+                asset_id,
+                amount: ISSUE_AMOUNT - 500,
+            }],
+            BTreeSet::from([AssetHolder::Account(alice.acc())])
+                .try_into()
+                .unwrap(),
+            None
+        ));
+
+        assert_eq!(
+            LockedBalance::<TestStorage>::get(alice.acc(), &asset_id),
+            ISSUE_AMOUNT - 500
+        );
+
+        // 500 tokens are frozen, so alice can't transfer any tokens
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            AssetHolder::Account(alice.acc()),
+            500
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                charlie.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Account(bob.acc()),
+                fungible_fund(asset_id, 1),
+            ),
+            AssetError::InsufficientBalance
+        );
+
+        // Now alice has 400 tokens available for transfer
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            AssetHolder::Account(alice.acc()),
+            100
+        ));
+
+        assert_ok!(Settlement::transfer_funds(
+            charlie.origin(),
+            Some(AssetHolder::Account(alice.acc())),
+            AssetHolder::Account(bob.acc()),
+            fungible_fund(asset_id, 400),
+        ));
+
+        assert_eq!(
+            LockedBalance::<TestStorage>::get(alice.acc(), &asset_id),
+            ISSUE_AMOUNT - 500
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            ISSUE_AMOUNT - 400
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(bob.acc()), &asset_id),
+            400
+        );
+    });
+}
+
+#[test]
+fn same_identity_transfer_when_tokens_are_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        // At this point alice has only 500 tokens not locked
+        assert_ok!(Settlement::add_and_affirm_instruction(
+            alice.origin(),
+            None,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: AssetHolder::Account(alice.acc()),
+                receiver: AssetHolder::Account(bob.acc()),
+                asset_id,
+                amount: ISSUE_AMOUNT - 500,
+            }],
+            BTreeSet::from([AssetHolder::Account(alice.acc())])
+                .try_into()
+                .unwrap(),
+            None
+        ));
+
+        // 500 tokens are frozen, so alice can't transfer any tokens
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            AssetHolder::Account(alice.acc()),
+            500
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+                fungible_fund(asset_id, 1),
+            ),
+            AssetError::InsufficientBalance
+        );
+
+        // Now alice has 400 tokens available for transfer
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            AssetHolder::Account(alice.acc()),
+            100
+        ));
+
+        assert_ok!(Settlement::transfer_funds(
+            alice.origin(),
+            Some(AssetHolder::Account(alice.acc())),
+            AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+            fungible_fund(asset_id, 400),
+        ));
+
+        assert_eq!(
+            LockedBalance::<TestStorage>::get(alice.acc(), &asset_id),
+            ISSUE_AMOUNT - 500
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            ISSUE_AMOUNT - 400
+        );
+        assert_eq!(
+            Asset::get_holders_balance(
+                &AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+                &asset_id
+            ),
+            400
+        );
+        assert_eq!(
+            AssetBalance::<TestStorage>::get(&alice.acc(), &asset_id),
+            ISSUE_AMOUNT - 400
+        );
+        assert_eq!(
+            BalanceOf::<TestStorage>::get(&asset_id, &alice.did),
+            ISSUE_AMOUNT
+        );
+    });
+}
+
+#[test]
+fn cross_identity_transfer_when_account_is_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        assert_ok!(Asset::approve(alice.origin(), asset_id, charlie.acc(), 500));
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            AssetHolder::Account(alice.acc()),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                charlie.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Account(bob.acc()),
+                fungible_fund(asset_id, 100),
+            ),
+            AssetError::InvalidTransferSenderIsFrozen
+        );
+    });
+}
+
+#[test]
+fn same_identity_transfer_when_account_is_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_to_account(&alice);
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            AssetHolder::Account(alice.acc()),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+                fungible_fund(asset_id, 100),
+            ),
+            AssetError::InvalidTransferSenderIsFrozen
+        );
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            AssetHolder::Account(alice.acc()),
+            asset_id,
+            false,
+        ));
+
+        assert_ok!(Settlement::transfer_funds(
+            alice.origin(),
+            Some(AssetHolder::Account(alice.acc())),
+            AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+            fungible_fund(asset_id, 100),
+        ),);
+
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            ISSUE_AMOUNT - 100
+        );
+        assert_eq!(
+            Asset::get_holders_balance(
+                &AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+                &asset_id
+            ),
+            100
+        );
+    });
+}
+
+#[test]
+fn same_identity_transfer_when_portfolio_is_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            alice_portfolio.clone().into(),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(alice_portfolio.clone().into()),
+                AssetHolder::Account(alice.acc()),
+                fungible_fund(asset_id, 100),
+            ),
+            AssetError::InvalidTransferSenderIsFrozen
+        );
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
+            asset_id,
+            false,
+        ));
+
+        assert_ok!(Settlement::transfer_funds(
+            alice.origin(),
+            Some(alice_portfolio.clone().into()),
+            AssetHolder::Account(alice.acc()),
+            fungible_fund(asset_id, 100),
+        ),);
+
+        assert_eq!(
+            Asset::get_holders_balance(&AssetHolder::Account(alice.acc()), &asset_id),
+            100
+        );
+        assert_eq!(
+            Asset::get_holders_balance(&alice_portfolio.into(), &asset_id),
+            ISSUE_AMOUNT - 100
+        );
+    });
+}
+
+#[test]
+fn cross_identity_transfer_when_portfolio_is_frozen() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+        let asset_id = create_and_issue_sample_asset(&alice);
+
+        assert_ok!(Asset::set_address_frozen(
+            alice.origin(),
+            alice_portfolio.clone().into(),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                alice.origin(),
+                Some(alice_portfolio.into()),
+                AssetHolder::Account(bob.acc()),
+                fungible_fund(asset_id, 100),
+            ),
+            AssetError::InvalidTransferSenderIsFrozen
+        );
     });
 }
