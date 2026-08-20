@@ -1848,14 +1848,14 @@ pub mod pallet {
 
         /// Set the status of `account` for `asset_id` to `freeze`.
         #[pallet::call_index(39)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_address_frozen())]
-        pub fn set_address_frozen(
+        #[pallet::weight(<T as Config>::WeightInfo::set_holder_frozen())]
+        pub fn set_holder_frozen(
             origin: OriginFor<T>,
             asset_holder: AssetHolder,
             asset_id: AssetId,
             freeze: bool,
         ) -> DispatchResult {
-            Self::base_set_address_frozen(origin, asset_holder, asset_id, freeze)
+            Self::base_set_holder_frozen(origin, asset_holder, asset_id, freeze)
         }
     }
 
@@ -2020,7 +2020,7 @@ pub mod pallet {
         fn get_holders_frozen_balance() -> Weight;
         fn transfer_is_allowed_for_holder_best_case() -> Weight;
         fn transfer_is_allowed_for_holder_worst_case() -> Weight;
-        fn set_address_frozen() -> Weight;
+        fn set_holder_frozen() -> Weight;
     }
 }
 
@@ -3023,7 +3023,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Sets whether `account` is frozen for transfers of `asset_id`.
-    fn base_set_address_frozen(
+    fn base_set_holder_frozen(
         origin: T::RuntimeOrigin,
         holder: AssetHolder,
         asset_id: AssetId,

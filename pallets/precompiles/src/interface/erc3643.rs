@@ -133,7 +133,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
-            pallet_asset::Call::<T>::set_address_frozen {
+            pallet_asset::Call::<T>::set_holder_frozen {
                 asset_holder: acc_to_freeze,
                 asset_id,
                 freeze: call.freeze,

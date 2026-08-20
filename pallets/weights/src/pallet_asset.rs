@@ -941,7 +941,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `Asset::FrozenAccounts` (r:0 w:1)
     // Proof: `Asset::FrozenAccounts` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
-    fn set_address_frozen() -> Weight {
+    fn set_holder_frozen() -> Weight {
         // Minimum execution time: 42_414 nanoseconds.
         Weight::from_parts(43_671_000, 0)
             .saturating_add(DbWeight::get().reads(4))

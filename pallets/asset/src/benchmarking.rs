@@ -1012,7 +1012,7 @@ benchmarks! {
         );
     }
 
-    set_address_frozen {
+    set_holder_frozen {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob_portfolio = create_portfolio::<T>(&bob, "SenderPortfolio");
