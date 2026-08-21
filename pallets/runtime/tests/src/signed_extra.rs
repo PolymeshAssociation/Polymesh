@@ -115,6 +115,14 @@ fn make_min_storage() -> Result<TestExternalities, String> {
     }
     .assimilate_storage(&mut storage)?;
 
+    // Governance committee membership: only GC members may tip.
+    group::GenesisConfig::<Runtime, group::Instance1> {
+        active_members_limit: u32::MAX,
+        active_members: vec![IdentityId::from(0u128)],
+        ..Default::default()
+    }
+    .assimilate_storage(&mut storage)?;
+
     Ok(TestExternalities::new(storage))
 }
 

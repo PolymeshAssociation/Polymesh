@@ -79,8 +79,6 @@ pub mod pallet {
         /// Used to charge transaction fees to a subsidiser, instead of the payer.
         type Subsidiser: SubsidiserTrait<Self::AccountId, Self::RuntimeCall>;
 
-        type DidRegistrars: GroupTrait<Self::Moment>;
-
         type GovernanceCommittee: GroupTrait<Self::Moment>;
 
         type Identity: IdentityFnTrait<Self::AccountId>;
@@ -309,19 +307,19 @@ where
         Ok((call_payment_info, subsidiser))
     }
 
-    // Polymesh change: Used to allow GC/DID registrar member to include a `tip`.
+    // Polymesh change: Used to allow GC member to include a `tip`.
     // -----------------------------------------------------------------
 
-    /// Returns `true` if `who` is member of `T::GovernanceCommittee` or `T::DidRegistrars`.
-    fn is_gc_or_registrar_member(who: &T::AccountId) -> bool {
+    /// Returns `true` if `who` is member of `T::GovernanceCommittee`.
+    fn is_gc_member(who: &T::AccountId) -> bool {
         T::Identity::get_identity(who)
-            .map(|did| T::GovernanceCommittee::is_member(&did) || T::DidRegistrars::is_member(&did))
+            .map(|did| T::GovernanceCommittee::is_member(&did))
             .unwrap_or(false)
     }
 
     /// Ensures that the transaction tip is valid.
     ///
-    /// Tipping is allowed for `DispatchClass::Operational` created by a Governance or DID registrar member.
+    /// Tipping is allowed for `DispatchClass::Operational` created by a Governance member.
     /// Mandatory transactions are going to be included in the block, so adding a tip does not matter.
     pub(crate) fn ensure_valid_tip(
         &self,
@@ -334,8 +332,7 @@ where
                     return Ok(self.tip);
                 }
 
-                if info.class == DispatchClass::Operational && Self::is_gc_or_registrar_member(who)
-                {
+                if info.class == DispatchClass::Operational && Self::is_gc_member(who) {
                     return Ok(self.tip);
                 }
 

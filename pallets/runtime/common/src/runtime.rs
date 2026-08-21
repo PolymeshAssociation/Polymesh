@@ -240,7 +240,6 @@ macro_rules! misc_pallet_impls {
             type TxFeeHandler = TxFeeHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
-            type DidRegistrars = DidRegistrars;
             type Identity = Identity;
         }
 
