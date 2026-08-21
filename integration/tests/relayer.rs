@@ -201,7 +201,6 @@ mod relayer_tests {
         // An eth wallet always acts as its fallback account, so it joins the identity through the
         // very interface under test rather than by signing a substrate extrinsic.
         let mut subsidized = node.new_wallet();
-        //subsidized.fund(&mut tester, REVIVE_INIT_POLYX).await?;
         let subsidized_account = subsidized.account();
 
         let mut res = api
