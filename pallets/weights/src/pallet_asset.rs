@@ -931,4 +931,20 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         // Minimum execution time: 92_745 nanoseconds.
         Weight::from_parts(94_474_000, 0).saturating_add(DbWeight::get().reads(6))
     }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
+    // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Asset::FrozenAccounts` (r:0 w:1)
+    // Proof: `Asset::FrozenAccounts` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    fn set_holder_frozen() -> Weight {
+        // Minimum execution time: 42_414 nanoseconds.
+        Weight::from_parts(43_671_000, 0)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

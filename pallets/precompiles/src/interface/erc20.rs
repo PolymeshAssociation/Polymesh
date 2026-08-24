@@ -32,7 +32,7 @@ use polymesh_primitives::WeightMeter;
 
 use crate::common::{revert, revert_err, Common};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::{ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
+use crate::interface::{DECIMALS, ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
@@ -320,6 +320,6 @@ impl<T: Config> FungibleAssetInterface<T> {
         _asset_id: AssetId,
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        Ok(IFungibleAsset::decimalsCall::abi_encode_returns(&6))
+        Ok(IFungibleAsset::decimalsCall::abi_encode_returns(&DECIMALS))
     }
 }

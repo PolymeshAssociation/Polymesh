@@ -1011,4 +1011,11 @@ benchmarks! {
             )
         );
     }
+
+    set_holder_frozen {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob_portfolio = create_portfolio::<T>(&bob, "SenderPortfolio");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+    }: _(alice.origin, bob_portfolio.into(), asset_id, true)
 }
