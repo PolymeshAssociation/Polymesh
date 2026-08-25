@@ -62,3 +62,29 @@ async fn erc7943_can_transfer_receiver_fails_compliance() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_set_get_frozen_tokens() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc7943SubIssuer", "Erc7943SubHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_, erc7943) = create_erc20_asset(&api, &node, issuer, "ERC7943 SetFrozen", MINT).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    erc7943
+        .set_frozen_tokens(&mut caller, holder_address, 1_000)
+        .await?;
+
+    assert!(erc7943.get_frozen_tokens(holder_address).await.unwrap() == 1_000);
+
+    Ok(())
+}

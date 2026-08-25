@@ -1230,3 +1230,37 @@ fn assign_custody_of_default_portfolio() {
         );
     });
 }
+
+#[test]
+fn move_funds_from_frozen_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_portfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        assert_ok!(Asset::set_holder_frozen(
+            alice.origin(),
+            alice_default_portfolio.clone().into(),
+            asset_id,
+            true,
+        ));
+
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_user_portfolio,
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        asset_id,
+                        amount: 100,
+                    },
+                    memo: None,
+                }]
+            ),
+            Error::PortfolioIsFrozen
+        );
+    });
+}
