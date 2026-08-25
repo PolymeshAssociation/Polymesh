@@ -4,6 +4,8 @@
 
 Polymesh is a Substrate-based L1 blockchain (Rust/FRAME). The root package builds the `polymesh` node binary (`src/bin/main.rs`); runtime WASM is built per chain by `substrate-wasm-builder` during `cargo build`.
 
+Detailed specs of the chain logic (identity/permissions, assets, settlement, etc.) live in [`docs/spec/`](docs/spec/README.md) — read the relevant spec before reviewing or modifying a subsystem.
+
 ## Build & toolchain
 
 - Toolchain is pinned nightly via `rust-toolchain.toml` (with `rust-src`, `wasm32v1-none`). Let rustup pick it; don't force stable.
