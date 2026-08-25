@@ -582,3 +582,311 @@ mod sto_v8_tests {
         Ok(())
     }
 }
+
+// >=v8.0 - Additional STO tests for freeze/unfreeze/modify/stop
+#[cfg(feature = "current_release")]
+mod sto_extended_tests {
+    use super::*;
+
+    struct StoSetup {
+        offering: AssetId,
+        fundraiser_id: polymesh_api::types::polymesh_primitives::sto::FundraiserId,
+        investor_portfolio: PortfolioId,
+    }
+
+    async fn setup_sto(
+        tester: &mut PolymeshTester,
+        venue_user: &mut User,
+        investor: &mut User,
+        offering_name: &str,
+        funding_name: &str,
+        venue_name: &str,
+    ) -> Result<StoSetup> {
+        let mut venue_res = tester
+            .api
+            .call()
+            .settlement()
+            .create_venue(
+                VenueDetails(venue_name.as_bytes().to_vec()),
+                Default::default(),
+                VenueType::Sto,
+            )?
+            .submit_and_watch(venue_user)
+            .await?;
+        venue_res.ok().await?;
+        let venue_id = get_venue_id(&mut venue_res).await?.expect("venue");
+
+        let mut v = venue_user.clone();
+        let api = tester.api.clone();
+        let offering_name = offering_name.to_string();
+        let offering = tokio::spawn(async move {
+            AssetHelper::new(&api, &mut v, &offering_name, 20_000_000_000, BTreeSet::new()).await
+        });
+        let mut v = venue_user.clone();
+        let api = tester.api.clone();
+        let mut inv = investor.clone();
+        let funding_name = funding_name.to_string();
+        let funding = tokio::spawn(async move {
+            let mut a =
+                AssetHelper::new(&api, &mut v, &funding_name, 1_000_000, BTreeSet::new()).await?;
+            a.fund_investors(&mut [&mut inv], 1_000_000_000).await?;
+            Ok::<_, anyhow::Error>(a)
+        });
+        let offering = offering.await??;
+        let funding = funding.await??;
+        let venue_did = offering.issuer_did;
+        let investor_did = investor.did.expect("investor did");
+        let fundraiser_portfolio = PortfolioId {
+            did: venue_did,
+            kind: PortfolioKind::Default,
+        };
+        let investor_portfolio = PortfolioId {
+            did: investor_did,
+            kind: PortfolioKind::Default,
+        };
+
+        let mut fr = tester
+            .api
+            .call()
+            .sto()
+            .create_fundraiser(
+                fundraiser_portfolio,
+                offering.asset_id.clone(),
+                fundraiser_portfolio,
+                funding.asset_id,
+                vec![PriceTier {
+                    total: 3_000_000_000,
+                    price: 800_000,
+                }],
+                venue_id,
+                None,
+                None,
+                1_000_000u128,
+                FundraiserName(b"ExtFundraiser".to_vec()),
+            )?
+            .submit_and_watch(venue_user)
+            .await?;
+        fr.ok().await?;
+        let (_, fundraiser_id) = get_fundraiser_id(&mut fr).await?.expect("fundraiser");
+        Ok(StoSetup {
+            offering: offering.asset_id,
+            fundraiser_id,
+            investor_portfolio,
+        })
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn sto_freeze_unfreeze() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut users = tester
+            .users(&["StoFrzVenue", "StoFrzInv"])
+            .await?
+            .into_iter();
+        let mut venue = users.next().unwrap();
+        let mut investor = users.next().unwrap();
+        let setup = setup_sto(
+            &mut tester,
+            &mut venue,
+            &mut investor,
+            "StoFrzOff",
+            "StoFrzFund",
+            "StoFrzVenue",
+        )
+        .await?;
+
+        tester
+            .api
+            .call()
+            .sto()
+            .freeze_fundraiser(setup.offering.clone(), setup.fundraiser_id.clone())?
+            .submit_and_watch(&mut venue)
+            .await?
+            .ok()
+            .await?;
+
+        let mut invest = tester
+            .api
+            .call()
+            .sto()
+            .invest(
+                setup.offering.clone(),
+                setup.fundraiser_id.clone(),
+                setup.investor_portfolio,
+                FundingMethod::OnChain(setup.investor_portfolio),
+                1_050_000_000,
+                Some(900_000),
+            )?
+            .submit_and_watch(&mut investor)
+            .await?;
+        assert!(invest.ok().await.is_err(), "invest while frozen must fail");
+
+        tester
+            .api
+            .call()
+            .sto()
+            .unfreeze_fundraiser(setup.offering.clone(), setup.fundraiser_id.clone())?
+            .submit_and_watch(&mut venue)
+            .await?
+            .ok()
+            .await?;
+
+        tester
+            .api
+            .call()
+            .sto()
+            .invest(
+                setup.offering,
+                setup.fundraiser_id,
+                setup.investor_portfolio,
+                FundingMethod::OnChain(setup.investor_portfolio),
+                1_050_000_000,
+                Some(900_000),
+            )?
+            .submit_and_watch(&mut investor)
+            .await?
+            .ok()
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn sto_modify_window() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut users = tester
+            .users(&["StoWinVenue", "StoWinInv"])
+            .await?
+            .into_iter();
+        let mut venue = users.next().unwrap();
+        let mut investor = users.next().unwrap();
+        let setup = setup_sto(
+            &mut tester,
+            &mut venue,
+            &mut investor,
+            "StoWinOff",
+            "StoWinFund",
+            "StoWinVenue",
+        )
+        .await?;
+
+        let now = tester.api.query().timestamp().now().await?;
+        tester
+            .api
+            .call()
+            .sto()
+            .modify_fundraiser_window(
+                setup.offering.clone(),
+                setup.fundraiser_id.clone(),
+                now + 60_000,
+                Some(now + 120_000),
+            )?
+            .submit_and_watch(&mut venue)
+            .await?
+            .ok()
+            .await?;
+
+        let mut invest = tester
+            .api
+            .call()
+            .sto()
+            .invest(
+                setup.offering.clone(),
+                setup.fundraiser_id.clone(),
+                setup.investor_portfolio,
+                FundingMethod::OnChain(setup.investor_portfolio),
+                1_050_000_000,
+                Some(900_000),
+            )?
+            .submit_and_watch(&mut investor)
+            .await?;
+        assert!(
+            invest.ok().await.is_err(),
+            "invest before the new window must fail"
+        );
+
+        tester
+            .api
+            .call()
+            .sto()
+            .modify_fundraiser_window(
+                setup.offering.clone(),
+                setup.fundraiser_id.clone(),
+                now.saturating_sub(1_000),
+                None,
+            )?
+            .submit_and_watch(&mut venue)
+            .await?
+            .ok()
+            .await?;
+
+        tester
+            .api
+            .call()
+            .sto()
+            .invest(
+                setup.offering,
+                setup.fundraiser_id,
+                setup.investor_portfolio,
+                FundingMethod::OnChain(setup.investor_portfolio),
+                1_050_000_000,
+                Some(900_000),
+            )?
+            .submit_and_watch(&mut investor)
+            .await?
+            .ok()
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn sto_stop() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut users = tester
+            .users(&["StoStpVenue", "StoStpInv"])
+            .await?
+            .into_iter();
+        let mut venue = users.next().unwrap();
+        let mut investor = users.next().unwrap();
+        let setup = setup_sto(
+            &mut tester,
+            &mut venue,
+            &mut investor,
+            "StoStpOff",
+            "StoStpFund",
+            "StoStpVenue",
+        )
+        .await?;
+
+        tester
+            .api
+            .call()
+            .sto()
+            .stop(setup.offering.clone(), setup.fundraiser_id.clone())?
+            .submit_and_watch(&mut venue)
+            .await?
+            .ok()
+            .await?;
+
+        let mut invest = tester
+            .api
+            .call()
+            .sto()
+            .invest(
+                setup.offering,
+                setup.fundraiser_id,
+                setup.investor_portfolio,
+                FundingMethod::OnChain(setup.investor_portfolio),
+                1_050_000_000,
+                Some(900_000),
+            )?
+            .submit_and_watch(&mut investor)
+            .await?;
+        assert!(invest.ok().await.is_err(), "invest after stop must fail");
+
+        Ok(())
+    }
+}
