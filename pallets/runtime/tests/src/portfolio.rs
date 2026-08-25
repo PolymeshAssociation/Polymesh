@@ -1240,7 +1240,7 @@ fn move_funds_from_frozen_portfolio() {
         let alice_user_portfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             alice_default_portfolio.clone().into(),
             asset_id,

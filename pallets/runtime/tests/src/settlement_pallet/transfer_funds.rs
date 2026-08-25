@@ -424,13 +424,6 @@ fn create_and_issue_nft_to_account(owner: &User) -> polymesh_primitives::asset::
     asset_id
 }
 
-fn nft_fund(asset_id: polymesh_primitives::asset::AssetId, nft_id: NFTId) -> Fund {
-    Fund {
-        description: FundDescription::NonFungible(NFTs::new_unverified(asset_id, vec![nft_id])),
-        memo: None,
-    }
-}
-
 #[test]
 fn nft_same_identity_transfer_succeeds() {
     ExtBuilder::default().build().execute_with(|| {
@@ -444,7 +437,7 @@ fn nft_same_identity_transfer_succeeds() {
             alice.origin(),
             from,
             to,
-            nft_fund(asset_id, NFTId(1)),
+            non_fungible_fund(asset_id, NFTId(1)),
         ));
 
         // NFT moved to portfolio.
@@ -468,7 +461,7 @@ fn nft_cross_identity_creates_settlement() {
             alice.origin(),
             None,
             AssetHolder::Account(bob.acc()),
-            nft_fund(asset_id, NFTId(1)),
+            non_fungible_fund(asset_id, NFTId(1)),
         ));
 
         // Settlement instruction was created and executed.
@@ -500,7 +493,7 @@ fn nft_spender_rejected() {
                 bob.origin(),
                 Some(AssetHolder::Account(alice.acc())),
                 AssetHolder::Account(bob.acc()),
-                nft_fund(asset_id, NFTId(1)),
+                non_fungible_fund(asset_id, NFTId(1)),
             ),
             SettlementError::AllowancesNotSupportedForNFTs
         );
@@ -520,7 +513,7 @@ fn nft_reject_frozen_asset() {
                 alice.origin(),
                 Some(AssetHolder::Account(alice.acc())),
                 AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
-                nft_fund(asset_id, NFTId(1)),
+                non_fungible_fund(asset_id, NFTId(1)),
             ),
             AssetError::InvalidTransferFrozenAsset
         );
@@ -882,7 +875,7 @@ fn cross_identity_transfer_when_account_is_frozen() {
 
         assert_ok!(Asset::approve(alice.origin(), asset_id, charlie.acc(), 500));
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             AssetHolder::Account(alice.acc()),
             asset_id,
@@ -907,7 +900,7 @@ fn same_identity_transfer_when_account_is_frozen() {
         let alice = User::new(Sr25519Keyring::Alice);
         let asset_id = create_and_issue_to_account(&alice);
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             AssetHolder::Account(alice.acc()),
             asset_id,
@@ -924,7 +917,7 @@ fn same_identity_transfer_when_account_is_frozen() {
             AssetError::InvalidTransferSenderIsFrozen
         );
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             AssetHolder::Account(alice.acc()),
             asset_id,
@@ -959,7 +952,7 @@ fn same_identity_transfer_when_portfolio_is_frozen() {
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
         let asset_id = create_and_issue_sample_asset(&alice);
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             alice_portfolio.clone().into(),
             asset_id,
@@ -976,7 +969,7 @@ fn same_identity_transfer_when_portfolio_is_frozen() {
             AssetError::InvalidTransferSenderIsFrozen
         );
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             AssetHolder::Portfolio(PortfolioId::default_portfolio(alice.did)),
             asset_id,
@@ -1009,7 +1002,7 @@ fn cross_identity_transfer_when_portfolio_is_frozen() {
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
         let asset_id = create_and_issue_sample_asset(&alice);
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             alice_portfolio.clone().into(),
             asset_id,
@@ -1047,7 +1040,7 @@ fn cross_identity_nft_transfer_when_portfolio_is_frozen() {
             AssetHolderKind::DefaultPortfolio,
         );
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             alice_portfolio.clone().into(),
             asset_id,
@@ -1084,7 +1077,7 @@ fn same_identity_nft_transfer_when_portfolio_is_frozen() {
             AssetHolderKind::Account,
         );
 
-        assert_ok!(Asset::set_address_frozen(
+        assert_ok!(Asset::set_holder_frozen(
             alice.origin(),
             AssetHolder::Account(alice.acc()),
             asset_id,
