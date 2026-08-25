@@ -850,3 +850,164 @@ async fn ms_subsidy() -> Result<()> {
 
     Ok(())
 }
+
+/// An Ethereum wallet can be a MultiSig signer.
+///
+/// It can't sign extrinsics, so it accepts the signer authorization, creates proposals and
+/// approves them through the `RUNTIME_PALLETS_ADDR` interface of `pallet_revive`.
+#[tokio::test]
+#[test_log::test]
+#[cfg(feature = "current_release")]
+async fn ms_eth_wallet_signer() -> Result<()> {
+    use polymesh_api::types::polymesh_primitives::multisig::ProposalState;
+
+    let (mut tester, node) = revive_tester().await?;
+    let users = tester.users(&["MultiSigEthSigner"]).await?;
+    let api = tester.api.clone();
+    let mut creator = users[0].primary_key.clone();
+
+    let eth_signer = node.new_wallet();
+    let eth_account = eth_signer.account();
+    let mut sub_signer = tester.new_signer_idx("MultiSigEthSigner", 0)?;
+    let sub_account = sub_signer.account();
+
+    // 2 of 2, so every proposal needs both the eth wallet and the substrate signer.
+    let mut res = api
+        .call()
+        .multi_sig()
+        .create_multisig(
+            vec![eth_account.clone(), sub_account.clone()],
+            2,
+            Some(PermissionsBuilder::whole().build()),
+        )?
+        .execute(&mut creator)
+        .await?;
+    res.ok().await?;
+
+    let mut ms_account = None;
+    let mut eth_auth_id = None;
+    let mut sub_auth_id = None;
+    let events = res
+        .events()
+        .await?
+        .expect("Failed to get events from MS creation");
+    for rec in &events.0 {
+        match &rec.event {
+            RuntimeEvent::Identity(IdentityEvent::AuthorizationAdded(
+                _,
+                _,
+                Some(account),
+                auth_id,
+                ..,
+            )) => {
+                if *account == eth_account {
+                    eth_auth_id = Some(*auth_id);
+                } else if *account == sub_account {
+                    sub_auth_id = Some(*auth_id);
+                }
+            }
+            RuntimeEvent::MultiSig(MultiSigEvent::MultiSigCreated { multisig, .. }) => {
+                ms_account = Some(*multisig);
+            }
+            _ => (),
+        }
+    }
+    let ms_account = ms_account.expect("Missing MS address");
+    let eth_auth_id = eth_auth_id.expect("Missing AddMultiSigSigner auth id for the eth wallet");
+    let sub_auth_id = sub_auth_id.expect("Missing AddMultiSigSigner auth id for the substrate key");
+
+    api.call()
+        .multi_sig()
+        .accept_multisig_signer(sub_auth_id)?
+        .execute(&mut sub_signer)
+        .await?
+        .ok()
+        .await?;
+
+    let accept_call = api.call().multi_sig().accept_multisig_signer(eth_auth_id)?;
+    eth_signer.send_runtime_call(&accept_call).await?;
+
+    assert!(
+        api.query()
+            .multi_sig()
+            .multi_sig_signers(ms_account, eth_account)
+            .await?,
+        "the eth wallet should be a signer of the MS"
+    );
+
+    let remark_call = api.call().system().remark(b"eth ms signer".to_vec())?;
+    let max_weight = Weight::from_parts(10_000_000_000, 0);
+
+    // The eth wallet proposes, the substrate signer's approval reaches the quorum.
+    let create_proposal_call = api.call().multi_sig().create_proposal(
+        ms_account,
+        remark_call.runtime_call().clone(),
+        None,
+    )?;
+    eth_signer.send_runtime_call(&create_proposal_call).await?;
+
+    assert!(
+        api.query()
+            .multi_sig()
+            .votes((ms_account, 0), eth_account)
+            .await?,
+        "the eth wallet's proposal should count as its approval"
+    );
+    assert!(
+        matches!(
+            api.query()
+                .multi_sig()
+                .proposal_states(ms_account, 0)
+                .await?,
+            Some(ProposalState::Active { .. })
+        ),
+        "the proposal should still be waiting for the second approval"
+    );
+
+    api.call()
+        .multi_sig()
+        .approve(ms_account, 0, Some(max_weight.clone()))?
+        .execute(&mut sub_signer)
+        .await?
+        .ok()
+        .await?;
+
+    assert!(
+        matches!(
+            api.query()
+                .multi_sig()
+                .proposal_states(ms_account, 0)
+                .await?,
+            Some(ProposalState::ExecutionSuccessful)
+        ),
+        "the proposal should have executed"
+    );
+
+    // The other way around: the eth wallet's approval reaches the quorum.
+    api.call()
+        .multi_sig()
+        .create_proposal(ms_account, remark_call.runtime_call().clone(), None)?
+        .execute(&mut sub_signer)
+        .await?
+        .ok()
+        .await?;
+
+    let approve_call = api
+        .call()
+        .multi_sig()
+        .approve(ms_account, 1, Some(max_weight))?;
+    eth_signer.send_runtime_call(&approve_call).await?;
+
+    assert!(
+        matches!(
+            api.query()
+                .multi_sig()
+                .proposal_states(ms_account, 1)
+                .await?,
+            Some(ProposalState::ExecutionSuccessful)
+        ),
+        "the eth wallet's approval should have executed the proposal"
+    );
+
+    Ok(())
+}

@@ -41,6 +41,7 @@ fn assert_last_event<T: Config>(
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     BalanceOf<T>: Send + Sync + Into<u128>,
+    crate::CreditOf<T>: frame_support::traits::Imbalance<BalanceOf<T>>,
 )]
 mod benchmarks {
     use super::*;

@@ -192,6 +192,17 @@ macro_rules! misc_pallet_impls {
                     RuntimeCall::Identity(x) => Identity(x),
                     RuntimeCall::MultiSig(x) => MultiSig(x),
                     RuntimeCall::Relayer(x) => Relayer(x),
+                    RuntimeCall::Revive(call) => {
+                        match call {
+                            pallet_revive::Call::eth_substrate_call { call, ..} => match &**call {
+                                RuntimeCall::Identity(x) => Identity(x),
+                                RuntimeCall::MultiSig(x) => MultiSig(x),
+                                RuntimeCall::Relayer(x) => Relayer(x),
+                                _ => return Err(()),
+                            }
+                            _ => return Err(()),
+                        }
+                    }
                     _ => return Err(()),
                 })
             }
@@ -229,7 +240,6 @@ macro_rules! misc_pallet_impls {
             type TxFeeHandler = TxFeeHandler;
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
-            type DidRegistrars = DidRegistrars;
             type Identity = Identity;
         }
 
@@ -405,6 +415,12 @@ macro_rules! misc_pallet_impls {
                     RuntimeCall::Nft(_) => true,
                     RuntimeCall::Staking(_) => true,
                     RuntimeCall::MultiSig(_) => true,
+                    RuntimeCall::Revive(call) => match call {
+                        pallet_revive::Call::eth_substrate_call { call, ..} => {
+                            Self::allowed(call, false)
+                        }
+                        _ => false,
+                    },
                     // Allow non-nested batch calls.
                     RuntimeCall::Utility(call) if nested == false => match call {
                         // Limit batch size to 7.
@@ -925,6 +941,131 @@ macro_rules! runtime_apis {
                     pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )
+            }
+
+            fn try_into_checked_extrinsic(
+                payload: &[u8],
+                encoded_len: usize,
+            ) -> Result<
+                CheckedExtrinsic,
+                sp_runtime::transaction_validity::InvalidTransaction,
+            >
+            where
+                <Self::Config as frame_system::Config>::Nonce: core::convert::TryFrom<sp_core::U256>,
+                <Self::Config as pallet_revive::Config>::RuntimeCall: pallet_revive::evm::runtime::SetWeightLimit,
+            {
+                const LOG_TARGET: &str = "runtime::eth_extra";
+                use pallet_revive::{
+                    evm::{*, call::CreateCallMode, fees::InfoT},
+                    AddressMapper,
+                };
+                use frame_support::traits::{
+                    tokens::*,
+                    fungible::Balanced,
+                };
+                use sp_runtime::{
+                    generic::ExtrinsicFormat,
+                    traits::Zero,
+                    transaction_validity::InvalidTransaction,
+                };
+
+                let tx = TransactionSigned::decode(&payload).map_err(|err| {
+                    log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
+                    InvalidTransaction::Call
+                })?;
+
+                // Check transaction type and reject unsupported transaction types
+                match &tx {
+                    pallet_revive::evm::TransactionSigned::Transaction1559Signed(_) |
+                    pallet_revive::evm::TransactionSigned::Transaction2930Signed(_) |
+                    pallet_revive::evm::TransactionSigned::TransactionLegacySigned(_) => {
+                        // Supported transaction types, continue processing
+                    },
+                    pallet_revive::evm::TransactionSigned::Transaction7702Signed(_) => {
+                        log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
+                        return Err(InvalidTransaction::Call);
+                    },
+                    pallet_revive::evm::TransactionSigned::Transaction4844Signed(_) => {
+                        log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
+                        return Err(InvalidTransaction::Call);
+                    },
+                }
+
+                let signer_addr = tx.recover_eth_address().map_err(|err| {
+                    log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
+                    InvalidTransaction::BadProof
+                })?;
+
+                let signer = <Self::Config as pallet_revive::Config>::AddressMapper::to_fallback_account_id(&signer_addr);
+                let base_fee = <pallet_revive::Pallet<Self::Config>>::evm_base_fee();
+                let tx = GenericTransaction::from_signed(tx, base_fee, None);
+                let nonce = tx.nonce.unwrap_or_default().try_into().map_err(|_| {
+                    log::debug!(target: LOG_TARGET, "Failed to convert nonce");
+                    InvalidTransaction::Call
+                })?;
+
+                log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+                log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction was: {tx:?}");
+                let call_info = tx.into_call::<Self::Config>(CreateCallMode::ExtrinsicExecution(
+                    encoded_len as u32,
+                    payload.to_vec(),
+                ))?;
+
+                // Get payer.
+                let (call_payment_info, subsidiser) =
+                    polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::check_subsidy_conditions(&signer, &call_info.call, call_info.storage_deposit)?;
+
+                // key to pay the fee.
+                let fee_key = subsidiser
+                    .as_ref()
+                    .unwrap_or(call_payment_info.paying_account());
+
+                let storage_credit = <<Self::Config as pallet_revive::Config>::Currency as Balanced<_>>::withdraw(
+                    &fee_key,
+                    call_info.storage_deposit,
+                    Precision::Exact,
+                    Preservation::Preserve,
+                    Fortitude::Polite,
+                ).map_err(|_| {
+                    log::debug!(target: LOG_TARGET, "Not enough balance to hold additional storage deposit of {:?}", call_info.storage_deposit);
+                    InvalidTransaction::Payment
+                })?;
+                <Self::Config as pallet_revive::Config>::FeeInfo::deposit_txfee(storage_credit);
+
+                // Record pre-charged storage credit.
+                let mut tx_ext = Self::get_eth_extension(nonce, Zero::zero());
+                tx_ext.4.set_storage_deposit(call_info.storage_deposit);
+
+                pallet_revive::tracing::if_tracing(|tracer| {
+                    tracer.watch_address(&pallet_revive::Pallet::<Self::Config>::block_author());
+                    tracer.watch_address(&signer_addr);
+                });
+
+                log::debug!(target: LOG_TARGET, "\
+                    Created checked Ethereum transaction with: \
+                    from={signer_addr:?} \
+                    eth_gas={} \
+                    encoded_len={encoded_len} \
+                    tx_fee={:?} \
+                    storage_deposit={:?} \
+                    weight_limit={} \
+                    nonce={nonce:?}\
+                    ",
+                    call_info.eth_gas_limit,
+                    call_info.tx_fee,
+                    call_info.storage_deposit,
+                    call_info.weight_limit,
+                );
+
+                // We can't calculate a tip because it needs to be based on the actual gas used which we
+                // cannot know pre-dispatch. Hence we never supply a tip here or it would be way too high.
+                Ok(CheckedExtrinsic {
+                    format: ExtrinsicFormat::Signed(
+                        signer.into(),
+                        tx_ext,
+                    ),
+                    function: call_info.call,
+                })
             }
         }
 

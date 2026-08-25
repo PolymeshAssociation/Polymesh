@@ -6,14 +6,17 @@ edition = "2021"
 
 [dependencies]
 # Our deps
-polymesh-primitives = { workspace = true, default-features = false  }
+polymesh-primitives = { workspace = true, default-features = false }
 
 # General
 serde = { version = "1.0.104", default-features = false, optional = true }
+log = "0.4"
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
-scale-info = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = [
+	"derive",
+] }
 sp-std = { workspace = true, default-features = false }
 sp-api = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
