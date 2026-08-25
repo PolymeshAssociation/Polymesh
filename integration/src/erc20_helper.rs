@@ -59,6 +59,12 @@ pub fn unique_ticker(prefix: &str) -> Ticker {
     Ticker(ticker)
 }
 
+/// A random symbol (unique ticker converted to a string), so that repeated test runs against the same chain don't collide on the global ticker registry.
+pub fn unique_symbol(prefix: &str) -> String {
+    let ticker = unique_ticker(prefix);
+    String::from_utf8(ticker.0.to_vec()).expect("Ticker is valid UTF-8; qed")
+}
+
 /// Registers `ticker` and links it to `asset_id`, so that the ERC-20 `symbol()`
 /// method returns it.
 pub async fn link_ticker(
