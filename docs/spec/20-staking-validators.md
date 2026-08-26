@@ -90,8 +90,12 @@ gives governance 14 eras (mainnet) to cancel.
       `staking_extra_tests.rs:83` `existing_validator_cannot_bypass_commission_cap`).
 - [ ] Election compliance filters (targets *and* self-votes) are the only thing excluding
       de-permissioned validators — keep both call sites (impls.rs:972, :1063).
-- [ ] Slashing switch default None: enabling slashing is a governance decision; offence handling
-      must keep zeroing fractions when disabled.
+- [ ] Slashing switch default None **by design**: whether and against whom slashing is enabled
+      is a governance (GC) decision via `change_slashing_allowed_for`; do not report the
+      default itself as a finding. Tests must instead cover that *turning it on* works —
+      offence reporting produces slash fractions and `who_to_slash` honours
+      `SlashingAllowedFor` once enabled — while offence handling keeps zeroing fractions
+      while disabled.
 - [ ] Validator stashes hold identity key refcounts while validating
       (`AccountKeyRefCount`, staking_extra_tests.rs:12-81) — keys can't leave their DID
       mid-validation.
