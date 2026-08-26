@@ -168,8 +168,7 @@ mod settlement_venues_tests {
         let mut asset_owner = users.next().unwrap();
         let mut venue_user = users.next().unwrap();
 
-        let asset_id = create_asset(&mut tester, &mut asset_owner.clone(), "SVFILTER", 1_000).await?;
-        let _ = &mut asset_owner;
+        let asset_id = create_asset(&mut tester, &mut asset_owner, "SVFILTER", 1_000).await?;
 
         let v1 = create_venue(&tester, &mut venue_user, "SVAllowed").await?;
         let v2 = create_venue(&tester, &mut venue_user, "SVBlocked").await?;

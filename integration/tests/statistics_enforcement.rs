@@ -152,7 +152,9 @@ mod statistics_enforcement_tests {
     async fn exempt_entity_bypasses_limit() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester
-            .users(&["SEEOwner", "SEEIssuer", "SEEInv1", "SEEInv2", "SEEDealer"])
+            .users(&[
+                "SEEOwner", "SEEIssuer", "SEEInv1", "SEEInv2", "SEEDealer", "SEEExtra",
+            ])
             .await?
             .into_iter();
         let mut owner = users.next().unwrap();
@@ -160,9 +162,10 @@ mod statistics_enforcement_tests {
         let mut inv1 = users.next().unwrap();
         let mut inv2 = users.next().unwrap();
         let dealer = users.next().unwrap();
+        let extra = users.next().unwrap();
 
         let issuer_did = issuer.did.unwrap();
-        let dealer_did = dealer.did.expect("dealer did");
+        let owner_did = owner.did.expect("owner did");
 
         let asset_id = create_asset(&mut tester, &mut owner, "SEEXMP", 1_000_000).await?;
 
@@ -217,7 +220,7 @@ mod statistics_enforcement_tests {
                 .await?;
         }
 
-        // Count restrictions exempt the *sender*. Exempt the issuer so they can
+        // Count restrictions exempt the *sender*. Exempt the owner (sender) so they can
         // still transfer to a new investor once the cap is reached.
         tester
             .api
@@ -230,7 +233,7 @@ mod statistics_enforcement_tests {
                     op: StatOpType::Count,
                     claim_type: None,
                 },
-                BTreeSet::from([owner.did.unwrap()]),
+                BTreeSet::from([owner_did]),
             )?
             .submit_and_watch(&mut owner)
             .await?
@@ -247,7 +250,7 @@ mod statistics_enforcement_tests {
             .ok()
             .await?;
 
-        // Remove exemption -> further transfers to the dealer are blocked again.
+        // Remove exemption for the sender (owner) -> further transfers beyond the cap are blocked again.
         tester
             .api
             .call()
@@ -259,12 +262,25 @@ mod statistics_enforcement_tests {
                     op: StatOpType::Count,
                     claim_type: None,
                 },
-                BTreeSet::from([dealer_did]),
+                BTreeSet::from([owner_did]),
             )?
             .submit_and_watch(&mut owner)
             .await?
             .ok()
             .await?;
+
+        // After exemption removed, transfer to a fresh investor should be blocked again.
+        let mut res = tester
+            .api
+            .call()
+            .asset()
+            .transfer_asset(asset_id.clone(), extra.account(), 100, None)?
+            .submit_and_watch(&mut owner)
+            .await?;
+        assert!(
+            res.ok().await.is_err(),
+            "transfer should be blocked again after exemption removed"
+        );
 
         Ok(())
     }
@@ -313,7 +329,7 @@ mod statistics_enforcement_tests {
             .ok()
             .await?;
 
-        // Enable Count tracking + cap of 1 in a single batch update.
+        // Enable Count tracking and seed investor count to 0, then cap at 1.
         tester
             .api
             .call()
@@ -323,7 +339,7 @@ mod statistics_enforcement_tests {
                 count_stat(),
                 BTreeSet::from([StatUpdate {
                     key2: Stat2ndKey::NoClaimStat,
-                    value: Some(0), // current investor count
+                    value: Some(0), // seed investor count
                 }]),
             )?
             .submit_and_watch(&mut owner)
@@ -364,7 +380,7 @@ mod statistics_enforcement_tests {
             .await?;
         assert!(res.ok().await.is_err());
 
-        // ...but allowed once the stored count is corrected downwards.
+        // Correct the stored count downwards so the second investor can be added.
         tester
             .api
             .call()
@@ -374,9 +390,20 @@ mod statistics_enforcement_tests {
                 count_stat(),
                 BTreeSet::from([StatUpdate {
                     key2: Stat2ndKey::NoClaimStat,
-                    value: Some(1),
+                    value: Some(0),
                 }]),
             )?
+            .submit_and_watch(&mut owner)
+            .await?
+            .ok()
+            .await?;
+
+        // Now the previously blocked transfer succeeds.
+        tester
+            .api
+            .call()
+            .asset()
+            .transfer_asset(asset_id.clone(), inv2.account(), 100, None)?
             .submit_and_watch(&mut owner)
             .await?
             .ok()

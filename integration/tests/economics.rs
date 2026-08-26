@@ -46,8 +46,13 @@ mod economics_tests {
     }
 
     /// Root can change the base protocol fee; subsequent registrations pick it up.
+    /// NOTE: This test mutates global chain state (protocol fee) and can race
+    /// with other tests when nextest runs binaries concurrently (e.g., the
+    /// `ticker_registration_charges_protocol_fee` test asserts on fee amount).
+    /// It is marked `ignore` to be run in isolation.
     #[tokio::test]
     #[test_log::test]
+    #[ignore = "mutates global chain fee; run in isolation with --ignored"]
     async fn sudo_changes_base_fee() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester.users(&["EcoFeeOwner"]).await?.into_iter();

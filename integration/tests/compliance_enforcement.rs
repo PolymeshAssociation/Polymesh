@@ -214,6 +214,7 @@ mod compliance_enforcement_tests {
         let investor1 = users.next().unwrap();
 
         let issuer_did = issuer.did.expect("issuer did");
+        let owner_did = owner.did.expect("owner did");
         let inv1_did = investor1.did.expect("investor1 did");
 
         let asset_id = create_asset(&mut tester, &mut owner, "CPAUSE", 1_000_000).await?;
@@ -286,9 +287,8 @@ mod compliance_enforcement_tests {
             .await?;
         assert!(res.ok().await.is_err());
 
-        // Add KYC claims for both parties.
-        let now = tester.api.query().timestamp().now().await?;
-        for did in [inv1_did] {
+        // Add KYC claims for both sender and receiver and verify transfer succeeds.
+        for did in [owner_did, inv1_did] {
             tester
                 .api
                 .call()
@@ -299,26 +299,15 @@ mod compliance_enforcement_tests {
                 .ok()
                 .await?;
         }
-        // Owner already holds tokens; sender conditions also apply.
         tester
             .api
             .call()
-            .compliance_manager()
-            .pause_asset_compliance(asset_id.clone())?
+            .asset()
+            .transfer_asset(asset_id.clone(), investor1.account(), 10, None)?
             .submit_and_watch(&mut owner)
             .await?
             .ok()
             .await?;
-        tester
-            .api
-            .call()
-            .compliance_manager()
-            .reset_asset_compliance(asset_id.clone())?
-            .submit_and_watch(&mut owner)
-            .await?
-            .ok()
-            .await?;
-        let _ = now;
 
         Ok(())
     }
@@ -368,7 +357,7 @@ mod compliance_enforcement_tests {
             .await?;
         assert!(res.ok().await.is_err());
 
-        // Remove the only requirement (id 0) -> succeeds.
+        // Remove the only requirement (id 1) -> succeeds.
         tester
             .api
             .call()
