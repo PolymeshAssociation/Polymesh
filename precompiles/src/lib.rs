@@ -29,3 +29,13 @@ pub use IFungibleAsset::{IFungibleAssetCalls, IFungibleAssetEvents};
 
 /// Runtime bytecode for explorer verification of the fungible asset precompile.
 pub const FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/FungibleAssetStub.bin");
+
+// Import the general-purpose Polymesh runtime interface. Generates:
+//   - `IPolymeshRuntime::IPolymeshRuntimeCalls` enum
+//   - `IPolymeshRuntime::IPolymeshRuntimeEvents` enum
+alloy_core::sol! {
+    #[sol(all_derives)]
+    "src/interfaces/PolymeshRuntime.sol"
+}
+
+pub use IPolymeshRuntime::{IPolymeshRuntimeCalls, IPolymeshRuntimeEvents};
