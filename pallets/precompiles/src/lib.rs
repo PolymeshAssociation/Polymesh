@@ -27,7 +27,7 @@ use sp_runtime::traits::Dispatchable;
 pub mod common;
 pub mod interface;
 
-pub use interface::FungibleAssetInterface;
+pub use interface::{FungibleAssetInterface, PolymeshRuntimeInterface};
 
 /// Runtime configuration needed by the Polymesh precompiles.
 pub trait Config:
@@ -36,6 +36,7 @@ pub trait Config:
     + pallet_asset::Config
     + pallet_asset::checkpoint::Config
     + pallet_settlement::Config
+    + pallet_identity::Config
 {
     /// The runtime's aggregated call type.
     ///
@@ -46,7 +47,8 @@ pub trait Config:
         + GetCallMetadata
         + IsType<<Self as frame_system::Config>::RuntimeCall>
         + From<pallet_asset::Call<Self>>
-        + From<pallet_settlement::Call<Self>>;
+        + From<pallet_settlement::Call<Self>>
+        + From<pallet_identity::Call<Self>>;
 }
 
 /// The runtime call type used by the precompiles.

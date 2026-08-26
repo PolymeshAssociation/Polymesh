@@ -8891,6 +8891,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "log",
  "pallet-asset",
+ "pallet-identity",
  "pallet-permissions",
  "pallet-revive",
  "pallet-settlement",
