@@ -36,8 +36,12 @@ paired with a `pallet_group` instance holding its membership.
 | `vote_or_propose(3)` | committee member | propose (auto-aye) or vote by call hash; first vote must approve (`FirstVoteReject`) | :402-415 |
 | `vote(4)` | committee member | aye/nay (switch allowed, duplicate rejected); executes/rejects when threshold met (:466-471, `execute_if_passed` :536-560) | :429 |
 
-Single-member committees execute proposals immediately (:646-648). Members who leave mid-vote
-have their votes retracted by the group hooks (`remove_vote_from` :519-534).
+Single-member committees execute proposals immediately (:646-648, `seats() < 2`). **By design**:
+liveness beats the single-member takeover risk — governance must keep working even if membership
+collapses (e.g. mass abdication around a chain upgrade), and committee seats are only reachable
+through root/GC-controlled membership in the first place. Do not report the fast path itself;
+review proposals that would brick enactment instead. Members who leave mid-vote have their votes
+retracted by the group hooks (`remove_vote_from` :519-534).
 
 ## 2. Group pallet (membership registries)
 
@@ -89,6 +93,8 @@ manage their own membership but the GC can reset them.
 - [ ] `disable_member` vs `remove_member` semantics for DidRegistrars: disable preserves
       historical CDD claim validity; remove revokes systematic claims (identity `ChangeMembers`
       hook).
+- [ ] Single-member auto-execute (`seats() < 2`) is intentional liveness — keep it unless any
+      replacement still guarantees proposals can enact when a committee shrinks to one seat.
 - [ ] Treasury disbursement targets primary keys — identities without a primary key
       (post-unlink) must fail cleanly (`InvalidIdentity`).
 

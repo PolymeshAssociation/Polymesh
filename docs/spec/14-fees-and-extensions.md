@@ -103,6 +103,9 @@ Auth-based redirection requires a valid, unexpired auth with retries left
   (:233). `OperationalFeeMultiplier = 5`.
 - ETH transactions: storage deposit is withdrawn up-front into the forked pallet's tx credit
   pool and threaded through `storage_deposit` (runtime.rs:1014-1037); no tips (:1060-1062).
+  The up-front charge runs in `check()`, i.e. also during read-only pool validation — harmless
+  there, as validation mutations live in a discarded overlay; the charge lands exactly once from
+  committed state at apply time (upstream pallet-revive design, doc 21 §3).
 
 ## 6. Invariants & review checklist
 

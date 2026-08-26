@@ -38,7 +38,12 @@ a **fungible-asset precompile** (ERC-20/2612/3643/7943 surface).
   3. **subsidy support**: `check_subsidy_conditions(&signer, &call, storage_deposit)` — a
      relayer subsidy can pay for ETH transactions too (:1014-1021, doc 15);
   4. **storage deposit pre-charged** from the fee key into the forked tx-credit pool, threaded
-     via `tx_ext.4.set_storage_deposit(...)` (:1023-1037, doc 14 §2);
+     via `tx_ext.4.set_storage_deposit(...)` (:1023-1037, doc 14 §2). This charge lives in
+     `check()`, which also runs during read-only pool validation — safe because each
+     `validate_transaction` call mutates a throwaway overlay that is never persisted (sp-api
+     contract; executive docs: "Changes made to storage should be discarded"). The deposit is
+     charged exactly once, from committed state, at apply time, and `post_dispatch` always
+     settles/refunds it (doc 14 §2). Mirrors upstream pallet-revive's default impl verbatim;
   5. no tips (:1060-1062); extension tuple built with `SetOrigin::new_from_eth_transaction()`
      (RTC:926-944).
 - `SetOrigin` (upstream, FORK/src/evm/tx_extension.rs:48-99): a runtime-only-settable flag that
@@ -84,8 +89,12 @@ integration tests onboard the 0xEE fallback account first — `integration/tests
   ERC-7943 (canTransfer/forcedTransfer/frozen tokens) + ERC-3643 (pause/freeze/naming).
 - Runtime side `pallets/precompiles/src/interface/mod.rs:49-138`: **address scheme** —
   `asset_id (16 bytes) ‖ zeros ‖ prefix-id 8` (`AddressMatcher::VarPrefix`, :55-58; fork delta
-  enabling multi-address precompiles). One precompile instance serves *every* fungible asset;
-  decimals fixed at 6 (:46).
+  enabling multi-address precompiles). The trailing bytes are the **precompile selector**: the
+  matcher validates them against the registered prefix id *before* any precompile code runs;
+  only then does `asset_id_from_address` decode the leading 16 bytes (:142-160). An address
+  whose suffix doesn't match never reaches this pallet, so each asset has exactly one valid
+  address per precompile interface — the suffix is not an aliasing surface. One precompile
+  instance serves *every* fungible asset; decimals fixed at 6 (:46).
 - Call mapping (each dispatches the real extrinsic under the caller's account, with metadata
   swap ⇒ full permission/compliance enforcement):
 

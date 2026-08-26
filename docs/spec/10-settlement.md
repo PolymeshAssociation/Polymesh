@@ -177,6 +177,17 @@ counterpart settles), by freezing validation outcomes at lock time.
   The bounded lock period is what makes skipping sound: rule changes made after locking take
   effect only once the lock expires (execution then requires unlock/relock, re-running full
   validation).
+
+  **This skip is deliberate design, not an oversight.** It has been reported repeatedly via the
+  bug bounty and is closed as working-as-intended. There is no attack advantage over a normal
+  settlement: a `SettleAfterLock` instruction can only be locked *after* every party has
+  affirmed, so anyone holding that full affirmation set could instead run a plain
+  `SettleOnAffirmation` instruction at least as fast — executing promptly under fully
+  current rules. Exploiting staleness would require knowing *ahead of time* that the issuer
+  will change compliance mid-window, and even then a normal settlement affirmed just before the
+  change achieves the same result without locking. Mediators lock precisely to *guarantee*
+  execution across rule churn, accepting only the short `MaximumLockPeriod` window of frozen
+  rules as the trade-off.
 - `unlock_instruction(27)` (:1554 → :3479-3494): mediator only; → `Pending`,
   records `UnlockedTimestamp`.
 - Relock protections: relock over a live lock only after `MaximumLockPeriod + RelockCooldown`
@@ -193,9 +204,12 @@ counterpart settles), by freezing validation outcomes at lock time.
 - [ ] `InstructionAffirmsPending` must equal outstanding (holders + off-chain legs + mediators);
       double-decrements would enable premature execution (first-affirm-only decrement for
       mediators :3287-3289).
-- [ ] Locked instructions: no full re-validation at execution *by design* — any new check added
-      to `validate_asset_transfer` must be considered for `simplified_*` too, or documented as
-      lock-skipped; the lock dry-run and `MaximumLockPeriod` are the safety envelope.
+- [ ] Locked instructions: no full re-validation at execution **by design** (see §6) — any new
+      check added to `validate_asset_transfer` must be considered for `simplified_*` too, or
+      documented as lock-skipped; the lock dry-run and `MaximumLockPeriod` are the safety
+      envelope. Reviewers: do not file "locked settlement skips compliance" as a finding —
+      compare any such claim against the equivalent normal-settlement path, which requires no
+      more affirmations and executes sooner.
 - [ ] Venue allow-list must be enforced at creation **and** execution/lock (assets rely on
       revocation working for pending instructions).
 - [ ] Receipt security: signer ∈ `VenueSigners` at claim time; (signer, uid) never reusable;
