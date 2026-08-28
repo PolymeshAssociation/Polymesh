@@ -125,9 +125,11 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Portfolio::PortfolioCustodian` (r:1 w:0)
     // Proof: `Portfolio::PortfolioCustodian` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::FrozenPortfolios` (r:11 w:0)
+    // Proof: `Portfolio::FrozenPortfolios` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
     // Storage: `Asset::Frozen` (r:11 w:0)
     // Proof: `Asset::Frozen` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-    // Storage: `Portfolio::PortfolioNFT` (r:100 w:200)
+    // Storage: `Portfolio::PortfolioNFT` (r:200 w:200)
     // Proof: `Portfolio::PortfolioNFT` (`max_values`: None, `max_size`: Some(106), added: 2581, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedNFT` (r:100 w:0)
     // Proof: `Portfolio::PortfolioLockedNFT` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
@@ -137,6 +139,8 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof: `Portfolio::PortfolioAssetBalances` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedAssets` (r:10 w:0)
     // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioNFTCount` (r:2 w:2)
+    // Proof: `Portfolio::PortfolioNFTCount` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioAssetCount` (r:1 w:1)
     // Proof: `Portfolio::PortfolioAssetCount` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
     // Storage: `Nft::Owner` (r:0 w:100)
@@ -144,16 +148,16 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
     fn move_portfolio_funds(f: u32, n: u32) -> Weight {
-        // Minimum execution time: 410_510 nanoseconds.
-        Weight::from_parts(40_912_152, 0)
-            // Standard Error: 444_605
-            .saturating_add(Weight::from_parts(35_918_370, 0).saturating_mul(f.into()))
-            // Standard Error: 41_500
-            .saturating_add(Weight::from_parts(21_670_579, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(f.into())))
-            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(1))
+        // Minimum execution time: 285_093 nanoseconds.
+        Weight::from_parts(77_616_316, 0)
+            // Standard Error: 169_740
+            .saturating_add(Weight::from_parts(19_436_656, 0).saturating_mul(f.into()))
+            // Standard Error: 15_843
+            .saturating_add(Weight::from_parts(24_440_340, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(8))
+            .saturating_add(DbWeight::get().reads((6_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(3))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }

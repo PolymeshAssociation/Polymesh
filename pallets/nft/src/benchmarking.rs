@@ -263,4 +263,53 @@ benchmarks! {
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }
 
+    approve {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice_holdings = AssetHolder::try_from(alice.account().encode()).unwrap();
+        let asset_id = create_collection_issue_nfts::<T>(&alice, 0, 1, alice_holdings.into());
+        let spender = Pallet::<T>::to_account_id32(&bob.account()).unwrap();
+        // Worst case: overwrite an existing approval.
+        TokenApproval::<T>::insert(asset_id, NFTId(1), &spender);
+    }: _(alice.origin.clone(), asset_id, NFTId(1), Some(bob.account()))
+    verify {
+        assert_eq!(TokenApproval::<T>::get(asset_id, NFTId(1)), Some(spender));
+    }
+
+    set_approval_for_all {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice_holdings = AssetHolder::try_from(alice.account().encode()).unwrap();
+        let asset_id = create_collection_issue_nfts::<T>(&alice, 0, 1, alice_holdings.into());
+        let owner = Pallet::<T>::to_account_id32(&alice.account()).unwrap();
+        let operator = Pallet::<T>::to_account_id32(&bob.account()).unwrap();
+    }: _(alice.origin.clone(), asset_id, bob.account(), true)
+    verify {
+        assert!(OperatorApproval::<T>::get((&owner, &operator, &asset_id)));
+    }
+
+    spend_nft_approval {
+        let n in 1..T::MaxNumberOfNFTsCount::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice_holdings = AssetHolder::try_from(alice.account().encode()).unwrap();
+        let asset_id = create_collection_issue_nfts::<T>(&alice, 0, n, alice_holdings.into());
+
+        let owner = Pallet::<T>::to_account_id32(&alice.account()).unwrap();
+        let spender = Pallet::<T>::to_account_id32(&bob.account()).unwrap();
+        // Worst case: no operator approval, so every per-token approval is read and consumed.
+        for i in 1..n + 1 {
+            TokenApproval::<T>::insert(asset_id, NFTId(i.into()), &spender);
+        }
+        let nfts = NFTs::new_unverified(asset_id, (1..n + 1).map(|i| NFTId(i.into())).collect());
+    }: {
+        Pallet::<T>::spend_nft_approval(&owner, &bob.account(), &nfts).unwrap();
+    }
+    verify {
+        for i in 1..n + 1 {
+            assert!(TokenApproval::<T>::get(asset_id, NFTId(i.into())).is_none());
+        }
+    }
+
 }

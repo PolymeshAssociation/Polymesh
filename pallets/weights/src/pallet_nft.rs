@@ -99,20 +99,22 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
     // Storage: `Nft::CurrentNFTId` (r:1 w:1)
     // Proof: `Nft::CurrentNFTId` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
-    // Storage: `Portfolio::PortfolioNFT` (r:0 w:1)
+    // Storage: `Portfolio::PortfolioNFT` (r:1 w:1)
     // Proof: `Portfolio::PortfolioNFT` (`max_values`: None, `max_size`: Some(106), added: 2581, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioNFTCount` (r:1 w:1)
+    // Proof: `Portfolio::PortfolioNFTCount` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
     // Storage: `Nft::MetadataValue` (r:0 w:255)
     // Proof: `Nft::MetadataValue` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Nft::Owner` (r:0 w:1)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 255]`.
     fn issue_nft(n: u32) -> Weight {
-        // Minimum execution time: 64_510 nanoseconds.
-        Weight::from_parts(64_950_393, 0)
-            // Standard Error: 3_252
-            .saturating_add(Weight::from_parts(3_131_890, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(9))
-            .saturating_add(DbWeight::get().writes(5))
+        // Minimum execution time: 47_078 nanoseconds.
+        Weight::from_parts(59_541_159, 0)
+            // Standard Error: 2_040
+            .saturating_add(Weight::from_parts(1_923_122, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().writes(6))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
@@ -135,46 +137,52 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::NFTsInCollection` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
     // Storage: `Nft::NumberOfNFTs` (r:1 w:1)
     // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioNFTCount` (r:1 w:1)
+    // Proof: `Portfolio::PortfolioNFTCount` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
     // Storage: `Nft::MetadataValue` (r:256 w:255)
     // Proof: `Nft::MetadataValue` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Nft::Owner` (r:0 w:1)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 255]`.
     fn redeem_nft(n: u32) -> Weight {
-        // Minimum execution time: 86_870 nanoseconds.
-        Weight::from_parts(79_887_615, 0)
-            // Standard Error: 4_626
-            .saturating_add(Weight::from_parts(5_203_865, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(11))
+        // Minimum execution time: 56_645 nanoseconds.
+        Weight::from_parts(63_067_267, 0)
+            // Standard Error: 4_372
+            .saturating_add(Weight::from_parts(3_171_657, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(4))
+            .saturating_add(DbWeight::get().writes(5))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
     // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
     // Storage: `Nft::NumberOfNFTs` (r:2 w:2)
     // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-    // Storage: `Portfolio::PortfolioNFT` (r:10 w:20)
+    // Storage: `Portfolio::PortfolioNFT` (r:20 w:20)
     // Proof: `Portfolio::PortfolioNFT` (`max_values`: None, `max_size`: Some(106), added: 2581, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedNFT` (r:10 w:0)
     // Proof: `Portfolio::PortfolioLockedNFT` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::FrozenPortfolios` (r:1 w:0)
+    // Proof: `Portfolio::FrozenPortfolios` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
     // Storage: `Asset::Frozen` (r:1 w:0)
     // Proof: `Asset::Frozen` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
     // Storage: `Identity::DidRecords` (r:1 w:0)
     // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
     // Storage: `ComplianceManager::AssetCompliances` (r:1 w:0)
     // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Portfolio::PortfolioNFTCount` (r:2 w:2)
+    // Proof: `Portfolio::PortfolioNFTCount` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
     fn base_nft_transfer(n: u32) -> Weight {
-        // Minimum execution time: 123_560 nanoseconds.
-        Weight::from_parts(104_023_838, 0)
-            // Standard Error: 62_378
-            .saturating_add(Weight::from_parts(23_884_787, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(2))
+        // Minimum execution time: 95_518 nanoseconds.
+        Weight::from_parts(76_086_915, 0)
+            // Standard Error: 52_520
+            .saturating_add(Weight::from_parts(26_669_455, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
@@ -193,21 +201,59 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
     // Storage: `Nft::NumberOfNFTs` (r:2 w:2)
     // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-    // Storage: `Portfolio::PortfolioNFT` (r:10 w:20)
+    // Storage: `Portfolio::PortfolioNFT` (r:20 w:20)
     // Proof: `Portfolio::PortfolioNFT` (`max_values`: None, `max_size`: Some(106), added: 2581, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedNFT` (r:10 w:0)
     // Proof: `Portfolio::PortfolioLockedNFT` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioNFTCount` (r:2 w:2)
+    // Proof: `Portfolio::PortfolioNFTCount` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
     fn controller_transfer(n: u32) -> Weight {
-        // Minimum execution time: 90_760 nanoseconds.
-        Weight::from_parts(70_873_139, 0)
-            // Standard Error: 45_636
-            .saturating_add(Weight::from_parts(23_442_699, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(9))
-            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
-            .saturating_add(DbWeight::get().writes(2))
+        // Minimum execution time: 70_422 nanoseconds.
+        Weight::from_parts(53_679_613, 0)
+            // Standard Error: 60_000
+            .saturating_add(Weight::from_parts(25_645_276, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+    }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `Nft::NFTHolder` (r:1 w:0)
+    // Proof: `Nft::NFTHolder` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    // Storage: `Nft::TokenApproval` (r:0 w:1)
+    // Proof: `Nft::TokenApproval` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    fn approve() -> Weight {
+        // Minimum execution time: 15_760 nanoseconds.
+        Weight::from_parts(19_897_000, 0)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `Nft::OperatorApproval` (r:0 w:1)
+    // Proof: `Nft::OperatorApproval` (`max_values`: None, `max_size`: Some(129), added: 2604, mode: `MaxEncodedLen`)
+    fn set_approval_for_all() -> Weight {
+        // Minimum execution time: 12_002 nanoseconds.
+        Weight::from_parts(16_431_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Nft::OperatorApproval` (r:1 w:0)
+    // Proof: `Nft::OperatorApproval` (`max_values`: None, `max_size`: Some(129), added: 2604, mode: `MaxEncodedLen`)
+    // Storage: `Nft::TokenApproval` (r:10 w:10)
+    // Proof: `Nft::TokenApproval` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    /// The range of component `n` is `[1, 10]`.
+    fn spend_nft_approval(n: u32) -> Weight {
+        // Minimum execution time: 11_702 nanoseconds.
+        Weight::from_parts(9_605_803, 0)
+            // Standard Error: 7_099
+            .saturating_add(Weight::from_parts(5_465_002, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
 }

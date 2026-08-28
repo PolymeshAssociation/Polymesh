@@ -1434,6 +1434,23 @@ macro_rules! runtime_apis {
                         &mut weight_meter
                     )
                 }
+
+                #[inline]
+                fn token_approval(
+                    asset_id: AssetId,
+                    nft_id: polymesh_primitives::NFTId,
+                ) -> Option<polymesh_primitives::AccountId> {
+                    pallet_nft::TokenApproval::<Runtime>::get(asset_id, nft_id)
+                }
+
+                #[inline]
+                fn operator_approval(
+                    owner: polymesh_primitives::AccountId,
+                    operator: polymesh_primitives::AccountId,
+                    asset_id: AssetId,
+                ) -> bool {
+                    pallet_nft::OperatorApproval::<Runtime>::get((&owner, &operator, &asset_id))
+                }
             }
 
             impl node_rpc_runtime_api::settlement::SettlementApi<Block> for Runtime {

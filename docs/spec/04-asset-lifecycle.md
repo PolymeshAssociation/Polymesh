@@ -58,6 +58,9 @@ used by compliance/statistics/checkpoints.
 | `NumberOfNFTs` / `NFTsInCollection` | per-DID count / total supply | :93/:127 |
 | `NFTHolder` / `Owner` | account-key-held NFTs (`NFTOwnerStatus`: Owner/OwnerLocked) / reverse owner lookup | :141/:154 |
 | `CurrentNFTId` / `CurrentCollectionId` | id sequences (start at 1) | :132/:137 |
+| `NFTAccountCount` | per-account-key count; portfolio counterpart is `pallet_portfolio::PortfolioNFTCount`. Zero is never stored. Backs the ERC-721 `balanceOf` | nft:167 |
+| `TokenApproval` | (asset, NFTId) → approved account. ERC-721 per-token approval; cleared on every transfer | nft:186 |
+| `OperatorApproval` | (owner, operator, asset) → bool. ERC-721 `setApprovalForAll`, scoped to one collection. `false` is never stored | nft:200 |
 
 ## 2. Ticker system
 
@@ -161,6 +164,20 @@ guards (:513-518). Holder placement: portfolio (via portfolio pallet) or account
 Caller: agent + holding perms **with custody** (:556). NFT must be held and not locked
 (:560-567). Metadata drained (:581); account-key strong ref removed when holdings empty
 (:1026-1030).
+
+### Approvals (`approve`, call_index 5; `set_approval_for_all`, call_index 6)
+
+Two independent mechanisms, both account-key scoped (portfolio-held NFTs cannot be approved):
+
+- **Per-token** (`TokenApproval`): set by the current account holder or by an approved operator
+  (`NFTApprovalNotAuthorized` otherwise). Passing `spender = None` revokes. Consumed on use and
+  cleared inside `remove_nft_from_asset_holder`, so it never survives a transfer.
+- **Operator** (`OperatorApproval`): collection-wide, not consumed on use, not cleared on
+  transfer. Scoped to a single collection — approving an operator on one collection grants
+  nothing on any other.
+
+Consumption happens in settlement's `ensure_transfer_source_authorized` via
+`Nft::spend_nft_approval`; see doc 09 §4.
 
 ### NFT transfers — see doc 09 §6 (validation `validate_nft_transfer` :631; **no statistics for
 NFTs**, compliance checked :688; per-leg cap `MaxNumberOfNFTsCount` = 10).

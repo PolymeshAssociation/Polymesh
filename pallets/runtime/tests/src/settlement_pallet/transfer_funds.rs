@@ -3,6 +3,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_std::collections::btree_set::BTreeSet;
 
 use pallet_asset::{Allowances, AssetBalance, BalanceOf, LockedBalance};
+use pallet_nft::{NFTAccountCount, OperatorApproval, TokenApproval};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
 use polymesh_primitives::nft::{NFTId, NFTOwnerStatus};
 use polymesh_primitives::settlement::{AffirmationRequirement, Leg, SettlementType};
@@ -22,6 +23,7 @@ type Settlement = pallet_settlement::Pallet<TestStorage>;
 type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type SettlementError = pallet_settlement::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
+type NFTError = pallet_nft::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 
 /// Helper to issue tokens to an Account holder.
@@ -322,6 +324,7 @@ fn spender_nft_rejected() {
         let bob = User::new(Sr25519Keyring::Bob);
         let asset_id = create_and_issue_to_account(&alice);
 
+        // A fungible allowance does not authorize an NFT transfer.
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
 
         let from = Some(AssetHolder::Account(alice.acc()));
@@ -336,7 +339,7 @@ fn spender_nft_rejected() {
 
         assert_noop!(
             Settlement::transfer_funds(bob.origin(), from, to, nft_fund),
-            SettlementError::AllowancesNotSupportedForNFTs
+            NFTError::InsufficientNFTApproval
         );
     });
 }
@@ -478,16 +481,15 @@ fn nft_cross_identity_creates_settlement() {
 }
 
 #[test]
-fn nft_spender_rejected() {
+fn nft_spender_rejected_without_approval() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let bob = User::new(Sr25519Keyring::Bob);
         let asset_id = create_and_issue_nft_to_account(&alice);
 
-        // Approve bob as spender (fungible allowance).
+        // A fungible allowance is not an NFT approval.
         assert_ok!(Asset::approve(alice.origin(), asset_id, bob.acc(), 500));
 
-        // Bob tries to transfer alice's NFT — rejected (allowances not supported for NFTs).
         assert_noop!(
             Settlement::transfer_funds(
                 bob.origin(),
@@ -495,7 +497,261 @@ fn nft_spender_rejected() {
                 AssetHolder::Account(bob.acc()),
                 non_fungible_fund(asset_id, NFTId(1)),
             ),
-            SettlementError::AllowancesNotSupportedForNFTs
+            NFTError::InsufficientNFTApproval
+        );
+    });
+}
+
+/// A per-token approval lets the spender move exactly that NFT, once.
+#[test]
+fn nft_spender_with_token_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+
+        assert_ok!(Nft::approve(
+            alice.origin(),
+            asset_id,
+            NFTId(1),
+            Some(bob.acc())
+        ));
+        assert_eq!(
+            TokenApproval::<TestStorage>::get(asset_id, NFTId(1)),
+            Some(bob.acc())
+        );
+
+        assert_ok!(Settlement::transfer_funds(
+            bob.origin(),
+            Some(AssetHolder::Account(alice.acc())),
+            AssetHolder::Account(bob.acc()),
+            non_fungible_fund(asset_id, NFTId(1)),
+        ));
+
+        // The approval was consumed and did not survive the transfer.
+        assert_eq!(TokenApproval::<TestStorage>::get(asset_id, NFTId(1)), None);
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&bob.acc(), &asset_id),
+            1
+        );
+    });
+}
+
+/// A per-token approval for one NFT does not authorize a different NFT.
+#[test]
+fn nft_token_approval_is_per_token() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+        // Issue a second NFT into alice's account.
+        assert_ok!(Nft::issue_nft(
+            alice.origin(),
+            asset_id,
+            Vec::new(),
+            AssetHolderKind::Account
+        ));
+
+        assert_ok!(Nft::approve(
+            alice.origin(),
+            asset_id,
+            NFTId(1),
+            Some(bob.acc())
+        ));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                bob.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Account(bob.acc()),
+                non_fungible_fund(asset_id, NFTId(2)),
+            ),
+            NFTError::InsufficientNFTApproval
+        );
+    });
+}
+
+/// A collection-wide operator approval covers every NFT and is not consumed on use.
+#[test]
+fn nft_spender_with_operator_approval() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+        assert_ok!(Nft::issue_nft(
+            alice.origin(),
+            asset_id,
+            Vec::new(),
+            AssetHolderKind::Account
+        ));
+
+        assert_ok!(Nft::set_approval_for_all(
+            alice.origin(),
+            asset_id,
+            bob.acc(),
+            true
+        ));
+
+        // Both NFTs can be moved without any per-token approval.
+        for nft_id in [NFTId(1), NFTId(2)] {
+            assert_ok!(Settlement::transfer_funds(
+                bob.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Account(bob.acc()),
+                non_fungible_fund(asset_id, nft_id),
+            ));
+        }
+
+        // The operator approval survives.
+        assert!(OperatorApproval::<TestStorage>::get((
+            &alice.acc(),
+            &bob.acc(),
+            &asset_id
+        )));
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&bob.acc(), &asset_id),
+            2
+        );
+    });
+}
+
+/// Revoking an operator approval stops further transfers.
+#[test]
+fn nft_operator_approval_revoked() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+
+        assert_ok!(Nft::set_approval_for_all(
+            alice.origin(),
+            asset_id,
+            bob.acc(),
+            true
+        ));
+        assert_ok!(Nft::set_approval_for_all(
+            alice.origin(),
+            asset_id,
+            bob.acc(),
+            false
+        ));
+        // `false` is never stored; the entry is removed instead.
+        assert!(!OperatorApproval::<TestStorage>::contains_key((
+            &alice.acc(),
+            &bob.acc(),
+            &asset_id
+        )));
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                bob.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Account(bob.acc()),
+                non_fungible_fund(asset_id, NFTId(1)),
+            ),
+            NFTError::InsufficientNFTApproval
+        );
+    });
+}
+
+/// Only the holder, or an approved operator, may set a per-token approval.
+#[test]
+fn nft_approve_unauthorized() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+
+        // Bob does not hold the NFT and is not an operator.
+        assert_noop!(
+            Nft::approve(bob.origin(), asset_id, NFTId(1), Some(charlie.acc())),
+            NFTError::NFTApprovalNotAuthorized
+        );
+
+        // As an operator, bob may approve on alice's behalf.
+        assert_ok!(Nft::set_approval_for_all(
+            alice.origin(),
+            asset_id,
+            bob.acc(),
+            true
+        ));
+        assert_ok!(Nft::approve(
+            bob.origin(),
+            asset_id,
+            NFTId(1),
+            Some(charlie.acc())
+        ));
+        assert_eq!(
+            TokenApproval::<TestStorage>::get(asset_id, NFTId(1)),
+            Some(charlie.acc())
+        );
+    });
+}
+
+/// A per-token approval is cleared when the NFT is transferred by its owner.
+#[test]
+fn nft_token_approval_cleared_on_transfer() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_nft_to_account(&alice);
+
+        assert_ok!(Nft::approve(
+            alice.origin(),
+            asset_id,
+            NFTId(1),
+            Some(charlie.acc())
+        ));
+
+        // Alice moves the NFT herself; charlie's approval must not follow it.
+        assert_ok!(Settlement::transfer_funds(
+            alice.origin(),
+            None,
+            AssetHolder::Account(bob.acc()),
+            non_fungible_fund(asset_id, NFTId(1)),
+        ));
+
+        assert_eq!(TokenApproval::<TestStorage>::get(asset_id, NFTId(1)), None);
+        assert_noop!(
+            Settlement::transfer_funds(
+                charlie.origin(),
+                Some(AssetHolder::Account(bob.acc())),
+                AssetHolder::Account(charlie.acc()),
+                non_fungible_fund(asset_id, NFTId(1)),
+            ),
+            NFTError::InsufficientNFTApproval
+        );
+    });
+}
+
+/// An operator approval is scoped to a single collection.
+#[test]
+fn nft_operator_approval_is_per_collection() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id_a = create_and_issue_nft_to_account(&alice);
+        let asset_id_b = create_and_issue_nft_to_account(&alice);
+        assert_ne!(asset_id_a, asset_id_b);
+
+        assert_ok!(Nft::set_approval_for_all(
+            alice.origin(),
+            asset_id_a,
+            bob.acc(),
+            true
+        ));
+
+        // Collection B is untouched by the approval on collection A.
+        assert_noop!(
+            Settlement::transfer_funds(
+                bob.origin(),
+                Some(AssetHolder::Account(alice.acc())),
+                AssetHolder::Account(bob.acc()),
+                non_fungible_fund(asset_id_b, NFTId(1)),
+            ),
+            NFTError::InsufficientNFTApproval
         );
     });
 }
