@@ -35,6 +35,8 @@ type PortfolioPallet<T> = pallet_portfolio::Pallet<T>;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+pub mod migrations;
+
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;
@@ -67,7 +69,7 @@ pub mod pallet {
         type MaxNumberOfNFTsCount: Get<u32>;
     }
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -161,6 +163,25 @@ pub mod pallet {
         NFTId,
         AssetHolder,
         OptionQuery,
+    >;
+
+    /// The number of NFTs of a given collection held by an account key.
+    ///
+    /// This is the account-level counterpart of `pallet_portfolio::PortfolioNFTCount`, mirroring
+    /// the split used by `pallet_asset::FrozenBalance` / `PortfolioFrozenAssets`. A zero count is
+    /// never stored; the entry is removed instead.
+    ///
+    /// Unlike [`NumberOfNFTs`], which aggregates over a whole identity, this is scoped to a
+    /// single account key and is what the ERC-721 precompile reports as `balanceOf`.
+    #[pallet::storage]
+    pub type NFTAccountCount<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
+        NFTCount,
+        ValueQuery,
     >;
 
     #[pallet::genesis_config]
@@ -1002,6 +1023,10 @@ impl<T: Config> Pallet<T> {
         match asset_owner {
             AssetHolder::Account(ref acc_id) => {
                 if !NFTHolder::<T>::contains_key((acc_id, &asset_id, &nft_id)) {
+                    Self::mutate_account_nft_count(acc_id, &asset_id, |count| {
+                        count.saturating_add(1)
+                    });
+
                     let acc_id = pallet_base::pallet_account_id::<T>(acc_id)?;
                     IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
                 }
@@ -1024,6 +1049,10 @@ impl<T: Config> Pallet<T> {
         match asset_holder {
             AssetHolder::Account(acc_id) => {
                 if NFTHolder::<T>::contains_key((acc_id, asset_id, nft_id)) {
+                    Self::mutate_account_nft_count(acc_id, asset_id, |count| {
+                        count.saturating_sub(1)
+                    });
+
                     let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
                     IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
                 }
@@ -1035,6 +1064,41 @@ impl<T: Config> Pallet<T> {
         }
         Owner::<T>::remove(asset_id, nft_id);
         Ok(())
+    }
+
+    /// Returns the number of NFTs of `asset_id` held by `asset_holder`.
+    ///
+    /// Unlike [`NumberOfNFTs`], which aggregates over a whole identity, this is scoped to a
+    /// single account key or portfolio.
+    pub fn get_holders_nft_count(asset_holder: &AssetHolder, asset_id: &AssetId) -> NFTCount {
+        match asset_holder {
+            AssetHolder::Account(acc_id) => Self::get_account_nft_count(acc_id, asset_id),
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_nft_count(portfolio_id, asset_id)
+            }
+        }
+    }
+
+    /// Returns the number of NFTs of `asset_id` held by the `acc_id` account key.
+    pub fn get_account_nft_count(acc_id: &AccountId32, asset_id: &AssetId) -> NFTCount {
+        NFTAccountCount::<T>::get(acc_id, asset_id)
+    }
+
+    /// Mutates the number of NFTs of `asset_id` held by the `acc_id` account key.
+    ///
+    /// `f` receives the current count and returns the new one. A resulting count of zero removes
+    /// the entry rather than storing the default.
+    fn mutate_account_nft_count(
+        acc_id: &AccountId32,
+        asset_id: &AssetId,
+        f: impl FnOnce(NFTCount) -> NFTCount,
+    ) {
+        let count = f(NFTAccountCount::<T>::get(acc_id, asset_id));
+        if count == 0 {
+            NFTAccountCount::<T>::remove(acc_id, asset_id);
+        } else {
+            NFTAccountCount::<T>::insert(acc_id, asset_id, count);
+        }
     }
 
     /// Returns `true` if the `asset_holder` holds the given `nft_id` of the `asset_id`

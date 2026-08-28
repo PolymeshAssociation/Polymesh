@@ -1,13 +1,14 @@
 use chrono::prelude::Utc;
+use frame_support::traits::UncheckedOnRuntimeUpgrade;
 use frame_support::{assert_noop, assert_ok};
 
 use pallet_nft::Event;
 use pallet_nft::{
-    Collection, CollectionKeys, CurrentCollectionId, CurrentNFTId, MetadataValue, NFTsInCollection,
-    NumberOfNFTs, Owner,
+    Collection, CollectionKeys, CurrentCollectionId, CurrentNFTId, MetadataValue, NFTAccountCount,
+    NFTsInCollection, NumberOfNFTs, Owner,
 };
-use pallet_portfolio::PortfolioNFT;
-use polymesh_primitives::asset::{AssetId, AssetName, AssetType, NonFungibleType};
+use pallet_portfolio::{PortfolioNFT, PortfolioNFTCount};
+use polymesh_primitives::asset::{AssetHolder, AssetId, AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
@@ -1298,6 +1299,285 @@ fn reject_instruction_with_locked_asset() {
                 PortfolioId::default_portfolio(alice.did).into(),
             ),
             NFTError::NFTIsNotLocked
+        );
+    });
+}
+
+/// `PortfolioNFTCount` tracks issue, transfer and redeem for portfolio holders.
+#[test]
+fn portfolio_nft_count_tracks_holdings() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+        System::set_block_number(1);
+
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob_portfolio = PortfolioId::default_portfolio(bob.did);
+
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+
+        // No holdings yet.
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            0
+        );
+
+        // Issue two NFTs to Alice's default portfolio.
+        for _ in 0..2 {
+            mint_nft(
+                alice.clone(),
+                asset_id.clone(),
+                Vec::new(),
+                AssetHolderKind::DefaultPortfolio,
+            );
+        }
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            2
+        );
+
+        // Transfer one to Bob.
+        ComplianceManager::pause_asset_compliance(alice.origin(), asset_id.clone()).unwrap();
+        let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
+        assert_ok!(with_transaction(|| {
+            NFT::base_nft_transfer(
+                alice_portfolio.clone().into(),
+                bob_portfolio.clone().into(),
+                nfts,
+                InstructionId(0),
+                None,
+                IdentityId::default(),
+                &mut weight_meter,
+            )
+        }));
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            1
+        );
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&bob_portfolio, &asset_id),
+            1
+        );
+
+        // Redeem Alice's remaining NFT. The count drops to zero and the entry is removed
+        // rather than storing the default.
+        assert_ok!(NFT::redeem_nft(
+            alice.origin(),
+            asset_id,
+            NFTId(2),
+            AssetHolderKind::DefaultPortfolio,
+            None
+        ));
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            0
+        );
+        assert!(!PortfolioNFTCount::<TestStorage>::contains_key(
+            &alice_portfolio,
+            &asset_id
+        ));
+    });
+}
+
+/// `NFTAccountCount` tracks issue, transfer and redeem for account-key holders.
+#[test]
+fn account_nft_count_tracks_holdings() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+        System::set_block_number(1);
+
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&alice.acc(), &asset_id),
+            0
+        );
+
+        // Issue two NFTs to Alice's account key.
+        for _ in 0..2 {
+            mint_nft(
+                alice.clone(),
+                asset_id.clone(),
+                Vec::new(),
+                AssetHolderKind::Account,
+            );
+        }
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&alice.acc(), &asset_id),
+            2
+        );
+
+        // Transfer one to Bob's account key.
+        ComplianceManager::pause_asset_compliance(alice.origin(), asset_id.clone()).unwrap();
+        let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
+        assert_ok!(with_transaction(|| {
+            NFT::base_nft_transfer(
+                AssetHolder::Account(alice.acc()),
+                AssetHolder::Account(bob.acc()),
+                nfts,
+                InstructionId(0),
+                None,
+                IdentityId::default(),
+                &mut weight_meter,
+            )
+        }));
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&alice.acc(), &asset_id),
+            1
+        );
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&bob.acc(), &asset_id),
+            1
+        );
+
+        // Redeem Alice's remaining NFT; the entry is removed rather than zeroed.
+        assert_ok!(NFT::redeem_nft(
+            alice.origin(),
+            asset_id,
+            NFTId(2),
+            AssetHolderKind::Account,
+            None
+        ));
+        assert_eq!(
+            NFTAccountCount::<TestStorage>::get(&alice.acc(), &asset_id),
+            0
+        );
+        assert!(!NFTAccountCount::<TestStorage>::contains_key(
+            &alice.acc(),
+            &asset_id
+        ));
+    });
+}
+
+/// A controller transfer keeps both holders' counts consistent.
+#[test]
+fn nft_count_tracks_controller_transfer() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+        System::set_block_number(1);
+
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+        let bob_portfolio = PortfolioId::default_portfolio(bob.did);
+
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            asset_id.clone(),
+            Vec::new(),
+            AssetHolderKind::DefaultPortfolio,
+        );
+        ComplianceManager::pause_asset_compliance(alice.origin(), asset_id.clone()).unwrap();
+
+        let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
+        assert_ok!(with_transaction(|| {
+            NFT::base_nft_transfer(
+                alice_portfolio.clone().into(),
+                bob_portfolio.clone().into(),
+                nfts.clone(),
+                InstructionId(0),
+                None,
+                IdentityId::default(),
+                &mut weight_meter,
+            )
+        }));
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&bob_portfolio, &asset_id),
+            1
+        );
+
+        // Claw the NFT back.
+        assert_ok!(NFT::controller_transfer(
+            alice.origin(),
+            nfts,
+            bob_portfolio.clone().into(),
+            AssetHolderKind::DefaultPortfolio
+        ));
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&bob_portfolio, &asset_id),
+            0
+        );
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            1
+        );
+    });
+}
+
+/// The v7 -> v8 migration backfills `NFTAccountCount` from `NFTHolder`, and the
+/// v4 -> v5 migration backfills `PortfolioNFTCount` from `PortfolioNFT`.
+#[test]
+fn nft_count_backfill_migration() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+        System::set_block_number(1);
+
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        for _ in 0..3 {
+            mint_nft(
+                alice.clone(),
+                asset_id.clone(),
+                Vec::new(),
+                AssetHolderKind::Account,
+            );
+        }
+        for _ in 0..2 {
+            mint_nft(
+                alice.clone(),
+                asset_id.clone(),
+                Vec::new(),
+                AssetHolderKind::DefaultPortfolio,
+            );
+        }
+
+        // Simulate a pre-migration chain: the holdings exist but the counts do not.
+        let _ = NFTAccountCount::<TestStorage>::clear(u32::MAX, None);
+        let _ = PortfolioNFTCount::<TestStorage>::clear(u32::MAX, None);
+        assert_eq!(NFTAccountCount::<TestStorage>::get(&alice.acc(), &asset_id), 0);
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            0
+        );
+
+        <pallet_nft::migrations::BackfillNFTAccountCount<TestStorage> as UncheckedOnRuntimeUpgrade>
+            ::on_runtime_upgrade();
+        <pallet_portfolio::migrations::BackfillPortfolioNFTCount<TestStorage> as UncheckedOnRuntimeUpgrade>
+            ::on_runtime_upgrade();
+
+        assert_eq!(NFTAccountCount::<TestStorage>::get(&alice.acc(), &asset_id), 3);
+        assert_eq!(
+            PortfolioNFTCount::<TestStorage>::get(&alice_portfolio, &asset_id),
+            2
         );
     });
 }

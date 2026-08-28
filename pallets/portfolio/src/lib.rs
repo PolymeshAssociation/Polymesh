@@ -45,6 +45,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+pub mod migrations;
+
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
@@ -56,6 +58,7 @@ use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::nft::NFTCount;
 use polymesh_primitives::traits::{
     AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait,
     PortfolioFnTrait,
@@ -205,7 +208,7 @@ pub mod pallet {
         RevokeCreatePortfoliosPermission(IdentityId, IdentityId),
     }
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -309,6 +312,22 @@ pub mod pallet {
         Blake2_128Concat,
         (AssetId, NFTId),
         bool,
+        ValueQuery,
+    >;
+
+    /// The number of NFTs of a given collection held by a portfolio.
+    ///
+    /// This is the portfolio-level counterpart of `pallet_nft::NFTAccountCount`, mirroring the
+    /// split used by `PortfolioFrozenAssets` / `pallet_asset::FrozenBalance`. A zero count is
+    /// never stored; the entry is removed instead.
+    #[pallet::storage]
+    pub type PortfolioNFTCount<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        PortfolioId,
+        Blake2_128Concat,
+        AssetId,
+        NFTCount,
         ValueQuery,
     >;
 
@@ -1152,12 +1171,44 @@ impl<T: Config> Pallet<T> {
         asset_id: &AssetId,
         nft_id: &NFTId,
     ) {
+        if PortfolioNFT::<T>::contains_key((portfolio_id, asset_id, nft_id)) {
+            Self::mutate_portfolio_nft_count(portfolio_id, asset_id, |count| {
+                count.saturating_sub(1)
+            });
+        }
         PortfolioNFT::<T>::remove((portfolio_id, asset_id, nft_id));
     }
 
     /// Adds the nft to the owner's portfolio.
     pub fn add_nft_to_portfolio(portfolio_id: PortfolioId, asset_id: AssetId, nft_id: NFTId) {
+        if !PortfolioNFT::<T>::contains_key((&portfolio_id, &asset_id, &nft_id)) {
+            Self::mutate_portfolio_nft_count(&portfolio_id, &asset_id, |count| {
+                count.saturating_add(1)
+            });
+        }
         PortfolioNFT::<T>::insert((portfolio_id, asset_id, nft_id), true);
+    }
+
+    /// Returns the number of NFTs of `asset_id` held by `portfolio_id`.
+    pub fn get_portfolio_nft_count(portfolio_id: &PortfolioId, asset_id: &AssetId) -> NFTCount {
+        PortfolioNFTCount::<T>::get(portfolio_id, asset_id)
+    }
+
+    /// Mutates the number of NFTs of `asset_id` held by `portfolio_id`.
+    ///
+    /// `f` receives the current count and returns the new one. A resulting count of zero removes
+    /// the entry rather than storing the default.
+    pub fn mutate_portfolio_nft_count(
+        portfolio_id: &PortfolioId,
+        asset_id: &AssetId,
+        f: impl FnOnce(NFTCount) -> NFTCount,
+    ) {
+        let count = f(PortfolioNFTCount::<T>::get(portfolio_id, asset_id));
+        if count.is_zero() {
+            PortfolioNFTCount::<T>::remove(portfolio_id, asset_id);
+        } else {
+            PortfolioNFTCount::<T>::insert(portfolio_id, asset_id, count);
+        }
     }
 
     /// Locks the given nft.
