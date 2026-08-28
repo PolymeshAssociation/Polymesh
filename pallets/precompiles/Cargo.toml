@@ -26,6 +26,7 @@ pallet-revive = { workspace = true, default-features = false }
 # Polymesh pallets
 pallet-asset = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
+pallet-nft = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
 
@@ -51,6 +52,7 @@ std = [
     "pallet-revive/std",
     "pallet-asset/std",
     "pallet-identity/std",
+    "pallet-nft/std",
     "pallet-permissions/std",
     "pallet-settlement/std",
     "polymesh-primitives/std",
@@ -60,6 +62,7 @@ runtime-benchmarks = [
     "pallet-revive/runtime-benchmarks",
     "pallet-asset/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
+    "pallet-nft/runtime-benchmarks",
     "pallet-permissions/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",

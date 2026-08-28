@@ -44,6 +44,11 @@ mod erc20_helper;
 pub use erc20_helper::*;
 
 #[cfg(feature = "current_release")]
+mod erc721_helper;
+#[cfg(feature = "current_release")]
+pub use erc721_helper::*;
+
+#[cfg(feature = "current_release")]
 mod swap_helper;
 #[cfg(feature = "current_release")]
 pub use swap_helper::*;

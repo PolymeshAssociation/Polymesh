@@ -25,10 +25,22 @@ alloy_core::sol! {
     "src/interfaces/FungibleAssetStub.sol"
 }
 
+// Import the non-fungible asset interface. Generates:
+//   - `INonFungibleAsset::INonFungibleAssetCalls` enum
+//   - `INonFungibleAsset::INonFungibleAssetEvents` enum
+alloy_core::sol! {
+    #[sol(all_derives)]
+    "src/interfaces/NonFungibleAssetStub.sol"
+}
+
 pub use IFungibleAsset::{IFungibleAssetCalls, IFungibleAssetEvents};
+pub use INonFungibleAsset::{INonFungibleAssetCalls, INonFungibleAssetEvents};
 
 /// Runtime bytecode for explorer verification of the fungible asset precompile.
 pub const FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/FungibleAssetStub.bin");
+
+/// Runtime bytecode for explorer verification of the non-fungible asset precompile.
+pub const NON_FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/NonFungibleAssetStub.bin");
 
 // Import the general-purpose Polymesh runtime interface. Generates:
 //   - `IPolymeshRuntime::IPolymeshRuntimeCalls` enum

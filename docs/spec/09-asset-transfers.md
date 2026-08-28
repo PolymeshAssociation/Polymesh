@@ -74,7 +74,8 @@ these wrappers never touch portfolios.
   consume an approval via `Nft::spend_nft_approval(owner, caller, nfts)` — a collection-wide
   operator approval (`OperatorApproval`) authorizes every NFT and is not consumed, otherwise each
   NFT needs a per-token approval (`TokenApproval`) naming the caller, which is consumed on use
-  (`InsufficientNFTApproval` otherwise).
+  (`InsufficientNFTApproval` otherwise). Both approvals are settable from the EVM through the
+  ERC-721 precompile (doc 21 §5.1).
 - Portfolio source: custody + portfolio permission (:1686-1692) — works cross-DID for custodians.
 
 **Same-DID branch** (settlement:1596-1638): amount > 0, asset not frozen, holder not frozen,

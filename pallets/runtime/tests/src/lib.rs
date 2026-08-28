@@ -25,6 +25,7 @@ mod multisig;
 mod nft;
 mod pips_test;
 mod portfolio;
+mod precompiles;
 mod protocol_fee;
 mod relayer_test;
 mod settlement_pallet;

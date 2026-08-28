@@ -19,7 +19,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo, RawOrigin,
 };
@@ -180,6 +180,15 @@ impl<T: Config> Common<T> {
             .try_into()
             .map_err(|err| revert_err(err, ERR_INVALID_ACCOUNT_ID))?;
         Ok(AccountId::from(account_id))
+    }
+
+    /// Convert a primitive [`AccountId`] into an ethereum address.
+    pub fn address_of(account_id: &AccountId) -> Result<Address, Error> {
+        let account_id =
+            <T as frame_system::Config>::AccountId::decode(&mut &account_id.encode()[..])
+                .map_err(|err| revert_err(err, ERR_INVALID_ACCOUNT_ID))?;
+        let address = <T as pallet_revive::Config>::AddressMapper::to_address(&account_id);
+        Ok(Address::from(address.0))
     }
 
     /// Convert a substrate account into an [`AssetHolder`].

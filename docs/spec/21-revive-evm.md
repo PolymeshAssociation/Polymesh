@@ -12,7 +12,8 @@ Related specs: [14-fees-and-extensions](14-fees-and-extensions.md) (ETH fee path
 `pallet-revive` (index 80, all three runtimes) provides EVM & PolkaVM smart contracts plus an
 Ethereum-compatible transaction path. Polymesh integrates it with the identity/permission system
 via a **dispatch hook** that swaps call metadata, and exposes native assets to contracts through
-a **fungible-asset precompile** (ERC-20/2612/3643/7943 surface).
+two **asset precompiles**: a fungible one (ERC-20/2612/3643/7943 surface) and a non-fungible one
+(ERC-721/165/7943 surface).
 
 ## 2. Runtime configuration (RTC:485-514)
 
@@ -25,7 +26,7 @@ a **fungible-asset precompile** (ERC-20/2612/3643/7943 surface).
 | `UploadOrigin`/`InstantiateOrigin` | `EnsureSigned` (:500-501) — **contract deployment is open to any signed account, not identity-gated** |
 | `AllowEVMBytecode` | true (:507); `DebugEnabled` false (:510) |
 | **`DispatchHook`** | `pallet_precompiles::common::DispatchWithCallMetadata` (:513) — Polymesh-specific (§4) |
-| `Precompiles` | `(pallet_precompiles::FungibleAssetInterface,)` (per-runtime, e.g. develop:201) |
+| `Precompiles` | `(FungibleAssetInterface, NonFungibleAssetInterface)` (per-runtime, e.g. develop:201) |
 
 ## 3. The ETH transaction path
 
@@ -81,7 +82,7 @@ Fee-payer redirection (`fee_details`) and the relayer `SubsidyFilter` both **unw
 ETH-side accounts must still be onboarded to a DID before doing identity-gated things (the
 integration tests onboard the 0xEE fallback account first — `integration/tests/revive_erc20.rs:92-94`).
 
-## 5. The fungible-asset precompile
+## 5. The asset precompiles
 
 - Interface crate `precompiles/`: `sol!`-generated bindings + committed stub bytecode
   (`FungibleAssetStub.sol`/`.bin`; regenerate with `scripts/build_precompile_stub.sh`, solc
@@ -95,6 +96,11 @@ integration tests onboard the 0xEE fallback account first — `integration/tests
   whose suffix doesn't match never reaches this pallet, so each asset has exactly one valid
   address per precompile interface — the suffix is not an aliasing surface. One precompile
   instance serves *every* fungible asset; decimals fixed at 6 (:46).
+  The NFT precompile is the same scheme with **prefix-id 9**
+  (`interface/nft/mod.rs:67-72`), so each asset id yields two distinct, non-overlapping
+  addresses. `asset_id_from_address` asserts the *opposite* fungibility on each side, so an
+  asset is only reachable through the matching interface (`interface/mod.rs:153`,
+  `interface/nft/mod.rs:154`).
 - Call mapping (each dispatches the real extrinsic under the caller's account, with metadata
   swap ⇒ full permission/compliance enforcement):
 
@@ -105,6 +111,42 @@ integration tests onboard the 0xEE fallback account first — `integration/tests
 | `mint`/`burn` | `Asset::issue`/`redeem` (agent-gated) | polymesh_specific.rs:27, 58 |
 | ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer` / `set_frozen_tokens` | erc7943.rs:83, 118 |
 | ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | erc3643.rs:40-136 |
+
+### 5.1 The non-fungible-asset precompile
+
+Stub `NonFungibleAssetStub.sol`/`.bin`, built by the same `scripts/build_precompile_stub.sh`
+(which loops over both stubs). ERC-721 `tokenId` == on-chain `NFTId`; one precompile address ==
+one NFT collection.
+
+| Solidity | Runtime call / storage | Ref |
+|---|---|---|
+| `balanceOf` | `Nft::NFTAccountCount` (account-scoped, not per-DID) | nft/erc721.rs:44 |
+| `ownerOf` / `totalSupply` | `Nft::Owner` / `Nft::NFTsInCollection` | nft/erc721.rs:60, nft/polymesh_specific.rs:44 |
+| `transferFrom` / `safeTransferFrom` | `Settlement::transfer_funds` with `FundDescription::NonFungible` (doc 09 §4, incl. approval spend); the `safe` variants additionally reject receivers with code | nft/erc721.rs:78, 265 |
+| `approve` / `setApprovalForAll` | `Nft::approve` / `Nft::set_approval_for_all` (doc 04 §4) | nft/erc721.rs:107, 143 |
+| `mint` / `burn` | `Nft::issue_nft` / `Nft::redeem_nft` (agent-gated) | nft/polymesh_specific.rs:62, 116 |
+| `tokenURI` | `Nft::MetadataValue[tokenUri]`, falling back to `Asset::AssetMetadataValues[baseTokenUri]`, with `{tokenId}` substitution | nft/metadata.rs:80 |
+| `supportsInterface` | constant match on ERC-165 / 721 / 721Metadata ids | nft/metadata.rs:113 |
+| ERC-7943 canTransfer / forcedTransfer | `Nft::nft_transfer_report` / `Nft::controller_transfer` | nft/erc7943.rs:37, 73 |
+
+**Deliberate deviations from ERC-721**, documented in the `.sol` NatSpec:
+
+- `safeTransferFrom` **only accepts externally-owned accounts**. A precompile cannot re-enter the
+  EVM to invoke the required `onERC721Received` callback, so instead of skipping the check —
+  which would silently drop the guarantee the method exists to provide — `ensure_eoa_receiver`
+  (nft/erc721.rs:105) rejects any receiver with code, precompiles included. Strictly stronger
+  than ERC-721, never weaker: a token cannot be stranded. Contracts that knowingly handle NFTs
+  use `transferFrom`. Supporting `onERC721Received` properly is deferred.
+- `ownerOf` reverts for portfolio-held NFTs, which have no EVM address.
+
+`redeem_nft` prices itself on `number_of_keys`, defaulting to the worst case of 255 when `None`;
+the precompile reads the collection's real key count and passes it, or the upfront weight charge
+exceeds any sane EVM gas limit (nft/polymesh_specific.rs:126).
+
+`tokenUri`/`baseTokenUri` global metadata keys are supplied as per-runtime constants
+(`TokenUriMetadataKey`, `BaseTokenUriMetadataKey`) rather than looked up by name, since the GC
+assigns global key ids per network. `integration/tests/revive_erc721.rs::erc721_token_uri`
+asserts the constants still match the chain.
 
 ## 6. Fork deltas (vs upstream stable2603) — exactly four commits
 
@@ -124,9 +166,14 @@ Polymesh customization of the fee/subsidy path lives in the runtime's `EthExtraI
       (`erc20_mint_checks_secondary_key_permissions`, `substrate_call_checks_...`).
 - [ ] `eth_substrate_call` unwrapping must stay in sync across: fee_details payer matching,
       SubsidyFilter, and the dispatch hook.
-- [ ] Precompile address decoding must validate the asset exists & is fungible
-      (interface/mod.rs:142-160) — collisions with contract addresses are prevented by the
-      matcher prefix + deploy-block fork delta.
+- [ ] Precompile address decoding must validate the asset exists & has the right fungibility
+      (interface/mod.rs:142-160, interface/nft/mod.rs:141-162) — collisions with contract
+      addresses are prevented by the matcher prefix + deploy-block fork delta, and the two asset
+      precompiles must keep distinct prefix ids (8 / 9), asserted by
+      `pallets/runtime/tests/src/precompiles.rs::precompile_matchers_are_distinct`.
+- [ ] `supportsInterface` must only claim interfaces really implemented with standard
+      signatures — asserted by `precompiles.rs::erc165_interface_ids_match_our_selectors`,
+      which recomputes each id from the generated selectors.
 - [ ] Balance conversions must use `NativeToEthRatio` consistently (18↔6 decimals); dust
       handling via `new_balance_with_dust`.
 - [ ] `SetOrigin` flag must remain non-codec (`#[codec(skip)]`) — a user-settable variant would
