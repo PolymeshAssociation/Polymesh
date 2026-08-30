@@ -32,6 +32,8 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         call: &IPolymeshRuntime::registerDidCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
         let caller = Common::<T>::caller(env)?;
         let target_account = Common::<T>::account_id(call.targetAccount);
 
@@ -43,7 +45,6 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
             },
         )?;
 
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
         let did = pallet_identity::Pallet::<T>::get_identity(&target_account)
             .ok_or_else(|| revert("DID lookup failed after registration"))?;
 

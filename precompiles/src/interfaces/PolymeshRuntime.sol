@@ -118,3 +118,33 @@ interface IPolymeshRuntime {
     /// @return did The newly created DID.
     function registerDid(address targetAccount) external returns (bytes32 did);
 }
+
+contract PolymeshRuntimeStub is IPolymeshRuntime {
+
+    error NotExecutable();
+
+    function createAsset(
+        string calldata assetName,
+        bool divisible,
+        AssetType calldata assetType,
+        AssetIdentifier[] calldata assetIdentifiers,
+        string calldata fundingRoundName
+    ) external override returns (bytes16) {
+        assetName;
+        divisible;
+        assetType;
+        assetIdentifiers;
+        fundingRoundName;
+        revert NotExecutable();
+    }
+
+    function registerTicker(string calldata ticker) external override {
+        ticker;
+        revert NotExecutable();
+    }
+
+    function registerDid(address targetAccount) external override returns (bytes32) {
+        targetAccount;
+        revert NotExecutable();
+    }
+}
