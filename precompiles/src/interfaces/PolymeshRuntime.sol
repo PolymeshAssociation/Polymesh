@@ -126,8 +126,8 @@ contract PolymeshRuntimeStub is IPolymeshRuntime {
     function createAsset(
         string calldata assetName,
         bool divisible,
-        AssetType calldata assetType,
-        AssetIdentifier[] calldata assetIdentifiers,
+        IPolymeshRuntime.AssetType calldata assetType,
+        IPolymeshRuntime.AssetIdentifier[] calldata assetIdentifiers,
         string calldata fundingRoundName
     ) external override returns (bytes16) {
         assetName;
