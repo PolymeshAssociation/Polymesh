@@ -723,7 +723,7 @@ fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
         .prepare(Val::NoCharge, &alice_origin, &call, &operational_info, len)
         .is_ok());
 
-    // Valid operational tx with tip. Only DID registrars and Governance members can tip.
+    // Valid operational tx with tip. Only Governance members can tip.
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
         .validate(
             alice_origin.clone(),
@@ -755,10 +755,10 @@ fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
         .prepare(val.1, &gc_origin, &call, &operational_info, len)
         .is_ok());
 
-    // DID registrar can also tip.
+    // DID registrars are not allowed to tip.
     let registrar_origin = RuntimeOrigin::signed(registrar.clone());
 
-    let val = ChargeTransactionPayment::<TestStorage>::from(tip)
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
         .validate(
             registrar_origin.clone(),
             &call,
@@ -768,11 +768,7 @@ fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
             &TxBaseImplication(()),
             TransactionSource::InBlock,
         )
-        .unwrap();
-
-    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .prepare(val.1, &registrar_origin, &call, &operational_info, len)
-        .is_ok());
+        .is_err());
 }
 
 #[test]
