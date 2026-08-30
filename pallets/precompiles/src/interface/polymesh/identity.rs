@@ -29,7 +29,7 @@ use crate::Config;
 impl<T: Config> PolymeshRuntimeInterface<T> {
     /// Registers a new DID for `targetAccount`. The caller must be an active DID registrar.
     pub(crate) fn register_did(
-        call: &IPolymeshRuntime::registerDidCall,
+        call: &IPolymeshRuntime::identityRegisterDidCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
@@ -56,7 +56,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
             }),
         )?;
 
-        Ok(IPolymeshRuntime::registerDidCall::abi_encode_returns(
+        Ok(IPolymeshRuntime::identityRegisterDidCall::abi_encode_returns(
             &did.to_bytes().into(),
         ))
     }

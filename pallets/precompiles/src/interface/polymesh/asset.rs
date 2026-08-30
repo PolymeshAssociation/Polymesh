@@ -35,7 +35,7 @@ const ERR_TICKER_TOO_LONG: &str = "Ticker is too long";
 impl<T: Config> PolymeshRuntimeInterface<T> {
     /// Creates a new asset, registering it under the caller's identity.
     pub(crate) fn create_asset(
-        call: &IPolymeshRuntime::createAssetCall,
+        call: &IPolymeshRuntime::assetCreateAssetCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(3))?;
@@ -80,14 +80,14 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
             }),
         )?;
 
-        Ok(IPolymeshRuntime::createAssetCall::abi_encode_returns(
+        Ok(IPolymeshRuntime::assetCreateAssetCall::abi_encode_returns(
             &asset_id.to_bytes().into(),
         ))
     }
 
     /// Registers a ticker symbol to the caller's identity.
     pub(crate) fn register_ticker(
-        call: &IPolymeshRuntime::registerTickerCall,
+        call: &IPolymeshRuntime::assetRegisterTickerCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;

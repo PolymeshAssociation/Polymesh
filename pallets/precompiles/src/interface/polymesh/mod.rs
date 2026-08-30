@@ -51,17 +51,17 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
 
         match input {
             // State-changing calls - check read-only
-            IPolymeshRuntimeCalls::createAsset(_)
-            | IPolymeshRuntimeCalls::registerTicker(_)
-            | IPolymeshRuntimeCalls::registerDid(_)
+            IPolymeshRuntimeCalls::assetCreateAsset(_)
+            | IPolymeshRuntimeCalls::assetRegisterTicker(_)
+            | IPolymeshRuntimeCalls::identityRegisterDid(_)
                 if env.is_read_only() =>
             {
                 Err(Common::<T>::state_change_denied())
             }
 
-            IPolymeshRuntimeCalls::createAsset(call) => Self::create_asset(call, env),
-            IPolymeshRuntimeCalls::registerTicker(call) => Self::register_ticker(call, env),
-            IPolymeshRuntimeCalls::registerDid(call) => Self::register_did(call, env),
+            IPolymeshRuntimeCalls::assetCreateAsset(call) => Self::create_asset(call, env),
+            IPolymeshRuntimeCalls::assetRegisterTicker(call) => Self::register_ticker(call, env),
+            IPolymeshRuntimeCalls::identityRegisterDid(call) => Self::register_did(call, env),
         }
     }
 }

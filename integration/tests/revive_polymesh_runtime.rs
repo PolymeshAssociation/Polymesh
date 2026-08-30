@@ -28,7 +28,7 @@ async fn polymesh_runtime_create_asset() -> Result<()> {
     let issuer_did = issuer.did.expect("issuer DID");
 
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
-    let call = IPolymeshRuntime::createAssetCall {
+    let call = IPolymeshRuntime::assetCreateAssetCall {
         assetName: "PolyX Asset".to_string(),
         divisible: true,
         assetType: IPolymeshRuntime::AssetType {
@@ -84,7 +84,7 @@ async fn polymesh_runtime_register_ticker() -> Result<()> {
     let ticker_str = String::from_utf8(ticker.0.to_vec())?;
 
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
-    let call = IPolymeshRuntime::registerTickerCall {
+    let call = IPolymeshRuntime::assetRegisterTickerCall {
         ticker: ticker_str.clone(),
     };
     let logs = caller
@@ -122,7 +122,7 @@ async fn polymesh_runtime_register_did() -> Result<()> {
 
     // `tester.cdd` is the chain's DID registrar (Alice on a `--dev` chain)
     let mut registrar = SubstrateCaller::new(&api, &mut tester.cdd).await?;
-    let call = IPolymeshRuntime::registerDidCall {
+    let call = IPolymeshRuntime::identityRegisterDidCall {
         targetAccount: wallet.address,
     };
     let logs = registrar

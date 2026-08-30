@@ -88,7 +88,7 @@ interface IPolymeshRuntime {
     /// @param assetIdentifiers The identifiers to attach to the asset, see {AssetIdentifier}.
     /// @param fundingRoundName The name of the funding round; pass an empty string for `None`.
     /// @return assetId The id assigned to the newly created asset.
-    function createAsset(
+    function assetCreateAsset(
         string calldata assetName,
         bool divisible,
         AssetType calldata assetType,
@@ -99,7 +99,7 @@ interface IPolymeshRuntime {
     /// @notice Registers a ticker symbol to the caller's identity.
     /// @dev Calls `pallet_asset::register_unique_ticker`. Emits {TickerRegistered}.
     /// @param ticker The ticker symbol to register. Must be at most 12 characters long.
-    function registerTicker(string calldata ticker) external;
+    function assetRegisterTicker(string calldata ticker) external;
 
     // ============================================================
     // pallet_identity:
@@ -116,14 +116,14 @@ interface IPolymeshRuntime {
     /// @dev Calls `pallet_identity::register_did`. Emits {DidCreated}.
     /// @param targetAccount The account to become the primary key of the new identity.
     /// @return did The newly created DID.
-    function registerDid(address targetAccount) external returns (bytes32 did);
+    function identityRegisterDid(address targetAccount) external returns (bytes32 did);
 }
 
 contract PolymeshRuntimeStub is IPolymeshRuntime {
 
     error NotExecutable();
 
-    function createAsset(
+    function assetCreateAsset(
         string calldata assetName,
         bool divisible,
         IPolymeshRuntime.AssetType calldata assetType,
@@ -138,12 +138,12 @@ contract PolymeshRuntimeStub is IPolymeshRuntime {
         revert NotExecutable();
     }
 
-    function registerTicker(string calldata ticker) external override {
+    function assetRegisterTicker(string calldata ticker) external override {
         ticker;
         revert NotExecutable();
     }
 
-    function registerDid(address targetAccount) external override returns (bytes32) {
+    function identityRegisterDid(address targetAccount) external override returns (bytes32) {
         targetAccount;
         revert NotExecutable();
     }
