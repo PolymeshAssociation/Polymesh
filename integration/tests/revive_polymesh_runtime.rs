@@ -15,7 +15,7 @@ use polymesh_api::types::polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_precompiles::IPolymeshRuntime;
 
 /// The address of `PolymeshRuntimeInterface`.
-const POLYMESH_RUNTIME_ADDRESS: Address = address!("0x0000000000000000000000000000000000090000");
+const POLYMESH_RUNTIME_ADDRESS: Address = address!("0x00000000000000000000000000000000000a0000");
 
 /// `createAsset` registers a new asset under the caller's identity.
 #[tokio::test]

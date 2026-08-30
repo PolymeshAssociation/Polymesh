@@ -56,8 +56,6 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
             }),
         )?;
 
-        Ok(IPolymeshRuntime::identityRegisterDidCall::abi_encode_returns(
-            &did.to_bytes().into(),
-        ))
+        Ok(IPolymeshRuntime::identityRegisterDidCall::abi_encode_returns(&did.to_bytes().into()))
     }
 }
