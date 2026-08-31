@@ -141,3 +141,33 @@ async fn polymesh_runtime_register_did() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+#[test_log::test]
+async fn polymesh_runtime_self_register_did() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let api = tester.api.clone();
+
+    // A fresh wallet that has never been mapped or onboarded, so its fallback account has no DID.
+    let mut wallet = node.new_wallet();
+    wallet.fund(&mut tester, REVIVE_INIT_POLYX).await?;
+    let target_account = wallet.account();
+    assert!(get_did(&api, target_account.clone()).await?.is_none());
+
+    let call = IPolymeshRuntime::identitySelfRegisterDidCall {};
+    let logs = wallet
+        .send_call(to_h160(&POLYMESH_RUNTIME_ADDRESS), call.abi_encode())
+        .await?;
+
+    let events: Vec<IPolymeshRuntime::DidCreated> =
+        decode_contract_logs(&logs, &to_h160(&POLYMESH_RUNTIME_ADDRESS))?;
+    assert_eq!(events.len(), 1, "expected one DidCreated event");
+    assert_eq!(events[0].targetAccount, wallet.address);
+
+    let did = get_did(&api, target_account)
+        .await?
+        .expect("caller account should have a DID after self-registration");
+    assert_eq!(did.0, events[0].did.0);
+
+    Ok(())
+}

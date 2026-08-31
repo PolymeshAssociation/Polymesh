@@ -58,4 +58,37 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
 
         Ok(IPolymeshRuntime::identityRegisterDidCall::abi_encode_returns(&did.to_bytes().into()))
     }
+
+    /// Registers a new DID for the caller's own account, allowing self onboarding.
+    pub(crate) fn self_register_did(
+        _call: &IPolymeshRuntime::identitySelfRegisterDidCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let caller = Common::<T>::caller(env)?;
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_identity::Call::<T>::self_register_did {},
+        )?;
+
+        let did = pallet_identity::Pallet::<T>::get_identity(&caller.account_id)
+            .ok_or_else(|| revert("DID lookup failed after registration"))?;
+
+        Common::<T>::deposit_event(
+            env,
+            IPolymeshRuntimeEvents::DidCreated(IPolymeshRuntime::DidCreated {
+                did: did.to_bytes().into(),
+                targetAccount: caller.address.0.into(),
+            }),
+        )?;
+
+        Ok(
+            IPolymeshRuntime::identitySelfRegisterDidCall::abi_encode_returns(
+                &did.to_bytes().into(),
+            ),
+        )
+    }
 }

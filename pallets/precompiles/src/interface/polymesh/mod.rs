@@ -54,6 +54,7 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
             IPolymeshRuntimeCalls::assetCreateAsset(_)
             | IPolymeshRuntimeCalls::assetRegisterTicker(_)
             | IPolymeshRuntimeCalls::identityRegisterDid(_)
+            | IPolymeshRuntimeCalls::identitySelfRegisterDid(_)
                 if env.is_read_only() =>
             {
                 Err(Common::<T>::state_change_denied())
@@ -62,6 +63,9 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
             IPolymeshRuntimeCalls::assetCreateAsset(call) => Self::create_asset(call, env),
             IPolymeshRuntimeCalls::assetRegisterTicker(call) => Self::register_ticker(call, env),
             IPolymeshRuntimeCalls::identityRegisterDid(call) => Self::register_did(call, env),
+            IPolymeshRuntimeCalls::identitySelfRegisterDid(call) => {
+                Self::self_register_did(call, env)
+            }
         }
     }
 }

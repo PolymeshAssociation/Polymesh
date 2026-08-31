@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 ///   - `pallet_asset::create_asset`
 ///   - `pallet_asset::register_unique_ticker`
 ///   - `pallet_identity::register_did`
+///   - `pallet_identity::self_register_did`
 ///
 interface IPolymeshRuntime {
     // ============================================================
@@ -104,6 +105,7 @@ interface IPolymeshRuntime {
     // ============================================================
     // pallet_identity:
     // - register_did
+    // - self_register_did
     // ============================================================
 
     /// @dev Emitted when a new DID is created, mirroring `pallet_identity::Event::DidCreated`.
@@ -117,6 +119,12 @@ interface IPolymeshRuntime {
     /// @param targetAccount The account to become the primary key of the new identity.
     /// @return did The newly created DID.
     function identityRegisterDid(address targetAccount) external returns (bytes32 did);
+
+    /// @notice Registers a new DID for the caller's own account, allowing self onboarding without
+    /// a DID registrar.
+    /// @dev Calls `pallet_identity::self_register_did`. Emits {DidCreated}.
+    /// @return did The newly created DID.
+    function identitySelfRegisterDid() external returns (bytes32 did);
 }
 
 contract PolymeshRuntimeStub is IPolymeshRuntime {
@@ -145,6 +153,10 @@ contract PolymeshRuntimeStub is IPolymeshRuntime {
 
     function identityRegisterDid(address targetAccount) external override returns (bytes32) {
         targetAccount;
+        revert NotExecutable();
+    }
+
+    function identitySelfRegisterDid() external override returns (bytes32) {
         revert NotExecutable();
     }
 }
