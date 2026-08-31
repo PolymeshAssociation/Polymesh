@@ -20,7 +20,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Contracts that get deployed (interfaces are only used for the Rust bindings).
-CONTRACTS=(Counter TestERC20 SimpleSwap)
+CONTRACTS=(Counter TestERC20 SimpleSwap Onboarder)
 
 command -v solc >/dev/null || {
 	echo "error: solc not found in PATH" >&2

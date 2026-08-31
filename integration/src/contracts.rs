@@ -24,6 +24,11 @@ sol! {
 }
 
 sol! {
+    #[sol(all_derives)]
+    "contracts/IOnboarder.sol"
+}
+
+sol! {
     /// The open mint of `TestERC20.sol`, which is not part of [`IERC20`].
     #[sol(all_derives)]
     interface ITestERC20 {
@@ -73,6 +78,7 @@ macro_rules! contract_code {
 pub const COUNTER: ContractCode = contract_code!("Counter");
 pub const TEST_ERC20: ContractCode = contract_code!("TestERC20");
 pub const SIMPLE_SWAP: ContractCode = contract_code!("SimpleSwap");
+pub const ONBOARDER: ContractCode = contract_code!("Onboarder");
 
 impl ContractCode {
     /// The EVM creation bytecode.
