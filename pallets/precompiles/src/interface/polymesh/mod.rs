@@ -39,10 +39,7 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
     type T = T;
     type Interface = IPolymeshRuntimeCalls;
 
-    const MATCHER: AddressMatcher = AddressMatcher::VarPrefix {
-        id: NonZero::new(10).unwrap(),
-        data_bytes: 16,
-    };
+    const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(65_535).unwrap());
     const HAS_CONTRACT_INFO: bool = false;
 
     fn call(
