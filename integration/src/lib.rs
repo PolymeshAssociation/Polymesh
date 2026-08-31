@@ -363,6 +363,67 @@ pub async fn get_ca_id(
     Ok(None)
 }
 
+#[cfg(feature = "current_release")]
+pub async fn get_checkpoint_id(
+    res: &mut TransactionResults,
+) -> Result<Option<polymesh_api::types::polymesh_primitives::asset::CheckpointId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::Checkpoint(CheckpointEvent::CheckpointCreated(
+                    _,
+                    _,
+                    cp_id,
+                    _,
+                    _,
+                )) => {
+                    return Ok(Some(cp_id.clone()));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "current_release")]
+pub async fn get_distribution_id(
+    res: &mut TransactionResults,
+) -> Result<Option<polymesh_api::types::pallet_corporate_actions::CAId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::CapitalDistribution(CapitalDistributionEvent::Created(
+                    _,
+                    ca_id,
+                    _,
+                )) => {
+                    return Ok(Some(ca_id.clone()));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "current_release")]
+pub async fn get_ballot_id(
+    res: &mut TransactionResults,
+) -> Result<Option<polymesh_api::types::pallet_corporate_actions::CAId>> {
+    if let Some(events) = res.events().await? {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::CorporateBallot(CorporateBallotEvent::Created(_, ca_id, ..)) => {
+                    return Ok(Some(ca_id.clone()));
+                }
+                _ => (),
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Helper trait to add methods to `User`
 #[async_trait::async_trait]
 pub trait IntegrationUser: Signer {
