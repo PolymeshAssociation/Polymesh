@@ -98,19 +98,18 @@ rejected, rather than silently permitted to change state.
   (`FungibleAssetStub.sol`/`.bin`; regenerate with `scripts/build_precompile_stub.sh`, solc
   0.8.33 exactly). Surface = ERC-20 + ERC20Metadata + EIP-2612 permit + mint/burn +
   ERC-7943 (canTransfer/forcedTransfer/frozen tokens) + ERC-3643 (pause/freeze/naming).
-- Runtime side `interface/fungible_asset/mod.rs:51-138`: **address scheme** —
-  `asset_id (16 bytes) ‖ zeros ‖ prefix-id 8` (`AddressMatcher::VarPrefix`, :55-58; fork delta
+- Runtime side `interface/fungible_asset/mod.rs:47-137`: **address scheme** —
+  `asset_id (16 bytes) ‖ zeros ‖ prefix-id 8` (`AddressMatcher::VarPrefix`, :51-54; fork delta
   enabling multi-address precompiles). The trailing bytes are the **precompile selector**: the
   matcher validates them against the registered prefix id *before* any precompile code runs;
-  only then does `asset_id_from_address` decode the leading 16 bytes (:142-160). An address
-  whose suffix doesn't match never reaches this pallet, so each asset has exactly one valid
-  address per precompile interface — the suffix is not an aliasing surface. One precompile
-  instance serves *every* fungible asset; decimals fixed at 6 (:46).
-  The NFT precompile is the same scheme with **prefix-id 9**
-  (`interface/nft/mod.rs:70-73`), so each asset id yields two distinct, non-overlapping
-  addresses. `asset_id_from_address` asserts the *opposite* fungibility on each side, so an
-  asset is only reachable through the matching interface (`interface/fungible_asset/mod.rs:153`,
-  `interface/nft/mod.rs:157`).
+  only then does the shared `Common::asset_id_from_address` (common.rs:231-250) decode the
+  leading 16 bytes. An address whose suffix doesn't match never reaches this pallet, so each
+  asset has exactly one valid address per precompile interface — the suffix is not an aliasing
+  surface. One precompile instance serves *every* fungible asset; decimals fixed at 6 (:42).
+  The NFT precompile is the same scheme with **prefix-id 9** (`interface/nft/mod.rs:66-69`), so
+  each asset id yields two distinct, non-overlapping addresses. Both pass the `AssetKind` they
+  serve to `asset_id_from_address`, which asserts the asset's fungibility matches, so an asset is
+  only reachable through the interface that models it.
 - Call mapping (each dispatches the real extrinsic under the caller's account, with metadata
   swap ⇒ full permission/compliance enforcement):
 
@@ -203,19 +202,24 @@ Polymesh customization of the fee/subsidy path lives in the runtime's `EthExtraI
       (`erc20_mint_checks_secondary_key_permissions`, `substrate_call_checks_...`).
 - [ ] `eth_substrate_call` unwrapping must stay in sync across: fee_details payer matching,
       SubsidyFilter, and the dispatch hook.
-- [ ] Precompile address decoding must validate the asset exists & has the right fungibility
-      (interface/fungible_asset/mod.rs:142-160, interface/nft/mod.rs:146-164) — collisions with
-      contract addresses are prevented by the matcher prefix + deploy-block fork delta, and the
-      asset precompiles must keep distinct prefix ids (8 / 9), asserted by
+- [ ] Precompile address decoding must validate the asset exists & has the right fungibility —
+      done once in `Common::asset_id_from_address` (common.rs:231-250), which every asset
+      precompile calls with its own `AssetKind`. Collisions with contract addresses are prevented
+      by the matcher prefix + deploy-block fork delta, and the asset precompiles must keep
+      distinct prefix ids (8 / 9), asserted by
       `pallets/runtime/tests/src/precompiles.rs::precompile_matchers_are_distinct`.
+- [ ] Storage reads a handler performs itself must be charged with `env.charge`. Reads hidden
+      inside helpers are charged by the helper — `Common::{account_id, account_id32,
+      asset_holder}` each charge the `OriginalAccount` lookup that `AddressMapper::to_account_id`
+      performs, so callers must **not** count it again.
 - [ ] Every precompile must set `const CODE` to its own stub blob. The `Precompile` default is
       a bare revert stub shared by every precompile that forgets it, which makes explorers
       attribute one precompile's verified ABI to all of them.
 - [ ] Adding a call to a `.sol` interface means updating places the compiler does not check: if
       the new call is `view` it must be added to that precompile's read-only whitelist (a
       non-`view` call needs no change — the wildcard arm already rejects it), the upfront
-      `env.charge` must cover any storage the handler reads outside the dispatched extrinsic, and
-      this spec's call table needs the new row.
+      `env.charge` must cover any storage the handler reads directly, and this spec's call table
+      needs the new row.
 - [ ] `supportsInterface` must only claim interfaces really implemented with standard
       signatures — asserted by `precompiles.rs::erc165_interface_ids_match_our_selectors`,
       which recomputes each id from the generated selectors.

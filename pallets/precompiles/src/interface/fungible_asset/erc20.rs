@@ -30,9 +30,9 @@ use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::WeightMeter;
 
-use crate::common::{revert, revert_err, Common, ERR_ASSET_NOT_FOUND};
+use crate::common::{revert, revert_err, Common, ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::{DECIMALS, ERR_INST_NOT_EXECUTED};
+use crate::interface::DECIMALS;
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {

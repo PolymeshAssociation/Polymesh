@@ -35,7 +35,6 @@ mod erc7943;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
-pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long";
 // ========================================================
 

@@ -47,6 +47,7 @@ pub const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 pub const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
+pub const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 const ERR_ASSET_NOT_NON_FUNGIBLE: &str = "Asset is not non-fungible";
 const ERR_INVALID_ASSET_IDENTIFIER: &str =
@@ -209,18 +210,12 @@ impl<T: Config> Common<T> {
     }
 
     /// Convert an ethereum address into an [`AssetHolder`].
-    pub fn asset_holder(
-        env: &mut impl Ext<T = T>,
-        address: Address,
-    ) -> Result<AssetHolder, Error> {
+    pub fn asset_holder(env: &mut impl Ext<T = T>, address: Address) -> Result<AssetHolder, Error> {
         Self::account_holder(&Self::account_id(env, address)?)
     }
 
     /// Convert an ethereum address into a [`AccountId`], for storage keyed by the primitive type.
-    pub fn account_id32(
-        env: &mut impl Ext<T = T>,
-        address: Address,
-    ) -> Result<AccountId, Error> {
+    pub fn account_id32(env: &mut impl Ext<T = T>, address: Address) -> Result<AccountId, Error> {
         let account_id: [u8; 32] = Self::account_id(env, address)?
             .encode()
             .try_into()

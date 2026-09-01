@@ -39,7 +39,6 @@ mod metadata;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
-pub(crate) const ERR_NFT_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 pub(crate) const ERR_TOKEN_ID_OUT_OF_RANGE: &str = "Token id out of range";
 pub(crate) const ERR_NFT_NOT_FOUND: &str = "NFT does not exist";
 pub(crate) const ERR_OWNER_NOT_AN_ACCOUNT: &str =

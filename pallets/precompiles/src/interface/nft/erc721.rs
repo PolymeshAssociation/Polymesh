@@ -33,10 +33,10 @@ use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::WeightMeter;
 
-use crate::common::{revert, Common};
+use crate::common::{revert, Common, ERR_INST_NOT_EXECUTED};
 use crate::interface::nft::{
-    NonFungibleAssetInterface, ERR_NFT_INST_NOT_EXECUTED, ERR_NFT_NOT_FOUND,
-    ERR_OWNER_NOT_AN_ACCOUNT, ERR_UNSAFE_CONTRACT_RECEIVER,
+    NonFungibleAssetInterface, ERR_NFT_NOT_FOUND, ERR_OWNER_NOT_AN_ACCOUNT,
+    ERR_UNSAFE_CONTRACT_RECEIVER,
 };
 use crate::Config;
 
@@ -302,7 +302,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
                 // Instruction was created but not executed
                 if inst_id.is_some() {
-                    return Err(revert(ERR_NFT_INST_NOT_EXECUTED));
+                    return Err(revert(ERR_INST_NOT_EXECUTED));
                 }
 
                 Common::<T>::deposit_event(
