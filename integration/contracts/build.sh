@@ -22,6 +22,14 @@ cd "$(dirname "$0")"
 # Contracts that get deployed (interfaces are only used for the Rust bindings).
 CONTRACTS=(Counter TestERC20 SimpleSwap Onboarder)
 
+# The precompile interfaces are owned by the `polymesh-precompiles` crate; contracts here import
+# them as `polymesh-precompiles/<File>.sol` so there is one authoritative copy. The empty
+# remapping target rewrites that to a plain `<File>.sol` import, which `--include-path` then
+# resolves. `--base-path` is required for `--include-path` and feeds the source unit names into
+# the metadata hash, so changing either of them rewrites the tail of every artifact.
+PRECOMPILE_INTERFACES=../../precompiles/src/interfaces
+IMPORTS=(--base-path . --include-path "$PRECOMPILE_INTERFACES" "polymesh-precompiles/=")
+
 command -v solc >/dev/null || {
 	echo "error: solc not found in PATH" >&2
 	exit 1
@@ -43,6 +51,7 @@ mkdir -p "$OUT_DIR"
 for name in "${CONTRACTS[@]}"; do
 	solc --optimize --optimize-runs 200 --overwrite \
 		--bin --abi \
+		"${IMPORTS[@]}" \
 		-o "$BUILD_DIR" \
 		"${name}.sol" >/dev/null
 
@@ -59,7 +68,7 @@ done
 if command -v resolc >/dev/null; then
 	echo "using $(resolc --version | head -n1)"
 	for name in "${CONTRACTS[@]}"; do
-		resolc --optimization 3 --overwrite --bin -o "$BUILD_DIR/pvm" "${name}.sol" >/dev/null
+		resolc --optimization 3 --overwrite --bin "${IMPORTS[@]}" -o "$BUILD_DIR/pvm" "${name}.sol" >/dev/null
 		cp "$BUILD_DIR/pvm/${name}.sol:${name}.pvm" "$OUT_DIR/${name}.polkavm"
 		echo "  $(printf '%-12s' "$name") $(wc -c <"$OUT_DIR/${name}.polkavm") bytes of hex (PolkaVM)"
 	done

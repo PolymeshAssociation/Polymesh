@@ -33,15 +33,6 @@ alloy_core::sol! {
     "src/interfaces/NonFungibleAssetStub.sol"
 }
 
-pub use IFungibleAsset::{IFungibleAssetCalls, IFungibleAssetEvents};
-pub use INonFungibleAsset::{INonFungibleAssetCalls, INonFungibleAssetEvents};
-
-/// Runtime bytecode for explorer verification of the fungible asset precompile.
-pub const FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/FungibleAssetStub.bin");
-
-/// Runtime bytecode for explorer verification of the non-fungible asset precompile.
-pub const NON_FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/NonFungibleAssetStub.bin");
-
 // Import the general-purpose Polymesh runtime interface. Generates:
 //   - `IPolymeshRuntime::IPolymeshRuntimeCalls` enum
 //   - `IPolymeshRuntime::IPolymeshRuntimeEvents` enum
@@ -50,4 +41,15 @@ alloy_core::sol! {
     "src/interfaces/PolymeshRuntime.sol"
 }
 
+pub use IFungibleAsset::{IFungibleAssetCalls, IFungibleAssetEvents};
+pub use INonFungibleAsset::{INonFungibleAssetCalls, INonFungibleAssetEvents};
 pub use IPolymeshRuntime::{IPolymeshRuntimeCalls, IPolymeshRuntimeEvents};
+
+/// Runtime bytecode for explorer verification of the fungible asset precompile.
+pub const FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/FungibleAssetStub.bin");
+
+/// Runtime bytecode for explorer verification of the non-fungible asset precompile.
+pub const NON_FUNGIBLE_ASSET_CODE: &[u8] = include_bytes!("interfaces/NonFungibleAssetStub.bin");
+
+/// Runtime bytecode for explorer verification of the general-purpose runtime precompile.
+pub const POLYMESH_RUNTIME_CODE: &[u8] = include_bytes!("interfaces/PolymeshRuntime.bin");

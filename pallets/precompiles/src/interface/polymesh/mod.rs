@@ -24,7 +24,7 @@ use core::num::NonZero;
 
 use pallet_revive::precompiles::{AddressMatcher, Error, Ext, Precompile};
 
-use polymesh_precompiles::IPolymeshRuntimeCalls;
+use polymesh_precompiles::{IPolymeshRuntimeCalls, POLYMESH_RUNTIME_CODE};
 
 use crate::common::Common;
 use crate::Config;
@@ -41,6 +41,7 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
 
     const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(65_535).unwrap());
     const HAS_CONTRACT_INFO: bool = false;
+    const CODE: &[u8] = POLYMESH_RUNTIME_CODE;
 
     fn call(
         _address: &[u8; 20],

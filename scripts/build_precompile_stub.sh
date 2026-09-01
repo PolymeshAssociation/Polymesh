@@ -5,15 +5,21 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 INTERFACES_DIR="${ROOT_DIR}/precompiles/src/interfaces"
 SOLC_VERSION="0.8.33"
 
-# Contract stubs to build. Each entry is a bare contract name; the sources and artifacts are
-# "${INTERFACES_DIR}/<name>.sol" and "${INTERFACES_DIR}/<name>.bin".
-STUBS="FungibleAssetStub NonFungibleAssetStub PolymeshRuntime"
+# Contract stubs to build, as "<source-stem>:<contract-name>" pairs. The source is
+# "${INTERFACES_DIR}/<source-stem>.sol" and the artifact "${INTERFACES_DIR}/<source-stem>.bin".
+# <contract-name> is the contract *inside* that source, which does not always match the stem.
+STUBS="
+FungibleAssetStub:FungibleAssetStub
+NonFungibleAssetStub:NonFungibleAssetStub
+PolymeshRuntime:PolymeshRuntimeStub
+"
 
-# build_runtime_bin <contract-name> <output-path>
+# build_runtime_bin <source-stem> <contract-name> <output-path>
 build_runtime_bin() {
-  contract="$1"
-  out_path="$2"
-  sol="${INTERFACES_DIR}/${contract}.sol"
+  stem="$1"
+  contract="$2"
+  out_path="$3"
+  sol="${INTERFACES_DIR}/${stem}.sol"
 
   if [ ! -f "$sol" ]; then
     echo "missing source $sol" >&2
@@ -74,31 +80,34 @@ if [ "$current_solc_version" != "$SOLC_VERSION" ]; then
   exit 1
 fi
 
-check_mode=false
 if [ "${1:-}" = "--check" ]; then
   status=0
   tmp_bin="$(mktemp)"
   trap 'rm -f "$tmp_bin"' EXIT
-  for contract in $STUBS; do
-    bin="${INTERFACES_DIR}/${contract}.bin"
+  for entry in $STUBS; do
+    stem="${entry%%:*}"
+    contract="${entry#*:}"
+    bin="${INTERFACES_DIR}/${stem}.bin"
     if [ ! -s "$bin" ]; then
-      echo "${contract}.bin is missing or empty. Run scripts/build_precompile_stub.sh" >&2
+      echo "${stem}.bin is missing or empty. Run scripts/build_precompile_stub.sh" >&2
       status=1
       continue
     fi
-    build_runtime_bin "$contract" "$tmp_bin"
+    build_runtime_bin "$stem" "$contract" "$tmp_bin"
     if cmp -s "$tmp_bin" "$bin"; then
-      echo "${contract}.bin is up to date"
+      echo "${stem}.bin is up to date"
     else
-      echo "${contract}.bin is stale. Run scripts/build_precompile_stub.sh" >&2
+      echo "${stem}.bin is stale. Run scripts/build_precompile_stub.sh" >&2
       status=1
     fi
   done
   exit "$status"
 fi
 
-for contract in $STUBS; do
-  bin="${INTERFACES_DIR}/${contract}.bin"
-  build_runtime_bin "$contract" "$bin"
+for entry in $STUBS; do
+  stem="${entry%%:*}"
+  contract="${entry#*:}"
+  bin="${INTERFACES_DIR}/${stem}.bin"
+  build_runtime_bin "$stem" "$contract" "$bin"
   echo "Wrote $bin"
 done
