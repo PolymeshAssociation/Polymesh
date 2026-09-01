@@ -591,6 +591,9 @@ pub mod pallet {
         ReceiptExpired,
         /// Source and destination are the exact same AssetHolder.
         SenderSameAsReceiver,
+        /// Deprecated placeholder kept to preserve error indices after removing
+        /// `AllowancesNotSupportedForNFTs` (NFT spender transfers now use approvals).
+        DeprecatedAllowancesNotSupportedForNFTs,
         /// The instruction is already locked. It must be unlocked before relocking.
         InstructionAlreadyLocked,
         /// The instruction is not in `LockedForExecution` status and cannot be unlocked.
