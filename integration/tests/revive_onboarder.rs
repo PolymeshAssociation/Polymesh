@@ -22,7 +22,7 @@ use polymesh_precompiles::IPolymeshRuntime;
 const POLYMESH_RUNTIME_ADDRESS: Address = address!("0x00000000000000000000000000000000FFFF0000");
 
 async fn onboards_and_creates_asset(kind: CodeKind) -> Result<()> {
-    let (mut tester, node) = revive_tester().await?;
+    let (mut tester, _node) = revive_tester().await?;
     let mut users = tester.users(&["OnboarderDeployer"]).await?;
     let api = tester.api.clone();
     let deployer = &mut users[0];
@@ -47,8 +47,6 @@ async fn onboards_and_creates_asset(kind: CodeKind) -> Result<()> {
         )
         .await?;
 
-    // These events come from the precompile, not the contract, so they're addressed to
-    // `POLYMESH_RUNTIME_ADDRESS` rather than `contract.address`.
     let did_events: Vec<IPolymeshRuntime::DidCreated> =
         decode_logs(&mut res, &to_h160(&POLYMESH_RUNTIME_ADDRESS)).await?;
     assert_eq!(did_events.len(), 1, "expected one DidCreated event");
