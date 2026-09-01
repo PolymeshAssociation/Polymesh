@@ -52,11 +52,10 @@ async fn erc3643_set_symbol() -> Result<()> {
 
     assert_eq!(erc3643.symbol().await.unwrap(), "".to_string());
 
-    erc3643
-        .set_symbol(&mut caller, "NEW_SYMBOL".to_string())
-        .await?;
+    let symbol = unique_symbol("ERC3643");
+    erc3643.set_symbol(&mut caller, symbol.clone()).await?;
 
-    assert_eq!(erc3643.symbol().await.unwrap(), "NEW_SYMBOL".to_string());
+    assert_eq!(erc3643.symbol().await.unwrap(), symbol);
 
     Ok(())
 }

@@ -546,7 +546,7 @@ jobs:
             exit 1
       - run:
           name: Run polymesh-api integration tests
-          command: cargo nextest run --release --features current_release --locked
+          command: cargo nextest run --release --features current_release,timed --locked
           working_directory: ./integration
           no_output_timeout: 30m
   contract-deploy-test-foundry:
