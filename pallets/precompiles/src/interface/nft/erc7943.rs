@@ -44,8 +44,8 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let charged = env.charge(worst_case_weight)?;
 
         let nft_id = Self::nft_id(call.tokenId)?;
-        let from = Common::<T>::asset_holder(call.from)?;
-        let to = Common::<T>::asset_holder(call.to)?;
+        let from = Common::<T>::asset_holder(env, call.from)?;
+        let to = Common::<T>::asset_holder(env, call.to)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
@@ -77,7 +77,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
         let nft_id = Self::nft_id(call.tokenId)?;
-        let source = Common::<T>::asset_holder(call.from)?;
+        let source = Common::<T>::asset_holder(env, call.from)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
 
         Common::<T>::call_runtime(
@@ -123,7 +123,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
-        let sender = Common::<T>::asset_holder(call.account)?;
+        let sender = Common::<T>::asset_holder(env, call.account)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(
@@ -154,7 +154,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
-        let receiver = Common::<T>::asset_holder(call.account)?;
+        let receiver = Common::<T>::asset_holder(env, call.account)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(

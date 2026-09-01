@@ -49,7 +49,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let owner = Common::<T>::account_id32(call.owner)?;
+        let owner = Common::<T>::account_id32(env, call.owner)?;
         let count = NFTAccountCount::<T>::get(&owner, &asset_id);
 
         Ok(INonFungibleAsset::balanceOfCall::abi_encode_returns(
@@ -143,7 +143,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let spender = if call.to == Address::ZERO {
             None
         } else {
-            Some(Common::<T>::account_id(call.to))
+            Some(Common::<T>::account_id(env, call.to)?)
         };
 
         Common::<T>::call_runtime(
@@ -175,7 +175,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
-        let operator = Common::<T>::account_id(call.operator);
+        let operator = Common::<T>::account_id(env, call.operator)?;
 
         Common::<T>::call_runtime(
             env,
@@ -226,8 +226,8 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let owner = Common::<T>::account_id32(call.owner)?;
-        let operator = Common::<T>::account_id32(call.operator)?;
+        let owner = Common::<T>::account_id32(env, call.owner)?;
+        let operator = Common::<T>::account_id32(env, call.operator)?;
         let approved = OperatorApproval::<T>::get((&owner, &operator, &asset_id));
 
         Ok(INonFungibleAsset::isApprovedForAllCall::abi_encode_returns(
@@ -258,7 +258,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         env: &mut impl Ext<T = T>,
     ) -> Result<(), Error> {
         let nft_id = Self::nft_id(token_id)?;
-        let from_holder = Common::<T>::asset_holder(from)?;
+        let from_holder = Common::<T>::asset_holder(env, from)?;
 
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
         let fund = Fund::new(FundDescription::NonFungible(nfts), None);
@@ -271,7 +271,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let charged_amount = env.charge(worst_case_weight)?;
 
         let caller = Common::<T>::caller(env)?;
-        let to_holder = Common::<T>::asset_holder(to)?;
+        let to_holder = Common::<T>::asset_holder(env, to)?;
 
         let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
 

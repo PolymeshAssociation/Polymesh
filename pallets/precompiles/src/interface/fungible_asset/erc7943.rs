@@ -39,8 +39,8 @@ impl<T: Config> FungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_worst_case();
         let charged = env.charge(transfer_report_worst_case_weight)?;
 
-        let from = Common::<T>::asset_holder(call.from)?;
-        let to = Common::<T>::asset_holder(call.to)?;
+        let from = Common::<T>::asset_holder(env, call.from)?;
+        let to = Common::<T>::asset_holder(env, call.to)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let errors = pallet_asset::Pallet::<T>::asset_transfer_report(
@@ -74,7 +74,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
-        let source = Common::<T>::asset_holder(call.from)?;
+        let source = Common::<T>::asset_holder(env, call.from)?;
         let value = Common::<T>::to_balance(call.amount)?;
 
         Common::<T>::call_runtime(
@@ -109,7 +109,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
-        let acc_to_freeze = Common::<T>::asset_holder(call.account)?;
+        let acc_to_freeze = Common::<T>::asset_holder(env, call.account)?;
         let amount = Common::<T>::to_balance(call.amount)?;
 
         Common::<T>::call_runtime(
@@ -143,7 +143,7 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
 
-        let from = Common::<T>::asset_holder(call.account)?;
+        let from = Common::<T>::asset_holder(env, call.account)?;
 
         let frozen_tokens = pallet_asset::Pallet::<T>::get_holders_frozen_balance(&from, &asset_id);
         let frozen_tokens = Common::<T>::to_u256(frozen_tokens)?;
@@ -163,7 +163,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(transfer_is_allowed_for_holder_worst_case_weight)?;
 
-        let sender = Common::<T>::asset_holder(call.account)?;
+        let sender = Common::<T>::asset_holder(env, call.account)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(
@@ -197,7 +197,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(transfer_is_allowed_for_holder_worst_case_weight)?;
 
-        let receiver = Common::<T>::asset_holder(call.account)?;
+        let receiver = Common::<T>::asset_holder(env, call.account)?;
 
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(

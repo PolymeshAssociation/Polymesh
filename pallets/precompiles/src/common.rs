@@ -36,7 +36,7 @@ use pallet_revive::precompiles::{AddressMapper, Error, Ext, RuntimeCosts, H256};
 use pallet_revive::{DispatchRuntimeCall, ExecOrigin, H160};
 
 use polymesh_precompiles::IPolymeshRuntime;
-use polymesh_primitives::asset::{AssetType, CustomAssetTypeId, NonFungibleType};
+use polymesh_primitives::asset::{AssetId, AssetType, CustomAssetTypeId, NonFungibleType};
 use polymesh_primitives::{AccountId, AssetHolder, AssetIdentifier, Balance};
 
 use crate::{CallOf, Config};
@@ -46,9 +46,33 @@ pub const ERR_INVALID_CALLER: &str = "Invalid caller";
 pub const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 pub const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
+pub const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
+const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
+const ERR_ASSET_NOT_NON_FUNGIBLE: &str = "Asset is not non-fungible";
 const ERR_INVALID_ASSET_IDENTIFIER: &str =
     "Asset identifier value has the wrong length for its type";
 // ========================================================
+
+/// The kind of asset a precompile interface serves.
+///
+/// Each asset precompile is registered under its own address-matcher prefix, so one asset id
+/// yields a distinct address per interface. Requiring the expected kind here keeps an asset
+/// reachable only through the interface that models it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AssetKind {
+    Fungible,
+    NonFungible,
+}
+
+impl AssetKind {
+    /// The revert message for an asset of the wrong kind.
+    fn mismatch(&self) -> &'static str {
+        match self {
+            Self::Fungible => ERR_ASSET_NOT_FUNGIBLE,
+            Self::NonFungible => ERR_ASSET_NOT_NON_FUNGIBLE,
+        }
+    }
+}
 
 /// Build a revert error with the given `reason`.
 pub fn revert(reason: impl Into<String>) -> Error {
@@ -162,24 +186,73 @@ impl<T: Config> Common<T> {
         Error::Error(pallet_revive::Error::<T>::StateChangeDenied.into())
     }
 
+    /// Weight of converting an ethereum address into a substrate account.
+    ///
+    /// `AddressMapper::to_account_id` reads `pallet_revive::OriginalAccount` for every address it
+    /// is given, falling back to the `0xEE`-suffixed account when there is no entry. The read
+    /// happens either way, so every conversion costs one.
+    fn address_mapping_weight() -> Weight {
+        <T as frame_system::Config>::DbWeight::get().reads(1)
+    }
+
     /// Convert an ethereum address into a substrate account.
-    pub fn account_id(address: Address) -> T::AccountId {
+    ///
+    /// Charges the storage read the mapping performs, so callers must not account for it
+    /// themselves.
+    pub fn account_id(env: &mut impl Ext<T = T>, address: Address) -> Result<T::AccountId, Error> {
+        env.charge(Self::address_mapping_weight())?;
+
         let address = H160::from(address.into_array());
-        <T as pallet_revive::Config>::AddressMapper::to_account_id(&address)
+        Ok(<T as pallet_revive::Config>::AddressMapper::to_account_id(
+            &address,
+        ))
     }
 
     /// Convert an ethereum address into an [`AssetHolder`].
-    pub fn asset_holder(address: Address) -> Result<AssetHolder, Error> {
-        Self::account_holder(&Self::account_id(address))
+    pub fn asset_holder(
+        env: &mut impl Ext<T = T>,
+        address: Address,
+    ) -> Result<AssetHolder, Error> {
+        Self::account_holder(&Self::account_id(env, address)?)
     }
 
     /// Convert an ethereum address into a [`AccountId`], for storage keyed by the primitive type.
-    pub fn account_id32(address: Address) -> Result<AccountId, Error> {
-        let account_id: [u8; 32] = Self::account_id(address)
+    pub fn account_id32(
+        env: &mut impl Ext<T = T>,
+        address: Address,
+    ) -> Result<AccountId, Error> {
+        let account_id: [u8; 32] = Self::account_id(env, address)?
             .encode()
             .try_into()
             .map_err(|err| revert_err(err, ERR_INVALID_ACCOUNT_ID))?;
         Ok(AccountId::from(account_id))
+    }
+
+    /// Decode the [`AssetId`] a precompile address refers to, checking that the asset exists and
+    /// is of the expected [`AssetKind`].
+    ///
+    /// Bytes `[0..16)` of the address are the asset id; the trailing bytes are the matcher's
+    /// prefix id and have already been validated by `pallet_revive` before dispatch, so one
+    /// address names exactly one asset.
+    pub fn asset_id_from_address(
+        env: &mut impl Ext<T = T>,
+        address: &[u8; 20],
+        kind: AssetKind,
+    ) -> Result<AssetId, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
+        let asset_id = AssetId::from_raw(bytes);
+
+        let asset_details = pallet_asset::Assets::<T>::try_get(asset_id)
+            .map_err(|err| revert_err(err, ERR_ASSET_NOT_FOUND))?;
+
+        let is_non_fungible = asset_details.asset_type.is_non_fungible();
+        if is_non_fungible != (kind == AssetKind::NonFungible) {
+            return Err(revert(kind.mismatch()));
+        }
+
+        Ok(asset_id)
     }
 
     /// Convert a primitive [`AccountId`] into an ethereum address.

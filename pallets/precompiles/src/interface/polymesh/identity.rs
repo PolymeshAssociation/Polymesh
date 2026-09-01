@@ -35,7 +35,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let caller = Common::<T>::caller(env)?;
-        let target_account = Common::<T>::account_id(call.targetAccount);
+        let target_account = Common::<T>::account_id(env, call.targetAccount)?;
 
         Common::<T>::call_runtime(
             env,

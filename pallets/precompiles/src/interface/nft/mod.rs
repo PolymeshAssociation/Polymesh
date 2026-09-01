@@ -24,15 +24,13 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::num::NonZero;
 
-use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::primitives::U256;
 use pallet_revive::precompiles::{AddressMatcher, Error, Ext, Precompile};
 
 use polymesh_precompiles::{INonFungibleAssetCalls, NON_FUNGIBLE_ASSET_CODE};
-use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::nft::NFTId;
 
-use crate::common::{revert, revert_err, Common};
+use crate::common::{revert_err, AssetKind, Common};
 use crate::Config;
 
 mod erc721;
@@ -41,8 +39,6 @@ mod metadata;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
-pub(crate) const ERR_NFT_ASSET_NOT_FOUND: &str = "Asset not found";
-pub(crate) const ERR_ASSET_NOT_NON_FUNGIBLE: &str = "Asset is not non-fungible";
 pub(crate) const ERR_NFT_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 pub(crate) const ERR_TOKEN_ID_OUT_OF_RANGE: &str = "Token id out of range";
 pub(crate) const ERR_NFT_NOT_FOUND: &str = "NFT does not exist";
@@ -81,7 +77,7 @@ impl<T: Config> Precompile for NonFungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         Common::<T>::ensure_direct_call(env)?;
 
-        let asset_id = Self::asset_id_from_address(address, env)?;
+        let asset_id = Common::<T>::asset_id_from_address(env, address, AssetKind::NonFungible)?;
 
         // Calls allowed in a read-only (`STATICCALL`/`eth_call`) context, i.e. exactly those
         // declared `view` in `NonFungibleAssetStub.sol`. This is a whitelist so that a call added
@@ -151,27 +147,6 @@ impl<T: Config> Precompile for NonFungibleAssetInterface<T> {
 }
 
 impl<T: Config> NonFungibleAssetInterface<T> {
-    /// Returns the [`AssetId`] from the address.
-    pub(crate) fn asset_id_from_address(
-        address: &[u8; 20],
-        env: &mut impl Ext<T = T>,
-    ) -> Result<AssetId, Error> {
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
-
-        let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
-        let asset_id = AssetId::from_raw(bytes);
-
-        match pallet_asset::Assets::<T>::try_get(asset_id) {
-            Ok(asset_details) => {
-                if !asset_details.asset_type.is_non_fungible() {
-                    return Err(revert(ERR_ASSET_NOT_NON_FUNGIBLE));
-                }
-                Ok(asset_id)
-            }
-            Err(err) => Err(revert_err(err, ERR_NFT_ASSET_NOT_FOUND)),
-        }
-    }
-
     /// Converts an ERC-721 `tokenId` into an [`NFTId`].
     ///
     /// `NFTId` is a `u64`, so ids beyond `u64::MAX` cannot name an existing NFT.
