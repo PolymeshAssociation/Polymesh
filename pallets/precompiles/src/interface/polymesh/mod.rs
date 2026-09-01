@@ -1,0 +1,71 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
+// Copyright (c) 2020 Polymesh Association
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+//! Polymesh Runtime Precompile
+//!
+//! Routes ABI-encoded function calls to general-purpose runtime extrinsics that, unlike the
+//! ones behind [`crate::FungibleAssetInterface`], are not scoped to a single asset.
+
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+use core::num::NonZero;
+
+use pallet_revive::precompiles::{AddressMatcher, Error, Ext, Precompile};
+
+use polymesh_precompiles::IPolymeshRuntimeCalls;
+
+use crate::common::Common;
+use crate::Config;
+
+mod asset;
+mod identity;
+
+/// General-purpose Polymesh runtime extrinsics, exposed as a precompile at a single fixed address
+pub struct PolymeshRuntimeInterface<T>(PhantomData<T>);
+
+impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
+    type T = T;
+    type Interface = IPolymeshRuntimeCalls;
+
+    const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(65_535).unwrap());
+    const HAS_CONTRACT_INFO: bool = false;
+
+    fn call(
+        _address: &[u8; 20],
+        input: &Self::Interface,
+        env: &mut impl Ext<T = Self::T>,
+    ) -> Result<Vec<u8>, Error> {
+        Common::<T>::ensure_direct_call(env)?;
+
+        match input {
+            // State-changing calls - check read-only
+            IPolymeshRuntimeCalls::assetCreateAsset(_)
+            | IPolymeshRuntimeCalls::assetRegisterTicker(_)
+            | IPolymeshRuntimeCalls::identityRegisterDid(_)
+            | IPolymeshRuntimeCalls::identitySelfRegisterDid(_)
+                if env.is_read_only() =>
+            {
+                Err(Common::<T>::state_change_denied())
+            }
+
+            IPolymeshRuntimeCalls::assetCreateAsset(call) => Self::create_asset(call, env),
+            IPolymeshRuntimeCalls::assetRegisterTicker(call) => Self::register_ticker(call, env),
+            IPolymeshRuntimeCalls::identityRegisterDid(call) => Self::register_did(call, env),
+            IPolymeshRuntimeCalls::identitySelfRegisterDid(call) => {
+                Self::self_register_did(call, env)
+            }
+        }
+    }
+}

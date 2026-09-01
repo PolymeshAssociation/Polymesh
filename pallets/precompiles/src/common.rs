@@ -35,7 +35,9 @@ use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::{AddressMapper, Error, Ext, RuntimeCosts, H256};
 use pallet_revive::{DispatchRuntimeCall, ExecOrigin, H160};
 
-use polymesh_primitives::{AccountId, AssetHolder, Balance};
+use polymesh_precompiles::IPolymeshRuntime;
+use polymesh_primitives::asset::{AssetType, CustomAssetTypeId, NonFungibleType};
+use polymesh_primitives::{AccountId, AssetHolder, AssetIdentifier, Balance};
 
 use crate::{CallOf, Config};
 
@@ -44,6 +46,8 @@ pub const ERR_INVALID_CALLER: &str = "Invalid caller";
 pub const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 pub const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
+const ERR_INVALID_ASSET_IDENTIFIER: &str =
+    "Asset identifier value has the wrong length for its type";
 // ========================================================
 
 /// Build a revert error with the given `reason`.
@@ -194,6 +198,51 @@ impl<T: Config> Common<T> {
     /// Convert a [`Balance`] to a `U256` value.
     pub fn to_u256(value: Balance) -> Result<U256, Error> {
         U256::try_from(value).map_err(|err| revert_err(err, ERR_BALANCE_CONVERSION_FAILED))
+    }
+
+    /// Converts the ABI representation of an [`AssetType`] into the pallet's own type.
+    pub fn to_asset_type(sol_asset_type: &IPolymeshRuntime::AssetType) -> Result<AssetType, Error> {
+        use IPolymeshRuntime::AssetTypeKind as Kind;
+
+        Ok(match sol_asset_type.kind {
+            Kind::EquityCommon => AssetType::EquityCommon,
+            Kind::EquityPreferred => AssetType::EquityPreferred,
+            Kind::Commodity => AssetType::Commodity,
+            Kind::FixedIncome => AssetType::FixedIncome,
+            Kind::REIT => AssetType::REIT,
+            Kind::Fund => AssetType::Fund,
+            Kind::RevenueShareAgreement => AssetType::RevenueShareAgreement,
+            Kind::StructuredProduct => AssetType::StructuredProduct,
+            Kind::Derivative => AssetType::Derivative,
+            Kind::Custom => AssetType::Custom(CustomAssetTypeId(sol_asset_type.customTypeId)),
+            Kind::StableCoin => AssetType::StableCoin,
+            Kind::NonFungibleDerivative => AssetType::NonFungible(NonFungibleType::Derivative),
+            Kind::NonFungibleFixedIncome => AssetType::NonFungible(NonFungibleType::FixedIncome),
+            Kind::NonFungibleInvoice => AssetType::NonFungible(NonFungibleType::Invoice),
+            Kind::NonFungibleCustom => AssetType::NonFungible(NonFungibleType::Custom(
+                CustomAssetTypeId(sol_asset_type.customTypeId),
+            )),
+            Kind::__Invalid => return Err(revert("Invalid asset type")),
+        })
+    }
+
+    /// Converts the ABI representation of an [`AssetIdentifier`] into the pallet's own type.
+    pub fn to_asset_identifier(
+        sol_asset_identifier: &IPolymeshRuntime::AssetIdentifier,
+    ) -> Result<AssetIdentifier, Error> {
+        use IPolymeshRuntime::AssetIdentifierKind as Kind;
+
+        let value = sol_asset_identifier.value.as_ref();
+        let invalid_length = || revert(ERR_INVALID_ASSET_IDENTIFIER);
+
+        Ok(match sol_asset_identifier.identifierType {
+            Kind::CUSIP => AssetIdentifier::CUSIP(value.try_into().map_err(|_| invalid_length())?),
+            Kind::CINS => AssetIdentifier::CINS(value.try_into().map_err(|_| invalid_length())?),
+            Kind::ISIN => AssetIdentifier::ISIN(value.try_into().map_err(|_| invalid_length())?),
+            Kind::LEI => AssetIdentifier::LEI(value.try_into().map_err(|_| invalid_length())?),
+            Kind::FIGI => AssetIdentifier::FIGI(value.try_into().map_err(|_| invalid_length())?),
+            Kind::__Invalid => return Err(revert("Invalid asset identifier type")),
+        })
     }
 
     /// Deposit an event to the runtime.

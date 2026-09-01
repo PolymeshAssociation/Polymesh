@@ -198,7 +198,10 @@ parameter_types! {
 }
 
 // Precompiles
-type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
+type Precompiles = (
+    pallet_precompiles::FungibleAssetInterface<Runtime>,
+    pallet_precompiles::PolymeshRuntimeInterface<Runtime>,
+);
 
 impl pallet_precompiles::Config for Runtime {
     type RuntimeCall = RuntimeCall;

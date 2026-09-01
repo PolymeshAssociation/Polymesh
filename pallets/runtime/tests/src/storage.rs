@@ -423,7 +423,10 @@ mod runtime {
 polymesh_runtime_common::runtime_apis! {}
 
 // Precompiles
-type Precompiles = (pallet_precompiles::FungibleAssetInterface<Runtime>,);
+type Precompiles = (
+    pallet_precompiles::FungibleAssetInterface<Runtime>,
+    pallet_precompiles::PolymeshRuntimeInterface<Runtime>,
+);
 
 impl pallet_precompiles::Config for Runtime {
     type RuntimeCall = RuntimeCall;
