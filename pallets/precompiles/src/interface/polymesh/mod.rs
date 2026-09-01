@@ -50,17 +50,15 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         Common::<T>::ensure_direct_call(env)?;
 
-        match input {
-            // State-changing calls - check read-only
-            IPolymeshRuntimeCalls::assetCreateAsset(_)
-            | IPolymeshRuntimeCalls::assetRegisterTicker(_)
-            | IPolymeshRuntimeCalls::identityRegisterDid(_)
-            | IPolymeshRuntimeCalls::identitySelfRegisterDid(_)
-                if env.is_read_only() =>
-            {
-                Err(Common::<T>::state_change_denied())
-            }
+        // Every call in `IPolymeshRuntime` dispatches an extrinsic — none is declared `view` — so
+        // the read-only whitelist is empty and the whole interface is rejected in a read-only
+        // (`STATICCALL`/`eth_call`) context. Anything added here must stay state-changing, or it
+        // needs a whitelist like the ones in `fungible_asset` and `nft`.
+        if env.is_read_only() {
+            return Err(Common::<T>::state_change_denied());
+        }
 
+        match input {
             IPolymeshRuntimeCalls::assetCreateAsset(call) => Self::create_asset(call, env),
             IPolymeshRuntimeCalls::assetRegisterTicker(call) => Self::register_ticker(call, env),
             IPolymeshRuntimeCalls::identityRegisterDid(call) => Self::register_did(call, env),

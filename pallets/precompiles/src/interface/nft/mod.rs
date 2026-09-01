@@ -83,21 +83,30 @@ impl<T: Config> Precompile for NonFungibleAssetInterface<T> {
 
         let asset_id = Self::asset_id_from_address(address, env)?;
 
-        match input {
-            // State-changing calls - check read-only
-            INonFungibleAssetCalls::transferFrom(_)
-            | INonFungibleAssetCalls::safeTransferFrom_0(_)
-            | INonFungibleAssetCalls::safeTransferFrom_1(_)
-            | INonFungibleAssetCalls::approve(_)
-            | INonFungibleAssetCalls::setApprovalForAll(_)
-            | INonFungibleAssetCalls::mint(_)
-            | INonFungibleAssetCalls::burn(_)
-            | INonFungibleAssetCalls::forcedTransfer(_)
-                if env.is_read_only() =>
-            {
-                Err(Common::<T>::state_change_denied())
+        // Calls allowed in a read-only (`STATICCALL`/`eth_call`) context, i.e. exactly those
+        // declared `view` in `NonFungibleAssetStub.sol`. This is a whitelist so that a call added
+        // to `INonFungibleAsset` and left unclassified is *rejected* here rather than silently
+        // allowed to change state; the wildcard arm means the compiler cannot warn about the
+        // omission.
+        if env.is_read_only() {
+            match input {
+                INonFungibleAssetCalls::balanceOf(_)
+                | INonFungibleAssetCalls::ownerOf(_)
+                | INonFungibleAssetCalls::getApproved(_)
+                | INonFungibleAssetCalls::isApprovedForAll(_)
+                | INonFungibleAssetCalls::name(_)
+                | INonFungibleAssetCalls::symbol(_)
+                | INonFungibleAssetCalls::tokenURI(_)
+                | INonFungibleAssetCalls::supportsInterface(_)
+                | INonFungibleAssetCalls::totalSupply(_)
+                | INonFungibleAssetCalls::canTransfer(_)
+                | INonFungibleAssetCalls::canSend(_)
+                | INonFungibleAssetCalls::canReceive(_) => {}
+                _ => return Err(Common::<T>::state_change_denied()),
             }
+        }
 
+        match input {
             // ERC721 functions
             INonFungibleAssetCalls::balanceOf(call) => Self::balance_of(asset_id, call, env),
             INonFungibleAssetCalls::ownerOf(call) => Self::owner_of(asset_id, call, env),

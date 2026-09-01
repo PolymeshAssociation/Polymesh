@@ -69,26 +69,29 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
         let asset_id = Self::asset_id_from_address(address, env)?;
         let contract_addr = H160::from(*address);
 
-        match input {
-            // State-changing calls - check read-only
-            IFungibleAssetCalls::transfer(_)
-            | IFungibleAssetCalls::mint(_)
-            | IFungibleAssetCalls::approve(_)
-            | IFungibleAssetCalls::transferFrom(_)
-            | IFungibleAssetCalls::burn(_)
-            | IFungibleAssetCalls::permit(_)
-            | IFungibleAssetCalls::forcedTransfer(_)
-            | IFungibleAssetCalls::setFrozenTokens(_)
-            | IFungibleAssetCalls::setName(_)
-            | IFungibleAssetCalls::setSymbol(_)
-            | IFungibleAssetCalls::pause(_)
-            | IFungibleAssetCalls::unpause(_)
-            | IFungibleAssetCalls::setAddressFrozen(_)
-                if env.is_read_only() =>
-            {
-                Err(Common::<T>::state_change_denied())
+        // Calls allowed in a read-only (`STATICCALL`/`eth_call`) context, i.e. exactly those
+        // declared `view` in `FungibleAssetStub.sol`. This is a whitelist so that a call added to
+        // `IFungibleAsset` and left unclassified is *rejected* here rather than silently allowed
+        // to change state; the wildcard arm means the compiler cannot warn about the omission.
+        if env.is_read_only() {
+            match input {
+                IFungibleAssetCalls::totalSupply(_)
+                | IFungibleAssetCalls::balanceOf(_)
+                | IFungibleAssetCalls::allowance(_)
+                | IFungibleAssetCalls::nonces(_)
+                | IFungibleAssetCalls::DOMAIN_SEPARATOR(_)
+                | IFungibleAssetCalls::name(_)
+                | IFungibleAssetCalls::symbol(_)
+                | IFungibleAssetCalls::decimals(_)
+                | IFungibleAssetCalls::canTransfer(_)
+                | IFungibleAssetCalls::canSend(_)
+                | IFungibleAssetCalls::canReceive(_)
+                | IFungibleAssetCalls::getFrozenTokens(_) => {}
+                _ => return Err(Common::<T>::state_change_denied()),
             }
+        }
 
+        match input {
             // ERC20 functions
             IFungibleAssetCalls::transfer(call) => Self::transfer(asset_id, call, env),
             IFungibleAssetCalls::totalSupply(_) => Self::total_supply(asset_id, env),

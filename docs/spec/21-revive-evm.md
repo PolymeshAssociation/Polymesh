@@ -86,8 +86,11 @@ integration tests onboard the 0xEE fallback account first — `integration/tests
 ## 5. The precompiles
 
 Each precompile lives in its own module under `pallets/precompiles/src/interface/`:
-`fungible_asset/`, `nft/` and `polymesh/`. All three reject delegate-calls and root callers, and
-reject state-changing calls made in a read-only (`STATICCALL`/`eth_call`) context.
+`fungible_asset/`, `nft/` and `polymesh/`. All three reject delegate-calls and root callers.
+In a read-only (`STATICCALL`/`eth_call`) context each `call()` applies a **whitelist** of the
+calls its `.sol` interface declares `view`, rejecting everything else with `StateChangeDenied`.
+The whitelist is deliberately fail-closed: a call added to an interface but not classified is
+rejected, rather than silently permitted to change state.
 
 ### 5.1 The fungible-asset precompile
 
@@ -159,8 +162,9 @@ asserts the constants still match the chain.
 
 `IPolymeshRuntime` (`PolymeshRuntime.sol`/`.bin`, `interface/polymesh/mod.rs`) exposes runtime
 extrinsics that are **not scoped to a single asset**, so it needs no address data:
-`AddressMatcher::Fixed(65_535)` puts it at the one fixed address `0x…FFFF0000` (:42). Every call
-it exposes is state-changing, so the whole interface is rejected in a read-only context.
+`AddressMatcher::Fixed(65_535)` puts it at the one fixed address `0x…FFFF0000` (:42). No call it
+exposes is `view`, so its read-only whitelist is empty and the whole interface is rejected in a
+read-only context.
 
 | Solidity | Runtime call | Ref |
 |---|---|---|
@@ -207,9 +211,11 @@ Polymesh customization of the fee/subsidy path lives in the runtime's `EthExtraI
 - [ ] Every precompile must set `const CODE` to its own stub blob. The `Precompile` default is
       a bare revert stub shared by every precompile that forgets it, which makes explorers
       attribute one precompile's verified ABI to all of them.
-- [ ] Adding a call to a `.sol` interface means updating **three** places that the compiler does
-      not check: the read-only guard in that precompile's `call()`, the upfront `env.charge` for
-      any storage the handler reads outside the dispatched extrinsic, and this spec's call table.
+- [ ] Adding a call to a `.sol` interface means updating places the compiler does not check: if
+      the new call is `view` it must be added to that precompile's read-only whitelist (a
+      non-`view` call needs no change — the wildcard arm already rejects it), the upfront
+      `env.charge` must cover any storage the handler reads outside the dispatched extrinsic, and
+      this spec's call table needs the new row.
 - [ ] `supportsInterface` must only claim interfaces really implemented with standard
       signatures — asserted by `precompiles.rs::erc165_interface_ids_match_our_selectors`,
       which recomputes each id from the generated selectors.
