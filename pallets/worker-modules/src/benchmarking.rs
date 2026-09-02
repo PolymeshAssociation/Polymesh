@@ -59,7 +59,7 @@ benchmarks! {
 
         // Upload dummy code for each module.
         let mut modules = vec![];
-        for idx in 0..m {
+        for idx in 0..(m-1) {
             let code = vec![idx as u8; 1024]; // dummy code
             let code_hash = code.using_encoded(sp_io::hashing::blake2_256);
             Pallet::<T>::upload_protocol_module_code(RawOrigin::Root.into(), protocol, code.try_into().expect("Failed to convert code to BoundedVec"))
