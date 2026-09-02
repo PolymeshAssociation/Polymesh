@@ -38,6 +38,15 @@ impl crate::WeightInfo for SubstrateWeight {
     fn test_version() -> Weight {
         Weight::zero()
     }
+    fn submit_work_request() -> Weight {
+        Weight::zero()
+    }
+    fn set_protocol_version() -> Weight {
+        Weight::zero()
+    }
+    fn set_enable_work_session() -> Weight {
+        Weight::zero()
+    }
     fn on_init() -> Weight {
         Weight::zero()
     }

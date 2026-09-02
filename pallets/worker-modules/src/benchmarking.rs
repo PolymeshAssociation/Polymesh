@@ -66,13 +66,21 @@ benchmarks! {
                 .expect("Failed to upload dummy module code");
             modules.push(BackendModuleDefinition {
                 module_kind: BackendModuleKind::Wasm,
-                module_version: 0,
+                module_version: 1,
                 code_hash,
             });
         }
 
-        // Create dummy module definitions and upload dummy code for each module.
+        // Add a native module to the config.
+        let native_code = protocol.encode();
+        let native_code_hash = blake2_256(&native_code);
+        modules.push(BackendModuleDefinition {
+            module_kind: BackendModuleKind::Native,
+            module_version: 1,
+            code_hash: native_code_hash,
+        });
 
+        // Create a dummy protocol module config with the uploaded modules.
         let config = ProtocolModuleConfig {
             protocol,
             initialization_method: ProtocolInitializationMethod::ContextData(
