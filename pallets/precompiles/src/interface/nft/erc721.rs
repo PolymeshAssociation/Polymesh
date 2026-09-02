@@ -115,9 +115,9 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     /// precompile cannot re-enter the EVM to make that call, so instead of skipping the check —
     /// which would silently drop the guarantee — we refuse every receiver with code.
     ///
-    /// This is stricter than the standard: a compliant receiver is rejected too. It is never
-    /// weaker, so an NFT can not become stranded. Contracts that knowingly handle NFTs can still
-    /// receive them via `transferFrom`.
+    /// This is stricter than the standard: a compliant receiver contract is rejected too. This
+    /// reduces the risk of an NFT becoming stranded in a contract that cannot handle it. Contracts
+    /// that knowingly handle NFTs can still receive them via `transferFrom`.
     ///
     /// Note precompile addresses also carry code, so they are refused as well.
     fn ensure_eoa_receiver(to: Address, env: &mut impl Ext<T = T>) -> Result<(), Error> {

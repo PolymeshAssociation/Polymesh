@@ -143,9 +143,9 @@ one NFT collection.
 - `safeTransferFrom` **only accepts externally-owned accounts**. A precompile cannot re-enter the
   EVM to invoke the required `onERC721Received` callback, so instead of skipping the check —
   which would silently drop the guarantee the method exists to provide — `ensure_eoa_receiver`
-  (nft/erc721.rs:105) rejects any receiver with code, precompiles included. Strictly stronger
-  than ERC-721, never weaker: a token cannot be stranded. Contracts that knowingly handle NFTs
-  use `transferFrom`. Supporting `onERC721Received` properly is deferred.
+  (nft/erc721.rs:123) rejects any receiver with code, precompiles included. This is stricter than
+  ERC-721 (a compliant receiver contract is refused too) and reduces the risk of tokens being stranded.
+  Contracts that knowingly handle NFTs use `transferFrom`. Supporting `onERC721Received` properly is deferred.
 - `ownerOf` reverts for portfolio-held NFTs, which have no EVM address.
 
 `redeem_nft` prices itself on `number_of_keys`, defaulting to the worst case of 255 when `None`;
