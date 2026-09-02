@@ -30,6 +30,9 @@ pub mod weights;
 
 pub trait WeightInfo {
     fn test_version() -> Weight;
+    fn submit_work_request() -> Weight;
+    fn set_protocol_version() -> Weight;
+    fn set_enable_work_session() -> Weight;
     fn on_init() -> Weight;
 }
 
@@ -73,6 +76,10 @@ pub mod pallet {
     pub(crate) type CurrentWorkerSessionId<T: Config> =
         StorageValue<_, WorkerSessionId, OptionQuery>;
 
+    /// Enable work session per block. This is used for testing purpose only.
+    #[pallet::storage]
+    pub(crate) type EnableWorkSession<T: Config> = StorageValue<_, bool, ValueQuery>;
+
     /// The current testing protocol version.
     #[pallet::storage]
     pub(crate) type CurrentProtocolVersion<T: Config> = StorageValue<_, Protocol, OptionQuery>;
@@ -80,7 +87,6 @@ pub mod pallet {
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
-        pub protocol: Protocol,
         #[serde(skip)]
         pub _config: sp_std::marker::PhantomData<T>,
     }
@@ -88,7 +94,8 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            CurrentProtocolVersion::<T>::put(self.protocol);
+            CurrentProtocolVersion::<T>::put(TEST_PROTOCOL);
+            EnableWorkSession::<T>::put(false);
         }
     }
 
@@ -113,17 +120,38 @@ pub mod pallet {
 
             // Test verify protocol version work request.
             let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest { protocol });
-            let _ = Self::submit_work_request(request)?;
+            Self::session_submit_work_request(request)?;
 
             Ok(())
         }
 
         /// Set what version of the testing protocol.
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::test_version())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_protocol_version())]
         pub fn set_protocol_version(origin: OriginFor<T>, protocol: Protocol) -> DispatchResult {
             ensure_root(origin)?;
             CurrentProtocolVersion::<T>::put(protocol);
+            Ok(())
+        }
+
+        /// Set whether to enable work session per block. This is used for testing purpose only.
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_enable_work_session())]
+        pub fn set_enable_work_session(origin: OriginFor<T>, enable: bool) -> DispatchResult {
+            ensure_root(origin)?;
+            EnableWorkSession::<T>::put(enable);
+            Ok(())
+        }
+
+        /// Submit a work request to the worker session.
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_work_request())]
+        pub fn submit_work_request(
+            origin: OriginFor<T>,
+            request: TestWorkRequest,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+            Self::session_submit_work_request(request)?;
             Ok(())
         }
     }
@@ -131,8 +159,9 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     pub fn init_block() -> Weight {
-        Self::start_session();
-
+        if EnableWorkSession::<T>::get() {
+            Self::start_session();
+        }
         <T as Config>::WeightInfo::on_init()
     }
 
@@ -158,7 +187,7 @@ impl<T: Config> Pallet<T> {
         CurrentWorkerSessionId::<T>::put(session_id);
     }
 
-    pub fn submit_work_request(
+    pub fn session_submit_work_request(
         request: TestWorkRequest,
     ) -> Result<Option<TestWorkResponse>, DispatchError> {
         let session_id = CurrentWorkerSessionId::<T>::get().ok_or(Error::<T>::NoSession)?;
