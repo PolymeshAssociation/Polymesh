@@ -21,8 +21,8 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives::GetExtra;
 use polymesh_worker_common::{
-    BackendCodeHash, BackendContextHash, BackendModuleDefinition, Protocol, ProtocolId,
-    ProtocolModuleConfigHash, ProtocolVersion,
+    BackendCodeHash, BackendContextHash, BackendModuleDefinition, BackendModuleKind, Protocol,
+    ProtocolId, ProtocolModuleConfigHash, ProtocolVersion,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -420,13 +420,6 @@ pub mod pallet {
                 Error::<T>::ProtocolNotRegistered
             );
 
-            let config_hash = config.using_encoded(blake2_256);
-            // Ensure the config hash is not already stored for the protocol.
-            ensure!(
-                !ProtocolConfig::<T>::contains_key(&protocol, &config_hash),
-                Error::<T>::ProtocolModuleConfigAlreadyExists
-            );
-
             // Ensure the context hashes exist for the protocol.
             match &config.initialization_method {
                 ProtocolInitializationMethod::ContextHash(context_hash) => {
@@ -440,11 +433,33 @@ pub mod pallet {
 
             // Ensure all module code hashes exist for the protocol.
             for module in &config.modules {
-                ensure!(
-                    ProtocolModuleCode::<T>::contains_key(&protocol, &module.code_hash),
-                    Error::<T>::ModuleCodeMissing
-                );
+                if module.module_kind == BackendModuleKind::Native {
+                    // Encode the protocol as the native code (so each protocol version has a unique native code hash).
+                    let native_code: BoundedVec<u8, T::MaxModuleCodeSize> = protocol
+                        .encode()
+                        .try_into()
+                        .map_err(|_| Error::<T>::ModuleCodeMissing)?;
+                    let native_code_hash = blake2_256(&native_code);
+                    ensure!(
+                        module.code_hash == native_code_hash,
+                        Error::<T>::ModuleCodeMissing
+                    );
+                    // Store the native code for the protocol.
+                    ProtocolModuleCode::<T>::insert(&protocol, &native_code_hash, native_code);
+                } else {
+                    ensure!(
+                        ProtocolModuleCode::<T>::contains_key(&protocol, &module.code_hash),
+                        Error::<T>::ModuleCodeMissing
+                    );
+                }
             }
+
+            let config_hash = config.using_encoded(blake2_256);
+            // Ensure the config hash is not already stored for the protocol.
+            ensure!(
+                !ProtocolConfig::<T>::contains_key(&protocol, &config_hash),
+                Error::<T>::ProtocolModuleConfigAlreadyExists
+            );
 
             // Store the protocol module config.
             ProtocolConfig::<T>::insert(&protocol, &config_hash, &config);
