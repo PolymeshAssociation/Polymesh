@@ -92,5 +92,5 @@ benchmarks! {
                 .try_into()
                 .expect("Failed to convert backends to BoundedVec"),
         };
-    }: _(RawOrigin::Root, protocol, config)
+    }: _(RawOrigin::Root, config)
 }

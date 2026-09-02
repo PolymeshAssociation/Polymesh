@@ -398,7 +398,6 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, must be root.
-        /// * `protocol` - The protocol to upload the module config for.
         /// * `config` - The module config to upload.
         ///
         /// # Errors
@@ -409,11 +408,11 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::upload_protocol_module_config(config.modules.len() as u32))]
         pub fn upload_protocol_module_config(
             origin: OriginFor<T>,
-            protocol: Protocol,
             config: ProtocolModuleConfig<T::MaxModuleContextSize, T::MaxModulesPerConfig>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
+            let protocol = config.protocol.clone();
             // Ensure the protocol is registered.
             ensure!(
                 Metadata::<T>::contains_key(&protocol.id),
@@ -454,7 +453,7 @@ pub mod pallet {
                 }
             }
 
-            let config_hash = config.using_encoded(blake2_256);
+            let config_hash = blake2_256(&config.encode());
             // Ensure the config hash is not already stored for the protocol.
             ensure!(
                 !ProtocolConfig::<T>::contains_key(&protocol, &config_hash),

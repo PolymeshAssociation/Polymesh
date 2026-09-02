@@ -21,6 +21,9 @@ pub use asset_helper::*;
 pub mod confidential_assets_helper;
 
 #[cfg(feature = "current_release")]
+pub mod worker_modules_helper;
+
+#[cfg(feature = "current_release")]
 pub mod contracts;
 
 #[cfg(feature = "current_release")]
