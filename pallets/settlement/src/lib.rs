@@ -72,6 +72,7 @@ use sp_std::vec;
 use pallet_asset::MandatoryMediators;
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::DidRecords;
+use pallet_nft::WeightInfo as NFTWeightInfo;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_primitives::crypto::{ChainScopedMessage, SETTLEMENT_RECEIPT_LABEL};
@@ -590,8 +591,9 @@ pub mod pallet {
         ReceiptExpired,
         /// Source and destination are the exact same AssetHolder.
         SenderSameAsReceiver,
-        /// Spender allowances are not supported for non-fungible token transfers.
-        AllowancesNotSupportedForNFTs,
+        /// Deprecated placeholder kept to preserve error indices after removing
+        /// `AllowancesNotSupportedForNFTs` (NFT spender transfers now use approvals).
+        DeprecatedAllowancesNotSupportedForNFTs,
         /// The instruction is already locked. It must be unlocked before relocking.
         InstructionAlreadyLocked,
         /// The instruction is not in `LockedForExecution` status and cannot be unlocked.
@@ -1655,7 +1657,9 @@ impl<T: Config> Pallet<T> {
 
     /// Authorize the transfer source.
     ///
-    /// - Account source where caller != owner: checks and decrements spender allowance.
+    /// - Account source where caller != owner: checks and consumes the spender's approval.
+    ///   Fungible funds use the `pallet_asset` allowance; NFTs use the `pallet_nft` per-token or
+    ///   collection-wide operator approval.
     /// - Portfolio source: checks custody.
     fn ensure_transfer_source_authorized(
         resolved_from: &AssetHolder,
@@ -1677,8 +1681,14 @@ impl<T: Config> Pallet<T> {
                                 *amount,
                             )?;
                         }
-                        FundDescription::NonFungible(_) => {
-                            return Err(Error::<T>::AllowancesNotSupportedForNFTs.into());
+                        FundDescription::NonFungible(nfts) => {
+                            Self::check_accrue(
+                                weight_meter,
+                                <T as pallet_nft::Config>::WeightInfo::spend_nft_approval(
+                                    nfts.len() as u32,
+                                ),
+                            )?;
+                            Nft::<T>::spend_nft_approval(owner, &caller_data.sender, nfts)?;
                         }
                     }
                 }
@@ -4125,9 +4135,15 @@ impl<T: Config> SettlementFnTrait<T> for Pallet<T> {
             asset_count.non_fungible(),
             0,
         ));
-        // Spender allowance only applies when caller differs from owner and source is an account.
+        // Spender approval only applies when caller differs from owner and source is an account.
+        // The fungible and non-fungible paths consume different approvals, so charge accordingly.
         if matches!(from, Some(AssetHolder::Account(_))) {
-            limit = limit.saturating_add(T::AssetFn::spend_allowance_weight());
+            limit = limit.saturating_add(match &fund.description {
+                FundDescription::Fungible { .. } => T::AssetFn::spend_allowance_weight(),
+                FundDescription::NonFungible(nfts) => {
+                    <T as pallet_nft::Config>::WeightInfo::spend_nft_approval(nfts.len() as u32)
+                }
+            });
         }
         // Memo write only happens in the cross-DID path when a memo is provided.
         if fund.memo.is_some() {

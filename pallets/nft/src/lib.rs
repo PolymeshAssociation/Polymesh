@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
@@ -35,12 +35,17 @@ type PortfolioPallet<T> = pallet_portfolio::Pallet<T>;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+pub mod migrations;
+
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;
     fn redeem_nft(n: u32) -> Weight;
     fn base_nft_transfer(n: u32) -> Weight;
     fn controller_transfer(n: u32) -> Weight;
+    fn approve() -> Weight;
+    fn set_approval_for_all() -> Weight;
+    fn spend_nft_approval(n: u32) -> Weight;
 }
 
 pub use pallet::*;
@@ -67,7 +72,7 @@ pub mod pallet {
         type MaxNumberOfNFTsCount: Get<u32>;
     }
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -88,6 +93,29 @@ pub mod pallet {
             Option<AssetHolder>,
             HoldingsUpdateReason,
         ),
+        /// A per-token approval was set or revoked.
+        ///
+        /// `spender` is `None` when the approval was revoked.
+        NFTApproval {
+            owner: AccountId32,
+            spender: Option<AccountId32>,
+            asset_id: AssetId,
+            nft_id: NFTId,
+        },
+        /// A collection-wide operator approval was granted or revoked.
+        NFTApprovalForAll {
+            owner: AccountId32,
+            operator: AccountId32,
+            asset_id: AssetId,
+            approved: bool,
+        },
+        /// A spender consumed a per-token approval to transfer an NFT.
+        NFTApprovalSpent {
+            owner: AccountId32,
+            spender: AccountId32,
+            asset_id: AssetId,
+            nft_id: NFTId,
+        },
     }
 
     /// The total number of NFTs per identity.
@@ -161,6 +189,61 @@ pub mod pallet {
         NFTId,
         AssetHolder,
         OptionQuery,
+    >;
+
+    /// The number of NFTs of a given collection held by an account key.
+    ///
+    /// This is the account-level counterpart of `pallet_portfolio::PortfolioNFTCount`, mirroring
+    /// the split used by `pallet_asset::FrozenBalance` / `PortfolioFrozenAssets`. A zero count is
+    /// never stored; the entry is removed instead.
+    ///
+    /// Unlike [`NumberOfNFTs`], which aggregates over a whole identity, this is scoped to a
+    /// single account key and is what the ERC-721 precompile reports as `balanceOf`.
+    #[pallet::storage]
+    pub type NFTAccountCount<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        AccountId32,
+        Blake2_128Concat,
+        AssetId,
+        NFTCount,
+        ValueQuery,
+    >;
+
+    /// The account approved to transfer a specific NFT, if any.
+    ///
+    /// Mirrors the ERC-721 per-token approval. The entry is cleared whenever the NFT changes
+    /// hands, so an approval never survives a transfer.
+    #[pallet::storage]
+    pub type TokenApproval<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AssetId,
+        Blake2_128Concat,
+        NFTId,
+        AccountId32,
+        OptionQuery,
+    >;
+
+    /// Collection-wide operator approvals, keyed by `(owner, operator, asset_id)`.
+    ///
+    /// Mirrors the ERC-721 `setApprovalForAll`, but scoped to a single collection rather than to
+    /// every collection the owner holds: each ERC-721 precompile address is one collection, and
+    /// this matches `pallet_asset::Allowances` being per-`AssetId`. `false` is never stored; the
+    /// entry is removed instead.
+    ///
+    /// Uses `StorageNMap` so that all operator approvals of a given owner can be iterated by
+    /// prefix.
+    #[pallet::storage]
+    pub type OperatorApproval<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, AccountId32>,
+            NMapKey<Blake2_128Concat, AccountId32>,
+            NMapKey<Blake2_128Concat, AssetId>,
+        ),
+        bool,
+        ValueQuery,
     >;
 
     #[pallet::genesis_config]
@@ -314,6 +397,66 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::base_transfer_nft(origin, nfts, to, memo)
         }
+
+        /// Approves `spender` to transfer the `nft_id` NFT of the `asset_id` collection on the
+        /// caller's behalf.
+        ///
+        /// This is the ERC-721 per-token approval. The approval is consumed when used and is
+        /// cleared whenever the NFT changes hands, so it never survives a transfer.
+        ///
+        /// Passing `None` for `spender` revokes any existing approval.
+        ///
+        /// # Arguments
+        /// * `origin` - Signed origin. Must hold the NFT in its account key, or be an approved
+        ///   operator for the collection.
+        /// * `asset_id` - the [`AssetId`] of the NFT collection.
+        /// * `nft_id` - the [`NFTId`] of the NFT being approved.
+        /// * `spender` - the account authorized to transfer the NFT, or `None` to revoke.
+        ///
+        /// # Errors
+        /// * `NFTApprovalNotAuthorized` - the caller neither holds the NFT nor is an approved
+        ///   operator for the collection.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as Config>::WeightInfo::approve())]
+        pub fn approve(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            nft_id: NFTId,
+            spender: Option<T::AccountId>,
+        ) -> DispatchResult {
+            Self::base_approve(origin, asset_id, nft_id, spender)
+        }
+
+        /// Grants or revokes `operator` the right to transfer any NFT of the `asset_id`
+        /// collection held by the caller's account key.
+        ///
+        /// This is the ERC-721 `setApprovalForAll`, scoped to a single collection rather than to
+        /// every collection the caller holds.
+        ///
+        /// Unlike a per-token approval, an operator approval is not consumed on use and is not
+        /// cleared when an NFT is transferred.
+        ///
+        /// # Arguments
+        /// * `origin` - Signed origin.
+        /// * `asset_id` - the [`AssetId`] of the NFT collection.
+        /// * `operator` - the account being granted or revoked.
+        /// * `approved` - `true` to grant, `false` to revoke.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_approval_for_all())]
+        pub fn set_approval_for_all(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            operator: T::AccountId,
+            approved: bool,
+        ) -> DispatchResult {
+            Self::base_set_approval_for_all(origin, asset_id, operator, approved)
+        }
     }
 
     #[pallet::error]
@@ -376,6 +519,13 @@ pub mod pallet {
         NumberOfKeysIsLessThanExpected,
         /// The NFT is not locked.
         NFTIsNotLocked,
+        /// The caller is not allowed to approve a spender for this NFT.
+        ///
+        /// Only the account key that currently holds the NFT, or an approved operator for the
+        /// collection, may set a per-token approval.
+        NFTApprovalNotAuthorized,
+        /// The spender has no approval to transfer this NFT.
+        InsufficientNFTApproval,
     }
 }
 
@@ -796,6 +946,128 @@ impl<T: Config> Pallet<T> {
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
+    /// Sets or revokes the per-token approval for `nft_id`.
+    fn base_approve(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        nft_id: NFTId,
+        spender: Option<T::AccountId>,
+    ) -> DispatchResult {
+        let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+        let owner = Self::to_account_id32(&caller_data.sender)?;
+
+        // Only the account key currently holding the NFT, or an approved operator for the
+        // collection, may set a per-token approval.
+        let holder = AssetHolder::Account(owner.clone());
+        ensure!(
+            Self::is_holder_of_nft(&asset_id, &nft_id, &holder)
+                || Self::is_approved_operator_of_nft(&asset_id, &nft_id, &owner),
+            Error::<T>::NFTApprovalNotAuthorized
+        );
+
+        let spender = spender.map(|s| Self::to_account_id32(&s)).transpose()?;
+        match &spender {
+            Some(spender) => TokenApproval::<T>::insert(asset_id, nft_id, spender),
+            None => TokenApproval::<T>::remove(asset_id, nft_id),
+        }
+
+        Self::deposit_event(Event::NFTApproval {
+            owner,
+            spender,
+            asset_id,
+            nft_id,
+        });
+        Ok(())
+    }
+
+    /// Grants or revokes a collection-wide operator approval.
+    fn base_set_approval_for_all(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        operator: T::AccountId,
+        approved: bool,
+    ) -> DispatchResult {
+        let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
+        let owner = Self::to_account_id32(&caller_data.sender)?;
+        let operator = Self::to_account_id32(&operator)?;
+
+        // `false` is never stored; the entry is removed instead.
+        if approved {
+            OperatorApproval::<T>::insert((&owner, &operator, &asset_id), true);
+        } else {
+            OperatorApproval::<T>::remove((&owner, &operator, &asset_id));
+        }
+
+        Self::deposit_event(Event::NFTApprovalForAll {
+            owner,
+            operator,
+            asset_id,
+            approved,
+        });
+        Ok(())
+    }
+
+    /// Checks and consumes `spender`'s approval to transfer `nfts` on `owner`'s behalf.
+    ///
+    /// An operator approval for the collection authorizes every NFT in `nfts` and is not
+    /// consumed. Otherwise each NFT must carry a per-token approval naming `spender`, which is
+    /// consumed on use.
+    ///
+    /// # Errors
+    /// * `InsufficientNFTApproval` - the spender is not approved for one of the NFTs.
+    pub fn spend_nft_approval(
+        owner: &AccountId32,
+        spender: &T::AccountId,
+        nfts: &NFTs,
+    ) -> DispatchResult {
+        let spender = Self::to_account_id32(spender)?;
+        let asset_id = *nfts.asset_id();
+
+        // A collection-wide operator approval covers every NFT and is never consumed.
+        if OperatorApproval::<T>::get((owner, &spender, &asset_id)) {
+            return Ok(());
+        }
+
+        for nft_id in nfts.ids() {
+            ensure!(
+                TokenApproval::<T>::get(&asset_id, nft_id).as_ref() == Some(&spender),
+                Error::<T>::InsufficientNFTApproval
+            );
+            // Consume the approval. It would be cleared by the transfer anyway, but doing it here
+            // keeps `spend_nft_approval` correct on its own.
+            TokenApproval::<T>::remove(&asset_id, nft_id);
+
+            Self::deposit_event(Event::NFTApprovalSpent {
+                owner: owner.clone(),
+                spender: spender.clone(),
+                asset_id,
+                nft_id: *nft_id,
+            });
+        }
+        Ok(())
+    }
+
+    /// Returns `true` if `account` is an approved operator for the holder of `nft_id`.
+    fn is_approved_operator_of_nft(
+        asset_id: &AssetId,
+        nft_id: &NFTId,
+        account: &AccountId32,
+    ) -> bool {
+        match Owner::<T>::get(asset_id, nft_id) {
+            Some(AssetHolder::Account(owner)) => {
+                OperatorApproval::<T>::get((&owner, account, asset_id))
+            }
+            // Portfolio-held NFTs cannot have approvals: `approve` requires an account holder.
+            _ => false,
+        }
+    }
+
+    /// Converts a `T::AccountId` into the `AccountId32` used by the NFT storage maps.
+    fn to_account_id32(acc_id: &T::AccountId) -> Result<AccountId32, DispatchError> {
+        AccountId32::decode(&mut &acc_id.encode()[..])
+            .map_err(|_| pallet_base::Error::<T>::InvalidAccountId.into())
+    }
+
     pub fn base_controller_transfer(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
@@ -1002,6 +1274,10 @@ impl<T: Config> Pallet<T> {
         match asset_owner {
             AssetHolder::Account(ref acc_id) => {
                 if !NFTHolder::<T>::contains_key((acc_id, &asset_id, &nft_id)) {
+                    Self::mutate_account_nft_count(acc_id, &asset_id, |count| {
+                        count.saturating_add(1)
+                    });
+
                     let acc_id = pallet_base::pallet_account_id::<T>(acc_id)?;
                     IdentityPallet::<T>::add_account_key_ref_count(&acc_id);
                 }
@@ -1024,10 +1300,17 @@ impl<T: Config> Pallet<T> {
         match asset_holder {
             AssetHolder::Account(acc_id) => {
                 if NFTHolder::<T>::contains_key((acc_id, asset_id, nft_id)) {
+                    Self::mutate_account_nft_count(acc_id, asset_id, |count| {
+                        count.saturating_sub(1)
+                    });
+
                     let acc_id = pallet_base::pallet_account_id::<T>(&acc_id)?;
                     IdentityPallet::<T>::remove_account_key_ref_count(&acc_id);
                 }
                 NFTHolder::<T>::remove((acc_id, asset_id, nft_id));
+                // Per ERC-721, a per-token approval never survives a transfer. Only account
+                // holders can hold approvals, so this is the only arm that needs to clear one.
+                TokenApproval::<T>::remove(asset_id, nft_id);
             }
             AssetHolder::Portfolio(portfolio_id) => {
                 PortfolioPallet::<T>::remove_nft_from_portfolio(portfolio_id, asset_id, nft_id);
@@ -1035,6 +1318,41 @@ impl<T: Config> Pallet<T> {
         }
         Owner::<T>::remove(asset_id, nft_id);
         Ok(())
+    }
+
+    /// Returns the number of NFTs of `asset_id` held by `asset_holder`.
+    ///
+    /// Unlike [`NumberOfNFTs`], which aggregates over a whole identity, this is scoped to a
+    /// single account key or portfolio.
+    pub fn get_holders_nft_count(asset_holder: &AssetHolder, asset_id: &AssetId) -> NFTCount {
+        match asset_holder {
+            AssetHolder::Account(acc_id) => Self::get_account_nft_count(acc_id, asset_id),
+            AssetHolder::Portfolio(portfolio_id) => {
+                PortfolioPallet::<T>::get_portfolio_nft_count(portfolio_id, asset_id)
+            }
+        }
+    }
+
+    /// Returns the number of NFTs of `asset_id` held by the `acc_id` account key.
+    pub fn get_account_nft_count(acc_id: &AccountId32, asset_id: &AssetId) -> NFTCount {
+        NFTAccountCount::<T>::get(acc_id, asset_id)
+    }
+
+    /// Mutates the number of NFTs of `asset_id` held by the `acc_id` account key.
+    ///
+    /// `f` receives the current count and returns the new one. A resulting count of zero removes
+    /// the entry rather than storing the default.
+    fn mutate_account_nft_count(
+        acc_id: &AccountId32,
+        asset_id: &AssetId,
+        f: impl FnOnce(NFTCount) -> NFTCount,
+    ) {
+        let count = f(NFTAccountCount::<T>::get(acc_id, asset_id));
+        if count == 0 {
+            NFTAccountCount::<T>::remove(acc_id, asset_id);
+        } else {
+            NFTAccountCount::<T>::insert(acc_id, asset_id, count);
+        }
     }
 
     /// Returns `true` if the `asset_holder` holds the given `nft_id` of the `asset_id`

@@ -107,7 +107,9 @@ macro_rules! misc_pallet_impls {
             type MaxConsumers = frame_support::traits::ConstU32<16>;
             /// The set code logic, just the default since we're not a parachain.
             type SingleBlockMigrations = (
-                polymesh_runtime_common::migration::MigrateGrandpaToV5<Runtime>
+                polymesh_runtime_common::migration::MigrateGrandpaToV5<Runtime>,
+                pallet_portfolio::migrations::MigrateToV5<Runtime>,
+                pallet_nft::migrations::MigrateToV8<Runtime>,
             );
             type MultiBlockMigrator = MultiBlockMigrations;
             type PreInherents = ();
@@ -1431,6 +1433,23 @@ macro_rules! runtime_apis {
                         skip_locked_check,
                         &mut weight_meter
                     )
+                }
+
+                #[inline]
+                fn token_approval(
+                    asset_id: AssetId,
+                    nft_id: polymesh_primitives::NFTId,
+                ) -> Option<polymesh_primitives::AccountId> {
+                    pallet_nft::TokenApproval::<Runtime>::get(asset_id, nft_id)
+                }
+
+                #[inline]
+                fn operator_approval(
+                    owner: polymesh_primitives::AccountId,
+                    operator: polymesh_primitives::AccountId,
+                    asset_id: AssetId,
+                ) -> bool {
+                    pallet_nft::OperatorApproval::<Runtime>::get((&owner, &operator, &asset_id))
                 }
             }
 

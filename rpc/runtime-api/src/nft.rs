@@ -18,11 +18,12 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_std::vec::Vec;
 
-use polymesh_primitives::{AssetHolder, NFTs, PortfolioId};
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::{AccountId, AssetHolder, NFTId, NFTs, PortfolioId};
 
 sp_api::decl_runtime_apis! {
 
-    #[api_version(3)]
+    #[api_version(4)]
     pub trait NFTApi {
         #[changed_in(3)]
         fn transfer_report(
@@ -39,5 +40,15 @@ sp_api::decl_runtime_apis! {
             nfts: NFTs,
             skip_locked_check: bool,
         ) -> Vec<DispatchError>;
+
+        /// Returns the account approved to transfer `nft_id`, if any.
+        ///
+        /// This is the ERC-721 `getApproved`.
+        fn token_approval(asset_id: AssetId, nft_id: NFTId) -> Option<AccountId>;
+
+        /// Returns `true` if `operator` may transfer any NFT of `asset_id` held by `owner`.
+        ///
+        /// This is the ERC-721 `isApprovedForAll`, scoped to a single collection.
+        fn operator_approval(owner: AccountId, operator: AccountId, asset_id: AssetId) -> bool;
     }
 }
