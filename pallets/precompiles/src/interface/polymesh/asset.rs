@@ -26,8 +26,8 @@ use polymesh_primitives::asset::{AssetName, FundingRoundName};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
-use crate::common::{revert, revert_err, Common};
-use crate::interface::{PolymeshRuntimeInterface, ERR_ASSET_NOT_FOUND};
+use crate::common::{revert, revert_err, Common, ERR_ASSET_NOT_FOUND};
+use crate::interface::PolymeshRuntimeInterface;
 use crate::Config;
 
 const ERR_TICKER_TOO_LONG: &str = "Ticker is too long";

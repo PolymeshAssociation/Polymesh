@@ -128,7 +128,7 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
 
-        let acc_to_freeze = Common::<T>::asset_holder(call.account)?;
+        let acc_to_freeze = Common::<T>::asset_holder(env, call.account)?;
 
         Common::<T>::call_runtime(
             env,

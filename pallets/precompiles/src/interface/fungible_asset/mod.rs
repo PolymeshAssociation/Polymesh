@@ -21,14 +21,12 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::num::NonZero;
 
-use frame_support::traits::Get;
 use pallet_revive::precompiles::{AddressMatcher, Error, Ext, Precompile};
 use pallet_revive::H160;
 
 use polymesh_precompiles::{IFungibleAssetCalls, FUNGIBLE_ASSET_CODE};
-use polymesh_primitives::asset::AssetId;
 
-use crate::common::{revert, revert_err, Common};
+use crate::common::{AssetKind, Common};
 use crate::Config;
 
 mod erc20;
@@ -37,9 +35,6 @@ mod erc7943;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
-pub(crate) const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
-pub(crate) const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
-pub(crate) const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long";
 // ========================================================
 
@@ -66,29 +61,32 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         Common::<T>::ensure_direct_call(env)?;
 
-        let asset_id = Self::asset_id_from_address(address, env)?;
+        let asset_id = Common::<T>::asset_id_from_address(env, address, AssetKind::Fungible)?;
         let contract_addr = H160::from(*address);
 
-        match input {
-            // State-changing calls - check read-only
-            IFungibleAssetCalls::transfer(_)
-            | IFungibleAssetCalls::mint(_)
-            | IFungibleAssetCalls::approve(_)
-            | IFungibleAssetCalls::transferFrom(_)
-            | IFungibleAssetCalls::burn(_)
-            | IFungibleAssetCalls::permit(_)
-            | IFungibleAssetCalls::forcedTransfer(_)
-            | IFungibleAssetCalls::setFrozenTokens(_)
-            | IFungibleAssetCalls::setName(_)
-            | IFungibleAssetCalls::setSymbol(_)
-            | IFungibleAssetCalls::pause(_)
-            | IFungibleAssetCalls::unpause(_)
-            | IFungibleAssetCalls::setAddressFrozen(_)
-                if env.is_read_only() =>
-            {
-                Err(Common::<T>::state_change_denied())
+        // Calls allowed in a read-only (`STATICCALL`/`eth_call`) context, i.e. exactly those
+        // declared `view` in `FungibleAssetStub.sol`. This is a whitelist so that a call added to
+        // `IFungibleAsset` and left unclassified is *rejected* here rather than silently allowed
+        // to change state; the wildcard arm means the compiler cannot warn about the omission.
+        if env.is_read_only() {
+            match input {
+                IFungibleAssetCalls::totalSupply(_)
+                | IFungibleAssetCalls::balanceOf(_)
+                | IFungibleAssetCalls::allowance(_)
+                | IFungibleAssetCalls::nonces(_)
+                | IFungibleAssetCalls::DOMAIN_SEPARATOR(_)
+                | IFungibleAssetCalls::name(_)
+                | IFungibleAssetCalls::symbol(_)
+                | IFungibleAssetCalls::decimals(_)
+                | IFungibleAssetCalls::canTransfer(_)
+                | IFungibleAssetCalls::canSend(_)
+                | IFungibleAssetCalls::canReceive(_)
+                | IFungibleAssetCalls::getFrozenTokens(_) => {}
+                _ => return Err(Common::<T>::state_change_denied()),
             }
+        }
 
+        match input {
             // ERC20 functions
             IFungibleAssetCalls::transfer(call) => Self::transfer(asset_id, call, env),
             IFungibleAssetCalls::totalSupply(_) => Self::total_supply(asset_id, env),
@@ -133,29 +131,6 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             IFungibleAssetCalls::setAddressFrozen(call) => {
                 Self::set_address_frozen(asset_id, call, env)
             }
-        }
-    }
-}
-
-impl<T: Config> FungibleAssetInterface<T> {
-    /// Returns the [`AssetId`] from the address.
-    pub(crate) fn asset_id_from_address(
-        address: &[u8; 20],
-        env: &mut impl Ext<T = T>,
-    ) -> Result<AssetId, Error> {
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
-
-        let bytes: [u8; 16] = address[0..16].try_into().expect("slice is 16 bytes; qed");
-        let asset_id = AssetId::from_raw(bytes);
-
-        match pallet_asset::Assets::<T>::try_get(asset_id) {
-            Ok(asset_details) => {
-                if asset_details.asset_type.is_non_fungible() {
-                    return Err(revert(ERR_ASSET_NOT_FUNGIBLE));
-                }
-                Ok(asset_id)
-            }
-            Err(err) => Err(revert_err(err, ERR_ASSET_NOT_FOUND)),
         }
     }
 }

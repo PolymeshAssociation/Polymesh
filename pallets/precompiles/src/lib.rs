@@ -20,14 +20,16 @@
 extern crate alloc;
 
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-use frame_support::traits::{GetCallMetadata, IsType};
+use frame_support::traits::{Get, GetCallMetadata, IsType};
 use frame_system::pallet_prelude::OriginFor;
 use sp_runtime::traits::Dispatchable;
+
+use polymesh_primitives::asset_metadata::AssetMetadataGlobalKey;
 
 pub mod common;
 pub mod interface;
 
-pub use interface::{FungibleAssetInterface, PolymeshRuntimeInterface};
+pub use interface::{FungibleAssetInterface, NonFungibleAssetInterface, PolymeshRuntimeInterface};
 
 /// Runtime configuration needed by the Polymesh precompiles.
 pub trait Config:
@@ -37,6 +39,7 @@ pub trait Config:
     + pallet_asset::checkpoint::Config
     + pallet_settlement::Config
     + pallet_identity::Config
+    + pallet_nft::Config
 {
     /// The runtime's aggregated call type.
     ///
@@ -48,7 +51,19 @@ pub trait Config:
         + IsType<<Self as frame_system::Config>::RuntimeCall>
         + From<pallet_asset::Call<Self>>
         + From<pallet_settlement::Call<Self>>
-        + From<pallet_identity::Call<Self>>;
+        + From<pallet_identity::Call<Self>>
+        + From<pallet_nft::Call<Self>>;
+
+    /// The global asset metadata key holding a per-NFT `tokenUri`.
+    ///
+    /// Global metadata keys are assigned sequentially by the GC, so the value differs between
+    /// networks. Provided as a constant to keep `tokenURI` free of a name-to-key lookup.
+    type TokenUriMetadataKey: Get<AssetMetadataGlobalKey>;
+
+    /// The global asset metadata key holding a collection-level `baseTokenUri`.
+    ///
+    /// Used as the fallback when an NFT has no `tokenUri` of its own.
+    type BaseTokenUriMetadataKey: Get<AssetMetadataGlobalKey>;
 }
 
 /// The runtime call type used by the precompiles.

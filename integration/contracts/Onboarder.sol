@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./IPolymeshRuntime.sol";
+import {IPolymeshRuntime} from "polymesh-precompiles/PolymeshRuntime.sol";
 
 /// @dev Exercises calling several `IPolymeshRuntime` extrinsics from inside a single contract
 /// call: this contract self-registers its own identity, then creates an asset and registers a

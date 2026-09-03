@@ -30,6 +30,7 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
+use polymesh_primitives::asset_metadata::AssetMetadataGlobalKey;
 use polymesh_primitives::constants::currency::*;
 use polymesh_primitives::constants::ENSURED_MAX_LEN;
 use polymesh_primitives::protocol_fee::ProtocolOp;
@@ -193,11 +194,22 @@ parameter_types! {
 // Precompiles
 type Precompiles = (
     pallet_precompiles::FungibleAssetInterface<Runtime>,
+    pallet_precompiles::NonFungibleAssetInterface<Runtime>,
     pallet_precompiles::PolymeshRuntimeInterface<Runtime>,
 );
 
+parameter_types! {
+    /// Develop & Mainnet: baseTokenUri = 1, baseImageUri = 2, tokenUri = 3, imageUri = 4.
+    /// Staging          : baseTokenUri = 3, baseImageUri = 5, tokenUri = 2, imageUri = 4.
+    /// Testnet          : baseTokenUri = 2, baseImageUri = 3, tokenUri = 4, imageUri = 5.
+    pub const TokenUriMetadataKey: AssetMetadataGlobalKey = AssetMetadataGlobalKey(4);
+    pub const BaseTokenUriMetadataKey: AssetMetadataGlobalKey = AssetMetadataGlobalKey(2);
+}
+
 impl pallet_precompiles::Config for Runtime {
     type RuntimeCall = RuntimeCall;
+    type TokenUriMetadataKey = TokenUriMetadataKey;
+    type BaseTokenUriMetadataKey = BaseTokenUriMetadataKey;
 }
 
 /// Confidential assets parameters

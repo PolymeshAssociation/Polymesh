@@ -30,9 +30,9 @@ use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::WeightMeter;
 
-use crate::common::{revert, revert_err, Common};
+use crate::common::{revert, revert_err, Common, ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::{DECIMALS, ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
+use crate::interface::DECIMALS;
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
@@ -57,7 +57,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         let charged_amount = env.charge(worst_case_weight)?;
 
         let caller = Common::<T>::caller(env)?;
-        let to = Common::<T>::asset_holder(call.to)?;
+        let to = Common::<T>::asset_holder(env, call.to)?;
 
         let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
 
@@ -127,7 +127,7 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let account = Common::<T>::account_id32(call.account)?;
+        let account = Common::<T>::account_id32(env, call.account)?;
 
         let acc_balance = AssetBalance::<T>::get(&account, &asset_id);
         let value = Common::<T>::to_u256(acc_balance)?;
@@ -142,8 +142,8 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
-        let owner = Common::<T>::account_id(call.owner);
-        let spender = Common::<T>::account_id(call.spender);
+        let owner = Common::<T>::account_id(env, call.owner)?;
+        let spender = Common::<T>::account_id(env, call.spender)?;
 
         let allowance = Allowances::<T>::get((&owner, &spender, &asset_id));
         let value = Common::<T>::to_u256(allowance)?;
@@ -157,7 +157,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
-        let spender = Common::<T>::account_id(call.spender);
+        let spender = Common::<T>::account_id(env, call.spender)?;
         let amount = Common::<T>::to_balance(call.value)?;
 
         Common::<T>::call_runtime(
@@ -188,7 +188,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         call: &IFungibleAsset::transferFromCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        let from = Common::<T>::asset_holder(call.from)?;
+        let from = Common::<T>::asset_holder(env, call.from)?;
 
         let fund = Fund::new(
             FundDescription::Fungible {
@@ -206,7 +206,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         let charged_amount = env.charge(worst_case_weight)?;
 
         let spender = Common::<T>::caller(env)?;
-        let to = Common::<T>::asset_holder(call.to)?;
+        let to = Common::<T>::asset_holder(env, call.to)?;
 
         let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
 

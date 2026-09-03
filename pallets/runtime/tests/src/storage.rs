@@ -30,6 +30,7 @@ use frame_system::{EnsureRoot, RawOrigin};
 use lazy_static::lazy_static;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use pallet_utility;
+use polymesh_primitives::asset_metadata::AssetMetadataGlobalKey;
 use polymesh_primitives::constants::currency::{DOLLARS, POLY};
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::settlement::Leg;
@@ -425,11 +426,21 @@ polymesh_runtime_common::runtime_apis! {}
 // Precompiles
 type Precompiles = (
     pallet_precompiles::FungibleAssetInterface<Runtime>,
+    pallet_precompiles::NonFungibleAssetInterface<Runtime>,
     pallet_precompiles::PolymeshRuntimeInterface<Runtime>,
 );
 
+parameter_types! {
+    /// Global asset metadata keys registered at genesis from `src/data/asset_metadata.json`,
+    /// in file order: baseTokenUri = 1, baseImageUri = 2, tokenUri = 3, imageUri = 4.
+    pub const TokenUriMetadataKey: AssetMetadataGlobalKey = AssetMetadataGlobalKey(3);
+    pub const BaseTokenUriMetadataKey: AssetMetadataGlobalKey = AssetMetadataGlobalKey(1);
+}
+
 impl pallet_precompiles::Config for Runtime {
     type RuntimeCall = RuntimeCall;
+    type TokenUriMetadataKey = TokenUriMetadataKey;
+    type BaseTokenUriMetadataKey = BaseTokenUriMetadataKey;
 }
 
 #[derive(Copy, Clone)]
