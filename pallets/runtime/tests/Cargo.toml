@@ -32,6 +32,7 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
+pallet-worker-modules = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 pallet-precompiles = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }

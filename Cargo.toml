@@ -84,6 +84,7 @@ members = [
     "worker/common",
     "worker/native",
     "worker/protocol/dart-v1",
+    "worker/protocol/testing",
     "pallets/asset",
     "pallets/base",
     "pallets/committee",
@@ -117,6 +118,8 @@ members = [
     "pallets/treasury",
     "pallets/utility",
     "pallets/weights",
+    "pallets/worker-modules",
+    "pallets/worker-modules/worker-testing",
     "primitives",
     "primitives_derive",
     "primitives/asset-metadata",
@@ -142,6 +145,7 @@ polymesh-worker-extension = { path = "worker/extension", default-features = fals
 polymesh-worker-common = { path = "worker/common", default-features = false }
 polymesh-worker-native = { path = "worker/native", default-features = false }
 polymesh-worker-protocol-dart-v1 = { path = "worker/protocol/dart-v1", default-features = false }
+polymesh-worker-protocol-testing = { path = "worker/protocol/testing", default-features = false }
 schnellru = { version = "0.2.4", default-features = false }
 rayon = { version = "1.8" }
 
@@ -177,6 +181,8 @@ polymesh-transaction-payment = { path = "pallets/transaction-payment", default-f
 pallet-treasury = { path = "pallets/treasury", default-features = false }
 pallet-utility = { path = "pallets/utility", default-features = false }
 pallet-precompiles = { path = "pallets/precompiles", default-features = false }
+pallet-worker-modules = { path = "pallets/worker-modules", default-features = false }
+pallet-worker-testing = { path = "pallets/worker-modules/worker-testing", default-features = false }
 
 # Common
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }

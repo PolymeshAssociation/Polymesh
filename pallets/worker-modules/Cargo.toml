@@ -1,0 +1,64 @@
+[package]
+name = "pallet-worker-modules"
+version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+edition.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+# Common
+polymesh-primitives = { workspace = true, default-features = false }
+
+# Workers
+polymesh-worker-extension = { workspace = true, default-features = false }
+polymesh-worker-common = { workspace = true, default-features = false, features = ["serde"] }
+
+# Other
+serde = { version = "1.0.104", default-features = false }
+
+# Substrate
+codec = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = [
+  "derive",
+] }
+frame-system = { workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+
+# Only Benchmarking
+frame-benchmarking = { workspace = true, default-features = false, optional = true }
+
+log = { version = "0.4", default-features = false }
+
+[features]
+equalize = []
+default = ["std", "equalize"]
+
+testing = ["polymesh-worker-extension/testing", "polymesh-worker-common/testing"]
+
+no_std = []
+std = [
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "frame-benchmarking?/std",
+  "polymesh-primitives/std",
+  "polymesh-worker-extension/std",
+  "polymesh-worker-common/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-io/std",
+  "serde/std",
+]
+runtime-benchmarks = [
+  "testing",
+  "frame-benchmarking/runtime-benchmarks",
+  "polymesh-primitives/runtime-benchmarks",
+  "polymesh-worker-extension/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+]
+try-runtime = []

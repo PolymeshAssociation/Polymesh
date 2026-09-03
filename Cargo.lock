@@ -9402,6 +9402,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-worker-modules"
+version = "8.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
+ "scale-info",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-worker-testing"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-runtime-common",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
+ "polymesh-worker-protocol-testing",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "parity-db"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10794,6 +10833,8 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
+ "pallet-worker-testing",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
@@ -10881,6 +10922,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-primitives",
@@ -10970,6 +11012,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-build-tool",
  "polymesh-dart",
@@ -11062,6 +11105,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-validators",
+ "pallet-worker-modules",
  "parity-scale-codec",
  "polymesh-exec-macro",
  "polymesh-primitives",
@@ -11195,6 +11239,8 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkavm-derive 0.32.0",
+ "scale-info",
+ "serde",
 ]
 
 [[package]]
@@ -11219,9 +11265,11 @@ name = "polymesh-worker-native"
 version = "0.1.0"
 dependencies = [
  "log",
+ "parity-scale-codec",
  "polymesh-worker",
  "polymesh-worker-common",
  "polymesh-worker-protocol-dart-v1",
+ "polymesh-worker-protocol-testing",
  "sp-panic-handler",
 ]
 
@@ -11242,6 +11290,21 @@ dependencies = [
  "polymesh-worker-extension",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+ "scale-info",
+ "sp-std",
+]
+
+[[package]]
+name = "polymesh-worker-protocol-testing"
+version = "0.1.0"
+dependencies = [
+ "bounded-collections",
+ "log",
+ "parity-scale-codec",
+ "picoalloc",
+ "polkavm-derive 0.33.0",
+ "polymesh-worker-common",
+ "polymesh-worker-extension",
  "scale-info",
  "sp-std",
 ]
