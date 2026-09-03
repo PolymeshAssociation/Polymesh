@@ -30,16 +30,16 @@ mod settlement_venues_tests {
         Ok(helper.asset_id)
     }
 
-    async fn create_venue(
-        tester: &PolymeshTester,
-        user: &mut User,
-        name: &str,
-    ) -> Result<VenueId> {
+    async fn create_venue(tester: &PolymeshTester, user: &mut User, name: &str) -> Result<VenueId> {
         let mut res = tester
             .api
             .call()
             .settlement()
-            .create_venue(VenueDetails(name.as_bytes().to_vec()), Default::default(), VenueType::Other)?
+            .create_venue(
+                VenueDetails(name.as_bytes().to_vec()),
+                Default::default(),
+                VenueType::Other,
+            )?
             .submit_and_watch(user)
             .await?;
         res.ok().await?;

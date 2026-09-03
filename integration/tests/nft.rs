@@ -68,10 +68,7 @@ mod nft_tests {
     #[test_log::test]
     async fn collection_issue_transfer_redeem() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["NftIssuer", "NftHolder"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["NftIssuer", "NftHolder"]).await?.into_iter();
         let mut issuer = users.next().unwrap();
         let holder = users.next().unwrap();
 
