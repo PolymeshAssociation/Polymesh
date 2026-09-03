@@ -10,6 +10,8 @@ pragma solidity ^0.8.20;
 ///   - `pallet_asset::register_unique_ticker`
 ///   - `pallet_identity::register_did`
 ///   - `pallet_identity::self_register_did`
+///   - `pallet_identity::add_authorization`
+///   - `pallet_external_agents::accept_become_agent`
 ///
 interface IPolymeshRuntime {
     // ============================================================
@@ -62,6 +64,52 @@ interface IPolymeshRuntime {
         bytes value;
     }
 
+    /// @dev Mirrors `polymesh_primitives::Signatory`. Exactly one of `identity`/`account` is
+    /// meaningful, selected by `kind`.
+    enum SignatoryKind {
+        Identity,
+        Account
+    }
+
+    /// @dev A `polymesh_primitives::Signatory`, see {SignatoryKind}.
+    struct Signatory {
+        SignatoryKind kind;
+        bytes32 identity;
+        address account;
+    }
+
+    /// @dev Mirrors `polymesh_primitives::agent::AgentGroup`. `customId` is only meaningful when
+    /// `kind` is `Custom`.
+    enum AgentGroupKind {
+        Full,
+        Custom,
+        ExceptMeta,
+        PolymeshV1CAA,
+        PolymeshV1PIA
+    }
+
+    /// @dev A `polymesh_primitives::agent::AgentGroup`, see {AgentGroupKind}.
+    struct AgentGroup {
+        AgentGroupKind kind;
+        uint32 customId;
+    }
+
+    enum AuthorizationDataKind {
+        BecomeAgent
+    }
+
+    struct AuthorizationData {
+        AuthorizationDataKind kind;
+        BecomeAgentAuthData becomeAgent;
+    }
+
+    /// @dev A `polymesh_primitives::AuthorizationData::BecomeAgent`, the only variant of
+    /// `AuthorizationData` supported by {IPolymeshRuntime-identityAddAuthorization}.
+    struct BecomeAgentAuthData {
+        bytes16 assetId;
+        AgentGroup agentGroup;
+    }
+
     // ============================================================
     // pallet_asset:
     // - create_asset
@@ -106,6 +154,7 @@ interface IPolymeshRuntime {
     // pallet_identity:
     // - register_did
     // - self_register_did
+    // - add_authorization
     // ============================================================
 
     /// @dev Emitted when a new DID is created, mirroring `pallet_identity::Event::DidCreated`.
@@ -125,6 +174,29 @@ interface IPolymeshRuntime {
     /// @dev Calls `pallet_identity::self_register_did`. Emits {DidCreated}.
     /// @return did The newly created DID.
     function identitySelfRegisterDid() external returns (bytes32 did);
+
+    /// @notice Adds a `BecomeAgent` authorization for `target` to later accept.
+    /// @dev Calls `pallet_identity::add_authorization`.
+    /// @param target The signatory the authorization is issued to, see {Signatory}.
+    /// @param data The asset and agent group the authorization is for, see {AuthorizationData}.
+    /// @param expiry The unix timestamp (in milliseconds) at which the authorization expires, or
+    /// `0` for one that never expires.
+    /// @return authId The id of the newly created authorization.
+    function identityAddAuthorization(
+        Signatory calldata target,
+        AuthorizationData calldata data,
+        uint64 expiry
+    ) external returns (uint64 authId);
+
+    // ============================================================
+    // pallet_external_agents:
+    // - accept_become_agent
+    // ============================================================
+
+    /// @notice Accepts a pending `BecomeAgent` authorization.
+    /// @dev Calls `pallet_external_agents::accept_become_agent`.
+    /// @param authId The id of the `BecomeAgent` authorization to accept.
+    function externalAgentsAcceptBecomeAgent(uint64 authId) external;
 }
 
 contract PolymeshRuntimeStub is IPolymeshRuntime {
@@ -157,6 +229,22 @@ contract PolymeshRuntimeStub is IPolymeshRuntime {
     }
 
     function identitySelfRegisterDid() external override returns (bytes32) {
+        revert NotExecutable();
+    }
+
+    function identityAddAuthorization(
+        IPolymeshRuntime.Signatory calldata target,
+        IPolymeshRuntime.AuthorizationData calldata data,
+        uint64 expiry
+    ) external override returns (uint64) {
+        target;
+        data;
+        expiry;
+        revert NotExecutable();
+    }
+
+    function externalAgentsAcceptBecomeAgent(uint64 authId) external override {
+        authId;
         revert NotExecutable();
     }
 }

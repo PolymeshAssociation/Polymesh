@@ -19,6 +19,7 @@ use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
+use sp_runtime::traits::SaturatedConversion;
 
 use polymesh_precompiles::{IPolymeshRuntime, IPolymeshRuntimeEvents};
 
@@ -90,5 +91,31 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
                 &did.to_bytes().into(),
             ),
         )
+    }
+
+    /// Adds an authorization for `target` to later accept, restricted to the `BecomeAgent` variant of `AuthorizationData`.
+    pub(crate) fn add_authorization(
+        call: &IPolymeshRuntime::identityAddAuthorizationCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+
+        let target = Common::<T>::to_signatory(env, &call.target)?;
+        let data = Common::<T>::to_authorization_data(&call.data)?;
+        let expiry = (call.expiry != 0).then(|| call.expiry.saturated_into());
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_identity::Call::<T>::add_authorization {
+                target: target.clone(),
+                data,
+                expiry,
+            },
+        )?;
+
+        let auth_id = pallet_identity::CurrentAuthId::<T>::get();
+
+        Ok(IPolymeshRuntime::identityAddAuthorizationCall::abi_encode_returns(&auth_id))
     }
 }
