@@ -19,9 +19,10 @@ use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
-use sp_runtime::traits::SaturatedConversion;
 
 use polymesh_precompiles::{IPolymeshRuntime, IPolymeshRuntimeEvents};
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::{AuthorizationData, IdentityId, Signatory};
 
 use crate::common::{revert, Common};
 use crate::interface::PolymeshRuntimeInterface;
@@ -93,29 +94,32 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         )
     }
 
-    /// Adds an authorization for `target` to later accept, restricted to the `BecomeAgent` variant of `AuthorizationData`.
-    pub(crate) fn add_authorization(
-        call: &IPolymeshRuntime::identityAddAuthorizationCall,
+    /// Creates a `BecomeAgent` authorization for `target`'s identity on `assetId`, that `target`
+    /// can later accept via `externalAgentsAcceptBecomeAgent`. The authorization never expires.
+    pub(crate) fn authorize_become_agent(
+        call: &IPolymeshRuntime::externalAgentsAuthorizeBecomeAgentCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
 
-        let target = Common::<T>::to_signatory(env, &call.target)?;
-        let data = Common::<T>::to_authorization_data(&call.data)?;
-        let expiry = (call.expiry != 0).then(|| call.expiry.saturated_into());
+        let target = Signatory::Identity(IdentityId::from(call.target.0));
+        let data = AuthorizationData::BecomeAgent(
+            AssetId::from_raw(call.assetId.0),
+            Common::<T>::to_agent_group(&call.agentGroup)?,
+        );
 
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
             pallet_identity::Call::<T>::add_authorization {
-                target: target.clone(),
+                target,
                 data,
-                expiry,
+                expiry: None,
             },
         )?;
 
         let auth_id = pallet_identity::CurrentAuthId::<T>::get();
 
-        Ok(IPolymeshRuntime::identityAddAuthorizationCall::abi_encode_returns(&auth_id))
+        Ok(IPolymeshRuntime::externalAgentsAuthorizeBecomeAgentCall::abi_encode_returns(&auth_id))
     }
 }

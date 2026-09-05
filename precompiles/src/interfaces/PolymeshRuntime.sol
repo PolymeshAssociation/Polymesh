@@ -64,20 +64,6 @@ interface IPolymeshRuntime {
         bytes value;
     }
 
-    /// @dev Mirrors `polymesh_primitives::Signatory`. Exactly one of `identity`/`account` is
-    /// meaningful, selected by `kind`.
-    enum SignatoryKind {
-        Identity,
-        Account
-    }
-
-    /// @dev A `polymesh_primitives::Signatory`, see {SignatoryKind}.
-    struct Signatory {
-        SignatoryKind kind;
-        bytes32 identity;
-        address account;
-    }
-
     /// @dev Mirrors `polymesh_primitives::agent::AgentGroup`. `customId` is only meaningful when
     /// `kind` is `Custom`.
     enum AgentGroupKind {
@@ -92,22 +78,6 @@ interface IPolymeshRuntime {
     struct AgentGroup {
         AgentGroupKind kind;
         uint32 customId;
-    }
-
-    enum AuthorizationDataKind {
-        BecomeAgent
-    }
-
-    struct AuthorizationData {
-        AuthorizationDataKind kind;
-        BecomeAgentAuthData becomeAgent;
-    }
-
-    /// @dev A `polymesh_primitives::AuthorizationData::BecomeAgent`, the only variant of
-    /// `AuthorizationData` supported by {IPolymeshRuntime-identityAddAuthorization}.
-    struct BecomeAgentAuthData {
-        bytes16 assetId;
-        AgentGroup agentGroup;
     }
 
     // ============================================================
@@ -154,7 +124,6 @@ interface IPolymeshRuntime {
     // pallet_identity:
     // - register_did
     // - self_register_did
-    // - add_authorization
     // ============================================================
 
     /// @dev Emitted when a new DID is created, mirroring `pallet_identity::Event::DidCreated`.
@@ -175,23 +144,25 @@ interface IPolymeshRuntime {
     /// @return did The newly created DID.
     function identitySelfRegisterDid() external returns (bytes32 did);
 
-    /// @notice Adds a `BecomeAgent` authorization for `target` to later accept.
-    /// @dev Calls `pallet_identity::add_authorization`.
-    /// @param target The signatory the authorization is issued to, see {Signatory}.
-    /// @param data The asset and agent group the authorization is for, see {AuthorizationData}.
-    /// @param expiry The unix timestamp (in milliseconds) at which the authorization expires, or
-    /// `0` for one that never expires.
-    /// @return authId The id of the newly created authorization.
-    function identityAddAuthorization(
-        Signatory calldata target,
-        AuthorizationData calldata data,
-        uint64 expiry
-    ) external returns (uint64 authId);
-
     // ============================================================
     // pallet_external_agents:
     // - accept_become_agent
     // ============================================================
+
+    /// @notice Creates a `BecomeAgent` authorization for `target`'s identity on `assetId`, that
+    /// `target` can later accept via {IPolymeshRuntime-externalAgentsAcceptBecomeAgent}.
+    /// @dev Calls `pallet_identity::add_authorization` with a `BecomeAgent`-variant
+    /// `AuthorizationData` issued to `target` as an `Identity` signatory. The authorization never
+    /// expires.q
+    /// @param target The DID the authorization is issued to.
+    /// @param assetId The id of the asset `target` would join as an agent.
+    /// @param agentGroup The permission group `target` would join, see {AgentGroup}.
+    /// @return authId The id of the newly created authorization.
+    function externalAgentsAuthorizeBecomeAgent(
+        bytes32 target,
+        bytes16 assetId,
+        AgentGroup calldata agentGroup
+    ) external returns (uint64 authId);
 
     /// @notice Accepts a pending `BecomeAgent` authorization.
     /// @dev Calls `pallet_external_agents::accept_become_agent`.
@@ -232,14 +203,14 @@ contract PolymeshRuntimeStub is IPolymeshRuntime {
         revert NotExecutable();
     }
 
-    function identityAddAuthorization(
-        IPolymeshRuntime.Signatory calldata target,
-        IPolymeshRuntime.AuthorizationData calldata data,
-        uint64 expiry
+    function externalAgentsAuthorizeBecomeAgent(
+        bytes32 target,
+        bytes16 assetId,
+        IPolymeshRuntime.AgentGroup calldata agentGroup
     ) external override returns (uint64) {
         target;
-        data;
-        expiry;
+        assetId;
+        agentGroup;
         revert NotExecutable();
     }
 

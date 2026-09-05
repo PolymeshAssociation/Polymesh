@@ -209,23 +209,13 @@ async fn polymesh_runtime_add_authorization_accept_become_agent() -> Result<()> 
         decode_contract_logs(&logs, &to_h160(&POLYMESH_RUNTIME_ADDRESS))?;
     let asset_id = events[0].assetId;
 
-    let add_auth_call = IPolymeshRuntime::identityAddAuthorizationCall {
-        target: IPolymeshRuntime::Signatory {
-            kind: IPolymeshRuntime::SignatoryKind::Identity,
-            identity: agent_did.0.into(),
-            account: Address::ZERO,
+    let add_auth_call = IPolymeshRuntime::externalAgentsAuthorizeBecomeAgentCall {
+        target: agent_did.0.into(),
+        assetId: asset_id,
+        agentGroup: IPolymeshRuntime::AgentGroup {
+            kind: IPolymeshRuntime::AgentGroupKind::Full,
+            customId: 0,
         },
-        data: IPolymeshRuntime::AuthorizationData {
-            kind: IPolymeshRuntime::AuthorizationDataKind::BecomeAgent,
-            becomeAgent: IPolymeshRuntime::BecomeAgentAuthData {
-                assetId: asset_id,
-                agentGroup: IPolymeshRuntime::AgentGroup {
-                    kind: IPolymeshRuntime::AgentGroupKind::Full,
-                    customId: 0,
-                },
-            },
-        },
-        expiry: 0,
     };
     owner_caller
         .send_call(

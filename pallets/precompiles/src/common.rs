@@ -38,9 +38,7 @@ use pallet_revive::{DispatchRuntimeCall, ExecOrigin, H160};
 use polymesh_precompiles::IPolymeshRuntime;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::{AssetId, AssetType, CustomAssetTypeId, NonFungibleType};
-use polymesh_primitives::{
-    AccountId, AssetHolder, AssetIdentifier, AuthorizationData, Balance, IdentityId, Signatory,
-};
+use polymesh_primitives::{AccountId, AssetHolder, AssetIdentifier, Balance};
 
 use crate::{CallOf, Config};
 
@@ -325,20 +323,6 @@ impl<T: Config> Common<T> {
         })
     }
 
-    /// Converts the ABI representation of a [`Signatory`] into the pallet's own type.
-    pub fn to_signatory(
-        env: &mut impl Ext<T = T>,
-        sol_signatory: &IPolymeshRuntime::Signatory,
-    ) -> Result<Signatory<T::AccountId>, Error> {
-        use IPolymeshRuntime::SignatoryKind as Kind;
-
-        Ok(match sol_signatory.kind {
-            Kind::Identity => Signatory::Identity(IdentityId::from(sol_signatory.identity.0)),
-            Kind::Account => Signatory::Account(Self::account_id(env, sol_signatory.account)?),
-            Kind::__Invalid => return Err(revert("Invalid signatory kind")),
-        })
-    }
-
     /// Converts the ABI representation of an [`AgentGroup`] into the pallet's own type.
     pub fn to_agent_group(
         sol_agent_group: &IPolymeshRuntime::AgentGroup,
@@ -352,21 +336,6 @@ impl<T: Config> Common<T> {
             Kind::PolymeshV1CAA => AgentGroup::PolymeshV1CAA,
             Kind::PolymeshV1PIA => AgentGroup::PolymeshV1PIA,
             Kind::__Invalid => return Err(revert("Invalid agent group kind")),
-        })
-    }
-
-    /// Converts the ABI representation of an [`AuthorizationData`] into the pallet's own type.
-    pub fn to_authorization_data(
-        sol_auth_data: &IPolymeshRuntime::AuthorizationData,
-    ) -> Result<AuthorizationData<T::AccountId>, Error> {
-        use IPolymeshRuntime::AuthorizationDataKind as Kind;
-
-        Ok(match sol_auth_data.kind {
-            Kind::BecomeAgent => AuthorizationData::BecomeAgent(
-                AssetId::from_raw(sol_auth_data.becomeAgent.assetId.0),
-                Self::to_agent_group(&sol_auth_data.becomeAgent.agentGroup)?,
-            ),
-            Kind::__Invalid => return Err(revert("Invalid auth data kind")),
         })
     }
 

@@ -66,8 +66,8 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
             IPolymeshRuntimeCalls::identitySelfRegisterDid(call) => {
                 Self::self_register_did(call, env)
             }
-            IPolymeshRuntimeCalls::identityAddAuthorization(call) => {
-                Self::add_authorization(call, env)
+            IPolymeshRuntimeCalls::externalAgentsAuthorizeBecomeAgent(call) => {
+                Self::authorize_become_agent(call, env)
             }
             IPolymeshRuntimeCalls::externalAgentsAcceptBecomeAgent(call) => {
                 Self::accept_become_agent(call, env)
