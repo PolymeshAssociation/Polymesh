@@ -4301,13 +4301,18 @@ impl<T: AssetConfig> Pallet<T> {
         if is_controller_transfer {
             let frozen_balance = Self::get_holders_frozen_balance(&sender, &asset_id);
             if frozen_balance > 0 {
-                let new_frozen_balance = frozen_balance.saturating_sub(transfer_value);
-                Self::unverified_set_frozen_tokens(
-                    caller_did,
-                    sender.clone(),
-                    asset_id,
-                    new_frozen_balance,
-                );
+                // Only unfreeze tokens if there's not enough free_balance
+                let free_balance = sender_current_balance.saturating_sub(frozen_balance);
+                if transfer_value > free_balance {
+                    let tokens_to_unfreeze = transfer_value - free_balance;
+                    let new_frozen_balance = frozen_balance.saturating_sub(tokens_to_unfreeze);
+                    Self::unverified_set_frozen_tokens(
+                        caller_did,
+                        sender.clone(),
+                        asset_id,
+                        new_frozen_balance,
+                    );
+                }
             }
         }
 
