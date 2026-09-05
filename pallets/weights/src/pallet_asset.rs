@@ -426,13 +426,6 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().writes(5))
     }
-    // TODO: Placeholder weight copied from `controller_transfer`, pending its own benchmark run.
-    fn controller_transfer_to() -> Weight {
-        // Minimum execution time: 114_990 nanoseconds.
-        Weight::from_parts(120_089_000, 0)
-            .saturating_add(DbWeight::get().reads(15))
-            .saturating_add(DbWeight::get().writes(5))
-    }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `Asset::CustomTypesInverse` (r:1 w:1)
@@ -953,5 +946,43 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         Weight::from_parts(43_671_000, 0)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
+    // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Identity::DidRecords` (r:1 w:0)
+    // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioCustodian` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioCustodian` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+    // Storage: `Settlement::MandatoryReceiverAffirmation` (r:1 w:0)
+    // Proof: `Settlement::MandatoryReceiverAffirmation` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+    // Storage: `Asset::Assets` (r:1 w:0)
+    // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Asset::BalanceOf` (r:2 w:2)
+    // Proof: `Asset::BalanceOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioAssetBalances` (r:2 w:2)
+    // Proof: `Portfolio::PortfolioAssetBalances` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioLockedAssets` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    // Storage: `Checkpoint::CachedNextCheckpoints` (r:1 w:0)
+    // Proof: `Checkpoint::CachedNextCheckpoints` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Checkpoint::CheckpointIdSequence` (r:1 w:0)
+    // Proof: `Checkpoint::CheckpointIdSequence` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioFrozenAssets` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioAssetCount` (r:1 w:1)
+    // Proof: `Portfolio::PortfolioAssetCount` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
+    // Storage: `Statistics::ActiveAssetStats` (r:1 w:0)
+    // Proof: `Statistics::ActiveAssetStats` (`max_values`: None, `max_size`: Some(2373), added: 4848, mode: `MaxEncodedLen`)
+    fn controller_transfer_to() -> Weight {
+        // Minimum execution time: 144_398 nanoseconds.
+        Weight::from_parts(149_141_000, 0)
+            .saturating_add(DbWeight::get().reads(18))
+            .saturating_add(DbWeight::get().writes(5))
     }
 }
