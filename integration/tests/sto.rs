@@ -620,7 +620,14 @@ mod sto_extended_tests {
         let api = tester.api.clone();
         let offering_name = offering_name.to_string();
         let offering = tokio::spawn(async move {
-            AssetHelper::new(&api, &mut v, &offering_name, 20_000_000_000, BTreeSet::new()).await
+            AssetHelper::new(
+                &api,
+                &mut v,
+                &offering_name,
+                20_000_000_000,
+                BTreeSet::new(),
+            )
+            .await
         });
         let mut v = venue_user.clone();
         let api = tester.api.clone();

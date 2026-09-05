@@ -6,11 +6,11 @@ mod corporate_ballot_tests {
     use anyhow::Result;
 
     use integration::*;
-    use polymesh_api::types::pallet_corporate_actions::{CADetails, CAKind, RecordDateSpec};
     use polymesh_api::types::pallet_corporate_actions::ballot::{
         BallotMeta, BallotTimeRange, BallotTitle, BallotVote, ChoiceTitle, Motion, MotionInfoLink,
         MotionTitle,
     };
+    use polymesh_api::types::pallet_corporate_actions::{CADetails, CAKind, RecordDateSpec};
     use polymesh_api::types::polymesh_primitives::asset::AssetHolderKind;
 
     async fn create_asset(
@@ -38,10 +38,7 @@ mod corporate_ballot_tests {
             motions: vec![Motion {
                 title: MotionTitle(b"Approve?".to_vec()),
                 info_link: MotionInfoLink(b"https://example.test".to_vec()),
-                choices: vec![
-                    ChoiceTitle(b"Yes".to_vec()),
-                    ChoiceTitle(b"No".to_vec()),
-                ],
+                choices: vec![ChoiceTitle(b"Yes".to_vec()), ChoiceTitle(b"No".to_vec())],
             }],
         }
     }
@@ -51,10 +48,7 @@ mod corporate_ballot_tests {
     #[test_log::test]
     async fn attach_and_vote() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["CbOwner", "CbVoter"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["CbOwner", "CbVoter"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let mut voter = users.next().unwrap();
 

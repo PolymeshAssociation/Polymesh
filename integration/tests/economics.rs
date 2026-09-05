@@ -4,10 +4,7 @@ mod economics_tests {
     use anyhow::Result;
 
     use integration::*;
-    use polymesh_api::types::polymesh_primitives::{
-        protocol_fee::ProtocolOp,
-        Beneficiary,
-    };
+    use polymesh_api::types::polymesh_primitives::{protocol_fee::ProtocolOp, Beneficiary};
 
     async fn free_balance(tester: &PolymeshTester, who: &AccountId) -> Result<u128> {
         let info = tester.api.query().system().account(who.clone()).await?;
@@ -118,10 +115,7 @@ mod economics_tests {
     #[test_log::test]
     async fn treasury_reimburse_and_disburse() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["EcoDonor", "EcoBene1"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["EcoDonor", "EcoBene1"]).await?.into_iter();
         let mut donor = users.next().unwrap();
         let bene = users.next().unwrap();
         let mut sudo = tester.sudo.clone().expect("dev chain has sudo");

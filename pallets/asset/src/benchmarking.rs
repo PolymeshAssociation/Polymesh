@@ -1050,4 +1050,36 @@ benchmarks! {
         let bob_portfolio = create_portfolio::<T>(&bob, "SenderPortfolio");
         let asset_id = create_sample_asset::<T>(&alice, true);
     }: _(alice.origin, bob_portfolio.into(), asset_id, true)
+
+    freeze_partial_tokens {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+    }: _(alice.origin, asset_id, alice_portfolio.clone(), ONE_UNIT)
+    verify {
+        assert_eq!(
+            Pallet::<T>::get_holders_frozen_balance(&alice_portfolio, &asset_id),
+            ONE_UNIT
+        );
+    }
+
+    unfreeze_partial_tokens {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+
+        Pallet::<T>::freeze_partial_tokens(
+            alice.origin().into(),
+            asset_id,
+            alice_portfolio.clone(),
+            ONE_UNIT,
+        )
+        .unwrap();
+    }: _(alice.origin, asset_id, alice_portfolio.clone(), ONE_UNIT)
+    verify {
+        assert_eq!(
+            Pallet::<T>::get_holders_frozen_balance(&alice_portfolio, &asset_id),
+            0
+        );
+    }
 }

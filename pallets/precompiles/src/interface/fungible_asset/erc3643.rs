@@ -150,4 +150,68 @@ impl<T: Config> FungibleAssetInterface<T> {
         )?;
         Ok(Vec::new())
     }
+
+    /// Freezes an additional amount of tokens for a specific address, on top of any tokens
+    /// already frozen. Only an agent of the token can call this function.
+    pub(crate) fn freeze_partial_tokens(
+        asset_id: AssetId,
+        call: &IFungibleAsset::freezePartialTokensCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+
+        let acc_to_freeze = Common::<T>::asset_holder(env, call.account)?;
+        let amount = Common::<T>::to_balance(call.amount)?;
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::freeze_partial_tokens {
+                asset_id,
+                asset_holder: acc_to_freeze,
+                amount,
+            },
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::TokensFrozen(IFungibleAsset::TokensFrozen {
+                account: call.account,
+                amount: call.amount,
+            }),
+        )?;
+        Ok(Vec::new())
+    }
+
+    /// Unfreezes an amount of tokens for a specific address, reducing the amount currently
+    /// frozen. Only an agent of the token can call this function.
+    pub(crate) fn unfreeze_partial_tokens(
+        asset_id: AssetId,
+        call: &IFungibleAsset::unfreezePartialTokensCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+
+        let acc_to_unfreeze = Common::<T>::asset_holder(env, call.account)?;
+        let amount = Common::<T>::to_balance(call.amount)?;
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_asset::Call::<T>::unfreeze_partial_tokens {
+                asset_id,
+                asset_holder: acc_to_unfreeze,
+                amount,
+            },
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::TokensUnfrozen(IFungibleAsset::TokensUnfrozen {
+                account: call.account,
+                amount: call.amount,
+            }),
+        )?;
+        Ok(Vec::new())
+    }
 }

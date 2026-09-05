@@ -85,6 +85,78 @@ async fn erc3643_set_name() -> Result<()> {
 
 #[tokio::test]
 #[test_log::test]
+async fn erc3643_freeze_partial_tokens() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc3643Issuer", "Erc3643Holder"]).await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 Freeze", MINT).await?;
+
+    let holder_address = eth_address_of(&api, holder).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    assert_eq!(erc3643.get_frozen_tokens(holder_address).await.unwrap(), 0);
+
+    erc3643
+        .freeze_partial_tokens(&mut caller, holder_address, 100)
+        .await?;
+
+    assert_eq!(
+        erc3643.get_frozen_tokens(holder_address).await.unwrap(),
+        100
+    );
+
+    // Freezing again adds to the amount already frozen, rather than replacing it.
+    erc3643
+        .freeze_partial_tokens(&mut caller, holder_address, 50)
+        .await?;
+
+    assert_eq!(
+        erc3643.get_frozen_tokens(holder_address).await.unwrap(),
+        150
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_unfreeze_partial_tokens() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc3643Issuer", "Erc3643Holder"]).await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 Unfreeze", MINT).await?;
+
+    let holder_address = eth_address_of(&api, holder).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    erc3643
+        .freeze_partial_tokens(&mut caller, holder_address, 100)
+        .await?;
+
+    assert_eq!(
+        erc3643.get_frozen_tokens(holder_address).await.unwrap(),
+        100
+    );
+
+    erc3643
+        .unfreeze_partial_tokens(&mut caller, holder_address, 40)
+        .await?;
+
+    assert_eq!(erc3643.get_frozen_tokens(holder_address).await.unwrap(), 60);
+
+    Ok(())
+}
+
+#[tokio::test]
+#[test_log::test]
 async fn erc3643_pause_unpause() -> Result<()> {
     let (mut tester, node) = revive_tester().await?;
     let mut users = tester.users(&["Erc3643Issuer"]).await?;

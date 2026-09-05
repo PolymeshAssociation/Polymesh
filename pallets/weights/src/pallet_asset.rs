@@ -947,6 +947,20 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
+    // TODO: Placeholder weight copied from `set_frozen_tokens`, pending its own benchmark run.
+    fn freeze_partial_tokens() -> Weight {
+        // Minimum execution time: 62_991 nanoseconds.
+        Weight::from_parts(64_868_000, 0)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // TODO: Placeholder weight copied from `set_frozen_tokens`, pending its own benchmark run.
+    fn unfreeze_partial_tokens() -> Weight {
+        // Minimum execution time: 62_991 nanoseconds.
+        Weight::from_parts(64_868_000, 0)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(1))
+    }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)

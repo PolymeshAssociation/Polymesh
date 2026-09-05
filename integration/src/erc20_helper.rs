@@ -305,6 +305,38 @@ impl Token {
             .await
     }
 
+    pub async fn freeze_partial_tokens(
+        &self,
+        caller: &mut dyn ContractCaller,
+        account: Address,
+        amount: u128,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(
+            caller,
+            ierc20::freezePartialTokensCall {
+                account,
+                amount: U256::from(amount),
+            },
+        )
+        .await
+    }
+
+    pub async fn unfreeze_partial_tokens(
+        &self,
+        caller: &mut dyn ContractCaller,
+        account: Address,
+        amount: u128,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(
+            caller,
+            ierc20::unfreezePartialTokensCall {
+                account,
+                amount: U256::from(amount),
+            },
+        )
+        .await
+    }
+
     pub async fn set_symbol(
         &self,
         caller: &mut dyn ContractCaller,
