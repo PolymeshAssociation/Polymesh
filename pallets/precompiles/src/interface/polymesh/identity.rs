@@ -21,6 +21,8 @@ use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
 
 use polymesh_precompiles::{IPolymeshRuntime, IPolymeshRuntimeEvents};
+use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::{AuthorizationData, IdentityId, Signatory};
 
 use crate::common::{revert, Common};
 use crate::interface::PolymeshRuntimeInterface;
@@ -90,5 +92,34 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
                 &did.to_bytes().into(),
             ),
         )
+    }
+
+    /// Creates a `BecomeAgent` authorization for `target`'s identity on `assetId`, that `target`
+    /// can later accept via `externalAgentsAcceptBecomeAgent`. The authorization never expires.
+    pub(crate) fn authorize_become_agent(
+        call: &IPolymeshRuntime::externalAgentsAuthorizeBecomeAgentCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+
+        let target = Signatory::Identity(IdentityId::from(call.target.0));
+        let data = AuthorizationData::BecomeAgent(
+            AssetId::from_raw(call.assetId.0),
+            Common::<T>::to_agent_group(&call.agentGroup)?,
+        );
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            pallet_identity::Call::<T>::add_authorization {
+                target,
+                data,
+                expiry: None,
+            },
+        )?;
+
+        let auth_id = pallet_identity::CurrentAuthId::<T>::get();
+
+        Ok(IPolymeshRuntime::externalAgentsAuthorizeBecomeAgentCall::abi_encode_returns(&auth_id))
     }
 }

@@ -10,6 +10,8 @@ pragma solidity ^0.8.20;
 ///   - `pallet_asset::register_unique_ticker`
 ///   - `pallet_identity::register_did`
 ///   - `pallet_identity::self_register_did`
+///   - `pallet_identity::add_authorization`
+///   - `pallet_external_agents::accept_become_agent`
 ///
 interface IPolymeshRuntime {
     // ============================================================
@@ -60,6 +62,22 @@ interface IPolymeshRuntime {
     struct AssetIdentifier {
         AssetIdentifierKind identifierType;
         bytes value;
+    }
+
+    /// @dev Mirrors `polymesh_primitives::agent::AgentGroup`. `customId` is only meaningful when
+    /// `kind` is `Custom`.
+    enum AgentGroupKind {
+        Full,
+        Custom,
+        ExceptMeta,
+        PolymeshV1CAA,
+        PolymeshV1PIA
+    }
+
+    /// @dev A `polymesh_primitives::agent::AgentGroup`, see {AgentGroupKind}.
+    struct AgentGroup {
+        AgentGroupKind kind;
+        uint32 customId;
     }
 
     // ============================================================
@@ -125,6 +143,31 @@ interface IPolymeshRuntime {
     /// @dev Calls `pallet_identity::self_register_did`. Emits {DidCreated}.
     /// @return did The newly created DID.
     function identitySelfRegisterDid() external returns (bytes32 did);
+
+    // ============================================================
+    // pallet_external_agents:
+    // - accept_become_agent
+    // ============================================================
+
+    /// @notice Creates a `BecomeAgent` authorization for `target`'s identity on `assetId`, that
+    /// `target` can later accept via {IPolymeshRuntime-externalAgentsAcceptBecomeAgent}.
+    /// @dev Calls `pallet_identity::add_authorization` with a `BecomeAgent`-variant
+    /// `AuthorizationData` issued to `target` as an `Identity` signatory. The authorization never
+    /// expires.q
+    /// @param target The DID the authorization is issued to.
+    /// @param assetId The id of the asset `target` would join as an agent.
+    /// @param agentGroup The permission group `target` would join, see {AgentGroup}.
+    /// @return authId The id of the newly created authorization.
+    function externalAgentsAuthorizeBecomeAgent(
+        bytes32 target,
+        bytes16 assetId,
+        AgentGroup calldata agentGroup
+    ) external returns (uint64 authId);
+
+    /// @notice Accepts a pending `BecomeAgent` authorization.
+    /// @dev Calls `pallet_external_agents::accept_become_agent`.
+    /// @param authId The id of the `BecomeAgent` authorization to accept.
+    function externalAgentsAcceptBecomeAgent(uint64 authId) external;
 }
 
 contract PolymeshRuntimeStub is IPolymeshRuntime {
@@ -157,6 +200,22 @@ contract PolymeshRuntimeStub is IPolymeshRuntime {
     }
 
     function identitySelfRegisterDid() external override returns (bytes32) {
+        revert NotExecutable();
+    }
+
+    function externalAgentsAuthorizeBecomeAgent(
+        bytes32 target,
+        bytes16 assetId,
+        IPolymeshRuntime.AgentGroup calldata agentGroup
+    ) external override returns (uint64) {
+        target;
+        assetId;
+        agentGroup;
+        revert NotExecutable();
+    }
+
+    function externalAgentsAcceptBecomeAgent(uint64 authId) external override {
+        authId;
         revert NotExecutable();
     }
 }

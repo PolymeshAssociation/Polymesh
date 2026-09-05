@@ -40,6 +40,7 @@ pub trait Config:
     + pallet_settlement::Config
     + pallet_identity::Config
     + pallet_nft::Config
+    + pallet_external_agents::Config
 {
     /// The runtime's aggregated call type.
     ///
@@ -52,7 +53,8 @@ pub trait Config:
         + From<pallet_asset::Call<Self>>
         + From<pallet_settlement::Call<Self>>
         + From<pallet_identity::Call<Self>>
-        + From<pallet_nft::Call<Self>>;
+        + From<pallet_nft::Call<Self>>
+        + From<pallet_external_agents::Call<Self>>;
 
     /// The global asset metadata key holding a per-NFT `tokenUri`.
     ///

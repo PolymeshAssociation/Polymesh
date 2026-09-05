@@ -37,7 +37,11 @@ mod utility_calls_tests {
             .submit_and_watch(&mut user)
             .await?;
         let results = get_batch_results(&mut batch_res).await?;
-        assert_eq!(results, vec![true, false], "force_batch continues after a failure");
+        assert_eq!(
+            results,
+            vec![true, false],
+            "force_batch continues after a failure"
+        );
 
         // batch_all: atomic — the whole call fails.
         let mut all_res = tester

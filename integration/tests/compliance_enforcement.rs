@@ -77,14 +77,21 @@ mod compliance_enforcement_tests {
             .transfer_asset(asset_id.clone(), investor1.account(), 100, None)?
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "transfer without claims should fail");
+        assert!(
+            res.ok().await.is_err(),
+            "transfer without claims should fail"
+        );
 
         // Sender-only claim is not enough.
         tester
             .api
             .call()
             .identity()
-            .add_claim(owner_did, Claim::Accredited(Scope::Asset(asset_id.clone())), None)?
+            .add_claim(
+                owner_did,
+                Claim::Accredited(Scope::Asset(asset_id.clone())),
+                None,
+            )?
             .submit_and_watch(&mut issuer)
             .await?
             .ok()
@@ -96,14 +103,21 @@ mod compliance_enforcement_tests {
             .transfer_asset(asset_id.clone(), investor1.account(), 100, None)?
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "transfer should still fail (receiver lacks claim)");
+        assert!(
+            res.ok().await.is_err(),
+            "transfer should still fail (receiver lacks claim)"
+        );
 
         // Receiver claim added -> transfer succeeds.
         tester
             .api
             .call()
             .identity()
-            .add_claim(inv1_did, Claim::Accredited(Scope::Asset(asset_id.clone())), None)?
+            .add_claim(
+                inv1_did,
+                Claim::Accredited(Scope::Asset(asset_id.clone())),
+                None,
+            )?
             .submit_and_watch(&mut issuer)
             .await?
             .ok()
@@ -166,7 +180,11 @@ mod compliance_enforcement_tests {
                 .api
                 .call()
                 .identity()
-                .add_claim(did, Claim::Affiliate(Scope::Asset(asset_id.clone())), Some(expiry))?
+                .add_claim(
+                    did,
+                    Claim::Affiliate(Scope::Asset(asset_id.clone())),
+                    Some(expiry),
+                )?
                 .submit_and_watch(&mut issuer)
                 .await?
                 .ok()
@@ -195,7 +213,10 @@ mod compliance_enforcement_tests {
             .transfer_asset(asset_id.clone(), investor2.account(), 100, None)?
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "transfer after claim expiry should fail");
+        assert!(
+            res.ok().await.is_err(),
+            "transfer after claim expiry should fail"
+        );
 
         Ok(())
     }
@@ -293,7 +314,11 @@ mod compliance_enforcement_tests {
                 .api
                 .call()
                 .identity()
-                .add_claim(did, Claim::KnowYourCustomer(Scope::Asset(asset_id.clone())), None)?
+                .add_claim(
+                    did,
+                    Claim::KnowYourCustomer(Scope::Asset(asset_id.clone())),
+                    None,
+                )?
                 .submit_and_watch(&mut issuer)
                 .await?
                 .ok()
@@ -378,11 +403,12 @@ mod compliance_enforcement_tests {
             .await?;
 
         // Replace whole compliance with a receiver-Accredited requirement again.
-        let req = polymesh_api::types::polymesh_primitives::compliance_manager::ComplianceRequirement {
-            id: 5,
-            sender_conditions: vec![],
-            receiver_conditions: vec![accredited_cond()],
-        };
+        let req =
+            polymesh_api::types::polymesh_primitives::compliance_manager::ComplianceRequirement {
+                id: 5,
+                sender_conditions: vec![],
+                receiver_conditions: vec![accredited_cond()],
+            };
         tester
             .api
             .call()
@@ -400,7 +426,10 @@ mod compliance_enforcement_tests {
             .transfer_asset(asset_id.clone(), investor1.account(), 10, None)?
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "replaced compliance should block again");
+        assert!(
+            res.ok().await.is_err(),
+            "replaced compliance should block again"
+        );
 
         // Satisfy it via a claim from the trusted issuer.
         tester
@@ -471,7 +500,11 @@ mod compliance_enforcement_tests {
             .api
             .call()
             .identity()
-            .add_claim(inv1_did, Claim::Accredited(Scope::Asset(asset_id.clone())), None)?
+            .add_claim(
+                inv1_did,
+                Claim::Accredited(Scope::Asset(asset_id.clone())),
+                None,
+            )?
             .submit_and_watch(&mut issuer_b)
             .await?
             .ok()
@@ -483,14 +516,21 @@ mod compliance_enforcement_tests {
             .transfer_asset(asset_id.clone(), investor1.account(), 10, None)?
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "untrusted issuer's claim should not satisfy");
+        assert!(
+            res.ok().await.is_err(),
+            "untrusted issuer's claim should not satisfy"
+        );
 
         // Claim from trusted IssuerA works.
         tester
             .api
             .call()
             .identity()
-            .add_claim(inv1_did, Claim::Accredited(Scope::Asset(asset_id.clone())), None)?
+            .add_claim(
+                inv1_did,
+                Claim::Accredited(Scope::Asset(asset_id.clone())),
+                None,
+            )?
             .submit_and_watch(&mut issuer_a)
             .await?
             .ok()

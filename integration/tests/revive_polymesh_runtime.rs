@@ -11,6 +11,7 @@ use alloy::primitives::{address, Address};
 use alloy::sol_types::SolCall;
 
 use integration::*;
+use polymesh_api::types::polymesh_primitives::agent::AgentGroup as PalletAgentGroup;
 use polymesh_api::types::polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_precompiles::IPolymeshRuntime;
 
@@ -168,6 +169,75 @@ async fn polymesh_runtime_self_register_did() -> Result<()> {
         .await?
         .expect("caller account should have a DID after self-registration");
     assert_eq!(did.0, events[0].did.0);
+
+    Ok(())
+}
+
+/// `addAuthorization` + `acceptBecomeAgent`.
+#[tokio::test]
+#[test_log::test]
+async fn polymesh_runtime_add_authorization_accept_become_agent() -> Result<()> {
+    let (mut tester, _node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["PolymeshRuntimeAddAuthOwner", "PolymeshRuntimeAddAuthAgent"])
+        .await?
+        .into_iter();
+    let api = tester.api.clone();
+    let mut owner = users.next().expect("owner");
+    let mut agent = users.next().expect("agent");
+    let agent_did = agent.did.expect("agent DID");
+
+    // The owner creates an asset through the precompile itself.
+    let mut owner_caller = SubstrateCaller::new(&api, &mut owner).await?;
+    let create_asset_call = IPolymeshRuntime::assetCreateAssetCall {
+        assetName: "PolyX EA Asset".to_string(),
+        divisible: true,
+        assetType: IPolymeshRuntime::AssetType {
+            kind: IPolymeshRuntime::AssetTypeKind::EquityCommon,
+            customTypeId: 0,
+        },
+        assetIdentifiers: vec![],
+        fundingRoundName: String::new(),
+    };
+    let logs = owner_caller
+        .send_call(
+            to_h160(&POLYMESH_RUNTIME_ADDRESS),
+            create_asset_call.abi_encode(),
+        )
+        .await?;
+    let events: Vec<IPolymeshRuntime::AssetCreated> =
+        decode_contract_logs(&logs, &to_h160(&POLYMESH_RUNTIME_ADDRESS))?;
+    let asset_id = events[0].assetId;
+
+    let add_auth_call = IPolymeshRuntime::externalAgentsAuthorizeBecomeAgentCall {
+        target: agent_did.0.into(),
+        assetId: asset_id,
+        agentGroup: IPolymeshRuntime::AgentGroup {
+            kind: IPolymeshRuntime::AgentGroupKind::Full,
+            customId: 0,
+        },
+    };
+    owner_caller
+        .send_call(
+            to_h160(&POLYMESH_RUNTIME_ADDRESS),
+            add_auth_call.abi_encode(),
+        )
+        .await?;
+    let auth_id = api.query().identity().current_auth_id().await?;
+
+    let mut agent_caller = SubstrateCaller::new(&api, &mut agent).await?;
+    let accept_call = IPolymeshRuntime::externalAgentsAcceptBecomeAgentCall { authId: auth_id };
+    agent_caller
+        .send_call(to_h160(&POLYMESH_RUNTIME_ADDRESS), accept_call.abi_encode())
+        .await?;
+
+    let group = api
+        .query()
+        .external_agents()
+        .group_of_agent(AssetId(asset_id.0), agent_did)
+        .await?
+        .expect("agent should have joined the asset's agent group after accepting");
+    assert_eq!(group, PalletAgentGroup::Full);
 
     Ok(())
 }

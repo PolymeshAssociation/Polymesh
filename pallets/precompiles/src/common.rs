@@ -36,6 +36,7 @@ use pallet_revive::precompiles::{AddressMapper, Error, Ext, RuntimeCosts, H256};
 use pallet_revive::{DispatchRuntimeCall, ExecOrigin, H160};
 
 use polymesh_precompiles::IPolymeshRuntime;
+use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::{AssetId, AssetType, CustomAssetTypeId, NonFungibleType};
 use polymesh_primitives::{AccountId, AssetHolder, AssetIdentifier, Balance};
 
@@ -319,6 +320,22 @@ impl<T: Config> Common<T> {
             Kind::LEI => AssetIdentifier::LEI(value.try_into().map_err(|_| invalid_length())?),
             Kind::FIGI => AssetIdentifier::FIGI(value.try_into().map_err(|_| invalid_length())?),
             Kind::__Invalid => return Err(revert("Invalid asset identifier type")),
+        })
+    }
+
+    /// Converts the ABI representation of an [`AgentGroup`] into the pallet's own type.
+    pub fn to_agent_group(
+        sol_agent_group: &IPolymeshRuntime::AgentGroup,
+    ) -> Result<AgentGroup, Error> {
+        use IPolymeshRuntime::AgentGroupKind as Kind;
+
+        Ok(match sol_agent_group.kind {
+            Kind::Full => AgentGroup::Full,
+            Kind::Custom => AgentGroup::Custom(AGId(sol_agent_group.customId)),
+            Kind::ExceptMeta => AgentGroup::ExceptMeta,
+            Kind::PolymeshV1CAA => AgentGroup::PolymeshV1CAA,
+            Kind::PolymeshV1PIA => AgentGroup::PolymeshV1PIA,
+            Kind::__Invalid => return Err(revert("Invalid agent group kind")),
         })
     }
 

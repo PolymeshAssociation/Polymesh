@@ -33,10 +33,7 @@ mod capital_distribution_tests {
     #[test_log::test]
     async fn distribute_and_claim() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["CdOwner", "CdHolder"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["CdOwner", "CdHolder"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let mut holder = users.next().unwrap();
 
@@ -137,10 +134,7 @@ mod capital_distribution_tests {
     #[test_log::test]
     async fn push_benefit_and_reclaim() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["CdOwner2", "CdHolder2"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["CdOwner2", "CdHolder2"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let holder = users.next().unwrap();
 
