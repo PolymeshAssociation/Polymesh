@@ -177,12 +177,13 @@ interface IFungibleAsset {
     /// @return True if the transfer is allowed, false otherwise.
     function canTransfer(address from, address to, uint256 value) external view returns (bool);
 
-    /// @notice Takes tokens from one address and transfers them to the caller's account.
+    /// @notice Takes tokens from one address and transfers them to another.
     /// @dev Requires specific authorization. Used for regulatory compliance or recovery scenarios.
     /// @param from The address from which `amount` is taken.
+    /// @param to The address which receives the seized tokens.
     /// @param amount The amount to force transfer.
     /// @return True if the transfer executed correctly. Reverts on failure.
-    function forcedTransfer(address from, uint256 amount) external returns (bool);
+    function forcedTransfer(address from, address to, uint256 amount) external returns (bool);
 
     /// @notice Changes the frozen status of `amount` tokens belonging to `account`.
     /// @dev Overwrites the current value, similar to an `approve` function.
@@ -339,8 +340,9 @@ contract FungibleAssetStub is IFungibleAsset {
         revert NotExecutable();
     }
 
-    function forcedTransfer(address from, uint256 amount) external override returns (bool) {
+    function forcedTransfer(address from, address to, uint256 amount) external override returns (bool) {
         from;
+        to;
         amount;
         revert NotExecutable();
     }
