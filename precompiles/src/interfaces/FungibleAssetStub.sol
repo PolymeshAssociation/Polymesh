@@ -224,6 +224,12 @@ interface IFungibleAsset {
     /// @notice Emitted when the account of an investor is frozen or unfrozen.
     event AddressFrozen(address indexed account, bool freeze, address indexed owner);
 
+    /// @notice Emitted when `amount` tokens are frozen for `account`, on top of any tokens already frozen.
+    event TokensFrozen(address indexed account, uint256 amount);
+
+    /// @notice Emitted when `amount` tokens are unfrozen for `account`.
+    event TokensUnfrozen(address indexed account, uint256 amount);
+
     /// @notice Sets the token name. Only the owner of the token contract can call this function.
     function setName(string calldata name) external;
 
@@ -238,6 +244,14 @@ interface IFungibleAsset {
 
     /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
     function setAddressFrozen(address account, bool freeze) external;
+
+    /// @notice Freezes an additional `amount` of tokens for `account`, on top of any tokens already frozen.
+    /// Only an agent of the token can call this function.
+    function freezePartialTokens(address account, uint256 amount) external;
+
+    /// @notice Unfreezes `amount` of tokens for `account`, reducing the amount currently frozen.
+    /// Only an agent of the token can call this function.
+    function unfreezePartialTokens(address account, uint256 amount) external;
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -394,6 +408,22 @@ contract FungibleAssetStub is IFungibleAsset {
     function setAddressFrozen(address userAddress, bool freeze) external override {
         userAddress;
         freeze;
+        revert NotExecutable();
+    }
+
+    /// @notice Freezes an additional `amount` of tokens for `account`, on top of any tokens already frozen.
+    /// Only an agent of the token can call this function.
+    function freezePartialTokens(address account, uint256 amount) external override {
+        account;
+        amount;
+        revert NotExecutable();
+    }
+
+    /// @notice Unfreezes `amount` of tokens for `account`, reducing the amount currently frozen.
+    /// Only an agent of the token can call this function.
+    function unfreezePartialTokens(address account, uint256 amount) external override {
+        account;
+        amount;
         revert NotExecutable();
     }
 }

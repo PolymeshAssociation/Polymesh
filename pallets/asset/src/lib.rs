@@ -1900,6 +1900,32 @@ pub mod pallet {
                 &mut weight_meter,
             )
         }
+
+        /// Freezes an additional `amount` of `asset_id` tokens from `asset_holder`, on top of
+        /// any tokens already frozen.
+        #[pallet::call_index(41)]
+        #[pallet::weight(<T as Config>::WeightInfo::freeze_partial_tokens())]
+        pub fn freeze_partial_tokens(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_holder: AssetHolder,
+            amount: Balance,
+        ) -> DispatchResult {
+            Self::base_freeze_partial_tokens(origin, asset_id, asset_holder, amount)
+        }
+
+        /// Unfreezes `amount` of `asset_id` tokens from `asset_holder`, reducing the amount
+        /// currently frozen.
+        #[pallet::call_index(42)]
+        #[pallet::weight(<T as Config>::WeightInfo::unfreeze_partial_tokens())]
+        pub fn unfreeze_partial_tokens(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_holder: AssetHolder,
+            amount: Balance,
+        ) -> DispatchResult {
+            Self::base_unfreeze_partial_tokens(origin, asset_id, asset_holder, amount)
+        }
     }
 
     #[pallet::error]
@@ -2018,6 +2044,8 @@ pub mod pallet {
         InvalidTransferSenderIsFrozen,
         /// The destination requires receiver affirmation before assets can be moved into it.
         ReceiverAffirmationRequired,
+        /// Attempt to unfreeze more tokens than are currently frozen for the asset holder.
+        InsufficientFrozenBalance,
     }
 
     pub trait WeightInfo {
@@ -2067,6 +2095,8 @@ pub mod pallet {
         fn transfer_is_allowed_for_holder_best_case() -> Weight;
         fn transfer_is_allowed_for_holder_worst_case() -> Weight;
         fn set_holder_frozen() -> Weight;
+        fn freeze_partial_tokens() -> Weight;
+        fn unfreeze_partial_tokens() -> Weight;
     }
 }
 
@@ -3113,6 +3143,64 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, amount);
+        Ok(())
+    }
+
+    /// Freezes an additional `amount` of `asset_id` tokens from `asset_holder`, on top of
+    /// any tokens already frozen.
+    fn base_freeze_partial_tokens(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        asset_holder: AssetHolder,
+        amount: Balance,
+    ) -> DispatchResult {
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
+        ensure!(
+            asset_details.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        }
+
+        let current_frozen_balance = Self::get_holders_frozen_balance(&asset_holder, &asset_id);
+        let new_frozen_balance = current_frozen_balance
+            .checked_add(amount)
+            .ok_or(Error::<T>::BalanceOverflow)?;
+
+        Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, new_frozen_balance);
+        Ok(())
+    }
+
+    /// Unfreezes `amount` of `asset_id` tokens from `asset_holder`, reducing the amount
+    /// currently frozen.
+    fn base_unfreeze_partial_tokens(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        asset_holder: AssetHolder,
+        amount: Balance,
+    ) -> DispatchResult {
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
+        ensure!(
+            asset_details.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        }
+
+        let current_frozen_balance = Self::get_holders_frozen_balance(&asset_holder, &asset_id);
+        let new_frozen_balance = current_frozen_balance
+            .checked_sub(amount)
+            .ok_or(Error::<T>::InsufficientFrozenBalance)?;
+
+        Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, new_frozen_balance);
         Ok(())
     }
 
