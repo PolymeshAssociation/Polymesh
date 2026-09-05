@@ -7,8 +7,7 @@ mod checkpoints_tests {
 
     use integration::*;
     use polymesh_api::types::polymesh_primitives::{
-        asset::AssetHolderKind,
-        checkpoint::ScheduleCheckpoints,
+        asset::AssetHolderKind, checkpoint::ScheduleCheckpoints,
     };
 
     async fn create_asset(

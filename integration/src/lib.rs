@@ -375,13 +375,7 @@ pub async fn get_checkpoint_id(
     if let Some(events) = res.events().await? {
         for rec in &events.0 {
             match &rec.event {
-                RuntimeEvent::Checkpoint(CheckpointEvent::CheckpointCreated(
-                    _,
-                    _,
-                    cp_id,
-                    _,
-                    _,
-                )) => {
+                RuntimeEvent::Checkpoint(CheckpointEvent::CheckpointCreated(_, _, cp_id, _, _)) => {
                     return Ok(Some(cp_id.clone()));
                 }
                 _ => (),

@@ -131,6 +131,12 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             IFungibleAssetCalls::setAddressFrozen(call) => {
                 Self::set_address_frozen(asset_id, call, env)
             }
+            IFungibleAssetCalls::freezePartialTokens(call) => {
+                Self::freeze_partial_tokens(asset_id, call, env)
+            }
+            IFungibleAssetCalls::unfreezePartialTokens(call) => {
+                Self::unfreeze_partial_tokens(asset_id, call, env)
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ use pallet_revive::precompiles::Ext;
 
 use pallet_asset::WeightInfo;
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
-use polymesh_primitives::asset::{AssetHolderKind, AssetId};
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::WeightMeter;
 
 use crate::common::Common;
@@ -67,7 +67,9 @@ impl<T: Config> FungibleAssetInterface<T> {
         ))
     }
 
-    /// Takes tokens from one address and transfers them to the caller's account.
+    /// Takes tokens from one address and transfers them to another.
+    ///
+    /// Only an asset holder account is supported as the destination for now.
     pub(crate) fn forced_transfer(
         asset_id: AssetId,
         call: &IFungibleAsset::forcedTransferCall,
@@ -75,16 +77,17 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
         let source = Common::<T>::asset_holder(env, call.from)?;
+        let destination = Common::<T>::asset_holder(env, call.to)?;
         let value = Common::<T>::to_balance(call.amount)?;
 
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
-            pallet_asset::Call::<T>::controller_transfer {
+            pallet_asset::Call::<T>::controller_transfer_to {
                 asset_id,
                 value,
                 source,
-                destination_kind: AssetHolderKind::Account,
+                destination,
             },
         )?;
 
@@ -92,7 +95,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             env,
             IFungibleAssetEvents::ForcedTransfer(IFungibleAsset::ForcedTransfer {
                 from: call.from.into(),
-                to: caller.address.0.into(),
+                to: call.to.into(),
                 amount: call.amount,
             }),
         )?;
