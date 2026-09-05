@@ -220,6 +220,18 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
     }
+    /// The range of component `n` is `[1, 10]`.
+    // TODO: Placeholder weight copied from `controller_transfer`, pending its own benchmark run.
+    fn controller_transfer_to(n: u32) -> Weight {
+        // Minimum execution time: 70_422 nanoseconds.
+        Weight::from_parts(53_679_613, 0)
+            // Standard Error: 60_000
+            .saturating_add(Weight::from_parts(25_645_276, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(4))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+    }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `Nft::NFTHolder` (r:1 w:0)
