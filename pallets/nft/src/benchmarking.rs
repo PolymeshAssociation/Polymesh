@@ -263,6 +263,42 @@ benchmarks! {
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }
 
+    controller_transfer_to {
+        let n in 1..T::MaxNumberOfNFTsCount::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (asset_id, alice_holdings, bob_holdings, _) =
+            setup_nft_transfer::<T>(&alice, &bob, n, None, None, true, 0, false);
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        with_transaction(|| {
+            Pallet::<T>::base_nft_transfer(
+                alice_holdings.clone(),
+                bob_holdings.clone(),
+                nfts.clone(),
+                InstructionId(1),
+                None,
+                IdentityId::default(),
+                &mut weight_meter
+            )
+        })
+        .unwrap();
+        // Before the controller transfer all NFTs belong to bob
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), n as u64);
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), 0);
+    }: _(alice.origin.clone(), nfts.clone(), bob_holdings.clone(), alice_holdings.clone())
+    verify {
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), 0);
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), n as u64);
+        for i in 1..n + 1 {
+            assert!(Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &alice_holdings));
+            assert!(!Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &bob_holdings));
+        }
+        assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
+    }
+
     approve {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");

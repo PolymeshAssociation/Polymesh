@@ -563,6 +563,38 @@ benchmarks! {
         );
     }
 
+    controller_transfer_to {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+
+        let alice_holdings = AssetHolder::from(PortfolioId::default_portfolio(alice.did()));
+        let bob_holdings = AssetHolder::from(PortfolioId::default_portfolio(bob.did()));
+
+        Pallet::<T>::issue(
+            alice.origin.clone().into(),
+            asset_id,
+            1_000_000,
+            alice_holdings.clone().into()
+        )
+        .unwrap();
+
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            alice.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
+            None,
+        )
+        .unwrap();
+        pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
+    }: _(bob.origin.clone(), asset_id, 1_000, alice_holdings, bob_holdings)
+    verify {
+        assert_eq!(
+            BalanceOf::<T>::get(asset_id, bob.did()),
+            1_000
+        );
+    }
+
     register_custom_asset_type {
         let n in 1 .. T::MaxLen::get() as u32;
 

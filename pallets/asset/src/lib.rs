@@ -1857,6 +1857,49 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_set_holder_frozen(origin, asset_holder, asset_id, freeze)
         }
+
+        /// Forces a transfer of tokens from `source` to `destination`.
+        ///
+        /// Unlike [`Self::controller_transfer`], which always sends the funds to the caller,
+        /// this extrinsic lets the caller name an arbitrary [`AssetHolder`] as the destination.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `value` - The [`Balance`] of tokens that will be transferred.
+        /// * `source` - The [`AssetHolder`] that will have its balance reduced.
+        /// * `destination` - The [`AssetHolder`] that will have its balance increased.
+        ///
+        /// # Permissions
+        /// * Asset
+        ///
+        /// # Events
+        /// * `ControllerTransfer` - When tokens are successfully transferred.
+        ///
+        /// # Errors
+        /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+        /// * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
+        /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
+        /// * `ReceiverAffirmationRequired` - If `destination` requires receiver affirmation for the asset.
+        #[pallet::call_index(40)]
+        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer_to())]
+        pub fn controller_transfer_to(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            value: Balance,
+            source: AssetHolder,
+            destination: AssetHolder,
+        ) -> DispatchResult {
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::base_controller_transfer_to(
+                origin,
+                asset_id,
+                value,
+                source,
+                destination,
+                &mut weight_meter,
+            )
+        }
     }
 
     #[pallet::error]
@@ -1973,6 +2016,8 @@ pub mod pallet {
         WeightLimitExceeded,
         /// The sender is frozen and cannot transfer assets.
         InvalidTransferSenderIsFrozen,
+        /// The destination requires receiver affirmation before assets can be moved into it.
+        ReceiverAffirmationRequired,
     }
 
     pub trait WeightInfo {
@@ -1991,6 +2036,7 @@ pub mod pallet {
         fn set_funding_round(f: u32) -> Weight;
         fn update_identifiers(i: u32) -> Weight;
         fn controller_transfer() -> Weight;
+        fn controller_transfer_to() -> Weight;
         fn register_custom_asset_type(n: u32) -> Weight;
         fn set_asset_metadata() -> Weight;
         fn set_asset_metadata_details() -> Weight;
@@ -2407,6 +2453,54 @@ impl<T: AssetConfig> Pallet<T> {
 
         Self::deposit_event(Event::ControllerTransfer(
             holder_did,
+            asset_id,
+            source,
+            transfer_value,
+        ));
+        Ok(())
+    }
+
+    /// Same as [`Self::base_controller_transfer`], but `destination` is given explicitly
+    /// instead of being derived from the caller's identity. The transfer is rejected if
+    /// `destination` requires receiver affirmation for `asset_id`.
+    fn base_controller_transfer_to(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        transfer_value: Balance,
+        source: AssetHolder,
+        destination: AssetHolder,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let caller_data = ExternalAgents::<T>::ensure_agent_asset_perms(origin, &asset_id)?;
+
+        Self::ensure_valid_holder(&destination)?;
+        ensure!(
+            Self::skip_asset_holder_affirmation(&destination, &asset_id)?,
+            Error::<T>::ReceiverAffirmationRequired
+        );
+
+        Self::validate_asset_transfer(
+            asset_id,
+            &source,
+            &destination,
+            transfer_value,
+            true,
+            weight_meter,
+        )?;
+        Self::unverified_transfer_asset(
+            source.clone(),
+            destination,
+            asset_id,
+            transfer_value,
+            None,
+            None,
+            caller_data.primary_did,
+            true,
+            weight_meter,
+        )?;
+
+        Self::deposit_event(Event::ControllerTransfer(
+            caller_data.primary_did,
             asset_id,
             source,
             transfer_value,

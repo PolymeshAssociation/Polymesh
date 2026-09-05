@@ -426,6 +426,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(15))
             .saturating_add(DbWeight::get().writes(5))
     }
+    // TODO: Placeholder weight copied from `controller_transfer`, pending its own benchmark run.
+    fn controller_transfer_to() -> Weight {
+        // Minimum execution time: 114_990 nanoseconds.
+        Weight::from_parts(120_089_000, 0)
+            .saturating_add(DbWeight::get().reads(15))
+            .saturating_add(DbWeight::get().writes(5))
+    }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `Asset::CustomTypesInverse` (r:1 w:1)

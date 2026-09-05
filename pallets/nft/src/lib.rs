@@ -43,6 +43,7 @@ pub trait WeightInfo {
     fn redeem_nft(n: u32) -> Weight;
     fn base_nft_transfer(n: u32) -> Weight;
     fn controller_transfer(n: u32) -> Weight;
+    fn controller_transfer_to(n: u32) -> Weight;
     fn approve() -> Weight;
     fn set_approval_for_all() -> Weight;
     fn spend_nft_approval(n: u32) -> Weight;
@@ -457,6 +458,30 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_set_approval_for_all(origin, asset_id, operator, approved)
         }
+
+        /// Forces the transfer of NFTs from a given portfolio to `destination`.
+        ///
+        /// Unlike [`Self::controller_transfer`], which always sends the NFTs to the caller's,
+        /// this extrinsic lets the caller name an arbitrary [`AssetHolder`] as the destination.
+        ///
+        /// # Arguments
+        /// * `origin` - is a signer that has permissions to act as an agent of `asset_id`.
+        /// * `nfts` - the [`NFTs`] to be transferred.
+        /// * `source` - the [`AssetHolder`] that currently holds the NFTs.
+        /// * `destination` - the [`AssetHolder`] that will receive the NFTs.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer_to(nfts.len() as u32))]
+        #[pallet::call_index(7)]
+        pub fn controller_transfer_to(
+            origin: OriginFor<T>,
+            nfts: NFTs,
+            source: AssetHolder,
+            destination: AssetHolder,
+        ) -> DispatchResult {
+            Self::base_controller_transfer_to(origin, nfts, source, destination)
+        }
     }
 
     #[pallet::error]
@@ -526,6 +551,8 @@ pub mod pallet {
         NFTApprovalNotAuthorized,
         /// The spender has no approval to transfer this NFT.
         InsufficientNFTApproval,
+        /// The destination requires receiver affirmation before assets can be moved into it.
+        ReceiverAffirmationRequired,
     }
 }
 
@@ -1090,6 +1117,39 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::NFTHoldingsUpdated(
             holder_did,
+            nfts,
+            Some(source),
+            Some(destination),
+            HoldingsUpdateReason::ControllerTransfer,
+        ));
+        Ok(())
+    }
+
+    /// Same as [`Self::base_controller_transfer`], but `destination` is given explicitly
+    /// instead of being derived from the caller's identity. The transfer is rejected if
+    /// `destination` requires receiver affirmation for the NFT's asset.
+    pub fn base_controller_transfer_to(
+        origin: T::RuntimeOrigin,
+        nfts: NFTs,
+        source: AssetHolder,
+        destination: AssetHolder,
+    ) -> DispatchResult {
+        // Ensure origin is an agent with permissions for the asset.
+        let caller_data = ExternalAgents::<T>::ensure_agent_asset_perms(origin, nfts.asset_id())?;
+
+        AssetPallet::<T>::ensure_valid_holder(&destination)?;
+        ensure!(
+            AssetPallet::<T>::skip_asset_holder_affirmation(&destination, nfts.asset_id())?,
+            Error::<T>::ReceiverAffirmationRequired
+        );
+
+        // Verifies if all rules for transfering the NFTs are being respected
+        Self::validate_nft_transfer(&source, &destination, &nfts, true, None)?;
+        // Transfer ownership of the NFTs
+        Self::unverified_nfts_transfer(&source, destination.clone(), &nfts)?;
+
+        Self::deposit_event(Event::NFTHoldingsUpdated(
+            caller_data.primary_did,
             nfts,
             Some(source),
             Some(destination),
