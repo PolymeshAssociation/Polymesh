@@ -153,7 +153,7 @@ interface IPolymeshRuntime {
     /// `target` can later accept via {IPolymeshRuntime-externalAgentsAcceptBecomeAgent}.
     /// @dev Calls `pallet_identity::add_authorization` with a `BecomeAgent`-variant
     /// `AuthorizationData` issued to `target` as an `Identity` signatory. The authorization never
-    /// expires.q
+    /// expires.
     /// @param target The DID the authorization is issued to.
     /// @param assetId The id of the asset `target` would join as an agent.
     /// @param agentGroup The permission group `target` would join, see {AgentGroup}.
