@@ -231,7 +231,10 @@ async fn erc721_approval_for_all() -> Result<()> {
     nft.mint(&mut owner_caller, vec![]).await?;
     nft.mint(&mut owner_caller, vec![]).await?;
 
-    assert!(!nft.is_approved_for_all(owner_address, operator_address).await?);
+    assert!(
+        !nft.is_approved_for_all(owner_address, operator_address)
+            .await?
+    );
 
     let logs = nft
         .set_approval_for_all(&mut owner_caller, operator_address, true)
@@ -242,7 +245,10 @@ async fn erc721_approval_for_all() -> Result<()> {
     assert_eq!(events[0].operator, operator_address);
     assert!(events[0].approved);
 
-    assert!(nft.is_approved_for_all(owner_address, operator_address).await?);
+    assert!(
+        nft.is_approved_for_all(owner_address, operator_address)
+            .await?
+    );
 
     // The operator moves both NFTs without any per-token approval.
     let mut operator_caller = SubstrateCaller::new(&api, operator).await?;
@@ -259,7 +265,10 @@ async fn erc721_approval_for_all() -> Result<()> {
     assert_eq!(nft.balance_of(operator_address).await?, 2);
     assert_eq!(nft.balance_of(owner_address).await?, 0);
     // The operator approval survived.
-    assert!(nft.is_approved_for_all(owner_address, operator_address).await?);
+    assert!(
+        nft.is_approved_for_all(owner_address, operator_address)
+            .await?
+    );
 
     Ok(())
 }
@@ -304,7 +313,9 @@ async fn erc721_transfer_without_approval_reverts() -> Result<()> {
 #[test_log::test]
 async fn erc721_forced_transfer() -> Result<()> {
     let (mut tester, node) = revive_tester().await?;
-    let mut users = tester.users(&["Erc721ForceAgent", "Erc721ForceHolder"]).await?;
+    let mut users = tester
+        .users(&["Erc721ForceAgent", "Erc721ForceHolder"])
+        .await?;
     let api = tester.api.clone();
     let (owners, holders) = users.split_at_mut(1);
     let owner = &mut owners[0];
@@ -417,7 +428,8 @@ async fn erc721_rejects_fungible_asset() -> Result<()> {
     let owner = &mut users[0];
 
     // A fungible asset reached through the NFT precompile.
-    let (asset, _erc20) = create_erc20_asset(&api, &node, owner, "ERC721 Wrong Kind", 1_000).await?;
+    let (asset, _erc20) =
+        create_erc20_asset(&api, &node, owner, "ERC721 Wrong Kind", 1_000).await?;
     let as_nft = Erc721Collection::new(&api, &node, asset.asset_id).await?;
     let err = match as_nft.total_supply().await {
         Ok(_) => panic!("the NFT precompile should reject a fungible asset"),

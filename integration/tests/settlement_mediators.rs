@@ -51,8 +51,7 @@ mod settlement_mediators_tests {
         let inv1 = users.next().unwrap();
         let mut mediator = users.next().unwrap();
 
-        let asset_id =
-            create_asset_in_portfolio(&mut tester, &mut owner, "SMEDIA", 10_000).await?;
+        let asset_id = create_asset_in_portfolio(&mut tester, &mut owner, "SMEDIA", 10_000).await?;
         let mediator_did = mediator.did.unwrap();
 
         // Instruction with one leg + mediator attached at creation.
@@ -119,8 +118,7 @@ mod settlement_mediators_tests {
         let inv1 = users.next().unwrap();
         let mut mediator = users.next().unwrap();
 
-        let asset_id =
-            create_asset_in_portfolio(&mut tester, &mut owner, "SMREJX", 10_000).await?;
+        let asset_id = create_asset_in_portfolio(&mut tester, &mut owner, "SMREJX", 10_000).await?;
         let mediator_did = mediator.did.unwrap();
 
         let leg = Leg::Fungible {
@@ -154,11 +152,13 @@ mod settlement_mediators_tests {
             .settlement()
             .reject_instruction_as_mediator(
                 inst_id,
-                Some(polymesh_api::types::polymesh_primitives::settlement::AssetCount {
-                    fungible: 4,
-                    non_fungible: 0,
-                    off_chain: 0,
-                }),
+                Some(
+                    polymesh_api::types::polymesh_primitives::settlement::AssetCount {
+                        fungible: 4,
+                        non_fungible: 0,
+                        off_chain: 0,
+                    },
+                ),
             )?
             .execute(&mut mediator)
             .await?
@@ -175,8 +175,9 @@ mod settlement_mediators_tests {
         assert!(
             matches!(
                 status,
-                polymesh_api::types::polymesh_primitives::settlement::InstructionStatus::Rejected(_)
-                    | polymesh_api::types::polymesh_primitives::settlement::InstructionStatus::Failed
+                polymesh_api::types::polymesh_primitives::settlement::InstructionStatus::Rejected(
+                    _
+                ) | polymesh_api::types::polymesh_primitives::settlement::InstructionStatus::Failed
             ),
             "mediator rejection must move instruction out of Pending"
         );
@@ -199,8 +200,7 @@ mod settlement_mediators_tests {
         let inv1 = users.next().unwrap();
         let mut mediator = users.next().unwrap();
 
-        let asset_id =
-            create_asset_in_portfolio(&mut tester, &mut owner, "SMLOCK", 10_000).await?;
+        let asset_id = create_asset_in_portfolio(&mut tester, &mut owner, "SMLOCK", 10_000).await?;
         let mediator_did = mediator.did.unwrap();
 
         let sender = AssetHolder::Portfolio(pf(&owner));

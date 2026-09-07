@@ -79,10 +79,7 @@ mod settlement_scheduling_tests {
     #[test_log::test]
     async fn settle_on_affirmation_auto_executes() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["SSOwner", "SSInv1"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["SSOwner", "SSInv1"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let inv1 = users.next().unwrap();
 
@@ -99,7 +96,14 @@ mod settlement_scheduling_tests {
             .api
             .call()
             .settlement()
-            .add_instruction(None, SettlementType::SettleOnAffirmation, None, None, vec![leg], None)?
+            .add_instruction(
+                None,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                vec![leg],
+                None,
+            )?
             .submit_and_watch(&mut owner)
             .await?;
         res.ok().await?;
@@ -119,7 +123,10 @@ mod settlement_scheduling_tests {
 
         // No manual execution needed.
         let status = wait_for_completion(&tester, inst_id, start).await?;
-        assert!(matches!(status, InstructionStatus::Success(_)), "auto-settlement should succeed");
+        assert!(
+            matches!(status, InstructionStatus::Success(_)),
+            "auto-settlement should succeed"
+        );
 
         let bal = tester
             .api
@@ -137,10 +144,7 @@ mod settlement_scheduling_tests {
     #[test_log::test]
     async fn settle_on_block_auto_executes() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["SSOwner2", "SSInv2"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["SSOwner2", "SSInv2"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let inv1 = users.next().unwrap();
 
@@ -203,10 +207,7 @@ mod settlement_scheduling_tests {
     #[test_log::test]
     async fn failing_leg_aborts_instruction() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["SSOwner3", "SSInv3"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["SSOwner3", "SSInv3"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let inv1 = users.next().unwrap();
 

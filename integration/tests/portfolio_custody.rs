@@ -42,10 +42,7 @@ mod portfolio_custody_tests {
     #[test_log::test]
     async fn custody_portfolio_lifecycle() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["PCOwner", "PCCustodian"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["PCOwner", "PCCustodian"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let mut custodian = users.next().unwrap();
 
@@ -81,7 +78,10 @@ mod portfolio_custody_tests {
             .portfolio()
             .portfolios_in_custody(custodian_did, pid.clone())
             .await?;
-        assert!(custodian_of, "custodian should hold custody of the new portfolio");
+        assert!(
+            custodian_of,
+            "custodian should hold custody of the new portfolio"
+        );
 
         // Custodian quits; ownership returns fully to the owner.
         tester
@@ -161,7 +161,10 @@ mod portfolio_custody_tests {
             .create_custody_portfolio(owner_did, PortfolioName(b"Delegated2".to_vec()))?
             .submit_and_watch(&mut delegate)
             .await?;
-        assert!(res.ok().await.is_err(), "revoked delegate must not create portfolios");
+        assert!(
+            res.ok().await.is_err(),
+            "revoked delegate must not create portfolios"
+        );
 
         Ok(())
     }
@@ -171,10 +174,7 @@ mod portfolio_custody_tests {
     #[test_log::test]
     async fn portfolio_pre_approval() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["PPAOwner", "PPAInv1"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["PPAOwner", "PPAInv1"]).await?.into_iter();
         let mut owner = users.next().unwrap();
         let mut inv1 = users.next().unwrap();
 

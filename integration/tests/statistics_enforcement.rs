@@ -118,7 +118,10 @@ mod statistics_enforcement_tests {
             .transfer_asset(asset_id.clone(), inv3.account(), 100, None)?
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "3rd investor must be blocked by MaxInvestorCount=2");
+        assert!(
+            res.ok().await.is_err(),
+            "3rd investor must be blocked by MaxInvestorCount=2"
+        );
 
         // Raise the cap to 3.
         tester
@@ -153,7 +156,12 @@ mod statistics_enforcement_tests {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester
             .users(&[
-                "SEEOwner", "SEEIssuer", "SEEInv1", "SEEInv2", "SEEDealer", "SEEExtra",
+                "SEEOwner",
+                "SEEIssuer",
+                "SEEInv1",
+                "SEEInv2",
+                "SEEDealer",
+                "SEEExtra",
             ])
             .await?
             .into_iter();

@@ -96,7 +96,8 @@ mod ca_extended_tests {
         let asset_id = create_asset(&mut tester, &mut owner, "CAEDOC", 1_000_000).await?;
         let doc = Document {
             uri: DocumentUri(b"ipfs://ca-doc".to_vec()),
-            content_hash: polymesh_api::types::polymesh_primitives::document_hash::DocumentHash::None,
+            content_hash:
+                polymesh_api::types::polymesh_primitives::document_hash::DocumentHash::None,
             name: DocumentName(b"Notice".to_vec()),
             doc_type: None,
             filing_date: None,

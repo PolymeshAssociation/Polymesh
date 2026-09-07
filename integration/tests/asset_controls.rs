@@ -142,11 +142,7 @@ mod asset_controls_tests {
             .api
             .call()
             .asset()
-            .redeem(
-                asset_id.clone(),
-                500,
-                AssetHolderKind::Account,
-            )?
+            .redeem(asset_id.clone(), 500, AssetHolderKind::Account)?
             .submit_and_watch(&mut owner)
             .await?
             .ok()
@@ -200,7 +196,10 @@ mod asset_controls_tests {
             .assets(asset_id.clone())
             .await?
             .expect("asset exists");
-        assert!(!details_before.divisible, "fresh asset should be indivisible");
+        assert!(
+            !details_before.divisible,
+            "fresh asset should be indivisible"
+        );
 
         // Whole-coin fractional transfer is rejected while indivisible.
         let mut res = tester
@@ -210,7 +209,10 @@ mod asset_controls_tests {
             .transfer_asset(asset_id.clone(), inv1.account(), 1_500_000, None)? // 1.5 units
             .submit_and_watch(&mut owner)
             .await?;
-        assert!(res.ok().await.is_err(), "fractional transfer on indivisible asset should fail");
+        assert!(
+            res.ok().await.is_err(),
+            "fractional transfer on indivisible asset should fail"
+        );
 
         tester
             .api
@@ -323,7 +325,8 @@ mod asset_controls_tests {
 
         let doc = Document {
             uri: DocumentUri(b"ipfs://QmTest".to_vec()),
-            content_hash: polymesh_api::types::polymesh_primitives::document_hash::DocumentHash::None,
+            content_hash:
+                polymesh_api::types::polymesh_primitives::document_hash::DocumentHash::None,
             name: DocumentName(b"Prospectus".to_vec()),
             doc_type: None,
             filing_date: None,
@@ -392,7 +395,12 @@ mod asset_controls_tests {
             .api
             .call()
             .asset()
-            .set_funding_round(asset_id.clone(), polymesh_api::types::polymesh_primitives::asset::FundingRoundName(b"Series A".to_vec()))?
+            .set_funding_round(
+                asset_id.clone(),
+                polymesh_api::types::polymesh_primitives::asset::FundingRoundName(
+                    b"Series A".to_vec(),
+                ),
+            )?
             .submit_and_watch(&mut owner)
             .await?
             .ok()

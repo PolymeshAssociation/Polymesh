@@ -8892,6 +8892,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "log",
  "pallet-asset",
+ "pallet-external-agents",
  "pallet-identity",
  "pallet-nft",
  "pallet-permissions",

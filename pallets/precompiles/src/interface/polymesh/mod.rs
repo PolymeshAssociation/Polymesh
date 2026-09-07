@@ -30,6 +30,7 @@ use crate::common::Common;
 use crate::Config;
 
 mod asset;
+mod external_agents;
 mod identity;
 
 /// General-purpose Polymesh runtime extrinsics, exposed as a precompile at a single fixed address
@@ -64,6 +65,12 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
             IPolymeshRuntimeCalls::identityRegisterDid(call) => Self::register_did(call, env),
             IPolymeshRuntimeCalls::identitySelfRegisterDid(call) => {
                 Self::self_register_did(call, env)
+            }
+            IPolymeshRuntimeCalls::externalAgentsAuthorizeBecomeAgent(call) => {
+                Self::authorize_become_agent(call, env)
+            }
+            IPolymeshRuntimeCalls::externalAgentsAcceptBecomeAgent(call) => {
+                Self::accept_become_agent(call, env)
             }
         }
     }

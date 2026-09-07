@@ -127,14 +127,24 @@ mod identity_lifecycle_tests {
         let mut owner = users.next().unwrap();
         let mut sk = tester.new_signer_idx("ILFOwner", 1)?;
 
-        add_secondary_key(&tester, &mut owner, &mut sk, PermissionsBuilder::whole().build()).await?;
+        add_secondary_key(
+            &tester,
+            &mut owner,
+            &mut sk,
+            PermissionsBuilder::whole().build(),
+        )
+        .await?;
 
         // SK can act (create venue).
         tester
             .api
             .call()
             .settlement()
-            .create_venue(VenueDetails(b"SKVenue1".to_vec()), Default::default(), VenueType::Other)?
+            .create_venue(
+                VenueDetails(b"SKVenue1".to_vec()),
+                Default::default(),
+                VenueType::Other,
+            )?
             .execute(&mut sk)
             .await?
             .ok()
@@ -156,7 +166,11 @@ mod identity_lifecycle_tests {
             .api
             .call()
             .settlement()
-            .create_venue(VenueDetails(b"SKVenue2".to_vec()), Default::default(), VenueType::Other)?
+            .create_venue(
+                VenueDetails(b"SKVenue2".to_vec()),
+                Default::default(),
+                VenueType::Other,
+            )?
             .execute(&mut sk)
             .await;
         match res {
@@ -178,7 +192,11 @@ mod identity_lifecycle_tests {
             .api
             .call()
             .settlement()
-            .create_venue(VenueDetails(b"SKVenue3".to_vec()), Default::default(), VenueType::Other)?
+            .create_venue(
+                VenueDetails(b"SKVenue3".to_vec()),
+                Default::default(),
+                VenueType::Other,
+            )?
             .execute(&mut sk)
             .await?
             .ok()
@@ -196,14 +214,24 @@ mod identity_lifecycle_tests {
         let mut owner = users.next().unwrap();
         let mut sk = tester.new_signer_idx("ILROwner2", 1)?;
 
-        add_secondary_key(&tester, &mut owner, &mut sk, PermissionsBuilder::whole().build()).await?;
+        add_secondary_key(
+            &tester,
+            &mut owner,
+            &mut sk,
+            PermissionsBuilder::whole().build(),
+        )
+        .await?;
 
         // Works before removal.
         tester
             .api
             .call()
             .settlement()
-            .create_venue(VenueDetails(b"RSKVenue1".to_vec()), Default::default(), VenueType::Other)?
+            .create_venue(
+                VenueDetails(b"RSKVenue1".to_vec()),
+                Default::default(),
+                VenueType::Other,
+            )?
             .execute(&mut sk)
             .await?
             .ok()
@@ -225,7 +253,11 @@ mod identity_lifecycle_tests {
             .api
             .call()
             .settlement()
-            .create_venue(VenueDetails(b"RSKVenue2".to_vec()), Default::default(), VenueType::Other)?
+            .create_venue(
+                VenueDetails(b"RSKVenue2".to_vec()),
+                Default::default(),
+                VenueType::Other,
+            )?
             .execute(&mut sk)
             .await;
         match res {
@@ -241,10 +273,7 @@ mod identity_lifecycle_tests {
     #[test_log::test]
     async fn revoke_claim_removes_it() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester
-            .users(&["ILCIssuer", "ILCTarget"])
-            .await?
-            .into_iter();
+        let mut users = tester.users(&["ILCIssuer", "ILCTarget"]).await?.into_iter();
         let mut issuer = users.next().unwrap();
         let target = users.next().unwrap();
 
@@ -256,7 +285,11 @@ mod identity_lifecycle_tests {
             .api
             .call()
             .identity()
-            .add_claim(target_did, Claim::Accredited(Scope::Identity(issuer_did)), None)?
+            .add_claim(
+                target_did,
+                Claim::Accredited(Scope::Identity(issuer_did)),
+                None,
+            )?
             .submit_and_watch(&mut issuer)
             .await?
             .ok()
@@ -284,10 +317,7 @@ mod identity_lifecycle_tests {
             .api
             .call()
             .identity()
-            .revoke_claim(
-                target_did,
-                Claim::Accredited(Scope::Identity(issuer_did)),
-            )?
+            .revoke_claim(target_did, Claim::Accredited(Scope::Identity(issuer_did)))?
             .submit_and_watch(&mut issuer)
             .await?
             .ok()
@@ -444,7 +474,10 @@ mod identity_lifecycle_tests {
             .submit_and_watch(&mut target2)
             .await;
         match res {
-            Ok(mut r) => assert!(r.ok().await.is_err(), "cancelled auth must not be acceptable"),
+            Ok(mut r) => assert!(
+                r.ok().await.is_err(),
+                "cancelled auth must not be acceptable"
+            ),
             Err(_) => {}
         }
         let _ = auth1;

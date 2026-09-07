@@ -65,9 +65,14 @@ mod relayer_negative_tests {
         let now = tester.api.query().timestamp().now().await?;
         let past_expiry = now.saturating_sub(10_000);
         let msg_call = call.clone();
-        let message =
-            ChainScopedMessage::new(&tester.api, nonce, RELAY_TX_LABEL, Some(past_expiry), &msg_call)
-                .await?;
+        let message = ChainScopedMessage::new(
+            &tester.api,
+            nonce,
+            RELAY_TX_LABEL,
+            Some(past_expiry),
+            &msg_call,
+        )
+        .await?;
 
         // Target signs; payer submits.
         let sig = sign_with_key(&target, &message).await?;
@@ -83,7 +88,10 @@ mod relayer_negative_tests {
             )?
             .submit_and_watch(&mut payer)
             .await?;
-        assert!(res.ok().await.is_err(), "relay with expired signature should fail");
+        assert!(
+            res.ok().await.is_err(),
+            "relay with expired signature should fail"
+        );
 
         Ok(())
     }
@@ -118,7 +126,12 @@ mod relayer_negative_tests {
             .api
             .call()
             .relayer()
-            .relay_tx(target.account(), sig.clone().into(), call.clone(), expires_at)?
+            .relay_tx(
+                target.account(),
+                sig.clone().into(),
+                call.clone(),
+                expires_at,
+            )?
             .submit_and_watch(&mut payer)
             .await?
             .ok()
@@ -309,7 +322,15 @@ mod relayer_negative_tests {
 
         setup_subsidy(&tester, &mut payer, &mut target, 1000 * ONE_POLYX).await?;
         assert!(
-            tester.api.query().relayer().subsidies(target.account()).await?.map(|s| s.remaining).unwrap_or(0) > 0,
+            tester
+                .api
+                .query()
+                .relayer()
+                .subsidies(target.account())
+                .await?
+                .map(|s| s.remaining)
+                .unwrap_or(0)
+                > 0,
             "subsidy should exist after acceptance"
         );
 
