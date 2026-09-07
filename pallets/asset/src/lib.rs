@@ -373,6 +373,14 @@ pub mod pallet {
             asset_id: AssetId,
             freeze: bool,
         },
+        /// Event for when a controller transfers assets from one holder to another.
+        ControllerTransferTo {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            source: AssetHolder,
+            destination: AssetHolder,
+            amount: Balance,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -2519,7 +2527,7 @@ impl<T: AssetConfig> Pallet<T> {
         )?;
         Self::unverified_transfer_asset(
             source.clone(),
-            destination,
+            destination.clone(),
             asset_id,
             transfer_value,
             None,
@@ -2529,12 +2537,13 @@ impl<T: AssetConfig> Pallet<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(Event::ControllerTransfer(
-            caller_data.primary_did,
+        Self::deposit_event(Event::ControllerTransferTo {
+            caller_did: caller_data.primary_did,
             asset_id,
             source,
-            transfer_value,
-        ));
+            destination,
+            amount: transfer_value,
+        });
         Ok(())
     }
 

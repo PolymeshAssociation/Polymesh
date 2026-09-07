@@ -947,20 +947,6 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
-    // TODO: Placeholder weight copied from `set_frozen_tokens`, pending its own benchmark run.
-    fn freeze_partial_tokens() -> Weight {
-        // Minimum execution time: 62_991 nanoseconds.
-        Weight::from_parts(64_868_000, 0)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(1))
-    }
-    // TODO: Placeholder weight copied from `set_frozen_tokens`, pending its own benchmark run.
-    fn unfreeze_partial_tokens() -> Weight {
-        // Minimum execution time: 62_991 nanoseconds.
-        Weight::from_parts(64_868_000, 0)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(1))
-    }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
@@ -998,5 +984,45 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
         Weight::from_parts(149_141_000, 0)
             .saturating_add(DbWeight::get().reads(18))
             .saturating_add(DbWeight::get().writes(5))
+    }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
+    // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Asset::Assets` (r:1 w:0)
+    // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Portfolio::Portfolios` (r:1 w:0)
+    // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Portfolio::PortfolioFrozenAssets` (r:1 w:1)
+    // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    fn freeze_partial_tokens() -> Weight {
+        // Minimum execution time: 67_006 nanoseconds.
+        Weight::from_parts(68_972_000, 0)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
+    // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Asset::Assets` (r:1 w:0)
+    // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Portfolio::Portfolios` (r:1 w:0)
+    // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Portfolio::PortfolioFrozenAssets` (r:1 w:1)
+    // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
+    fn unfreeze_partial_tokens() -> Weight {
+        // Minimum execution time: 68_742 nanoseconds.
+        Weight::from_parts(70_849_000, 0)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(1))
     }
 }
