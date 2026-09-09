@@ -58,6 +58,10 @@ runtime = [
   "native",
   "polymesh-worker-extension",
 ]
+runtime_only = [
+  "native",
+  "impl_protocol",
+]
 
 no_std = []
 std = [
