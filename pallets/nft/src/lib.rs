@@ -1161,7 +1161,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Verifies if all rules for transfering the NFTs are being respected
+        // Verifies if all rules for transferring the NFTs are being respected
         Self::validate_nft_transfer(&source, &destination, &nfts, true, None)?;
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&source, destination.clone(), &nfts)?;

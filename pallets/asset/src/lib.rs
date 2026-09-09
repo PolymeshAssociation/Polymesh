@@ -1882,7 +1882,7 @@ pub mod pallet {
         /// * Asset
         ///
         /// # Events
-        /// * `ControllerTransfer` - When tokens are successfully transferred.
+        /// * `ControllerTransferTo` - When tokens are successfully transferred.
         ///
         /// # Errors
         /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.

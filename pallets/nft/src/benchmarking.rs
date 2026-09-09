@@ -294,7 +294,7 @@ benchmarks! {
         .unwrap();
         pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
 
-        // Charlies gives custody of portfolio to bob
+        // Charlie gives custody of portfolio to bob
         let auth_id = pallet_identity::Pallet::<T>::add_auth(
             charlie.did(),
             Signatory::from(bob.did()),
