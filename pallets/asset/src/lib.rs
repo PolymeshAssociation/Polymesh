@@ -152,8 +152,6 @@ pub use pallet::*;
 /// The module's configuration trait.
 #[frame_support::pallet]
 pub mod pallet {
-    use core::marker::Freeze;
-
     use super::*;
     use frame_support::pallet_prelude::*;
 
