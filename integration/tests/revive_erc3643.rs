@@ -108,3 +108,26 @@ async fn erc3643_pause_unpause() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_is_agent() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc3643Owner", "Erc3643NonAgent"]).await?;
+    let api = tester.api.clone();
+    let (owners, non_agents) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let non_agent = &mut non_agents[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, owner, "ERC3643 Agent", MINT).await?;
+
+    let owner_address = eth_address_of(&api, owner).await?;
+    let non_agent_address = eth_address_of(&api, non_agent).await?;
+
+    // The asset owner is a Full agent from creation.
+    assert!(erc3643.is_agent(owner_address).await.unwrap());
+    // An unrelated identity is not an agent of the asset.
+    assert!(!erc3643.is_agent(non_agent_address).await.unwrap());
+
+    Ok(())
+}

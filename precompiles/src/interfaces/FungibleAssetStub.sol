@@ -237,6 +237,11 @@ interface IFungibleAsset {
 
     /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
     function setAddressFrozen(address account, bool freeze) external;
+
+    /// @notice Checks if a specific account is an agent of the token.
+    /// @param account The address to check.
+    /// @return True if the account is an agent, false otherwise.
+    function isAgent(address account) external view returns (bool);
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -392,6 +397,11 @@ contract FungibleAssetStub is IFungibleAsset {
     function setAddressFrozen(address userAddress, bool freeze) external override {
         userAddress;
         freeze;
+        revert NotExecutable();
+    }
+
+    function isAgent(address account) external view override returns (bool) {
+        account;
         revert NotExecutable();
     }
 }

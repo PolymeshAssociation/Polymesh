@@ -81,7 +81,8 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 | IFungibleAssetCalls::canTransfer(_)
                 | IFungibleAssetCalls::canSend(_)
                 | IFungibleAssetCalls::canReceive(_)
-                | IFungibleAssetCalls::getFrozenTokens(_) => {}
+                | IFungibleAssetCalls::getFrozenTokens(_)
+                | IFungibleAssetCalls::isAgent(_) => {}
                 _ => return Err(Common::<T>::state_change_denied()),
             }
         }
@@ -131,6 +132,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             IFungibleAssetCalls::setAddressFrozen(call) => {
                 Self::set_address_frozen(asset_id, call, env)
             }
+            IFungibleAssetCalls::isAgent(call) => Self::is_agent(asset_id, call, env),
         }
     }
 }
