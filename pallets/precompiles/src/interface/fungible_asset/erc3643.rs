@@ -158,7 +158,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         call: &IFungibleAsset::isAgentCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(2))?;
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(3))?;
 
         let account_id = Common::<T>::account_id(env, call.account)?;
 
