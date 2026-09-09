@@ -18,10 +18,11 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::{dispatch::DispatchResult, weights::Weight};
 use frame_system::pallet_prelude::*;
 
-use polymesh_worker_common::{
-    BackendKind, Protocol, WorkRequestConfig, WorkerSessionConfig, WorkerSessionId,
+use polymesh_worker_common::{Protocol, WorkerSessionId};
+#[cfg(feature = "host_workers")]
+use polymesh_worker_extension::{
+    native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig,
 };
-use polymesh_worker_extension::native_polymesh_worker;
 use polymesh_worker_protocol_testing::{
     TestWorkRequest, TestWorkResponse, VerifyVersionRequest, PROTOCOL as TEST_PROTOCOL,
 };
@@ -170,28 +171,36 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn start_session() {
-        // Start worker session.
-        let config = WorkerSessionConfig {
-            work: WorkRequestConfig {
-                use_cache: true,
-                use_thread_pool: false,
-            },
-            init_module: true,
+        #[cfg(feature = "host_workers")]
+        {
+            // Start worker session.
+            let config = WorkerSessionConfig {
+                work: WorkRequestConfig {
+                    use_cache: true,
+                    use_thread_pool: false,
+                },
+                init_module: true,
 
-            backends: BackendKind::all_mask(),
+                backends: BackendKind::all_mask(),
+            }
+            .to_flags_and_backends();
+            let protocol = CurrentProtocolVersion::<T>::get().unwrap_or(TEST_PROTOCOL);
+            let session_id = native_polymesh_worker::start_session(config, protocol.to_number());
+
+            CurrentWorkerSessionId::<T>::put(session_id);
         }
-        .to_flags_and_backends();
-        let protocol = CurrentProtocolVersion::<T>::get().unwrap_or(TEST_PROTOCOL);
-        let session_id = native_polymesh_worker::start_session(config, protocol.to_number());
-
-        CurrentWorkerSessionId::<T>::put(session_id);
     }
 
     pub fn session_submit_work_request(
         request: TestWorkRequest,
     ) -> Result<Option<TestWorkResponse>, DispatchError> {
-        let session_id = CurrentWorkerSessionId::<T>::get().ok_or(Error::<T>::NoSession)?;
-        let result = request.clone().session_execute_and_wait(session_id);
+        #[cfg(feature = "host_workers")]
+        let result = {
+            let session_id = CurrentWorkerSessionId::<T>::get().ok_or(Error::<T>::NoSession)?;
+            request.clone().session_execute_and_wait(session_id)
+        };
+        #[cfg(not(feature = "host_workers"))]
+        let result = request.clone().execute();
 
         Self::deposit_event(Event::TestingProtocolTask {
             request,
@@ -202,9 +211,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn end_session() {
-        // Close the batch.
-        if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
-            native_polymesh_worker::end_session(session_id);
+        #[cfg(feature = "host_workers")]
+        {
+            // Close the batch.
+            if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
+                native_polymesh_worker::end_session(session_id);
+            }
         }
     }
 }

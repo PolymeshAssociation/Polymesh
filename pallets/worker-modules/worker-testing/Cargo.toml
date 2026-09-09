@@ -10,11 +10,11 @@ polymesh-primitives = { workspace = true, default-features = false }
 polymesh-runtime-common = { workspace = true, default-features = false }
 
 # Polymesh worker extension
-polymesh-worker-extension = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
 polymesh-worker-common = { workspace = true, default-features = false, features = ["serde"] }
 
 # Testing protocol
-polymesh-worker-protocol-testing = { workspace = true, default-features = false, features = ["runtime"] }
+polymesh-worker-protocol-testing = { workspace = true, default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -36,7 +36,17 @@ log = { version = "0.4", default-features = false }
 equalize = []
 default = ["std", "equalize"]
 
-testing = ["polymesh-worker-extension/testing", "polymesh-worker-common/testing"]
+# Use host: worker modules
+host_workers = [
+  "polymesh-worker-extension",
+	"polymesh-worker-protocol-testing/runtime",
+]
+# No host functions
+no_host_fns = [
+	"polymesh-worker-protocol-testing/runtime_only",
+]
+
+testing = ["polymesh-worker-extension?/testing", "polymesh-worker-common/testing"]
 
 no_std = [
   "polymesh-worker-protocol-testing/no_std"
@@ -48,7 +58,7 @@ std = [
   "frame-benchmarking?/std",
   "polymesh-runtime-common/std",
   "polymesh-primitives/std",
-  "polymesh-worker-extension/std",
+  "polymesh-worker-extension?/std",
   "polymesh-worker-common/std",
 	"polymesh-worker-protocol-testing/std",
   "sp-runtime/std",
@@ -59,7 +69,7 @@ runtime-benchmarks = [
   "testing",
   "frame-benchmarking/runtime-benchmarks",
   "polymesh-primitives/runtime-benchmarks",
-  "polymesh-worker-extension/runtime-benchmarks",
+  "polymesh-worker-extension?/runtime-benchmarks",
 	"polymesh-worker-protocol-testing/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
 ]
