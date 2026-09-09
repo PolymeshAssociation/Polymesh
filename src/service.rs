@@ -122,13 +122,19 @@ impl<Api> RuntimeApiCollection for Api where
 {
 }
 
-/// Host functions available to the runtime.
-#[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = (
-    sp_io::SubstrateHostFunctions,
+#[cfg(feature = "host_workers")]
+type PolymeshHostFunctions = (
     polymesh_worker_extension::native_polymesh_worker::HostFunctions,
     polymesh_native_crypto::HostFunctions,
 );
+#[cfg(feature = "no_host_fns")]
+type PolymeshHostFunctions = ();
+#[cfg(feature = "host_curves")]
+type PolymeshHostFunctions = polymesh_native_crypto::HostFunctions;
+
+/// Host functions available to the runtime.
+#[cfg(not(feature = "runtime-benchmarks"))]
+pub type HostFunctions = (sp_io::SubstrateHostFunctions, PolymeshHostFunctions);
 
 /// Host functions available to the runtime.
 #[cfg(feature = "runtime-benchmarks")]
@@ -136,8 +142,7 @@ pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
     polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
-    polymesh_worker_extension::native_polymesh_worker::HostFunctions,
-    polymesh_native_crypto::HostFunctions,
+    PolymeshHostFunctions,
 );
 
 /// A specialized `WasmExecutor` intended to use across substrate node. It provides all required HostFunctions.

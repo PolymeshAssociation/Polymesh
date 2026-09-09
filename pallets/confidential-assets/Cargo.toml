@@ -14,7 +14,8 @@ pallet-identity = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 
 # Crypto
-polymesh-worker-extension = { workspace = true, default-features = false }
+polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
+polymesh-worker-common = { workspace = true, default-features = false }
 rand_core = { workspace = true, default-features = false, optional = true }
 rand_chacha = { workspace = true, default-features = false, optional = true }
 
@@ -22,7 +23,7 @@ rand_chacha = { workspace = true, default-features = false, optional = true }
 polymesh-dart = { workspace = true, default-features = false, features = [
   "backend_bp", "sp-io"
 ] }
-polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["runtime"] }
+polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false }
 
 # Substrate
 codec = { workspace = true, default-features = false, features = ["derive"] }
@@ -48,7 +49,22 @@ log = { version = "0.4", default-features = false }
 equalize = []
 default = ["std", "equalize"]
 
-testing = ["polymesh-worker-extension/testing"]
+# Use host: worker modules + msm + Hash to Curve
+host_workers = [
+  "polymesh-worker-extension",
+	"polymesh-worker-protocol-dart-v1/runtime",
+]
+# No host functions
+no_host_fns = [
+	"polymesh-worker-protocol-dart-v1/runtime_only",
+]
+# Verify proofs in runtime with only these host functions: msm + Hash to Curve
+host_curves = [
+	"polymesh-worker-protocol-dart-v1/runtime_only",
+	"polymesh-worker-protocol-dart-v1/use_host_curves",
+]
+
+testing = ["polymesh-worker-extension?/testing"]
 
 asm = ["polymesh-dart/asm"]
 parallel = ["polymesh-dart/parallel"]
@@ -71,7 +87,7 @@ std = [
   "pallet-transaction-payment/std",
   "polymesh-runtime-common/std",
   "polymesh-primitives/std",
-  "polymesh-worker-extension/std",
+  "polymesh-worker-extension?/std",
 	"polymesh-worker-protocol-dart-v1/std",
   "sp-consensus-babe/std",
   "sp-runtime/std",
@@ -85,7 +101,7 @@ runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
   "pallet-identity/runtime-benchmarks",
   "polymesh-primitives/runtime-benchmarks",
-  "polymesh-worker-extension/runtime-benchmarks",
+  "polymesh-worker-extension?/runtime-benchmarks",
 	"polymesh-worker-protocol-dart-v1/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
 ]
