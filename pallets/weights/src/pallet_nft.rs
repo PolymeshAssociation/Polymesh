@@ -260,6 +260,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
     // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupPermissions` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupPermissions` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
     // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
@@ -286,11 +288,11 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
     fn controller_transfer_to(n: u32) -> Weight {
-        // Minimum execution time: 149_180 nanoseconds.
-        Weight::from_parts(112_021_213, 0)
-            // Standard Error: 32_083
-            .saturating_add(Weight::from_parts(43_672_613, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(13))
+        // Minimum execution time: 158_173 nanoseconds.
+        Weight::from_parts(122_206_148, 0)
+            // Standard Error: 26_079
+            .saturating_add(Weight::from_parts(43_472_933, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))

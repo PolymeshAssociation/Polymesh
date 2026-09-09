@@ -951,12 +951,16 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
     // Proof: `ExternalAgents::GroupOfAgent` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+    // Storage: `ExternalAgents::GroupPermissions` (r:1 w:0)
+    // Proof: `ExternalAgents::GroupPermissions` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
     // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
     // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `Identity::DidRecords` (r:1 w:0)
     // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::Portfolios` (r:1 w:0)
+    // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Portfolio::PortfolioCustodian` (r:1 w:0)
     // Proof: `Portfolio::PortfolioCustodian` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
     // Storage: `Settlement::MandatoryReceiverAffirmation` (r:1 w:0)
@@ -980,9 +984,9 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Statistics::ActiveAssetStats` (r:1 w:0)
     // Proof: `Statistics::ActiveAssetStats` (`max_values`: None, `max_size`: Some(2373), added: 4848, mode: `MaxEncodedLen`)
     fn controller_transfer_to() -> Weight {
-        // Minimum execution time: 144_398 nanoseconds.
-        Weight::from_parts(149_141_000, 0)
-            .saturating_add(DbWeight::get().reads(18))
+        // Minimum execution time: 166_400 nanoseconds.
+        Weight::from_parts(170_337_000, 0)
+            .saturating_add(DbWeight::get().reads(20))
             .saturating_add(DbWeight::get().writes(5))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)

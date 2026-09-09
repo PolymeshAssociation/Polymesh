@@ -2512,10 +2512,28 @@ impl<T: AssetConfig> Pallet<T> {
         let caller_data = ExternalAgents::<T>::ensure_agent_asset_perms(origin, &asset_id)?;
 
         Self::ensure_valid_holder(&destination)?;
-        ensure!(
-            Self::skip_asset_holder_affirmation(&destination, &asset_id)?,
-            Error::<T>::ReceiverAffirmationRequired
-        );
+
+        if !Self::skip_asset_holder_affirmation(&destination, &asset_id)? {
+            match &destination {
+                AssetHolder::Account(account_id) => {
+                    let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
+                    if account_id != caller_data.sender {
+                        return Err(Error::<T>::ReceiverAffirmationRequired.into());
+                    }
+                }
+                AssetHolder::Portfolio(dest_portfolio) => {
+                    if PortfolioPallet::<T>::ensure_portfolio_custody_and_permission(
+                        dest_portfolio,
+                        caller_data.primary_did,
+                        caller_data.secondary_key.as_ref(),
+                    )
+                    .is_err()
+                    {
+                        return Err(Error::<T>::ReceiverAffirmationRequired.into());
+                    }
+                }
+            }
+        }
 
         Self::validate_asset_transfer(
             asset_id,
