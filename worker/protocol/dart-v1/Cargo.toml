@@ -71,6 +71,14 @@ runtime = [
   "bulletproofs/host_hash_to_curve",
   "polymesh-worker-extension",
 ]
+runtime_only = [
+  "native",
+  "impl_protocol",
+]
+use_host_curves = [
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+]
 
 sp-io = [
   "polymesh-dart/sp-io",
