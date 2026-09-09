@@ -152,6 +152,8 @@ pub use pallet::*;
 /// The module's configuration trait.
 #[frame_support::pallet]
 pub mod pallet {
+    use core::marker::Freeze;
+
     use super::*;
     use frame_support::pallet_prelude::*;
 
@@ -2054,6 +2056,8 @@ pub mod pallet {
         ReceiverAffirmationRequired,
         /// Attempt to unfreeze more tokens than are currently frozen for the asset holder.
         InsufficientFrozenBalance,
+        /// Failed to freeze a partial amount of tokens that exceeds the holder's balance.
+        FreezePartialTokenMustNotExceedHoldersBalance,
     }
 
     pub trait WeightInfo {
@@ -3197,6 +3201,12 @@ impl<T: AssetConfig> Pallet<T> {
         let new_frozen_balance = current_frozen_balance
             .checked_add(amount)
             .ok_or(Error::<T>::BalanceOverflow)?;
+
+        let current_balance = Self::get_holders_balance(&asset_holder, &asset_id);
+        ensure!(
+            new_frozen_balance <= current_balance,
+            Error::<T>::FreezePartialTokenMustNotExceedHoldersBalance
+        );
 
         Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, new_frozen_balance);
         Ok(())
