@@ -150,6 +150,18 @@ impl<'a> polymesh_worker::backend::BackendModuleLoader for SubstrateModuleLoader
         code_hash: BackendCodeHash,
     ) -> Option<Vec<u8>> {
         self.storage(&worker_modules_code_key(protocol, code_hash))
+            // SCALE decode `Vec<u8>`
+            .and_then(|bytes| match Decode::decode(&mut &bytes[..]) {
+                Ok(decoded) => Some(decoded),
+                Err(e) => {
+                    log::error!(
+                        "Failed to decode protocol module code for protocol {:?}: {:?}",
+                        protocol,
+                        e
+                    );
+                    None
+                }
+            })
             // Verify the code hash matches the read code, to prevent malicious block producers.
             .and_then(|bytes| {
                 verify_hash(
@@ -169,6 +181,18 @@ impl<'a> polymesh_worker::backend::BackendModuleLoader for SubstrateModuleLoader
         ctx_hash: BackendContextHash,
     ) -> Option<Vec<u8>> {
         self.storage(&worker_modules_context_key(protocol, ctx_hash))
+            // SCALE decode `Vec<u8>`
+            .and_then(|bytes| match Decode::decode(&mut &bytes[..]) {
+                Ok(decoded) => Some(decoded),
+                Err(e) => {
+                    log::error!(
+                        "Failed to decode protocol module context for protocol {:?}: {:?}",
+                        protocol,
+                        e
+                    );
+                    None
+                }
+            })
             // Verify the context hash matches the read context, to prevent malicious block producers.
             .and_then(|bytes| {
                 verify_hash(

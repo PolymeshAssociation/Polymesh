@@ -3,7 +3,6 @@ use anyhow::Result;
 use polymesh_api::{types::polymesh_worker_common::BackendModuleDefinition, Api};
 use polymesh_api_tester::{DbAccountSigner, PolymeshTester};
 
-use codec::Encode;
 pub use polymesh_api::types::{
     pallet_worker_modules::*,
     polymesh_worker_common::{BackendModuleKind, Protocol, ProtocolId, ProtocolVersion},
@@ -119,11 +118,11 @@ impl WorkerModulesHelper {
     ) -> Result<()> {
         let mut module_defs = Vec::new();
         for (module_kind, module_version, code) in modules.into_iter() {
-            let code_hash = code.using_encoded(blake2_256);
+            let code_hash = blake2_256(&code);
             self.upload_module_code(code).await?;
             module_defs.push(BackendModuleDefinition {
                 module_kind,
-                module_version: module_version,
+                module_version,
                 code_hash,
             });
         }

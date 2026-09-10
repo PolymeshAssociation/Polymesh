@@ -6,6 +6,7 @@ use polymesh_worker_common::*;
 use crate::{
     StaticModules,
     backend::{BACKENDS, Backend, BackendModule, BackendModuleInstance, BackendModuleLoader},
+    decompress_module_code,
 };
 
 pub const MAX_MODULE_INSTANCES_PER_PROTOCOL: usize = 32;
@@ -101,6 +102,9 @@ impl ProtocolModule {
         // This shouldn't happen if we got a code hash.
         let module_bytes =
             loader.get_module_code_bytes(protocol, module_kind, module_def.code_hash)?;
+
+        // Decompress module bytes if it was compressed.
+        let module_bytes = decompress_module_code(&module_bytes)?;
 
         // Try loading the module into the backend.  If this fails, it means that the module code is not compatible with this backend.
         let module = backend.load_module(&module_bytes)?;

@@ -329,7 +329,7 @@ pub mod pallet {
                 Error::<T>::ProtocolNotRegistered
             );
 
-            let code_hash = code.using_encoded(blake2_256);
+            let code_hash = blake2_256(&code);
             // Ensure the code hash is not already stored for the protocol.
             ensure!(
                 !ProtocolModuleCode::<T>::contains_key(&protocol, &code_hash),
@@ -375,7 +375,7 @@ pub mod pallet {
                 Error::<T>::ProtocolNotRegistered
             );
 
-            let context_hash = context.using_encoded(blake2_256);
+            let context_hash = blake2_256(&context);
             // Ensure the context hash is not already stored for the protocol.
             ensure!(
                 !ProtocolContext::<T>::contains_key(&protocol, &context_hash),
@@ -453,7 +453,7 @@ pub mod pallet {
                 }
             }
 
-            let config_hash = blake2_256(&config.encode());
+            let config_hash = config.using_encoded(blake2_256);
             // Ensure the config hash is not already stored for the protocol.
             ensure!(
                 !ProtocolConfig::<T>::contains_key(&protocol, &config_hash),
