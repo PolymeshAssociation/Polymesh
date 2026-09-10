@@ -373,6 +373,14 @@ pub mod pallet {
             asset_id: AssetId,
             freeze: bool,
         },
+        /// Event for when a controller transfers assets from one holder to another.
+        ControllerTransferTo {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            source: AssetHolder,
+            destination: AssetHolder,
+            amount: Balance,
+        },
     }
 
     /// Map each [`Ticker`] to its registration details ([`TickerRegistration`]).
@@ -1857,6 +1865,75 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_set_holder_frozen(origin, asset_holder, asset_id, freeze)
         }
+
+        /// Forces a transfer of tokens from `source` to `destination`.
+        ///
+        /// Unlike [`Self::controller_transfer`], which always sends the funds to the caller,
+        /// this extrinsic lets the caller name an arbitrary [`AssetHolder`] as the destination.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which can be the primary or secondary key of an identity.
+        /// * `asset_id` - The [`AssetId`] associated to the asset.
+        /// * `value` - The [`Balance`] of tokens that will be transferred.
+        /// * `source` - The [`AssetHolder`] that will have its balance reduced.
+        /// * `destination` - The [`AssetHolder`] that will have its balance increased.
+        ///
+        /// # Permissions
+        /// * Asset
+        ///
+        /// # Events
+        /// * `ControllerTransferTo` - When tokens are successfully transferred.
+        ///
+        /// # Errors
+        /// * `UnexpectedNonFungibleToken` - If the asset is a non-fungible token.
+        /// * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
+        /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
+        /// * `ReceiverAffirmationRequired` - If `destination` requires receiver affirmation for the asset.
+        #[pallet::call_index(40)]
+        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer_to())]
+        pub fn controller_transfer_to(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            value: Balance,
+            source: AssetHolder,
+            destination: AssetHolder,
+        ) -> DispatchResult {
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::base_controller_transfer_to(
+                origin,
+                asset_id,
+                value,
+                source,
+                destination,
+                &mut weight_meter,
+            )
+        }
+
+        /// Freezes an additional `amount` of `asset_id` tokens from `asset_holder`, on top of
+        /// any tokens already frozen.
+        #[pallet::call_index(41)]
+        #[pallet::weight(<T as Config>::WeightInfo::freeze_partial_tokens())]
+        pub fn freeze_partial_tokens(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_holder: AssetHolder,
+            amount: Balance,
+        ) -> DispatchResult {
+            Self::base_freeze_partial_tokens(origin, asset_id, asset_holder, amount)
+        }
+
+        /// Unfreezes `amount` of `asset_id` tokens from `asset_holder`, reducing the amount
+        /// currently frozen.
+        #[pallet::call_index(42)]
+        #[pallet::weight(<T as Config>::WeightInfo::unfreeze_partial_tokens())]
+        pub fn unfreeze_partial_tokens(
+            origin: OriginFor<T>,
+            asset_id: AssetId,
+            asset_holder: AssetHolder,
+            amount: Balance,
+        ) -> DispatchResult {
+            Self::base_unfreeze_partial_tokens(origin, asset_id, asset_holder, amount)
+        }
     }
 
     #[pallet::error]
@@ -1973,6 +2050,12 @@ pub mod pallet {
         WeightLimitExceeded,
         /// The sender is frozen and cannot transfer assets.
         InvalidTransferSenderIsFrozen,
+        /// The destination requires receiver affirmation before assets can be moved into it.
+        ReceiverAffirmationRequired,
+        /// Attempt to unfreeze more tokens than are currently frozen for the asset holder.
+        InsufficientFrozenBalance,
+        /// Failed to freeze a partial amount of tokens that exceeds the holder's balance.
+        FreezePartialTokenMustNotExceedHoldersBalance,
     }
 
     pub trait WeightInfo {
@@ -1991,6 +2074,7 @@ pub mod pallet {
         fn set_funding_round(f: u32) -> Weight;
         fn update_identifiers(i: u32) -> Weight;
         fn controller_transfer() -> Weight;
+        fn controller_transfer_to() -> Weight;
         fn register_custom_asset_type(n: u32) -> Weight;
         fn set_asset_metadata() -> Weight;
         fn set_asset_metadata_details() -> Weight;
@@ -2021,6 +2105,8 @@ pub mod pallet {
         fn transfer_is_allowed_for_holder_best_case() -> Weight;
         fn transfer_is_allowed_for_holder_worst_case() -> Weight;
         fn set_holder_frozen() -> Weight;
+        fn freeze_partial_tokens() -> Weight;
+        fn unfreeze_partial_tokens() -> Weight;
     }
 }
 
@@ -2411,6 +2497,73 @@ impl<T: AssetConfig> Pallet<T> {
             source,
             transfer_value,
         ));
+        Ok(())
+    }
+
+    /// Same as [`Self::base_controller_transfer`], but `destination` is given explicitly
+    /// instead of being derived from the caller's identity. The transfer is rejected if
+    /// `destination` requires receiver affirmation for `asset_id`.
+    fn base_controller_transfer_to(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        transfer_value: Balance,
+        source: AssetHolder,
+        destination: AssetHolder,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        let caller_data = ExternalAgents::<T>::ensure_agent_asset_perms(origin, &asset_id)?;
+
+        Self::ensure_valid_holder(&destination)?;
+
+        if !Self::skip_asset_holder_affirmation(&destination, &asset_id)? {
+            match &destination {
+                AssetHolder::Account(account_id) => {
+                    let account_id = pallet_base::pallet_account_id::<T>(account_id)?;
+                    if account_id != caller_data.sender {
+                        return Err(Error::<T>::ReceiverAffirmationRequired.into());
+                    }
+                }
+                AssetHolder::Portfolio(dest_portfolio) => {
+                    if PortfolioPallet::<T>::ensure_portfolio_custody_and_permission(
+                        dest_portfolio,
+                        caller_data.primary_did,
+                        caller_data.secondary_key.as_ref(),
+                    )
+                    .is_err()
+                    {
+                        return Err(Error::<T>::ReceiverAffirmationRequired.into());
+                    }
+                }
+            }
+        }
+
+        Self::validate_asset_transfer(
+            asset_id,
+            &source,
+            &destination,
+            transfer_value,
+            true,
+            weight_meter,
+        )?;
+        Self::unverified_transfer_asset(
+            source.clone(),
+            destination.clone(),
+            asset_id,
+            transfer_value,
+            None,
+            None,
+            caller_data.primary_did,
+            true,
+            weight_meter,
+        )?;
+
+        Self::deposit_event(Event::ControllerTransferTo {
+            caller_did: caller_data.primary_did,
+            asset_id,
+            source,
+            destination,
+            amount: transfer_value,
+        });
         Ok(())
     }
 
@@ -3019,6 +3172,70 @@ impl<T: AssetConfig> Pallet<T> {
         }
 
         Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, amount);
+        Ok(())
+    }
+
+    /// Freezes an additional `amount` of `asset_id` tokens from `asset_holder`, on top of
+    /// any tokens already frozen.
+    fn base_freeze_partial_tokens(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        asset_holder: AssetHolder,
+        amount: Balance,
+    ) -> DispatchResult {
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
+        ensure!(
+            asset_details.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        }
+
+        let current_frozen_balance = Self::get_holders_frozen_balance(&asset_holder, &asset_id);
+        let new_frozen_balance = current_frozen_balance
+            .checked_add(amount)
+            .ok_or(Error::<T>::BalanceOverflow)?;
+
+        let current_balance = Self::get_holders_balance(&asset_holder, &asset_id);
+        ensure!(
+            new_frozen_balance <= current_balance,
+            Error::<T>::FreezePartialTokenMustNotExceedHoldersBalance
+        );
+
+        Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, new_frozen_balance);
+        Ok(())
+    }
+
+    /// Unfreezes `amount` of `asset_id` tokens from `asset_holder`, reducing the amount
+    /// currently frozen.
+    fn base_unfreeze_partial_tokens(
+        origin: T::RuntimeOrigin,
+        asset_id: AssetId,
+        asset_holder: AssetHolder,
+        amount: Balance,
+    ) -> DispatchResult {
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        let asset_details = Self::try_get_asset_details(&asset_id)?;
+        ensure!(
+            asset_details.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
+        if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
+        }
+
+        let current_frozen_balance = Self::get_holders_frozen_balance(&asset_holder, &asset_id);
+        let new_frozen_balance = current_frozen_balance
+            .checked_sub(amount)
+            .ok_or(Error::<T>::InsufficientFrozenBalance)?;
+
+        Self::unverified_set_frozen_tokens(caller_did, asset_holder, asset_id, new_frozen_balance);
         Ok(())
     }
 
@@ -4207,13 +4424,19 @@ impl<T: AssetConfig> Pallet<T> {
         if is_controller_transfer {
             let frozen_balance = Self::get_holders_frozen_balance(&sender, &asset_id);
             if frozen_balance > 0 {
-                let new_frozen_balance = frozen_balance.saturating_sub(transfer_value);
-                Self::unverified_set_frozen_tokens(
-                    caller_did,
-                    sender.clone(),
-                    asset_id,
-                    new_frozen_balance,
-                );
+                // Only unfreeze tokens if there's not enough free_balance
+                let free_balance =
+                    Self::get_holders_balance(&sender, &asset_id).saturating_sub(frozen_balance);
+                if transfer_value > free_balance {
+                    let tokens_to_unfreeze = transfer_value - free_balance;
+                    let new_frozen_balance = frozen_balance.saturating_sub(tokens_to_unfreeze);
+                    Self::unverified_set_frozen_tokens(
+                        caller_did,
+                        sender.clone(),
+                        asset_id,
+                        new_frozen_balance,
+                    );
+                }
             }
         }
 

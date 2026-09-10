@@ -22,7 +22,7 @@ use sp_std::{convert::TryInto, iter, prelude::*};
 use pallet_identity::benchmarking::{user, User, UserBuilder};
 use pallet_portfolio::NextPortfolioNumber;
 use pallet_statistics::benchmarking::{setup_statistics, setup_transfer_restrictions};
-use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetName, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
@@ -563,6 +563,63 @@ benchmarks! {
         );
     }
 
+    controller_transfer_to {
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let charlie = UserBuilder::<T>::default().generate_did().build("Charlie");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_holdings = AssetHolder::from(PortfolioId::default_portfolio(alice.did()));
+        let charlie_holdings = create_portfolio::<T>(&charlie, "CharliePortfolio");
+
+        // Bob is an agent of Alice for the asset
+        pallet_external_agents::Pallet::<T>::create_group(
+            alice.origin().into(),
+            asset_id,
+            Default::default()
+        )
+        .unwrap();
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            alice.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Custom(AGId(1))),
+            None,
+        )
+        .unwrap();
+        pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
+
+        // Charlie gives custody of portfolio to bob
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            charlie.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(charlie.did(), PortfolioNumber(1))),
+            None,
+        )
+        .unwrap();
+        pallet_portfolio::Pallet::<T>::accept_portfolio_custody(bob.origin().into(), auth_id).unwrap();
+
+        Pallet::<T>::issue(
+            alice.origin.clone().into(),
+            asset_id,
+            1_000_000,
+            alice_holdings.clone().into()
+        )
+        .unwrap();
+
+        // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+        T::AffirmationFn::set_mandatory_receiver_affirmation(
+            charlie.did(),
+            AffirmationRequirement::Required,
+        );
+
+    }: _(bob.origin.clone(), asset_id, 1_000, alice_holdings, charlie_holdings)
+    verify {
+        assert_eq!(
+            BalanceOf::<T>::get(asset_id, charlie.did()),
+            1_000
+        );
+    }
+
     register_custom_asset_type {
         let n in 1 .. T::MaxLen::get() as u32;
 
@@ -1018,4 +1075,52 @@ benchmarks! {
         let bob_portfolio = create_portfolio::<T>(&bob, "SenderPortfolio");
         let asset_id = create_sample_asset::<T>(&alice, true);
     }: _(alice.origin, bob_portfolio.into(), asset_id, true)
+
+    freeze_partial_tokens {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+        Pallet::<T>::issue(
+            alice.origin().into(),
+            asset_id,
+            (ONE_UNIT * POLY).into(),
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1)),
+        )
+        .unwrap();
+
+    }: _(alice.origin, asset_id, alice_portfolio.clone(), ONE_UNIT)
+    verify {
+        assert_eq!(
+            Pallet::<T>::get_holders_frozen_balance(&alice_portfolio, &asset_id),
+            ONE_UNIT
+        );
+    }
+
+    unfreeze_partial_tokens {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_id = create_sample_asset::<T>(&alice, true);
+        let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+
+        Pallet::<T>::issue(
+            alice.origin().into(),
+            asset_id,
+            (ONE_UNIT * POLY).into(),
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1)),
+        )
+        .unwrap();
+
+        Pallet::<T>::freeze_partial_tokens(
+            alice.origin().into(),
+            asset_id,
+            alice_portfolio.clone(),
+            ONE_UNIT,
+        )
+        .unwrap();
+    }: _(alice.origin, asset_id, alice_portfolio.clone(), ONE_UNIT)
+    verify {
+        assert_eq!(
+            Pallet::<T>::get_holders_frozen_balance(&alice_portfolio, &asset_id),
+            0
+        );
+    }
 }

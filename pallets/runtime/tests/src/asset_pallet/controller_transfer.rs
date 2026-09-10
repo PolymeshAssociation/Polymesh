@@ -7,7 +7,7 @@ use polymesh_primitives::settlement::{
     InstructionId, Leg, SettlementType, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
-    AssetHolderKind, AuthorizationData, PortfolioId, PortfolioKind, Signatory,
+    AssetHolder, AssetHolderKind, AuthorizationData, PortfolioId, PortfolioKind, Signatory,
 };
 
 use super::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
@@ -22,6 +22,20 @@ type Identity = pallet_identity::Pallet<TestStorage>;
 type Portfolio = pallet_portfolio::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
+
+fn make_full_agent(owner: &User, agent: &User, asset_id: polymesh_primitives::asset::AssetId) {
+    let authorization_id = Identity::add_auth(
+        owner.did,
+        Signatory::from(agent.did),
+        AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full),
+        None,
+    )
+    .unwrap();
+    assert_ok!(ExternalAgents::accept_become_agent(
+        agent.origin(),
+        authorization_id
+    ));
+}
 
 #[test]
 fn controller_transfer_locked_asset() {
@@ -106,6 +120,78 @@ fn controller_self_transfer_rejected() {
                 AssetHolderKind::DefaultPortfolio
             ),
             AssetError::SenderSameAsReceiver
+        );
+    });
+}
+
+#[test]
+fn controller_transfer_within_free_balance_does_not_unfreeze() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_holder = AssetHolder::from(alice_default_portfolio.clone());
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        make_full_agent(&alice, &bob, asset_id);
+
+        let frozen_amount = ISSUE_AMOUNT / 2;
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            alice_holder.clone(),
+            frozen_amount,
+        ));
+
+        let free_balance = ISSUE_AMOUNT - frozen_amount;
+        assert_ok!(Asset::controller_transfer(
+            bob.origin(),
+            asset_id,
+            free_balance,
+            alice_default_portfolio.into(),
+            AssetHolderKind::DefaultPortfolio,
+        ));
+
+        assert_eq!(
+            Asset::get_holders_frozen_balance(&alice_holder, &asset_id),
+            frozen_amount
+        );
+    });
+}
+
+#[test]
+fn controller_transfer_exceeding_free_balance_unfreezes_shortfall() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_holder = AssetHolder::from(alice_default_portfolio.clone());
+
+        let asset_id = create_and_issue_sample_asset(&alice);
+        make_full_agent(&alice, &bob, asset_id);
+
+        let frozen_amount = ISSUE_AMOUNT / 2;
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            alice_holder.clone(),
+            frozen_amount,
+        ));
+
+        let free_balance = ISSUE_AMOUNT - frozen_amount;
+        let shortfall = 100;
+        let transfer_value = free_balance + shortfall;
+        assert_ok!(Asset::controller_transfer(
+            bob.origin(),
+            asset_id,
+            transfer_value,
+            alice_default_portfolio.into(),
+            AssetHolderKind::DefaultPortfolio,
+        ));
+
+        assert_eq!(
+            Asset::get_holders_frozen_balance(&alice_holder, &asset_id),
+            frozen_amount - shortfall
         );
     });
 }
