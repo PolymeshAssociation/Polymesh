@@ -136,6 +136,8 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         call: &INonFungibleAsset::approveCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
         let caller = Common::<T>::caller(env)?;
         let nft_id = Self::nft_id(call.tokenId)?;
 
