@@ -98,6 +98,8 @@ async fn erc3643_freeze_partial_tokens() -> Result<()> {
     let holder_address = eth_address_of(&api, holder).await?;
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
 
+    erc3643.transfer(&mut caller, holder_address, 150).await?;
+
     assert_eq!(erc3643.get_frozen_tokens(holder_address).await.unwrap(), 0);
 
     erc3643
@@ -136,6 +138,8 @@ async fn erc3643_unfreeze_partial_tokens() -> Result<()> {
 
     let holder_address = eth_address_of(&api, holder).await?;
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    erc3643.transfer(&mut caller, holder_address, 100).await?;
 
     erc3643
         .freeze_partial_tokens(&mut caller, holder_address, 100)
