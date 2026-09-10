@@ -332,7 +332,9 @@ async fn erc721_forced_transfer() -> Result<()> {
     assert_eq!(nft.owner_of(1).await?, holder_address);
 
     // The agent takes it back.
-    let logs = nft.forced_transfer(&mut caller, holder_address, 1).await?;
+    let logs = nft
+        .forced_transfer(&mut caller, holder_address, owner_address, 1)
+        .await?;
     let events: Vec<ierc721::ForcedTransfer> = decode_contract_logs(&logs, &nft.h160())?;
     assert_eq!(events.len(), 1, "expected one ForcedTransfer event");
     assert_eq!(events[0].from, holder_address);

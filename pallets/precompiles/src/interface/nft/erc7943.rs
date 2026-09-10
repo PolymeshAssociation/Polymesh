@@ -24,7 +24,7 @@ use pallet_revive::precompiles::{Error, Ext};
 use pallet_asset::WeightInfo;
 use pallet_nft::WeightInfo as NFTWeightInfo;
 use polymesh_precompiles::{INonFungibleAsset, INonFungibleAssetEvents};
-use polymesh_primitives::asset::{AssetHolderKind, AssetId};
+use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::nft::NFTs;
 use polymesh_primitives::WeightMeter;
 
@@ -67,9 +67,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         ))
     }
 
-    /// Takes `tokenId` from `from` and transfers it to the caller's account key.
+    /// Takes `tokenId` from `from` and transfers it to `to`.
     ///
     /// Bypasses compliance and frozen checks; the caller must be an agent of the collection.
+    /// Only an asset holder account is supported as the destination for now.
     pub(crate) fn forced_transfer(
         asset_id: AssetId,
         call: &INonFungibleAsset::forcedTransferCall,
@@ -78,15 +79,16 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let caller = Common::<T>::caller(env)?;
         let nft_id = Self::nft_id(call.tokenId)?;
         let source = Common::<T>::asset_holder(env, call.from)?;
+        let destination = Common::<T>::asset_holder(env, call.to)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
 
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
-            pallet_nft::Call::<T>::controller_transfer {
+            pallet_nft::Call::<T>::controller_transfer_to {
                 nfts,
                 source,
-                destination_kind: AssetHolderKind::Account,
+                destination,
             },
         )?;
 
@@ -94,7 +96,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             env,
             INonFungibleAssetEvents::ForcedTransfer(INonFungibleAsset::ForcedTransfer {
                 from: call.from,
-                to: caller.address.0.into(),
+                to: call.to,
                 tokenId: call.tokenId,
             }),
         )?;
@@ -103,7 +105,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             env,
             INonFungibleAssetEvents::Transfer(INonFungibleAsset::Transfer {
                 from: call.from,
-                to: caller.address.0.into(),
+                to: call.to,
                 tokenId: call.tokenId,
             }),
         )?;
