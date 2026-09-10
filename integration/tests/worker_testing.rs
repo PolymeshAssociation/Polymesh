@@ -25,8 +25,8 @@ mod worker_modules_tests {
             .upload_modules_and_config(
                 ProtocolInitializationMethod::SaveContextFromFirstInstance,
                 vec![
-                    (BackendModuleKind::PolkaVM, 1, polkavm.clone()),
-                    (BackendModuleKind::Wasm, 1, wasm.clone()),
+                    (BackendModuleKind::PolkaVM, 2, polkavm.clone()),
+                    (BackendModuleKind::Wasm, 2, wasm.clone()),
                 ],
             )
             .await?;
@@ -53,8 +53,8 @@ mod worker_modules_tests {
             .upload_modules_and_config(
                 ProtocolInitializationMethod::SaveContextFromFirstInstance,
                 vec![
-                    (BackendModuleKind::PolkaVM, 1, polkavm.clone()),
-                    (BackendModuleKind::Wasm, 1, wasm.clone()),
+                    (BackendModuleKind::PolkaVM, 2, polkavm.clone()),
+                    (BackendModuleKind::Wasm, 2, wasm.clone()),
                 ],
             )
             .await?;

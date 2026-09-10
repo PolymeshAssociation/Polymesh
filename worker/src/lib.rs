@@ -64,17 +64,17 @@ impl StaticProtocol {
         // Setup module definitions for the protocol config.
         modules.push(BackendModuleDefinition {
             module_kind: BackendModuleKind::PolkaVM,
-            module_version: 1,
+            module_version: 2,
             code_hash: polkavm_code_hash,
         });
         modules.push(BackendModuleDefinition {
             module_kind: BackendModuleKind::Wasm,
-            module_version: 1,
+            module_version: 2,
             code_hash: wasm_code_hash,
         });
         modules.push(BackendModuleDefinition {
             module_kind: BackendModuleKind::Native,
-            module_version: 1,
+            module_version: 2,
             code_hash: native_code_hash,
         });
         let config = ProtocolModuleConfig {
@@ -103,10 +103,10 @@ impl StaticProtocol {
     ) -> Option<Vec<u8>> {
         match kind {
             BackendModuleKind::PolkaVM if code_hash == self.polkavm_code_hash => {
-                decompress_module_code(self.polkavm_code)
+                Some(self.polkavm_code.to_vec())
             }
             BackendModuleKind::Wasm if code_hash == self.wasm_code_hash => {
-                decompress_module_code(self.wasm_code)
+                Some(self.wasm_code.to_vec())
             }
             BackendModuleKind::Native if code_hash == self.native_code_hash => {
                 Some(self.native_code.clone())
