@@ -318,12 +318,14 @@ impl Erc721Collection {
         &self,
         caller: &mut dyn ContractCaller,
         from: Address,
+        to: Address,
         token_id: u64,
     ) -> Result<Vec<ContractLog>> {
         self.send(
             caller,
             ierc721::forcedTransferCall {
                 from,
+                to,
                 tokenId: U256::from(token_id),
             },
         )

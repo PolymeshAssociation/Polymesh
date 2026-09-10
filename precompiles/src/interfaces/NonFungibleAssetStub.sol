@@ -180,11 +180,11 @@ interface INonFungibleAsset {
     /// @dev Returns true if `tokenId` can currently be transferred from `from` to `to`.
     function canTransfer(address from, address to, uint256 tokenId) external view returns (bool);
 
-    /// @dev Forcibly transfers `tokenId` from `from` to the caller, bypassing compliance and
+    /// @dev Forcibly transfers `tokenId` from `from` to `to`, bypassing compliance and
     /// frozen checks. The caller must be an agent of the collection.
     ///
     /// Emits {ForcedTransfer} and {Transfer} events.
-    function forcedTransfer(address from, uint256 tokenId) external returns (bool);
+    function forcedTransfer(address from, address to, uint256 tokenId) external returns (bool);
 
     /// @dev Returns true if `account` is currently allowed to send tokens of this collection.
     function canSend(address account) external view returns (bool);
@@ -291,8 +291,9 @@ contract NonFungibleAssetStub is INonFungibleAsset {
         revert NotExecutable();
     }
 
-    function forcedTransfer(address from, uint256 tokenId) external override returns (bool) {
+    function forcedTransfer(address from, address to, uint256 tokenId) external override returns (bool) {
         from;
+        to;
         tokenId;
         revert NotExecutable();
     }
