@@ -984,8 +984,8 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Statistics::ActiveAssetStats` (r:1 w:0)
     // Proof: `Statistics::ActiveAssetStats` (`max_values`: None, `max_size`: Some(2373), added: 4848, mode: `MaxEncodedLen`)
     fn controller_transfer_to() -> Weight {
-        // Minimum execution time: 166_400 nanoseconds.
-        Weight::from_parts(170_337_000, 0)
+        // Minimum execution time: 169_953 nanoseconds.
+        Weight::from_parts(173_435_000, 0)
             .saturating_add(DbWeight::get().reads(20))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -1024,8 +1024,8 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Portfolio::PortfolioFrozenAssets` (r:1 w:1)
     // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
     fn unfreeze_partial_tokens() -> Weight {
-        // Minimum execution time: 68_742 nanoseconds.
-        Weight::from_parts(70_849_000, 0)
+        // Minimum execution time: 69_957 nanoseconds.
+        Weight::from_parts(72_030_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(1))
     }

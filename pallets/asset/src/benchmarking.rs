@@ -592,7 +592,7 @@ benchmarks! {
         let auth_id = pallet_identity::Pallet::<T>::add_auth(
             charlie.did(),
             Signatory::from(bob.did()),
-            AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(charlie.did(), PortfolioNumber(0))),
+            AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(charlie.did(), PortfolioNumber(1))),
             None,
         )
         .unwrap();
@@ -1080,6 +1080,14 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+        Pallet::<T>::issue(
+            alice.origin().into(),
+            asset_id,
+            (ONE_UNIT * POLY).into(),
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1)),
+        )
+        .unwrap();
+
     }: _(alice.origin, asset_id, alice_portfolio.clone(), ONE_UNIT)
     verify {
         assert_eq!(
@@ -1092,6 +1100,14 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let asset_id = create_sample_asset::<T>(&alice, true);
         let alice_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+
+        Pallet::<T>::issue(
+            alice.origin().into(),
+            asset_id,
+            (ONE_UNIT * POLY).into(),
+            AssetHolderKind::UserPortfolio(PortfolioNumber(1)),
+        )
+        .unwrap();
 
         Pallet::<T>::freeze_partial_tokens(
             alice.origin().into(),

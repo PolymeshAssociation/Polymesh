@@ -298,7 +298,7 @@ benchmarks! {
         let auth_id = pallet_identity::Pallet::<T>::add_auth(
             charlie.did(),
             Signatory::from(bob.did()),
-            AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(charlie.did(), PortfolioNumber(0))),
+            AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(charlie.did(), PortfolioNumber(1))),
             None,
         )
         .unwrap();

@@ -288,10 +288,10 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
     fn controller_transfer_to(n: u32) -> Weight {
-        // Minimum execution time: 158_173 nanoseconds.
-        Weight::from_parts(122_206_148, 0)
-            // Standard Error: 26_079
-            .saturating_add(Weight::from_parts(43_472_933, 0).saturating_mul(n.into()))
+        // Minimum execution time: 159_569 nanoseconds.
+        Weight::from_parts(123_524_337, 0)
+            // Standard Error: 20_474
+            .saturating_add(Weight::from_parts(43_031_243, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
