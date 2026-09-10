@@ -15,7 +15,8 @@
 
 use alloc::vec::Vec;
 
-use pallet_revive::precompiles::alloy::sol_types::Revert;
+use frame_support::traits::Get;
+use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
 
@@ -149,6 +150,24 @@ impl<T: Config> FungibleAssetInterface<T> {
             }),
         )?;
         Ok(Vec::new())
+    }
+
+    /// Returns `true` if the account is an agent of the token.
+    pub(crate) fn is_agent(
+        asset_id: AssetId,
+        call: &IFungibleAsset::isAgentCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(3))?;
+
+        let account_id = Common::<T>::account_id(env, call.account)?;
+
+        let is_agent = match pallet_identity::Pallet::<T>::get_identity(&account_id) {
+            Some(did) => pallet_external_agents::GroupOfAgent::<T>::contains_key(asset_id, did),
+            None => false,
+        };
+
+        Ok(IFungibleAsset::isAgentCall::abi_encode_returns(&is_agent))
     }
 
     /// Freezes an additional amount of tokens for a specific address, on top of any tokens

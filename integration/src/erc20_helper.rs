@@ -218,6 +218,14 @@ impl Token {
         Ok(value)
     }
 
+    pub async fn is_agent(&self, account: Address) -> Result<bool> {
+        let value = self
+            .node
+            .call(self.address, &ierc20::isAgentCall { account })
+            .await?;
+        Ok(value)
+    }
+
     // --- writes ------------------------------------------------------------
 
     pub async fn transfer(
