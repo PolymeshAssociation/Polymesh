@@ -156,10 +156,12 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             },
         )?;
 
+        let owner = Self::account_owner_of(asset_id, &nft_id)?;
+
         Common::<T>::deposit_event(
             env,
             INonFungibleAssetEvents::Approval(INonFungibleAsset::Approval {
-                owner: caller.address.0.into(),
+                owner,
                 approved: call.to,
                 tokenId: call.tokenId,
             }),

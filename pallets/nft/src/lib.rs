@@ -981,16 +981,16 @@ impl<T: Config> Pallet<T> {
         spender: Option<T::AccountId>,
     ) -> DispatchResult {
         let caller_data = IdentityPallet::<T>::ensure_origin_call_permissions(origin)?;
-        let owner = Self::to_account_id32(&caller_data.sender)?;
+        let caller = Self::to_account_id32(&caller_data.sender)?;
 
-        // Only the account key currently holding the NFT, or an approved operator for the
-        // collection, may set a per-token approval.
-        let holder = AssetHolder::Account(owner.clone());
-        ensure!(
-            Self::is_holder_of_nft(&asset_id, &nft_id, &holder)
-                || Self::is_approved_operator_of_nft(&asset_id, &nft_id, &owner),
-            Error::<T>::NFTApprovalNotAuthorized
-        );
+        let owner = {
+            if Self::is_holder_of_nft(&asset_id, &nft_id, &AssetHolder::Account(caller.clone())) {
+                caller
+            } else {
+                Self::owner_if_approved_operator_of_nft(&asset_id, &nft_id, &caller)
+                    .ok_or(Error::<T>::NFTApprovalNotAuthorized)?
+            }
+        };
 
         let spender = spender.map(|s| Self::to_account_id32(&s)).transpose()?;
         match &spender {
@@ -1074,18 +1074,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `true` if `account` is an approved operator for the holder of `nft_id`.
-    fn is_approved_operator_of_nft(
+    /// Returns the owner of `nft_id` if `account` is an approved operator for it.
+    fn owner_if_approved_operator_of_nft(
         asset_id: &AssetId,
         nft_id: &NFTId,
         account: &AccountId32,
-    ) -> bool {
+    ) -> Option<AccountId32> {
         match Owner::<T>::get(asset_id, nft_id) {
-            Some(AssetHolder::Account(owner)) => {
-                OperatorApproval::<T>::get((&owner, account, asset_id))
+            Some(AssetHolder::Account(owner))
+                if OperatorApproval::<T>::get((&owner, account, asset_id)) =>
+            {
+                Some(owner)
             }
             // Portfolio-held NFTs cannot have approvals: `approve` requires an account holder.
-            _ => false,
+            _ => None,
         }
     }
 
