@@ -6,14 +6,16 @@ use sp_std::vec::Vec;
 use codec::Encode;
 use pallet_asset::benchmarking::create_portfolio;
 use pallet_identity::benchmarking::{user, User, UserBuilder};
+use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::{AssetHolder, AssetHolderKind, AssetType, NonFungibleType};
-use polymesh_primitives::asset_metadata::{
-    AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
-};
+use polymesh_primitives::asset_metadata::{AssetMetadataGlobalKey, AssetMetadataKey};
+use polymesh_primitives::asset_metadata::{AssetMetadataSpec, AssetMetadataValue};
 use polymesh_primitives::bench::create_and_issue_sample_asset;
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::traits::{AssetFnTrait, ComplianceFnConfig};
-use polymesh_primitives::{with_transaction, IdentityId, WeightMeter};
+use polymesh_primitives::settlement::AffirmationRequirement;
+use polymesh_primitives::traits::{AffirmationFnTrait, AssetFnTrait, ComplianceFnConfig};
+use polymesh_primitives::{with_transaction, AuthorizationData};
+use polymesh_primitives::{IdentityId, PortfolioNumber, Signatory, WeightMeter};
 
 use crate::*;
 
@@ -261,6 +263,57 @@ benchmarks! {
             assert!(!Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &bob_holdings));
         }
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
+    }
+
+    controller_transfer_to {
+        let n in 1..T::MaxNumberOfNFTsCount::get();
+
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let charlie = UserBuilder::<T>::default().generate_did().build("Charlie");
+
+        let alice_holdings = create_portfolio::<T>(&alice, "AlicePortfolio");
+        let charlie_holdings = create_portfolio::<T>(&charlie, "CharliePortfolio");
+
+        let asset_id =
+            create_collection_issue_nfts::<T>(&alice, 0, n, alice_holdings.clone().into());
+
+        // Bob is an agent of Alice for the asset
+        pallet_external_agents::Pallet::<T>::create_group(
+            alice.origin().into(),
+            asset_id,
+            Default::default()
+        )
+        .unwrap();
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            alice.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Custom(AGId(1))),
+            None,
+        )
+        .unwrap();
+        pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
+
+        // Charlie gives custody of portfolio to bob
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            charlie.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(charlie.did(), PortfolioNumber(1))),
+            None,
+        )
+        .unwrap();
+        pallet_portfolio::Pallet::<T>::accept_portfolio_custody(bob.origin().into(), auth_id).unwrap();
+
+        // Opt-in receiver to mandatory affirmation so benchmarks measure worst-case weights.
+        T::AffirmationFn::set_mandatory_receiver_affirmation(
+            charlie.did(),
+            AffirmationRequirement::Required,
+        );
+
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+    }: _(bob.origin.clone(), nfts.clone(), alice_holdings.clone(), charlie_holdings.clone())
+    verify {
+        assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), charlie.did()), n as u64);
     }
 
     approve {
