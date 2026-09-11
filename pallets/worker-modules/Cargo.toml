@@ -12,6 +12,7 @@ homepage.workspace = true
 polymesh-primitives = { workspace = true, default-features = false }
 
 # Workers
+polymesh-worker-extension = { workspace = true, default-features = false }
 polymesh-worker-common = { workspace = true, default-features = false, features = ["serde"] }
 
 # Other
@@ -46,6 +47,7 @@ std = [
   "frame-system/std",
   "frame-benchmarking?/std",
   "polymesh-primitives/std",
+  "polymesh-worker-extension/std",
   "polymesh-worker-common/std",
   "sp-runtime/std",
   "sp-std/std",
@@ -56,6 +58,7 @@ runtime-benchmarks = [
   "testing",
   "frame-benchmarking/runtime-benchmarks",
   "polymesh-primitives/runtime-benchmarks",
+  "polymesh-worker-extension/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
 ]
 try-runtime = []

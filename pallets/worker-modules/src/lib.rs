@@ -24,6 +24,7 @@ use polymesh_worker_common::{
     BackendCodeHash, BackendContextHash, BackendModuleDefinition, BackendModuleKind, Protocol,
     ProtocolId, ProtocolModuleConfigHash, ProtocolVersion,
 };
+use polymesh_worker_extension::worker_modules_legacy_code_key;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -219,7 +220,7 @@ pub mod pallet {
 
     /// Protocol module code storage item, which double maps (Protocol, BackendCodeHash) => Vec<u8>.
     #[pallet::storage]
-    pub type ProtocolModuleCode<T: Config> = StorageDoubleMap<
+    pub type ProtocolCode<T: Config> = StorageDoubleMap<
         _,
         Identity,
         Protocol,
@@ -309,6 +310,7 @@ pub mod pallet {
         /// * `origin` - The origin of the call, must be root.
         /// * `protocol` - The protocol to upload the module code for.
         /// * `code` - The module code to upload.
+        /// * `module_version` - The version of the module being uploaded.
         ///
         /// # Errors
         /// * `DispatchError::BadOrigin` - If the origin is not root.
@@ -320,6 +322,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             protocol: Protocol,
             code: BoundedVec<u8, T::MaxModuleCodeSize>,
+            module_version: u32,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -330,14 +333,27 @@ pub mod pallet {
             );
 
             let code_hash = blake2_256(&code);
-            // Ensure the code hash is not already stored for the protocol.
-            ensure!(
-                !ProtocolModuleCode::<T>::contains_key(&protocol, &code_hash),
-                Error::<T>::ProtocolModuleCodeAlreadyExists
-            );
+            if module_version > 1 {
+                // Ensure the code hash is not already stored for the protocol.
+                ensure!(
+                    !ProtocolCode::<T>::contains_key(&protocol, &code_hash),
+                    Error::<T>::ProtocolModuleCodeAlreadyExists
+                );
 
-            // Store the protocol module code.
-            ProtocolModuleCode::<T>::insert(&protocol, &code_hash, &code);
+                // Store the protocol module code.
+                ProtocolCode::<T>::insert(&protocol, &code_hash, &code);
+            } else {
+                // Store the legacy protocol module code under the generated key.
+                let key = worker_modules_legacy_code_key(protocol, code_hash);
+
+                // Ensure the code hash is not already stored for the protocol.
+                ensure!(
+                    !sp_io::storage::exists(&key),
+                    Error::<T>::ProtocolModuleCodeAlreadyExists
+                );
+
+                sp_io::storage::set(&key, &code);
+            }
 
             // Emit an event.
             Self::deposit_event(Event::ProtocolModuleCodeUploaded {
@@ -444,11 +460,18 @@ pub mod pallet {
                         Error::<T>::ModuleCodeMissing
                     );
                     // Store the native code for the protocol.
-                    ProtocolModuleCode::<T>::insert(&protocol, &native_code_hash, native_code);
-                } else {
+                    ProtocolCode::<T>::insert(&protocol, &native_code_hash, native_code);
+                } else if module.module_version > 1 {
                     ensure!(
-                        ProtocolModuleCode::<T>::contains_key(&protocol, &module.code_hash),
+                        ProtocolCode::<T>::contains_key(&protocol, &module.code_hash),
                         Error::<T>::ModuleCodeMissing
+                    );
+                } else {
+                    // Handle legacy protocol module code.
+                    let key = worker_modules_legacy_code_key(protocol, module.code_hash);
+                    ensure!(
+                        !sp_io::storage::exists(&key),
+                        Error::<T>::ProtocolModuleCodeAlreadyExists
                     );
                 }
             }

@@ -6,12 +6,20 @@ mod worker_modules_tests {
     use integration::{worker_modules_helper::*, PolymeshTester};
 
     async fn upload_v1(helper: &mut WorkerModulesHelper) -> Result<()> {
-        let polkavm = include_bytes!(
+        let polkavm_zst = include_bytes!(
             "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.polkavm.zst"
         )
         .to_vec();
-        let wasm = include_bytes!(
+        let polkavm = include_bytes!(
+            "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.polkavm"
+        )
+        .to_vec();
+        let wasm_zst = include_bytes!(
             "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.wasm.zst"
+        )
+        .to_vec();
+        let wasm = include_bytes!(
+            "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.wasm"
         )
         .to_vec();
 
@@ -25,8 +33,10 @@ mod worker_modules_tests {
             .upload_modules_and_config(
                 ProtocolInitializationMethod::SaveContextFromFirstInstance,
                 vec![
-                    (BackendModuleKind::PolkaVM, 2, polkavm.clone()),
-                    (BackendModuleKind::Wasm, 2, wasm.clone()),
+                    (BackendModuleKind::PolkaVM, 2, polkavm_zst.clone()),
+                    (BackendModuleKind::PolkaVM, 1, polkavm.clone()),
+                    (BackendModuleKind::Wasm, 2, wasm_zst.clone()),
+                    (BackendModuleKind::Wasm, 1, wasm.clone()),
                 ],
             )
             .await?;
@@ -34,12 +44,20 @@ mod worker_modules_tests {
     }
 
     async fn upload_v2(helper: &mut WorkerModulesHelper) -> Result<()> {
-        let polkavm = include_bytes!(
+        let polkavm_zst = include_bytes!(
             "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.polkavm.zst"
         )
         .to_vec();
-        let wasm = include_bytes!(
+        let polkavm = include_bytes!(
+            "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.polkavm"
+        )
+        .to_vec();
+        let wasm_zst = include_bytes!(
             "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.wasm.zst"
+        )
+        .to_vec();
+        let wasm = include_bytes!(
+            "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.wasm"
         )
         .to_vec();
 
@@ -53,8 +71,10 @@ mod worker_modules_tests {
             .upload_modules_and_config(
                 ProtocolInitializationMethod::SaveContextFromFirstInstance,
                 vec![
-                    (BackendModuleKind::PolkaVM, 2, polkavm.clone()),
-                    (BackendModuleKind::Wasm, 2, wasm.clone()),
+                    (BackendModuleKind::PolkaVM, 2, polkavm_zst.clone()),
+                    (BackendModuleKind::PolkaVM, 1, polkavm.clone()),
+                    (BackendModuleKind::Wasm, 2, wasm_zst.clone()),
+                    (BackendModuleKind::Wasm, 1, wasm.clone()),
                 ],
             )
             .await?;
