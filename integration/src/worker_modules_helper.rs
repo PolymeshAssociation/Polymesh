@@ -66,12 +66,16 @@ impl WorkerModulesHelper {
         Ok(())
     }
 
-    pub async fn upload_module_code(&mut self, module_code: Vec<u8>) -> Result<()> {
+    pub async fn upload_module_code(
+        &mut self,
+        module_code: Vec<u8>,
+        module_version: u32,
+    ) -> Result<()> {
         self.sudo_call(
             self.api
                 .call()
                 .worker_modules()
-                .upload_protocol_module_code(self.protocol.clone(), module_code)?,
+                .upload_protocol_module_code(self.protocol.clone(), module_code, module_version)?,
         )
         .await?;
 
@@ -119,7 +123,7 @@ impl WorkerModulesHelper {
         let mut module_defs = Vec::new();
         for (module_kind, module_version, code) in modules.into_iter() {
             let code_hash = blake2_256(&code);
-            self.upload_module_code(code).await?;
+            self.upload_module_code(code, module_version).await?;
             module_defs.push(BackendModuleDefinition {
                 module_kind,
                 module_version,
