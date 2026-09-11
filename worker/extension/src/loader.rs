@@ -15,10 +15,13 @@ use polymesh_worker_common::*;
 /// The storage items are:
 /// - `ProtocolConfigHash` (twox_128 = 7ada29e3bb7bec6691576e935738af7b): map Protocol => Hash
 /// - `ProtocolConfig` (twox_128 = 63d64a3f5c7590e883a2f77f74b5714d): map (Protocol, Hash) => ProtocolModuleConfig
-/// - `ProtocolModuleCode` (twox_128 = deae62fbb378690611a6e5113d494b1b): map (Protocol, Hash) => Vec<u8>
+/// - `ProtocolCode` (twox_128 = f2f6e3b671f605a1c3aa34c6bff56787): map (Protocol, Hash) => Vec<u8>
 /// - `ProtocolContext` (twox_128 = 27c0c49da7153d33d35d497fc4ac56f0): map (Protocol, Hash) => Vec<u8>
 ///
 /// The storage prefix is `concat(twox_128(pallet_name), twox_128(storage_name))`.
+///
+/// Legacy (`module_version == 1`):
+/// - `ProtocolModuleCode` (twox_128 = deae62fbb378690611a6e5113d494b1b): map (Protocol, Hash) => Vec<u8> (not SCALE encoded, just raw bytes, no zstd compression)
 
 /// Pallet WorkerModules storage prefix.
 pub const WORKER_MODULES_PREFIX: [u8; 16] = hex_literal::hex!("e67cf3f4b484981dea7be98c7cbbd979");
@@ -30,8 +33,11 @@ pub const PROTOCOL_CONFIG_HASH_PREFIX: [u8; 16] =
 /// The prefix for `ProtocolConfig` storage item, which double map (Protocol, Hash) => ProtocolModuleConfig.
 pub const PROTOCOL_CONFIG_PREFIX: [u8; 16] = hex_literal::hex!("63d64a3f5c7590e883a2f77f74b5714d");
 
-/// The prefix for `ProtocolModuleCode` storage item, which double map (Protocol, Hash) => Vec<u8>.
-pub const PROTOCOL_MODULE_CODE_PREFIX: [u8; 16] =
+/// The prefix for `ProtocolCode` storage item, which double map (Protocol, Hash) => Vec<u8>.
+pub const PROTOCOL_CODE_PREFIX: [u8; 16] = hex_literal::hex!("f2f6e3b671f605a1c3aa34c6bff56787");
+
+/// The legacy prefix for `ProtocolModuleCode` storage item, which double map (Protocol, Hash) => Vec<u8>.
+pub const PROTOCOL_MODULE_CODE_LEGACY_PREFIX: [u8; 16] =
     hex_literal::hex!("deae62fbb378690611a6e5113d494b1b");
 
 /// The prefix for `ProtocolContext` storage item, which double map (Protocol, Hash) => Vec<u8>.
@@ -64,7 +70,16 @@ pub fn worker_modules_config_key(
 
 /// Generate the storage key for `WorkerModules::ProtocolModuleCode(protocol, code_hash)`.
 pub fn worker_modules_code_key(protocol: Protocol, code_hash: BackendCodeHash) -> Vec<u8> {
-    worker_modules_storage_key(PROTOCOL_MODULE_CODE_PREFIX, protocol, Some(code_hash))
+    worker_modules_storage_key(PROTOCOL_CODE_PREFIX, protocol, Some(code_hash))
+}
+
+/// Generate the legacy storage key for `WorkerModules::ProtocolModuleCode(protocol, code_hash)`.
+pub fn worker_modules_legacy_code_key(protocol: Protocol, code_hash: BackendCodeHash) -> Vec<u8> {
+    worker_modules_storage_key(
+        PROTOCOL_MODULE_CODE_LEGACY_PREFIX,
+        protocol,
+        Some(code_hash),
+    )
 }
 
 /// Generate the storage key for `WorkerModules::ProtocolContext(protocol, context_hash)`.

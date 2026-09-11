@@ -9697,6 +9697,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-worker-common",
+ "polymesh-worker-extension",
  "scale-info",
  "serde",
  "sp-io",
