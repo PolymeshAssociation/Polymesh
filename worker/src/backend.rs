@@ -5,6 +5,7 @@ use codec::Encode;
 use polymesh_worker_common::*;
 
 use crate::cache::modules::{BackendModuleCache, ProtocolModuleRef};
+use crate::decompress_module_code;
 
 #[cfg(feature = "polkavm")]
 mod polkavm;
@@ -102,6 +103,8 @@ impl Backends {
         for backend in &self.backends {
             let kind = backend.kind();
             if let Some(module_bytes) = loader.get_module_bytes(protocol, kind) {
+                // Decompress module bytes if it was compressed.
+                let module_bytes = decompress_module_code(&module_bytes)?;
                 if let Some(module) = backend.load_module(&module_bytes) {
                     return Some(module);
                 }
