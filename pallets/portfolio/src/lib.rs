@@ -849,9 +849,13 @@ impl<T: Config> Pallet<T> {
 
         let current_balance = Self::get_portfolio_balance(portfolio, asset_id);
         let locked_balance = Self::get_portfolio_locked_balance(portfolio, asset_id);
+        let frozen_balance = Self::get_portfolio_frozen_balance(portfolio, asset_id);
 
         ensure!(
-            current_balance.saturating_sub(locked_balance) >= amount,
+            current_balance
+                .saturating_sub(locked_balance)
+                .saturating_sub(frozen_balance)
+                >= amount,
             Error::<T>::InsufficientPortfolioBalance
         );
         Ok(())
