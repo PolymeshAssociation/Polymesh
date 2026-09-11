@@ -40,6 +40,8 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
 pallet-precompiles = { workspace = true, default-features = false }
+pallet-worker-modules = { workspace = true, default-features = false }
+pallet-worker-testing = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Others
@@ -122,10 +124,27 @@ ci-runtime = []
 # Backends
 u64_backend = ["polymesh-primitives/u64_backend"]
 
+# Use host: worker modules + msm + Hash to Curve
+host_workers = [
+    "pallet-confidential-assets/host_workers",
+    "pallet-worker-testing/host_workers",
+]
+# No host functions
+no_host_fns = [
+    "pallet-confidential-assets/no_host_fns",
+    "pallet-worker-testing/no_host_fns",
+]
+# Verify proofs in runtime with only these host functions: msm + Hash to Curve
+host_curves = [
+    "pallet-confidential-assets/host_curves",
+    "pallet-worker-testing/no_host_fns",
+]
+
 no_std = [
     "polymesh-primitives/no_std",
     "u64_backend",
     "pallet-confidential-assets/no_std",
+    "pallet-worker-testing/no_std",
     "polymesh-dart/no_std",
 ]
 
@@ -171,6 +190,8 @@ std = [
     "pallet-transaction-payment/std",
     "polymesh-transaction-payment/std",
     "pallet-utility/std",
+    "pallet-worker-modules/std",
+    "pallet-worker-testing/std",
     "pallet-validators/std",
     "pallet-precompiles/std",
     "polymesh-runtime-common/std",
@@ -224,6 +245,8 @@ runtime-benchmarks = [
     "polymesh-transaction-payment/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
+    "pallet-worker-modules/runtime-benchmarks",
+    "pallet-worker-testing/runtime-benchmarks",
     "pallet-validators/runtime-benchmarks",
     "pallet-precompiles/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",

@@ -5,6 +5,7 @@ use codec::Encode;
 use polymesh_worker_common::*;
 
 use crate::cache::modules::{BackendModuleCache, ProtocolModuleRef};
+use crate::decompress_module_code;
 
 #[cfg(feature = "polkavm")]
 mod polkavm;
@@ -102,6 +103,8 @@ impl Backends {
         for backend in &self.backends {
             let kind = backend.kind();
             if let Some(module_bytes) = loader.get_module_bytes(protocol, kind) {
+                // Decompress module bytes if it was compressed.
+                let module_bytes = decompress_module_code(&module_bytes)?;
                 if let Some(module) = backend.load_module(&module_bytes) {
                     return Some(module);
                 }
@@ -338,6 +341,10 @@ pub trait BackendModule: Send + Sync {
 }
 
 /// A trait for backends that can be used to verify proofs.
+///
+/// Supported versions:
+/// - Legancy (version 1) (Polymesh v8.0 - v8.1.1) - Code and Context was stored as raw bytes (not SCALE-encode `Vec<u8>`).
+/// - Current (version 2) (Polymesh v8.2 and later) - Code and Context are stored as SCALE-encoded `Vec<u8>`.
 pub trait Backend: Send + Sync {
     fn new_boxed() -> Result<Box<dyn Backend>, WorkerError>
     where
@@ -348,12 +355,12 @@ pub trait Backend: Send + Sync {
 
     /// Maximum supported module version, used for compatibility checking.
     fn max_supported_version(&self) -> BackendModuleVersion {
-        1
+        2
     }
 
     /// Minimum supported module version, used for compatibility checking.
     fn min_supported_version(&self) -> BackendModuleVersion {
-        1
+        2
     }
 
     /// Check if a module is compatible.

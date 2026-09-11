@@ -55,12 +55,15 @@ use polymesh_dart::{
     SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
 
+use polymesh_worker_common::WorkerSessionId;
+#[cfg(feature = "host_workers")]
 use polymesh_worker_extension::{
-    native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig, WorkerSessionId,
+    native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig,
 };
-use polymesh_worker_protocol_dart_v1::{
-    UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
-};
+
+#[cfg(feature = "host_workers")]
+use polymesh_worker_protocol_dart_v1::PROTOCOL as DART_PROTOCOL;
+use polymesh_worker_protocol_dart_v1::{UpdateAssetStateRequest, VerifyDartAssetRequest};
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -2944,32 +2947,47 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn start_session() {
-        // Start worker session.
-        let config = WorkerSessionConfig {
-            work: WorkRequestConfig {
-                use_cache: true,
-                use_thread_pool: false,
-            },
-            init_module: true,
+        #[cfg(feature = "host_workers")]
+        {
+            // Start worker session.
+            let config = WorkerSessionConfig {
+                work: WorkRequestConfig {
+                    use_cache: true,
+                    use_thread_pool: false,
+                },
+                init_module: true,
 
-            backends: BackendKind::all_mask(),
+                backends: BackendKind::all_mask(),
+            }
+            .to_flags_and_backends();
+
+            let session_id =
+                native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
+
+            CurrentWorkerSessionId::<T>::put(session_id);
         }
-        .to_flags_and_backends();
-        let session_id = native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
-
-        CurrentWorkerSessionId::<T>::put(session_id);
     }
 
     pub fn end_session() {
-        // Close the batch.
-        if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
-            native_polymesh_worker::end_session(session_id);
+        #[cfg(feature = "host_workers")]
+        {
+            // Close the batch.
+            if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
+                native_polymesh_worker::end_session(session_id);
+            }
         }
     }
 
     pub fn submit_and_wait(req: VerifyDartAssetRequest) -> DispatchResult {
-        req.submit_and_wait(Self::session_id()?)
-            .map_err(|_| Error::<T>::InvalidProof)?;
+        #[cfg(feature = "host_workers")]
+        {
+            req.submit_and_wait(Self::session_id()?)
+                .map_err(|_| Error::<T>::InvalidProof)?;
+        }
+        #[cfg(not(feature = "host_workers"))]
+        {
+            req.do_verify().map_err(|_| Error::<T>::InvalidProof)?;
+        }
         Ok(())
     }
 

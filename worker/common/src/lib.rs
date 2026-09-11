@@ -1,7 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ark_std::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 pub mod error;
 pub use error::*;
@@ -25,7 +28,7 @@ pub type BackendBitmask = u32;
 pub type ProtocolModuleConfigHash = [u8; 32];
 
 /// Protocol initialization method.
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode, TypeInfo)]
 pub enum ProtocolInitializationMethod {
     /// No initialization is needed, the module can be used directly after loading.
     NoInitializationNeeded,
@@ -47,7 +50,7 @@ pub enum ResolvedInitializationMethod {
 }
 
 /// A protocol's module configuration, which contains the list of backends and their corresponding module definitions (code hash, context hash, etc).
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode, TypeInfo)]
 pub struct ProtocolModuleConfig {
     /// The protocol id and version are included here to make sure the config hash includes the protocol information, which is used for caching the loaded module.
     pub protocol: Protocol,
@@ -79,7 +82,17 @@ pub type BackendContextHash = [u8; 32];
 pub type BackendModuleVersion = u32;
 
 /// For a give protocol, version and backend kind, the code hash and context hash of the module to be loaded.
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(
+    Clone,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    MaxEncodedLen,
+    TypeInfo,
+    DecodeWithMemTracking
+)]
 pub struct BackendModuleDefinition {
     /// The module kind, used to determine which module code to load for the given backend kind.
     pub module_kind: BackendModuleKind,
@@ -119,7 +132,20 @@ pub fn unpack_fat_results(fat_ptr: u64) -> Result<(u32, u32), ProtocolError> {
 /// The module code kind.
 ///
 /// Some backends like wasmer and wasmtime both support wasm modules and can share the same module code.
-#[derive(Clone, Copy, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo
+)]
 #[repr(u8)]
 pub enum BackendModuleKind {
     Native = 0,
@@ -131,7 +157,20 @@ pub enum BackendModuleKind {
 ///
 /// This is used to allow disabling certain backends in the future if they are found to be insecure or have other issues.
 /// It also allows us to have multiple backends for the same protocol if needed.
-#[derive(Clone, Copy, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo
+)]
 #[repr(u32)]
 pub enum BackendKind {
     Native = 0,
@@ -286,11 +325,27 @@ impl core::ops::BitOr<BackendKind> for BackendBitmask {
 
 /// Protocol id.
 #[derive(
-    Clone, Copy, Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo
 )]
-pub struct ProtocolId(u16);
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ProtocolId(pub u16);
 
 pub type ProtocolNumber = u64;
+
+/// The protocol id for the TESTING protocol.
+pub const PROTOCOL_TESTING: ProtocolId = ProtocolId(0xFF);
 
 /// The protocol id for the P-DART protocol.
 ///
@@ -299,8 +354,21 @@ pub const PROTOCOL_PDART: ProtocolId = ProtocolId(0x50);
 
 /// The protocol id and version.
 #[derive(
-    Clone, Copy, Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Protocol {
     pub id: ProtocolId,
     pub version: ProtocolVersion,
@@ -356,8 +424,21 @@ impl Protocol {
 
 /// The protocol version is used load the correct module for the given protocol and version.
 #[derive(
-    Clone, Copy, Debug, Default, Encode, Decode, PartialEq, Eq, PartialOrd, Ord
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProtocolVersion {
     pub major: u16,
     pub minor: u16,
