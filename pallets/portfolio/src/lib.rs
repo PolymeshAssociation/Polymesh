@@ -847,6 +847,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         T::AssetFn::ensure_granular(asset_id, amount)?;
 
+        ensure!(
+            !Self::is_portfolio_frozen(portfolio, asset_id),
+            Error::<T>::PortfolioIsFrozen
+        );
+
         let current_balance = Self::get_portfolio_balance(portfolio, asset_id);
         let locked_balance = Self::get_portfolio_locked_balance(portfolio, asset_id);
         let frozen_balance = Self::get_portfolio_frozen_balance(portfolio, asset_id);
@@ -945,10 +950,6 @@ impl<T: Config> Pallet<T> {
                     ensure!(
                         unique_assets.insert(asset_id),
                         Error::<T>::NoDuplicateAssetsAllowed
-                    );
-                    ensure!(
-                        !Self::is_portfolio_frozen(sender_portfolio, asset_id),
-                        Error::<T>::PortfolioIsFrozen
                     );
                     T::AssetFn::asset_is_not_frozen(asset_id)?;
                     Self::ensure_sufficient_balance(sender_portfolio, &asset_id, *amount)?;
