@@ -1229,6 +1229,12 @@ impl<T: Config> Pallet<T> {
             nft_transfer_errors.push(e);
         }
 
+        if let Err(e) =
+            pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(sender, nfts.asset_id())
+        {
+            nft_transfer_errors.push(e);
+        }
+
         if skip_locked_check {
             for nft_id in nfts.ids() {
                 if !Self::is_holder_of_nft(nfts.asset_id(), nft_id, sender) {
@@ -1471,6 +1477,7 @@ impl<T: Config> Pallet<T> {
             !Self::is_nft_locked(&asset_id, &nft_id, &asset_holder),
             Error::<T>::NFTIsLocked
         );
+        pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(&asset_holder, &asset_id)?;
 
         match asset_holder {
             AssetHolder::Account(acc_id) => {
