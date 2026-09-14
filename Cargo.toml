@@ -23,22 +23,22 @@ sp-crypto-hashing = { git = "https://github.com/PolymeshAssociation/polkadot-sdk
 #ark-ec-divisors = { package = "ark-ec-divisors", path = "../curve-trees/ark-ec-divisors"}
 #ark-dlog-gadget = { package = "ark-dlog-gadget", path = "../curve-trees/ark-dlog-gadget"}
 # If want to pull code for curve-trees from git, comment above 2 relations and uncomment below 2
-curve_tree_bulletproofs = { package = "bulletproofs", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
-curve_tree_relations = { package = "relations", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
-ark-ec-divisors = { package = "ark-ec-divisors", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
-ark-dlog-gadget = { package = "ark-dlog-gadget", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "polymesh" }
+curve_tree_bulletproofs = { package = "bulletproofs", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+curve_tree_relations = { package = "relations", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+ark-ec-divisors = { package = "ark-ec-divisors", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+ark-dlog-gadget = { package = "ark-dlog-gadget", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
 
 #dock_crypto_utils = { path = "../crypto/utils" }
 #schnorr_pok = { path = "../crypto/schnorr_pok" }
-dock_crypto_utils = { git = "https://github.com/PolymeshAssociation/crypto", branch = "main" }
-schnorr_pok = { git = "https://github.com/PolymeshAssociation/crypto", branch = "main" }
+dock_crypto_utils = { git = "https://github.com/PolymeshAssociation/crypto", branch = "dart-v0.1.0" }
+schnorr_pok = { git = "https://github.com/PolymeshAssociation/crypto", branch = "dart-v0.1.0" }
 
 #polymesh-dart = { path = "../polymesh-dart" }
 #polymesh-dart-bp = { path = "../polymesh-dart/dart-bp" }
 #polymesh-dart-common = { path = "../polymesh-dart/dart-common" }
-polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
-polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
-polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "main" }
+polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "dart-v0.1.0" }
+polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "dart-v0.1.0" }
+polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "dart-v0.1.0" }
 
 # Polymesh changes to Arkworks.
 #ark-serialize = { path = "../arkworks-algebra/serialize" }
@@ -56,23 +56,23 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 #ark-bn254 = { path = "../arkworks-algebra/curves/bn254" }
 #ark-bls12-381 = { path = "../arkworks-algebra/curves/bls12_381" }
 
-ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
-ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 
 #ark-bls12-377 = { path = "../arkworks-algebra/curves/bls12_377" }
-#ark-bls12-377 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "polymesh-master" }
+#ark-bls12-377 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 
 [workspace]
 members = [
