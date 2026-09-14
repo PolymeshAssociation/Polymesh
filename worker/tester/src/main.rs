@@ -109,7 +109,7 @@ pub fn main() {
     };
     if let Some(ref ctx) = saved_ctx {
         const REF_CONTEXT_DATA: &[u8] =
-            include_bytes!("../../polymesh-worker-protocol-dart-v1.context.bin");
+            include_bytes!("../../modules/dart/v1/polymesh-worker-protocol-dart-v1.context.bin");
         let ref_hash = hex::encode(sp_core::blake2_256(REF_CONTEXT_DATA));
         let hash = hex::encode(sp_core::blake2_256(ctx));
         println!("Saved context size: {} bytes", ctx.len());
