@@ -1264,3 +1264,37 @@ fn move_funds_from_frozen_portfolio() {
         );
     });
 }
+
+#[test]
+fn move_after_partial_freeze() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let alice_default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let alice_user_portfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+        Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
+
+        assert_ok!(Asset::freeze_partial_tokens(
+            alice.origin(),
+            asset_id,
+            alice_default_portfolio.clone().into(),
+            ISSUE_AMOUNT - 200,
+        ));
+
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_user_portfolio,
+                vec![Fund {
+                    description: FundDescription::Fungible {
+                        asset_id,
+                        amount: 201,
+                    },
+                    memo: None,
+                }]
+            ),
+            Error::InsufficientPortfolioBalance
+        );
+    });
+}
