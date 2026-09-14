@@ -112,9 +112,22 @@ wat = "1.0"
 sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 
 [features]
-default = ["std", "equalize", "testing"]
+default = ["std", "equalize", "testing", "host_workers"]
 
 testing = ["polymesh-runtime-common/testing", "pallet-staking/testing"]
+
+# Use host: worker modules + msm + Hash to Curve
+host_workers = [
+    "polymesh-runtime-develop/host_workers",
+]
+# No host functions
+no_host_fns = [
+    "polymesh-runtime-develop/no_host_fns",
+]
+# Verify proofs in runtime with only these host functions: msm + Hash to Curve
+host_curves = [
+    "polymesh-runtime-develop/host_curves",
+]
 
 equalize = []
 only-staking = []
