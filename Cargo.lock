@@ -11617,12 +11617,16 @@ dependencies = [
 name = "polymesh-worker-tools"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap",
  "env_logger 0.10.2",
  "hex",
  "log",
+ "parity-scale-codec",
  "polymesh-worker",
  "polymesh-worker-common",
  "polymesh-worker-native",
+ "serde_json",
  "sp-core",
  "sp-maybe-compressed-blob",
 ]
