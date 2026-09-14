@@ -426,6 +426,10 @@ The image pins the base image digest, Rust nightly, and `polkatool` version.
 Cargo uses `Cargo.lock`, and the container uses fixed paths and isolated build
 state so host toolchains and caches do not affect the committed module files.
 
+`protocol/dart-v0` is a standalone Cargo workspace with its own `Cargo.lock`
+and DART crate patches. Future DART dependency updates in the root workspace do
+not change the dependency graph used to reproduce v0 modules.
+
 ### Preparing a DART Release Config
 
 Build one config containing uncompressed version 1 modules for older nodes and

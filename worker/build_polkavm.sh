@@ -21,13 +21,19 @@ rm -f "$output_path" "$elf_path"
 
 echo "> Building: '$crate' (-> $output_path)"
 
+if [ "$VERSION" = "v0" ]; then
+    CARGO_PACKAGE_ARGS=(--manifest-path protocol/dart-v0/Cargo.toml --target-dir ../target)
+else
+    CARGO_PACKAGE_ARGS=(-p "$crate")
+fi
+
 RUSTFLAGS="--remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C codegen-units=1" \
 cargo rustc --locked --crate-type cdylib \
     -Z build-std=core,alloc \
     --target $TARGET_JSON_PATH \
 		--no-default-features \
 		--features polkavm$EXTRA_FLAG \
-    --release --lib -p $crate
+    --release --lib "${CARGO_PACKAGE_ARGS[@]}"
 
 polkatool link \
     --run-only-if-newer -s $elf_path \
