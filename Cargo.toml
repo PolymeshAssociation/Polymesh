@@ -127,7 +127,7 @@ members = [
     "rpc/runtime-api",
     "native-crypto",
 ]
-exclude = ["contracts", "integration", "metadata-tools"]
+exclude = ["contracts", "integration", "metadata-tools", "worker/protocol/dart-v0"]
 
 [workspace.package]
 version = "8.1.2"

@@ -11513,6 +11513,7 @@ name = "polymesh-worker-common"
 version = "0.1.0"
 dependencies = [
  "ark-std 0.5.0",
+ "hex",
  "log",
  "parity-scale-codec",
  "polkavm-derive 0.32.0",
