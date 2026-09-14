@@ -2087,11 +2087,12 @@ impl<T: Config> Pallet<T> {
 
         // Handle the leg affirmations in the proof.
         for leg_affirmation in proof.leg_affirmations {
-            Self::base_instant_sender_affirmation(leg_affirmation.sender, false)?;
-            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false)?;
+            // Process mediator affirmations first.
             for mediator in leg_affirmation.mediators {
                 Self::base_mediator_affirmation(mediator)?;
             }
+            Self::base_instant_sender_affirmation(leg_affirmation.sender, false)?;
+            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false)?;
         }
 
         // Ensure that the settlement has executed and finalized.
