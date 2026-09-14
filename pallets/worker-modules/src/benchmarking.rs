@@ -44,7 +44,7 @@ benchmarks! {
     upload_protocol_module_code {
         let protocol = register_dummy_protocol::<T>().expect("Failed to register dummy protocol");
         let code = vec![0u8; T::MaxModuleCodeSize::get() as usize].try_into().expect("Failed to convert code to BoundedVec"); // dummy code
-    }: _(RawOrigin::Root, protocol, code)
+    }: _(RawOrigin::Root, protocol, code, 2)
 
     upload_protocol_module_context {
         let protocol = register_dummy_protocol::<T>().expect("Failed to register dummy protocol");
@@ -59,14 +59,15 @@ benchmarks! {
 
         // Upload dummy code for each module.
         let mut modules = vec![];
+        let module_version = 2;
         for idx in 0..(m-1) {
             let code = vec![idx as u8; 1024]; // dummy code
             let code_hash = code.using_encoded(sp_io::hashing::blake2_256);
-            Pallet::<T>::upload_protocol_module_code(RawOrigin::Root.into(), protocol, code.try_into().expect("Failed to convert code to BoundedVec"))
+            Pallet::<T>::upload_protocol_module_code(RawOrigin::Root.into(), protocol, code.try_into().expect("Failed to convert code to BoundedVec"), module_version)
                 .expect("Failed to upload dummy module code");
             modules.push(BackendModuleDefinition {
                 module_kind: BackendModuleKind::Wasm,
-                module_version: 1,
+                module_version,
                 code_hash,
             });
         }
@@ -76,7 +77,7 @@ benchmarks! {
         let native_code_hash = blake2_256(&native_code);
         modules.push(BackendModuleDefinition {
             module_kind: BackendModuleKind::Native,
-            module_version: 1,
+            module_version,
             code_hash: native_code_hash,
         });
 
