@@ -413,8 +413,8 @@ pub trait BackendModuleLoader {
 # From worker directory
 cd Polymesh/worker
 
-# Reproducibly build all production and testing variants for a Dart version
-./rebuild.sh v1
+# Reproducibly build modules and release configs for one or more DART versions
+./rebuild.sh v0 v1
 
 # Low-level host builds for development only
 ./build_polkavm.sh
@@ -425,6 +425,34 @@ cd Polymesh/worker
 The image pins the base image digest, Rust nightly, and `polkatool` version.
 Cargo uses `Cargo.lock`, and the container uses fixed paths and isolated build
 state so host toolchains and caches do not affect the committed module files.
+
+### Preparing a DART Release Config
+
+Build one config containing uncompressed version 1 modules for older nodes and
+compressed version 2 modules for newer nodes. Version 2 entries are ordered
+first so compatible nodes prefer them. A single Native version 1 definition is
+used because the native backend supports both module versions.
+
+```bash
+cargo run -r -p polymesh-worker-tools -- build-release-config \
+    --protocol-version 1.0.0 \
+    --polkavm modules/dart/v1/polymesh-worker-protocol-dart-v1.polkavm.zst \
+    --wasm modules/dart/v1/polymesh-worker-protocol-dart-v1.wasm.zst \
+    --output modules/dart/v1/config.scale
+```
+
+Export or verify a saved config:
+
+```bash
+cargo run -r -p polymesh-worker-tools -- export-config-json \
+    --config modules/dart/v1/config.scale \
+    --output modules/dart/v1/config.json
+
+cargo run -r -p polymesh-worker-tools -- check-release-config \
+    --config modules/dart/v1/config.scale \
+    --polkavm modules/dart/v1/polymesh-worker-protocol-dart-v1.polkavm.zst \
+    --wasm modules/dart/v1/polymesh-worker-protocol-dart-v1.wasm.zst
+```
 
 ## Performance Considerations
 

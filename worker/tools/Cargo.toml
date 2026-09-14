@@ -5,6 +5,10 @@ edition = "2024"
 
 [dependencies]
 log = "0.4"
+anyhow = "1.0"
+clap = { version = "4.0.9", features = ["derive"] }
+codec = { workspace = true, default-features = true }
+serde_json = "1.0"
 
 # Worker and protocols
 polymesh-worker = { workspace = true, default-features = false }
