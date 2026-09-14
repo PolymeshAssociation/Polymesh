@@ -62,7 +62,7 @@ benchmarks! {
         let module_version = 2;
         for idx in 0..(m-1) {
             let code = vec![idx as u8; 1024]; // dummy code
-            let code_hash = code.using_encoded(sp_io::hashing::blake2_256);
+            let code_hash = blake2_256(&code);
             Pallet::<T>::upload_protocol_module_code(RawOrigin::Root.into(), protocol, code.try_into().expect("Failed to convert code to BoundedVec"), module_version)
                 .expect("Failed to upload dummy module code");
             modules.push(BackendModuleDefinition {
