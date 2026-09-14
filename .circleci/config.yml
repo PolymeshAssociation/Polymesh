@@ -93,6 +93,23 @@ jobs:
       - run:
           name: Check Storage versions
           command: ./scripts/check_storage_versions.sh
+  check-worker-modules:
+    machine:
+      image: ubuntu-2004:current
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Check deterministic worker module artifacts
+          command: |
+            ./worker/rebuild.sh v0 v1
+            changes="$(git status --porcelain --untracked-files=all -- worker/modules/dart)"
+            if [[ -n "$changes" ]]; then
+              echo "$changes"
+              git diff -- worker/modules/dart
+              exit 1
+            fi
+          no_output_timeout: 30m
   build:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2026-09-01
@@ -955,6 +972,7 @@ workflows:
     jobs:
       - lint
       - check-storage-version
+      - check-worker-modules
       - clippy
       - test
       - build

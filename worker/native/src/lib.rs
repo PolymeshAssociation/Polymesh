@@ -21,6 +21,11 @@ impl Backend for NativeBackend {
         BackendKind::Native
     }
 
+    // For the native backend we can support all module versions starting from 1.
+    fn min_supported_version(&self) -> BackendModuleVersion {
+        1
+    }
+
     fn load_module(&self, module_bytes: &[u8]) -> Option<Box<dyn BackendModule>> {
         let protocol = Protocol::decode(&mut &module_bytes[..]).ok();
         match protocol {

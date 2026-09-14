@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-VERSION=${1:-"v1"}
+VERSIONS=("${@:-v1}")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -34,4 +34,4 @@ docker run --rm \
     --volume "$BUILD_DIR:/workspace/target" \
     --workdir /workspace/worker \
     "$IMAGE" \
-    ./rebuild_modules.sh "$VERSION"
+    ./rebuild_modules.sh "${VERSIONS[@]}"
