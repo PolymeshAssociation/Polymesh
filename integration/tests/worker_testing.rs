@@ -7,21 +7,20 @@ mod worker_modules_tests {
 
     async fn upload_v1(helper: &mut WorkerModulesHelper) -> Result<()> {
         let polkavm_zst = include_bytes!(
-            "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.polkavm.zst"
+            "../../worker/modules/testing/v1/polymesh-worker-protocol-testing.polkavm.zst"
         )
         .to_vec();
         let polkavm = include_bytes!(
-            "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.polkavm"
+            "../../worker/modules/testing/v1/polymesh-worker-protocol-testing.polkavm"
         )
         .to_vec();
         let wasm_zst = include_bytes!(
-            "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.wasm.zst"
+            "../../worker/modules/testing/v1/polymesh-worker-protocol-testing.wasm.zst"
         )
         .to_vec();
-        let wasm = include_bytes!(
-            "../../worker/protocol/testing/v1/polymesh-worker-protocol-testing.wasm"
-        )
-        .to_vec();
+        let wasm =
+            include_bytes!("../../worker/modules/testing/v1/polymesh-worker-protocol-testing.wasm")
+                .to_vec();
 
         // Upload the module code and config.
         helper.update_version(ProtocolVersion {
@@ -45,21 +44,20 @@ mod worker_modules_tests {
 
     async fn upload_v2(helper: &mut WorkerModulesHelper) -> Result<()> {
         let polkavm_zst = include_bytes!(
-            "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.polkavm.zst"
+            "../../worker/modules/testing/v2/polymesh-worker-protocol-testing.polkavm.zst"
         )
         .to_vec();
         let polkavm = include_bytes!(
-            "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.polkavm"
+            "../../worker/modules/testing/v2/polymesh-worker-protocol-testing.polkavm"
         )
         .to_vec();
         let wasm_zst = include_bytes!(
-            "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.wasm.zst"
+            "../../worker/modules/testing/v2/polymesh-worker-protocol-testing.wasm.zst"
         )
         .to_vec();
-        let wasm = include_bytes!(
-            "../../worker/protocol/testing/v2/polymesh-worker-protocol-testing.wasm"
-        )
-        .to_vec();
+        let wasm =
+            include_bytes!("../../worker/modules/testing/v2/polymesh-worker-protocol-testing.wasm")
+                .to_vec();
 
         // Upload the module code and config.
         helper.update_version(ProtocolVersion {
