@@ -10,8 +10,7 @@ pub use polymesh_worker_common::{
     WorkerVersion, config::*, error::*,
 };
 use polymesh_worker_common::{
-    BackendModuleKind, PROTOCOL_TESTING, ProtocolInitializationMethod, ProtocolModuleConfig,
-    ProtocolModuleConfigHash,
+    BackendModuleKind, ProtocolInitializationMethod, ProtocolModuleConfig, ProtocolModuleConfigHash,
 };
 
 pub mod backend;
@@ -129,26 +128,82 @@ impl StaticModules {
         }
     }
 
-    fn dart_polkavm_bytes(&self) -> &'static [u8] {
+    fn dart_v0_polkavm_bytes(&self) -> &'static [u8] {
         #[cfg(not(feature = "testing"))]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v1.polkavm.zst")
+            include_bytes!("../modules/dart/v0/polymesh-worker-protocol-dart-v0.polkavm.zst")
         }
         #[cfg(feature = "testing")]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v1.testing.polkavm.zst")
+            include_bytes!(
+                "../modules/dart/v0/polymesh-worker-protocol-dart-v0.testing.polkavm.zst"
+            )
         }
     }
 
-    fn dart_wasm_bytes(&self) -> &'static [u8] {
+    fn dart_v0_wasm_bytes(&self) -> &'static [u8] {
         #[cfg(not(feature = "testing"))]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v1.wasm.zst")
+            include_bytes!("../modules/dart/v0/polymesh-worker-protocol-dart-v0.wasm.zst")
         }
         #[cfg(feature = "testing")]
         {
-            include_bytes!("../polymesh-worker-protocol-dart-v1.testing.wasm.zst")
+            include_bytes!("../modules/dart/v0/polymesh-worker-protocol-dart-v0.testing.wasm.zst")
         }
+    }
+
+    fn add_dart_v0(&mut self) {
+        let protocol = Protocol {
+            id: PROTOCOL_PDART,
+            version: ProtocolVersion::new(0, 1, 0),
+        };
+        self.protocols.insert(
+            protocol,
+            StaticProtocol::new(
+                protocol,
+                self.dart_v0_polkavm_bytes(),
+                self.dart_v0_wasm_bytes(),
+            ),
+        );
+    }
+
+    fn dart_v1_polkavm_bytes(&self) -> &'static [u8] {
+        #[cfg(not(feature = "testing"))]
+        {
+            include_bytes!("../modules/dart/v1/polymesh-worker-protocol-dart-v1.polkavm.zst")
+        }
+        #[cfg(feature = "testing")]
+        {
+            include_bytes!(
+                "../modules/dart/v1/polymesh-worker-protocol-dart-v1.testing.polkavm.zst"
+            )
+        }
+    }
+
+    fn dart_v1_wasm_bytes(&self) -> &'static [u8] {
+        #[cfg(not(feature = "testing"))]
+        {
+            include_bytes!("../modules/dart/v1/polymesh-worker-protocol-dart-v1.wasm.zst")
+        }
+        #[cfg(feature = "testing")]
+        {
+            include_bytes!("../modules/dart/v1/polymesh-worker-protocol-dart-v1.testing.wasm.zst")
+        }
+    }
+
+    fn add_dart_v1(&mut self) {
+        let protocol = Protocol {
+            id: PROTOCOL_PDART,
+            version: ProtocolVersion::new(1, 0, 0),
+        };
+        self.protocols.insert(
+            protocol,
+            StaticProtocol::new(
+                protocol,
+                self.dart_v1_polkavm_bytes(),
+                self.dart_v1_wasm_bytes(),
+            ),
+        );
     }
 
     fn initialize(&mut self) {
@@ -156,27 +211,21 @@ impl StaticModules {
             return;
         }
         // Add P-DART protocol static modules.
-        let protocol = Protocol {
-            id: PROTOCOL_PDART,
-            version: ProtocolVersion::new(0, 1, 0),
-        };
-        self.protocols.insert(
-            protocol,
-            StaticProtocol::new(protocol, self.dart_polkavm_bytes(), self.dart_wasm_bytes()),
-        );
+        self.add_dart_v0();
+        self.add_dart_v1();
 
         // Add Testing protocol static modules if the testing feature is enabled.
-        //#[cfg(feature = "testing")]
+        #[cfg(feature = "testing")]
         {
             let protocol = Protocol {
-                id: PROTOCOL_TESTING,
+                id: polymesh_worker_common::PROTOCOL_TESTING,
                 version: ProtocolVersion::new(0, 1, 0),
             };
             let polkavm_code = include_bytes!(
-                "../protocol/testing/v0/polymesh-worker-protocol-testing.polkavm.zst"
+                "../modules/testing/v0/polymesh-worker-protocol-testing.polkavm.zst"
             );
             let wasm_code =
-                include_bytes!("../protocol/testing/v0/polymesh-worker-protocol-testing.wasm.zst");
+                include_bytes!("../modules/testing/v0/polymesh-worker-protocol-testing.wasm.zst");
             self.protocols.insert(
                 protocol,
                 StaticProtocol::new(protocol, polkavm_code, wasm_code),

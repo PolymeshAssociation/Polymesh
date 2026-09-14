@@ -413,13 +413,18 @@ pub trait BackendModuleLoader {
 # From worker directory
 cd Polymesh/worker
 
-# Build all modules
-./rebuild.sh
+# Reproducibly build all production and testing variants for a Dart version
+./rebuild.sh v1
 
-# Build specific backend modules
+# Low-level host builds for development only
 ./build_polkavm.sh
 ./build_wasm.sh
 ```
+
+`rebuild.sh` builds and runs the pinned `linux/amd64` image in `Dockerfile`.
+The image pins the base image digest, Rust nightly, and `polkatool` version.
+Cargo uses `Cargo.lock`, and the container uses fixed paths and isolated build
+state so host toolchains and caches do not affect the committed module files.
 
 ## Performance Considerations
 
