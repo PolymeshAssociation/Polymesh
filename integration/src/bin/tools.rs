@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 use anyhow::{anyhow, Result};
 use integration::PolymeshTester;
 use sp_weights::Weight;
