@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 // >=v7.3
 #[cfg(feature = "current_release")]
 mod confidential_assets_tests {
