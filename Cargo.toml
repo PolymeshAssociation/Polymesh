@@ -448,7 +448,7 @@ pallet-staking = { workspace = true, default-features = false }
 pallet-staking-runtime-api = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
-prometheus-endpoint = { workspace = true, default-features = false }
+prometheus-endpoint = { workspace = true }
 sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }

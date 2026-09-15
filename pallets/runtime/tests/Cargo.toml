@@ -97,7 +97,7 @@ frame-executive = { workspace = true, default-features = false }
 frame-election-provider-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 frame-support = { workspace = true, default-features = false }
-substrate-test-utils = { workspace = true, default-features = false }
+substrate-test-utils = { workspace = true }
 
 # Runtime APIs
 node-rpc-runtime-api = { workspace = true, default-features = false }

@@ -13,6 +13,7 @@
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
 
 use codec::{Compact, Decode, Encode};
 use frame_support::pallet_prelude::DispatchError;
