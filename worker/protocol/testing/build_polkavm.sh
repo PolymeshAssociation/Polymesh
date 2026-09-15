@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
+VERSION=${1:-"v0"}
 
 TARGET_JSON_PATH="$(polkatool get-target-json-path --bitness 64)"
 #echo "$TARGET_JSON_PATH"
 
-crate="polymesh-worker-protocol-dart-v1"
-lib_name="polymesh_worker_protocol_dart_v1"
-elf_path="../target/riscv64emac-unknown-none-polkavm/release/$lib_name.elf"
-output_path="${crate}.testing.polkavm"
+crate="polymesh-worker-protocol-testing"
+lib_name="polymesh_worker_protocol_testing"
+elf_path="../../../target/riscv64emac-unknown-none-polkavm/release/$lib_name.elf"
+output_path="$VERSION/$crate.polkavm"
 rm -f "$output_path" "$elf_path"
 
 echo "> Building: '$crate' (-> $output_path)"
 
 RUSTFLAGS="--remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C codegen-units=1" \
-cargo build  \
+cargo rustc --crate-type cdylib \
     -Z build-std=core,alloc \
     --target $TARGET_JSON_PATH \
 		--no-default-features \
-		--features polkavm,testing \
+		--features polkavm,version_$VERSION \
     --release --lib -p $crate
 
 polkatool link \

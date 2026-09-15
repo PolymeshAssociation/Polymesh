@@ -1,0 +1,38 @@
+{
+  "protocol": {
+    "id": 80,
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "initialization_method": "SaveContextFromFirstInstance",
+  "modules": [
+    {
+      "module_kind": "PolkaVM",
+      "module_version": 2,
+      "code_hash": "0x2966f8661530ecc8275dc418c26e9ade58abf38cf7876698400d037de28609ad"
+    },
+    {
+      "module_kind": "PolkaVM",
+      "module_version": 1,
+      "code_hash": "0x962bb63c30864310d01b0d1b44a7e6aa1516d7ee0ffc4cb114b3871240ec0e78"
+    },
+    {
+      "module_kind": "Wasm",
+      "module_version": 2,
+      "code_hash": "0x6e6764eea18628aad6ba3ed2fc8794fc4bcea1eae447d134ca56a230e626f91b"
+    },
+    {
+      "module_kind": "Wasm",
+      "module_version": 1,
+      "code_hash": "0x6c9f37bd30d29111555f76a3bde0b182043d18cbad945f85449e2cb8b684ba4b"
+    },
+    {
+      "module_kind": "Native",
+      "module_version": 1,
+      "code_hash": "0xcbed914ab0ea7a2050886b399a7eda8dd68d07b0250dbdc4f72a786ca7c1d73f"
+    }
+  ]
+}
