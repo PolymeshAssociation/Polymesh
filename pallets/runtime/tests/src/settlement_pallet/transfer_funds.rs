@@ -1310,7 +1310,7 @@ fn cross_identity_nft_transfer_when_portfolio_is_frozen() {
                 AssetHolder::Account(bob.acc()),
                 non_fungible_fund(asset_id, NFTId(1)),
             ),
-            SettlementError::FailedAssetTransferringConditions
+            AssetError::InvalidTransferSenderIsFrozen
         );
     });
 }

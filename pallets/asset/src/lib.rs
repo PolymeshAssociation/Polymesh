@@ -3740,8 +3740,15 @@ impl<T: AssetConfig> Pallet<T> {
             }
         }
 
+        if let Err(e) = Self::ensure_holder_is_not_frozen(sender, asset_id) {
+            asset_transfer_errors.push(e);
+        }
+
         if skip_locked_check {
-            if Self::get_holders_balance(sender, asset_id) < transfer_value {
+            let frozen_balance = Self::get_holders_frozen_balance(sender, asset_id);
+            let current_balance = Self::get_holders_balance(sender, asset_id);
+
+            if current_balance.saturating_sub(frozen_balance) < transfer_value {
                 asset_transfer_errors.push(Error::<T>::InsufficientBalance.into());
             }
         } else {
