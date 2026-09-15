@@ -504,12 +504,8 @@ fn compute_fee_does_not_overflow() {
                 pays_fee: Pays::Yes,
             };
             assert_eq!(
-                TransactionPayment::compute_fee(
-                    <u32>::max_value(),
-                    &dispatch_info,
-                    <u128>::max_value()
-                ),
-                <u128>::max_value()
+                TransactionPayment::compute_fee(<u32>::MAX, &dispatch_info, <u128>::MAX),
+                <u128>::MAX
             );
         });
 }
