@@ -1000,6 +1000,8 @@ impl<T: Config> Pallet<T> {
         sigs_required: u64,
         permissions: Permissions,
     ) -> DispatchResult {
+        IdentityPallet::<T>::ensure_perms_length_limited(&permissions)?;
+
         // Generate new MultiSig address.
         let new_nonce = MultiSigNonce::<T>::get()
             .checked_add(1)
