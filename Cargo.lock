@@ -9686,7 +9686,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-worker-modules"
-version = "8.1.1"
+version = "8.1.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
