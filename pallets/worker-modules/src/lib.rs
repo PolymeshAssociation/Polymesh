@@ -467,12 +467,10 @@ pub mod pallet {
                         Error::<T>::ModuleCodeMissing
                     );
                 } else {
-                    // Handle legacy protocol module code.
+                    // Handle legacy protocol module code, which is stored under a generated key
+                    // so that v8.0/v8.1 nodes can still load it.
                     let key = worker_modules_legacy_code_key(protocol, module.code_hash);
-                    ensure!(
-                        !sp_io::storage::exists(&key),
-                        Error::<T>::ProtocolModuleCodeAlreadyExists
-                    );
+                    ensure!(sp_io::storage::exists(&key), Error::<T>::ModuleCodeMissing);
                 }
             }
 
