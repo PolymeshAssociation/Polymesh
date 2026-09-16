@@ -40,7 +40,7 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_worker_modules using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
-impl pallet_worker_modules::WeightInfo for SubstrateWeight {
+impl crate::WeightInfo for SubstrateWeight {
     // Storage: `WorkerModules::Metadata` (r:1 w:1)
     // Proof: `WorkerModules::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn register_protocol() -> Weight {
