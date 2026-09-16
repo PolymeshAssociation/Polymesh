@@ -3295,18 +3295,3 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
-
-[[patch.unused]]
-name = "ark-bls12-381"
-version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
-
-[[patch.unused]]
-name = "ark-bn254"
-version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
-
-[[patch.unused]]
-name = "ark-host-msm-impl"
-version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
