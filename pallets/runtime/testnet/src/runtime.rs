@@ -120,7 +120,7 @@ parameter_types! {
     pub const MaxMultiSigSigners: u32 = 50;
 
     // I'm online:
-    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 
     pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
     pub const MaxAuthorities: u32 = 100_000;

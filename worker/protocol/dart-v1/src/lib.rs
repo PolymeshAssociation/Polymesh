@@ -3,6 +3,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "native"), no_main)]
+#![recursion_limit = "256"]
 
 #[cfg(feature = "polkavm")]
 polkavm_derive::min_stack_size!(1);

@@ -1,5 +1,6 @@
 //! Polymesh Node CLI.
 #![warn(missing_docs)]
+#![recursion_limit = "256"]
 
 mod benchmarking;
 /// Benchmarking utilities.

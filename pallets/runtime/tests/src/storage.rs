@@ -202,7 +202,7 @@ parameter_types! {
     pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const IndexDeposit: Balance = DOLLARS;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
@@ -218,7 +218,7 @@ parameter_types! {
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
 
-    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
     pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;

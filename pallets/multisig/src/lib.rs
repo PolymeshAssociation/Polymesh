@@ -198,13 +198,13 @@ pub mod pallet {
                 TransactionVersion::<T>::set(current_version);
                 // TODO: Multiblock migration.
                 let mut removed = 0;
-                let res = Proposals::<T>::clear(u32::max_value(), None);
+                let res = Proposals::<T>::clear(u32::MAX, None);
                 removed += res.unique;
-                let res = ProposalVoteCounts::<T>::clear(u32::max_value(), None);
+                let res = ProposalVoteCounts::<T>::clear(u32::MAX, None);
                 removed += res.unique;
-                let res = ProposalStates::<T>::clear(u32::max_value(), None);
+                let res = ProposalStates::<T>::clear(u32::MAX, None);
                 removed += res.unique;
-                let res = Votes::<T>::clear(u32::max_value(), None);
+                let res = Votes::<T>::clear(u32::MAX, None);
                 removed += res.unique;
                 weight.saturating_accrue(DbWeight::get().reads_writes(removed as _, removed as _));
             }

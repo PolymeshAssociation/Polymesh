@@ -161,7 +161,7 @@ parameter_types! {
     pub const SignedFixedDeposit: Balance = 0;
     pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(0);
     pub const SignedDepositByte: Balance = 0;
-    pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2 - 1u64;
+    pub const MultiPhaseUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2 - 1u64;
     // Fallback parameters
     pub MaxOnChainElectingVoters: u32 = 5000;
     pub MaxOnChainElectableTargets: u16 = 1250;
