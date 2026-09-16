@@ -23,13 +23,16 @@ echo "> Building: '$crate' (-> $output_path)"
 
 if [ "$VERSION" = "v0" ]; then
     CARGO_PACKAGE_ARGS=(--manifest-path protocol/dart-v0/Cargo.toml --target-dir ../target)
+    CARGO_JSON_TARGET_ARGS=()
 else
     CARGO_PACKAGE_ARGS=(-p "$crate")
+    CARGO_JSON_TARGET_ARGS=(-Zjson-target-spec)
 fi
 
 RUSTFLAGS="--remap-path-prefix=$(pwd)= --remap-path-prefix=$HOME=~ -C codegen-units=1" \
 cargo rustc --locked --crate-type cdylib \
     -Z build-std=core,alloc \
+    "${CARGO_JSON_TARGET_ARGS[@]}" \
     --target $TARGET_JSON_PATH \
 		--no-default-features \
 		--features polkavm$EXTRA_FLAG \
