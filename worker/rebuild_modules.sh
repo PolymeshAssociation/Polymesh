@@ -2,6 +2,14 @@
 set -euo pipefail
 VERSIONS=("${@:-v1}")
 
+worker_tools() {
+	if [ -n "${POLYMESH_WORKER_TOOLS:-}" ]; then
+		"$POLYMESH_WORKER_TOOLS" "$@"
+	else
+		cargo run --locked -r -p polymesh-worker-tools -- "$@"
+	fi
+}
+
 for VERSION in "${VERSIONS[@]}"; do
 	case "$VERSION" in
 		v0) PROTOCOL_VERSION="0.1.0" ;;
@@ -20,12 +28,12 @@ for VERSION in "${VERSIONS[@]}"; do
 	crate="polymesh-worker-protocol-dart-$VERSION"
 	module_dir="modules/dart/$VERSION"
 	config="$module_dir/$crate.config.scale"
-	cargo run --locked -r -p polymesh-worker-tools -- build-release-config \
+	worker_tools build-release-config \
 		--protocol-version "$PROTOCOL_VERSION" \
 		--polkavm "$module_dir/$crate.polkavm.zst" \
 		--wasm "$module_dir/$crate.wasm.zst" \
 		--output "$config"
-	cargo run --locked -r -p polymesh-worker-tools -- export-config-json \
+	worker_tools export-config-json \
 		--config "$config" \
 		--output "$module_dir/$crate.config.json"
 done

@@ -19,6 +19,14 @@ elf_path="../target/riscv64emac-unknown-none-polkavm/release/$lib_name.elf"
 output_path="./modules/dart/$VERSION/$crate$NAME_TAG.polkavm"
 rm -f "$output_path" "$elf_path"
 
+worker_tools() {
+    if [ -n "${POLYMESH_WORKER_TOOLS:-}" ]; then
+        "$POLYMESH_WORKER_TOOLS" "$@"
+    else
+        cargo run --locked -r -p polymesh-worker-tools -- "$@"
+    fi
+}
+
 echo "> Building: '$crate' (-> $output_path)"
 
 if [ "$VERSION" = "v0" ]; then
@@ -42,4 +50,4 @@ polkatool link \
     --run-only-if-newer -s $elf_path \
     -o $output_path
 
-cargo run --locked -r -p polymesh-worker-tools -- compress "$output_path"
+worker_tools compress "$output_path"

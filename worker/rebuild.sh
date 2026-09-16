@@ -18,6 +18,9 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
+echo "> Building polymesh-worker-tools"
+cargo build --manifest-path "$REPO_ROOT/Cargo.toml" --locked --release -p polymesh-worker-tools
+
 for VERSION in "${VERSIONS[@]}"; do
     case "$VERSION" in
         v0)
@@ -44,12 +47,15 @@ for VERSION in "${VERSIONS[@]}"; do
         "$SCRIPT_DIR"
 
     mkdir -p "$BUILD_DIR/$VERSION/home"
+    cp "$REPO_ROOT/target/release/polymesh-worker-tools" "$BUILD_DIR/$VERSION/polymesh-worker-tools"
+    chmod +x "$BUILD_DIR/$VERSION/polymesh-worker-tools"
     docker run --rm \
         --platform linux/amd64 \
         --user "$(id -u):$(id -g)" \
         --env CARGO_HOME=/workspace/target/home/.cargo \
         --env CARGO_INCREMENTAL=0 \
         --env HOME=/workspace/target/home \
+        --env POLYMESH_WORKER_TOOLS=/workspace/target/polymesh-worker-tools \
         --volume "$REPO_ROOT:/workspace" \
         --volume "$BUILD_DIR/$VERSION:/workspace/target" \
         --workdir /workspace/worker \
