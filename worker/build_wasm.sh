@@ -18,6 +18,14 @@ wasm_path="../target/$target/release/$lib_name.wasm"
 output_path="./modules/dart/$VERSION/$crate$NAME_TAG.wasm"
 rm -f "$output_path" "$wasm_path"
 
+worker_tools() {
+  if [ -n "${POLYMESH_WORKER_TOOLS:-}" ]; then
+    "$POLYMESH_WORKER_TOOLS" "$@"
+  else
+    cargo run --locked -r -p polymesh-worker-tools -- "$@"
+  fi
+}
+
 echo "> Building: '$crate' (-> $output_path)"
 
 if [ "$VERSION" = "v0" ]; then
@@ -36,4 +44,4 @@ RUSTFLAGS="-C target-feature=+simd128 --remap-path-prefix=$(pwd)= --remap-path-p
 
 cp "$wasm_path" "$output_path"
 
-cargo run --locked -r -p polymesh-worker-tools -- compress "$output_path"
+worker_tools compress "$output_path"
