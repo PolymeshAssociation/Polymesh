@@ -102,12 +102,13 @@ impl Backends {
     ) -> Option<Box<dyn BackendModule>> {
         for backend in &self.backends {
             let kind = backend.kind();
-            if let Some(module_bytes) = loader.get_module_bytes(protocol, kind) {
-                // Decompress module bytes if it was compressed.
-                let module_bytes = decompress_module_code(&module_bytes)?;
-                if let Some(module) = backend.load_module(&module_bytes) {
-                    return Some(module);
-                }
+            // Try loading the module from the backend.
+            let module = loader
+                .get_module_bytes(protocol, kind)
+                .and_then(|module_bytes| decompress_module_code(&module_bytes))
+                .and_then(|module_bytes| backend.load_module(&module_bytes));
+            if module.is_some() {
+                return module;
             }
         }
         None
