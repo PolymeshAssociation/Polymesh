@@ -1,16 +1,18 @@
 // This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
-// Copyright (c) 2023 Polymesh
+// Copyright (c) 2026 Polymesh
 
-//! # Confidential assets Pallet
+//! # Worker Testing Pallet
 //!
-//! The Confidential Assets pallet provides sender, receiver, asset and value confidentiality.
+//! Test-only pallet used to exercise the Polymesh Worker extension and the `WorkerModules` pallet.
 //!
 //! ## Overview
 //!
-//! These pallets call out to the [Polymesh DART library](https://github.com/PolymeshAssociation/polymesh-dart)
-//! which implements the ZK-proofs for DART.
+//! It runs work requests against the `Testing` protocol module, which simply reports its own
+//! compile-time protocol version. That makes it possible to verify, from a live chain, that
+//! uploading a new module config and switching the active protocol version actually changes the
+//! module the worker loads.
 //!
-//!
+//! This pallet is only wired into the `develop` runtime and must not be added to testnet/mainnet.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -53,7 +55,7 @@ pub mod pallet {
     /// Configuration trait.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// Confidential asset pallet weights.
+        /// Worker testing pallet weights.
         type WeightInfo: WeightInfo;
     }
 

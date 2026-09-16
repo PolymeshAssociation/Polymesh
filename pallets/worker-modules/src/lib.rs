@@ -124,7 +124,7 @@ pub mod pallet {
     /// Configuration trait.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        /// Confidential asset pallet weights.
+        /// Worker modules pallet weights.
         type WeightInfo: WeightInfo;
 
         /// Maximum module code size in bytes.
