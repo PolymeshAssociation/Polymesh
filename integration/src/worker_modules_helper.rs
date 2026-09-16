@@ -3,6 +3,8 @@ use anyhow::Result;
 use polymesh_api::{types::polymesh_worker_common::BackendModuleDefinition, Api};
 use polymesh_api_tester::{DbAccountSigner, PolymeshTester};
 
+use crate::check_sudo_result;
+
 pub use polymesh_api::types::{
     pallet_worker_modules::*,
     polymesh_worker_common::{BackendModuleKind, Protocol, ProtocolId, ProtocolVersion},
@@ -43,6 +45,9 @@ impl WorkerModulesHelper {
             .sudo(call.into())?
             .submit_and_watch(&mut self.sudo)
             .await?;
+        // `sudo` reports a failed inner call through the `Sudid` event rather than failing the
+        // extrinsic, so the event has to be checked as well.
+        check_sudo_result(&mut res).await?;
         res.wait_finalized().await?;
         Ok(())
     }

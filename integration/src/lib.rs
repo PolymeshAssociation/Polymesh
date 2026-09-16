@@ -92,6 +92,33 @@ pub async fn get_batch_results(res: &mut TransactionResults) -> Result<Vec<bool>
         .collect())
 }
 
+/// Check the result of a `sudo.sudo` call.
+///
+/// A failing inner call does *not* fail the `sudo` extrinsic; the inner `DispatchResult` is
+/// reported through the `Sudid` event instead. Calling `TransactionResults::ok()` alone would
+/// therefore silently accept a failed inner call.
+pub async fn check_sudo_result(res: &mut TransactionResults) -> Result<()> {
+    // First check that the outer extrinsic itself succeeded.
+    res.ok().await?;
+
+    let events = res
+        .events()
+        .await?
+        .ok_or_else(|| anyhow!("Failed to get sudo events"))?;
+    let sudo_result = events
+        .0
+        .iter()
+        .find_map(|rec| match &rec.event {
+            RuntimeEvent::Sudo(SudoEvent::Sudid { sudo_result }) => Some(sudo_result),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow!("Missing `Sudid` event for sudo call"))?;
+    sudo_result
+        .as_ref()
+        .map_err(|err| anyhow!("Sudo call failed: {err:?}"))?;
+    Ok(())
+}
+
 #[derive(Clone, Default, PartialEq, Eq)]
 pub enum RestrictionMode {
     #[default]
