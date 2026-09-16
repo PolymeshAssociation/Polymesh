@@ -42,7 +42,7 @@ sp-consensus-babe = { workspace = true, default-features = false }
 sp-consensus-beefy = { workspace = true }
 sp-keystore = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
-substrate-frame-rpc-system = { workspace = true, default-features = false }
+substrate-frame-rpc-system = { workspace = true }
 
 [features]
 default = ["std"]

@@ -26,9 +26,9 @@ polkavm = { workspace = true, default-features = true, optional = true }
 
 # WASM engines
 wasmtime = { version = "43.0.0", optional = true }
-wasmer = { version = "7.1.0", optional = true }
-wasmer-compiler-cranelift = { version = "7.1.0", optional = true }
-wasmer-compiler-llvm = { version = "7.1.0", optional = true }
+wasmer = { version = "<=7.1.0", optional = true }
+wasmer-compiler-cranelift = { version = "<=7.1.0", optional = true }
+wasmer-compiler-llvm = { version = "<=7.1.0", optional = true }
 
 # Work execution.
 crossbeam = { version = "0.8" }
