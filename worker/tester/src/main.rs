@@ -45,8 +45,8 @@ pub fn main() {
     let protocol = Protocol {
         id: PROTOCOL_PDART,
         version: ProtocolVersion {
-            major: 0,
-            minor: 1,
+            major: 1,
+            minor: 0,
             patch: 0,
         },
     };
