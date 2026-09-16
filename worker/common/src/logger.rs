@@ -88,6 +88,7 @@ mod host_fn {
     use log::{Metadata, Record, SetLoggerError};
 
     #[cfg_attr(feature = "polkavm", polkavm_derive::polkavm_import)]
+    #[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]
     unsafe extern "C" {
         fn host_logger_max_level() -> u32;
         fn host_logger_enabled(level: u32) -> u32;
