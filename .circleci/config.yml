@@ -100,6 +100,15 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install Rust
+          command: |
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal --default-toolchain none
+            echo 'source "$HOME/.cargo/env"' >> "$BASH_ENV"
+            source "$HOME/.cargo/env"
+            # Installs the toolchain pinned by rust-toolchain.toml.
+            rustc --version
+      - run:
           name: Check deterministic worker module artifacts
           command: |
             ./worker/rebuild.sh v0 v1

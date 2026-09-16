@@ -19,7 +19,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 echo "> Building polymesh-worker-tools"
-cargo build --manifest-path "$REPO_ROOT/Cargo.toml" --locked --release -p polymesh-worker-tools
+cargo build --locked --release -p polymesh-worker-tools
 
 for VERSION in "${VERSIONS[@]}"; do
     case "$VERSION" in
