@@ -71,7 +71,7 @@ fn assert_mem_len(len: u32) {
     assert_ok!(
         u32::try_from((Members::<TestStorage, committee::Instance1>::get()).len()),
         len
-    )
+    );
 }
 
 fn assert_mem(who: IdentityId, is: bool) {

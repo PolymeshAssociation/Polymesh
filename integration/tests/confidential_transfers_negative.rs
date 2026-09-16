@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 // >=v7.3
 // Comprehensive test coverage for error conditions and edge cases in DART confidential settlements
 #[cfg(feature = "current_release")]
