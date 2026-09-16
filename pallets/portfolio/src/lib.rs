@@ -546,15 +546,23 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::quit_portfolio_custody())]
         #[pallet::call_index(3)]
         pub fn quit_portfolio_custody(origin: OriginFor<T>, pid: PortfolioId) -> DispatchResult {
-            let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
-            let custodian = Self::custodian(&pid);
-            ensure!(did == custodian, Error::<T>::UnauthorizedCustodian);
+            let caller_data = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
+
+            Self::ensure_portfolio_custody_and_permission(
+                &pid,
+                caller_data.primary_did,
+                caller_data.secondary_key.as_ref(),
+            )?;
 
             PortfolioCustodian::<T>::remove(&pid);
-            PortfoliosInCustody::<T>::remove(&custodian, &pid);
+            PortfoliosInCustody::<T>::remove(&caller_data.primary_did, &pid);
 
             let portfolio_did = pid.did;
-            Self::deposit_event(Event::PortfolioCustodianChanged(did, pid, portfolio_did));
+            Self::deposit_event(Event::PortfolioCustodianChanged(
+                caller_data.primary_did,
+                pid,
+                portfolio_did,
+            ));
             Ok(())
         }
 

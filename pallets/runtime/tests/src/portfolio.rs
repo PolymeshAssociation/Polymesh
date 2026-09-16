@@ -19,11 +19,15 @@ use polymesh_primitives::{
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
     Signatory,
 };
+use polymesh_primitives::{
+    ExtrinsicPermissions, PalletPermissions, Permissions, SubsetRestriction,
+};
 
 use super::asset_pallet::setup::{create_and_issue_sample_asset, ISSUE_AMOUNT};
 use super::asset_test::max_len_bytes;
 use super::nft::{create_nft_collection, mint_nft};
-use super::storage::{user_asset_holder_set, EventTest, System, TestStorage, User};
+use super::storage::{add_secondary_key_with_perms, user_asset_holder_set};
+use super::storage::{EventTest, System, TestStorage, User};
 use super::ExtBuilder;
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -1295,6 +1299,36 @@ fn move_after_partial_freeze() {
                 }]
             ),
             Error::InsufficientPortfolioBalance
+        );
+    });
+}
+
+#[test]
+fn restricted_secondary_key_cannot_quit_unscoped_portfolio_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new_with(bob.did, Sr25519Keyring::Charlie);
+        let (alice, alice_portfolio_num) = create_portfolio();
+        let alice_portfolio = PortfolioId::user_portfolio(alice.did, alice_portfolio_num);
+
+        // Alice gives custody of her portfolio to bob.
+        set_custodian_ok(alice, bob, alice_portfolio.clone());
+
+        // Charlie is added as a restricted secondary key for Bob's custodian account.
+        let mut permissions = Permissions::empty();
+        permissions.extrinsic = ExtrinsicPermissions::these([PalletPermissions::new(
+            "Portfolio".into(),
+            SubsetRestriction::elems(["quit_portfolio_custody".into()]),
+        )]);
+        add_secondary_key_with_perms(bob.did, charlie.acc(), permissions);
+
+        pallet_permissions::StoreCallMetadata::<TestStorage>::set_call_metadata(
+            "Portfolio".into(),
+            "quit_portfolio_custody".into(),
+        );
+        assert_noop!(
+            Portfolio::quit_portfolio_custody(charlie.origin(), alice_portfolio),
+            Error::SecondaryKeyNotAuthorizedForPortfolio
         );
     });
 }
