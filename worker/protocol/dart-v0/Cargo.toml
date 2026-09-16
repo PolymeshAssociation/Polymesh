@@ -23,7 +23,7 @@ polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-
 ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
-ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+#ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
@@ -32,8 +32,8 @@ ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.gi
 ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
-ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
-ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+#ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+#ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
 
 [dependencies]
 log = "0.4"
