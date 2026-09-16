@@ -484,6 +484,10 @@ frame-benchmarking-cli = { workspace = true }
 substrate-build-script-utils = { workspace = true }
 
 [features]
+# Exactly one of `host_workers` / `host_curves` / `no_host_fns` should be enabled. Because cargo
+# features are additive, enabling more than one resolves by precedence (host_workers > host_curves
+# > no_host_fns); to select one of the others, build with `--no-default-features` and list the
+# remaining defaults explicitly.
 default = [
     "std",
     "worker_polkavm",
