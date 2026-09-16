@@ -1,17 +1,13 @@
-FROM --platform=linux/amd64 rust:1.93.0-bookworm@sha256:7274e0edb5b47eda8053b350ebf3d489f7e0f65d2d7e77b16076299c7c047c28
+ARG RUST_TOOLCHAIN
+FROM --platform=linux/amd64 polymeshassociation/rust:debian-${RUST_TOOLCHAIN}
 
-ARG RUST_TOOLCHAIN=nightly-2025-12-01
-ARG POLKATOOL_VERSION=0.33.0
+ARG RUST_TOOLCHAIN
+ARG POLKATOOL_VERSION
 
-RUN rustup toolchain install "${RUST_TOOLCHAIN}" \
-        --profile minimal \
-        --component rust-src \
-        --target wasm32-unknown-unknown && \
+RUN rustup component add rust-src && \
     cargo install polkatool \
         --version "=${POLKATOOL_VERSION}" \
         --locked && \
-    rustup default "${RUST_TOOLCHAIN}" && \
-    rustc --version && \
     polkatool --version
 
 ENV LANG=C.UTF-8 \

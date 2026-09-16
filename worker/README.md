@@ -421,10 +421,11 @@ cd Polymesh/worker
 ./build_wasm.sh
 ```
 
-`rebuild.sh` builds and runs the pinned `linux/amd64` image in `Dockerfile`.
-The image pins the base image digest, Rust nightly, and `polkatool` version.
-Cargo uses `Cargo.lock`, and the container uses fixed paths and isolated build
-state so host toolchains and caches do not affect the committed module files.
+`rebuild.sh` builds and runs one pinned `linux/amd64` image per DART version in
+`Dockerfile`. Each image uses the matching Polymesh Rust nightly image and can
+pin its own `polkatool` version. Cargo uses `Cargo.lock`, and the container uses
+fixed paths and isolated build state so host toolchains and caches do not affect
+the committed module files.
 
 `protocol/dart-v0` is a standalone Cargo workspace with its own `Cargo.lock`
 and DART crate patches. Future DART dependency updates in the root workspace do
