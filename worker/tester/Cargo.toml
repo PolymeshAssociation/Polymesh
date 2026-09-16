@@ -19,6 +19,9 @@ codec = { workspace = true, default-features = false, features = ["derive"] }
 sp-core = { workspace = true, default-features = false }
 hex = { version = "0.4.3", default-features = false }
 
+rand_core = { workspace = true, default-features = false }
+rand_chacha = { workspace = true, default-features = false }
+
 env_logger = { version = "0.10.0", default-features = false }
 
 [dev-dependencies]

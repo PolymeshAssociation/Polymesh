@@ -28,7 +28,87 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 #[cfg(not(feature = "native"))]
 const HEAP_SIZE: usize = 20 * 1024 * 1024;
 
-#[cfg(not(feature = "native"))]
+/// PoC heap high-water probe (opt-in via the `heap_probe` feature). Counts live allocated bytes and
+/// their peak. The default build uses the plain picoalloc allocator, so shipped blobs are unaffected.
+#[cfg(all(not(feature = "native"), feature = "heap_probe"))]
+mod heap_probe {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    pub static CURRENT: AtomicUsize = AtomicUsize::new(0);
+    pub static PEAK: AtomicUsize = AtomicUsize::new(0);
+
+    #[inline]
+    pub fn on_alloc(n: usize) {
+        let cur = CURRENT.fetch_add(n, Ordering::Relaxed) + n;
+        let mut peak = PEAK.load(Ordering::Relaxed);
+        while cur > peak {
+            match PEAK.compare_exchange_weak(peak, cur, Ordering::Relaxed, Ordering::Relaxed) {
+                Ok(_) => break,
+                Err(p) => peak = p,
+            }
+        }
+    }
+    #[inline]
+    pub fn on_dealloc(n: usize) {
+        CURRENT.fetch_sub(n, Ordering::Relaxed);
+    }
+    pub fn peak() -> usize {
+        PEAK.load(Ordering::Relaxed)
+    }
+    pub fn current() -> usize {
+        CURRENT.load(Ordering::Relaxed)
+    }
+    /// Reset the peak to the current live level, so the next request measures its own high-water
+    /// starting from the resident baseline.
+    pub fn reset_peak_to_current() {
+        PEAK.store(CURRENT.load(Ordering::Relaxed), Ordering::Relaxed);
+    }
+}
+
+/// Wraps a `GlobalAlloc` to feed `heap_probe`. picoalloc implements `realloc` directly (it does not
+/// recurse through these trait methods), so each op is counted once.
+#[cfg(all(not(feature = "native"), feature = "heap_probe"))]
+pub struct ProbeAlloc<A>(pub A);
+
+#[cfg(all(not(feature = "native"), feature = "heap_probe"))]
+unsafe impl<A: core::alloc::GlobalAlloc> core::alloc::GlobalAlloc for ProbeAlloc<A> {
+    #[inline]
+    unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+        let p = unsafe { self.0.alloc(layout) };
+        if !p.is_null() {
+            heap_probe::on_alloc(layout.size());
+        }
+        p
+    }
+    #[inline]
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
+        unsafe { self.0.dealloc(ptr, layout) };
+        heap_probe::on_dealloc(layout.size());
+    }
+    #[inline]
+    unsafe fn alloc_zeroed(&self, layout: core::alloc::Layout) -> *mut u8 {
+        let p = unsafe { self.0.alloc_zeroed(layout) };
+        if !p.is_null() {
+            heap_probe::on_alloc(layout.size());
+        }
+        p
+    }
+    #[inline]
+    unsafe fn realloc(&self, ptr: *mut u8, layout: core::alloc::Layout, new_size: usize) -> *mut u8 {
+        let p = unsafe { self.0.realloc(ptr, layout, new_size) };
+        if !p.is_null() {
+            let old = layout.size();
+            if new_size >= old {
+                heap_probe::on_alloc(new_size - old);
+            } else {
+                heap_probe::on_dealloc(old - new_size);
+            }
+        }
+        p
+    }
+}
+
+// Default (shipped) build: plain picoalloc global allocator.
+#[cfg(all(not(feature = "native"), not(feature = "heap_probe")))]
 #[global_allocator]
 static mut GLOBAL_ALLOC: picoalloc::Mutex<
     picoalloc::Allocator<picoalloc::ArrayPointer<{ HEAP_SIZE }>>,
@@ -38,6 +118,19 @@ static mut GLOBAL_ALLOC: picoalloc::Mutex<
     picoalloc::Mutex::new(picoalloc::Allocator::new(unsafe {
         picoalloc::ArrayPointer::new(&raw mut ARRAY)
     }))
+};
+
+// PoC build (`--features heap_probe`): allocator wrapped to record heap high-water.
+#[cfg(all(not(feature = "native"), feature = "heap_probe"))]
+#[global_allocator]
+static mut GLOBAL_ALLOC: ProbeAlloc<
+    picoalloc::Mutex<picoalloc::Allocator<picoalloc::ArrayPointer<{ HEAP_SIZE }>>>,
+> = {
+    static mut ARRAY: picoalloc::Array<{ HEAP_SIZE }> = picoalloc::Array([0; HEAP_SIZE]);
+
+    ProbeAlloc(picoalloc::Mutex::new(picoalloc::Allocator::new(unsafe {
+        picoalloc::ArrayPointer::new(&raw mut ARRAY)
+    })))
 };
 
 /// The size of the scratch pad used to hold temporary data to be passed between the host and the module.
@@ -440,6 +533,27 @@ pub extern "C" fn initialize(params_len: u32, save: u32) -> u64 {
 #[cfg_attr(feature = "polkavm", polkavm_derive::polkavm_export)]
 #[unsafe(no_mangle)]
 pub extern "C" fn execute(req_len: u32) -> u64 {
+    // PoC (feature `heap_probe`): measure this request's heap high-water from the resident baseline.
+    // On heap exhaustion the guest traps before returning, so `PEAKHEAP` is emitted only on success.
+    #[cfg(feature = "heap_probe")]
+    {
+        heap_probe::reset_peak_to_current();
+        let ret = execute_impl(req_len);
+        log::warn!(
+            target: "peakheap",
+            "PEAKHEAP req_len={} peak_bytes={} current_bytes={}",
+            req_len,
+            heap_probe::peak(),
+            heap_probe::current()
+        );
+        ret
+    }
+    #[cfg(not(feature = "heap_probe"))]
+    execute_impl(req_len)
+}
+
+#[cfg(not(feature = "native"))]
+fn execute_impl(req_len: u32) -> u64 {
     let req_bytes = &scratch()[..req_len as usize];
     let req: WorkRequest = match Decode::decode(&mut &req_bytes[..]) {
         Ok(req) => req,

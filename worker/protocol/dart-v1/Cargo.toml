@@ -49,6 +49,10 @@ default = ["std", "testing"]
 
 testing = []
 
+# PoC-only: wrap the guest global allocator to record heap high-water and emit a `PEAKHEAP` log per
+# request. Not for shipped blobs. Build the guest with it via `--features wasm,heap_probe`.
+heap_probe = []
+
 # Directly implement protocol logic (i.e. don't use a host function).
 impl_protocol = []
 
