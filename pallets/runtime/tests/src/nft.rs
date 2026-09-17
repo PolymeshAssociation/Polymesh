@@ -1161,51 +1161,6 @@ fn controller_transfer_nft_not_owned() {
 }
 
 #[test]
-fn redeem_wrong_number_of_keys() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice: User = User::new(Sr25519Keyring::Alice);
-
-        let collection_keys: NFTCollectionKeys = vec![
-            AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
-            AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
-        ]
-        .into();
-        let asset_id = create_nft_collection(
-            alice.clone(),
-            AssetType::NonFungible(NonFungibleType::Derivative),
-            collection_keys,
-        );
-        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![
-            NFTMetadataAttribute {
-                key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
-                value: AssetMetadataValue(b"test".to_vec()),
-            },
-            NFTMetadataAttribute {
-                key: AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
-                value: AssetMetadataValue(b"test".to_vec()),
-            },
-        ];
-        mint_nft(
-            alice.clone(),
-            asset_id,
-            nfts_metadata,
-            AssetHolderKind::DefaultPortfolio,
-        );
-
-        assert_noop!(
-            NFT::redeem_nft(
-                alice.origin(),
-                asset_id,
-                NFTId(1),
-                AssetHolderKind::DefaultPortfolio,
-                Some(1)
-            ),
-            NFTError::NumberOfKeysIsLessThanExpected
-        );
-    });
-}
-
-#[test]
 fn redeem_locked_nft() {
     ExtBuilder::default().build().execute_with(|| {
         let bob: User = User::new(Sr25519Keyring::Bob);

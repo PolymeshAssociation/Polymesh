@@ -301,4 +301,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
+    fn worst_case_redeem_nft() -> Weight {
+        Weight::zero()
+    }
 }

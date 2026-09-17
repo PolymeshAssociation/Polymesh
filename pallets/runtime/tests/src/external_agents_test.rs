@@ -4,7 +4,9 @@ use pallet_external_agents::GroupPermissions;
 use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory};
+use polymesh_primitives::{
+    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
+};
 use sp_keyring::Sr25519Keyring;
 
 use crate::asset_pallet::setup::create_and_issue_sample_asset;
@@ -16,6 +18,7 @@ type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Error = pallet_external_agents::Error<TestStorage>;
 type Id = pallet_identity::Pallet<TestStorage>;
+type IdentityError = pallet_identity::Error<TestStorage>;
 
 type AGIdSequence = pallet_external_agents::AGIdSequence<TestStorage>;
 type AgentOf = pallet_external_agents::AgentOf<TestStorage>;
@@ -467,6 +470,23 @@ fn except_permissions_not_allowed_set() {
                 ext_perms.clone()
             ),
             Error::ExceptPermissionsNotAllowed
+        );
+    });
+}
+
+#[test]
+fn refuse_nested_except_permissions() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&owner);
+
+        let denied = SubsetRestriction::excepts(["issue".into()]);
+        let nested_except_perms =
+            ExtrinsicPermissions::these([PalletPermissions::new("Asset".into(), denied)]);
+
+        assert_noop!(
+            ExternalAgents::create_group(owner.origin(), asset_id, nested_except_perms.clone(),),
+            IdentityError::ExceptNotAllowedForExtrinsics
         );
     });
 }
