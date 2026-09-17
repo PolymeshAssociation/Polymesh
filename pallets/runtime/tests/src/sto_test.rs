@@ -50,6 +50,11 @@ fn raise_unhappy_path_ext() {
 }
 
 #[test]
+fn invest_with_asset_mediator_ext() {
+    test(invest_with_asset_mediator);
+}
+
+#[test]
 fn invalid_fundraiser_ext() {
     test(fundraiser_expired);
 }
@@ -683,5 +688,87 @@ fn stop_fundraiser() {
     assert_noop!(
         Sto::stop(alice.origin(), offering_asset, fundraiser_id,),
         Error::FundraiserClosed
+    );
+}
+
+fn invest_with_asset_mediator() {
+    let RaiseContext {
+        alice,
+        alice_portfolio,
+        bob,
+        bob_portfolio,
+        offering_asset,
+        raise_asset,
+    } = init_raise_context();
+    let raise_asset = raise_asset.unwrap();
+
+    let charlie = User::new(Sr25519Keyring::Charlie);
+    exec_ok!(Asset::add_mandatory_mediators(
+        alice.origin(),
+        offering_asset,
+        BTreeSet::from([charlie.did]).try_into().unwrap(),
+    ));
+
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+    assert_ok!(Asset::unverified_transfer_asset(
+        alice_portfolio.clone().into(),
+        bob_portfolio.clone().into(),
+        raise_asset,
+        1_000_000,
+        None,
+        None,
+        IdentityId::default(),
+        false,
+        &mut weight_meter
+    ));
+
+    let venue_counter = VenueCounter::<TestStorage>::get();
+    exec_ok!(Settlement::create_venue(
+        alice.origin(),
+        VenueDetails::default(),
+        BTreeSet::from([Sr25519Keyring::Alice.to_account_id()]),
+        VenueType::Sto
+    ));
+
+    let fundraiser_id = FundraiserCount::<TestStorage>::get(offering_asset);
+    exec_ok!(Sto::create_fundraiser(
+        alice.origin(),
+        alice_portfolio.clone(),
+        offering_asset,
+        alice_portfolio.clone(),
+        raise_asset,
+        vec![PriceTier {
+            total: 1_000_000u128,
+            price: 1_000_000u128,
+        }],
+        venue_counter,
+        None,
+        None,
+        0,
+        FundraiserName::default(),
+    ));
+
+    let amount = 100u128;
+    let instruction_id = InstructionCounter::<TestStorage>::get();
+
+    // Bob invests in Alice's fundraiser. Because the offering asset has a mandatory
+    // mediator, the settlement instruction is created and affirmed by both parties,
+    // but stays pending settlement until the mediator affirms it too.
+    assert_noop!(
+        Sto::invest(
+            bob.origin(),
+            offering_asset,
+            fundraiser_id,
+            bob_portfolio.clone(),
+            FundingMethod::OnChain(bob_portfolio.clone()),
+            amount.into(),
+            Some(1_000_000u128),
+        ),
+        Error::InstructionNotSettled
+    );
+
+    assert_eq!(
+        InstructionStatuses::<TestStorage>::get(instruction_id),
+        InstructionStatus::Unknown
     );
 }
