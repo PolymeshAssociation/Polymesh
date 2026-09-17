@@ -18,8 +18,29 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
+TOOLS_IMAGE="$IMAGE-tools"
+TOOLS_DIR="$BUILD_DIR/tools"
 echo "> Building polymesh-worker-tools"
-cargo build --locked --release -p polymesh-worker-tools
+docker build \
+    --platform linux/amd64 \
+    --build-arg "RUST_TOOLCHAIN=$RUST_TOOLCHAIN" \
+    --build-arg "POLKATOOL_VERSION=0.33.0" \
+    --tag "$TOOLS_IMAGE" \
+    --file "$SCRIPT_DIR/Dockerfile" \
+    "$SCRIPT_DIR"
+mkdir -p "$TOOLS_DIR/home"
+docker run --rm \
+    --platform linux/amd64 \
+    --user "$(id -u):$(id -g)" \
+    --env CARGO_HOME=/workspace/target/home/.cargo \
+    --env CARGO_INCREMENTAL=0 \
+    --env HOME=/workspace/target/home \
+    --volume "$REPO_ROOT:/workspace" \
+    --volume "$TOOLS_DIR:/workspace/target" \
+    --workdir /workspace \
+    "$TOOLS_IMAGE" \
+    cargo build --locked --release -p polymesh-worker-tools
+TOOLS_BINARY="$TOOLS_DIR/release/polymesh-worker-tools"
 
 for VERSION in "${VERSIONS[@]}"; do
     case "$VERSION" in
@@ -47,17 +68,16 @@ for VERSION in "${VERSIONS[@]}"; do
         "$SCRIPT_DIR"
 
     mkdir -p "$BUILD_DIR/$VERSION/home"
-    cp "$REPO_ROOT/target/release/polymesh-worker-tools" "$BUILD_DIR/$VERSION/polymesh-worker-tools"
-    chmod +x "$BUILD_DIR/$VERSION/polymesh-worker-tools"
     docker run --rm \
         --platform linux/amd64 \
         --user "$(id -u):$(id -g)" \
         --env CARGO_HOME=/workspace/target/home/.cargo \
         --env CARGO_INCREMENTAL=0 \
         --env HOME=/workspace/target/home \
-        --env POLYMESH_WORKER_TOOLS=/workspace/target/polymesh-worker-tools \
+        --env POLYMESH_WORKER_TOOLS=/usr/local/bin/polymesh-worker-tools \
         --volume "$REPO_ROOT:/workspace" \
         --volume "$BUILD_DIR/$VERSION:/workspace/target" \
+        --volume "$TOOLS_BINARY:/usr/local/bin/polymesh-worker-tools:ro" \
         --workdir /workspace/worker \
         "$image" \
         ./rebuild_modules.sh "$VERSION"
