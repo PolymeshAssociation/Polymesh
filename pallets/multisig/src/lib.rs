@@ -224,12 +224,12 @@ pub mod pallet {
         /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
         #[pallet::call_index(0)]
         #[pallet::weight(
-            <T as Config>::WeightInfo::create_multisig(signers.len() as u32).saturating_add(
-                <T as IdentityConfig>::WeightInfo::permissions_cost_perms(
-                    &permissions.clone().unwrap_or(Permissions::empty()),
-                ),
-            ))
-        ]
+            match permissions.as_ref() {
+                Some(perms) => <T as Config>::WeightInfo::create_multisig(signers.len() as u32)
+                    .saturating_add(<T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms)),
+                None => <T as Config>::WeightInfo::create_multisig(signers.len() as u32),
+            }
+        )]
         pub fn create_multisig(
             origin: OriginFor<T>,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
