@@ -9181,6 +9181,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-precompiles",
  "polymesh-primitives",
+ "polymesh-transaction-payment",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-grandpa",

@@ -23,13 +23,12 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo, RawOrigin,
 };
-use frame_support::traits::{Contains, Get, GetCallMetadata, IsType};
+use frame_support::traits::{CallMetadata, Contains, Get, GetCallMetadata, IsType};
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::DispatchError;
 
-use pallet_permissions::with_call_metadata;
 use pallet_revive::precompiles::alloy::primitives::{Address, IntoLogData, U256};
 use pallet_revive::precompiles::alloy::sol_types::Revert;
 use pallet_revive::precompiles::{AddressMapper, Error, Ext, RuntimeCosts, H256};
@@ -108,6 +107,27 @@ pub fn call_metadata_weight<T: frame_system::Config>() -> Weight {
     <T as frame_system::Config>::DbWeight::get().reads_writes(2, 4)
 }
 
+/// Dispatch `tx` with the given call `metadata`, setting `payer` as the current fee payer for
+/// the duration of the call.
+fn with_call_metadata<T, R>(
+    metadata: CallMetadata,
+    payer: Option<T::AccountId>,
+    tx: impl FnOnce() -> R,
+) -> R
+where
+    T: pallet_permissions::Config + polymesh_transaction_payment::Config,
+{
+    // Hold the original value for payer and temporarily change it
+    let original_payer = polymesh_transaction_payment::Pallet::<T>::current_payer();
+    polymesh_transaction_payment::Pallet::<T>::set_current_payer(payer);
+
+    let call_result = pallet_permissions::with_call_metadata::<T, _>(metadata, tx);
+
+    // Restore the original payer
+    polymesh_transaction_payment::Pallet::<T>::set_current_payer(original_payer);
+    call_result
+}
+
 /// Dispatches runtime calls with the call metadata of the call being dispatched.
 ///
 /// Wired into `pallet_revive::Config::DispatchHook` so that runtime calls entering the runtime
@@ -118,7 +138,7 @@ pub struct DispatchWithCallMetadata<T>(PhantomData<T>);
 impl<T> DispatchRuntimeCall<<T as pallet_revive::Config>::RuntimeCall>
     for DispatchWithCallMetadata<T>
 where
-    T: pallet_revive::Config + pallet_permissions::Config,
+    T: pallet_revive::Config + pallet_permissions::Config + polymesh_transaction_payment::Config,
     <T as pallet_revive::Config>::RuntimeCall: GetCallMetadata,
 {
     fn weight() -> Weight {
@@ -129,7 +149,8 @@ where
         call: <T as pallet_revive::Config>::RuntimeCall,
         origin: OriginFor<T>,
     ) -> DispatchResultWithPostInfo {
-        with_call_metadata::<T, _>(call.get_call_metadata(), || call.dispatch(origin))
+        let payer = frame_system::ensure_signed(origin.clone()).ok();
+        with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin))
     }
 }
 
@@ -367,7 +388,9 @@ impl<T: Config> Common<T> {
         let dispatch_info = call.get_dispatch_info();
         let charged = env.charge(dispatch_info.call_weight.saturating_add(metadata_weight))?;
 
-        let result = with_call_metadata::<T, _>(call.get_call_metadata(), || call.dispatch(origin));
+        let payer = frame_system::ensure_signed(origin.clone()).ok();
+        let result =
+            with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin));
 
         let (post_info, error) = match result {
             Ok(post_info) => (post_info, None),
@@ -402,6 +425,11 @@ impl<T: Config> Common<T> {
             return Err(extrinsic_error(frame_system::Error::<T>::CallFiltered));
         }
 
-        Ok(with_call_metadata::<T, _>(call.get_call_metadata(), f))
+        let payer = Self::caller(env)?.account_id;
+        Ok(with_call_metadata::<T, _>(
+            call.get_call_metadata(),
+            Some(payer),
+            f,
+        ))
     }
 }
