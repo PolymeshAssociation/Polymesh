@@ -7,6 +7,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE="polymesh-worker-module-builder:local"
 BUILD_DIR="$(mktemp -d)"
 RUST_TOOLCHAIN="$(awk -F'"' '/^channel[[:space:]]*=/ { print $2; exit }' "$REPO_ROOT/rust-toolchain.toml")"
+if [[ "${CIRCLECI:-}" == "true" ]]; then
+    CARGO_CACHE_DIR="$BUILD_DIR/cargo-home"
+else
+    CARGO_CACHE_DIR="$SCRIPT_DIR/cargo_home"
+fi
 
 cleanup() {
     rm -rf "$BUILD_DIR"
@@ -17,6 +22,7 @@ if ! docker info >/dev/null 2>&1; then
     echo "Docker is unavailable. Start Docker and run 'newgrp docker' if required." >&2
     exit 1
 fi
+mkdir -p "$CARGO_CACHE_DIR"
 
 TOOLS_IMAGE="$IMAGE-tools"
 TOOLS_DIR="$BUILD_DIR/tools"
@@ -35,6 +41,7 @@ docker run --rm \
     --env CARGO_HOME=/workspace/target/home/.cargo \
     --env CARGO_INCREMENTAL=0 \
     --env HOME=/workspace/target/home \
+    --volume "$CARGO_CACHE_DIR:/workspace/target/home/.cargo" \
     --volume "$REPO_ROOT:/workspace" \
     --volume "$TOOLS_DIR:/workspace/target" \
     --workdir /workspace \
@@ -75,6 +82,7 @@ for VERSION in "${VERSIONS[@]}"; do
         --env CARGO_INCREMENTAL=0 \
         --env HOME=/workspace/target/home \
         --env POLYMESH_WORKER_TOOLS=/usr/local/bin/polymesh-worker-tools \
+        --volume "$CARGO_CACHE_DIR:/workspace/target/home/.cargo" \
         --volume "$REPO_ROOT:/workspace" \
         --volume "$BUILD_DIR/$VERSION:/workspace/target" \
         --volume "$TOOLS_BINARY:/usr/local/bin/polymesh-worker-tools:ro" \
