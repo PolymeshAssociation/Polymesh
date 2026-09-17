@@ -10,7 +10,10 @@ use pallet_multisig::{
 };
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
-use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
+use polymesh_primitives::{
+    AccountId, AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions,
+    SecondaryKey, Signatory,
+};
 use sp_keyring::Sr25519Keyring;
 
 use super::asset_test::set_timestamp;
@@ -1714,4 +1717,66 @@ fn setup_multisig(
         ));
     }
     ms_address
+}
+
+#[test]
+fn create_multisig_length_cap() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new_with(alice.did, Sr25519Keyring::Bob);
+        add_secondary_key(alice.did, bob.acc());
+
+        assert_noop!(
+            Identity::set_secondary_key_permissions(
+                alice.origin(),
+                bob.acc(),
+                perms_with_pallets(81),
+            ),
+            pallet_base::Error::<TestStorage>::TooLong
+        );
+
+        let except_perms = Permissions {
+            extrinsic: ExtrinsicPermissions::except([(
+                PalletName::generate(0),
+                PalletPermissions::whole(),
+            )]),
+            ..Permissions::empty()
+        };
+        assert_noop!(
+            Identity::set_secondary_key_permissions(
+                alice.origin(),
+                bob.acc(),
+                except_perms.clone()
+            ),
+            IdError::ExceptNotAllowedForExtrinsics
+        );
+
+        let charlie = Sr25519Keyring::Charlie.to_account_id();
+        assert_noop!(
+            MultiSig::create_multisig(
+                alice.origin(),
+                create_signers(vec![charlie]),
+                1,
+                Some(perms_with_pallets(81)),
+            ),
+            pallet_base::Error::<TestStorage>::TooLong
+        );
+
+        let dave = Sr25519Keyring::Dave.to_account_id();
+        assert_noop!(
+            MultiSig::create_multisig(
+                alice.origin(),
+                create_signers(vec![dave]),
+                1,
+                Some(except_perms),
+            ),
+            IdError::ExceptNotAllowedForExtrinsics
+        );
+    });
+}
+
+fn perms_with_pallets(n: u64) -> Permissions {
+    Permissions::from_pallet_permissions(
+        (0..n).map(|p| (PalletName::generate(p), PalletPermissions::whole())),
+    )
 }

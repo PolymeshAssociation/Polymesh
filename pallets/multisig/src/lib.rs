@@ -82,6 +82,7 @@ use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
 use pallet_identity::Config as IdentityConfig;
+use pallet_identity::WeightInfo as IdentityWeightInfo;
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
@@ -222,7 +223,13 @@ pub mod pallet {
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
         /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::create_multisig(signers.len() as u32))]
+        #[pallet::weight(
+            match permissions.as_ref() {
+                Some(perms) => <T as Config>::WeightInfo::create_multisig(signers.len() as u32)
+                    .saturating_add(<T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms)),
+                None => <T as Config>::WeightInfo::create_multisig(signers.len() as u32),
+            }
+        )]
         pub fn create_multisig(
             origin: OriginFor<T>,
             signers: BoundedVec<T::AccountId, T::MaxSigners>,
@@ -1000,6 +1007,8 @@ impl<T: Config> Pallet<T> {
         sigs_required: u64,
         permissions: Permissions,
     ) -> DispatchResult {
+        IdentityPallet::<T>::ensure_perms_length_limited(&permissions)?;
+
         // Generate new MultiSig address.
         let new_nonce = MultiSigNonce::<T>::get()
             .checked_add(1)
