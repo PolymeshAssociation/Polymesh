@@ -333,7 +333,12 @@ pub mod pallet {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[pallet::weight(<T as Config>::WeightInfo::worst_case_redeem_nft())]
+        #[pallet::weight(<T as Config>::WeightInfo::redeem_nft(
+            number_of_keys.map_or(
+                u32::from(T::MaxNumberOfCollectionKeys::get()),
+                |v| u32::from(v)
+            )
+        ))]
         #[pallet::call_index(2)]
         pub fn redeem_nft(
             origin: OriginFor<T>,
@@ -715,7 +720,7 @@ impl<T: Config> Pallet<T> {
         asset_id: AssetId,
         nft_id: NFTId,
         holdings_kind: AssetHolderKind,
-        _number_of_keys: Option<u8>,
+        number_of_keys: Option<u8>,
     ) -> DispatchResultWithPostInfo {
         // Verifies if the collection exists
         let collection_id =
@@ -751,7 +756,15 @@ impl<T: Config> Pallet<T> {
         NumberOfNFTs::<T>::insert(&asset_id, &holder_did, new_balance);
         Self::remove_nft_from_asset_holder(&asset_id, &nft_id, &caller_holding)?;
 
-        let removed_keys = MetadataValue::<T>::drain_prefix((&collection_id, &nft_id)).count();
+        let n_collection_keys = CollectionKeys::<T>::get(&collection_id).len();
+        if let Some(number_of_keys) = number_of_keys {
+            ensure!(
+                usize::from(number_of_keys) >= n_collection_keys,
+                Error::<T>::NumberOfKeysIsLessThanExpected,
+            );
+        }
+
+        let _ = MetadataValue::<T>::clear_prefix((&collection_id, &nft_id), u32::MAX, None);
 
         Self::deposit_event(Event::NFTHoldingsUpdated(
             holder_did,
@@ -761,7 +774,7 @@ impl<T: Config> Pallet<T> {
             HoldingsUpdateReason::Redeemed,
         ));
         Ok(PostDispatchInfo::from(Some(
-            <T as Config>::WeightInfo::redeem_nft(removed_keys as u32),
+            <T as Config>::WeightInfo::redeem_nft(n_collection_keys as u32),
         )))
     }
 
