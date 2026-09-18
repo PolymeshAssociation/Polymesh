@@ -104,7 +104,7 @@ pub fn extrinsic_error(err: impl Into<DispatchError>) -> Error {
 
 /// Weight of swapping the current call metadata in and back out again.
 pub fn call_metadata_weight<T: frame_system::Config>() -> Weight {
-    <T as frame_system::Config>::DbWeight::get().reads_writes(2, 4)
+    <T as frame_system::Config>::DbWeight::get().reads_writes(3, 6)
 }
 
 /// Dispatch `tx` with the given call `metadata`, setting `payer` as the current fee payer for
