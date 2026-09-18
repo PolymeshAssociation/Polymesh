@@ -333,7 +333,7 @@ benchmarks! {
             let account = user.new_account("Batching account", idx);
 
             accounts.push(account.keys());
-            account_assets.push((account.keys(), asset.id, 0));
+            account_assets.push((account.keys(), asset.id, 0, None));
         }
 
         // Register all the accounts first.
@@ -723,7 +723,7 @@ benchmarks! {
         off_chain.apply_new_leaves();
 
         // Generate the sender's update counter proof.
-        let (proof, _) = leg.sender.sender_counter_update_proof(&off_chain, leg.leg_ref, leg.asset_id);
+        let (proof, _) = leg.sender.sender_counter_update_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.sender.raw_origin(), proof)
 
     sender_revert_affirmation {
@@ -783,6 +783,6 @@ benchmarks! {
         leg.mediator_affirmation(&off_chain, false);
 
         // Generate the receiver's revert affirmation proof.
-        let (proof, _) = leg.receiver.receiver_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id);
+        let (proof, _) = leg.receiver.receiver_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.receiver.raw_origin(), proof)
 }
