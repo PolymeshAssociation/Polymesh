@@ -33,6 +33,8 @@ async fn onboards_and_creates_asset(kind: CodeKind) -> Result<()> {
         "the contract should have no DID before onboarding itself"
     );
 
+    fund_polyx(&mut tester, contract.account(), REVIVE_INIT_POLYX).await?;
+
     let ticker = unique_ticker("ONBOARD");
     let ticker_str = String::from_utf8(ticker.0.to_vec())?;
 
