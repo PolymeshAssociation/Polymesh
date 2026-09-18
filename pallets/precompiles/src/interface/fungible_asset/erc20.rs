@@ -63,6 +63,7 @@ impl<T: Config> FungibleAssetInterface<T> {
 
         let result = Common::<T>::with_runtime_call(
             env,
+            caller.account_id.clone(),
             pallet_settlement::Call::<T>::transfer_funds {
                 from: None,
                 to: to.clone(),
@@ -163,6 +164,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::approve {
                 asset_id,
                 spender,
@@ -212,6 +214,7 @@ impl<T: Config> FungibleAssetInterface<T> {
 
         let result = Common::<T>::with_runtime_call(
             env,
+            spender.account_id.clone(),
             pallet_settlement::Call::<T>::transfer_funds {
                 from: Some(from.clone()),
                 to: to.clone(),

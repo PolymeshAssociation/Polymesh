@@ -83,6 +83,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::controller_transfer_to {
                 asset_id,
                 value,
@@ -118,6 +119,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::set_frozen_tokens {
                 asset_id,
                 asset_holder: acc_to_freeze,

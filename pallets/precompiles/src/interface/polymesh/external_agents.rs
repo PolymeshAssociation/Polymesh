@@ -48,6 +48,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_identity::Call::<T>::add_authorization {
                 target,
                 data,
@@ -70,6 +71,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_external_agents::Call::<T>::accept_become_agent {
                 auth_id: call.authId,
             },

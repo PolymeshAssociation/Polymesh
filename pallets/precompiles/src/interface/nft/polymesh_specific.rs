@@ -85,6 +85,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_nft::Call::<T>::issue_nft {
                 asset_id,
                 nft_metadata_attributes: attributes,
@@ -133,6 +134,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_nft::Call::<T>::redeem_nft {
                 asset_id,
                 nft_id,

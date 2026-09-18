@@ -373,7 +373,7 @@ impl<T: Config> Common<T> {
         Ok(())
     }
 
-    /// Dispatch a runtime `call` on behalf of `origin`.
+    /// Dispatch a runtime `call` on behalf of `origin`, with `payer` set as the current fee payer.
     ///
     /// The call is dispatched with its own call metadata, so that the secondary key permissions
     /// of the caller are checked against the extrinsic being called and not against the
@@ -381,6 +381,7 @@ impl<T: Config> Common<T> {
     pub fn call_runtime(
         env: &mut impl Ext<T = T>,
         origin: OriginFor<T>,
+        payer: T::AccountId,
         call: impl Into<CallOf<T>>,
     ) -> Result<PostDispatchInfo, Error> {
         let call: CallOf<T> = call.into();
@@ -388,9 +389,9 @@ impl<T: Config> Common<T> {
         let dispatch_info = call.get_dispatch_info();
         let charged = env.charge(dispatch_info.call_weight.saturating_add(metadata_weight))?;
 
-        let payer = frame_system::ensure_signed(origin.clone()).ok();
-        let result =
-            with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin));
+        let result = with_call_metadata::<T, _>(call.get_call_metadata(), Some(payer), || {
+            call.dispatch(origin)
+        });
 
         let (post_info, error) = match result {
             Ok(post_info) => (post_info, None),
@@ -415,6 +416,7 @@ impl<T: Config> Common<T> {
     /// extrinsic's `PostDispatchInfo`; `f` is responsible for charging the weight it uses.
     pub fn with_runtime_call<R>(
         env: &mut impl Ext<T = T>,
+        payer: T::AccountId,
         call: impl Into<CallOf<T>>,
         f: impl FnOnce() -> R,
     ) -> Result<R, Error> {
@@ -425,7 +427,6 @@ impl<T: Config> Common<T> {
             return Err(extrinsic_error(frame_system::Error::<T>::CallFiltered));
         }
 
-        let payer = Self::caller(env)?.account_id;
         Ok(with_call_metadata::<T, _>(
             call.get_call_metadata(),
             Some(payer),

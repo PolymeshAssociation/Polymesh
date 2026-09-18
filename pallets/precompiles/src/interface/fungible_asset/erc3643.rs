@@ -38,6 +38,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::freeze { asset_id },
         )?;
 
@@ -57,6 +58,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::unfreeze { asset_id },
         )?;
 
@@ -81,6 +83,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::rename_asset {
                 asset_id,
                 asset_name: new_asset_name.clone(),
@@ -110,11 +113,13 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::register_unique_ticker { ticker },
         )?;
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::link_ticker_to_asset_id { ticker, asset_id },
         )?;
 
@@ -134,6 +139,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::set_holder_frozen {
                 asset_holder: acc_to_freeze,
                 asset_id,
@@ -185,6 +191,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::freeze_partial_tokens {
                 asset_id,
                 asset_holder: acc_to_freeze,
@@ -217,6 +224,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::unfreeze_partial_tokens {
                 asset_id,
                 asset_holder: acc_to_unfreeze,
