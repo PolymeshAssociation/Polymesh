@@ -30,6 +30,7 @@ pallet-identity = { workspace = true, default-features = false }
 pallet-nft = { workspace = true, default-features = false }
 pallet-permissions = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false }
+polymesh-transaction-payment = { workspace = true, default-features = false }
 
 # Polymesh primitives
 polymesh-primitives = { workspace = true, default-features = false }
@@ -57,6 +58,7 @@ std = [
     "pallet-nft/std",
     "pallet-permissions/std",
     "pallet-settlement/std",
+    "polymesh-transaction-payment/std",
     "polymesh-primitives/std",
     "polymesh-precompiles/std"
 ]
@@ -68,6 +70,7 @@ runtime-benchmarks = [
     "pallet-nft/runtime-benchmarks",
     "pallet-permissions/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
+    "polymesh-transaction-payment/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
 ]
 try-runtime = ["pallet-revive/try-runtime"]

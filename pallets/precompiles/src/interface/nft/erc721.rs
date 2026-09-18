@@ -151,6 +151,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_nft::Call::<T>::approve {
                 asset_id,
                 nft_id,
@@ -184,6 +185,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_nft::Call::<T>::set_approval_for_all {
                 asset_id,
                 operator,
@@ -281,6 +283,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         let result = Common::<T>::with_runtime_call(
             env,
+            caller.account_id.clone(),
             pallet_settlement::Call::<T>::transfer_funds {
                 from: Some(from_holder.clone()),
                 to: to_holder.clone(),

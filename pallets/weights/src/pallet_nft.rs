@@ -143,16 +143,18 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioNFTCount` (r:1 w:1)
     // Proof: `Portfolio::PortfolioNFTCount` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
-    // Storage: `Nft::MetadataValue` (r:256 w:255)
+    // Storage: `Nft::CollectionKeys` (r:1 w:0)
+    // Proof: `Nft::CollectionKeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Nft::MetadataValue` (r:255 w:255)
     // Proof: `Nft::MetadataValue` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Nft::Owner` (r:0 w:1)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 255]`.
     fn redeem_nft(n: u32) -> Weight {
-        // Minimum execution time: 99_620 nanoseconds.
-        Weight::from_parts(95_433_689, 0)
-            // Standard Error: 7_806
-            .saturating_add(Weight::from_parts(5_264_137, 0).saturating_mul(n.into()))
+        // Minimum execution time: 122_260 nanoseconds.
+        Weight::from_parts(119_267_183, 0)
+            // Standard Error: 7_591
+            .saturating_add(Weight::from_parts(1_730_028, 0).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(5))

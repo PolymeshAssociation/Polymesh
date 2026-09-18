@@ -66,9 +66,10 @@ use sp_std::prelude::*;
 
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::VenueInfo;
+use pallet_settlement::{InstructionStatuses, VenueInfo};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
+use polymesh_primitives::settlement::InstructionStatus;
 use polymesh_primitives::settlement::{Leg, SettlementType, VenueId, VenueType};
 use polymesh_primitives::sto::{FundraiserId, FundraiserReceipt, FundraiserReceiptDetails};
 use polymesh_primitives::{
@@ -376,6 +377,8 @@ pub mod pallet {
         OffchainFundingNotAllowed,
         /// The off-chain receipt has expired and can no longer be used for investment.
         ReceiptExpired,
+        /// The settlement instruction was not settled successfully.
+        InstructionNotSettled,
     }
 
     #[pallet::pallet]
@@ -1056,6 +1059,13 @@ impl<T: Config> Pallet<T> {
             investor_portfolios,
             investor_did,
         )?;
+
+        if !matches!(
+            InstructionStatuses::<T>::get(instruction_id),
+            InstructionStatus::Success(_)
+        ) {
+            return Err(Error::<T>::InstructionNotSettled.into());
+        }
 
         for (id, amount) in purchases {
             fundraiser.tiers[id].remaining -= amount;

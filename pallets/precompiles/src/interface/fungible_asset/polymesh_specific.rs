@@ -24,6 +24,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::issue {
                 asset_id,
                 amount,
@@ -55,6 +56,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_asset::Call::<T>::redeem {
                 asset_id,
                 value,

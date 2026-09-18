@@ -756,6 +756,8 @@ impl<T: Config> Pallet<T> {
 
     /// Ensures length limits are enforced in `perms`.
     pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
+        Self::ensure_no_except_perms(perms)?;
+
         if let Some(set) = perms.inner() {
             ensure_custom_length_ok::<T>(set.len(), MAX_PALLETS)?;
             for (name, elem) in set {

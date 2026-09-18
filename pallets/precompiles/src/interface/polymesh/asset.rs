@@ -59,6 +59,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::create_asset {
                 asset_name,
                 divisible: call.divisible,
@@ -103,6 +104,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_asset::Call::<T>::register_unique_ticker { ticker },
         )?;
 

@@ -41,6 +41,7 @@ pub trait Config:
     + pallet_identity::Config
     + pallet_nft::Config
     + pallet_external_agents::Config
+    + polymesh_transaction_payment::Config
 {
     /// The runtime's aggregated call type.
     ///

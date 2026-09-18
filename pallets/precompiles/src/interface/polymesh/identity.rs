@@ -40,6 +40,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id,
             pallet_identity::Call::<T>::register_did {
                 target_account: target_account.clone(),
             },
@@ -71,6 +72,7 @@ impl<T: Config> PolymeshRuntimeInterface<T> {
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
+            caller.account_id.clone(),
             pallet_identity::Call::<T>::self_register_did {},
         )?;
 
