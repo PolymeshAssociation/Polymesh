@@ -41,7 +41,6 @@ pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;
     fn redeem_nft(n: u32) -> Weight;
-    fn worst_case_redeem_nft() -> Weight;
     fn base_nft_transfer(n: u32) -> Weight;
     fn controller_transfer(n: u32) -> Weight;
     fn controller_transfer_to(n: u32) -> Weight;

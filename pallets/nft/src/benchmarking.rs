@@ -200,25 +200,6 @@ benchmarks! {
         }
     }
 
-    worst_case_redeem_nft {
-        let user = user::<T>("target", 0);
-        let asset_id = create_collection_issue_nfts::<T>(
-            &user,
-            MAX_COLLECTION_KEYS,
-            1,
-            AssetHolderKind::DefaultPortfolio
-        );
-    }: {
-        Pallet::<T>::redeem_nft(
-            user.origin.into(),
-            asset_id,
-            NFTId(1),
-            AssetHolderKind::DefaultPortfolio,
-            None
-        )
-        .unwrap();
-    }
-
     base_nft_transfer {
         // The weight depends on the number of ids in the `NFTs` vec and the complexity of the compliance rules.
         // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
