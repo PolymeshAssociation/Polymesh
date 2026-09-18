@@ -377,7 +377,7 @@ pub mod pallet {
         OffchainFundingNotAllowed,
         /// The off-chain receipt has expired and can no longer be used for investment.
         ReceiptExpired,
-        /// The instruction did fully execute and was not settled.
+        /// The settlement instruction was not settled successfully.
         InstructionNotSettled,
     }
 
