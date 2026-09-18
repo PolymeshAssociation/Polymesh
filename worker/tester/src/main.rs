@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use polymesh_dart::{
-    AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
-    PolymeshLimits, SenderAffirmationProof, curve_tree::AccountTreeConfig,
+    AccountAssetRegistrationProof, AssetPkTLookup, BatchedAccountAssetRegistrationProof,
+    LegEncrypted, PolymeshLimits, SenderAffirmationProof, curve_tree::AccountTreeConfig,
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
@@ -157,6 +157,7 @@ pub fn main() {
             "verify_register_account_asset_proof",
             DartWorkRequest::VerifyProof(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
                 did,
+                asset_lookup: AssetPkTLookup::new(),
                 proof: BatchedAccountAssetRegistrationProof {
                     proofs: vec![proof]
                         .try_into()

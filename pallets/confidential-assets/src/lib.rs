@@ -29,7 +29,7 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::{AssetKeysLookup, ReceiverRevertAffirmationProof};
+use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, IdentityId,
@@ -1316,8 +1316,10 @@ pub mod pallet {
             }
 
             // Verify the proof.
+            // TODO: Support force-transfer/freeze keys (`pk_t`) once the pallet tracks them per asset.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
                 did: caller_did.into(),
+                asset_lookup: AssetPkTLookup::new(),
                 proof,
             })?;
 
@@ -1986,7 +1988,7 @@ impl<T: Config> Pallet<T> {
         let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
             root,
-            asset_lookup,
+            asset_lookup: asset_lookup.clone(),
             proof,
         })?;
 
@@ -1997,7 +1999,7 @@ impl<T: Config> Pallet<T> {
         let mut pending_affirmations = 0;
         for (leg_idx, leg) in proof_legs.iter().enumerate() {
             let leg_idx = leg_idx as LegId;
-            let mediators = leg.mediator_count().map_err(Error::<T>::from)? as u32;
+            let mediators = leg.mediator_count(&asset_lookup).map_err(Error::<T>::from)? as u32;
 
             pending_affirmations = pending_affirmations
                 .saturating_add(2)
@@ -2075,9 +2077,17 @@ impl<T: Config> Pallet<T> {
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
     ) -> DispatchResult {
+        // Handle revealed asset ids, needed to check mediator affirmations in leg references.
+        let mut asset_lookup = AssetKeysLookup::new();
+        for asset_id in proof.settlement.revealed_asset_ids() {
+            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+            let asset_state = AssetState { asset_id, keys };
+            asset_lookup.add(asset_state);
+        }
+
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
-            proof.check_leg_references(),
+            proof.check_leg_references(&asset_lookup),
             Error::<T>::BatchedSettlementInvalidLegRefs
         );
         let settlement_ref = proof.settlement.settlement_ref();

@@ -49,10 +49,11 @@ pub enum GenerateDartProofRequest {
         did: Did,
         asset_id: AssetId,
         counter: u16,
+        pk_t: Option<EncryptionPublicKey>,
     },
     BatchedAccountAssetRegistration {
         did: Did,
-        account_assets: Vec<(AccountKeys, AssetId, u16)>,
+        account_assets: Vec<(AccountKeys, AssetId, u16, Option<EncryptionPublicKey>)>,
     },
     MintAsset {
         keys: AccountKeys,
@@ -77,6 +78,7 @@ pub enum GenerateDartProofRequest {
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
+        amount: Balance,
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
@@ -99,6 +101,7 @@ pub enum GenerateDartProofRequest {
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
+        amount: Balance,
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
@@ -114,6 +117,7 @@ pub enum GenerateDartProofRequest {
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
+        amount: Balance,
         path: AccountLeafPathAndRoot,
         account_state: AccountAssetState,
     },
@@ -198,10 +202,11 @@ impl GenerateDartProofRequest {
                 did,
                 asset_id,
                 counter,
+                pk_t,
             } => {
                 let params = get_account_curve_tree_parameters();
                 let (proof, account_state) = AccountAssetRegistrationProof::new(
-                    &mut rng, &keys, asset_id, counter, &did, params,
+                    &mut rng, &keys, asset_id, counter, &did, params, pk_t,
                 )?;
                 Ok(GenerateDartProofResponse::AccountAssetRegistration {
                     proof,
@@ -278,6 +283,7 @@ impl GenerateDartProofRequest {
                 keys,
                 leg_ref,
                 leg_enc,
+                amount,
                 path,
                 mut account_state,
             } => {
@@ -286,6 +292,7 @@ impl GenerateDartProofRequest {
                     &keys,
                     &leg_ref,
                     &leg_enc,
+                    amount,
                     &mut account_state,
                     path,
                 )?;
@@ -380,6 +387,7 @@ impl GenerateDartProofRequest {
                 keys,
                 leg_ref,
                 leg_enc,
+                amount,
                 path,
                 mut account_state,
             } => {
@@ -388,6 +396,7 @@ impl GenerateDartProofRequest {
                     &keys,
                     &leg_ref,
                     &leg_enc,
+                    amount,
                     &mut account_state,
                     path,
                 )?;
@@ -422,6 +431,7 @@ impl GenerateDartProofRequest {
                 keys,
                 leg_ref,
                 leg_enc,
+                amount,
                 path,
                 mut account_state,
             } => {
@@ -430,6 +440,7 @@ impl GenerateDartProofRequest {
                     &keys,
                     &leg_ref,
                     &leg_enc,
+                    amount,
                     &mut account_state,
                     path,
                 )?;

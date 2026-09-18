@@ -919,6 +919,7 @@ impl DartUserInner {
                 0,
                 &did.0[..],
                 params,
+                None,
             )?;
             let asset_state = DartUserAccountAssetState::new(asset_state, &self.keys);
             (proof, asset_state)
@@ -1147,6 +1148,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1515,6 +1517,7 @@ impl DartUserInner {
 
         // Try to decrypt the leg as the sender
         let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
+        let amount = leg.amount();
 
         // Get our current account asset state.
         let asset_state = self
@@ -1534,6 +1537,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1621,6 +1625,7 @@ impl DartUserInner {
         // Try to decrypt the leg as the receiver
         let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
         let asset_id = leg.asset_id();
+        let amount = leg.amount();
 
         // Get our current account asset state.
         let asset_state = self
@@ -1640,6 +1645,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
