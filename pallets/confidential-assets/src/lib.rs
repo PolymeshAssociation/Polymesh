@@ -728,6 +728,8 @@ pub mod pallet {
         InvalidAffirmationStatusTransition,
         /// Missing leg mediators.
         MissingLegMediators,
+        /// Encryption key does not match the registered key for the account.
+        EncryptionKeyMismatch,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1314,10 +1316,13 @@ pub mod pallet {
             let mut seen_asset = BTreeSet::new();
             let mut registrations = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
-                if !seen_account.contains(&p.account.acct) {
-                    seen_account.insert(p.account.acct.clone());
+                if !seen_account.contains(&p.account) {
+                    seen_account.insert(p.account.clone());
                     // Ensure the Confidential account is registered to the caller's identity.
-                    Self::ensure_dart_account_owner(caller_did, &p.account.acct)?;
+                    Self::ensure_dart_account_and_encryption_key_registered(
+                        &p.account.acct,
+                        &p.account.enc,
+                    )?;
                 }
                 if !seen_asset.contains(&p.asset_id) {
                     seen_asset.insert(p.asset_id);
@@ -2708,6 +2713,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Ensure Confidential account is registered and linked to the given encryption key.
+    pub fn ensure_dart_account_and_encryption_key_registered(
+        account: &AccountPublicKey,
+        encryption: &EncryptionPublicKey,
+    ) -> Result<IdentityId, Error<T>> {
+        let identity_id = Self::ensure_dart_account_registered(account)?;
+        let account_encryption =
+            AccountEncryptionKey::<T>::get(account).ok_or(Error::<T>::EncryptionKeyMissing)?;
+        ensure!(
+            account_encryption == *encryption,
+            Error::<T>::EncryptionKeyMismatch
+        );
+        Ok(identity_id)
+    }
+
     /// Ensure Confidential account is registered.
     pub fn ensure_dart_account_registered(
         account: &AccountPublicKey,
@@ -2778,8 +2798,7 @@ impl<T: Config> Pallet<T> {
     /// Ensure mediator encryption public keys are registered.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
         for (acct, enc) in keys {
-            Self::ensure_dart_account_registered(acct)?;
-            Self::ensure_encryption_key_registered(enc)?;
+            Self::ensure_dart_account_and_encryption_key_registered(acct, enc)?;
         }
         Ok(())
     }
