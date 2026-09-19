@@ -10,15 +10,15 @@ use polymesh_dart::curve_tree::get_account_curve_tree_parameters;
 use polymesh_dart::{
     AccountPublicKey, AccountPublicKeys, AccountRegistrationProof, AccountStateCommitment,
     AccountStateNullifier, AccountStateUpdate, AssetId, AssetKeysLookup, AssetMintingProof,
-    Balance, BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
-    BatchedFeeAccountTopupProof, DartLimits, EncryptionKeyRegistrationProof, EncryptionPublicKey,
-    Error as DartError, FeeAccountPaymentProof, FeeAccountRegistrationProof,
-    FeeAccountStateCommitment, FeeAccountStateNullifier, FeeAccountTopupProof,
-    InstantReceiverAffirmationProof, InstantSenderAffirmationProof, LegEncrypted, LegRef,
-    MediatorAffirmationProof, PolymeshLimits, ProofHash, ReceiverAffirmationProof,
-    ReceiverClaimProof, ReceiverRevertAffirmationProof, SenderAffirmationProof,
-    SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementProof, SettlementRef,
-    blake2_256,
+    AssetPkTLookup, Balance, BatchedAccountAssetRegistrationProof,
+    BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, DartLimits,
+    EncryptionKeyRegistrationProof, EncryptionPublicKey, Error as DartError,
+    FeeAccountPaymentProof, FeeAccountRegistrationProof, FeeAccountStateCommitment,
+    FeeAccountStateNullifier, FeeAccountTopupProof, InstantReceiverAffirmationProof,
+    InstantSenderAffirmationProof, LegEncrypted, LegRef, MediatorAffirmationProof, PolymeshLimits,
+    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
+    SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
+    SettlementProof, SettlementRef, blake2_256,
 };
 use polymesh_dart_common::NullifierSkGenCounter;
 use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
@@ -38,6 +38,7 @@ pub enum VerifyDartAssetRequest {
     },
     BatchedAccountAssetRegistration {
         did: Did,
+        asset_lookup: AssetPkTLookup,
         proof: BatchedAccountAssetRegistrationProof<PolymeshLimits>,
     },
     MintAsset {
@@ -62,6 +63,7 @@ pub enum VerifyDartAssetRequest {
     },
     MediatorAffirmation {
         leg_enc: LegEncrypted,
+        mediator: Option<AccountPublicKey>,
         proof: MediatorAffirmationProof<PolymeshLimits>,
     },
     SenderCounterUpdate {
@@ -143,10 +145,14 @@ impl VerifyDartAssetRequest {
             Self::EncryptionKeyRegistration { did, proof } => {
                 proof.verify(did)?;
             }
-            Self::BatchedAccountAssetRegistration { did, proof } => {
+            Self::BatchedAccountAssetRegistration {
+                did,
+                proof,
+                asset_lookup,
+            } => {
                 let mut rng = Rng::from_seed(seed);
                 let params = get_account_curve_tree_parameters();
-                proof.batched_verify(did, &params, &mut rng)?;
+                proof.batched_verify(did, &params, &mut rng, &asset_lookup)?;
             }
             Self::MintAsset { did, root, proof } => {
                 let mut rng = Rng::from_seed(seed);
@@ -192,9 +198,20 @@ impl VerifyDartAssetRequest {
                 let mut rng = Rng::from_seed(seed);
                 proof.verify(&leg_enc, root, &mut rng)?;
             }
-            Self::MediatorAffirmation { leg_enc, proof } => {
+            Self::MediatorAffirmation {
+                leg_enc,
+                mediator: None,
+                proof,
+            } => {
                 let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
                 proof.verify(&med_enc)?;
+            }
+            Self::MediatorAffirmation {
+                leg_enc: _,
+                mediator: Some(mediator),
+                proof,
+            } => {
+                proof.verify_revealed(mediator)?;
             }
             Self::SenderCounterUpdate {
                 leg_enc,
@@ -271,7 +288,7 @@ impl VerifyDartAssetRequest {
                     keys: proof.keys.clone(),
                 })
             }
-            Self::BatchedAccountAssetRegistration { did, proof } => {
+            Self::BatchedAccountAssetRegistration { did, proof, .. } => {
                 let registrations = proof
                     .proofs
                     .iter()

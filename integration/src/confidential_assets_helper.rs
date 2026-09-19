@@ -919,6 +919,7 @@ impl DartUserInner {
                 0,
                 &did.0[..],
                 params,
+                None,
             )?;
             let asset_state = DartUserAccountAssetState::new(asset_state, &self.keys);
             (proof, asset_state)
@@ -1147,6 +1148,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1385,6 +1387,8 @@ impl DartUserInner {
         accept: bool,
         asset_and_amount: Option<(DartAssetId, DartBalance)>,
     ) -> Result<MediatorAffirmationProof> {
+        let asset_id = asset_and_amount.map(|(asset_id, _)| asset_id);
+        let amount = asset_and_amount.map(|(_, amount)| amount);
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1392,9 +1396,13 @@ impl DartUserInner {
             .ok_or_else(|| anyhow::anyhow!("Settlement leg not found"))?;
 
         // Try to decrypt the leg as the mediator
-        let leg = leg_enc
-            .decrypt(LegRole::mediator(mediator_id), &self.keys)
-            .unwrap();
+        let (leg, _role) = leg_enc.try_decrypt_with_key(
+            &self.keys.enc,
+            None,
+            Some(&self.keys.acct.public),
+            asset_id,
+            amount,
+        )?;
 
         // Check the leg asset and amount if provided.
         if let Some((asset_id, amount)) = asset_and_amount {
@@ -1409,12 +1417,30 @@ impl DartUserInner {
             }
         }
 
-        // Generate mediator affirmation proof.
-        let mut rng = rand::thread_rng();
-        let med_enc = leg_enc.mediator_encryption(mediator_id)?;
-        Ok(MediatorAffirmationProof::new(
-            &mut rng, &leg_ref, &med_enc, &self.keys, 0, accept,
-        )?)
+        // Check if the asset id is revealed in the leg encryption. This is important for mediators to know if they need to look for their specific encryption entry.
+        if leg_enc.is_asset_id_revealed()? {
+            // Generate mediator affirmation proof.
+            let mut rng = rand::thread_rng();
+            Ok(MediatorAffirmationProof::new_revealed(
+                &mut rng,
+                &leg_ref,
+                &self.keys,
+                mediator_id,
+                accept,
+            )?)
+        } else {
+            // Generate mediator affirmation proof.
+            let mut rng = rand::thread_rng();
+            let med_enc = leg_enc.mediator_encryption(mediator_id)?;
+            Ok(MediatorAffirmationProof::new(
+                &mut rng,
+                &leg_ref,
+                &med_enc,
+                &self.keys,
+                mediator_id,
+                accept,
+            )?)
+        }
     }
 
     pub async fn mediator_affirmation(
@@ -1515,6 +1541,7 @@ impl DartUserInner {
 
         // Try to decrypt the leg as the sender
         let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
+        let amount = leg.amount();
 
         // Get our current account asset state.
         let asset_state = self
@@ -1534,6 +1561,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1621,6 +1649,7 @@ impl DartUserInner {
         // Try to decrypt the leg as the receiver
         let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
         let asset_id = leg.asset_id();
+        let amount = leg.amount();
 
         // Get our current account asset state.
         let asset_state = self
@@ -1640,6 +1669,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -2155,8 +2185,8 @@ pub struct DartTestAssetInner {
     pub issuer: DartUser,
     pub name: String,
     issuer_balance: DartBalance,
-    pub auditors: Vec<DartUser>,
-    pub mediators: Vec<DartUser>,
+    pub auditors: BTreeMap<EncryptionPublicKey, DartUser>,
+    pub mediators: BTreeMap<AccountPublicKey, DartUser>,
     pub total_supply: DartBalance,
 }
 
@@ -2165,12 +2195,12 @@ impl DartTestAssetInner {
         account_tree: &AccountCurveTree,
         asset_issuer: &DartUser,
         name: &str,
-        mediators: &[&DartUser],
-        auditors: &[&DartUser],
+        mediator_users: &[&DartUser],
+        auditor_users: &[&DartUser],
         mint_amount: Option<DartBalance>,
     ) -> Result<Self> {
         assert!(
-            (auditors.len() + mediators.len()) >= 1,
+            (auditor_users.len() + mediator_users.len()) >= 1,
             "At least one auditor or mediator is required"
         );
 
@@ -2180,18 +2210,22 @@ impl DartTestAssetInner {
         // Create mediator user and keys.
         let mut track_enc_keys = BTreeSet::new();
         let mut auditor_keys = BTreeSet::new();
-        for &auditor in auditors {
+        let mut auditors = BTreeMap::new();
+        for &auditor in auditor_users {
             auditor.register_encryption_key().await?;
             let enc_key = auditor.public_keys().await.enc;
             track_enc_keys.insert(enc_key);
             auditor_keys.insert(enc_key);
+            auditors.insert(enc_key, auditor.clone());
         }
         let mut mediator_keys = BTreeMap::new();
-        for &mediator in mediators {
+        let mut mediators = BTreeMap::new();
+        for &mediator in mediator_users {
             mediator.register_account().await?;
             let med_keys = mediator.public_keys().await;
             track_enc_keys.insert(med_keys.enc);
             mediator_keys.insert(med_keys.acct, med_keys.enc);
+            mediators.insert(med_keys.acct, mediator.clone());
         }
 
         // Create the asset.
@@ -2215,8 +2249,8 @@ impl DartTestAssetInner {
             name: name.to_string(),
             issuer: asset_issuer.clone(),
             issuer_balance: mint_amount,
-            mediators: mediators.into_iter().copied().cloned().collect(),
-            auditors: auditors.into_iter().copied().cloned().collect(),
+            mediators,
+            auditors,
             total_supply: mint_amount,
         })
     }
@@ -2225,17 +2259,17 @@ impl DartTestAssetInner {
         self.mediators.len()
     }
 
-    pub fn mediators(&self) -> Vec<DartUser> {
+    pub fn mediators(&self) -> BTreeMap<AccountPublicKey, DartUser> {
         self.mediators.clone()
     }
 
     pub async fn asset_state(&self) -> Result<AssetState> {
         let mut auditors = Vec::new();
-        for auditor in &self.auditors {
-            auditors.push(auditor.public_keys().await.enc);
+        for (enc, _auditor) in &self.auditors {
+            auditors.push(*enc);
         }
         let mut mediators = Vec::new();
-        for mediator in &self.mediators {
+        for mediator in self.mediators.values() {
             let med_keys = mediator.public_keys().await;
             mediators.push((med_keys.acct, med_keys.enc));
         }
@@ -2350,7 +2384,7 @@ impl DartTestAsset {
         inner.issuer.clone()
     }
 
-    pub async fn mediators(&self) -> Vec<DartUser> {
+    pub async fn mediators(&self) -> BTreeMap<AccountPublicKey, DartUser> {
         let inner = self.inner.read().await;
         inner.mediators()
     }
@@ -2412,7 +2446,7 @@ pub struct DartSettlementLegState {
     pub receiver: DartUser,
     pub asset_id: DartAssetId,
     pub amount: DartBalance,
-    pub mediators: Vec<DartUser>,
+    pub mediators: BTreeMap<AccountPublicKey, DartUser>,
 }
 
 impl DartSettlementLegState {
@@ -2445,12 +2479,12 @@ impl DartSettlementLegState {
     }
 
     pub async fn mediators_affirm(&self, tester: &DartAssetTester, accept: bool) -> Result<()> {
-        for (id, mediator) in self.mediators.iter().enumerate() {
+        for (id, (acct, mediator)) in self.mediators.iter().enumerate() {
             log::debug!(
-                "Leg {:?}: Mediator {:?} affirming with keys {:?}, accept={}",
+                "Leg {:?}: Mediator {:?} affirming with account key {:?}, accept={}",
                 self.leg_ref,
                 id,
-                mediator.public_keys().await,
+                acct,
                 accept
             );
             mediator
@@ -2591,7 +2625,7 @@ impl DartSettlementState {
                     .await?;
 
                 let mut mediators = Vec::new();
-                for (id, mediator) in leg_state.mediators.iter().enumerate() {
+                for (id, mediator) in leg_state.mediators.values().enumerate() {
                     let mediator_proof = mediator
                         .mediator_affirmation_proof(tester, leg_ref, id as _, true, None)
                         .await?;

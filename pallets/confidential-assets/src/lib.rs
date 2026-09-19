@@ -29,7 +29,7 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::{AssetKeysLookup, ReceiverRevertAffirmationProof};
+use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, IdentityId,
@@ -314,6 +314,15 @@ pub struct AssetDetails<T: Config> {
     pub owner_did: IdentityId,
     /// Asset data.
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
+}
+
+/// Represents a settlement leg with a revealed asset ID and its mediators' affirmation keys.
+///
+/// This struct is used to store the asset ID and the corresponding mediators' affirmation keys for settlement legs where the asset ID is revealed.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
+pub struct LegMediatorKeys {
+    /// The mediators' affirmation keys for this asset.
+    pub mediators: BTreeSet<AccountPublicKey>,
 }
 
 pub use pallet::*;
@@ -717,6 +726,10 @@ pub mod pallet {
         InvalidAssetName,
         /// Invalid affirmation status transition.
         InvalidAffirmationStatusTransition,
+        /// Missing leg mediators.
+        MissingLegMediators,
+        /// Encryption key does not match the registered key for the account.
+        EncryptionKeyMismatch,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1059,6 +1072,15 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// For settlement legs with revealed asset IDs, this keeps track of the mediators' affirmation keys.
+    #[pallet::storage]
+    pub(crate) type LegMediators<T: Config> = StorageNMap<
+        _,
+        (NMapKey<Identity, SettlementRef>, NMapKey<Identity, LegId>),
+        LegMediatorKeys,
+        OptionQuery,
+    >;
+
     /// The WorkerSessionId for the current block.
     #[pallet::storage]
     pub(crate) type CurrentWorkerSessionId<T: Config> =
@@ -1294,10 +1316,13 @@ pub mod pallet {
             let mut seen_asset = BTreeSet::new();
             let mut registrations = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
-                if !seen_account.contains(&p.account.acct) {
-                    seen_account.insert(p.account.acct.clone());
+                if !seen_account.contains(&p.account) {
+                    seen_account.insert(p.account.clone());
                     // Ensure the Confidential account is registered to the caller's identity.
-                    Self::ensure_dart_account_owner(caller_did, &p.account.acct)?;
+                    Self::ensure_dart_account_and_encryption_key_registered(
+                        &p.account.acct,
+                        &p.account.enc,
+                    )?;
                 }
                 if !seen_asset.contains(&p.asset_id) {
                     seen_asset.insert(p.asset_id);
@@ -1316,8 +1341,10 @@ pub mod pallet {
             }
 
             // Verify the proof.
+            // TODO: Support force-transfer/freeze keys (`pk_t`) once the pallet tracks them per asset.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
                 did: caller_did.into(),
+                asset_lookup: AssetPkTLookup::new(),
                 proof,
             })?;
 
@@ -1986,7 +2013,7 @@ impl<T: Config> Pallet<T> {
         let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
             root,
-            asset_lookup,
+            asset_lookup: asset_lookup.clone(),
             proof,
         })?;
 
@@ -1997,7 +2024,23 @@ impl<T: Config> Pallet<T> {
         let mut pending_affirmations = 0;
         for (leg_idx, leg) in proof_legs.iter().enumerate() {
             let leg_idx = leg_idx as LegId;
-            let mediators = leg.mediator_count().map_err(Error::<T>::from)? as u32;
+            let mediators = if let Some(asset_id) = leg.revealed_asset_id() {
+                // When the asset ID is revealed, we need to save the mediator affirmation keys for the leg.
+                let asset_keys = asset_lookup
+                    .assets
+                    .get(&asset_id)
+                    .ok_or(Error::<T>::AssetMissing)?;
+                LegMediators::<T>::insert(
+                    (settlement_ref, leg_idx),
+                    LegMediatorKeys {
+                        mediators: asset_keys.mediators.clone(),
+                    },
+                );
+                asset_keys.mediators.len() as u32
+            } else {
+                leg.mediator_count(&asset_lookup)
+                    .map_err(Error::<T>::from)? as u32
+            };
 
             pending_affirmations = pending_affirmations
                 .saturating_add(2)
@@ -2075,9 +2118,17 @@ impl<T: Config> Pallet<T> {
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
     ) -> DispatchResult {
+        // Handle revealed asset ids, needed to check mediator affirmations in leg references.
+        let mut asset_lookup = AssetKeysLookup::new();
+        for asset_id in proof.settlement.revealed_asset_ids() {
+            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+            let asset_state = AssetState { asset_id, keys };
+            asset_lookup.add(asset_state);
+        }
+
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
-            proof.check_leg_references(),
+            proof.check_leg_references(&asset_lookup),
             Error::<T>::BatchedSettlementInvalidLegRefs
         );
         let settlement_ref = proof.settlement.settlement_ref();
@@ -2662,6 +2713,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Ensure Confidential account is registered and linked to the given encryption key.
+    pub fn ensure_dart_account_and_encryption_key_registered(
+        account: &AccountPublicKey,
+        encryption: &EncryptionPublicKey,
+    ) -> Result<IdentityId, Error<T>> {
+        let identity_id = Self::ensure_dart_account_registered(account)?;
+        let account_encryption =
+            AccountEncryptionKey::<T>::get(account).ok_or(Error::<T>::EncryptionKeyMissing)?;
+        ensure!(
+            account_encryption == *encryption,
+            Error::<T>::EncryptionKeyMismatch
+        );
+        Ok(identity_id)
+    }
+
     /// Ensure Confidential account is registered.
     pub fn ensure_dart_account_registered(
         account: &AccountPublicKey,
@@ -2731,8 +2797,8 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure mediator encryption public keys are registered.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
-        for key in keys {
-            Self::ensure_dart_account_registered(&key.0)?;
+        for (acct, enc) in keys {
+            Self::ensure_dart_account_and_encryption_key_registered(acct, enc)?;
         }
         Ok(())
     }
