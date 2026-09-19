@@ -316,6 +316,15 @@ pub struct AssetDetails<T: Config> {
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
 }
 
+/// Represents a settlement leg with a revealed asset ID and its mediators' affirmation keys.
+///
+/// This struct is used to store the asset ID and the corresponding mediators' affirmation keys for settlement legs where the asset ID is revealed.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
+pub struct LegMediatorKeys {
+    /// The mediators' affirmation keys for this asset.
+    pub mediators: BTreeSet<AccountPublicKey>,
+}
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -717,6 +726,8 @@ pub mod pallet {
         InvalidAssetName,
         /// Invalid affirmation status transition.
         InvalidAffirmationStatusTransition,
+        /// Missing leg mediators.
+        MissingLegMediators,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1056,6 +1067,15 @@ pub mod pallet {
             NMapKey<Identity, LegAffirmParty>,
         ),
         AffirmationStatus,
+        OptionQuery,
+    >;
+
+    /// For settlement legs with revealed asset IDs, this keeps track of the mediators' affirmation keys.
+    #[pallet::storage]
+    pub(crate) type LegMediators<T: Config> = StorageNMap<
+        _,
+        (NMapKey<Identity, SettlementRef>, NMapKey<Identity, LegId>),
+        LegMediatorKeys,
         OptionQuery,
     >;
 
@@ -1999,7 +2019,23 @@ impl<T: Config> Pallet<T> {
         let mut pending_affirmations = 0;
         for (leg_idx, leg) in proof_legs.iter().enumerate() {
             let leg_idx = leg_idx as LegId;
-            let mediators = leg.mediator_count(&asset_lookup).map_err(Error::<T>::from)? as u32;
+            let mediators = if let Some(asset_id) = leg.revealed_asset_id() {
+                // When the asset ID is revealed, we need to save the mediator affirmation keys for the leg.
+                let asset_keys = asset_lookup
+                    .assets
+                    .get(&asset_id)
+                    .ok_or(Error::<T>::AssetMissing)?;
+                LegMediators::<T>::insert(
+                    (settlement_ref, leg_idx),
+                    LegMediatorKeys {
+                        mediators: asset_keys.mediators.clone(),
+                    },
+                );
+                asset_keys.mediators.len() as u32
+            } else {
+                leg.mediator_count(&asset_lookup)
+                    .map_err(Error::<T>::from)? as u32
+            };
 
             pending_affirmations = pending_affirmations
                 .saturating_add(2)

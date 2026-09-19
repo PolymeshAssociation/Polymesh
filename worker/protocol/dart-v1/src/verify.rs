@@ -63,6 +63,7 @@ pub enum VerifyDartAssetRequest {
     },
     MediatorAffirmation {
         leg_enc: LegEncrypted,
+        mediator: Option<AccountPublicKey>,
         proof: MediatorAffirmationProof<PolymeshLimits>,
     },
     SenderCounterUpdate {
@@ -197,9 +198,20 @@ impl VerifyDartAssetRequest {
                 let mut rng = Rng::from_seed(seed);
                 proof.verify(&leg_enc, root, &mut rng)?;
             }
-            Self::MediatorAffirmation { leg_enc, proof } => {
+            Self::MediatorAffirmation {
+                leg_enc,
+                mediator: None,
+                proof,
+            } => {
                 let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
                 proof.verify(&med_enc)?;
+            }
+            Self::MediatorAffirmation {
+                leg_enc: _,
+                mediator: Some(mediator),
+                proof,
+            } => {
+                proof.verify_revealed(mediator)?;
             }
             Self::SenderCounterUpdate {
                 leg_enc,
