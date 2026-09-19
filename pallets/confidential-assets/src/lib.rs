@@ -2777,8 +2777,9 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure mediator encryption public keys are registered.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
-        for key in keys {
-            Self::ensure_dart_account_registered(&key.0)?;
+        for (acct, enc) in keys {
+            Self::ensure_dart_account_registered(acct)?;
+            Self::ensure_encryption_key_registered(enc)?;
         }
         Ok(())
     }
