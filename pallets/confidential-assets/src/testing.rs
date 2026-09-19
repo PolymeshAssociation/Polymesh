@@ -839,7 +839,8 @@ impl<T: Config> DartUserInner<T> {
         amount: DartBalance,
     ) {
         let origin = self.origin();
-        let (proof, account_state) = self.sender_counter_update_proof(off_chain, leg_ref, asset_id, amount);
+        let (proof, account_state) =
+            self.sender_counter_update_proof(off_chain, leg_ref, asset_id, amount);
 
         assert_ok!(Pallet::<T>::sender_update_counter(origin, proof));
 
