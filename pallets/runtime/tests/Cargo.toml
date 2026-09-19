@@ -32,6 +32,7 @@ pallet-transaction-payment = { workspace = true, default-features = false }
 polymesh-transaction-payment = { workspace = true, default-features = false }
 pallet-treasury = { workspace = true, default-features = false }
 pallet-utility = { workspace = true, default-features = false }
+pallet-worker-modules = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 pallet-precompiles = { workspace = true, default-features = false }
 polymesh-precompiles = { workspace = true, default-features = false }
@@ -111,9 +112,22 @@ wat = "1.0"
 sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 
 [features]
-default = ["std", "equalize", "testing"]
+default = ["std", "equalize", "testing", "host_workers"]
 
 testing = ["polymesh-runtime-common/testing", "pallet-staking/testing"]
+
+# Use host: worker modules + msm + Hash to Curve
+host_workers = [
+    "polymesh-runtime-develop/host_workers",
+]
+# No host functions
+no_host_fns = [
+    "polymesh-runtime-develop/no_host_fns",
+]
+# Verify proofs in runtime with only these host functions: msm + Hash to Curve
+host_curves = [
+    "polymesh-runtime-develop/host_curves",
+]
 
 equalize = []
 only-staking = []

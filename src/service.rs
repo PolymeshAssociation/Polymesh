@@ -122,13 +122,39 @@ impl<Api> RuntimeApiCollection for Api where
 {
 }
 
-/// Host functions available to the runtime.
-#[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = (
-    sp_io::SubstrateHostFunctions,
+// Cargo features are additive, so `host_workers` / `host_curves` / `no_host_fns` are resolved by
+// precedence rather than assumed to be mutually exclusive: the largest enabled set of host
+// functions wins. This matches how the runtime side selects its implementation (see
+// `pallet_confidential_assets`, which keys off `host_workers` with `not(host_workers)` as the
+// fallback, and `dart-v1`'s `use_host_curves` which layers on top of `runtime_only`).
+//
+// To build with only a subset, disable the default features, e.g.
+// `cargo build --no-default-features --features std,worker_polkavm,worker_wasmtime,worker_wasmer,host_curves`.
+#[cfg(feature = "host_workers")]
+type PolymeshHostFunctions = (
     polymesh_worker_extension::native_polymesh_worker::HostFunctions,
     polymesh_native_crypto::HostFunctions,
 );
+#[cfg(all(feature = "host_curves", not(feature = "host_workers")))]
+type PolymeshHostFunctions = polymesh_native_crypto::HostFunctions;
+#[cfg(all(
+    feature = "no_host_fns",
+    not(any(feature = "host_workers", feature = "host_curves"))
+))]
+type PolymeshHostFunctions = ();
+
+#[cfg(not(any(
+    feature = "host_workers",
+    feature = "host_curves",
+    feature = "no_host_fns"
+)))]
+compile_error!(
+    "exactly one of the `host_workers`, `host_curves` or `no_host_fns` features must be enabled"
+);
+
+/// Host functions available to the runtime.
+#[cfg(not(feature = "runtime-benchmarks"))]
+pub type HostFunctions = (sp_io::SubstrateHostFunctions, PolymeshHostFunctions);
 
 /// Host functions available to the runtime.
 #[cfg(feature = "runtime-benchmarks")]
@@ -136,8 +162,7 @@ pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
     polymesh_primitives::crypto::native_schnorrkel::HostFunctions,
-    polymesh_worker_extension::native_polymesh_worker::HostFunctions,
-    polymesh_native_crypto::HostFunctions,
+    PolymeshHostFunctions,
 );
 
 /// A specialized `WasmExecutor` intended to use across substrate node. It provides all required HostFunctions.
