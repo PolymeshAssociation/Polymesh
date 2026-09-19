@@ -342,9 +342,26 @@ impl<T: Config> UpdateSettlementStatus<T> {
         // Affirm as the mediator if they have not already affirmed.
         let pending = self.party_affirms(LegAffirmParty::Mediator(mediator_id), accept, false)?;
 
+        // Retrieve the encrypted settlement leg for further processing.
+        let leg_enc = self.get_leg()?;
+
+        let mediator = if proof.is_asset_id_revealed() {
+            let mediators = LegMediators::<T>::get((self.settlement_ref, self.leg_id))
+                .ok_or(Error::<T>::MissingLegMediators)?;
+            let mediator = mediators
+                .mediators
+                .iter()
+                .nth(mediator_id as usize)
+                .ok_or(Error::<T>::WrongMediatorId)?;
+            Some(mediator.clone())
+        } else {
+            None
+        };
+
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::MediatorAffirmation {
-            leg_enc: self.get_leg()?,
+            leg_enc,
+            mediator,
             proof,
         })?;
 
