@@ -227,8 +227,11 @@ pub trait WeightInfo {
     fn relayer_submit_batched_proofs(
         batch: &FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> Weight {
-        Self::verify_fee_payment_with_leaf()
-            .saturating_add(Self::batched_proofs(&batch.batched_proofs))
+        Self::relayer_batched_proofs(&batch.batched_proofs)
+    }
+
+    fn relayer_batched_proofs(batch: &BatchedProofs<PolymeshLimits>) -> Weight {
+        Self::verify_fee_payment_with_leaf().saturating_add(Self::batched_proofs(batch))
     }
 
     fn on_init() -> Weight {
@@ -2405,8 +2408,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Calculate the batch weight and corresponding tx fee.
-        let batch_weight = <T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof);
-        let batch_tx_fee = T::WeightToFee::weight_to_fee(&batch_weight);
+        let (_, batch_tx_fee) = Self::relayer_batched_proofs_weight_and_fee(&proof.batched_proofs);
 
         // Verify the fee payment proof.
         let target = if proof.is_broadcast {
@@ -2446,6 +2448,14 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(().into())
+    }
+
+    pub fn relayer_batched_proofs_weight_and_fee(
+        batch: &BatchedProofs<PolymeshLimits>,
+    ) -> (Weight, BalanceOf<T>) {
+        let weight = <T as Config>::WeightInfo::relayer_batched_proofs(batch);
+        let fee = T::WeightToFee::weight_to_fee(&weight);
+        (weight, fee)
     }
 
     pub fn verify_fee_payment(

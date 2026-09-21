@@ -557,7 +557,19 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
 }
 
-polymesh_runtime_common::runtime_apis! {}
+polymesh_runtime_common::runtime_apis! {
+    impl pallet_confidential_assets_rpc_runtime_api::ConfidentialAssetsApi<Block> for Runtime {
+        fn relayer_submit_batched_fee_info(
+            batch: polymesh_dart::BatchedProofs<polymesh_dart::PolymeshLimits>,
+        ) -> pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
+            let (weight, fee) = ConfidentialAssets::relayer_batched_proofs_weight_and_fee(&batch);
+            pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
+                weight,
+                fee,
+            }
+        }
+    }
+}
 
 /// Trait for testing storage migrations.
 /// NB: Since this is defined outside the `impl_runtime_apis` macro, it is not callable in WASM.

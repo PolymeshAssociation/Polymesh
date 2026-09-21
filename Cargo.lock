@@ -8806,6 +8806,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-confidential-assets-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polymesh-dart",
+ "polymesh-primitives",
+ "scale-info",
+ "sp-api",
+ "sp-weights",
+]
+
+[[package]]
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
@@ -11098,6 +11110,7 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential-assets",
+ "pallet-confidential-assets-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-election-provider-multi-phase",
  "pallet-external-agents",
@@ -11279,6 +11292,7 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential-assets",
+ "pallet-confidential-assets-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-election-provider-multi-phase",
  "pallet-external-agents",

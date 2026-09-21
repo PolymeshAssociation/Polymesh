@@ -636,6 +636,18 @@ mod benches {
 }
 
 polymesh_runtime_common::runtime_apis! {
+    impl pallet_confidential_assets_rpc_runtime_api::ConfidentialAssetsApi<Block> for Runtime {
+        fn relayer_submit_batched_fee_info(
+            batch: polymesh_dart::BatchedProofs<polymesh_dart::PolymeshLimits>,
+        ) -> pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
+            let (weight, fee) = ConfidentialAssets::relayer_batched_proofs_weight_and_fee(&batch);
+            pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
+                weight,
+                fee,
+            }
+        }
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         #[allow(non_local_definitions, deprecated)]
