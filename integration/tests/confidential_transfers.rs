@@ -134,7 +134,7 @@ mod confidential_assets_tests {
         user.fee_account_topup(100_000_000).await?;
 
         // Set the relayer for the fee account.
-        user.set_relayer(relayer).await;
+        user.set_relayer(relayer, true).await;
 
         let asset = asset_task.await??;
         // Create a settlement proof to be submitted using a relayer.
