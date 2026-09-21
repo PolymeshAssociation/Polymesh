@@ -2409,7 +2409,14 @@ impl<T: Config> Pallet<T> {
         let batch_tx_fee = T::WeightToFee::weight_to_fee(&batch_weight);
 
         // Verify the fee payment proof.
-        let batch_hash = proof.fee_payment_ctx();
+        let target = if proof.is_broadcast {
+            // If the proof is broadcast, anyone can submit it and receive the fee.
+            None
+        } else {
+            // Otherwise, only the relayer who submits the proof can receive the fee.
+            Some(relayer.encode())
+        };
+        let batch_hash = proof.fee_payment_ctx(target.as_deref());
         let verify_res =
             Self::verify_fee_payment(relayer.clone(), batch_tx_fee, batch_hash, proof.fee_payment);
 
