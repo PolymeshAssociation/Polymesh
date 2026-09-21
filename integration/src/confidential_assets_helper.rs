@@ -1,4 +1,5 @@
 use ark_ec::short_weierstrass::SWCurveConfig;
+use polymesh_api_tester::AccountId;
 use polymesh_dart::{
     BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, FeeAccountAssetState,
     FeeAccountRegistrationProof, FeeAccountTopupProof, FeePaymentWithBatchedProofs,
@@ -396,13 +397,24 @@ impl DartUserFeeAccountAssetState {
 
 /// Dart private proof submission method.
 pub enum DartProofSubmissionMethod {
+    /// Direct submission method.
     Direct,
-    Relayer(DartUser),
+    /// Relayer submission method. The boolean indicates whether the fee payment is a broadcast type.
+    Relayer(DartUser, bool),
 }
 
 impl DartProofSubmissionMethod {
+    /// Returns true if the submission method is a relayer.
     pub fn is_relayer(&self) -> bool {
-        matches!(self, DartProofSubmissionMethod::Relayer(_))
+        matches!(self, DartProofSubmissionMethod::Relayer(_, _))
+    }
+
+    /// Returns the relayer's AccountId if the submission method is a relayer and isn't a broadcast type.
+    pub async fn relayer_account_id(&self) -> Option<AccountId> {
+        match self {
+            DartProofSubmissionMethod::Relayer(relayer, false) => Some(relayer.account_id().await),
+            _ => None,
+        }
     }
 }
 
@@ -416,6 +428,7 @@ pub struct DartProofSubmitter {
 }
 
 impl DartProofSubmitter {
+    /// Creates a new DartProofSubmitter with the given user and account key pair.
     pub fn new(user: User, account: AccountKeyPair) -> Self {
         let api = user.api.clone();
         Self {
@@ -427,8 +440,14 @@ impl DartProofSubmitter {
         }
     }
 
+    /// Returns the on-chain identity of the user.
     pub fn did(&self) -> IdentityId {
         self.user.did.unwrap_or_default()
+    }
+
+    /// Returns the account ID of the user.
+    pub fn account_id(&self) -> AccountId {
+        self.user.account()
     }
 
     pub async fn query_account_did(
@@ -566,6 +585,7 @@ impl DartProofSubmitter {
     pub async fn fee_payment_batch(
         &mut self,
         amount: DartBalance,
+        target: Option<AccountId>,
         batched: BatchedProofs<()>,
     ) -> Result<FeePaymentWithBatchedProofs<()>> {
         // Topup our fee account if needed.
@@ -581,11 +601,13 @@ impl DartProofSubmitter {
 
         // Generate fee account topup proof.
         let mut rng = rand::thread_rng();
+        let target = target.map(|acc| acc.encode());
         Ok(FeePaymentWithBatchedProofs::new(
             &mut rng,
             &self.account,
             batched,
             fee_state.as_mut(),
+            target.as_deref(),
             amount,
             &fee_account_lookup,
         )?)
@@ -618,9 +640,10 @@ impl DartProofSubmitter {
             // TODO: calculate tx fees based on batched proofs.
             let tx_fee = 3_000_000u64 * (proof.proofs.len() as u64);
 
-            let fee_payment_batch = self.fee_payment_batch(tx_fee, proof).await?;
+            let target = self.method.relayer_account_id().await;
+            let fee_payment_batch = self.fee_payment_batch(tx_fee, target, proof).await?;
 
-            if let DartProofSubmissionMethod::Relayer(ref mut relayer) = self.method {
+            if let DartProofSubmissionMethod::Relayer(ref mut relayer, _) = self.method {
                 let mut res = relayer.relayer_submit_batch(fee_payment_batch).await?;
 
                 // Update the fee state with the new leaf index.
@@ -768,6 +791,11 @@ pub struct DartUserInner {
 }
 
 impl DartUserInner {
+    /// Creates a new DartUserInner with the given user.
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - The user for whom to create the DartUserInner.
     pub fn new(user: User) -> Self {
         let keys = create_keys();
         Self {
@@ -779,16 +807,35 @@ impl DartUserInner {
         }
     }
 
+    /// Returns the Confidential Account Public Keys of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountPublicKeys` - The confidential account public keys of the user.
     pub fn public_keys(&self) -> AccountPublicKeys {
         self.keys.public_keys()
     }
 
+    /// Returns the on-chain identity (DID) of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `IdentityId` - The on-chain identity of the user.
     pub fn did(&self) -> IdentityId {
         self.submitter.did()
     }
 
-    pub fn set_relayer(&mut self, relayer: DartUser) {
-        self.submitter.method = DartProofSubmissionMethod::Relayer(relayer);
+    /// Returns the account ID of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountId` - The account ID of the user.
+    pub fn account_id(&self) -> AccountId {
+        self.submitter.account_id()
+    }
+
+    pub fn set_relayer(&mut self, relayer: DartUser, is_broadcast: bool) {
+        self.submitter.method = DartProofSubmissionMethod::Relayer(relayer, is_broadcast);
     }
 
     pub fn is_account_asset_registered(&self, asset_id: DartAssetId) -> bool {
@@ -1698,16 +1745,35 @@ impl DartUser {
         Self(Arc::new(RwLock::new(DartUserInner::new(user))))
     }
 
+    /// Returns the confidential account public keys of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountPublicKeys` - The confidential account public keys of the user.
     pub async fn public_keys(&self) -> AccountPublicKeys {
         self.0.read().await.public_keys()
     }
 
+    /// Returns the on-chain identity (DID) of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `IdentityId` - The on-chain identity of the user.
     pub async fn did(&self) -> IdentityId {
         self.0.read().await.did()
     }
 
-    pub async fn set_relayer(&self, relayer: DartUser) {
-        self.0.write().await.set_relayer(relayer);
+    /// Returns the account ID of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountId` - The account ID of the user.
+    pub async fn account_id(&self) -> AccountId {
+        self.0.read().await.account_id()
+    }
+
+    pub async fn set_relayer(&self, relayer: DartUser, is_broadcast: bool) {
+        self.0.write().await.set_relayer(relayer, is_broadcast);
     }
 
     pub async fn register_encryption_key(&self) -> Result<()> {
@@ -1980,7 +2046,7 @@ impl DartAssetTesterInner {
             let relayer = tester.user(relayer_name);
             for (name, user) in tester.users.iter_mut() {
                 if name != relayer_name {
-                    user.set_relayer(relayer.clone()).await;
+                    user.set_relayer(relayer.clone(), false).await;
                 }
             }
         }
