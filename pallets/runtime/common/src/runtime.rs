@@ -677,23 +677,7 @@ macro_rules! misc_pallet_impls {
                     // so the actual block number is `n`.
                     .saturating_sub(1);
                 let era = generic::Era::mortal(period, current_block);
-                let tx_ext: TxExtension = (
-                    (
-                        frame_system::AuthorizeCall::new(),
-                        frame_system::CheckNonZeroSender::new(),
-                        frame_system::CheckSpecVersion::new(),
-                        frame_system::CheckTxVersion::new(),
-                        frame_system::CheckGenesis::new(),
-                    ),
-                    frame_system::CheckEra::from(era),
-                    frame_system::CheckNonce::from(nonce),
-                    frame_system::CheckWeight::new(),
-                    polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
-                    pallet_permissions::StoreCallMetadata::new(),
-                    frame_metadata_hash_extension::CheckMetadataHash::new(false),
-                    pallet_revive::evm::tx_extension::SetOrigin::default(),
-                    frame_system::WeightReclaim::new(),
-                );
+                let tx_ext = native_tx_extension(nonce, tip, era);
                 let raw_payload = SignedPayload::new(call, tx_ext)
                     .map_err(|e| {
                         log::warn!("Unable to create signed payload: {:?}", e);
@@ -739,6 +723,7 @@ macro_rules! misc_pallet_impls {
                     polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
                     pallet_permissions::StoreCallMetadata::<Runtime>::new(),
                     frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    ConfidentialAssetsTxExtension::default(),
                     pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )
@@ -925,9 +910,35 @@ macro_rules! runtime_apis {
             polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
             frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+            ConfidentialAssetsTxExtension,
             pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
             frame_system::WeightReclaim<Runtime>,
         );
+
+        pub fn native_tx_extension(
+            nonce: Nonce,
+            tip: Balance,
+            era: generic::Era,
+        ) -> TxExtension {
+            (
+                (
+                    frame_system::AuthorizeCall::<Runtime>::new(),
+                    frame_system::CheckNonZeroSender::<Runtime>::new(),
+                    frame_system::CheckSpecVersion::<Runtime>::new(),
+                    frame_system::CheckTxVersion::<Runtime>::new(),
+                    frame_system::CheckGenesis::<Runtime>::new(),
+                ),
+                frame_system::CheckEra::<Runtime>::from(era),
+                frame_system::CheckNonce::<Runtime>::from(nonce),
+                frame_system::CheckWeight::<Runtime>::new(),
+                polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+                pallet_permissions::StoreCallMetadata::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                ConfidentialAssetsTxExtension::default(),
+                pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+                frame_system::WeightReclaim::<Runtime>::new(),
+            )
+        }
 
         #[derive(Clone, PartialEq, Eq, Debug)]
         pub struct EthExtraImpl;
@@ -951,6 +962,7 @@ macro_rules! runtime_apis {
                     polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                     frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    ConfidentialAssetsTxExtension::default(),
                     pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )

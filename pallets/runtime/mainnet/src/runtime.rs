@@ -44,6 +44,7 @@ use crate::constants::time::*;
 /// 100% goes to the block author.
 pub type DealWithFees = Author<Runtime>;
 pub type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<Runtime>;
+pub type ConfidentialAssetsTxExtension = ();
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
