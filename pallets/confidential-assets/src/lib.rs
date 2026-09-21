@@ -410,6 +410,7 @@ where
         let minimum_fee =
             pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
         let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
+        log::debug!(target: "confidential-assets", "Amount: {:?}, Minimum fee: {:?}, Maximum fee: {:?}", amount, minimum_fee, maximum_fee);
         if amount < minimum_fee || amount > maximum_fee {
             return Err(InvalidTransaction::Payment.into());
         }
