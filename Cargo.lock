@@ -8809,12 +8809,10 @@ dependencies = [
 name = "pallet-confidential-assets-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "pallet-confidential-assets",
  "parity-scale-codec",
  "polymesh-dart",
- "polymesh-primitives",
- "scale-info",
  "sp-api",
- "sp-weights",
 ]
 
 [[package]]
