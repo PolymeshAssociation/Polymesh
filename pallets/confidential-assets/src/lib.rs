@@ -15,15 +15,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use codec::{Compact, Decode, Encode};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::{
-    dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{
+        DispatchClass, DispatchErrorWithPostInfo, DispatchInfo, DispatchResult,
+        DispatchResultWithPostInfo, Pays,
+    },
     ensure,
     traits::{
         fungible::{Inspect, Mutate},
         tokens::Preservation::Expendable,
-        Get,
+        Get, IsSubType,
     },
     weights::{Weight, WeightToFee},
     BoundedVec, PalletId,
@@ -35,11 +38,15 @@ use polymesh_primitives::{
     Balance, IdentityId,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, DispatchInfoOf, Dispatchable, TransactionExtension};
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+};
 use sp_runtime::Saturating;
 use sp_runtime::{BoundedBTreeMap, BoundedBTreeSet};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::From;
+use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
 use polymesh_dart::{
@@ -68,6 +75,15 @@ use polymesh_worker_protocol_dart_v1::{UpdateAssetStateRequest, VerifyDartAssetR
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct RelayerSubmitBatchedFeeInfo<FeeBalance = Balance> {
+    /// Dispatch weight including transaction extensions, but excluding base extrinsic weight.
+    pub weight: Weight,
+    /// Transaction fee including base, length, and adjusted weight fees.
+    pub fee: FeeBalance,
+}
 
 pub type AuditorKeys =
     BoundedBTreeSet<EncryptionPublicKey, <PolymeshLimits as DartLimits>::MaxAssetAuditors>;
@@ -307,6 +323,120 @@ pub trait WeightInfo {
     }
 }
 
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CheckRelayerSubmitBatchedProofs<T>(PhantomData<T>);
+
+impl<T> Default for CheckRelayerSubmitBatchedProofs<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> CheckRelayerSubmitBatchedProofs<T> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T: Config> sp_std::fmt::Debug for CheckRelayerSubmitBatchedProofs<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "CheckRelayerSubmitBatchedProofs")
+    }
+}
+
+impl<T: Config + Send + Sync> CheckRelayerSubmitBatchedProofs<T>
+where
+    T::RuntimeCall: IsSubType<Call<T>>,
+{
+    fn proof(call: &T::RuntimeCall) -> Option<&FeePaymentWithBatchedProofs<PolymeshLimits>> {
+        match call.is_sub_type()? {
+            Call::relayer_submit_batched_proofs { proof } => Some(proof),
+            _ => None,
+        }
+    }
+
+    pub fn relayer_submit_batched_proofs_weight() -> Weight {
+        T::DbWeight::get().reads(2)
+    }
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
+    for CheckRelayerSubmitBatchedProofs<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo> + IsSubType<Call<T>>,
+    BalanceOf<T>: Send + Sync + Into<u128>,
+{
+    const IDENTIFIER: &'static str = "CheckRelayerSubmitBatchedProofs";
+    type Implicit = ();
+    type Val = ();
+    type Pre = ();
+
+    fn weight(&self, call: &T::RuntimeCall) -> Weight {
+        if Self::proof(call).is_some() {
+            Self::relayer_submit_batched_proofs_weight()
+        } else {
+            Weight::zero()
+        }
+    }
+
+    fn validate(
+        &self,
+        origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+        _: (),
+        _implication: &impl Encode,
+        _source: TransactionSource,
+    ) -> Result<
+        (
+            ValidTransaction,
+            Self::Val,
+            <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        let Some(proof) = Self::proof(call) else {
+            return Ok((ValidTransaction::default(), (), origin));
+        };
+
+        if FeeAccountStateCommitmentNullifiers::<T>::contains_key(&proof.fee_payment.nullifier) {
+            return Err(InvalidTransaction::Stale.into());
+        }
+
+        let amount = Pallet::<T>::amount_to_balance(proof.fee_payment.amount)
+            .map_err(|_| InvalidTransaction::Payment)?;
+        let minimum_fee =
+            pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
+        let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
+        if amount < minimum_fee || amount > maximum_fee {
+            return Err(InvalidTransaction::Payment.into());
+        }
+
+        let valid = ValidTransaction {
+            provides: sp_std::vec![(
+                b"confidential-assets-fee-nullifier",
+                &proof.fee_payment.nullifier
+            )
+                .encode(),],
+            ..Default::default()
+        };
+        Ok((valid, (), origin))
+    }
+
+    fn prepare(
+        self,
+        _val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        Ok(())
+    }
+}
+
 /// Confidential asset details.
 #[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -356,6 +486,10 @@ pub mod pallet {
         /// Maximum total supply.
         #[pallet::constant]
         type MaxTotalSupply: Get<Balance>;
+
+        /// Maximum fee a relayer may charge above the transaction fee.
+        #[pallet::constant]
+        type MaxRelayerCommission: Get<BalanceOf<Self>>;
 
         /// Maximum asset data length.
         #[pallet::constant]
@@ -2407,9 +2541,6 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // Calculate the batch weight and corresponding tx fee.
-        let (_, batch_tx_fee) = Self::relayer_batched_proofs_weight_and_fee(&proof.batched_proofs);
-
         // Verify the fee payment proof.
         let target = if proof.is_broadcast {
             // If the proof is broadcast, anyone can submit it and receive the fee.
@@ -2419,8 +2550,7 @@ impl<T: Config> Pallet<T> {
             Some(relayer.encode())
         };
         let batch_hash = proof.fee_payment_ctx(target.as_deref());
-        let verify_res =
-            Self::verify_fee_payment(relayer.clone(), batch_tx_fee, batch_hash, proof.fee_payment);
+        let verify_res = Self::verify_fee_payment(relayer.clone(), batch_hash, proof.fee_payment);
 
         // If the fee payment verification fails, return an error but still charge the relayer for the verification cost.
         let amount = match verify_res {
@@ -2450,29 +2580,38 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    pub fn relayer_batched_proofs_weight_and_fee(
+    pub fn relayer_submit_batched_fee_info(
         batch: &BatchedProofs<PolymeshLimits>,
-    ) -> (Weight, BalanceOf<T>) {
-        let weight = <T as Config>::WeightInfo::relayer_batched_proofs(batch);
-        let fee = T::WeightToFee::weight_to_fee(&weight);
-        (weight, fee)
+        extension_weight: Weight,
+        len: u32,
+    ) -> RelayerSubmitBatchedFeeInfo<BalanceOf<T>>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+    {
+        let dispatch_info = DispatchInfo {
+            call_weight: <T as Config>::WeightInfo::relayer_batched_proofs(batch),
+            extension_weight,
+            class: DispatchClass::Normal,
+            pays_fee: Pays::Yes,
+        };
+        RelayerSubmitBatchedFeeInfo {
+            weight: dispatch_info.total_weight(),
+            fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
+                len,
+                &dispatch_info,
+                0u32.into(),
+            ),
+        }
     }
 
     pub fn verify_fee_payment(
         relayer: T::AccountId,
-        batch_tx_fee: BalanceOf<T>,
         batch_hash: ProofHash,
         proof: FeeAccountPaymentProof<PolymeshLimits>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         let account_state_commitment = proof.updated_account_state_commitment;
         let nullifier = proof.nullifier;
         let amount = Self::amount_to_balance(proof.amount)?;
-
-        // TODO: Put a cap on the maximum commission fee that a relayer can charge.
-        ensure!(
-            amount >= batch_tx_fee,
-            Error::<T>::InsufficientFeePaymentAmount
-        );
 
         // Ensure the fee asset id is valid.  Only one is supported now.
         ensure!(

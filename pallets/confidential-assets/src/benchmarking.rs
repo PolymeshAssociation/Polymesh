@@ -464,7 +464,6 @@ benchmarks! {
 
         // Generate the fee payment proof.
         let amount = 42u64;
-        let batch_tx_fee = Pallet::<T>::amount_to_balance(amount).expect("Failed to convert amount to balance");
         let batch_hash = ProofHash([42u8; 32]);
         let req = GenerateDartProofRequest::FeeAccountPayment {
             ctx: batch_hash,
@@ -483,7 +482,6 @@ benchmarks! {
     }: {
         Pallet::<T>::verify_fee_payment(
             relayer,
-            batch_tx_fee,
             batch_hash,
             proof,
         ).expect("Failed to verify fee payment proof");

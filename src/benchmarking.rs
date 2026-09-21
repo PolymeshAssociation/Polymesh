@@ -16,7 +16,7 @@ use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
 use polymesh_primitives::{AccountId, Balance, Signature};
 use polymesh_runtime_common::BlockHashCount;
 use polymesh_runtime_develop::runtime::RuntimeCall as DevRuntimeCall;
-use polymesh_runtime_develop::runtime::{BalancesCall, TxExtension, VERSION};
+use polymesh_runtime_develop::runtime::{BalancesCall, VERSION};
 use polymesh_runtime_develop::runtime::{SignedPayload, SystemCall, UncheckedExtrinsic};
 
 use crate::service::FullClient;
@@ -124,25 +124,10 @@ pub fn create_benchmark_extrinsic<R>(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let tx_ext: TxExtension = (
-        (
-            frame_system::AuthorizeCall::new(),
-            frame_system::CheckNonZeroSender::new(),
-            frame_system::CheckSpecVersion::new(),
-            frame_system::CheckTxVersion::new(),
-            frame_system::CheckGenesis::new(),
-        ),
-        frame_system::CheckEra::from(sp_runtime::generic::Era::mortal(
-            period,
-            best_block.saturated_into(),
-        )),
-        frame_system::CheckNonce::from(nonce),
-        frame_system::CheckWeight::new(),
-        polymesh_transaction_payment::ChargeTransactionPayment::from(0),
-        pallet_permissions::StoreCallMetadata::new(),
-        frame_metadata_hash_extension::CheckMetadataHash::new(false),
-        pallet_revive::evm::tx_extension::SetOrigin::default(),
-        frame_system::WeightReclaim::new(),
+    let tx_ext = polymesh_runtime_develop::runtime::native_tx_extension(
+        nonce,
+        0,
+        sp_runtime::generic::Era::mortal(period, best_block.saturated_into()),
     );
 
     let raw_payload = SignedPayload::from_raw(
@@ -162,6 +147,7 @@ pub fn create_benchmark_extrinsic<R>(
             (),
             (),
             None,
+            (),
             (),
             (),
         ),
