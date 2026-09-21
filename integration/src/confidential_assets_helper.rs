@@ -638,7 +638,7 @@ impl DartProofSubmitter {
         //if let DartProofSubmissionMethod::Relayer(ref mut relayer) = self.method {
         if self.method.is_relayer() {
             // TODO: calculate tx fees based on batched proofs.
-            let tx_fee = 3_000_000u64 * (proof.proofs.len() as u64);
+            let tx_fee = 4_000_000u64 * (proof.proofs.len() as u64);
 
             let target = self.method.relayer_account_id().await;
             let fee_payment_batch = self.fee_payment_batch(tx_fee, target, proof).await?;
