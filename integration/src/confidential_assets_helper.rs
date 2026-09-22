@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 
 use anyhow::Result;
 use codec::{Decode, Encode};
+use sp_weights::Weight;
 
 use polymesh_dart::curve_tree::{
     AccountTreeConfig, CurveTreeWitnessPath, FeeAccountTreeConfig, LeafPathAndRoot,
@@ -29,9 +30,11 @@ use polymesh_dart::{
 };
 pub use polymesh_dart::{AccountAssetState, AccountKeys, AssetId as DartAssetId};
 
+pub use polymesh_api::ChainApi;
 pub use polymesh_api::{Api, TransactionResults};
 pub use polymesh_api_tester::{
-    ConfidentialAssetsEvent, IdentityId, PolymeshTester, RuntimeEvent, User,
+    ConfidentialAssetsEvent, IdentityId, PolymeshTester, RuntimeEvent, TransactionPaymentEvent,
+    User,
 };
 
 pub mod curve_tree;
@@ -64,6 +67,30 @@ pub fn print_curve_tree_path<const L: usize, P0: SWCurveConfig + Copy, P1: SWCur
             i, node.child_node_to_randomize
         );
     }
+}
+
+/// Search transaction events for the actual network fee paid, from `TransactionPayment`.
+pub async fn get_transaction_fee_paid(res: &mut TransactionResults) -> Result<Option<DartBalance>> {
+    // Ensure the transaction was successful.
+    res.ok().await?;
+    wait_for_results(res).await?;
+
+    Ok(res.events().await?.and_then(|events| {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::TransactionPayment(TransactionPaymentEvent::TransactionFeePaid {
+                    actual_fee,
+                    ..
+                }) => {
+                    return DartBalance::try_from(*actual_fee).ok();
+                }
+                _ => {
+                    log::debug!("Skipping event: {:?}", rec.event);
+                }
+            }
+        }
+        None
+    }))
 }
 
 /// Search transaction events for DartAsset AssetId.
@@ -173,6 +200,43 @@ pub async fn get_settlement_ref(res: &mut TransactionResults) -> Result<Option<S
 pub fn to_scale<T1: Encode, T2: Decode>(value: &T1) -> T2 {
     let encoded = value.encode();
     Decode::decode(&mut encoded.as_slice()).expect("Failed to decode")
+}
+
+/// Mirrors `pallet_confidential_assets::RelayerSubmitBatchedFeeInfo`.
+///
+/// There's no generated Rust type for this since it's only used by the `ConfidentialAssetsApi`
+/// Runtime API, which isn't part of the chain metadata that `polymesh-api` generates code from.
+/// `FeeBalance` is the chain's `Balance` type (`u128`), not `polymesh_dart::Balance` (`u64`).
+#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug)]
+pub struct RelayerSubmitBatchedFeeInfo<FeeBalance = u128> {
+    /// Dispatch weight including transaction extensions, but excluding base extrinsic weight.
+    pub weight: Weight,
+    /// Transaction fee including base, length, and adjusted weight fees.
+    pub fee: FeeBalance,
+}
+
+/// Query the `ConfidentialAssetsApi_relayer_submit_batched_fee_info` Runtime API for the weight
+/// and fee of a `relayer_submit_batched_proofs` extrinsic carrying `batch`.
+///
+/// The fee payment proof's length is estimated by the runtime from the fee account curve tree
+/// height at `at`, since the proof itself isn't available yet at this point. `at` must match the
+/// block used to fetch the fee account's curve tree path/root for the proof being generated,
+/// since the curve tree height (and thus the estimated proof size) can change from block to
+/// block.
+pub async fn relayer_submit_batched_fee_info(
+    api: &Api,
+    batch: &BatchedProofs<()>,
+    at: Option<polymesh_api::client::BlockHash>,
+) -> Result<RelayerSubmitBatchedFeeInfo> {
+    let params = batch.encode();
+    Ok(api
+        .client()
+        .state_call(
+            "ConfidentialAssetsApi_relayer_submit_batched_fee_info",
+            &params,
+            at,
+        )
+        .await?)
 }
 
 pub fn create_keys() -> AccountKeys {
@@ -584,22 +648,45 @@ impl DartProofSubmitter {
 
     pub async fn fee_payment_batch(
         &mut self,
-        amount: DartBalance,
         target: Option<AccountId>,
         batched: BatchedProofs<()>,
     ) -> Result<FeePaymentWithBatchedProofs<()>> {
+        // Fixed, conservative balance used only to decide whether the fee account needs a topup.
+        // The actual fee amount used for the payment proof below is always the Runtime API
+        // estimate, fetched at the same block as the fee account's curve tree path/root.
+        const FEE_TOPUP_CHECK_AMOUNT: DartBalance = 10_000_000;
+
         // Topup our fee account if needed.
-        self.fee_account_topup_if_needed(amount, false).await?;
+        self.fee_account_topup_if_needed(FEE_TOPUP_CHECK_AMOUNT, false)
+            .await?;
 
         let fee_state = self
             .fee_state
             .as_mut()
             .expect("Shouldn't happen since we just topped up");
 
-        // Lookup our current account asset state in the on-chain account tree.
+        // Lookup our current fee account state in the on-chain fee account curve tree. This
+        // fixes the curve tree height/root that both the fee estimate below and the payment
+        // proof must agree on.
         let fee_account_lookup = fee_state.get_path_and_root().await?;
+        let block_hash = self
+            .api
+            .client()
+            .get_block_hash(fee_account_lookup.block_number)
+            .await?;
 
-        // Generate fee account topup proof.
+        // Query the estimated tx fee for this batch from the `ConfidentialAssetsApi` Runtime API,
+        // at the same block used for the path/root above, so the proof's curve tree height
+        // matches what the Runtime API assumed when estimating the fee.
+        let fee_info = relayer_submit_batched_fee_info(&self.api, &batched, block_hash).await?;
+        log::debug!(
+            "FeePaymentSubmitBatch: Relayer submit batched fee info: fee_info={fee_info:?}"
+        );
+        let tx_fee = DartBalance::try_from(fee_info.fee).map_err(|_| {
+            anyhow::anyhow!("Relayer fee {} overflows DartBalance", fee_info.fee)
+        })?;
+
+        // Generate fee payment proof.
         let mut rng = rand::thread_rng();
         let target = target.map(|acc| acc.encode());
         Ok(FeePaymentWithBatchedProofs::new(
@@ -608,7 +695,7 @@ impl DartProofSubmitter {
             batched,
             fee_state.as_mut(),
             target.as_deref(),
-            amount,
+            tx_fee,
             &fee_account_lookup,
         )?)
     }
@@ -637,11 +724,12 @@ impl DartProofSubmitter {
 
         //if let DartProofSubmissionMethod::Relayer(ref mut relayer) = self.method {
         if self.method.is_relayer() {
-            // TODO: calculate tx fees based on batched proofs.
-            let tx_fee = 4_000_000u64 * (proof.proofs.len() as u64);
-
             let target = self.method.relayer_account_id().await;
-            let fee_payment_batch = self.fee_payment_batch(tx_fee, target, proof).await?;
+            let fee_payment_batch = self.fee_payment_batch(target, proof).await?;
+            log::debug!(
+                "FeePaymentSubmitBatch: Fee payment batch actual encoded length: {}",
+                fee_payment_batch.encode().len()
+            );
 
             if let DartProofSubmissionMethod::Relayer(ref mut relayer, _) = self.method {
                 let mut res = relayer.relayer_submit_batch(fee_payment_batch).await?;
@@ -649,6 +737,10 @@ impl DartProofSubmitter {
                 // Update the fee state with the new leaf index.
                 self.update_leaf_index(&mut res, "Fee payment batch")
                     .await?;
+
+                if let Some(actual_fee) = get_transaction_fee_paid(&mut res).await? {
+                    log::debug!("FeePaymentSubmitBatch: Actual network tx fee paid: {actual_fee}");
+                }
 
                 Ok(res)
             } else {

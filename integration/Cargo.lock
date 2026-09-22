@@ -4955,9 +4955,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-client"
-version = "3.12.0"
+version = "3.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32233c0530da190b2a7ff2f2ea4c6be9cc00049e9939917edad7bf2497c00be5"
+checksum = "bb493bbd42fae60270c3f9427ab133a404d1cafb6b1dfb215d64ac6481cc7222"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -5076,7 +5076,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#ebe411f834c9efb8bbca533ce1086f2afb63bf99"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#60d574dc0cfaa278a880a247ede0a6f91ba7edef"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -5112,7 +5112,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#ebe411f834c9efb8bbca533ce1086f2afb63bf99"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#60d574dc0cfaa278a880a247ede0a6f91ba7edef"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -5143,7 +5143,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#ebe411f834c9efb8bbca533ce1086f2afb63bf99"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#60d574dc0cfaa278a880a247ede0a6f91ba7edef"
 
 [[package]]
 name = "polymesh-precompiles"
