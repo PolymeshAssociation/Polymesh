@@ -7,12 +7,13 @@ use polymesh_dart::{BatchedProofs, PolymeshLimits};
 
 sp_api::decl_runtime_apis! {
     pub trait ConfidentialAssetsApi {
-        /// Returns the weight and fee for a signed `relayer_submit_batched_proofs` extrinsic.
+        /// Returns the weight and fee for a signed `relayer_submit_batched_proofs` extrinsic
+        /// carrying `batch`.
         ///
-        /// `len` is the anticipated SCALE-encoded length of the complete signed extrinsic.
+        /// The fee payment proof's length is estimated from the current fee account curve
+        /// tree height, since the proof itself isn't available yet at this point.
         fn relayer_submit_batched_fee_info(
             batch: BatchedProofs<PolymeshLimits>,
-            len: u32,
         ) -> RelayerSubmitBatchedFeeInfo;
     }
 }
