@@ -124,6 +124,16 @@ pub const MAX_ROOT_PRUNING_BLOCKS: u32 = 10;
 /// Avoid wasting time checking recent blocks, since the roots in those blocks will not be older than the maximum root age.
 pub const RECENT_BLOCKS_TO_KEEP: u32 = 100;
 
+/// Fixed byte overhead of a signed `relayer_submit_batched_proofs` extrinsic (preamble, address,
+/// signature, and transaction extensions), used by `relayer_submit_batched_fee_info` to estimate
+/// the extrinsic's total length.
+///
+/// A real extrinsic's overhead varies with its account's nonce size, era, and signature scheme,
+/// so this deliberately overestimates the common case; the excess just becomes extra commission
+/// for the relayer, whereas underestimating it would make the estimated minimum fee payment
+/// insufficient to cover the actual transaction fee.
+pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
+
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
 #[cfg(feature = "testing")]
@@ -410,7 +420,8 @@ where
         let minimum_fee =
             pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
         let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
-        log::debug!(target: "confidential-assets", "Amount: {:?}, Minimum fee: {:?}, Maximum fee: {:?}", amount, minimum_fee, maximum_fee);
+        let commission = amount.saturating_sub(minimum_fee);
+        log::debug!(target: "confidential-assets", "tx_len: {:?}, Amount: {:?}, Minimum fee: {:?}, Maximum fee: {:?}, Commission: {:?}", len, amount, minimum_fee, maximum_fee, commission);
         if amount < minimum_fee || amount > maximum_fee {
             return Err(InvalidTransaction::Payment.into());
         }
@@ -2584,7 +2595,6 @@ impl<T: Config> Pallet<T> {
     pub fn relayer_submit_batched_fee_info(
         batch: &BatchedProofs<PolymeshLimits>,
         extension_weight: Weight,
-        len: u32,
     ) -> RelayerSubmitBatchedFeeInfo<BalanceOf<T>>
     where
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
@@ -2595,6 +2605,11 @@ impl<T: Config> Pallet<T> {
             class: DispatchClass::Normal,
             pays_fee: Pays::Yes,
         };
+        let call_len = Self::estimate_relayer_submit_batched_len(batch);
+        let len_bytes = Compact(call_len).encoded_size() as u32;
+        let len = RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD
+            .saturating_add(call_len)
+            .saturating_add(len_bytes);
         RelayerSubmitBatchedFeeInfo {
             weight: dispatch_info.total_weight(),
             fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
@@ -2603,6 +2618,22 @@ impl<T: Config> Pallet<T> {
                 0u32.into(),
             ),
         }
+    }
+
+    /// Estimates the SCALE-encoded length of the `relayer_submit_batched_proofs` call itself
+    /// (excluding the extrinsic preamble, address, signature, and transaction extensions).
+    ///
+    /// The fee payment proof isn't available yet at this point (its size depends on the fee
+    /// amount, which is what we're trying to determine), so its length is estimated from the
+    /// current fee account curve tree height.
+    pub fn estimate_relayer_submit_batched_len(batch: &BatchedProofs<PolymeshLimits>) -> u32 {
+        // `estimate_encoded_size` requires a positive height; an empty tree still needs one level
+        // for the fee account's own registration/topup proof.
+        let height = FeeAccountCurveTreeHeight::<T>::get().max(1);
+        let fee_payment_proof_len =
+            FeeAccountPaymentProof::<PolymeshLimits>::estimate_encoded_size(height);
+        // +1 for `FeePaymentWithBatchedProofs::is_broadcast`, which isn't part of the payment proof.
+        batch.encoded_size() as u32 + fee_payment_proof_len as u32 + 1
     }
 
     pub fn verify_fee_payment(

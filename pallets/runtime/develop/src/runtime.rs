@@ -643,7 +643,6 @@ polymesh_runtime_common::runtime_apis! {
     impl pallet_confidential_assets_rpc_runtime_api::ConfidentialAssetsApi<Block> for Runtime {
         fn relayer_submit_batched_fee_info(
             batch: polymesh_dart::BatchedProofs<polymesh_dart::PolymeshLimits>,
-            len: u32,
         ) -> pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
             use sp_runtime::traits::TransactionExtension;
 
@@ -653,7 +652,7 @@ polymesh_runtime_common::runtime_apis! {
                 .saturating_add(
                     pallet_confidential_assets::CheckRelayerSubmitBatchedProofs::<Runtime>::relayer_submit_batched_proofs_weight(),
                 );
-            ConfidentialAssets::relayer_submit_batched_fee_info(&batch, extension_weight, len)
+            ConfidentialAssets::relayer_submit_batched_fee_info(&batch, extension_weight)
         }
     }
 
