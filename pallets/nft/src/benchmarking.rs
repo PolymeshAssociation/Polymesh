@@ -365,4 +365,46 @@ benchmarks! {
         }
     }
 
+    nft_transfer_report_best_case {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        // No statistics or compliance rules are set
+        let (asset_id, sender, receiver, _) =
+            setup_nft_transfer::<T>(&alice, &bob, 1, None, None, true, 0, false);
+    }: {
+        assert!(
+            Pallet::<T>::nft_transfer_report(
+                &sender,
+                &receiver,
+                &NFTs::new_unverified(asset_id, vec![NFTId(1)]),
+                false,
+                &mut weight_meter
+            )
+            .is_empty()
+        );
+    }
+
+    nft_transfer_report_worst_case {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        // Max Statistics and Compliance rules are set
+        let (asset_id, sender, receiver, _) =
+            setup_nft_transfer::<T>(&alice, &bob, 1, None, None, false, 0, false);
+    }: {
+        assert!(
+            Pallet::<T>::nft_transfer_report(
+                &sender,
+                &receiver,
+                &NFTs::new_unverified(asset_id, vec![NFTId(1)]),
+                false,
+                &mut weight_meter
+            )
+            .is_empty()
+        );
+    }
+
 }
