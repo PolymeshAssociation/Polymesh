@@ -1,0 +1,28 @@
+[package]
+name = "pallet-confidential-assets-rpc-runtime-api"
+version = "0.1.0"
+authors = ["PolymeshAssociation"]
+edition = "2021"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+pallet-confidential-assets = { workspace = true, default-features = false }
+polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"] }
+
+codec = { workspace = true, default-features = false, features = ["derive"] }
+sp-api = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+no_std = [
+    "pallet-confidential-assets/no_std",
+    "polymesh-dart/no_std",
+]
+std = [
+    "codec/std",
+    "pallet-confidential-assets/std",
+    "polymesh-dart/std",
+    "sp-api/std",
+]

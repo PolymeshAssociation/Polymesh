@@ -72,6 +72,21 @@ No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
   (:484-551); actual balance effects happen through each party's own proofs — sender finalizes
   with `sender_update_counter` (:361-385), receiver credits funds with `receiver_claim`
   (:458-482). When pending finalizations hit 0, storage is pruned (`finalize` :554-597).
+  Finalization also fires on the **Rejected** path: revert affirmations
+  (`sender_revert_affirmation` / `receiver_revert_affirmation` / mediator reject) finalize
+  the settlement once all pending finals complete — rejected settlements must not get stuck.
+- Finalization prunes **everything except the `SettlementState` Finalized tombstone**:
+  `SettlementPendingFinalizations`, `SettlementMemo`, `SettlementLegCount`, `SettlementLegs`,
+  `LegAffirmationStatus` and `LegMediators` are all removed. The tombstone is kept **forever**
+  — it is the settlement-proof replay guard in `base_create_settlement`
+  (`SettlementAlreadyExists`).
+- Recovery for already-stuck settlements on Staging/Testnet (rejected-but-never-finalized
+  state) is handled by the
+  `StorageVersion` 0→1 migration (`migrate_to_v1` in `settlement.rs`, run from
+  `on_runtime_upgrade`), not an extrinsic — only those two networks ever held live DART
+  settlements. The same migration translates every v0.1 settlement leg to v1.0 via
+  `LegEncrypted::from_v0()` (unconvertible legs are left untouched); it is version-gated
+  (runs at most once) and a no-op on fresh chains.
 - Reverts: sender/receiver can revert affirmations while Pending/Rejected (:390-455); reverting
   a Pending settlement rejects it (:416-419). Transition guards in `set_party_status`
   (:135-198).

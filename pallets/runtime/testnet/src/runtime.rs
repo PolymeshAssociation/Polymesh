@@ -46,6 +46,8 @@ use crate::constants::time::*;
 /// 100% goes to the block author.
 type DealWithFees = Author<Runtime>;
 type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<Runtime>;
+type ConfidentialAssetsTxExtension =
+    pallet_confidential_assets::CheckRelayerSubmitBatchedProofs<Runtime>;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -111,6 +113,7 @@ parameter_types! {
 
     // Confidential asset parameters
     pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMaxRelayerCommission: Balance = 10 * ONE_POLY;
     pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
     pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
     pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
@@ -538,6 +541,7 @@ impl pallet_confidential_assets::Config for Runtime {
     type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
 
     type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+    type MaxRelayerCommission = ConfidentialAssetsMaxRelayerCommission;
     type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
 
     // These are for publishing as constants in the pallet metadata.
@@ -557,7 +561,23 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
 }
 
-polymesh_runtime_common::runtime_apis! {}
+polymesh_runtime_common::runtime_apis! {
+    impl pallet_confidential_assets_rpc_runtime_api::ConfidentialAssetsApi<Block> for Runtime {
+        fn relayer_submit_batched_fee_info(
+            batch: polymesh_dart::BatchedProofs<polymesh_dart::PolymeshLimits>,
+        ) -> pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
+            use sp_runtime::traits::TransactionExtension;
+
+            let extension = native_tx_extension(0, 0, generic::Era::Immortal);
+            let extension_weight = extension
+                .weight(&RuntimeCall::System(SystemCall::remark { remark: Vec::new() }))
+                .saturating_add(
+                    pallet_confidential_assets::CheckRelayerSubmitBatchedProofs::<Runtime>::relayer_submit_batched_proofs_weight(),
+                );
+            ConfidentialAssets::relayer_submit_batched_fee_info(&batch, extension_weight)
+        }
+    }
+}
 
 /// Trait for testing storage migrations.
 /// NB: Since this is defined outside the `impl_runtime_apis` macro, it is not callable in WASM.

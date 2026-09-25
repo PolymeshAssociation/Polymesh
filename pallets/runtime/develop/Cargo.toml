@@ -101,6 +101,7 @@ frame-support = { workspace = true, default-features = false }
 # RPC
 frame-system-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-confidential-assets-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-staking-runtime-api = { workspace = true, default-features = false }
 node-rpc-runtime-api = { workspace = true, default-features = false }
@@ -144,6 +145,7 @@ no_std = [
     "polymesh-primitives/no_std",
     "u64_backend",
     "pallet-confidential-assets/no_std",
+    "pallet-confidential-assets-rpc-runtime-api/no_std",
     "pallet-worker-testing/no_std",
     "polymesh-dart/no_std",
 ]
@@ -167,6 +169,7 @@ std = [
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-confidential-assets/std",
+    "pallet-confidential-assets-rpc-runtime-api/std",
     "pallet-corporate-actions/std",
     "pallet-grandpa/std",
     "pallet-group/std",

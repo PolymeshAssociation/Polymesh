@@ -35,9 +35,13 @@ impl Backends {
 
     pub fn new(native: Option<Box<dyn Backend>>) -> Self {
         // Try loading all backends and see which ones are available.
+        // Note: PolkaVM has no native execution on non-x86_64 hosts (e.g. ARM)
+        // and falls back to a slower interpreter, so it is excluded from the
+        // default backends there.
         Self::with_backends(
             &[
                 BackendKind::Native,
+                #[cfg(target_arch = "x86_64")]
                 BackendKind::PolkaVM,
                 BackendKind::Wasmer,
                 BackendKind::Wasmtime,
@@ -57,7 +61,10 @@ impl Backends {
                     }
                 }
                 BackendKind::PolkaVM => {
-                    #[cfg(feature = "polkavm")]
+                    // Note: PolkaVM has no native execution on non-x86_64 hosts
+                    // (e.g. ARM) and falls back to a slower interpreter, so it
+                    // is only available on x86_64.
+                    #[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
                     {
                         match polkavm::PolkavmBackend::new_boxed() {
                             Ok(backend) => backends.push(backend as _),
@@ -65,6 +72,12 @@ impl Backends {
                                 "Failed to initialize PolkaVM backend, disabling it: {err:?}"
                             ),
                         }
+                    }
+                    #[cfg(all(feature = "polkavm", not(target_arch = "x86_64")))]
+                    {
+                        log::warn!(
+                            "PolkaVM backend was requested, but it is only supported on x86_64 hosts; skipping it."
+                        );
                     }
                 }
                 BackendKind::Wasmtime => {
