@@ -39,8 +39,8 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         call: &INonFungibleAsset::canTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        // `nft_transfer_report` performs the same checks as a single-NFT transfer.
-        let worst_case_weight = <T as pallet_nft::Config>::WeightInfo::base_nft_transfer(1);
+        let worst_case_weight =
+            <T as pallet_nft::Config>::WeightInfo::nft_transfer_report_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
         let nft_id = Self::nft_id(call.tokenId)?;
@@ -57,9 +57,13 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             &mut weight_meter,
         );
 
-        let consumed = weight_meter.consumed();
-        if consumed.ref_time() < worst_case_weight.ref_time() {
-            env.adjust_gas(charged, consumed);
+        let transfer_report_weight =
+            <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_best_case();
+        let compliance_weight = weight_meter.consumed();
+        let real_consumed_weight = transfer_report_weight.saturating_add(compliance_weight);
+
+        if real_consumed_weight.ref_time() < worst_case_weight.ref_time() {
+            env.adjust_gas(charged, real_consumed_weight);
         }
 
         Ok(INonFungibleAsset::canTransferCall::abi_encode_returns(

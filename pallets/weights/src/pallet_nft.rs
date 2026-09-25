@@ -303,4 +303,48 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
+    // Storage: `Nft::CollectionAsset` (r:1 w:0)
+    // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+    // Storage: `Asset::Frozen` (r:1 w:0)
+    // Proof: `Asset::Frozen` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+    // Storage: `Nft::NumberOfNFTs` (r:2 w:0)
+    // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::FrozenPortfolios` (r:1 w:0)
+    // Proof: `Portfolio::FrozenPortfolios` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioNFT` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioNFT` (`max_values`: None, `max_size`: Some(106), added: 2581, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioLockedNFT` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioLockedNFT` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+    // Storage: `Identity::DidRecords` (r:1 w:0)
+    // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+    // Storage: `ComplianceManager::AssetCompliances` (r:1 w:0)
+    // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn nft_transfer_report_best_case() -> Weight {
+        // Minimum execution time: 107_468 nanoseconds.
+        Weight::from_parts(109_845_000, 0).saturating_add(DbWeight::get().reads(9))
+    }
+    // Storage: `Nft::CollectionAsset` (r:1 w:0)
+    // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+    // Storage: `Asset::Frozen` (r:1 w:0)
+    // Proof: `Asset::Frozen` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+    // Storage: `Nft::NumberOfNFTs` (r:2 w:0)
+    // Proof: `Nft::NumberOfNFTs` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::FrozenPortfolios` (r:1 w:0)
+    // Proof: `Portfolio::FrozenPortfolios` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioNFT` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioNFT` (`max_values`: None, `max_size`: Some(106), added: 2581, mode: `MaxEncodedLen`)
+    // Storage: `Portfolio::PortfolioLockedNFT` (r:1 w:0)
+    // Proof: `Portfolio::PortfolioLockedNFT` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+    // Storage: `Identity::DidRecords` (r:1 w:0)
+    // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+    // Storage: `ComplianceManager::AssetCompliances` (r:1 w:0)
+    // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Timestamp::Now` (r:1 w:0)
+    // Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `Identity::Claims` (r:1 w:0)
+    // Proof: `Identity::Claims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn nft_transfer_report_worst_case() -> Weight {
+        // Minimum execution time: 117_040 nanoseconds.
+        Weight::from_parts(120_097_000, 0).saturating_add(DbWeight::get().reads(11))
+    }
 }

@@ -47,6 +47,8 @@ pub trait WeightInfo {
     fn approve() -> Weight;
     fn set_approval_for_all() -> Weight;
     fn spend_nft_approval(n: u32) -> Weight;
+    fn nft_transfer_report_best_case() -> Weight;
+    fn nft_transfer_report_worst_case() -> Weight;
 }
 
 pub use pallet::*;
