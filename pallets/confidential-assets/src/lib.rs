@@ -477,7 +477,10 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
 
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -1286,6 +1289,9 @@ pub mod pallet {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
             }
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 0));
+
+            // Migrate v0.1 DART settlement legs to v1.0 and recover stuck settlements (0 -> 1).
+            weight = weight.saturating_add(Self::migrate_to_v1());
 
             weight
         }
