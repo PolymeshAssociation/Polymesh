@@ -511,7 +511,9 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     fn check_for_finalization(&self, pending_final: u32) -> DispatchResult {
-        if self.status == SettlementStatus::Executed && pending_final == 0 {
+        if (self.status == SettlementStatus::Executed || self.status == SettlementStatus::Rejected)
+            && pending_final == 0
+        {
             self.finalize()?;
         }
         Ok(())
@@ -569,46 +571,57 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
     /// Finalize the settlement, marking it as finalized.
     fn finalize(&self) -> DispatchResult {
+        Pallet::<T>::finalize_settlement(self.settlement_ref)
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    /// Finalize a settlement, pruning all residual storage except the `Finalized` tombstone.
+    ///
+    /// The `SettlementState` entry is kept as `Finalized` forever: it is the
+    /// settlement-proof replay guard in `base_create_settlement`. Everything else
+    /// (`SettlementPendingFinalizations`, `SettlementMemo`, `SettlementLegCount`,
+    /// `SettlementLegs`, `LegAffirmationStatus`, `LegMediators`) is removed.
+    pub fn finalize_settlement(settlement_ref: SettlementRef) -> DispatchResult {
         // Prune all settlement state.
         // Remove pending finalizations for the settlement.
-        SettlementPendingFinalizations::<T>::remove(self.settlement_ref);
+        SettlementPendingFinalizations::<T>::remove(settlement_ref);
         // Remove the settlement memo.
-        SettlementMemo::<T>::remove(self.settlement_ref);
+        SettlementMemo::<T>::remove(settlement_ref);
         // Remove the settlement legs and affirmation statuses.
-        let leg_count = SettlementLegCount::<T>::take(self.settlement_ref)
+        let leg_count = SettlementLegCount::<T>::take(settlement_ref)
             .map(|c| c.0)
             .unwrap_or(0);
         for leg_id in 0..leg_count {
             let leg_id = leg_id as LegId;
 
             // Remove affirmation statuses for sender and receiver.
-            LegAffirmationStatus::<T>::remove((
-                self.settlement_ref,
-                leg_id,
-                LegAffirmParty::Sender,
-            ));
-            LegAffirmationStatus::<T>::remove((
-                self.settlement_ref,
-                leg_id,
-                LegAffirmParty::Receiver,
-            ));
+            LegAffirmationStatus::<T>::remove((settlement_ref, leg_id, LegAffirmParty::Sender));
+            LegAffirmationStatus::<T>::remove((settlement_ref, leg_id, LegAffirmParty::Receiver));
 
             // Remove the leg.
-            if let Some(leg) = SettlementLegs::<T>::take((self.settlement_ref, leg_id)) {
+            if let Some(leg) = SettlementLegs::<T>::take((settlement_ref, leg_id)) {
                 // Remove affirmation statuses for mediators.
                 let mediators = leg.mediator_count().ok().unwrap_or(0) as u8;
                 for mediator_index in 0..mediators {
                     LegAffirmationStatus::<T>::remove((
-                        self.settlement_ref,
+                        settlement_ref,
                         leg_id,
                         LegAffirmParty::Mediator(mediator_index),
                     ));
                 }
             }
+
+            // Remove the leg mediators (only present for legs with revealed asset ids).
+            LegMediators::<T>::remove((settlement_ref, leg_id));
         }
 
         // Set the settlement status to finalized.
-        self.set_status(SettlementStatus::Finalized);
+        SettlementState::<T>::insert(settlement_ref, SettlementStatus::Finalized);
+        Self::deposit_event(Event::<T>::SettlementStatusUpdated {
+            settlement_ref,
+            status: SettlementStatus::Finalized,
+        });
 
         Ok(())
     }
