@@ -1,6 +1,6 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::{dispatch::DispatchResult, ensure};
+use frame_support::{dispatch::DispatchResult, ensure, traits::GetStorageVersion};
 use scale_info::TypeInfo;
 
 use polymesh_dart::{
@@ -624,5 +624,69 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    /// Migrate confidential-assets storage from version 0 to version 1.
+    ///
+    /// - Translates every v0.1 DART settlement leg to v1.0 via `LegEncrypted::from_v0()`.
+    ///   Legs that fail conversion are left untouched (they were unaffirmable anyway).
+    /// - Finalizes stuck `Rejected` settlements with no pending finalizations.
+    ///
+    /// Idempotency comes from the version gate alone: the migration runs at most once,
+    /// so `from_v0()` can never see an already-v1 leg. No-op on fresh chains (genesis
+    /// already puts version 1).
+    pub fn migrate_to_v1() -> Weight {
+        let mut reads: u64 = 1; // On-chain storage version read.
+        let mut writes: u64 = 0;
+        if Pallet::<T>::on_chain_storage_version() >= Pallet::<T>::in_code_storage_version() {
+            return T::DbWeight::get().reads(reads);
+        }
+
+        // 1. Translate all settlement legs from v0.1 to v1.0.
+        let mut legs: u64 = 0;
+        SettlementLegs::<T>::translate(|_, leg_enc: LegEncrypted| {
+            legs += 1;
+            match leg_enc.from_v0() {
+                Ok(leg_v1) => Some(leg_v1),
+                Err(err) => {
+                    log::warn!("Failed to migrate confidential settlement leg to v1: {err:?}");
+                    Some(leg_enc)
+                }
+            }
+        });
+        // `translate` reads and rewrites every leg.
+        log::info!("Migrated {legs} settlement legs to v1");
+        reads += legs;
+        writes += legs;
+
+        // 2. Finalize stuck `Rejected` settlements (no pending finalizations).
+        let mut stuck = Vec::new();
+        let mut settlements = 0;
+        for (settlement_ref, status) in SettlementState::<T>::iter() {
+            settlements += 1;
+            if status == SettlementStatus::Rejected
+                && SettlementPendingFinalizations::<T>::get(settlement_ref) == 0
+            {
+                reads += 1;
+                stuck.push(settlement_ref);
+            }
+        }
+        log::info!("Found {stuck:?} stuck settlements to finalize out of {settlements} total");
+        reads += settlements;
+        // Conservative bound per finalized settlement: `finalize_settlement` does
+        // 1 read + 4 writes plus 1 read + 6 writes per leg, up to `MaxSettlementLegs`.
+        let max_legs = T::MaxSettlementLegs::get() as u64;
+        for settlement_ref in stuck {
+            if let Err(err) = Self::finalize_settlement(settlement_ref) {
+                log::error!("Failed to finalize stuck confidential settlement during migration: {err:?}");
+            } else {
+                reads += 1 + max_legs;
+                writes += 4 + 6 * max_legs;
+            }
+        }
+
+        Pallet::<T>::in_code_storage_version().put::<Pallet<T>>();
+        writes += 1;
+        T::DbWeight::get().reads_writes(reads, writes)
     }
 }

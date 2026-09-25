@@ -81,8 +81,12 @@ No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
   — it is the settlement-proof replay guard in `base_create_settlement`
   (`SettlementAlreadyExists`).
 - Recovery for already-stuck settlements on Staging/Testnet (rejected-but-never-finalized
-  state and leaked `LegMediators` on already-finalized ones) is handled by a runtime
-  migration, not an extrinsic — only those two networks ever held live DART settlements.
+  state) is handled by the
+  `StorageVersion` 0→1 migration (`migrate_to_v1` in `settlement.rs`, run from
+  `on_runtime_upgrade`), not an extrinsic — only those two networks ever held live DART
+  settlements. The same migration translates every v0.1 settlement leg to v1.0 via
+  `LegEncrypted::from_v0()` (unconvertible legs are left untouched); it is version-gated
+  (runs at most once) and a no-op on fresh chains.
 - Reverts: sender/receiver can revert affirmations while Pending/Rejected (:390-455); reverting
   a Pending settlement rejects it (:416-419). Transition guards in `set_party_status`
   (:135-198).
