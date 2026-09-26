@@ -21,9 +21,12 @@ use frame_support::PalletId;
 /// Money matters.
 pub mod currency {
     use crate::Balance;
-    pub const POLY: Balance = 1_000_000;
-    pub const ONE_POLY: Balance = POLY;
-    pub const DOLLARS: Balance = POLY;
+    /// Base unit: 1 MYX = 1,000,000 units (6 decimals)
+    pub const MYX: Balance = 1_000_000;
+    pub const ONE_MYX: Balance = MYX;
+    /// Alias for backward compatibility
+    pub const ONE_POLY: Balance = ONE_MYX;
+    pub const DOLLARS: Balance = MYX;
     pub const CENTS: Balance = DOLLARS / 100;
     pub const MILLICENTS: Balance = CENTS / 1_000;
     pub const ONE_UNIT: Balance = 1_000_000;

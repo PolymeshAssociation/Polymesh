@@ -53,8 +53,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: Cow::Borrowed("polymesh_dev"),
-    impl_name: Cow::Borrowed("polymesh_dev"),
+    spec_name: Cow::Borrowed("bourse_chain_dev"),
+    impl_name: Cow::Borrowed("bourse_chain_dev"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
@@ -166,9 +166,9 @@ parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 
     // Validators
-    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_MYX;
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
-    pub const FixedYearlyReward: Balance = 140_000_000 * ONE_POLY;
+    pub const FixedYearlyReward: Balance = 140_000_000 * ONE_MYX;
     pub MaxPayoutWeight: Weight = Perbill::from_percent(5) * MaximumBlockWeight::get();
 
     // Babe
