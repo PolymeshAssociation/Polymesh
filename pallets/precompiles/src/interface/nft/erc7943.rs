@@ -58,7 +58,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         );
 
         let transfer_report_weight =
-            <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_best_case();
+            <T as pallet_nft::Config>::WeightInfo::nft_transfer_report_best_case();
         let compliance_weight = weight_meter.consumed();
         let real_consumed_weight = transfer_report_weight.saturating_add(compliance_weight);
 
