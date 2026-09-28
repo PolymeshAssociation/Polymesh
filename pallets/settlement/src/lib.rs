@@ -3591,7 +3591,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
     pub fn execute_manual_instruction_minimum_weight() -> Weight {
-        <T as Config>::WeightInfo::execute_locked_instruction(0, 0, 1)
+        <T as Config>::WeightInfo::execute_manual_instruction(0, 0, 1)
     }
 
     /// Returns the weight for calling `affirm_with_receipts` while considering the `sender_asset_count` for the sender, `receiver_asset_count`
