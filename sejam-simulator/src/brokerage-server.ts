@@ -50,11 +50,11 @@ async function getDidForAccount(address: string): Promise<string | null> {
 }
 
 async function hasCddClaim(userDid: string): Promise<boolean> {
-  const claimEntries = await api.query.identity.claims.entries(userDid);
+  const claimEntries = await api.query.identity.claims.entries();
   return claimEntries.some(([key, val]: any) => {
-    const keyStr = (key.args[1]?.toString() || '').toLowerCase();
+    const first = key.args[0] || {}; const keyStr = ((first.target?.toString() || '') + (first.claimType?.toString() || '')).toLowerCase();
     const valStr = (val?.toString() || '').toLowerCase();
-    return keyStr.includes('customerduediligence') || valStr.includes('customerduediligence');
+    const tgt = (first.target?.toString() || '').toLowerCase(); return tgt === userDid.toLowerCase() && (keyStr.includes('customerduediligence') || valStr.includes('customerduediligence'));
   });
 }
 

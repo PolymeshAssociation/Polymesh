@@ -105,7 +105,12 @@ export default function Home() {
           {status === 'متصل ✅' ? '🔄 اتصال مجدد' : '🔌 اتصال به شبکه بورس تهران'}
         </button>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/trade">
+            <button className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3 px-4 rounded-lg hover:from-orange-600 hover:to-amber-600 transition">
+              💱 انتقال سهام
+            </button>
+          </Link>
           <Link href="/onboarding">
             <button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-3 px-4 rounded-lg hover:from-green-700 hover:to-emerald-700 transition">
               📝 ثبت‌نام (سجام)
@@ -116,6 +121,10 @@ export default function Home() {
               📊 داشبورد
             </button>
           </Link>
+        </div>
+
+        <div className="mt-4 text-center">
+          <Link href="/accounts" className="text-sm text-purple-600 hover:text-purple-800 font-medium">📒 دفترچه اکانت‌های تستی (DID ها)</Link>
         </div>
 
         <div className="mt-8 text-center text-xs text-gray-500">

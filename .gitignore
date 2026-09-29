@@ -42,3 +42,12 @@ tehran-raw.txt
 .vscode/
 .idea/
 *.swp
+
+# === Tehran Bourse: local build & data (DO NOT PUSH) ===
+target/
+tehran-test-data/
+tehran-node-data/
+node_modules/
+.next/
+*.log
+.env
