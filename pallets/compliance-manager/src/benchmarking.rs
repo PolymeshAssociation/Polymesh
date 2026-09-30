@@ -315,6 +315,7 @@ where
 /// The requirements are built for the worst case (each has complexity 1):
 /// - The first `n - 1` requirements fail (no claims are issued, so `IsAnyOf` is false),
 ///   forcing all requirements to be evaluated. The last one uses `IsNoneOf`, so the asset is still compliant.
+/// - Each requirement's claim scope is unique per asset, so no claim read is shared (cached) between assets.
 pub fn setup_asset_compliance<T: Config>(
     caller_did: IdentityId,
     asset_id: AssetId,
@@ -331,8 +332,10 @@ pub fn setup_asset_compliance<T: Config>(
             issuer: IdentityId::from(i as u128),
             trusted_for: TrustedFor::Specific(claim_types.clone()),
         }];
+        // The scope includes `asset_id` so that each asset reads unique `Identity::Claims` keys.
         let mut scope = vec![0u8; 32];
-        scope[..4].copy_from_slice(&i.to_le_bytes());
+        scope[..16].copy_from_slice(asset_id.as_ref());
+        scope[16..20].copy_from_slice(&i.to_le_bytes());
         let claims = vec![Claim::Jurisdiction(CountryCode::BR, Scope::Custom(scope))];
         let condition_type = if i + 1 < n {
             ConditionType::IsAnyOf(claims)

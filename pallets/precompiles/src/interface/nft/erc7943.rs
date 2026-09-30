@@ -27,6 +27,7 @@ use polymesh_precompiles::{INonFungibleAsset, INonFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::nft::NFTs;
 use polymesh_primitives::WeightMeter;
+use sp_runtime::Weight;
 
 use crate::common::Common;
 use crate::interface::nft::NonFungibleAssetInterface;
@@ -48,7 +49,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let to = Common::<T>::asset_holder(env, call.to)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        let mut weight_meter = WeightMeter::from_limit_unchecked(Weight::zero(), worst_case_weight);
         let errors = pallet_nft::Pallet::<T>::nft_transfer_report(
             &from,
             &to,
