@@ -884,4 +884,221 @@ mod confidential_assets_negative_tests {
 
         Ok(())
     }
+
+    // ========================================================================
+    // Test Case: Asset creation without creator claim
+    // ========================================================================
+    /// Try to create an asset when the issuer holds no role claims.
+    /// Expected: Fails with `MissingRequiredClaim` (genesis specs require GC 1's KYC claim).
+    #[tokio::test]
+    #[test_log::test]
+    async fn create_asset_without_creator_claim() -> Result<()> {
+        let tester = DartAssetTester::init(&["NegCreator1", "NegAuditor1"]).await?;
+        let issuer = tester.user("NegCreator1").await;
+        let auditor = tester.user("NegAuditor1").await;
+
+        // Bypass auto-onboarding: direct creation with claimless users.
+        let res = DartTestAsset::new(
+            &tester.account_tree().await,
+            &issuer,
+            "Neg Claim Asset 1",
+            &[],
+            &[&auditor],
+            Some(100),
+        )
+        .await;
+        assert_operation_fails_with(
+            res,
+            "create_asset without creator claim",
+            "does not hold the required claim",
+        );
+        log::info!("Test Case passed: asset creation correctly rejected without creator claim");
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Test Case: Asset creation without auditor claim
+    // ========================================================================
+    /// Onboard only the creator, then try to create an asset with a claimless auditor.
+    /// Expected: Fails with `MissingRequiredClaim`.
+    #[tokio::test]
+    #[test_log::test]
+    async fn create_asset_without_auditor_claim() -> Result<()> {
+        let tester = DartAssetTester::init(&["NegCreator2", "NegAuditor2"]).await?;
+        let issuer = tester.user("NegCreator2").await;
+        let auditor = tester.user("NegAuditor2").await;
+
+        // Specs + creator claim only; auditor stays claimless.
+        tester
+            .onboard_confidential_roles(&[&issuer], &[], &[])
+            .await?;
+
+        // Bypass auto-onboarding: direct creation.
+        let res = DartTestAsset::new(
+            &tester.account_tree().await,
+            &issuer,
+            "Neg Claim Asset 2",
+            &[],
+            &[&auditor],
+            Some(100),
+        )
+        .await;
+        assert_operation_fails_with(
+            res,
+            "create_asset without auditor claim",
+            "does not hold the required claim",
+        );
+        log::info!("Test Case passed: asset creation correctly rejected without auditor claim");
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Test Case: Asset creation without mediator claim
+    // ========================================================================
+    /// Onboard creator and auditor, then try to create an asset with a claimless mediator.
+    /// Expected: Fails with `MissingRequiredClaim`.
+    #[tokio::test]
+    #[test_log::test]
+    async fn create_asset_without_mediator_claim() -> Result<()> {
+        let tester = DartAssetTester::init(&["NegCreator3", "NegAuditor3", "NegMediator3"]).await?;
+        let issuer = tester.user("NegCreator3").await;
+        let auditor = tester.user("NegAuditor3").await;
+        let mediator = tester.user("NegMediator3").await;
+
+        // Specs + creator/auditor claims only; mediator stays claimless.
+        tester
+            .onboard_confidential_roles(&[&issuer], &[&auditor], &[])
+            .await?;
+
+        // Bypass auto-onboarding: direct creation.
+        let res = DartTestAsset::new(
+            &tester.account_tree().await,
+            &issuer,
+            "Neg Claim Asset 3",
+            &[&mediator],
+            &[&auditor],
+            Some(100),
+        )
+        .await;
+        assert_operation_fails_with(
+            res,
+            "create_asset without mediator claim",
+            "does not hold the required claim",
+        );
+        log::info!("Test Case passed: asset creation correctly rejected without mediator claim");
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Test Case: Auditor claim does not grant the creator role
+    // ========================================================================
+    /// The issuer holds only the auditor claim, then tries to create an asset.
+    /// Expected: Fails with `MissingRequiredClaim`.
+    #[tokio::test]
+    #[test_log::test]
+    async fn auditor_claim_does_not_grant_creator_role() -> Result<()> {
+        let tester = DartAssetTester::init(&["NegCreator4", "NegAuditor4"]).await?;
+        let issuer = tester.user("NegCreator4").await;
+        let auditor = tester.user("NegAuditor4").await;
+
+        // Issuer only gets the auditor claim.
+        tester
+            .onboard_confidential_roles(&[], &[&issuer, &auditor], &[])
+            .await?;
+
+        let res = DartTestAsset::new(
+            &tester.account_tree().await,
+            &issuer,
+            "Neg Claim Asset 4",
+            &[],
+            &[&auditor],
+            Some(100),
+        )
+        .await;
+        assert_operation_fails_with(
+            res,
+            "create_asset with only an auditor claim",
+            "does not hold the required claim",
+        );
+        log::info!("Test Case passed: auditor claim does not grant the creator role");
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Test Case: Creator claim does not grant the auditor role
+    // ========================================================================
+    /// The auditor holds only the creator claim.
+    /// Expected: Fails with `MissingRequiredClaim`.
+    #[tokio::test]
+    #[test_log::test]
+    async fn creator_claim_does_not_grant_auditor_role() -> Result<()> {
+        let tester = DartAssetTester::init(&["NegCreator5", "NegAuditor5"]).await?;
+        let issuer = tester.user("NegCreator5").await;
+        let auditor = tester.user("NegAuditor5").await;
+
+        // Auditor only gets the creator claim.
+        tester
+            .onboard_confidential_roles(&[&issuer, &auditor], &[], &[])
+            .await?;
+
+        let res = DartTestAsset::new(
+            &tester.account_tree().await,
+            &issuer,
+            "Neg Claim Asset 5",
+            &[],
+            &[&auditor],
+            Some(100),
+        )
+        .await;
+        assert_operation_fails_with(
+            res,
+            "create_asset with an auditor holding only a creator claim",
+            "does not hold the required claim",
+        );
+        log::info!("Test Case passed: creator claim does not grant the auditor role");
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // Test Case: Auditor claim does not grant the mediator role
+    // ========================================================================
+    /// The mediator holds only the auditor claim (the genesis mediator spec
+    /// overrides the auditor fallback).
+    /// Expected: Fails with `MissingRequiredClaim`.
+    #[tokio::test]
+    #[test_log::test]
+    async fn auditor_claim_does_not_grant_mediator_role() -> Result<()> {
+        let tester = DartAssetTester::init(&["NegCreator6", "NegAuditor6", "NegMediator6"]).await?;
+        let issuer = tester.user("NegCreator6").await;
+        let auditor = tester.user("NegAuditor6").await;
+        let mediator = tester.user("NegMediator6").await;
+
+        // Mediator only gets the auditor claim.
+        tester
+            .onboard_confidential_roles(&[&issuer], &[&auditor, &mediator], &[])
+            .await?;
+
+        let res = DartTestAsset::new(
+            &tester.account_tree().await,
+            &issuer,
+            "Neg Claim Asset 6",
+            &[&mediator],
+            &[&auditor],
+            Some(100),
+        )
+        .await;
+        assert_operation_fails_with(
+            res,
+            "create_asset with a mediator holding only an auditor claim",
+            "does not hold the required claim",
+        );
+        log::info!("Test Case passed: auditor claim does not grant the mediator role");
+
+        Ok(())
+    }
 }
