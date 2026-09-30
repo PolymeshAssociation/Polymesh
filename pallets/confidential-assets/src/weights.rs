@@ -621,4 +621,16 @@ impl crate::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(5))
     }
+    // Storage: `ConfidentialAssets::RequiredClaims` (r:0 w:1)
+    // Proof: `ConfidentialAssets::RequiredClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn set_required_claim() -> Weight {
+        Weight::from_parts(10_000_000, 0).saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `ConfidentialAssets::RequiredClaims` (r:1 w:1)
+    // Proof: `ConfidentialAssets::RequiredClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn remove_required_claim() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }

@@ -56,8 +56,39 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 | `submit_batched_proofs(16)` | any signed | atomic batch of ops | :1771 |
 | `relayer_submit_batched_proofs(17)` | any signed **relayer** | private fee payment (§5) | :1800 |
 | `execute_instant_settlement(18)`, instant affirmations (19/20) | any signed | single-tx create+affirm+execute | :1822-1883 |
+| `set_required_claim(21)` / `remove_required_claim(22)` | Root | set/clear the required-claim spec for a role | §9 |
 
 No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
+
+## 9. Role gating via claims
+
+No registry: auditors/mediators never register — they just need valid claims on their DIDs.
+Root can gate three roles with a required-claim spec (`RequiredClaims`: `Claim` + bounded
+trusted-issuer list, `MaxTrustedClaimIssuers = 10`): `AssetCreator`, `Auditor`, `Mediator`.
+Mediators fall back to the auditor spec when no mediator spec is set, so one spec can cover both.
+An empty issuer list blocks the role entirely (deny-all).
+
+Genesis config `trustedIssuer: Option<IdentityId>` installs, per role, a
+`KnowYourCustomer(Scope::Custom(b"DART:<Role>"))` spec (`RoleKind::default_claim`, e.g.
+`DART:AssetCreator`, `DART:Auditor`, `DART:Mediator`) trusting that DID
+(dev/CI/testnet chain specs use the first GC member DID). Without it —
+and on upgraded chains (v0→v1 migration) — all roles start deny-all, so no one can act before
+Root installs the correct requirements (Mainnet safety).
+Removing a spec restores permissionless behavior for that role.
+
+Only **live (unexpired)** claims equal to the spec's `Claim` (type, scope and value) count
+(`fetch_claim` filters expiry at read time), so
+expiry is enforced at use time on every check: `base_create_asset` requires the issuer's DID to
+meet the `AssetCreator` requirements, and `ensure_mediators_registered` /
+`ensure_auditors_registered` require each key-owning DID to meet the mediator/auditor
+requirements — at asset creation and wherever else those helpers are reused (e.g. future
+asset-key updates).
+
+Integration tests rely on the genesis specs: Alice (a key of GC 1) adds the role-specific
+`KnowYourCustomer(Custom(b"DART:<Role>"))` claim to each test's issuer/auditors/mediators
+(`DartAssetTester::onboard_confidential_roles`, hooked into asset creation). Negative tests
+assert `MissingRequiredClaim` failures for claimless creators/auditors/mediators and for DIDs
+holding only another role's claim.
 
 ## 4. Settlement flow (settlement.rs)
 
