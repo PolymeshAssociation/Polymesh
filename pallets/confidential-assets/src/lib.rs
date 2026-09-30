@@ -35,7 +35,7 @@ use frame_system::pallet_prelude::*;
 use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
-    Balance, IdentityId,
+    Balance, Claim, IdentityId, Scope,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{AccountIdConversion, DispatchInfoOf, Dispatchable, TransactionExtension};
@@ -181,6 +181,9 @@ pub trait WeightInfo {
     fn sender_revert_affirmation() -> Weight;
     fn receiver_revert_affirmation() -> Weight;
     fn receiver_claim() -> Weight;
+
+    fn set_required_claim() -> Weight;
+    fn remove_required_claim() -> Weight;
 
     fn batched_settlement(counts: SettlementCounts) -> Weight {
         Self::create_settlement(counts.leg_count)
@@ -470,6 +473,54 @@ pub struct LegMediatorKeys {
     pub mediators: BTreeSet<AccountPublicKey>,
 }
 
+/// Roles gated by a required identity claim.
+#[derive(
+    Copy,
+    Clone,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
+pub enum RoleKind {
+    /// Creator of a confidential asset.
+    AssetCreator,
+    /// Auditor of a confidential asset.
+    Auditor,
+    /// Mediator of a confidential settlement.
+    Mediator,
+}
+
+impl RoleKind {
+    /// Custom scope of this role's default (genesis) KYC claim.
+    pub fn default_claim_scope(&self) -> &'static [u8] {
+        match self {
+            RoleKind::AssetCreator => b"DART:AssetCreator",
+            RoleKind::Auditor => b"DART:Auditor",
+            RoleKind::Mediator => b"DART:Mediator",
+        }
+    }
+
+    /// Default (genesis) claim for this role: `KnowYourCustomer(Custom(default_claim_scope))`.
+    pub fn default_claim(&self) -> Claim {
+        Claim::KnowYourCustomer(Scope::Custom(self.default_claim_scope().to_vec()))
+    }
+}
+
+/// Required-claim spec for a gated role: the claim plus the bounded list of
+/// trusted claim issuers. Only live (unexpired) claims equal to `claim` count.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
+#[scale_info(skip_type_params(T))]
+pub struct RequiredClaim<T: Config> {
+    /// The required claim (type, scope and value).
+    pub claim: Claim,
+    /// DIDs trusted to issue the required claim.
+    pub trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+}
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -545,6 +596,10 @@ pub mod pallet {
         /// The maximum number of asset mediators.
         #[pallet::constant]
         type MaxAssetMediators: Get<u32>;
+
+        /// The maximum number of trusted claim issuers per gated action.
+        #[pallet::constant]
+        type MaxTrustedClaimIssuers: Get<u32>;
 
         /// The maximum number of asset encryption keys (mediators + auditors).
         #[pallet::constant]
@@ -782,6 +837,20 @@ pub mod pallet {
             /// Batch results.
             batch_result: DispatchResult,
         },
+        /// Required claim set for a gated role.
+        RequiredClaimSet {
+            /// Gated role.
+            role: RoleKind,
+            /// Required claim.
+            claim: Claim,
+            /// Trusted claim issuers.
+            trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+        },
+        /// Required claim removed for a gated role (back to permissionless).
+        RequiredClaimRemoved {
+            /// Gated role.
+            role: RoleKind,
+        },
     }
 
     #[pallet::error]
@@ -882,6 +951,8 @@ pub mod pallet {
         MissingLegMediators,
         /// Encryption key does not match the registered key for the account.
         EncryptionKeyMismatch,
+        /// DID does not hold the required claim from a trusted issuer (or it expired).
+        MissingRequiredClaim,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1233,6 +1304,14 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Required-claim spec for each gated role.
+    ///
+    /// `None` means the role is permissionless (preserves dev behavior).
+    /// Mediators fall back to the auditor spec when no mediator spec is set.
+    #[pallet::storage]
+    pub(crate) type RequiredClaims<T: Config> =
+        StorageMap<_, Twox64Concat, RoleKind, RequiredClaim<T>, OptionQuery>;
+
     /// The WorkerSessionId for the current block.
     #[pallet::storage]
     pub(crate) type CurrentWorkerSessionId<T: Config> =
@@ -1241,6 +1320,8 @@ pub mod pallet {
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
+        /// Trusted KYC claim issuer for all gated roles; `None` blocks all roles.
+        pub trusted_issuer: Option<IdentityId>,
         #[serde(skip)]
         pub _config: sp_std::marker::PhantomData<T>,
     }
@@ -1248,6 +1329,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            Pallet::<T>::initialize_required_claims(self.trusted_issuer);
             // Initialize the curve tree heights.
             AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
             AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
@@ -2067,10 +2149,147 @@ pub mod pallet {
             // Perform the base instant receiver affirmation.
             Self::base_instant_receiver_affirmation(proof, true)
         }
+
+        /// Set the required claim for a gated role (Root only).
+        ///
+        /// While a spec is set, a DID acting in that role must hold a live
+        /// (unexpired) claim equal to `claim` from one of `trusted_issuers`.
+        /// An empty issuer list blocks the role entirely (deny-all); remove the spec
+        /// (see `remove_required_claim`) to restore permissionless behavior.
+        /// Mediators fall back to the auditor spec when no mediator spec is set.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be Root).
+        /// * `role` - The gated role.
+        /// * `claim` - The required claim (type, scope and value).
+        /// * `trusted_issuers` - DIDs trusted to issue the required claim.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root.
+        #[pallet::call_index(21)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_required_claim())]
+        pub fn set_required_claim(
+            origin: OriginFor<T>,
+            role: RoleKind,
+            claim: Claim,
+            trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::base_set_required_claim(role, claim, trusted_issuers)
+        }
+
+        /// Remove the required claim for a gated role (Root only).
+        ///
+        /// The role becomes permissionless again (mediators keep falling back to the
+        /// auditor spec while that one is set).
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be Root).
+        /// * `role` - The gated role.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root.
+        #[pallet::call_index(22)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_required_claim())]
+        pub fn remove_required_claim(origin: OriginFor<T>, role: RoleKind) -> DispatchResult {
+            ensure_root(origin)?;
+
+            RequiredClaims::<T>::remove(role);
+            Self::deposit_event(Event::<T>::RequiredClaimRemoved { role });
+            Ok(())
+        }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    /// Set the required claim for a gated role.
+    ///
+    /// An empty issuer list blocks the role entirely (deny-all) until replaced.
+    pub fn base_set_required_claim(
+        role: RoleKind,
+        claim: Claim,
+        trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+    ) -> DispatchResult {
+        RequiredClaims::<T>::insert(
+            role,
+            RequiredClaim {
+                claim: claim.clone(),
+                trusted_issuers: trusted_issuers.clone(),
+            },
+        );
+        Self::deposit_event(Event::<T>::RequiredClaimSet {
+            role,
+            claim,
+            trusted_issuers,
+        });
+        Ok(())
+    }
+
+    /// Default spec: the role's default claim from `trusted_issuer`, or deny-all when `None`.
+    fn default_required_claim(
+        role: RoleKind,
+        trusted_issuer: Option<IdentityId>,
+    ) -> RequiredClaim<T> {
+        let mut trusted_issuers = BoundedVec::new();
+        if let Some(issuer) = trusted_issuer {
+            // `MaxTrustedClaimIssuers` of zero leaves the role blocked.
+            let _ = trusted_issuers.try_push(issuer);
+        }
+        RequiredClaim {
+            claim: role.default_claim(),
+            trusted_issuers,
+        }
+    }
+
+    /// Install the default spec for every role without one.
+    ///
+    /// With no `trusted_issuer` all roles start blocked, so no one can act before Root
+    /// installs the correct claim requirements (Mainnet safety).
+    /// Root changes the spec per role via `set_required_claim`.
+    pub(crate) fn initialize_required_claims(trusted_issuer: Option<IdentityId>) {
+        for role in [
+            RoleKind::AssetCreator,
+            RoleKind::Auditor,
+            RoleKind::Mediator,
+        ] {
+            if !RequiredClaims::<T>::contains_key(role) {
+                RequiredClaims::<T>::insert(
+                    role,
+                    Self::default_required_claim(role, trusted_issuer),
+                );
+            }
+        }
+    }
+
+    /// Resolve the effective claim spec for a role.
+    ///
+    /// Mediators fall back to the auditor spec when no mediator spec is set, so one
+    /// spec can cover both auditors and mediators. Returns `None` when the role is
+    /// permissionless.
+    fn required_claim_for(role: RoleKind) -> Option<RequiredClaim<T>> {
+        RequiredClaims::<T>::get(role).or_else(|| match role {
+            RoleKind::Mediator => RequiredClaims::<T>::get(RoleKind::Auditor),
+            _ => None,
+        })
+    }
+
+    /// Ensure `did` holds a live (unexpired) claim equal to the one required for `role`
+    /// from one of the role's trusted issuers.
+    /// No-op while no spec applies (the role is permissionless).
+    pub fn ensure_role_claim(did: IdentityId, role: RoleKind) -> Result<(), Error<T>> {
+        if let Some(spec) = Self::required_claim_for(role) {
+            let claim_type = spec.claim.claim_type();
+            let scope = spec.claim.as_scope().cloned();
+            let has_claim = spec.trusted_issuers.iter().any(|issuer| {
+                PalletIdentity::<T>::fetch_claim(did, claim_type, *issuer, scope.clone())
+                    .is_some_and(|id_claim| id_claim.claim == spec.claim)
+            });
+            ensure!(has_claim, Error::<T>::MissingRequiredClaim);
+        }
+        Ok(())
+    }
+
     /// Create a new Confidential asset.
     pub fn base_create_asset(
         owner_did: IdentityId,
@@ -2089,6 +2308,9 @@ impl<T: Config> Pallet<T> {
 
         // Ensure `decimals` is valid.
         ensure!(decimals <= MAX_DECIMALS, Error::<T>::TooManyDecimals);
+
+        // Ensure the owner meets the asset-creator requirements (if gated).
+        Self::ensure_role_claim(owner_did, RoleKind::AssetCreator)?;
 
         // Ensure the auditor or mediator is registered.
         Self::ensure_mediators_registered(&mediators)?;
@@ -2981,18 +3203,20 @@ impl<T: Config> Pallet<T> {
         EncryptionKeyDid::<T>::get(encryption_key).ok_or(Error::<T>::EncryptionKeyMissing)
     }
 
-    /// Ensure auditor encryption public keys are registered.
+    /// Ensure auditor encryption public keys are registered and meet the auditor requirements.
     pub fn ensure_auditors_registered(keys: &AuditorKeys) -> Result<(), Error<T>> {
         for key in keys {
-            Self::ensure_encryption_key_registered(key)?;
+            let did = Self::ensure_encryption_key_registered(key)?;
+            Self::ensure_role_claim(did, RoleKind::Auditor)?;
         }
         Ok(())
     }
 
-    /// Ensure mediator encryption public keys are registered.
+    /// Ensure mediator encryption public keys are registered and meet the mediator requirements.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
         for (acct, enc) in keys {
-            Self::ensure_dart_account_and_encryption_key_registered(acct, enc)?;
+            let did = Self::ensure_dart_account_and_encryption_key_registered(acct, enc)?;
+            Self::ensure_role_claim(did, RoleKind::Mediator)?;
         }
         Ok(())
     }

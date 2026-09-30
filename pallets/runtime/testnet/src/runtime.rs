@@ -231,6 +231,7 @@ type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
 type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
 type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
 type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxTrustedClaimIssuers = polymesh_dart::ConstSize<2>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -555,6 +556,7 @@ impl pallet_confidential_assets::Config for Runtime {
     type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
     type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
     type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
+    type MaxTrustedClaimIssuers = ConfidentialAssetsMaxTrustedClaimIssuers;
     type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
     type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
     type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;

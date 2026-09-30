@@ -642,6 +642,12 @@ impl<T: Config> Pallet<T> {
             return T::DbWeight::get().reads(reads);
         }
 
+        // 0. Block all roles without a spec, so no one can act before Root installs
+        // the correct claim requirements (Mainnet safety).
+        Pallet::<T>::initialize_required_claims(None);
+        reads += 3;
+        writes += 3;
+
         // 1. Translate all settlement legs from v0.1 to v1.0.
         let mut legs: u64 = 0;
         SettlementLegs::<T>::translate(|_, leg_enc: LegEncrypted| {
@@ -678,7 +684,9 @@ impl<T: Config> Pallet<T> {
         let max_legs = T::MaxSettlementLegs::get() as u64;
         for settlement_ref in stuck {
             if let Err(err) = Self::finalize_settlement(settlement_ref) {
-                log::error!("Failed to finalize stuck confidential settlement during migration: {err:?}");
+                log::error!(
+                    "Failed to finalize stuck confidential settlement during migration: {err:?}"
+                );
             } else {
                 reads += 1 + max_legs;
                 writes += 4 + 6 * max_legs;
