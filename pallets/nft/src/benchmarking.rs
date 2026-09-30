@@ -68,10 +68,11 @@ fn create_collection_issue_nfts<T: Config>(
 ) -> AssetId {
     let (asset_id, _) = create_collection::<T>(collection_owner, n_keys);
 
+    let max_value_len = <T as pallet_asset::Config>::AssetMetadataValueMaxLength::get();
     let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
         .map(|key| NFTMetadataAttribute {
             key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
-            value: AssetMetadataValue(b"value".to_vec()),
+            value: AssetMetadataValue(vec![b'v'; max_value_len as usize]),
         })
         .collect();
     for _ in 0..n_nfts {
@@ -162,11 +163,12 @@ benchmarks! {
 
         let user = user::<T>("target", 0);
         let (asset_id, collection_id) = create_collection::<T>(&user, n);
+        let max_value_len = <T as pallet_asset::Config>::AssetMetadataValueMaxLength::get();
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
                 NFTMetadataAttribute{
                     key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
-                    value: AssetMetadataValue(b"value".to_vec()),
+                    value: AssetMetadataValue(vec![b'v'; max_value_len as usize]),
                 }
             })
             .collect();

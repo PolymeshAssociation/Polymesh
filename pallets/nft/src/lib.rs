@@ -303,6 +303,7 @@ pub mod pallet {
         /// - `CollectionNotFound` - if the collection associated to the given asset_id has not been created.
         /// - `InvalidMetadataAttribute` - if the number of attributes is not equal to the number set in the collection or attempting to set a value for a key not definied in the collection.
         /// - `DuplicateMetadataKey` - if a duplicate metadata keys has been passed as input.
+        /// - `AssetMetadataValueMaxLengthExceeded` - if any metadata value exceeds `AssetMetadataValueMaxLength`.
         ///
         ///
         /// # Permissions
@@ -681,11 +682,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DuplicateMetadataKey
         );
 
-        for metadata_key in nft_attributes.keys() {
+        for (metadata_key, metadata_value) in nft_attributes.iter() {
             ensure!(
                 mandatory_keys.contains(metadata_key),
                 Error::<T>::InvalidMetadataAttribute
             );
+            AssetPallet::<T>::ensure_asset_metadata_value_limited(metadata_value)?;
         }
 
         // Mints the NFT and adds it to the caller's portfolio

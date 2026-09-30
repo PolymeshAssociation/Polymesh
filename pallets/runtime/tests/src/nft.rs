@@ -1,5 +1,5 @@
 use chrono::prelude::Utc;
-use frame_support::traits::UncheckedOnRuntimeUpgrade;
+use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 use frame_support::{assert_noop, assert_ok};
 
 use pallet_nft::Event;
@@ -28,6 +28,7 @@ use crate::ext_builder::ExtBuilder;
 use crate::storage::{default_asset_holder_set, TestStorage, User};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
+type AssetError = pallet_asset::Error<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
@@ -355,6 +356,47 @@ fn mint_nft_wrong_key() {
             ),
             NFTError::InvalidMetadataAttribute
         );
+    });
+}
+
+/// An NFT can only be minted if all metadata values are within `AssetMetadataValueMaxLength`.
+#[test]
+fn mint_nft_metadata_value_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+
+        let alice: User = User::new(Sr25519Keyring::Alice);
+
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let max_len =
+            <TestStorage as pallet_asset::Config>::AssetMetadataValueMaxLength::get() as usize;
+        assert_noop!(
+            NFT::issue_nft(
+                alice.origin(),
+                asset_id,
+                vec![NFTMetadataAttribute {
+                    key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+                    value: AssetMetadataValue(vec![b'v'; max_len + 1])
+                }],
+                AssetHolderKind::DefaultPortfolio
+            ),
+            AssetError::AssetMetadataValueMaxLengthExceeded
+        );
+        assert_ok!(NFT::issue_nft(
+            alice.origin(),
+            asset_id,
+            vec![NFTMetadataAttribute {
+                key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+                value: AssetMetadataValue(vec![b'v'; max_len])
+            }],
+            AssetHolderKind::DefaultPortfolio
+        ));
     });
 }
 
