@@ -30,6 +30,8 @@ use polymesh_dart::{
 };
 pub use polymesh_dart::{AccountAssetState, AccountKeys, AssetId as DartAssetId};
 
+use polymesh_api::types::pallet_confidential_assets::RoleKind;
+use polymesh_api::types::polymesh_primitives::identity_claim::{Claim, Scope};
 pub use polymesh_api::ChainApi;
 pub use polymesh_api::{Api, TransactionResults};
 pub use polymesh_api_tester::{
@@ -682,9 +684,8 @@ impl DartProofSubmitter {
         log::debug!(
             "FeePaymentSubmitBatch: Relayer submit batched fee info: fee_info={fee_info:?}"
         );
-        let tx_fee = DartBalance::try_from(fee_info.fee).map_err(|_| {
-            anyhow::anyhow!("Relayer fee {} overflows DartBalance", fee_info.fee)
-        })?;
+        let tx_fee = DartBalance::try_from(fee_info.fee)
+            .map_err(|_| anyhow::anyhow!("Relayer fee {} overflows DartBalance", fee_info.fee))?;
 
         // Generate fee payment proof.
         let mut rng = rand::thread_rng();
@@ -2150,6 +2151,50 @@ impl DartAssetTesterInner {
         self.users.get(name).expect("Missing Investor").clone()
     }
 
+    /// Role claim required by the genesis specs (matches the pallet's `RoleKind::default_claim`).
+    pub fn role_claim(role: RoleKind) -> Claim {
+        let scope: &[u8] = match role {
+            RoleKind::AssetCreator => b"DART:AssetCreator",
+            RoleKind::Auditor => b"DART:Auditor",
+            RoleKind::Mediator => b"DART:Mediator",
+        };
+        Claim::KnowYourCustomer(Scope::Custom(scope.to_vec()))
+    }
+
+    /// Give each user the genesis claim for its role, issued by GC 1.
+    /// Idempotent; safe under parallel tests.
+    pub async fn onboard_confidential_roles(
+        &mut self,
+        creators: &[&DartUser],
+        auditors: &[&DartUser],
+        mediators: &[&DartUser],
+    ) -> Result<()> {
+        let mut targets = Vec::new();
+        for (role, users) in [
+            (RoleKind::AssetCreator, creators),
+            (RoleKind::Auditor, auditors),
+            (RoleKind::Mediator, mediators),
+        ] {
+            let claim = Self::role_claim(role);
+            for user in users {
+                targets.push((user.did().await, claim.clone()));
+            }
+        }
+        // Alice is a key of GC 1, the genesis trusted issuer for all roles.
+        for (did, claim) in targets {
+            self.tester
+                .api
+                .call()
+                .identity()
+                .add_claim(did, claim, None)?
+                .submit_and_watch(&mut self.tester.cdd)
+                .await?
+                .ok()
+                .await?;
+        }
+        Ok(())
+    }
+
     pub fn api(&self) -> Api {
         self.tester.api.clone()
     }
@@ -2235,6 +2280,21 @@ impl DartAssetTester {
         self.0.read().await.get_asset(asset_id)
     }
 
+    /// Ensure role-gating specs exist and `creators`/`auditors`/`mediators` hold live
+    /// role claims from the shared test issuer. Idempotent; safe under parallel tests.
+    pub async fn onboard_confidential_roles(
+        &self,
+        creators: &[&DartUser],
+        auditors: &[&DartUser],
+        mediators: &[&DartUser],
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .onboard_confidential_roles(creators, auditors, mediators)
+            .await
+    }
+
     pub async fn register_asset(&self, asset: DartTestAsset) {
         let name = asset.name().await;
         let asset_id = asset.id;
@@ -2257,6 +2317,11 @@ impl DartAssetTester {
             }
             return Ok(asset);
         }
+
+        // Ensure role-gating specs + claims for issuer/auditors/mediators
+        // (idempotent; safe under parallel tests).
+        self.onboard_confidential_roles(&[asset_issuer], auditors, mediators)
+            .await?;
 
         let account_tree = self.account_tree().await;
         // Create a new asset.
@@ -2998,6 +3063,24 @@ pub fn assert_operation_fails<T>(result: Result<T>, context: &str) {
         Ok(_) => panic!("Expected {} to fail, but it succeeded", context),
         Err(e) => {
             log::info!("Operation '{}' failed as expected: {:?}", context, e);
+        }
+    }
+}
+
+/// Assert that `result` fails with an error containing `expected`.
+pub fn assert_operation_fails_with<T>(result: Result<T>, context: &str, expected: &str) {
+    match result {
+        Ok(_) => panic!("Expected {} to fail, but it succeeded", context),
+        Err(e) => {
+            let msg = format!("{:?}", e);
+            log::info!("Operation '{}' failed as expected: {}", context, msg);
+            assert!(
+                msg.contains(expected),
+                "Expected {} to fail with {:?}, got: {}",
+                context,
+                expected,
+                msg
+            );
         }
     }
 }
