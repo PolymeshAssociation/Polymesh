@@ -2,6 +2,7 @@
 // Copyright (c) 2023 Polymesh
 
 use frame_benchmarking::benchmarks;
+use frame_system::RawOrigin;
 use sp_consensus_babe::Slot;
 use sp_std::vec;
 use sp_std::vec::Vec;
@@ -82,6 +83,18 @@ fn init_curve_trees<T: Config>() {
     // Initialize the current curve tree roots.
     Pallet::<T>::update_account_curve_tree_root();
     Pallet::<T>::update_fee_account_curve_tree_root();
+}
+
+fn role_claim() -> Claim {
+    RoleKind::Auditor.default_claim()
+}
+
+fn max_trusted_issuers<T: Config>() -> BoundedVec<IdentityId, T::MaxTrustedClaimIssuers> {
+    (0..T::MaxTrustedClaimIssuers::get())
+        .map(|i| IdentityId::from(i as u128 + 1))
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("Within MaxTrustedClaimIssuers")
 }
 
 benchmarks! {
@@ -783,4 +796,16 @@ benchmarks! {
         // Generate the receiver's revert affirmation proof.
         let (proof, _) = leg.receiver.receiver_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.receiver.raw_origin(), proof)
+
+    set_required_claim {
+        let trusted_issuers = max_trusted_issuers::<T>();
+    }: _(RawOrigin::Root, RoleKind::Auditor, role_claim(), trusted_issuers)
+
+    remove_required_claim {
+        Pallet::<T>::base_set_required_claim(
+            RoleKind::Auditor,
+            role_claim(),
+            max_trusted_issuers::<T>(),
+        )?;
+    }: _(RawOrigin::Root, RoleKind::Auditor)
 }

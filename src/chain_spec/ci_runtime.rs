@@ -121,5 +121,8 @@ fn ci_genesis_config(
         "upgradeCommittee": committee_genesis_config((1, 2), identity_5),
         "protocolFee": protocol_fee_genesis_config(),
         "corporateAction": corporate_actions_genesis_config(),
+        "confidentialAssets": {
+            "trustedIssuer": Some(identity_1),
+        },
     })
 }
