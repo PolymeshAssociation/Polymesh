@@ -89,14 +89,6 @@ fn role_claim() -> Claim {
     RoleKind::Auditor.default_claim()
 }
 
-fn max_trusted_issuers<T: Config>() -> BoundedVec<IdentityId, T::MaxTrustedClaimIssuers> {
-    (0..T::MaxTrustedClaimIssuers::get())
-        .map(|i| IdentityId::from(i as u128 + 1))
-        .collect::<Vec<_>>()
-        .try_into()
-        .expect("Within MaxTrustedClaimIssuers")
-}
-
 benchmarks! {
     where_clause { where T: Config + pallet_babe::Config, Slot: From<T::Moment> }
 
@@ -300,6 +292,7 @@ benchmarks! {
 
         // Register the asset issuer's account.
         asset_issuer.register_account();
+        onboard_role::<T>(asset_issuer.did(), RoleKind::AssetCreator);
 
         // Create the maximum number of mediators.
         let auditor_keys = BoundedBTreeSet::new();
@@ -307,6 +300,7 @@ benchmarks! {
         for i in 0..<T as Config>::MaxAssetMediators::get() {
             let mediator = DartUser::<T>::auditor_user("Mediator", 0, i);
             mediator.register_account();
+            onboard_role::<T>(mediator.did(), RoleKind::Mediator);
             let med_keys = mediator.public_keys();
             mediator_keys
                 .try_insert(med_keys.acct, med_keys.enc)
@@ -798,14 +792,14 @@ benchmarks! {
     }: _(leg.receiver.raw_origin(), proof)
 
     set_required_claim {
-        let trusted_issuers = max_trusted_issuers::<T>();
+        let trusted_issuers = role_claim_issuers::<T>();
     }: _(RawOrigin::Root, RoleKind::Auditor, role_claim(), trusted_issuers)
 
     remove_required_claim {
         Pallet::<T>::base_set_required_claim(
             RoleKind::Auditor,
             role_claim(),
-            max_trusted_issuers::<T>(),
+            role_claim_issuers::<T>(),
         )?;
     }: _(RawOrigin::Root, RoleKind::Auditor)
 }

@@ -43,6 +43,38 @@ pub fn set_skip_verify<T: Config>(_skip: bool) {
     // TODO: Implement skip verify for worker extension.
 }
 
+/// Maximum-length trusted issuer list for the role claim specs.
+pub fn role_claim_issuers<T: Config>() -> BoundedVec<IdentityId, T::MaxTrustedClaimIssuers> {
+    (0..T::MaxTrustedClaimIssuers::get())
+        .map(|i| IdentityId::from(i as u128 + 1))
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("Within MaxTrustedClaimIssuers")
+}
+
+/// Give `did` the claim required for `role`, installing the role's spec if needed.
+///
+/// The claim is issued by the last trusted issuer (worst-case lookup).
+pub fn onboard_role<T: Config>(did: IdentityId, role: RoleKind) {
+    let issuers = role_claim_issuers::<T>();
+    let issuer = *issuers
+        .last()
+        .expect("MaxTrustedClaimIssuers must be non-zero");
+    let claim = role.default_claim();
+    if RequiredClaims::<T>::get(role).map_or(true, |spec| {
+        spec.claim != claim || spec.trusted_issuers != issuers
+    }) {
+        assert_ok!(Pallet::<T>::base_set_required_claim(
+            role,
+            claim.clone(),
+            issuers
+        ));
+    }
+    assert_ok!(pallet_identity::Pallet::<T>::base_add_claim(
+        did, claim, issuer, None
+    ));
+}
+
 pub type AccountProverCurveTree<T> = ProverCurveTree<
     ACCOUNT_TREE_L,
     ACCOUNT_TREE_M,
@@ -1290,6 +1322,7 @@ impl<T: Config> DartTestAsset<T> {
 
         // Register the asset issuer's account.
         asset_issuer.register_account();
+        onboard_role::<T>(asset_issuer.did(), RoleKind::AssetCreator);
 
         // Create auditors and mediators.
         let mut auditors = Vec::new();
@@ -1298,6 +1331,7 @@ impl<T: Config> DartTestAsset<T> {
             let auditor = DartUser::<T>::auditor_user("Auditor", asset_idx, i);
             // Register the auditor's keys.
             auditor.register_encryption_key();
+            onboard_role::<T>(auditor.did(), RoleKind::Auditor);
             auditor_keys
                 .try_insert(auditor.public_keys().enc)
                 .expect("Failed to push auditor keys");
@@ -1309,6 +1343,7 @@ impl<T: Config> DartTestAsset<T> {
             let mediator = DartUser::<T>::auditor_user("Mediator", asset_idx, i);
             // Register the mediator's keys.
             mediator.register_account();
+            onboard_role::<T>(mediator.did(), RoleKind::Mediator);
             let med_keys = mediator.public_keys();
             mediator_keys
                 .try_insert(med_keys.acct, med_keys.enc)
