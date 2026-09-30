@@ -7,7 +7,7 @@ use polymesh_worker_common::*;
 use crate::cache::modules::{BackendModuleCache, ProtocolModuleRef};
 use crate::decompress_module_code;
 
-#[cfg(feature = "polkavm")]
+#[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
 mod polkavm;
 #[cfg(feature = "wasmer")]
 mod wasmer;
