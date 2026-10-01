@@ -633,4 +633,12 @@ impl crate::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    // TODO: Replace this manual estimate with benchmark output.
+    fn distribute_encryption_key(r: u32) -> Weight {
+        Weight::from_parts(2_000_000_000, 0)
+            .saturating_add(Weight::from_parts(1_000_000_000, 0).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(r.into())))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }
