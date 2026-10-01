@@ -57,6 +57,7 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 | `relayer_submit_batched_proofs(17)` | any signed **relayer** | private fee payment (§5) | :1800 |
 | `execute_instant_settlement(18)`, instant affirmations (19/20) | any signed | single-tx create+affirm+execute | :1822-1883 |
 | `set_required_claim(21)` / `remove_required_claim(22)` | Root | set/clear the required-claim spec for a role | §9 |
+| `distribute_encryption_key(23)` | DID meeting `Auditor` requirements | register a new shared encryption key to the caller and distribute its secret to registered recipient encryption keys (proof-verified) | §9 |
 
 No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
 
@@ -83,6 +84,20 @@ meet the `AssetCreator` requirements, and `ensure_mediators_registered` /
 `ensure_auditors_registered` require each key-owning DID to meet the mediator/auditor
 requirements — at asset creation and wherever else those helpers are reused (e.g. future
 asset-key updates).
+
+**Shared encryption keys.** `distribute_encryption_key` verifies a `KeyDistributionProof`
+(nonce = caller DID) that the shared key's secret was encrypted to each recipient encryption
+key, and registers the shared key (`EncryptionKeyDid` → caller; must not already be registered,
+so each shared key is distributed once). The caller (normally the asset issuer) and every
+recipient key's DID must meet the `Auditor` requirements at distribution time. Recipients are
+stored in `SharedKeyRecipients` (bounded by `MaxSharedKeyRecipients`); there is no removal yet
+(key de-registration is future work).
+- Auditor keys, shared or not: the DID linked to the encryption key must meet the `Auditor`
+  requirements at asset creation. For shared keys this is the key creator; recipient claims are
+  not re-checked at asset creation.
+- Mediator `(account, enc)` pair: `enc` is either the account's own encryption key, or a shared
+  key distributed to the account's own encryption key (`EncryptionKeyNotShared` otherwise);
+  the account's DID must meet the `Mediator` requirements.
 
 Integration tests rely on the genesis specs: Alice (a key of GC 1) adds the role-specific
 `KnowYourCustomer(Custom(b"DART:<Role>"))` claim to each test's issuer/auditors/mediators

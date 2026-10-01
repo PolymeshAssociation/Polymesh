@@ -32,6 +32,7 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
 use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
@@ -184,6 +185,8 @@ pub trait WeightInfo {
 
     fn set_required_claim() -> Weight;
     fn remove_required_claim() -> Weight;
+
+    fn distribute_encryption_key(r: u32) -> Weight;
 
     fn batched_settlement(counts: SettlementCounts) -> Weight {
         Self::create_settlement(counts.leg_count)
@@ -601,6 +604,10 @@ pub mod pallet {
         #[pallet::constant]
         type MaxTrustedClaimIssuers: Get<u32>;
 
+        /// The maximum number of recipients a shared encryption key can be distributed to.
+        #[pallet::constant]
+        type MaxSharedKeyRecipients: Get<u32>;
+
         /// The maximum number of asset encryption keys (mediators + auditors).
         #[pallet::constant]
         type MaxAssetEncryptionKeys: Get<u32>;
@@ -851,6 +858,17 @@ pub mod pallet {
             /// Gated role.
             role: RoleKind,
         },
+        /// An encryption key has been distributed (shared) to recipient encryption keys.
+        ///
+        /// Recipients decrypt the shared secret key from `proof`.
+        EncryptionKeyDistributed {
+            /// Caller's identity (owner of the shared key).
+            caller_did: IdentityId,
+            /// The shared encryption key.
+            encryption_key: EncryptionPublicKey,
+            /// Key distribution proof (contains the recipients and their ciphertexts).
+            proof: KeyDistributionProof<PolymeshLimits>,
+        },
     }
 
     #[pallet::error]
@@ -953,6 +971,12 @@ pub mod pallet {
         EncryptionKeyMismatch,
         /// DID does not hold the required claim from a trusted issuer (or it expired).
         MissingRequiredClaim,
+        /// Key distribution requires at least one recipient.
+        NoKeyRecipients,
+        /// Too many recipients for the shared encryption key.
+        TooManySharedKeyRecipients,
+        /// The shared encryption key hasn't been distributed to the mediator's encryption key.
+        EncryptionKeyNotShared,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1012,6 +1036,16 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type EncryptionKeyDid<T: Config> =
         StorageMap<_, Twox64Concat, EncryptionPublicKey, IdentityId, OptionQuery>;
+
+    /// Recipient encryption keys a shared encryption key has been distributed to.
+    #[pallet::storage]
+    pub(super) type SharedKeyRecipients<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        EncryptionPublicKey,
+        BoundedBTreeSet<EncryptionPublicKey, T::MaxSharedKeyRecipients>,
+        ValueQuery,
+    >;
 
     /// Confidential account to identity mapping.
     #[pallet::storage]
@@ -1477,17 +1511,7 @@ pub mod pallet {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
 
             for encryption_key in &proof.keys {
-                // Ensure the encryption key doesn't exist.
-                ensure!(
-                    !EncryptionKeyDid::<T>::contains_key(&encryption_key),
-                    Error::<T>::EncryptionKeyAlreadyRegistered
-                );
-                EncryptionKeyDid::<T>::insert(&encryption_key, caller_did);
-
-                Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
-                    caller_did,
-                    encryption_key: *encryption_key,
-                });
+                Self::base_register_encryption_key(caller_did, *encryption_key)?;
             }
 
             // Verify the proof.
@@ -2199,6 +2223,36 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::RequiredClaimRemoved { role });
             Ok(())
         }
+
+        /// Register a new shared encryption key and distribute it to registered encryption keys.
+        ///
+        /// The shared key is linked to the caller's DID (normally the asset issuer). It can then
+        /// be used as an asset auditor key, or as a mediator key by the owner of a Confidential
+        /// account whose encryption key it was distributed to.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must meet the asset creator or auditor requirements).
+        /// * `proof` - The key distribution proof.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `MissingRequiredClaim` if the caller doesn't meet the asset creator or auditor
+        ///   requirements, or a recipient's DID doesn't meet the auditor requirements.
+        /// * `EncryptionKeyAlreadyRegistered` if the shared key is already registered.
+        /// * `EncryptionKeyMissing` if a recipient key isn't registered.
+        /// * `NoKeyRecipients` if the proof has no recipients.
+        /// * `TooManySharedKeyRecipients` if the proof exceeds `MaxSharedKeyRecipients`.
+        /// * `InvalidProof` if the proof is invalid.
+        #[pallet::call_index(23)]
+        #[pallet::weight(<T as Config>::WeightInfo::distribute_encryption_key(proof.recipient_pks.len() as u32))]
+        pub fn distribute_encryption_key(
+            origin: OriginFor<T>,
+            proof: KeyDistributionProof<PolymeshLimits>,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            Self::base_distribute_encryption_key(caller_did, proof)
+        }
     }
 }
 
@@ -2222,6 +2276,64 @@ impl<T: Config> Pallet<T> {
             role,
             claim,
             trusted_issuers,
+        });
+        Ok(())
+    }
+
+    /// Register a new shared encryption key for the caller and distribute it to the proof's
+    /// recipient encryption keys.
+    pub fn base_distribute_encryption_key(
+        caller_did: IdentityId,
+        proof: KeyDistributionProof<PolymeshLimits>,
+    ) -> DispatchResult {
+        let encryption_key = proof.public_key;
+        let recipient_keys = &proof.recipient_pks;
+        ensure!(!recipient_keys.is_empty(), Error::<T>::NoKeyRecipients);
+
+        Self::ensure_role_claim(caller_did, RoleKind::Auditor)?;
+        ensure!(
+            !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+            Error::<T>::EncryptionKeyAlreadyRegistered
+        );
+
+        let mut recipients = BoundedBTreeSet::<_, T::MaxSharedKeyRecipients>::new();
+        for recipient in recipient_keys {
+            recipients
+                .try_insert(*recipient)
+                .map_err(|_| Error::<T>::TooManySharedKeyRecipients)?;
+            let recipient_did = Self::ensure_encryption_key_registered(recipient)?;
+            Self::ensure_role_claim(recipient_did, RoleKind::Auditor)?;
+        }
+
+        // The proof shows knowledge of the shared secret key, bound to the caller's DID.
+        Self::submit_and_wait(VerifyDartAssetRequest::KeyDistribution {
+            did: caller_did.into(),
+            proof: proof.clone(),
+        })?;
+
+        Self::base_register_encryption_key(caller_did, encryption_key)?;
+        SharedKeyRecipients::<T>::insert(&encryption_key, recipients);
+        Self::deposit_event(Event::<T>::EncryptionKeyDistributed {
+            caller_did,
+            encryption_key,
+            proof,
+        });
+        Ok(())
+    }
+
+    /// Register an encryption key to a DID and emit its registration event.
+    fn base_register_encryption_key(
+        did: IdentityId,
+        encryption_key: EncryptionPublicKey,
+    ) -> DispatchResult {
+        ensure!(
+            !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+            Error::<T>::EncryptionKeyAlreadyRegistered
+        );
+        EncryptionKeyDid::<T>::insert(&encryption_key, did);
+        Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
+            caller_did: did,
+            encryption_key,
         });
         Ok(())
     }
@@ -3204,6 +3316,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensure auditor encryption public keys are registered and meet the auditor requirements.
+    ///
+    /// Shared keys are linked to their creator's DID like any other registered encryption key.
     pub fn ensure_auditors_registered(keys: &AuditorKeys) -> Result<(), Error<T>> {
         for key in keys {
             let did = Self::ensure_encryption_key_registered(key)?;
@@ -3213,9 +3327,20 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensure mediator encryption public keys are registered and meet the mediator requirements.
+    ///
+    /// The mediator's encryption key is either the account's own encryption key or a shared
+    /// key that was distributed to the account's own encryption key.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
         for (acct, enc) in keys {
-            let did = Self::ensure_dart_account_and_encryption_key_registered(acct, enc)?;
+            let did = Self::ensure_dart_account_registered(acct)?;
+            let account_enc =
+                AccountEncryptionKey::<T>::get(acct).ok_or(Error::<T>::EncryptionKeyMissing)?;
+            if account_enc != *enc {
+                ensure!(
+                    SharedKeyRecipients::<T>::get(enc).contains(&account_enc),
+                    Error::<T>::EncryptionKeyNotShared
+                );
+            }
             Self::ensure_role_claim(did, RoleKind::Mediator)?;
         }
         Ok(())

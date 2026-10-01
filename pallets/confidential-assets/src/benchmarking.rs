@@ -294,17 +294,26 @@ benchmarks! {
         asset_issuer.register_account();
         onboard_role::<T>(asset_issuer.did(), RoleKind::AssetCreator);
 
-        // Create the maximum number of mediators.
-        let auditor_keys = BoundedBTreeSet::new();
-        let mut mediator_keys = BoundedBTreeMap::new();
-        for i in 0..<T as Config>::MaxAssetMediators::get() {
-            let mediator = DartUser::<T>::auditor_user("Mediator", 0, i);
-            mediator.register_account();
-            onboard_role::<T>(mediator.did(), RoleKind::Mediator);
-            let med_keys = mediator.public_keys();
-            mediator_keys
-                .try_insert(med_keys.acct, med_keys.enc)
-                .expect("Failed to push mediator keys");
+        // Worst case: the maximum number of auditors, each using a shared key whose owner
+        // must pass the auditor claim check.
+        let distributor = DartUser::<T>::new("KeyDistributor");
+        onboard_role::<T>(distributor.did(), RoleKind::Auditor);
+        let mediator_keys = BoundedBTreeMap::new();
+        let mut auditor_keys = BoundedBTreeSet::new();
+        for i in 0..<T as Config>::MaxAssetAuditors::get() {
+            let shared_key = DartUser::<T>::auditor_user("SharedKey", 0, i).keys().enc.clone();
+            let recipients = (0..T::MaxSharedKeyRecipients::get())
+                .map(|r| {
+                    let recipient = DartUser::<T>::auditor_user("KeyRecipient", i + 1, r);
+                    recipient.register_encryption_key();
+                    onboard_role::<T>(recipient.did(), RoleKind::Auditor);
+                    recipient.public_keys().enc
+                })
+                .collect();
+            auditor_keys
+                .try_insert(shared_key.public)
+                .expect("Failed to push auditor keys");
+            distributor.distribute_encryption_key(shared_key, recipients);
         }
 
         // Asset Data.
@@ -802,4 +811,25 @@ benchmarks! {
             role_claim_issuers::<T>(),
         )?;
     }: _(RawOrigin::Root, RoleKind::Auditor)
+
+    distribute_encryption_key {
+        // Number of recipients.
+        let r in 1 .. T::MaxSharedKeyRecipients::get();
+
+        init_block::<T>();
+
+        let owner = DartUser::<T>::new("KeyOwner");
+        // The distributor has the only required role: Auditor.
+        onboard_role::<T>(owner.did(), RoleKind::Auditor);
+
+        let recipients = (0..r)
+            .map(|i| {
+                let recipient = DartUser::<T>::auditor_user("KeyRecipient", 0, i);
+                recipient.register_encryption_key();
+                onboard_role::<T>(recipient.did(), RoleKind::Auditor);
+                recipient.public_keys().enc
+            })
+            .collect();
+        let proof = owner.distribute_encryption_key_proof(owner.keys().enc.clone(), recipients);
+    }: _(owner.raw_origin(), proof)
 }

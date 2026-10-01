@@ -17,6 +17,8 @@ use sp_weights::Weight;
 use polymesh_dart::curve_tree::{
     AccountTreeConfig, CurveTreeWitnessPath, FeeAccountTreeConfig, LeafPathAndRoot,
 };
+pub use polymesh_dart::key_distribution_proof::KeyDistributionProof;
+pub use polymesh_dart::EncryptionKeyPair;
 use polymesh_dart::{
     curve_tree::get_account_curve_tree_parameters, AccountAssetRegistrationProof, AccountKeyPair,
     AccountPublicKey, AccountPublicKeys, AccountRegistrationProof, AssetMintingProof, AssetState,
@@ -803,6 +805,34 @@ impl DartProofSubmitter {
         Ok(ts)
     }
 
+    pub async fn distribute_encryption_key(
+        &mut self,
+        proof: KeyDistributionProof<()>,
+    ) -> Result<TransactionResults> {
+        let ts = self
+            .api
+            .call()
+            .confidential_assets()
+            .distribute_encryption_key(to_scale(&proof))?
+            .submit_and_watch(&mut self.user)
+            .await?;
+        Ok(ts)
+    }
+
+    pub async fn query_shared_key_recipients(
+        &self,
+        shared_key: &EncryptionPublicKey,
+    ) -> Result<BTreeSet<EncryptionPublicKey>> {
+        let recipients = self
+            .api
+            .query()
+            .confidential_assets()
+            .shared_key_recipients(to_scale(shared_key))
+            .await?;
+
+        Ok(to_scale(&recipients))
+    }
+
     pub async fn register_account_assets(
         &mut self,
         proof: BatchedAccountAssetRegistrationProof<()>,
@@ -1028,6 +1058,30 @@ impl DartUserInner {
 
     pub async fn register_fee_account(&mut self, amount: DartBalance) -> Result<()> {
         self.submitter.register_fee_account(amount).await
+    }
+
+    /// Register `shared_key` to this user's DID and distribute its secret to `recipients`.
+    pub async fn distribute_encryption_key(
+        &mut self,
+        shared_key: &EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) -> Result<()> {
+        let proof = {
+            let mut rng = rand::thread_rng();
+            let did = self.did();
+            KeyDistributionProof::<()>::new(
+                &mut rng,
+                shared_key,
+                recipients,
+                &did.0[..],
+                get_account_curve_tree_parameters(),
+            )?
+        };
+
+        let mut res = self.submitter.distribute_encryption_key(proof).await?;
+        res.ok().await?;
+        wait_for_results(&mut res).await?;
+        Ok(())
     }
 
     pub async fn fee_account_topup(&mut self, amount: DartBalance) -> Result<()> {
@@ -1847,6 +1901,11 @@ impl DartUser {
         self.0.read().await.public_keys()
     }
 
+    /// Returns the confidential account keys (including secrets) of the user.
+    pub async fn keys(&self) -> AccountKeys {
+        self.0.read().await.keys.clone()
+    }
+
     /// Returns the on-chain identity (DID) of the user.
     ///
     /// # Returns
@@ -1879,6 +1938,42 @@ impl DartUser {
 
     pub async fn register_fee_account(&self, amount: DartBalance) -> Result<()> {
         self.0.write().await.register_fee_account(amount).await
+    }
+
+    pub async fn distribute_encryption_key(
+        &self,
+        shared_key: &EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .distribute_encryption_key(shared_key, recipients)
+            .await
+    }
+
+    pub async fn query_encryption_did(
+        &self,
+        enc: &EncryptionPublicKey,
+    ) -> Result<Option<IdentityId>> {
+        self.0
+            .read()
+            .await
+            .submitter
+            .query_encryption_did(enc)
+            .await
+    }
+
+    pub async fn query_shared_key_recipients(
+        &self,
+        shared_key: &EncryptionPublicKey,
+    ) -> Result<BTreeSet<EncryptionPublicKey>> {
+        self.0
+            .read()
+            .await
+            .submitter
+            .query_shared_key_recipients(shared_key)
+            .await
     }
 
     pub async fn fee_account_topup(&self, amount: DartBalance) -> Result<()> {
@@ -2195,6 +2290,25 @@ impl DartAssetTesterInner {
         Ok(())
     }
 
+    /// Revoke the genesis claim for `role` (issued by GC 1) from `user`.
+    pub async fn revoke_confidential_role(
+        &mut self,
+        user: &DartUser,
+        role: RoleKind,
+    ) -> Result<()> {
+        let did = user.did().await;
+        self.tester
+            .api
+            .call()
+            .identity()
+            .revoke_claim(did, Self::role_claim(role))?
+            .submit_and_watch(&mut self.tester.cdd)
+            .await?
+            .ok()
+            .await?;
+        Ok(())
+    }
+
     pub fn api(&self) -> Api {
         self.tester.api.clone()
     }
@@ -2292,6 +2406,14 @@ impl DartAssetTester {
             .write()
             .await
             .onboard_confidential_roles(creators, auditors, mediators)
+            .await
+    }
+
+    pub async fn revoke_confidential_role(&self, user: &DartUser, role: RoleKind) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .revoke_confidential_role(user, role)
             .await
     }
 

@@ -233,6 +233,33 @@ impl<T: Config> DartUserInner<T> {
         assert_ok!(Pallet::<T>::register_encryption_keys(self.origin(), proof));
     }
 
+    pub fn distribute_encryption_key_proof(
+        &self,
+        key: EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) -> KeyDistributionProof<PolymeshLimits> {
+        let req = GenerateDartProofRequest::KeyDistribution {
+            did: self.did().into(),
+            key,
+            recipients,
+        };
+        if let GenerateDartProofResponse::KeyDistribution { proof } = generate::<T>(req) {
+            return proof;
+        } else {
+            panic!("Failed to generate key distribution proof");
+        }
+    }
+
+    pub fn distribute_encryption_key(
+        &self,
+        key: EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) {
+        let proof = self.distribute_encryption_key_proof(key, recipients);
+
+        assert_ok!(Pallet::<T>::distribute_encryption_key(self.origin(), proof));
+    }
+
     pub fn register_accounts_proof(
         &self,
         accounts: Vec<AccountKeys>,
@@ -1005,6 +1032,24 @@ impl<T: Config> DartUser<T> {
     pub fn register_encryption_keys(&self, keys: Vec<EncryptionKeyPair>) {
         let inner = self.0.borrow();
         inner.register_encryption_keys(keys);
+    }
+
+    pub fn distribute_encryption_key_proof(
+        &self,
+        key: EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) -> KeyDistributionProof<PolymeshLimits> {
+        let inner = self.0.borrow();
+        inner.distribute_encryption_key_proof(key, recipients)
+    }
+
+    pub fn distribute_encryption_key(
+        &self,
+        key: EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) {
+        let inner = self.0.borrow();
+        inner.distribute_encryption_key(key, recipients);
     }
 
     pub fn register_account(&self) {
