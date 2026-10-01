@@ -65,7 +65,8 @@ No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
 
 No registry: auditors/mediators never register — they just need valid claims on their DIDs.
 Root can gate three roles with a required-claim spec (`RequiredClaims`: `Claim` + bounded
-trusted-issuer list, `MaxTrustedClaimIssuers = 10`): `AssetCreator`, `Auditor`, `Mediator`.
+trusted-issuer list, `MaxTrustedClaimIssuers = 2` in develop and testnet): `AssetCreator`,
+`Auditor`, `Mediator`.
 Mediators fall back to the auditor spec when no mediator spec is set, so one spec can cover both.
 An empty issuer list blocks the role entirely (deny-all).
 
@@ -91,7 +92,7 @@ key, and registers the shared key (`EncryptionKeyDid` → caller; must not alrea
 so each shared key is distributed once). The caller (normally the asset issuer) and every
 recipient key's DID must meet the `Auditor` requirements at distribution time. Recipients are
 stored in `SharedKeyRecipients` (bounded by `MaxSharedKeyRecipients`); there is no removal yet
-(key de-registration is future work).
+(key de-registration is future work). `MaxSharedKeyRecipients = 5` in develop and testnet.
 - Auditor keys, shared or not: the DID linked to the encryption key must meet the `Auditor`
   requirements at asset creation. For shared keys this is the key creator; recipient claims are
   not re-checked at asset creation.
