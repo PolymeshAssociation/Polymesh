@@ -167,8 +167,8 @@ pub trait WeightInfo {
 
     fn register_encryption_keys(k: u32) -> Weight;
 
-    fn create_asset() -> Weight;
-    fn update_asset_keys() -> Weight;
+    fn create_asset(key_count: u32) -> Weight;
+    fn update_asset_keys(key_count: u32) -> Weight;
     fn create_settlement(l: u32) -> Weight;
     fn mediator_affirmation() -> Weight;
 
@@ -1534,7 +1534,9 @@ pub mod pallet {
         /// * `AccountMissing` if the auditor or mediator is not registered.
         /// * `EncryptionKeyMissing` if the encryption key of the auditor or mediator is not registered.
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::create_asset())]
+        #[pallet::weight(<T as Config>::WeightInfo::create_asset(
+            mediators.len().saturating_add(auditors.len()) as u32
+        ))]
         pub fn create_asset(
             origin: OriginFor<T>,
             name: Name,
@@ -2260,7 +2262,9 @@ pub mod pallet {
         /// The asset owner must retain the required live claims for every selected auditor and
         /// mediator. Existing settlements keep their creation-time encrypted legs and mediator set.
         #[pallet::call_index(24)]
-        #[pallet::weight(<T as Config>::WeightInfo::update_asset_keys())]
+        #[pallet::weight(<T as Config>::WeightInfo::update_asset_keys(
+            mediators.len().saturating_add(auditors.len()) as u32
+        ))]
         pub fn update_asset_keys(
             origin: OriginFor<T>,
             asset_id: ConfidentialAssetId,

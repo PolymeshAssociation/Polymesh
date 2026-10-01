@@ -285,35 +285,35 @@ benchmarks! {
     }: _(user.raw_origin(), proof)
 
     create_asset {
+        let k in 1 .. core::cmp::min(
+            <T as Config>::MaxAssetMediators::get(),
+            <T as Config>::MaxAssetEncryptionKeys::get(),
+        );
+
         init_block::<T>();
 
-        // Create an asset issuer and create an asset.
         let asset_issuer = DartUser::<T>::new("AssetIssuer");
-
-        // Register the asset issuer's account.
         asset_issuer.register_account();
         onboard_role::<T>(asset_issuer.did(), RoleKind::AssetCreator);
+        onboard_role::<T>(asset_issuer.did(), RoleKind::Auditor);
 
-        // Worst case: the maximum number of auditors, each using a shared key whose owner
-        // must pass the auditor claim check.
-        let distributor = DartUser::<T>::new("KeyDistributor");
-        onboard_role::<T>(distributor.did(), RoleKind::Auditor);
-        let mediator_keys = BoundedBTreeMap::new();
-        let mut auditor_keys = BoundedBTreeSet::new();
-        for i in 0..<T as Config>::MaxAssetAuditors::get() {
-            let shared_key = DartUser::<T>::auditor_user("SharedKey", 0, i).keys().enc.clone();
-            let recipients = (0..T::MaxSharedKeyRecipients::get())
-                .map(|r| {
-                    let recipient = DartUser::<T>::auditor_user("KeyRecipient", i + 1, r);
-                    recipient.register_encryption_key();
-                    onboard_role::<T>(recipient.did(), RoleKind::Auditor);
-                    recipient.public_keys().enc
-                })
-                .collect();
-            auditor_keys
-                .try_insert(shared_key.public)
-                .expect("Failed to push auditor keys");
-            distributor.distribute_encryption_key(shared_key, recipients);
+        let mut mediator_keys = BoundedBTreeMap::new();
+        let auditor_keys = BoundedBTreeSet::new();
+        for i in 0..k {
+            let mediator = DartUser::<T>::auditor_user("Mediator", 0, i);
+            mediator.register_account();
+            onboard_role::<T>(mediator.did(), RoleKind::Auditor);
+            onboard_role::<T>(mediator.did(), RoleKind::Mediator);
+
+            let mediator_enc = mediator.public_keys().enc;
+            let shared_key = DartUser::<T>::auditor_user("SharedMediatorKey", 1, i)
+                .keys()
+                .enc
+                .clone();
+            asset_issuer.distribute_encryption_key(shared_key.clone(), vec![mediator_enc]);
+            mediator_keys
+                .try_insert(mediator.public_keys().acct, shared_key.public)
+                .expect("Failed to push mediator keys");
         }
 
         // Asset Data.
@@ -330,30 +330,30 @@ benchmarks! {
     }: _(asset_issuer.raw_origin(), name, symbol, decimals, mediator_keys, auditor_keys, data)
 
     update_asset_keys {
-        let k in 1 .. <T as Config>::MaxAssetMediators::get();
+        let k in 1 .. core::cmp::min(
+            <T as Config>::MaxAssetMediators::get(),
+            <T as Config>::MaxAssetEncryptionKeys::get(),
+        );
 
         let mut off_chain = OffchainProverState::<T>::new();
-        let asset = DartTestAsset::<T>::new(
-            &mut off_chain,
-            "Update Asset",
-            0,
-            k,
-            <T as Config>::MaxAssetAuditors::get(),
-            None,
-        );
+        let asset = DartTestAsset::<T>::new(&mut off_chain, "Update Asset", 0, k, 0, None);
+        onboard_role::<T>(asset.issuer.did(), RoleKind::Auditor);
         let mut mediator_keys = BoundedBTreeMap::new();
-        for mediator in &asset.mediators {
+        for (i, mediator) in asset.mediators.iter().enumerate() {
+            onboard_role::<T>(mediator.did(), RoleKind::Auditor);
             let keys = mediator.public_keys();
+            let shared_key = DartUser::<T>::auditor_user("UpdatedSharedMediatorKey", 1, i as u32)
+                .keys()
+                .enc
+                .clone();
+            asset
+                .issuer
+                .distribute_encryption_key(shared_key.clone(), vec![keys.enc]);
             mediator_keys
-                .try_insert(keys.acct, keys.enc)
+                .try_insert(keys.acct, shared_key.public)
                 .expect("Failed to push mediator keys");
         }
-            let mut auditor_keys = BoundedBTreeSet::new();
-            for auditor in &asset.auditors {
-                auditor_keys
-                .try_insert(auditor.public_keys().enc)
-                .expect("Failed to push auditor keys");
-            }
+        let auditor_keys = BoundedBTreeSet::new();
     }: _(asset.issuer.raw_origin(), asset.id, mediator_keys, auditor_keys)
 
     register_account_assets {
