@@ -2392,7 +2392,7 @@ fn settle_manual_instruction() {
             ),
             DispatchErrorWithPostInfo {
                 post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::NumberOfFungibleTransfersUnderestimated.into()
+                error: Error::InputWeightIsLessThanMinimum.into()
             }
         );
         // Ensure it succeeds as the execute block was reached
@@ -2499,7 +2499,7 @@ fn settle_manual_instruction_with_portfolio() {
             ),
             DispatchErrorWithPostInfo {
                 post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
-                error: Error::NumberOfFungibleTransfersUnderestimated.into()
+                error: Error::InputWeightIsLessThanMinimum.into()
             }
         );
         // Ensure it succeeds as the execute block was reached

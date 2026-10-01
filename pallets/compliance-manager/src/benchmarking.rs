@@ -21,8 +21,8 @@ use pallet_identity::Config as IdentityConfig;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::traits::AssetFnTrait;
 use polymesh_primitives::{
-    asset::AssetType, AssetHolderKind, AuthorizationData, ClaimType, CountryCode, Scope,
-    TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
+    asset::AssetType, AssetHolderKind, AuthorizationData, ClaimType, CountryCode,
+    CustomClaimTypeId, Scope, TargetIdentity, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 use crate::*;
@@ -311,22 +311,38 @@ where
 }
 
 /// Adds `n` requirements for `asset_id` and pauses compliance if `pause_compliance` is true.
+///
+/// The requirements are built for the worst case (each has complexity 1):
+/// - The first `n - 1` requirements fail (no claims are issued, so `IsAnyOf` is false),
+///   forcing all requirements to be evaluated. The last one uses `IsNoneOf`, so the asset is still compliant.
+/// - Each requirement's claim scope is unique per asset, so no claim read is shared (cached) between assets.
 pub fn setup_asset_compliance<T: Config>(
     caller_did: IdentityId,
     asset_id: AssetId,
     n: u32,
     pause_compliance: bool,
 ) {
+    let claim_types: Vec<ClaimType> = (1..<T as pallet_base::Config>::MaxLen::get())
+        .map(|i| ClaimType::Custom(CustomClaimTypeId(i)))
+        .chain(core::iter::once(ClaimType::Jurisdiction))
+        .collect();
+
     (0..n).for_each(|i| {
-        let trusted_issuers = vec![TrustedIssuer::from(IdentityId::from(i as u128))];
-        let claims = vec![Claim::Jurisdiction(
-            CountryCode::BR,
-            Scope::Custom(vec![i as u8]),
-        )];
-        let sender_conditions = vec![Condition::new(
-            ConditionType::IsNoneOf(claims),
-            trusted_issuers,
-        )];
+        let trusted_issuers = vec![TrustedIssuer {
+            issuer: IdentityId::from(i as u128),
+            trusted_for: TrustedFor::Specific(claim_types.clone()),
+        }];
+        // The scope includes `asset_id` so that each asset reads unique `Identity::Claims` keys.
+        let mut scope = vec![0u8; 32];
+        scope[..16].copy_from_slice(asset_id.as_ref());
+        scope[16..20].copy_from_slice(&i.to_le_bytes());
+        let claims = vec![Claim::Jurisdiction(CountryCode::BR, Scope::Custom(scope))];
+        let condition_type = if i + 1 < n {
+            ConditionType::IsAnyOf(claims)
+        } else {
+            ConditionType::IsNoneOf(claims)
+        };
+        let sender_conditions = vec![Condition::new(condition_type, trusted_issuers)];
         Pallet::<T>::base_add_compliance_requirement(
             caller_did,
             asset_id,
