@@ -168,6 +168,7 @@ pub trait WeightInfo {
     fn register_encryption_keys(k: u32) -> Weight;
 
     fn create_asset() -> Weight;
+    fn update_asset_keys() -> Weight;
     fn create_settlement(l: u32) -> Weight;
     fn mediator_affirmation() -> Weight;
 
@@ -2253,6 +2254,23 @@ pub mod pallet {
 
             Self::base_distribute_encryption_key(caller_did, proof)
         }
+
+        /// Update the auditor and mediator encryption keys for an asset.
+        ///
+        /// The asset owner must retain the required live claims for every selected auditor and
+        /// mediator. Existing settlements keep their creation-time encrypted legs and mediator set.
+        #[pallet::call_index(24)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_asset_keys())]
+        pub fn update_asset_keys(
+            origin: OriginFor<T>,
+            asset_id: ConfidentialAssetId,
+            mediators: MediatorKeys,
+            auditors: AuditorKeys,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            Self::base_update_asset_keys(caller_did, asset_id, mediators, auditors)
+        }
     }
 }
 
@@ -2468,6 +2486,24 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(asset_id)
+    }
+
+    /// Update the keys for an existing asset after checking its owner and selected key roles.
+    pub fn base_update_asset_keys(
+        caller_did: IdentityId,
+        asset_id: ConfidentialAssetId,
+        mediators: MediatorKeys,
+        auditors: AuditorKeys,
+    ) -> DispatchResult {
+        // Ensure the caller is the owner of the asset before updating keys.
+        Self::ensure_dart_asset_owner(caller_did, asset_id)?;
+
+        // Ensure that the new mediator and auditor keys are registered before updating the asset leaf.
+        Self::ensure_mediators_registered(&mediators)?;
+        Self::ensure_auditors_registered(&auditors)?;
+
+        // Update the asset leaf with the new mediator and auditor keys.
+        Self::update_asset_leaf(caller_did, asset_id, &mediators, &auditors, false)
     }
 
     pub fn base_create_settlement(proof: SettlementProof<PolymeshLimits>) -> DispatchResult {
