@@ -329,6 +329,33 @@ benchmarks! {
         let decimals = 2u8;
     }: _(asset_issuer.raw_origin(), name, symbol, decimals, mediator_keys, auditor_keys, data)
 
+    update_asset_keys {
+        let k in 1 .. <T as Config>::MaxAssetMediators::get();
+
+        let mut off_chain = OffchainProverState::<T>::new();
+        let asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Update Asset",
+            0,
+            k,
+            <T as Config>::MaxAssetAuditors::get(),
+            None,
+        );
+        let mut mediator_keys = BoundedBTreeMap::new();
+        for mediator in &asset.mediators {
+            let keys = mediator.public_keys();
+            mediator_keys
+                .try_insert(keys.acct, keys.enc)
+                .expect("Failed to push mediator keys");
+        }
+            let mut auditor_keys = BoundedBTreeSet::new();
+            for auditor in &asset.auditors {
+                auditor_keys
+                .try_insert(auditor.public_keys().enc)
+                .expect("Failed to push auditor keys");
+            }
+    }: _(asset.issuer.raw_origin(), asset.id, mediator_keys, auditor_keys)
+
     register_account_assets {
         // Number of proofs to batch.
         let p in 0 .. <T as Config>::MaxAccountAssetRegProofs::get();

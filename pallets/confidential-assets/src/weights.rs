@@ -261,6 +261,12 @@ impl crate::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(16))
     }
+    // TODO: Replace this conservative estimate with benchmark output during final verification.
+    fn update_asset_keys() -> Weight {
+        Weight::from_parts(5_000_000_000, 0)
+            .saturating_add(DbWeight::get().reads(20))
+            .saturating_add(DbWeight::get().writes(10))
+    }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ConfidentialAssets::AccountDid` (r:10 w:0)
