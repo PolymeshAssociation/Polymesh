@@ -58,6 +58,7 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 | `execute_instant_settlement(18)`, instant affirmations (19/20) | any signed | single-tx create+affirm+execute | :1822-1883 |
 | `set_required_claim(21)` / `remove_required_claim(22)` | Root | set/clear the required-claim spec for a role | §9 |
 | `distribute_encryption_key(23)` | DID meeting `Auditor` requirements | register a new shared encryption key to the caller and distribute its secret to registered recipient encryption keys (proof-verified) | §9 |
+| `update_asset_keys(24)` | confidential asset issuer | replace the asset's mediator/auditor key set after owner, registration, distribution, and role-claim checks | §9 |
 
 No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
 
@@ -83,8 +84,7 @@ Only **live (unexpired)** claims equal to the spec's `Claim` (type, scope and va
 expiry is enforced at use time on every check: `base_create_asset` requires the issuer's DID to
 meet the `AssetCreator` requirements, and `ensure_mediators_registered` /
 `ensure_auditors_registered` require each key-owning DID to meet the mediator/auditor
-requirements — at asset creation and wherever else those helpers are reused (e.g. future
-asset-key updates).
+requirements — at asset creation and on owner-triggered updates via `update_asset_keys`.
 
 **Shared encryption keys.** `distribute_encryption_key` verifies a `KeyDistributionProof`
 (nonce = caller DID) that the shared key's secret was encrypted to each recipient encryption
@@ -99,6 +99,10 @@ stored in `SharedKeyRecipients` (bounded by `MaxSharedKeyRecipients`); there is 
 - Mediator `(account, enc)` pair: `enc` is either the account's own encryption key, or a shared
   key distributed to the account's own encryption key (`EncryptionKeyNotShared` otherwise);
   the account's DID must meet the `Mediator` requirements.
+- `update_asset_keys` is owner-only and applies the same mediator/auditor registration and claim
+  checks as asset creation before replacing the key set and updating the current asset-tree leaf.
+  Existing settlements retain their encrypted leg and mediator snapshots. Proofs using a
+  historical asset root remain valid until the root reaches `MaxAssetCurveTreeRootAge`.
 
 Integration tests rely on the genesis specs: Alice (a key of GC 1) adds the role-specific
 `KnowYourCustomer(Custom(b"DART:<Role>"))` claim to each test's issuer/auditors/mediators

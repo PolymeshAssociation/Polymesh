@@ -878,6 +878,26 @@ impl DartProofSubmitter {
         Ok(asset_id)
     }
 
+    pub async fn update_asset_keys(
+        &mut self,
+        asset_id: DartAssetId,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
+        auditors: BTreeSet<EncryptionPublicKey>,
+    ) -> Result<TransactionResults> {
+        let res = self
+            .api
+            .call()
+            .confidential_assets()
+            .update_asset_keys(
+                to_scale(&asset_id),
+                to_scale(&mediators),
+                to_scale(&auditors),
+            )?
+            .submit_and_watch(&mut self.user)
+            .await?;
+        Ok(res)
+    }
+
     pub async fn mint_asset(&mut self, proof: AssetMintingProof) -> Result<TransactionResults> {
         let res = self
             .api
@@ -1159,6 +1179,21 @@ impl DartUserInner {
         self.submitter
             .create_asset(name, symbol, decimals, description, mediators, auditors)
             .await
+    }
+
+    pub async fn update_asset_keys(
+        &mut self,
+        asset_id: DartAssetId,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
+        auditors: BTreeSet<EncryptionPublicKey>,
+    ) -> Result<()> {
+        let mut res = self
+            .submitter
+            .update_asset_keys(asset_id, mediators, auditors)
+            .await?;
+        res.ok().await?;
+        wait_for_results(&mut res).await?;
+        Ok(())
     }
 
     pub async fn mint_asset(
@@ -2004,6 +2039,19 @@ impl DartUser {
             .write()
             .await
             .create_asset(name, symbol, decimals, description, mediators, auditors)
+            .await
+    }
+
+    pub async fn update_asset_keys(
+        &self,
+        asset_id: DartAssetId,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
+        auditors: BTreeSet<EncryptionPublicKey>,
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .update_asset_keys(asset_id, mediators, auditors)
             .await
     }
 
