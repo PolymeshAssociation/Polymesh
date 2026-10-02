@@ -363,7 +363,7 @@ benchmarks! {
             "Set Asset Frozen",
             0,
             <T as Config>::MaxAssetMediators::get(),
-            <T as Config>::MaxAssetAuditors::get(),
+            0,
             None,
         );
     }: _(asset.issuer.raw_origin(), asset.id, true)
