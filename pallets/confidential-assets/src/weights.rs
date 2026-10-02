@@ -255,11 +255,29 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `ConfidentialAssets::Symbols` (r:0 w:1)
     // Proof: `ConfidentialAssets::Symbols` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn create_asset() -> Weight {
-        // Minimum execution time: 1_425_089 nanoseconds.
+    fn create_asset(key_count: u32) -> Weight {
+        // TODO: Replace this legacy base and per-key estimate with final benchmark output.
         Weight::from_parts(1_656_839_000, 0)
+            .saturating_add(Weight::from_parts(3_000_000_000, 0).saturating_mul(key_count.into()))
             .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().reads(7_u64.saturating_mul(key_count.into())))
             .saturating_add(DbWeight::get().writes(16))
+    }
+    // TODO: Replace this conservative estimate with benchmark output during final verification.
+    fn update_asset_keys(key_count: u32) -> Weight {
+        Weight::from_parts(5_000_000_000, 0)
+            .saturating_add(Weight::from_parts(3_000_000_000, 0).saturating_mul(key_count.into()))
+            .saturating_add(DbWeight::get().reads(20))
+            .saturating_add(DbWeight::get().reads(7_u64.saturating_mul(key_count.into())))
+            .saturating_add(DbWeight::get().writes(10))
+    }
+    // TODO: Replace this conservative estimate with benchmark output during final verification.
+    fn set_asset_frozen() -> Weight {
+        Weight::from_parts(5_000_000_000, 0)
+            .saturating_add(Weight::from_parts(3_000_000_000, 0).saturating_mul(2))
+            .saturating_add(DbWeight::get().reads(20))
+            .saturating_add(DbWeight::get().reads(7_u64.saturating_mul(2)))
+            .saturating_add(DbWeight::get().writes(10))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -620,5 +638,25 @@ impl crate::WeightInfo for SubstrateWeight {
         Weight::from_parts(11_608_160_000, 0)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(5))
+    }
+    // Storage: `ConfidentialAssets::RequiredClaims` (r:0 w:1)
+    // Proof: `ConfidentialAssets::RequiredClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn set_required_claim() -> Weight {
+        Weight::from_parts(10_000_000, 0).saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: `ConfidentialAssets::RequiredClaims` (r:1 w:1)
+    // Proof: `ConfidentialAssets::RequiredClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn remove_required_claim() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // TODO: Replace this manual estimate with benchmark output.
+    fn distribute_encryption_key(r: u32) -> Weight {
+        Weight::from_parts(2_000_000_000, 0)
+            .saturating_add(Weight::from_parts(1_000_000_000, 0).saturating_mul(r.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(r.into())))
+            .saturating_add(DbWeight::get().writes(1))
     }
 }

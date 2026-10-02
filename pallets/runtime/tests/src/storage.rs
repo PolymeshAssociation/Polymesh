@@ -58,6 +58,7 @@ use pallet_session::historical as pallet_session_historical;
 use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE};
 
 type Runtime = TestStorage;
+type ConfidentialAssetsTxExtension = ();
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
@@ -1127,6 +1128,7 @@ fn signed_extra(nonce: Nonce) -> TxExtension {
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        (),
         pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     )

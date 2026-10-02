@@ -1,4 +1,5 @@
 use ark_ec::short_weierstrass::SWCurveConfig;
+use polymesh_api_tester::AccountId;
 use polymesh_dart::{
     BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, FeeAccountAssetState,
     FeeAccountRegistrationProof, FeeAccountTopupProof, FeePaymentWithBatchedProofs,
@@ -11,10 +12,13 @@ use tokio::sync::RwLock;
 
 use anyhow::Result;
 use codec::{Decode, Encode};
+use sp_weights::Weight;
 
 use polymesh_dart::curve_tree::{
     AccountTreeConfig, CurveTreeWitnessPath, FeeAccountTreeConfig, LeafPathAndRoot,
 };
+pub use polymesh_dart::key_distribution_proof::KeyDistributionProof;
+pub use polymesh_dart::EncryptionKeyPair;
 use polymesh_dart::{
     curve_tree::get_account_curve_tree_parameters, AccountAssetRegistrationProof, AccountKeyPair,
     AccountPublicKey, AccountPublicKeys, AccountRegistrationProof, AssetMintingProof, AssetState,
@@ -28,9 +32,13 @@ use polymesh_dart::{
 };
 pub use polymesh_dart::{AccountAssetState, AccountKeys, AssetId as DartAssetId};
 
+use polymesh_api::types::pallet_confidential_assets::RoleKind;
+use polymesh_api::types::polymesh_primitives::identity_claim::{Claim, Scope};
+pub use polymesh_api::ChainApi;
 pub use polymesh_api::{Api, TransactionResults};
 pub use polymesh_api_tester::{
-    ConfidentialAssetsEvent, IdentityId, PolymeshTester, RuntimeEvent, User,
+    ConfidentialAssetsEvent, IdentityId, PolymeshTester, RuntimeEvent, TransactionPaymentEvent,
+    User,
 };
 
 pub mod curve_tree;
@@ -63,6 +71,30 @@ pub fn print_curve_tree_path<const L: usize, P0: SWCurveConfig + Copy, P1: SWCur
             i, node.child_node_to_randomize
         );
     }
+}
+
+/// Search transaction events for the actual network fee paid, from `TransactionPayment`.
+pub async fn get_transaction_fee_paid(res: &mut TransactionResults) -> Result<Option<DartBalance>> {
+    // Ensure the transaction was successful.
+    res.ok().await?;
+    wait_for_results(res).await?;
+
+    Ok(res.events().await?.and_then(|events| {
+        for rec in &events.0 {
+            match &rec.event {
+                RuntimeEvent::TransactionPayment(TransactionPaymentEvent::TransactionFeePaid {
+                    actual_fee,
+                    ..
+                }) => {
+                    return DartBalance::try_from(*actual_fee).ok();
+                }
+                _ => {
+                    log::debug!("Skipping event: {:?}", rec.event);
+                }
+            }
+        }
+        None
+    }))
 }
 
 /// Search transaction events for DartAsset AssetId.
@@ -172,6 +204,43 @@ pub async fn get_settlement_ref(res: &mut TransactionResults) -> Result<Option<S
 pub fn to_scale<T1: Encode, T2: Decode>(value: &T1) -> T2 {
     let encoded = value.encode();
     Decode::decode(&mut encoded.as_slice()).expect("Failed to decode")
+}
+
+/// Mirrors `pallet_confidential_assets::RelayerSubmitBatchedFeeInfo`.
+///
+/// There's no generated Rust type for this since it's only used by the `ConfidentialAssetsApi`
+/// Runtime API, which isn't part of the chain metadata that `polymesh-api` generates code from.
+/// `FeeBalance` is the chain's `Balance` type (`u128`), not `polymesh_dart::Balance` (`u64`).
+#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug)]
+pub struct RelayerSubmitBatchedFeeInfo<FeeBalance = u128> {
+    /// Dispatch weight including transaction extensions, but excluding base extrinsic weight.
+    pub weight: Weight,
+    /// Transaction fee including base, length, and adjusted weight fees.
+    pub fee: FeeBalance,
+}
+
+/// Query the `ConfidentialAssetsApi_relayer_submit_batched_fee_info` Runtime API for the weight
+/// and fee of a `relayer_submit_batched_proofs` extrinsic carrying `batch`.
+///
+/// The fee payment proof's length is estimated by the runtime from the fee account curve tree
+/// height at `at`, since the proof itself isn't available yet at this point. `at` must match the
+/// block used to fetch the fee account's curve tree path/root for the proof being generated,
+/// since the curve tree height (and thus the estimated proof size) can change from block to
+/// block.
+pub async fn relayer_submit_batched_fee_info(
+    api: &Api,
+    batch: &BatchedProofs<()>,
+    at: Option<polymesh_api::client::BlockHash>,
+) -> Result<RelayerSubmitBatchedFeeInfo> {
+    let params = batch.encode();
+    Ok(api
+        .client()
+        .state_call(
+            "ConfidentialAssetsApi_relayer_submit_batched_fee_info",
+            &params,
+            at,
+        )
+        .await?)
 }
 
 pub fn create_keys() -> AccountKeys {
@@ -396,13 +465,24 @@ impl DartUserFeeAccountAssetState {
 
 /// Dart private proof submission method.
 pub enum DartProofSubmissionMethod {
+    /// Direct submission method.
     Direct,
-    Relayer(DartUser),
+    /// Relayer submission method. The boolean indicates whether the fee payment is a broadcast type.
+    Relayer(DartUser, bool),
 }
 
 impl DartProofSubmissionMethod {
+    /// Returns true if the submission method is a relayer.
     pub fn is_relayer(&self) -> bool {
-        matches!(self, DartProofSubmissionMethod::Relayer(_))
+        matches!(self, DartProofSubmissionMethod::Relayer(_, _))
+    }
+
+    /// Returns the relayer's AccountId if the submission method is a relayer and isn't a broadcast type.
+    pub async fn relayer_account_id(&self) -> Option<AccountId> {
+        match self {
+            DartProofSubmissionMethod::Relayer(relayer, false) => Some(relayer.account_id().await),
+            _ => None,
+        }
     }
 }
 
@@ -416,6 +496,7 @@ pub struct DartProofSubmitter {
 }
 
 impl DartProofSubmitter {
+    /// Creates a new DartProofSubmitter with the given user and account key pair.
     pub fn new(user: User, account: AccountKeyPair) -> Self {
         let api = user.api.clone();
         Self {
@@ -427,8 +508,14 @@ impl DartProofSubmitter {
         }
     }
 
+    /// Returns the on-chain identity of the user.
     pub fn did(&self) -> IdentityId {
         self.user.did.unwrap_or_default()
+    }
+
+    /// Returns the account ID of the user.
+    pub fn account_id(&self) -> AccountId {
+        self.user.account()
     }
 
     pub async fn query_account_did(
@@ -565,28 +652,53 @@ impl DartProofSubmitter {
 
     pub async fn fee_payment_batch(
         &mut self,
-        amount: DartBalance,
+        target: Option<AccountId>,
         batched: BatchedProofs<()>,
     ) -> Result<FeePaymentWithBatchedProofs<()>> {
+        // Fixed, conservative balance used only to decide whether the fee account needs a topup.
+        // The actual fee amount used for the payment proof below is always the Runtime API
+        // estimate, fetched at the same block as the fee account's curve tree path/root.
+        const FEE_TOPUP_CHECK_AMOUNT: DartBalance = 10_000_000;
+
         // Topup our fee account if needed.
-        self.fee_account_topup_if_needed(amount, false).await?;
+        self.fee_account_topup_if_needed(FEE_TOPUP_CHECK_AMOUNT, false)
+            .await?;
 
         let fee_state = self
             .fee_state
             .as_mut()
             .expect("Shouldn't happen since we just topped up");
 
-        // Lookup our current account asset state in the on-chain account tree.
+        // Lookup our current fee account state in the on-chain fee account curve tree. This
+        // fixes the curve tree height/root that both the fee estimate below and the payment
+        // proof must agree on.
         let fee_account_lookup = fee_state.get_path_and_root().await?;
+        let block_hash = self
+            .api
+            .client()
+            .get_block_hash(fee_account_lookup.block_number)
+            .await?;
 
-        // Generate fee account topup proof.
+        // Query the estimated tx fee for this batch from the `ConfidentialAssetsApi` Runtime API,
+        // at the same block used for the path/root above, so the proof's curve tree height
+        // matches what the Runtime API assumed when estimating the fee.
+        let fee_info = relayer_submit_batched_fee_info(&self.api, &batched, block_hash).await?;
+        log::debug!(
+            "FeePaymentSubmitBatch: Relayer submit batched fee info: fee_info={fee_info:?}"
+        );
+        let tx_fee = DartBalance::try_from(fee_info.fee)
+            .map_err(|_| anyhow::anyhow!("Relayer fee {} overflows DartBalance", fee_info.fee))?;
+
+        // Generate fee payment proof.
         let mut rng = rand::thread_rng();
+        let target = target.map(|acc| acc.encode());
         Ok(FeePaymentWithBatchedProofs::new(
             &mut rng,
             &self.account,
             batched,
             fee_state.as_mut(),
-            amount,
+            target.as_deref(),
+            tx_fee,
             &fee_account_lookup,
         )?)
     }
@@ -615,17 +727,23 @@ impl DartProofSubmitter {
 
         //if let DartProofSubmissionMethod::Relayer(ref mut relayer) = self.method {
         if self.method.is_relayer() {
-            // TODO: calculate tx fees based on batched proofs.
-            let tx_fee = 3_000_000u64 * (proof.proofs.len() as u64);
+            let target = self.method.relayer_account_id().await;
+            let fee_payment_batch = self.fee_payment_batch(target, proof).await?;
+            log::debug!(
+                "FeePaymentSubmitBatch: Fee payment batch actual encoded length: {}",
+                fee_payment_batch.encode().len()
+            );
 
-            let fee_payment_batch = self.fee_payment_batch(tx_fee, proof).await?;
-
-            if let DartProofSubmissionMethod::Relayer(ref mut relayer) = self.method {
+            if let DartProofSubmissionMethod::Relayer(ref mut relayer, _) = self.method {
                 let mut res = relayer.relayer_submit_batch(fee_payment_batch).await?;
 
                 // Update the fee state with the new leaf index.
                 self.update_leaf_index(&mut res, "Fee payment batch")
                     .await?;
+
+                if let Some(actual_fee) = get_transaction_fee_paid(&mut res).await? {
+                    log::debug!("FeePaymentSubmitBatch: Actual network tx fee paid: {actual_fee}");
+                }
 
                 Ok(res)
             } else {
@@ -687,6 +805,34 @@ impl DartProofSubmitter {
         Ok(ts)
     }
 
+    pub async fn distribute_encryption_key(
+        &mut self,
+        proof: KeyDistributionProof<()>,
+    ) -> Result<TransactionResults> {
+        let ts = self
+            .api
+            .call()
+            .confidential_assets()
+            .distribute_encryption_key(to_scale(&proof))?
+            .submit_and_watch(&mut self.user)
+            .await?;
+        Ok(ts)
+    }
+
+    pub async fn query_shared_key_recipients(
+        &self,
+        shared_key: &EncryptionPublicKey,
+    ) -> Result<BTreeSet<EncryptionPublicKey>> {
+        let recipients = self
+            .api
+            .query()
+            .confidential_assets()
+            .shared_key_recipients(to_scale(shared_key))
+            .await?;
+
+        Ok(to_scale(&recipients))
+    }
+
     pub async fn register_account_assets(
         &mut self,
         proof: BatchedAccountAssetRegistrationProof<()>,
@@ -732,6 +878,26 @@ impl DartProofSubmitter {
         Ok(asset_id)
     }
 
+    pub async fn update_asset_keys(
+        &mut self,
+        asset_id: DartAssetId,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
+        auditors: BTreeSet<EncryptionPublicKey>,
+    ) -> Result<TransactionResults> {
+        let res = self
+            .api
+            .call()
+            .confidential_assets()
+            .update_asset_keys(
+                to_scale(&asset_id),
+                to_scale(&mediators),
+                to_scale(&auditors),
+            )?
+            .submit_and_watch(&mut self.user)
+            .await?;
+        Ok(res)
+    }
+
     pub async fn mint_asset(&mut self, proof: AssetMintingProof) -> Result<TransactionResults> {
         let res = self
             .api
@@ -741,6 +907,20 @@ impl DartProofSubmitter {
             .submit_and_watch(&mut self.user)
             .await?;
         Ok(res)
+    }
+
+    pub async fn set_asset_frozen(
+        &mut self,
+        asset_id: DartAssetId,
+        frozen: bool,
+    ) -> Result<TransactionResults> {
+        Ok(self
+            .api
+            .call()
+            .confidential_assets()
+            .set_asset_frozen(asset_id, frozen)?
+            .submit_and_watch(&mut self.user)
+            .await?)
     }
 
     pub async fn execute_instant_settlement(
@@ -768,6 +948,11 @@ pub struct DartUserInner {
 }
 
 impl DartUserInner {
+    /// Creates a new DartUserInner with the given user.
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - The user for whom to create the DartUserInner.
     pub fn new(user: User) -> Self {
         let keys = create_keys();
         Self {
@@ -779,16 +964,35 @@ impl DartUserInner {
         }
     }
 
+    /// Returns the Confidential Account Public Keys of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountPublicKeys` - The confidential account public keys of the user.
     pub fn public_keys(&self) -> AccountPublicKeys {
         self.keys.public_keys()
     }
 
+    /// Returns the on-chain identity (DID) of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `IdentityId` - The on-chain identity of the user.
     pub fn did(&self) -> IdentityId {
         self.submitter.did()
     }
 
-    pub fn set_relayer(&mut self, relayer: DartUser) {
-        self.submitter.method = DartProofSubmissionMethod::Relayer(relayer);
+    /// Returns the account ID of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountId` - The account ID of the user.
+    pub fn account_id(&self) -> AccountId {
+        self.submitter.account_id()
+    }
+
+    pub fn set_relayer(&mut self, relayer: DartUser, is_broadcast: bool) {
+        self.submitter.method = DartProofSubmissionMethod::Relayer(relayer, is_broadcast);
     }
 
     pub fn is_account_asset_registered(&self, asset_id: DartAssetId) -> bool {
@@ -890,6 +1094,30 @@ impl DartUserInner {
         self.submitter.register_fee_account(amount).await
     }
 
+    /// Register `shared_key` to this user's DID and distribute its secret to `recipients`.
+    pub async fn distribute_encryption_key(
+        &mut self,
+        shared_key: &EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) -> Result<()> {
+        let proof = {
+            let mut rng = rand::thread_rng();
+            let did = self.did();
+            KeyDistributionProof::<()>::new(
+                &mut rng,
+                shared_key,
+                recipients,
+                &did.0[..],
+                get_account_curve_tree_parameters(),
+            )?
+        };
+
+        let mut res = self.submitter.distribute_encryption_key(proof).await?;
+        res.ok().await?;
+        wait_for_results(&mut res).await?;
+        Ok(())
+    }
+
     pub async fn fee_account_topup(&mut self, amount: DartBalance) -> Result<()> {
         self.submitter.fee_account_topup(amount).await
     }
@@ -919,6 +1147,7 @@ impl DartUserInner {
                 0,
                 &did.0[..],
                 params,
+                None,
             )?;
             let asset_state = DartUserAccountAssetState::new(asset_state, &self.keys);
             (proof, asset_state)
@@ -964,6 +1193,21 @@ impl DartUserInner {
         self.submitter
             .create_asset(name, symbol, decimals, description, mediators, auditors)
             .await
+    }
+
+    pub async fn update_asset_keys(
+        &mut self,
+        asset_id: DartAssetId,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
+        auditors: BTreeSet<EncryptionPublicKey>,
+    ) -> Result<()> {
+        let mut res = self
+            .submitter
+            .update_asset_keys(asset_id, mediators, auditors)
+            .await?;
+        res.ok().await?;
+        wait_for_results(&mut res).await?;
+        Ok(())
     }
 
     pub async fn mint_asset(
@@ -1147,6 +1391,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1385,6 +1630,8 @@ impl DartUserInner {
         accept: bool,
         asset_and_amount: Option<(DartAssetId, DartBalance)>,
     ) -> Result<MediatorAffirmationProof> {
+        let asset_id = asset_and_amount.map(|(asset_id, _)| asset_id);
+        let amount = asset_and_amount.map(|(_, amount)| amount);
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1392,9 +1639,13 @@ impl DartUserInner {
             .ok_or_else(|| anyhow::anyhow!("Settlement leg not found"))?;
 
         // Try to decrypt the leg as the mediator
-        let leg = leg_enc
-            .decrypt(LegRole::mediator(mediator_id), &self.keys)
-            .unwrap();
+        let (leg, _role) = leg_enc.try_decrypt_with_key(
+            &self.keys.enc,
+            None,
+            Some(&self.keys.acct.public),
+            asset_id,
+            amount,
+        )?;
 
         // Check the leg asset and amount if provided.
         if let Some((asset_id, amount)) = asset_and_amount {
@@ -1409,12 +1660,30 @@ impl DartUserInner {
             }
         }
 
-        // Generate mediator affirmation proof.
-        let mut rng = rand::thread_rng();
-        let med_enc = leg_enc.mediator_encryption(mediator_id)?;
-        Ok(MediatorAffirmationProof::new(
-            &mut rng, &leg_ref, &med_enc, &self.keys, 0, accept,
-        )?)
+        // Check if the asset id is revealed in the leg encryption. This is important for mediators to know if they need to look for their specific encryption entry.
+        if leg_enc.is_asset_id_revealed()? {
+            // Generate mediator affirmation proof.
+            let mut rng = rand::thread_rng();
+            Ok(MediatorAffirmationProof::new_revealed(
+                &mut rng,
+                &leg_ref,
+                &self.keys,
+                mediator_id,
+                accept,
+            )?)
+        } else {
+            // Generate mediator affirmation proof.
+            let mut rng = rand::thread_rng();
+            let med_enc = leg_enc.mediator_encryption(mediator_id)?;
+            Ok(MediatorAffirmationProof::new(
+                &mut rng,
+                &leg_ref,
+                &med_enc,
+                &self.keys,
+                mediator_id,
+                accept,
+            )?)
+        }
     }
 
     pub async fn mediator_affirmation(
@@ -1515,6 +1784,7 @@ impl DartUserInner {
 
         // Try to decrypt the leg as the sender
         let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
+        let amount = leg.amount();
 
         // Get our current account asset state.
         let asset_state = self
@@ -1534,6 +1804,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1621,6 +1892,7 @@ impl DartUserInner {
         // Try to decrypt the leg as the receiver
         let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
         let asset_id = leg.asset_id();
+        let amount = leg.amount();
 
         // Get our current account asset state.
         let asset_state = self
@@ -1640,6 +1912,7 @@ impl DartUserInner {
                 &self.keys,
                 &leg_ref,
                 &leg_enc,
+                amount,
                 asset_state.as_mut(),
                 account_lookup,
             )?
@@ -1668,16 +1941,40 @@ impl DartUser {
         Self(Arc::new(RwLock::new(DartUserInner::new(user))))
     }
 
+    /// Returns the confidential account public keys of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountPublicKeys` - The confidential account public keys of the user.
     pub async fn public_keys(&self) -> AccountPublicKeys {
         self.0.read().await.public_keys()
     }
 
+    /// Returns the confidential account keys (including secrets) of the user.
+    pub async fn keys(&self) -> AccountKeys {
+        self.0.read().await.keys.clone()
+    }
+
+    /// Returns the on-chain identity (DID) of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `IdentityId` - The on-chain identity of the user.
     pub async fn did(&self) -> IdentityId {
         self.0.read().await.did()
     }
 
-    pub async fn set_relayer(&self, relayer: DartUser) {
-        self.0.write().await.set_relayer(relayer);
+    /// Returns the account ID of the user.
+    ///
+    /// # Returns
+    ///
+    /// * `AccountId` - The account ID of the user.
+    pub async fn account_id(&self) -> AccountId {
+        self.0.read().await.account_id()
+    }
+
+    pub async fn set_relayer(&self, relayer: DartUser, is_broadcast: bool) {
+        self.0.write().await.set_relayer(relayer, is_broadcast);
     }
 
     pub async fn register_encryption_key(&self) -> Result<()> {
@@ -1690,6 +1987,42 @@ impl DartUser {
 
     pub async fn register_fee_account(&self, amount: DartBalance) -> Result<()> {
         self.0.write().await.register_fee_account(amount).await
+    }
+
+    pub async fn distribute_encryption_key(
+        &self,
+        shared_key: &EncryptionKeyPair,
+        recipients: Vec<EncryptionPublicKey>,
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .distribute_encryption_key(shared_key, recipients)
+            .await
+    }
+
+    pub async fn query_encryption_did(
+        &self,
+        enc: &EncryptionPublicKey,
+    ) -> Result<Option<IdentityId>> {
+        self.0
+            .read()
+            .await
+            .submitter
+            .query_encryption_did(enc)
+            .await
+    }
+
+    pub async fn query_shared_key_recipients(
+        &self,
+        shared_key: &EncryptionPublicKey,
+    ) -> Result<BTreeSet<EncryptionPublicKey>> {
+        self.0
+            .read()
+            .await
+            .submitter
+            .query_shared_key_recipients(shared_key)
+            .await
     }
 
     pub async fn fee_account_topup(&self, amount: DartBalance) -> Result<()> {
@@ -1721,6 +2054,36 @@ impl DartUser {
             .await
             .create_asset(name, symbol, decimals, description, mediators, auditors)
             .await
+    }
+
+    pub async fn update_asset_keys(
+        &self,
+        asset_id: DartAssetId,
+        mediators: BTreeMap<AccountPublicKey, EncryptionPublicKey>,
+        auditors: BTreeSet<EncryptionPublicKey>,
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .update_asset_keys(asset_id, mediators, auditors)
+            .await
+    }
+
+    pub async fn set_asset_frozen(
+        &self,
+        asset_id: DartAssetId,
+        frozen: bool,
+    ) -> Result<TransactionResults> {
+        let mut result = self
+            .0
+            .write()
+            .await
+            .submitter
+            .set_asset_frozen(asset_id, frozen)
+            .await?;
+        result.ok().await?;
+        wait_for_results(&mut result).await?;
+        Ok(result)
     }
 
     pub async fn mint_asset(
@@ -1773,6 +2136,14 @@ impl DartUser {
             .await
             .sender_affirmation_proof(tester, leg_ref, leg_enc, asset_id, amount)
             .await
+    }
+
+    pub async fn sender_counter_update(
+        &self,
+        tester: &DartAssetTester,
+        leg_ref: LegRef,
+    ) -> Result<()> {
+        self.0.write().await.sender_counter_update(tester, leg_ref).await
     }
 
     pub async fn receiver_affirmation_proof(
@@ -1950,7 +2321,7 @@ impl DartAssetTesterInner {
             let relayer = tester.user(relayer_name);
             for (name, user) in tester.users.iter_mut() {
                 if name != relayer_name {
-                    user.set_relayer(relayer.clone()).await;
+                    user.set_relayer(relayer.clone(), false).await;
                 }
             }
         }
@@ -1960,6 +2331,69 @@ impl DartAssetTesterInner {
 
     pub fn user(&self, name: &str) -> DartUser {
         self.users.get(name).expect("Missing Investor").clone()
+    }
+
+    /// Role claim required by the genesis specs (matches the pallet's `RoleKind::default_claim`).
+    pub fn role_claim(role: RoleKind) -> Claim {
+        let scope: &[u8] = match role {
+            RoleKind::AssetCreator => b"DART:AssetCreator",
+            RoleKind::Auditor => b"DART:Auditor",
+            RoleKind::Mediator => b"DART:Mediator",
+        };
+        Claim::KnowYourCustomer(Scope::Custom(scope.to_vec()))
+    }
+
+    /// Give each user the genesis claim for its role, issued by GC 1.
+    /// Idempotent; safe under parallel tests.
+    pub async fn onboard_confidential_roles(
+        &mut self,
+        creators: &[&DartUser],
+        auditors: &[&DartUser],
+        mediators: &[&DartUser],
+    ) -> Result<()> {
+        let mut targets = Vec::new();
+        for (role, users) in [
+            (RoleKind::AssetCreator, creators),
+            (RoleKind::Auditor, auditors),
+            (RoleKind::Mediator, mediators),
+        ] {
+            let claim = Self::role_claim(role);
+            for user in users {
+                targets.push((user.did().await, claim.clone()));
+            }
+        }
+        // Alice is a key of GC 1, the genesis trusted issuer for all roles.
+        for (did, claim) in targets {
+            self.tester
+                .api
+                .call()
+                .identity()
+                .add_claim(did, claim, None)?
+                .submit_and_watch(&mut self.tester.cdd)
+                .await?
+                .ok()
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Revoke the genesis claim for `role` (issued by GC 1) from `user`.
+    pub async fn revoke_confidential_role(
+        &mut self,
+        user: &DartUser,
+        role: RoleKind,
+    ) -> Result<()> {
+        let did = user.did().await;
+        self.tester
+            .api
+            .call()
+            .identity()
+            .revoke_claim(did, Self::role_claim(role))?
+            .submit_and_watch(&mut self.tester.cdd)
+            .await?
+            .ok()
+            .await?;
+        Ok(())
     }
 
     pub fn api(&self) -> Api {
@@ -2047,6 +2481,29 @@ impl DartAssetTester {
         self.0.read().await.get_asset(asset_id)
     }
 
+    /// Ensure role-gating specs exist and `creators`/`auditors`/`mediators` hold live
+    /// role claims from the shared test issuer. Idempotent; safe under parallel tests.
+    pub async fn onboard_confidential_roles(
+        &self,
+        creators: &[&DartUser],
+        auditors: &[&DartUser],
+        mediators: &[&DartUser],
+    ) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .onboard_confidential_roles(creators, auditors, mediators)
+            .await
+    }
+
+    pub async fn revoke_confidential_role(&self, user: &DartUser, role: RoleKind) -> Result<()> {
+        self.0
+            .write()
+            .await
+            .revoke_confidential_role(user, role)
+            .await
+    }
+
     pub async fn register_asset(&self, asset: DartTestAsset) {
         let name = asset.name().await;
         let asset_id = asset.id;
@@ -2069,6 +2526,11 @@ impl DartAssetTester {
             }
             return Ok(asset);
         }
+
+        // Ensure role-gating specs + claims for issuer/auditors/mediators
+        // (idempotent; safe under parallel tests).
+        self.onboard_confidential_roles(&[asset_issuer], auditors, mediators)
+            .await?;
 
         let account_tree = self.account_tree().await;
         // Create a new asset.
@@ -2155,8 +2617,8 @@ pub struct DartTestAssetInner {
     pub issuer: DartUser,
     pub name: String,
     issuer_balance: DartBalance,
-    pub auditors: Vec<DartUser>,
-    pub mediators: Vec<DartUser>,
+    pub auditors: BTreeMap<EncryptionPublicKey, DartUser>,
+    pub mediators: BTreeMap<AccountPublicKey, DartUser>,
     pub total_supply: DartBalance,
 }
 
@@ -2165,12 +2627,12 @@ impl DartTestAssetInner {
         account_tree: &AccountCurveTree,
         asset_issuer: &DartUser,
         name: &str,
-        mediators: &[&DartUser],
-        auditors: &[&DartUser],
+        mediator_users: &[&DartUser],
+        auditor_users: &[&DartUser],
         mint_amount: Option<DartBalance>,
     ) -> Result<Self> {
         assert!(
-            (auditors.len() + mediators.len()) >= 1,
+            (auditor_users.len() + mediator_users.len()) >= 1,
             "At least one auditor or mediator is required"
         );
 
@@ -2180,18 +2642,22 @@ impl DartTestAssetInner {
         // Create mediator user and keys.
         let mut track_enc_keys = BTreeSet::new();
         let mut auditor_keys = BTreeSet::new();
-        for &auditor in auditors {
+        let mut auditors = BTreeMap::new();
+        for &auditor in auditor_users {
             auditor.register_encryption_key().await?;
             let enc_key = auditor.public_keys().await.enc;
             track_enc_keys.insert(enc_key);
             auditor_keys.insert(enc_key);
+            auditors.insert(enc_key, auditor.clone());
         }
         let mut mediator_keys = BTreeMap::new();
-        for &mediator in mediators {
+        let mut mediators = BTreeMap::new();
+        for &mediator in mediator_users {
             mediator.register_account().await?;
             let med_keys = mediator.public_keys().await;
             track_enc_keys.insert(med_keys.enc);
             mediator_keys.insert(med_keys.acct, med_keys.enc);
+            mediators.insert(med_keys.acct, mediator.clone());
         }
 
         // Create the asset.
@@ -2215,8 +2681,8 @@ impl DartTestAssetInner {
             name: name.to_string(),
             issuer: asset_issuer.clone(),
             issuer_balance: mint_amount,
-            mediators: mediators.into_iter().copied().cloned().collect(),
-            auditors: auditors.into_iter().copied().cloned().collect(),
+            mediators,
+            auditors,
             total_supply: mint_amount,
         })
     }
@@ -2225,17 +2691,17 @@ impl DartTestAssetInner {
         self.mediators.len()
     }
 
-    pub fn mediators(&self) -> Vec<DartUser> {
+    pub fn mediators(&self) -> BTreeMap<AccountPublicKey, DartUser> {
         self.mediators.clone()
     }
 
     pub async fn asset_state(&self) -> Result<AssetState> {
         let mut auditors = Vec::new();
-        for auditor in &self.auditors {
-            auditors.push(auditor.public_keys().await.enc);
+        for (enc, _auditor) in &self.auditors {
+            auditors.push(*enc);
         }
         let mut mediators = Vec::new();
-        for mediator in &self.mediators {
+        for mediator in self.mediators.values() {
             let med_keys = mediator.public_keys().await;
             mediators.push((med_keys.acct, med_keys.enc));
         }
@@ -2350,7 +2816,7 @@ impl DartTestAsset {
         inner.issuer.clone()
     }
 
-    pub async fn mediators(&self) -> Vec<DartUser> {
+    pub async fn mediators(&self) -> BTreeMap<AccountPublicKey, DartUser> {
         let inner = self.inner.read().await;
         inner.mediators()
     }
@@ -2412,7 +2878,7 @@ pub struct DartSettlementLegState {
     pub receiver: DartUser,
     pub asset_id: DartAssetId,
     pub amount: DartBalance,
-    pub mediators: Vec<DartUser>,
+    pub mediators: BTreeMap<AccountPublicKey, DartUser>,
 }
 
 impl DartSettlementLegState {
@@ -2445,12 +2911,12 @@ impl DartSettlementLegState {
     }
 
     pub async fn mediators_affirm(&self, tester: &DartAssetTester, accept: bool) -> Result<()> {
-        for (id, mediator) in self.mediators.iter().enumerate() {
+        for (id, (acct, mediator)) in self.mediators.iter().enumerate() {
             log::debug!(
-                "Leg {:?}: Mediator {:?} affirming with keys {:?}, accept={}",
+                "Leg {:?}: Mediator {:?} affirming with account key {:?}, accept={}",
                 self.leg_ref,
                 id,
-                mediator.public_keys().await,
+                acct,
                 accept
             );
             mediator
@@ -2591,7 +3057,7 @@ impl DartSettlementState {
                     .await?;
 
                 let mut mediators = Vec::new();
-                for (id, mediator) in leg_state.mediators.iter().enumerate() {
+                for (id, mediator) in leg_state.mediators.values().enumerate() {
                     let mediator_proof = mediator
                         .mediator_affirmation_proof(tester, leg_ref, id as _, true, None)
                         .await?;
@@ -2806,6 +3272,24 @@ pub fn assert_operation_fails<T>(result: Result<T>, context: &str) {
         Ok(_) => panic!("Expected {} to fail, but it succeeded", context),
         Err(e) => {
             log::info!("Operation '{}' failed as expected: {:?}", context, e);
+        }
+    }
+}
+
+/// Assert that `result` fails with an error containing `expected`.
+pub fn assert_operation_fails_with<T>(result: Result<T>, context: &str, expected: &str) {
+    match result {
+        Ok(_) => panic!("Expected {} to fail, but it succeeded", context),
+        Err(e) => {
+            let msg = format!("{:?}", e);
+            log::info!("Operation '{}' failed as expected: {}", context, msg);
+            assert!(
+                msg.contains(expected),
+                "Expected {} to fail with {:?}, got: {}",
+                context,
+                expected,
+                msg
+            );
         }
     }
 }

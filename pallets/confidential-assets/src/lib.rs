@@ -15,31 +15,39 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use codec::{Compact, Decode, Encode};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::{
-    dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{
+        DispatchClass, DispatchErrorWithPostInfo, DispatchInfo, DispatchResult,
+        DispatchResultWithPostInfo, Pays,
+    },
     ensure,
     traits::{
         fungible::{Inspect, Mutate},
         tokens::Preservation::Expendable,
-        Get,
+        Get, IsSubType,
     },
     weights::{Weight, WeightToFee},
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::{AssetKeysLookup, ReceiverRevertAffirmationProof};
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
+use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
-    Balance, IdentityId,
+    Balance, Claim, IdentityId, Scope,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, DispatchInfoOf, Dispatchable, TransactionExtension};
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+};
 use sp_runtime::Saturating;
 use sp_runtime::{BoundedBTreeMap, BoundedBTreeSet};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::From;
+use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
 use polymesh_dart::{
@@ -68,6 +76,15 @@ use polymesh_worker_protocol_dart_v1::{UpdateAssetStateRequest, VerifyDartAssetR
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct RelayerSubmitBatchedFeeInfo<FeeBalance = Balance> {
+    /// Dispatch weight including transaction extensions, but excluding base extrinsic weight.
+    pub weight: Weight,
+    /// Transaction fee including base, length, and adjusted weight fees.
+    pub fee: FeeBalance,
+}
 
 pub type AuditorKeys =
     BoundedBTreeSet<EncryptionPublicKey, <PolymeshLimits as DartLimits>::MaxAssetAuditors>;
@@ -108,6 +125,16 @@ pub const MAX_ROOT_PRUNING_BLOCKS: u32 = 10;
 /// Avoid wasting time checking recent blocks, since the roots in those blocks will not be older than the maximum root age.
 pub const RECENT_BLOCKS_TO_KEEP: u32 = 100;
 
+/// Fixed byte overhead of a signed `relayer_submit_batched_proofs` extrinsic (preamble, address,
+/// signature, and transaction extensions), used by `relayer_submit_batched_fee_info` to estimate
+/// the extrinsic's total length.
+///
+/// A real extrinsic's overhead varies with its account's nonce size, era, and signature scheme,
+/// so this deliberately overestimates the common case; the excess just becomes extra commission
+/// for the relayer, whereas underestimating it would make the estimated minimum fee payment
+/// insufficient to cover the actual transaction fee.
+pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
+
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
 #[cfg(feature = "testing")]
@@ -140,7 +167,9 @@ pub trait WeightInfo {
 
     fn register_encryption_keys(k: u32) -> Weight;
 
-    fn create_asset() -> Weight;
+    fn create_asset(key_count: u32) -> Weight;
+    fn update_asset_keys(key_count: u32) -> Weight;
+    fn set_asset_frozen() -> Weight;
     fn create_settlement(l: u32) -> Weight;
     fn mediator_affirmation() -> Weight;
 
@@ -155,6 +184,11 @@ pub trait WeightInfo {
     fn sender_revert_affirmation() -> Weight;
     fn receiver_revert_affirmation() -> Weight;
     fn receiver_claim() -> Weight;
+
+    fn set_required_claim() -> Weight;
+    fn remove_required_claim() -> Weight;
+
+    fn distribute_encryption_key(r: u32) -> Weight;
 
     fn batched_settlement(counts: SettlementCounts) -> Weight {
         Self::create_settlement(counts.leg_count)
@@ -227,8 +261,11 @@ pub trait WeightInfo {
     fn relayer_submit_batched_proofs(
         batch: &FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> Weight {
-        Self::verify_fee_payment_with_leaf()
-            .saturating_add(Self::batched_proofs(&batch.batched_proofs))
+        Self::relayer_batched_proofs(&batch.batched_proofs)
+    }
+
+    fn relayer_batched_proofs(batch: &BatchedProofs<PolymeshLimits>) -> Weight {
+        Self::verify_fee_payment_with_leaf().saturating_add(Self::batched_proofs(batch))
     }
 
     fn on_init() -> Weight {
@@ -304,6 +341,122 @@ pub trait WeightInfo {
     }
 }
 
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CheckRelayerSubmitBatchedProofs<T>(PhantomData<T>);
+
+impl<T> Default for CheckRelayerSubmitBatchedProofs<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> CheckRelayerSubmitBatchedProofs<T> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T: Config> sp_std::fmt::Debug for CheckRelayerSubmitBatchedProofs<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "CheckRelayerSubmitBatchedProofs")
+    }
+}
+
+impl<T: Config + Send + Sync> CheckRelayerSubmitBatchedProofs<T>
+where
+    T::RuntimeCall: IsSubType<Call<T>>,
+{
+    fn proof(call: &T::RuntimeCall) -> Option<&FeePaymentWithBatchedProofs<PolymeshLimits>> {
+        match call.is_sub_type()? {
+            Call::relayer_submit_batched_proofs { proof } => Some(proof),
+            _ => None,
+        }
+    }
+
+    pub fn relayer_submit_batched_proofs_weight() -> Weight {
+        T::DbWeight::get().reads(2)
+    }
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
+    for CheckRelayerSubmitBatchedProofs<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo> + IsSubType<Call<T>>,
+    BalanceOf<T>: Send + Sync + Into<u128>,
+{
+    const IDENTIFIER: &'static str = "CheckRelayerSubmitBatchedProofs";
+    type Implicit = ();
+    type Val = ();
+    type Pre = ();
+
+    fn weight(&self, call: &T::RuntimeCall) -> Weight {
+        if Self::proof(call).is_some() {
+            Self::relayer_submit_batched_proofs_weight()
+        } else {
+            Weight::zero()
+        }
+    }
+
+    fn validate(
+        &self,
+        origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+        _: (),
+        _implication: &impl Encode,
+        _source: TransactionSource,
+    ) -> Result<
+        (
+            ValidTransaction,
+            Self::Val,
+            <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        let Some(proof) = Self::proof(call) else {
+            return Ok((ValidTransaction::default(), (), origin));
+        };
+
+        if FeeAccountStateCommitmentNullifiers::<T>::contains_key(&proof.fee_payment.nullifier) {
+            return Err(InvalidTransaction::Stale.into());
+        }
+
+        let amount = Pallet::<T>::amount_to_balance(proof.fee_payment.amount)
+            .map_err(|_| InvalidTransaction::Payment)?;
+        let minimum_fee =
+            pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
+        let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
+        let commission = amount.saturating_sub(minimum_fee);
+        log::debug!(target: "confidential-assets", "tx_len: {:?}, Amount: {:?}, Minimum fee: {:?}, Maximum fee: {:?}, Commission: {:?}", len, amount, minimum_fee, maximum_fee, commission);
+        if amount < minimum_fee || amount > maximum_fee {
+            return Err(InvalidTransaction::Payment.into());
+        }
+
+        let valid = ValidTransaction {
+            provides: sp_std::vec![(
+                b"confidential-assets-fee-nullifier",
+                &proof.fee_payment.nullifier
+            )
+                .encode(),],
+            ..Default::default()
+        };
+        Ok((valid, (), origin))
+    }
+
+    fn prepare(
+        self,
+        _val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        _call: &T::RuntimeCall,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        Ok(())
+    }
+}
+
 /// Confidential asset details.
 #[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -316,6 +469,79 @@ pub struct AssetDetails<T: Config> {
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
+pub enum FreezeOrigin {
+    Issuer,
+    Root,
+}
+
+/// Represents a settlement leg with a revealed asset ID and its mediators' affirmation keys.
+///
+/// This struct is used to store the asset ID and the corresponding mediators' affirmation keys for settlement legs where the asset ID is revealed.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
+pub struct LegMediatorKeys {
+    /// The mediators' affirmation keys for this asset.
+    pub mediators: BTreeSet<AccountPublicKey>,
+}
+
+/// Roles gated by a required identity claim.
+#[derive(
+    Copy,
+    Clone,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
+pub enum RoleKind {
+    /// Creator of a confidential asset.
+    AssetCreator,
+    /// Auditor of a confidential asset.
+    Auditor,
+    /// Mediator of a confidential settlement.
+    Mediator,
+}
+
+impl RoleKind {
+    /// Custom scope of this role's default (genesis) KYC claim.
+    pub fn default_claim_scope(&self) -> &'static [u8] {
+        match self {
+            RoleKind::AssetCreator => b"DART:AssetCreator",
+            RoleKind::Auditor => b"DART:Auditor",
+            RoleKind::Mediator => b"DART:Mediator",
+        }
+    }
+
+    /// Default (genesis) claim for this role: `KnowYourCustomer(Custom(default_claim_scope))`.
+    pub fn default_claim(&self) -> Claim {
+        Claim::KnowYourCustomer(Scope::Custom(self.default_claim_scope().to_vec()))
+    }
+}
+
+/// Required-claim spec for a gated role: the claim plus the bounded list of
+/// trusted claim issuers. Only live (unexpired) claims equal to `claim` count.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
+#[scale_info(skip_type_params(T))]
+pub struct RequiredClaim<T: Config> {
+    /// The required claim (type, scope and value).
+    pub claim: Claim,
+    /// DIDs trusted to issue the required claim.
+    pub trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+}
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -323,7 +549,10 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
 
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -344,6 +573,10 @@ pub mod pallet {
         /// Maximum total supply.
         #[pallet::constant]
         type MaxTotalSupply: Get<Balance>;
+
+        /// Maximum fee a relayer may charge above the transaction fee.
+        #[pallet::constant]
+        type MaxRelayerCommission: Get<BalanceOf<Self>>;
 
         /// Maximum asset data length.
         #[pallet::constant]
@@ -384,6 +617,14 @@ pub mod pallet {
         /// The maximum number of asset mediators.
         #[pallet::constant]
         type MaxAssetMediators: Get<u32>;
+
+        /// The maximum number of trusted claim issuers per gated action.
+        #[pallet::constant]
+        type MaxTrustedClaimIssuers: Get<u32>;
+
+        /// The maximum number of recipients a shared encryption key can be distributed to.
+        #[pallet::constant]
+        type MaxSharedKeyRecipients: Get<u32>;
 
         /// The maximum number of asset encryption keys (mediators + auditors).
         #[pallet::constant]
@@ -621,6 +862,39 @@ pub mod pallet {
             /// Batch results.
             batch_result: DispatchResult,
         },
+        /// Required claim set for a gated role.
+        RequiredClaimSet {
+            /// Gated role.
+            role: RoleKind,
+            /// Required claim.
+            claim: Claim,
+            /// Trusted claim issuers.
+            trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+        },
+        /// Required claim removed for a gated role (back to permissionless).
+        RequiredClaimRemoved {
+            /// Gated role.
+            role: RoleKind,
+        },
+        /// An encryption key has been distributed (shared) to recipient encryption keys.
+        ///
+        /// Recipients decrypt the shared secret key from `proof`.
+        EncryptionKeyDistributed {
+            /// Caller's identity (owner of the shared key).
+            caller_did: IdentityId,
+            /// The shared encryption key.
+            encryption_key: EncryptionPublicKey,
+            /// Key distribution proof (contains the recipients and their ciphertexts).
+            proof: KeyDistributionProof<PolymeshLimits>,
+        },
+        AssetFrozen {
+            asset_id: ConfidentialAssetId,
+            freeze_origin: FreezeOrigin,
+        },
+        AssetUnfrozen {
+            asset_id: ConfidentialAssetId,
+            unfreeze_origin: FreezeOrigin,
+        },
     }
 
     #[pallet::error]
@@ -717,6 +991,22 @@ pub mod pallet {
         InvalidAssetName,
         /// Invalid affirmation status transition.
         InvalidAffirmationStatusTransition,
+        /// Missing leg mediators.
+        MissingLegMediators,
+        /// Encryption key does not match the registered key for the account.
+        EncryptionKeyMismatch,
+        /// DID does not hold the required claim from a trusted issuer (or it expired).
+        MissingRequiredClaim,
+        /// Key distribution requires at least one recipient.
+        NoKeyRecipients,
+        /// Too many recipients for the shared encryption key.
+        TooManySharedKeyRecipients,
+        /// The shared encryption key hasn't been distributed to the mediator's encryption key.
+        EncryptionKeyNotShared,
+        /// A frozen asset cannot be used in a new settlement.
+        AssetIsFrozen,
+        /// Only Root may change a Root freeze.
+        AssetFrozenByRoot,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -742,6 +1032,11 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type Keys<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetKeys, OptionQuery>;
+
+    /// Who froze the asset; no entry means unfrozen.
+    #[pallet::storage]
+    pub type AssetFrozen<T: Config> =
+        StorageMap<_, Twox64Concat, ConfidentialAssetId, FreezeOrigin, OptionQuery>;
 
     /// A Confidential assets token name.
     #[pallet::storage]
@@ -776,6 +1071,16 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type EncryptionKeyDid<T: Config> =
         StorageMap<_, Twox64Concat, EncryptionPublicKey, IdentityId, OptionQuery>;
+
+    /// Recipient encryption keys a shared encryption key has been distributed to.
+    #[pallet::storage]
+    pub(super) type SharedKeyRecipients<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        EncryptionPublicKey,
+        BoundedBTreeSet<EncryptionPublicKey, T::MaxSharedKeyRecipients>,
+        ValueQuery,
+    >;
 
     /// Confidential account to identity mapping.
     #[pallet::storage]
@@ -1059,6 +1364,23 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// For settlement legs with revealed asset IDs, this keeps track of the mediators' affirmation keys.
+    #[pallet::storage]
+    pub(crate) type LegMediators<T: Config> = StorageNMap<
+        _,
+        (NMapKey<Identity, SettlementRef>, NMapKey<Identity, LegId>),
+        LegMediatorKeys,
+        OptionQuery,
+    >;
+
+    /// Required-claim spec for each gated role.
+    ///
+    /// `None` means the role is permissionless (preserves dev behavior).
+    /// Mediators fall back to the auditor spec when no mediator spec is set.
+    #[pallet::storage]
+    pub(crate) type RequiredClaims<T: Config> =
+        StorageMap<_, Twox64Concat, RoleKind, RequiredClaim<T>, OptionQuery>;
+
     /// The WorkerSessionId for the current block.
     #[pallet::storage]
     pub(crate) type CurrentWorkerSessionId<T: Config> =
@@ -1067,6 +1389,8 @@ pub mod pallet {
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
+        /// Trusted KYC claim issuer for all gated roles; `None` blocks all roles.
+        pub trusted_issuer: Option<IdentityId>,
         #[serde(skip)]
         pub _config: sp_std::marker::PhantomData<T>,
     }
@@ -1074,6 +1398,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            Pallet::<T>::initialize_required_claims(self.trusted_issuer);
             // Initialize the curve tree heights.
             AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
             AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
@@ -1115,6 +1440,9 @@ pub mod pallet {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
             }
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 0));
+
+            // Migrate v0.1 DART settlement legs to v1.0 and recover stuck settlements (0 -> 1).
+            weight = weight.saturating_add(Self::migrate_to_v1());
 
             weight
         }
@@ -1218,17 +1546,7 @@ pub mod pallet {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
 
             for encryption_key in &proof.keys {
-                // Ensure the encryption key doesn't exist.
-                ensure!(
-                    !EncryptionKeyDid::<T>::contains_key(&encryption_key),
-                    Error::<T>::EncryptionKeyAlreadyRegistered
-                );
-                EncryptionKeyDid::<T>::insert(&encryption_key, caller_did);
-
-                Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
-                    caller_did,
-                    encryption_key: *encryption_key,
-                });
+                Self::base_register_encryption_key(caller_did, *encryption_key)?;
             }
 
             // Verify the proof.
@@ -1250,7 +1568,9 @@ pub mod pallet {
         /// * `AccountMissing` if the auditor or mediator is not registered.
         /// * `EncryptionKeyMissing` if the encryption key of the auditor or mediator is not registered.
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::create_asset())]
+        #[pallet::weight(<T as Config>::WeightInfo::create_asset(
+            mediators.len().saturating_add(auditors.len()) as u32
+        ))]
         pub fn create_asset(
             origin: OriginFor<T>,
             name: Name,
@@ -1294,10 +1614,13 @@ pub mod pallet {
             let mut seen_asset = BTreeSet::new();
             let mut registrations = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
-                if !seen_account.contains(&p.account.acct) {
-                    seen_account.insert(p.account.acct.clone());
+                if !seen_account.contains(&p.account) {
+                    seen_account.insert(p.account.clone());
                     // Ensure the Confidential account is registered to the caller's identity.
-                    Self::ensure_dart_account_owner(caller_did, &p.account.acct)?;
+                    Self::ensure_dart_account_and_encryption_key_registered(
+                        &p.account.acct,
+                        &p.account.enc,
+                    )?;
                 }
                 if !seen_asset.contains(&p.asset_id) {
                     seen_asset.insert(p.asset_id);
@@ -1316,8 +1639,10 @@ pub mod pallet {
             }
 
             // Verify the proof.
+            // TODO: Support force-transfer/freeze keys (`pk_t`) once the pallet tracks them per asset.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
                 did: caller_did.into(),
+                asset_lookup: AssetPkTLookup::new(),
                 proof,
             })?;
 
@@ -1885,10 +2210,326 @@ pub mod pallet {
             // Perform the base instant receiver affirmation.
             Self::base_instant_receiver_affirmation(proof, true)
         }
+
+        /// Set the required claim for a gated role (Root only).
+        ///
+        /// While a spec is set, a DID acting in that role must hold a live
+        /// (unexpired) claim equal to `claim` from one of `trusted_issuers`.
+        /// An empty issuer list blocks the role entirely (deny-all); remove the spec
+        /// (see `remove_required_claim`) to restore permissionless behavior.
+        /// Mediators fall back to the auditor spec when no mediator spec is set.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be Root).
+        /// * `role` - The gated role.
+        /// * `claim` - The required claim (type, scope and value).
+        /// * `trusted_issuers` - DIDs trusted to issue the required claim.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root.
+        #[pallet::call_index(21)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_required_claim())]
+        pub fn set_required_claim(
+            origin: OriginFor<T>,
+            role: RoleKind,
+            claim: Claim,
+            trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::base_set_required_claim(role, claim, trusted_issuers)
+        }
+
+        /// Remove the required claim for a gated role (Root only).
+        ///
+        /// The role becomes permissionless again (mediators keep falling back to the
+        /// auditor spec while that one is set).
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be Root).
+        /// * `role` - The gated role.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root.
+        #[pallet::call_index(22)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_required_claim())]
+        pub fn remove_required_claim(origin: OriginFor<T>, role: RoleKind) -> DispatchResult {
+            ensure_root(origin)?;
+
+            RequiredClaims::<T>::remove(role);
+            Self::deposit_event(Event::<T>::RequiredClaimRemoved { role });
+            Ok(())
+        }
+
+        /// Register a new shared encryption key and distribute it to registered encryption keys.
+        ///
+        /// The shared key is linked to the caller's DID (normally the asset issuer). It can then
+        /// be used as an asset auditor key, or as a mediator key by the owner of a Confidential
+        /// account whose encryption key it was distributed to.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must meet the asset creator or auditor requirements).
+        /// * `proof` - The key distribution proof.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `MissingRequiredClaim` if the caller doesn't meet the asset creator or auditor
+        ///   requirements, or a recipient's DID doesn't meet the auditor requirements.
+        /// * `EncryptionKeyAlreadyRegistered` if the shared key is already registered.
+        /// * `EncryptionKeyMissing` if a recipient key isn't registered.
+        /// * `NoKeyRecipients` if the proof has no recipients.
+        /// * `TooManySharedKeyRecipients` if the proof exceeds `MaxSharedKeyRecipients`.
+        /// * `InvalidProof` if the proof is invalid.
+        #[pallet::call_index(23)]
+        #[pallet::weight(<T as Config>::WeightInfo::distribute_encryption_key(proof.recipient_pks.len() as u32))]
+        pub fn distribute_encryption_key(
+            origin: OriginFor<T>,
+            proof: KeyDistributionProof<PolymeshLimits>,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            Self::base_distribute_encryption_key(caller_did, proof)
+        }
+
+        /// Update the auditor and mediator encryption keys for an asset.
+        ///
+        /// The asset owner must retain the required live claims for every selected auditor and
+        /// mediator. Existing settlements keep their creation-time encrypted legs and mediator set.
+        #[pallet::call_index(24)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_asset_keys(
+            mediators.len().saturating_add(auditors.len()) as u32
+        ))]
+        pub fn update_asset_keys(
+            origin: OriginFor<T>,
+            asset_id: ConfidentialAssetId,
+            mediators: MediatorKeys,
+            auditors: AuditorKeys,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            Self::base_update_asset_keys(caller_did, asset_id, mediators, auditors)
+        }
+
+        /// Set the freeze state as the issuer or Root. Only Root may change a Root freeze.
+        #[pallet::call_index(25)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_asset_frozen())]
+        pub fn set_asset_frozen(
+            origin: OriginFor<T>,
+            asset_id: ConfidentialAssetId,
+            frozen: bool,
+        ) -> DispatchResult {
+            let caller_did = Self::asset_freeze_caller(origin)?;
+            Self::base_set_asset_frozen(caller_did, asset_id, frozen)
+        }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn asset_freeze_caller(origin: OriginFor<T>) -> Result<Option<IdentityId>, DispatchError> {
+        if ensure_root(origin.clone()).is_ok() {
+            Ok(None)
+        } else {
+            Ok(Some(PalletIdentity::<T>::ensure_perms(origin)?))
+        }
+    }
+
+    fn asset_freeze_origin(
+        caller_did: Option<IdentityId>,
+        asset_id: ConfidentialAssetId,
+    ) -> Result<FreezeOrigin, DispatchError> {
+        match caller_did {
+            Some(did) => {
+                Self::ensure_dart_asset_owner(did, asset_id)?;
+                Ok(FreezeOrigin::Issuer)
+            }
+            None => {
+                Self::ensure_dart_asset_exists(asset_id)?;
+                Ok(FreezeOrigin::Root)
+            }
+        }
+    }
+
+    pub fn base_set_asset_frozen(
+        caller_did: Option<IdentityId>,
+        asset_id: ConfidentialAssetId,
+        frozen: bool,
+    ) -> DispatchResult {
+        let freeze_origin = Self::asset_freeze_origin(caller_did, asset_id)?;
+        let current = AssetFrozen::<T>::get(asset_id);
+        ensure!(
+            current != Some(FreezeOrigin::Root) || freeze_origin == FreezeOrigin::Root,
+            Error::<T>::AssetFrozenByRoot
+        );
+        let next = if frozen { Some(freeze_origin) } else { None };
+        if current == next {
+            return Ok(());
+        }
+        let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+        AssetFrozen::<T>::set(asset_id, next);
+        Self::recommit_asset_leaf(AssetState {
+            asset_id,
+            frozen,
+            keys,
+        })?;
+        if frozen {
+            Self::deposit_event(Event::<T>::AssetFrozen {
+                asset_id,
+                freeze_origin,
+            });
+        } else {
+            Self::deposit_event(Event::<T>::AssetUnfrozen {
+                asset_id,
+                unfreeze_origin: freeze_origin,
+            });
+        }
+        Ok(())
+    }
+
+    /// Set the required claim for a gated role.
+    ///
+    /// An empty issuer list blocks the role entirely (deny-all) until replaced.
+    pub fn base_set_required_claim(
+        role: RoleKind,
+        claim: Claim,
+        trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+    ) -> DispatchResult {
+        RequiredClaims::<T>::insert(
+            role,
+            RequiredClaim {
+                claim: claim.clone(),
+                trusted_issuers: trusted_issuers.clone(),
+            },
+        );
+        Self::deposit_event(Event::<T>::RequiredClaimSet {
+            role,
+            claim,
+            trusted_issuers,
+        });
+        Ok(())
+    }
+
+    /// Register a new shared encryption key for the caller and distribute it to the proof's
+    /// recipient encryption keys.
+    pub fn base_distribute_encryption_key(
+        caller_did: IdentityId,
+        proof: KeyDistributionProof<PolymeshLimits>,
+    ) -> DispatchResult {
+        let encryption_key = proof.public_key;
+        let recipient_keys = &proof.recipient_pks;
+        ensure!(!recipient_keys.is_empty(), Error::<T>::NoKeyRecipients);
+
+        Self::ensure_role_claim(caller_did, RoleKind::Auditor)?;
+        ensure!(
+            !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+            Error::<T>::EncryptionKeyAlreadyRegistered
+        );
+
+        let mut recipients = BoundedBTreeSet::<_, T::MaxSharedKeyRecipients>::new();
+        for recipient in recipient_keys {
+            recipients
+                .try_insert(*recipient)
+                .map_err(|_| Error::<T>::TooManySharedKeyRecipients)?;
+            let recipient_did = Self::ensure_encryption_key_registered(recipient)?;
+            Self::ensure_role_claim(recipient_did, RoleKind::Auditor)?;
+        }
+
+        // The proof shows knowledge of the shared secret key, bound to the caller's DID.
+        Self::submit_and_wait(VerifyDartAssetRequest::KeyDistribution {
+            did: caller_did.into(),
+            proof: proof.clone(),
+        })?;
+
+        Self::base_register_encryption_key(caller_did, encryption_key)?;
+        SharedKeyRecipients::<T>::insert(&encryption_key, recipients);
+        Self::deposit_event(Event::<T>::EncryptionKeyDistributed {
+            caller_did,
+            encryption_key,
+            proof,
+        });
+        Ok(())
+    }
+
+    /// Register an encryption key to a DID and emit its registration event.
+    fn base_register_encryption_key(
+        did: IdentityId,
+        encryption_key: EncryptionPublicKey,
+    ) -> DispatchResult {
+        ensure!(
+            !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+            Error::<T>::EncryptionKeyAlreadyRegistered
+        );
+        EncryptionKeyDid::<T>::insert(&encryption_key, did);
+        Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
+            caller_did: did,
+            encryption_key,
+        });
+        Ok(())
+    }
+
+    /// Default spec: the role's default claim from `trusted_issuer`, or deny-all when `None`.
+    fn default_required_claim(
+        role: RoleKind,
+        trusted_issuer: Option<IdentityId>,
+    ) -> RequiredClaim<T> {
+        let mut trusted_issuers = BoundedVec::new();
+        if let Some(issuer) = trusted_issuer {
+            // `MaxTrustedClaimIssuers` of zero leaves the role blocked.
+            let _ = trusted_issuers.try_push(issuer);
+        }
+        RequiredClaim {
+            claim: role.default_claim(),
+            trusted_issuers,
+        }
+    }
+
+    /// Install the default spec for every role without one.
+    ///
+    /// With no `trusted_issuer` all roles start blocked, so no one can act before Root
+    /// installs the correct claim requirements (Mainnet safety).
+    /// Root changes the spec per role via `set_required_claim`.
+    pub(crate) fn initialize_required_claims(trusted_issuer: Option<IdentityId>) {
+        for role in [
+            RoleKind::AssetCreator,
+            RoleKind::Auditor,
+            RoleKind::Mediator,
+        ] {
+            if !RequiredClaims::<T>::contains_key(role) {
+                RequiredClaims::<T>::insert(
+                    role,
+                    Self::default_required_claim(role, trusted_issuer),
+                );
+            }
+        }
+    }
+
+    /// Resolve the effective claim spec for a role.
+    ///
+    /// Mediators fall back to the auditor spec when no mediator spec is set, so one
+    /// spec can cover both auditors and mediators. Returns `None` when the role is
+    /// permissionless.
+    fn required_claim_for(role: RoleKind) -> Option<RequiredClaim<T>> {
+        RequiredClaims::<T>::get(role).or_else(|| match role {
+            RoleKind::Mediator => RequiredClaims::<T>::get(RoleKind::Auditor),
+            _ => None,
+        })
+    }
+
+    /// Ensure `did` holds a live (unexpired) claim equal to the one required for `role`
+    /// from one of the role's trusted issuers.
+    /// No-op while no spec applies (the role is permissionless).
+    pub fn ensure_role_claim(did: IdentityId, role: RoleKind) -> Result<(), Error<T>> {
+        if let Some(spec) = Self::required_claim_for(role) {
+            let claim_type = spec.claim.claim_type();
+            let scope = spec.claim.as_scope().cloned();
+            let has_claim = spec.trusted_issuers.iter().any(|issuer| {
+                PalletIdentity::<T>::fetch_claim(did, claim_type, *issuer, scope.clone())
+                    .is_some_and(|id_claim| id_claim.claim == spec.claim)
+            });
+            ensure!(has_claim, Error::<T>::MissingRequiredClaim);
+        }
+        Ok(())
+    }
+
     /// Create a new Confidential asset.
     pub fn base_create_asset(
         owner_did: IdentityId,
@@ -1907,6 +2548,9 @@ impl<T: Config> Pallet<T> {
 
         // Ensure `decimals` is valid.
         ensure!(decimals <= MAX_DECIMALS, Error::<T>::TooManyDecimals);
+
+        // Ensure the owner meets the asset-creator requirements (if gated).
+        Self::ensure_role_claim(owner_did, RoleKind::AssetCreator)?;
 
         // Ensure the auditor or mediator is registered.
         Self::ensure_mediators_registered(&mediators)?;
@@ -1954,6 +2598,24 @@ impl<T: Config> Pallet<T> {
         Ok(asset_id)
     }
 
+    /// Update the keys for an existing asset after checking its owner and selected key roles.
+    pub fn base_update_asset_keys(
+        caller_did: IdentityId,
+        asset_id: ConfidentialAssetId,
+        mediators: MediatorKeys,
+        auditors: AuditorKeys,
+    ) -> DispatchResult {
+        // Ensure the caller is the owner of the asset before updating keys.
+        Self::ensure_dart_asset_owner(caller_did, asset_id)?;
+
+        // Ensure that the new mediator and auditor keys are registered before updating the asset leaf.
+        Self::ensure_mediators_registered(&mediators)?;
+        Self::ensure_auditors_registered(&auditors)?;
+
+        // Update the asset leaf with the new mediator and auditor keys.
+        Self::update_asset_leaf(caller_did, asset_id, &mediators, &auditors, false)
+    }
+
     pub fn base_create_settlement(proof: SettlementProof<PolymeshLimits>) -> DispatchResult {
         let settlement_ref = proof.settlement_ref();
         #[cfg(not(feature = "runtime-benchmarks"))]
@@ -1968,25 +2630,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SettlementAlreadyExists
         );
 
+        // Handle revealed asset ids.
+        let asset_lookup = Self::get_asset_keys_lookup(proof.revealed_asset_ids())?;
+
         // Get details of the settlement.
         let memo = proof.memo.clone();
         let proof_legs = proof.legs.clone();
         let root_block: BlockNumberFor<T> = proof.root_block.into();
 
-        // Handle revealed asset ids.
-        let mut asset_lookup = AssetKeysLookup::new();
-        for asset_id in proof.revealed_asset_ids() {
-            // Ensure the asset exists and get the asset keys.
-            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
-            let asset_state = AssetState { asset_id, keys };
-            asset_lookup.add(asset_state);
-        }
-
         // Verify the settlement proof.
         let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
             root,
-            asset_lookup,
+            asset_lookup: asset_lookup.clone(),
             proof,
         })?;
 
@@ -1997,7 +2653,23 @@ impl<T: Config> Pallet<T> {
         let mut pending_affirmations = 0;
         for (leg_idx, leg) in proof_legs.iter().enumerate() {
             let leg_idx = leg_idx as LegId;
-            let mediators = leg.mediator_count().map_err(Error::<T>::from)? as u32;
+            let mediators = if let Some(asset_id) = leg.revealed_asset_id() {
+                // When the asset ID is revealed, we need to save the mediator affirmation keys for the leg.
+                let asset_keys = asset_lookup
+                    .assets
+                    .get(&asset_id)
+                    .ok_or(Error::<T>::AssetMissing)?;
+                LegMediators::<T>::insert(
+                    (settlement_ref, leg_idx),
+                    LegMediatorKeys {
+                        mediators: asset_keys.mediators.clone(),
+                    },
+                );
+                asset_keys.mediators.len() as u32
+            } else {
+                leg.mediator_count(&asset_lookup)
+                    .map_err(Error::<T>::from)? as u32
+            };
 
             pending_affirmations = pending_affirmations
                 .saturating_add(2)
@@ -2075,9 +2747,12 @@ impl<T: Config> Pallet<T> {
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
     ) -> DispatchResult {
+        // Handle revealed asset ids, needed to check mediator affirmations in leg references.
+        let asset_lookup = Self::get_asset_keys_lookup(proof.settlement.revealed_asset_ids())?;
+
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
-            proof.check_leg_references(),
+            proof.check_leg_references(&asset_lookup),
             Error::<T>::BatchedSettlementInvalidLegRefs
         );
         let settlement_ref = proof.settlement.settlement_ref();
@@ -2353,14 +3028,16 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // Calculate the batch weight and corresponding tx fee.
-        let batch_weight = <T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof);
-        let batch_tx_fee = T::WeightToFee::weight_to_fee(&batch_weight);
-
         // Verify the fee payment proof.
-        let batch_hash = proof.fee_payment_ctx();
-        let verify_res =
-            Self::verify_fee_payment(relayer.clone(), batch_tx_fee, batch_hash, proof.fee_payment);
+        let target = if proof.is_broadcast {
+            // If the proof is broadcast, anyone can submit it and receive the fee.
+            None
+        } else {
+            // Otherwise, only the relayer who submits the proof can receive the fee.
+            Some(relayer.encode())
+        };
+        let batch_hash = proof.fee_payment_ctx(target.as_deref());
+        let verify_res = Self::verify_fee_payment(relayer.clone(), batch_hash, proof.fee_payment);
 
         // If the fee payment verification fails, return an error but still charge the relayer for the verification cost.
         let amount = match verify_res {
@@ -2390,21 +3067,58 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
+    pub fn relayer_submit_batched_fee_info(
+        batch: &BatchedProofs<PolymeshLimits>,
+        extension_weight: Weight,
+    ) -> RelayerSubmitBatchedFeeInfo<BalanceOf<T>>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+    {
+        let dispatch_info = DispatchInfo {
+            call_weight: <T as Config>::WeightInfo::relayer_batched_proofs(batch),
+            extension_weight,
+            class: DispatchClass::Normal,
+            pays_fee: Pays::Yes,
+        };
+        let call_len = Self::estimate_relayer_submit_batched_len(batch);
+        let len_bytes = Compact(call_len).encoded_size() as u32;
+        let len = RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD
+            .saturating_add(call_len)
+            .saturating_add(len_bytes);
+        RelayerSubmitBatchedFeeInfo {
+            weight: dispatch_info.total_weight(),
+            fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
+                len,
+                &dispatch_info,
+                0u32.into(),
+            ),
+        }
+    }
+
+    /// Estimates the SCALE-encoded length of the `relayer_submit_batched_proofs` call itself
+    /// (excluding the extrinsic preamble, address, signature, and transaction extensions).
+    ///
+    /// The fee payment proof isn't available yet at this point (its size depends on the fee
+    /// amount, which is what we're trying to determine), so its length is estimated from the
+    /// current fee account curve tree height.
+    pub fn estimate_relayer_submit_batched_len(batch: &BatchedProofs<PolymeshLimits>) -> u32 {
+        // `estimate_encoded_size` requires a positive height; an empty tree still needs one level
+        // for the fee account's own registration/topup proof.
+        let height = FeeAccountCurveTreeHeight::<T>::get().max(1);
+        let fee_payment_proof_len =
+            FeeAccountPaymentProof::<PolymeshLimits>::estimate_encoded_size(height);
+        // +1 for `FeePaymentWithBatchedProofs::is_broadcast`, which isn't part of the payment proof.
+        batch.encoded_size() as u32 + fee_payment_proof_len as u32 + 1
+    }
+
     pub fn verify_fee_payment(
         relayer: T::AccountId,
-        batch_tx_fee: BalanceOf<T>,
         batch_hash: ProofHash,
         proof: FeeAccountPaymentProof<PolymeshLimits>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         let account_state_commitment = proof.updated_account_state_commitment;
         let nullifier = proof.nullifier;
         let amount = Self::amount_to_balance(proof.amount)?;
-
-        // TODO: Put a cap on the maximum commission fee that a relayer can charge.
-        ensure!(
-            amount >= batch_tx_fee,
-            Error::<T>::InsufficientFeePaymentAmount
-        );
 
         // Ensure the fee asset id is valid.  Only one is supported now.
         ensure!(
@@ -2535,17 +3249,12 @@ impl<T: Config> Pallet<T> {
         Keys::<T>::insert(asset_id, &keys);
 
         // Create the Asset State.
-        let asset_state = AssetState { asset_id, keys };
-        let req = UpdateAssetStateRequest::new(asset_state);
-        let resp = req
-            .update(Self::session_id()?)
-            .map_err(|_| Error::<T>::AssetStateInvalid)?;
-        let asset_leaf = resp.asset_leaf();
-
-        // Update the asset curve tree with the new asset.
-        let mut asset_curve_tree = Self::get_asset_curve_tree()?;
-        let leaf_index = asset_id.into();
-        asset_curve_tree.update_leaf(leaf_index, asset_leaf)?;
+        let asset_state = AssetState {
+            asset_id,
+            frozen: AssetFrozen::<T>::get(asset_id).is_some(),
+            keys,
+        };
+        Self::recommit_asset_leaf(asset_state)?;
 
         // Emit an event for the asset state update.
         if !is_create {
@@ -2557,11 +3266,20 @@ impl<T: Config> Pallet<T> {
                 mediators: mediators.clone(),
             });
         }
+        Ok(())
+    }
+
+    fn recommit_asset_leaf(asset_state: AssetState) -> DispatchResult {
+        let leaf_index = asset_state.asset_id.into();
+        let resp = UpdateAssetStateRequest::new(asset_state)
+            .update(Self::session_id()?)
+            .map_err(|_| Error::<T>::AssetStateInvalid)?;
+        let asset_leaf = resp.asset_leaf();
+        Self::get_asset_curve_tree()?.update_leaf(leaf_index, asset_leaf)?;
         Self::deposit_event(Event::<T>::AssetStateLeafUpdated {
             leaf_index,
             asset_leaf,
         });
-
         Ok(())
     }
 
@@ -2662,6 +3380,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Ensure Confidential account is registered and linked to the given encryption key.
+    pub fn ensure_dart_account_and_encryption_key_registered(
+        account: &AccountPublicKey,
+        encryption: &EncryptionPublicKey,
+    ) -> Result<IdentityId, Error<T>> {
+        let identity_id = Self::ensure_dart_account_registered(account)?;
+        let account_encryption =
+            AccountEncryptionKey::<T>::get(account).ok_or(Error::<T>::EncryptionKeyMissing)?;
+        ensure!(
+            account_encryption == *encryption,
+            Error::<T>::EncryptionKeyMismatch
+        );
+        Ok(identity_id)
+    }
+
     /// Ensure Confidential account is registered.
     pub fn ensure_dart_account_registered(
         account: &AccountPublicKey,
@@ -2714,6 +3447,23 @@ impl<T: Config> Pallet<T> {
         Details::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)
     }
 
+    pub fn get_asset_keys_lookup(
+        asset_ids: BTreeSet<ConfidentialAssetId>,
+    ) -> Result<AssetKeysLookup, Error<T>> {
+        let mut asset_lookup = AssetKeysLookup::new();
+        for asset_id in asset_ids {
+            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+            let asset_state = AssetState {
+                asset_id,
+                frozen: AssetFrozen::<T>::get(asset_id).is_some(),
+                keys,
+            };
+            ensure!(!asset_state.frozen, Error::<T>::AssetIsFrozen);
+            asset_lookup.add(asset_state);
+        }
+        Ok(asset_lookup)
+    }
+
     /// Ensure encryption key is registered.
     pub fn ensure_encryption_key_registered(
         encryption_key: &EncryptionPublicKey,
@@ -2721,18 +3471,33 @@ impl<T: Config> Pallet<T> {
         EncryptionKeyDid::<T>::get(encryption_key).ok_or(Error::<T>::EncryptionKeyMissing)
     }
 
-    /// Ensure auditor encryption public keys are registered.
+    /// Ensure auditor encryption public keys are registered and meet the auditor requirements.
+    ///
+    /// Shared keys are linked to their creator's DID like any other registered encryption key.
     pub fn ensure_auditors_registered(keys: &AuditorKeys) -> Result<(), Error<T>> {
         for key in keys {
-            Self::ensure_encryption_key_registered(key)?;
+            let did = Self::ensure_encryption_key_registered(key)?;
+            Self::ensure_role_claim(did, RoleKind::Auditor)?;
         }
         Ok(())
     }
 
-    /// Ensure mediator encryption public keys are registered.
+    /// Ensure mediator encryption public keys are registered and meet the mediator requirements.
+    ///
+    /// The mediator's encryption key is either the account's own encryption key or a shared
+    /// key that was distributed to the account's own encryption key.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
-        for key in keys {
-            Self::ensure_dart_account_registered(&key.0)?;
+        for (acct, enc) in keys {
+            let did = Self::ensure_dart_account_registered(acct)?;
+            let account_enc =
+                AccountEncryptionKey::<T>::get(acct).ok_or(Error::<T>::EncryptionKeyMissing)?;
+            if account_enc != *enc {
+                ensure!(
+                    SharedKeyRecipients::<T>::get(enc).contains(&account_enc),
+                    Error::<T>::EncryptionKeyNotShared
+                );
+            }
+            Self::ensure_role_claim(did, RoleKind::Mediator)?;
         }
         Ok(())
     }
