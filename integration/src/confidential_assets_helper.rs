@@ -909,6 +909,20 @@ impl DartProofSubmitter {
         Ok(res)
     }
 
+    pub async fn set_asset_frozen(
+        &mut self,
+        asset_id: DartAssetId,
+        frozen: bool,
+    ) -> Result<TransactionResults> {
+        Ok(self
+            .api
+            .call()
+            .confidential_assets()
+            .set_asset_frozen(asset_id, frozen)?
+            .submit_and_watch(&mut self.user)
+            .await?)
+    }
+
     pub async fn execute_instant_settlement(
         &mut self,
         proof: InstantSettlementProof,
@@ -2053,6 +2067,23 @@ impl DartUser {
             .await
             .update_asset_keys(asset_id, mediators, auditors)
             .await
+    }
+
+    pub async fn set_asset_frozen(
+        &self,
+        asset_id: DartAssetId,
+        frozen: bool,
+    ) -> Result<TransactionResults> {
+        let mut result = self
+            .0
+            .write()
+            .await
+            .submitter
+            .set_asset_frozen(asset_id, frozen)
+            .await?;
+        result.ok().await?;
+        wait_for_results(&mut result).await?;
+        Ok(result)
     }
 
     pub async fn mint_asset(

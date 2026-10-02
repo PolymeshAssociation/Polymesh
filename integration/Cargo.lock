@@ -5076,7 +5076,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#a8c3a41bd0504b88694e5017836a0a1f6a814193"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#ea635d6a6924a30bda9fa76e339ef4ba4658c928"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -5112,7 +5112,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#a8c3a41bd0504b88694e5017836a0a1f6a814193"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#ea635d6a6924a30bda9fa76e339ef4ba4658c928"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -5143,7 +5143,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#a8c3a41bd0504b88694e5017836a0a1f6a814193"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=prepare_v1_0#ea635d6a6924a30bda9fa76e339ef4ba4658c928"
 
 [[package]]
 name = "polymesh-precompiles"

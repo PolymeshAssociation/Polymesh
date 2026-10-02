@@ -28,6 +28,18 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
   (decrypt-only observers) and **mediators** (must affirm), bounded by `MaxAssetAuditors`/
   `MaxAssetMediators` = 2 (:739, :68-74); every asset needs ≥1 auditor or mediator
   (`NoAuditorsOrMediators`, :2521-2525). `NextAssetId` :730, names/symbols/decimals :744-755.
+- Freeze commitment state: `AssetFrozen` stores an optional `FreezeOrigin` (`Issuer` or `Root`),
+  separate from `Details` so existing detail entries need no conversion. No entry means unfrozen.
+  Every pallet-created `AssetState`, including the
+  shared asset-leaf update path, reads this flag. DART's `AssetState::commitment()` and
+  `asset_data()` use the struct's `frozen` field; `AssetData` carries the same flag and commits
+  `(asset_id + 1) * j_0 + frozen * freeze_gen` in the existing asset-id coordinate slots.
+  Unfrozen leaves are unchanged. `get_asset_keys_lookup` takes the revealed asset-id set, reads
+  current keys and freeze flags, rejects frozen assets, and returns the complete lookup.
+  Normal and instant settlement creation reject a revealed frozen asset
+  with `AssetIsFrozen` before worker verification; the instant path also rejects before checking
+  leg references. The freeze-state setter is described in section 10. The changed DART
+  state/request encoding requires matching worker module blobs before deployment.
 - Accounts: `AccountDid`/`EncryptionKeyDid`/`DidAccounts` (:773-791),
   `AccountAssetRegistrations` (per-asset init guard :814-822), `FeeAccountDid` (:795).
 - **Three curve trees** (storage groups):
@@ -59,8 +71,32 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 | `set_required_claim(21)` / `remove_required_claim(22)` | Root | set/clear the required-claim spec for a role | §9 |
 | `distribute_encryption_key(23)` | DID meeting `Auditor` requirements | register a new shared encryption key to the caller and distribute its secret to registered recipient encryption keys (proof-verified) | §9 |
 | `update_asset_keys(24)` | confidential asset issuer | replace the asset's mediator/auditor key set after owner, registration, distribution, and role-claim checks | §9 |
+| `set_asset_frozen(25)` | confidential asset issuer or Root | set `frozen` and recommit the leaf; Root may override either state, while issuers cannot change a Root freeze | §10 |
 
-No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
+No burn extrinsic; no manual root updates (hooks maintain roots, §6).
+
+## 10. Confidential Asset Freeze
+
+`set_asset_frozen(asset_id, frozen)` accepts Root or a permissioned caller whose DID owns the
+asset. `true` freezes and `false` unfreezes. Root always has authority over an existing asset. Issuers cannot unfreeze a Root freeze
+or overwrite it with an issuer freeze. Repeating an authorized call in the same state is a no-op.
+`AssetFrozen` records `Issuer` or `Root`; unfreezing removes the entry. Successful transitions
+emit `AssetFrozen`/`AssetUnfrozen` with the acting authority. `recommit_asset_leaf` emits
+`AssetStateLeafUpdated` after every successful asset-leaf write, including key updates.
+
+State changes and asset-tree updates use FRAME's extrinsic storage transaction, without an
+explicit `transactional` attribute: failed worker execution or tree
+updates leave both freeze authority and the asset leaf unchanged. Key updates retain the freeze
+state. Freezing does not affect affirmation, execution, or finalization of existing settlements.
+Revealed-asset settlement creation checks the current freeze state immediately. Hidden-asset
+proofs cannot use a frozen leaf, but pre-freeze roots remain usable until
+`MaxAssetCurveTreeRootAge` expires, so enforcement for hidden assets has that delay.
+
+The parameterless `set_asset_frozen` weight benchmarks the worst-case `frozen = true` transition
+with maximum auditor/mediator counts. Current weights
+provisionally charge the worst-case key-update weight plus additional database work; production
+weight generation and metadata refresh remain release gates. Issuer unfreeze currently checks
+ownership and Root precedence, not a fresh validation of every auditor/mediator role claim.
 
 ## 9. Role gating via claims
 
