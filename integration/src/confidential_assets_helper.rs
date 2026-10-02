@@ -2138,6 +2138,14 @@ impl DartUser {
             .await
     }
 
+    pub async fn sender_counter_update(
+        &self,
+        tester: &DartAssetTester,
+        leg_ref: LegRef,
+    ) -> Result<()> {
+        self.0.write().await.sender_counter_update(tester, leg_ref).await
+    }
+
     pub async fn receiver_affirmation_proof(
         &self,
         tester: &DartAssetTester,
