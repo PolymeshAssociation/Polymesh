@@ -169,6 +169,7 @@ pub trait WeightInfo {
 
     fn create_asset(key_count: u32) -> Weight;
     fn update_asset_keys(key_count: u32) -> Weight;
+    fn set_asset_frozen() -> Weight;
     fn create_settlement(l: u32) -> Weight;
     fn mediator_affirmation() -> Weight;
 
@@ -466,6 +467,12 @@ pub struct AssetDetails<T: Config> {
     pub owner_did: IdentityId,
     /// Asset data.
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
+}
+
+#[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, PartialEq, Eq)]
+pub enum FreezeOrigin {
+    Issuer,
+    Root,
 }
 
 /// Represents a settlement leg with a revealed asset ID and its mediators' affirmation keys.
@@ -870,6 +877,14 @@ pub mod pallet {
             /// Key distribution proof (contains the recipients and their ciphertexts).
             proof: KeyDistributionProof<PolymeshLimits>,
         },
+        AssetFrozen {
+            asset_id: ConfidentialAssetId,
+            freeze_origin: FreezeOrigin,
+        },
+        AssetUnfrozen {
+            asset_id: ConfidentialAssetId,
+            unfreeze_origin: FreezeOrigin,
+        },
     }
 
     #[pallet::error]
@@ -978,6 +993,10 @@ pub mod pallet {
         TooManySharedKeyRecipients,
         /// The shared encryption key hasn't been distributed to the mediator's encryption key.
         EncryptionKeyNotShared,
+        /// A frozen asset cannot be used in a new settlement.
+        AssetIsFrozen,
+        /// Only Root may change a Root freeze.
+        AssetFrozenByRoot,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1003,6 +1022,11 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type Keys<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetKeys, OptionQuery>;
+
+    /// Who froze the asset; no entry means unfrozen.
+    #[pallet::storage]
+    pub type AssetFrozen<T: Config> =
+        StorageMap<_, Twox64Concat, ConfidentialAssetId, FreezeOrigin, OptionQuery>;
 
     /// A Confidential assets token name.
     #[pallet::storage]
@@ -2275,10 +2299,79 @@ pub mod pallet {
 
             Self::base_update_asset_keys(caller_did, asset_id, mediators, auditors)
         }
+
+        /// Set the freeze state as the issuer or Root. Only Root may change a Root freeze.
+        #[pallet::call_index(25)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_asset_frozen())]
+        pub fn set_asset_frozen(
+            origin: OriginFor<T>,
+            asset_id: ConfidentialAssetId,
+            frozen: bool,
+        ) -> DispatchResult {
+            let caller_did = Self::asset_freeze_caller(origin)?;
+            Self::base_set_asset_frozen(caller_did, asset_id, frozen)
+        }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn asset_freeze_caller(origin: OriginFor<T>) -> Result<Option<IdentityId>, DispatchError> {
+        if ensure_root(origin.clone()).is_ok() {
+            Ok(None)
+        } else {
+            Ok(Some(PalletIdentity::<T>::ensure_perms(origin)?))
+        }
+    }
+
+    fn asset_freeze_origin(
+        caller_did: Option<IdentityId>,
+        asset_id: ConfidentialAssetId,
+    ) -> Result<FreezeOrigin, DispatchError> {
+        match caller_did {
+            Some(did) => {
+                Self::ensure_dart_asset_owner(did, asset_id)?;
+                Ok(FreezeOrigin::Issuer)
+            }
+            None => {
+                Self::ensure_dart_asset_exists(asset_id)?;
+                Ok(FreezeOrigin::Root)
+            }
+        }
+    }
+
+    pub fn base_set_asset_frozen(
+        caller_did: Option<IdentityId>,
+        asset_id: ConfidentialAssetId,
+        frozen: bool,
+    ) -> DispatchResult {
+        let freeze_origin = Self::asset_freeze_origin(caller_did, asset_id)?;
+        let current = AssetFrozen::<T>::get(asset_id);
+        ensure!(
+            current != Some(FreezeOrigin::Root) || freeze_origin == FreezeOrigin::Root,
+            Error::<T>::AssetFrozenByRoot
+        );
+        let next = if frozen {
+            Some(freeze_origin)
+        } else {
+            None
+        };
+        if current == next {
+            return Ok(());
+        }
+        let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+        AssetFrozen::<T>::set(asset_id, next);
+        Self::recommit_asset_leaf(AssetState { asset_id, frozen, keys })?;
+        if frozen {
+            Self::deposit_event(Event::<T>::AssetFrozen { asset_id, freeze_origin });
+        } else {
+            Self::deposit_event(Event::<T>::AssetUnfrozen {
+                asset_id,
+                unfreeze_origin: freeze_origin,
+            });
+        }
+        Ok(())
+    }
+
     /// Set the required claim for a gated role.
     ///
     /// An empty issuer list blocks the role entirely (deny-all) until replaced.
@@ -2524,19 +2617,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SettlementAlreadyExists
         );
 
+        // Handle revealed asset ids.
+        let asset_lookup = Self::get_asset_keys_lookup(proof.revealed_asset_ids())?;
+
         // Get details of the settlement.
         let memo = proof.memo.clone();
         let proof_legs = proof.legs.clone();
         let root_block: BlockNumberFor<T> = proof.root_block.into();
-
-        // Handle revealed asset ids.
-        let mut asset_lookup = AssetKeysLookup::new();
-        for asset_id in proof.revealed_asset_ids() {
-            // Ensure the asset exists and get the asset keys.
-            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
-            let asset_state = AssetState { asset_id, keys };
-            asset_lookup.add(asset_state);
-        }
 
         // Verify the settlement proof.
         let root = Self::get_asset_curve_tree_root(root_block)?;
@@ -2648,12 +2735,7 @@ impl<T: Config> Pallet<T> {
         proof: InstantSettlementProof<PolymeshLimits>,
     ) -> DispatchResult {
         // Handle revealed asset ids, needed to check mediator affirmations in leg references.
-        let mut asset_lookup = AssetKeysLookup::new();
-        for asset_id in proof.settlement.revealed_asset_ids() {
-            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
-            let asset_state = AssetState { asset_id, keys };
-            asset_lookup.add(asset_state);
-        }
+        let asset_lookup = Self::get_asset_keys_lookup(proof.settlement.revealed_asset_ids())?;
 
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
@@ -3154,17 +3236,12 @@ impl<T: Config> Pallet<T> {
         Keys::<T>::insert(asset_id, &keys);
 
         // Create the Asset State.
-        let asset_state = AssetState { asset_id, keys };
-        let req = UpdateAssetStateRequest::new(asset_state);
-        let resp = req
-            .update(Self::session_id()?)
-            .map_err(|_| Error::<T>::AssetStateInvalid)?;
-        let asset_leaf = resp.asset_leaf();
-
-        // Update the asset curve tree with the new asset.
-        let mut asset_curve_tree = Self::get_asset_curve_tree()?;
-        let leaf_index = asset_id.into();
-        asset_curve_tree.update_leaf(leaf_index, asset_leaf)?;
+        let asset_state = AssetState {
+            asset_id,
+            frozen: AssetFrozen::<T>::get(asset_id).is_some(),
+            keys,
+        };
+        Self::recommit_asset_leaf(asset_state)?;
 
         // Emit an event for the asset state update.
         if !is_create {
@@ -3176,11 +3253,17 @@ impl<T: Config> Pallet<T> {
                 mediators: mediators.clone(),
             });
         }
-        Self::deposit_event(Event::<T>::AssetStateLeafUpdated {
-            leaf_index,
-            asset_leaf,
-        });
+        Ok(())
+    }
 
+    fn recommit_asset_leaf(asset_state: AssetState) -> DispatchResult {
+        let leaf_index = asset_state.asset_id.into();
+        let resp = UpdateAssetStateRequest::new(asset_state)
+            .update(Self::session_id()?)
+            .map_err(|_| Error::<T>::AssetStateInvalid)?;
+        let asset_leaf = resp.asset_leaf();
+        Self::get_asset_curve_tree()?.update_leaf(leaf_index, asset_leaf)?;
+        Self::deposit_event(Event::<T>::AssetStateLeafUpdated { leaf_index, asset_leaf });
         Ok(())
     }
 
@@ -3346,6 +3429,23 @@ impl<T: Config> Pallet<T> {
         asset_id: ConfidentialAssetId,
     ) -> Result<AssetDetails<T>, Error<T>> {
         Details::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)
+    }
+
+    pub fn get_asset_keys_lookup(
+        asset_ids: BTreeSet<ConfidentialAssetId>,
+    ) -> Result<AssetKeysLookup, Error<T>> {
+        let mut asset_lookup = AssetKeysLookup::new();
+        for asset_id in asset_ids {
+            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+            let asset_state = AssetState {
+                asset_id,
+                frozen: AssetFrozen::<T>::get(asset_id).is_some(),
+                keys,
+            };
+            ensure!(!asset_state.frozen, Error::<T>::AssetIsFrozen);
+            asset_lookup.add(asset_state);
+        }
+        Ok(asset_lookup)
     }
 
     /// Ensure encryption key is registered.
