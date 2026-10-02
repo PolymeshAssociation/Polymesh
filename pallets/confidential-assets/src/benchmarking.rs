@@ -356,6 +356,27 @@ benchmarks! {
         let auditor_keys = BoundedBTreeSet::new();
     }: _(asset.issuer.raw_origin(), asset.id, mediator_keys, auditor_keys)
 
+    set_asset_frozen {
+        let mut off_chain = OffchainProverState::<T>::new();
+        let asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Set Asset Frozen",
+            0,
+            <T as Config>::MaxAssetMediators::get(),
+            <T as Config>::MaxAssetAuditors::get(),
+            None,
+        );
+    }: _(asset.issuer.raw_origin(), asset.id, true)
+    verify {
+        assert_eq!(AssetFrozen::<T>::get(asset.id), Some(FreezeOrigin::Issuer));
+        let mut state = asset.asset_state();
+        state.frozen = true;
+        assert_eq!(
+            AssetLeaves::<T>::get(LeafIndex::from(asset.id)),
+            Some(state.commitment().expect("Asset commitment")),
+        );
+    }
+
     register_account_assets {
         // Number of proofs to batch.
         let p in 0 .. <T as Config>::MaxAccountAssetRegProofs::get();
