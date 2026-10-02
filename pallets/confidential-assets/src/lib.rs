@@ -469,7 +469,17 @@ pub struct AssetDetails<T: Config> {
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
 }
 
-#[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, PartialEq, Eq)]
+#[derive(
+    Clone,
+    Copy,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
 pub enum FreezeOrigin {
     Issuer,
     Root,
@@ -2350,19 +2360,22 @@ impl<T: Config> Pallet<T> {
             current != Some(FreezeOrigin::Root) || freeze_origin == FreezeOrigin::Root,
             Error::<T>::AssetFrozenByRoot
         );
-        let next = if frozen {
-            Some(freeze_origin)
-        } else {
-            None
-        };
+        let next = if frozen { Some(freeze_origin) } else { None };
         if current == next {
             return Ok(());
         }
         let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
         AssetFrozen::<T>::set(asset_id, next);
-        Self::recommit_asset_leaf(AssetState { asset_id, frozen, keys })?;
+        Self::recommit_asset_leaf(AssetState {
+            asset_id,
+            frozen,
+            keys,
+        })?;
         if frozen {
-            Self::deposit_event(Event::<T>::AssetFrozen { asset_id, freeze_origin });
+            Self::deposit_event(Event::<T>::AssetFrozen {
+                asset_id,
+                freeze_origin,
+            });
         } else {
             Self::deposit_event(Event::<T>::AssetUnfrozen {
                 asset_id,
@@ -3263,7 +3276,10 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::AssetStateInvalid)?;
         let asset_leaf = resp.asset_leaf();
         Self::get_asset_curve_tree()?.update_leaf(leaf_index, asset_leaf)?;
-        Self::deposit_event(Event::<T>::AssetStateLeafUpdated { leaf_index, asset_leaf });
+        Self::deposit_event(Event::<T>::AssetStateLeafUpdated {
+            leaf_index,
+            asset_leaf,
+        });
         Ok(())
     }
 
