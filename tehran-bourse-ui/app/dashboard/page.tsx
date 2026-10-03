@@ -2,136 +2,81 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getApi, isValidDid, getDidKeys, hasCdd, getHoldings, getPolyx, formatUnits } from '@/lib/chain';
+import { useWallet } from '@/context/WalletContext';
+import { Card, Badge, Skeleton, EmptyState, CopyButton, Button } from '@/components/ui/primitives';
+import ConnectCard from '@/components/ConnectCard';
+import { formatUnits } from '@/lib/chain';
 
 export default function DashboardPage() {
+  const { connected, connecting, did, address, polyx, holdings, cdd, label } = useWallet();
   const [mounted, setMounted] = useState(false);
-  const [didInput, setDidInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [data, setData] = useState<any>(null);
+  useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem('tb_did');
-    if (saved) setDidInput(saved);
-  }, []);
-
-  const load = async () => {
-    const did = didInput.trim();
-    if (!isValidDid(did)) {
-      setError('فرمت DID نامعتبر است. باید با 0x شروع شود و ۶ کاراکتر هگز باشد.');
-      return;
-    }
-    setError('');
-    setLoading(true);
-    setData(null);
-    try {
-      const api = await getApi();
-      const keys = await getDidKeys(api, did);
-      if (keys.length === 0) {
-        setError('هیچ کلیدی برای این DID پیدا نشد. آیا این هویت ثبت‌نام شده است؟');
-        setLoading(false);
-        return;
-      }
-      const cdd = await hasCdd(api, did);
-      const polyx = await getPolyx(api, keys);
-      const holdings = await getHoldings(api, did, keys);
-      localStorage.setItem('tb_did', did);
-      setData({ did, keys, cdd, polyx, holdings });
-    } catch (e: any) {
-      setError('خطا در خواندن اطلاعات: ' + (e?.message || 'نامشخص'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!mounted) {
-    return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100" dir="rtl"></div>;
-  }
+  if (!mounted) return <div className="max-w-6xl mx-auto p-4"><Skeleton h={300} /></div>;
+  if (connecting) return <div className="max-w-6xl mx-auto p-4 space-y-4"><Skeleton h={80} /><Skeleton h={200} /></div>;
+  if (!connected) return <div className="max-w-6xl mx-auto p-6"><ConnectCard /></div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4" dir="rtl">
-      <div className="max-w-3xl mx-auto py-8">
-        <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="text-blue-600 hover:text-blue-800">← بازگشت</Link>
-          <h1 className="text-3xl font-bold text-gray-800">داشبورد سرمایه‌گذار</h1>
+    <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+      <div className="tb-card flex items-center justify-between" style={{ borderColor: 'var(--gold)' }}>
+        <div>
+          <div className="font-extrabold text-lg">👋 خوش آمدید، <span className="text-[var(--gold)]">{label || 'سرمایه‌گذار'}</span></div>
+          <div className="tb-muted text-xs mt-1">حساب شما فعال و احراز شده است. آمادهٔ معامله هستید.</div>
         </div>
+        <span className="text-3xl">🎉</span>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <label className="block text-gray-700 mb-2 font-medium">شناسه هویت (DID) خود را وارد کنید:</label>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={didInput}
-              onChange={(e) => setDidInput(e.target.value)}
-              placeholder="0x..."
-              className="flex-grow px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500"
-              dir="ltr"
-            />
-            <button
-              onClick={load}
-              disabled={loading}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
-            >
-              {loading ? '⏳ در حال خواندن...' : '🔍 نمایش داشبورد'}
-            </button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold">داشبورد سرمایه‌گذار</h1>
+          <div className="flex items-center gap-2 mt-2 tb-muted text-xs">
+            <span dir="ltr" className="font-mono">{did?.slice(0, 14)}...</span>
+            <CopyButton text={did || ''} />
           </div>
-          {error && <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
         </div>
+        <Badge tone={cdd ? 'success' : 'danger'}>{cdd ? '✅ احراز هویت (CDD) تایید شده' : '❌ بدون احراز هویت'}</Badge>
+      </div>
 
-        {data && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">🪪 وضعیت هویت</h2>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-gray-600">DID:</span><span className="font-mono text-xs break-all" dir="ltr">{data.did}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">تعداد کلیدهای متصل:</span><span className="font-bold">{data.keys.length}</span></div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">احراز هویت (CDD):</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${data.cdd ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {data.cdd ? '✅ تایید شده' : '❌ بدون CDD'}
-                  </span>
-                </div>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <div className="tb-muted text-xs mb-1">اعتبار POLYX (کارمزد زنجیره)</div>
+          <div className="text-2xl font-extrabold tb-num text-[var(--gold)]" dir="ltr">{formatUnits(polyx, true)}</div>
+        </Card>
+        <Card>
+          <div className="tb-muted text-xs mb-1">تعداد دارایی‌های سهام</div>
+          <div className="text-2xl font-extrabold tb-num">{holdings.length}</div>
+        </Card>
+        <Card>
+          <div className="tb-muted text-xs mb-1">کلیدهای متصل</div>
+          <div className="text-2xl font-extrabold tb-num" dir="ltr">{address?.slice(0, 8)}...</div>
+        </Card>
+      </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">💰 موجودی POLYX</h2>
-              <div className="text-3xl font-bold text-blue-600" dir="ltr">{formatUnits(data.polyx, true)}</div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">📈 دارایی‌های شما</h2>
-              {data.holdings.length === 0 ? (
-                <p className="text-gray-500 text-sm">هیچ دارایی روی زنجیره ثبت نشده است.</p>
-              ) : (
-                <div className="space-y-3">
-                  {data.holdings.map((h: any) => (
-                    <div key={h.assetId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="font-bold text-gray-800">{h.name}</div>
-                        <div className="font-mono text-xs text-gray-500" dir="ltr">{h.assetId}</div>
-                      </div>
-                      <div className="text-lg font-bold text-gray-800" dir="ltr">{formatUnits(h.total, h.divisible)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">🔑 کلیدهای این هویت</h2>
-              <div className="space-y-2">
-                {data.keys.map((k: string, i: number) => (
-                  <div key={k} className="font-mono text-xs bg-gray-50 p-2 rounded break-all" dir="ltr">
-                    {i === 0 ? '⭐ Primary: ' : '🔸 Secondary: '}{k}
-                  </div>
+      <Card title="📊 دارایی‌های شما" action={<Link href="/trade"><Button size="sm">انتقال سهام</Button></Link>}>
+        {holdings.length === 0 ? (
+          <EmptyState icon="📭" title="هنوز دارایی ندارید" desc="پس از دریافت سهام، این‌جا نمایش داده می‌شود." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="tb-table">
+              <thead><tr><th>دارایی</th><th>شناسه</th><th className="text-left">موجودی</th></tr></thead>
+              <tbody>
+                {holdings.map(h => (
+                  <tr key={h.assetId}>
+                    <td className="font-bold">{h.name}</td>
+                    <td className="tb-muted font-mono text-xs" dir="ltr">{h.assetId.slice(0, 10)}...</td>
+                    <td className="text-left tb-num font-bold text-[var(--green)]" dir="ltr">{formatUnits(h.total, h.divisible)}</td>
+                  </tr>
                 ))}
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
         )}
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/trade" className="tb-card hover:border-[var(--gold)] transition text-center">💱 انتقال سهام</Link>
+        <Link href="/history" className="tb-card hover:border-[var(--gold)] transition text-center">📜 تاریخچه</Link>
+        <Link href="/profile" className="tb-card hover:border-[var(--gold)] transition text-center">👤 پروفایل</Link>
       </div>
     </div>
   );

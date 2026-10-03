@@ -101,7 +101,7 @@ export async function getHoldings(api: any, did: string, keys: string[]): Promis
   const names = await api.query.asset.assetNames.entries();
   for (const [key, val] of names as any) {
     const assetId = key.args[0].toHex();
-    const name = hexToString(val.toString());
+    const name = hexToUtf8(val.toString());
     let divisible = false;
     try {
       const d = await api.query.asset.assets(assetId);
@@ -112,7 +112,7 @@ export async function getHoldings(api: any, did: string, keys: string[]): Promis
       const b = await api.query.asset.balanceOf(assetId, did);
       total = BigInt(b.toString());
     } catch {}
-    out.push({ assetId, name, divisible, total });
+    if (total > BigInt(0)) out.push({ assetId, name, divisible, total });
   }
   return out;
 }
@@ -148,4 +148,71 @@ export async function getDidForAddress(api: any, address: string): Promise<strin
     }
   } catch {}
   return null;
+}
+
+// ===== History scanner (reads from chain => survives restarts) =====
+export interface TransferRow {
+  block: number;
+  hash: string;
+  time: number;
+  assetId: string;
+  from: string;
+  to: string;
+  amount: bigint;
+  direction: 'in' | 'out';
+}
+
+export async function scanTransfers(
+  api: any,
+  isMine: (s: string) => boolean,
+  onProgress?: (scanned: number, total: number) => void
+): Promise<TransferRow[]> {
+  const head = await api.rpc.chain.getHeader();
+  const total = head.number.toNumber();
+  const out: TransferRow[] = [];
+  const CHUNK = 40;
+
+  for (let start = total; start >= 1; start -= CHUNK) {
+    const end = Math.max(1, start - CHUNK + 1);
+    const nums: number[] = [];
+    for (let b = start; b >= end; b--) nums.push(b);
+
+    const blocks = await Promise.all(nums.map(async (b) => {
+      const h = await api.rpc.chain.getBlockHash(b);
+      const [events, ts] = await Promise.all([
+        api.query.system.events.at(h),
+        api.query.timestamp.now.at(h).catch(() => null),
+      ]);
+      return { b, h, events, ts };
+    }));
+
+    for (const { b, h, events, ts } of blocks) {
+      for (const rec of events as any) {
+        const ev = rec.event;
+        if (!ev || ev.section !== 'asset') continue;
+        if (!/transfer/i.test(ev.method)) continue;
+        const d = ev.data;
+        if (!d || d.length < 4) continue;
+        const from = d[1].toString();
+        const to = d[2].toString();
+        if (!isMine(from) && !isMine(to)) continue;
+        out.push({
+          block: b,
+          hash: h.toString(),
+          time: ts ? Number(ts.toString()) : 0,
+          assetId: d[0].toString(),
+          from, to,
+          amount: BigInt(d[3].toString()),
+          direction: isMine(from) ? 'out' : 'in',
+        });
+      }
+    }
+    onProgress?.(total - end + 1, total);
+  }
+  return out;
+}
+
+export function hexToUtf8(hex: string): string {
+  const bytes = new Uint8Array((hex.slice(2).match(/.{1,2}/g) || []).map(b => parseInt(b, 16)));
+  return new TextDecoder('utf-8').decode(bytes);
 }

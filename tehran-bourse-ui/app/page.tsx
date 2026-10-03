@@ -1,135 +1,26 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { ApiPromise, WsProvider } from '@polkadot/api';
 import Link from 'next/link';
 
 export default function Home() {
-  const [status, setStatus] = useState('قطع');
-  const [chainInfo, setChainInfo] = useState<any>(null);
-  const [error, setError] = useState('');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const connectToChain = async () => {
-    try {
-      setError('');
-      setStatus('در حال اتصال...');
-      
-      const wsProvider = new WsProvider('ws://127.0.0.1:9945');
-      const api = await ApiPromise.create({ provider: wsProvider });
-      
-      const [chain, nodeName, nodeVersion] = await Promise.all([
-        api.rpc.system.chain(),
-        api.rpc.system.name(),
-        api.rpc.system.version()
-      ]);
-
-      setChainInfo({
-        chain: chain.toString(),
-        nodeName: nodeName.toString(),
-        nodeVersion: nodeVersion.toString()
-      });
-      
-      setStatus('متصل ✅');
-    } catch (err: any) {
-      setError(err.message || 'خطا در اتصال');
-      setStatus('قطع ❌');
-    }
-  };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center" dir="rtl">
-        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-2xl p-8">
-          <h1 className="text-4xl font-bold text-center text-gray-800">بورس تهران On-Chain</h1>
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-16">
+      <div className="text-center space-y-6">
+        <span className="tb-badge tb-badge-gold">🇮🇷 بورس تهران · On-Chain</span>
+        <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
+          سهام شما، <span className="text-[var(--gold)]">روی بلاکچین</span>
+        </h1>
+        <p className="tb-muted max-w-xl mx-auto">
+          بورس سهام مبتنی بر Polymesh با احراز هویت سجام و قوانین Compliance خودکار. فقط سرمایه‌گذاران احراز‌شده می‌توانند معامله کنند.
+        </p>
+        <div className="flex justify-center gap-3">
+          <Link href="/dashboard" className="tb-btn tb-btn-gold">شروع کنید</Link>
+          <Link href="/onboarding" className="tb-btn tb-btn-ghost">ثبت‌نام با سجام</Link>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4" dir="rtl">
-      <div className="max-w-2xl w-full bg-white rounded-2xl shadow-2xl p-8">
-        <h1 className="text-4xl font-bold text-center mb-2 text-gray-800">
-          بورس تهران On-Chain
-        </h1>
-        <p className="text-center text-gray-600 mb-8">
-          پلتفرم بورس مبتنی بر بلاکچین Polymesh
-        </p>
-
-        <div className="bg-gray-50 rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-700 font-medium">وضعیت اتصال:</span>
-            <span className={`px-4 py-2 rounded-full font-bold ${
-              status === 'متصل ✅' ? 'bg-green-100 text-green-800' :
-              status === 'در حال اتصال...' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              {status}
-            </span>
-          </div>
-
-          {chainInfo && (
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">نام شبکه:</span>
-                <span className="font-mono text-gray-800">{chainInfo.chain}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">نوع نود:</span>
-                <span className="font-mono text-gray-800">{chainInfo.nodeName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">نسخه:</span>
-                <span className="font-mono text-gray-800">{chainInfo.nodeVersion}</span>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={connectToChain}
-          disabled={status === 'در حال اتصال...'}
-          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mb-4"
-        >
-          {status === 'متصل ✅' ? '🔄 اتصال مجدد' : '🔌 اتصال به شبکه بورس تهران'}
-        </button>
-
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/trade">
-            <button className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3 px-4 rounded-lg hover:from-orange-600 hover:to-amber-600 transition">
-              💱 انتقال سهام
-            </button>
-          </Link>
-          <Link href="/onboarding">
-            <button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-3 px-4 rounded-lg hover:from-green-700 hover:to-emerald-700 transition">
-              📝 ثبت‌نام (سجام)
-            </button>
-          </Link>
-          <Link href="/dashboard">
-            <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-4 rounded-lg hover:from-purple-700 hover:to-pink-700 transition">
-              📊 داشبورد
-            </button>
-          </Link>
-        </div>
-
-        <div className="mt-4 text-center">
-          <Link href="/accounts" className="text-sm text-purple-600 hover:text-purple-800 font-medium">📒 دفترچه اکانت‌های تستی (DID ها)</Link>
-        </div>
-
-        <div className="mt-8 text-center text-xs text-gray-500">
-          <p>🔌 نود محلی روی پورت 9945</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-14">
+        <div className="tb-card text-center"><div className="text-3xl mb-2">🪪</div><div className="font-bold mb-1">احراز هویت سجام</div><div className="tb-muted text-xs">هر سرمایه‌گذار یک DID با گواهی CDD دارد</div></div>
+        <div className="tb-card text-center"><div className="text-3xl mb-2">⚖️</div><div className="font-bold mb-1">Compliance خودکار</div><div className="tb-muted text-xs">انتقال به فرد بدون احراز هویت توسط زنجیره رد می‌شود</div></div>
+        <div className="tb-card text-center"><div className="text-3xl mb-2">🔍</div><div className="font-bold mb-1">شفافیت On-Chain</div><div className="tb-muted text-xs">مالکیت سهام به‌صورت عمومی قابل تأیید است</div></div>
       </div>
     </div>
   );
