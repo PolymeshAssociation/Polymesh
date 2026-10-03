@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+input, textarea, select {
+  color: #111827;
+}
+input::placeholder, textarea::placeholder {
+  color: #9ca3af;
+}
+
+/* ============ Tehran Bourse Design System (dark-first, gold) ============ */
+:root{
+  --bg:#0b0e11; --surface:#151a21; --surface-2:#1e242d; --border:#2b3139;
+  --text:#eaecef; --text-muted:#848e9c;
+  --gold:#f0b90b; --green:#0ecb81; --red:#f6465d; --radius:10px;
+}
+html{color-scheme:dark;}
+body{background:var(--bg)!important;color:var(--text)!important;font-family:'Vazirmatn','Segoe UI',Tahoma,sans-serif!important;}
+input,textarea,select{color:var(--text)!important;background:var(--surface-2)!important;border:1px solid var(--border)!important;}
+input::placeholder,textarea::placeholder{color:var(--text-muted)!important;}
+
+.tb-nav{position:sticky;top:0;z-index:40;background:rgba(11,14,17,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
+.tb-navlink{padding:.4rem .8rem;border-radius:8px;color:var(--text-muted);font-size:.9rem;}
+.tb-navlink:hover{color:var(--text);background:var(--surface-2);}
+.tb-navlink-soon{opacity:.4;cursor:not-allowed;}
+.tb-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#ffd75e);color:#0b0e11;display:flex;align-items:center;justify-content:center;font-weight:800;}
+.tb-chip{background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:.25rem .7rem;font-size:.75rem;color:var(--text-muted);}
+
+.tb-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;}
+.tb-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:8px;font-weight:700;cursor:pointer;transition:.15s;border:1px solid transparent;padding:.6rem 1.1rem;font-size:.9rem;}
+.tb-btn:disabled{opacity:.5;cursor:not-allowed;}
+.tb-btn-gold{background:var(--gold);color:#0b0e11;}
+.tb-btn-gold:hover:not(:disabled){background:#ffd75e;}
+.tb-btn-ghost{background:transparent;color:var(--text-muted);border-color:var(--border);}
+.tb-btn-ghost:hover:not(:disabled){color:var(--text);background:var(--surface-2);}
+.tb-btn-danger{background:transparent;color:var(--red);border-color:var(--red);}
+.tb-btn-success{background:var(--green);color:#0b0e11;}
+.tb-btn-sm{padding:.35rem .7rem;font-size:.8rem;}
+
+.tb-badge{display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;padding:.15rem .6rem;font-size:.72rem;font-weight:700;}
+.tb-badge-success{background:rgba(14,203,129,.15);color:var(--green);}
+.tb-badge-danger{background:rgba(246,70,93,.15);color:var(--red);}
+.tb-badge-gold{background:rgba(240,185,11,.15);color:var(--gold);}
+.tb-badge-neutral{background:var(--surface-2);color:var(--text-muted);}
+
+.tb-input{width:100%;border-radius:8px;padding:.6rem .8rem;font-size:.9rem;}
+.tb-label{display:block;font-size:.8rem;color:var(--text-muted);margin-bottom:.35rem;}
+.tb-muted{color:var(--text-muted);}
+.tb-num{font-variant-numeric:tabular-nums;}
+
+.tb-table{width:100%;border-collapse:collapse;font-size:.88rem;}
+.tb-table th{text-align:right;color:var(--text-muted);font-weight:500;padding:.6rem .8rem;border-bottom:1px solid var(--border);font-size:.78rem;}
+.tb-table td{padding:.7rem .8rem;border-bottom:1px solid var(--border);}
+.tb-table tr:last-child td{border-bottom:none;}
+.tb-table tr:hover td{background:var(--surface-2);}
+
+.tb-skeleton{background:linear-gradient(90deg,var(--surface-2) 25%,var(--border) 50%,var(--surface-2) 75%);background-size:200% 100%;animation:tb-shimmer 1.2s infinite;border-radius:6px;}
+@keyframes tb-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.tb-toast{min-width:240px;max-width:360px;border-radius:10px;padding:.7rem 1rem;font-size:.85rem;border:1px solid;backdrop-filter:blur(8px);}
+.tb-toast-success{background:rgba(14,203,129,.12);border-color:var(--green);color:var(--green);}
+.tb-toast-error{background:rgba(246,70,93,.12);border-color:var(--red);color:var(--red);}
+.tb-toast-info{background:var(--surface-2);border-color:var(--border);color:var(--text);}
+
+/* readable alert boxes (Tailwind v4 has no bg-opacity) */
+.tb-alert{border-radius:10px;padding:.8rem 1rem;font-size:.85rem;border:1px solid;}
+.tb-alert-error{background:rgba(246,70,93,.12);border-color:var(--red);color:var(--red);}
+.tb-alert-success{background:rgba(14,203,129,.12);border-color:var(--green);color:var(--green);}
+.tb-alert-gold{background:rgba(240,185,11,.12);border-color:var(--gold);color:var(--gold);}

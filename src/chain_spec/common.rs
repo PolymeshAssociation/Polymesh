@@ -14,7 +14,7 @@ use sp_runtime::Perbill;
 use pallet_asset::TickerRegistrationConfig;
 use polymesh_primitives::asset_metadata::{AssetMetadataName, AssetMetadataSpec};
 use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit};
-use polymesh_primitives::constants::currency::ONE_POLY;
+use polymesh_primitives::constants::currency::ONE_MYX;
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::{AccountId, Balance, BlockNumber, IdentityId, Moment, Signature, Ticker};
@@ -22,11 +22,11 @@ use polymesh_primitives::{MaybeBlock, PosRatio};
 
 // The URL for the telemetry server.
 pub(crate) const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.network/submit/";
-pub(crate) const BOOTSTRAP_KEYS: u128 = 6_000 * ONE_POLY;
-pub(crate) const BOOTSTRAP_TREASURY: u128 = 17_500_000 * ONE_POLY;
-pub(crate) const DEV_KEYS: u128 = 30_000_000 * ONE_POLY;
-pub(crate) const DEV_TREASURY: u128 = 50_000_000 * ONE_POLY;
-pub(crate) const INITIAL_BOND: u128 = 500 * ONE_POLY;
+pub(crate) const BOOTSTRAP_KEYS: u128 = 6_000 * ONE_MYX;
+pub(crate) const BOOTSTRAP_TREASURY: u128 = 17_500_000 * ONE_MYX;
+pub(crate) const DEV_KEYS: u128 = 30_000_000 * ONE_MYX;
+pub(crate) const DEV_TREASURY: u128 = 50_000_000 * ONE_MYX;
+pub(crate) const INITIAL_BOND: u128 = 500 * ONE_MYX;
 
 pub(crate) type InitialAuth = (
     AccountId,
