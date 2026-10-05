@@ -573,6 +573,8 @@ parameter_types! {
     pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
 
     pub const MaxConditionComplexity: u32 = 50;
+    pub const MaximumNumberOfTrustedIssuers: u32 = 8;
+    pub const MaxTrustedIssuerClaimTypes: u32 = 16;
     pub const MaxDefaultTrustedClaimIssuers: usize = 10;
     pub const MaxTrustedIssuerPerCondition: usize = 10;
     pub const MaxSenderConditionsPerCompliance: usize = 30;

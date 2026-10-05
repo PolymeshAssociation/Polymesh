@@ -137,6 +137,8 @@ parameter_types! {
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
+    pub const MaximumNumberOfTrustedIssuers: u32 = 8;
+    pub const MaxTrustedIssuerClaimTypes: u32 = 16;
 
     // Corporate Actions:
     pub const MaxTargetIds: u32 = 1000;

@@ -27,8 +27,6 @@ use polymesh_primitives::{
 
 use crate::*;
 
-const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
-const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
 const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
 const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
 const MAX_CONDITIONS_PER_COMPLIANCE: u32 =
@@ -38,21 +36,26 @@ const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 const MAX_CONDITIONS: u32 = 10;
 const MAX_CONDITION_TYPE_CLAIMS: u32 = 10;
 const MAX_CONDITION_ISSUERS: u32 = 10;
-const MAX_CONDITION_ISSUER_CLAIM_TYPES: u32 = 10;
+const MAX_CONDITION_ISSUER_CLAIM_TYPES: u32 = 16;
 
-const CLAIM_TYPES: &[ClaimType] = &[
-    ClaimType::Accredited,
-    ClaimType::Affiliate,
-    ClaimType::BuyLockup,
-    ClaimType::SellLockup,
-    ClaimType::CustomerDueDiligence,
-    ClaimType::KnowYourCustomer,
-    ClaimType::Jurisdiction,
-    ClaimType::Exempted,
-    ClaimType::Blocked,
-];
+/// Returns the maximum number of trusted issuers allowed by the runtime.
+fn max_trusted_issuers<T: Config>() -> u32 {
+    T::MaximumNumberOfTrustedIssuers::get()
+}
 
-/// Create a token issuer trusted for `Any`.
+/// Returns the maximum number of claim types a trusted issuer can be trusted for.
+fn max_trusted_issuer_claim_types<T: Config>() -> usize {
+    T::MaxTrustedIssuerClaimTypes::get() as usize
+}
+
+/// Returns the maximum number of trusted issuers each condition can have, such that
+/// `total_conditions` conditions (with one claim each) stay within `MaxConditionComplexity`.
+fn max_issuers_per_condition<T: Config>(total_conditions: u32) -> u32 {
+    let by_complexity = T::MaxConditionComplexity::get() / total_conditions.max(1);
+    max_trusted_issuers::<T>().min(by_complexity).max(1)
+}
+
+/// Create a token issuer trusted for `Any`, or for `claim_type_len` distinct custom claim types.
 pub fn make_issuer<T: IdentityConfig>(id: u32, claim_type_len: Option<usize>) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
@@ -63,9 +66,9 @@ pub fn make_issuer<T: IdentityConfig>(id: u32, claim_type_len: Option<usize>) ->
         trusted_for: match claim_type_len {
             None => TrustedFor::Any,
             Some(len) => TrustedFor::Specific(
+                // Custom claim types have the largest encoding and are distinct, so they are not removed by dedup.
                 (0..len)
-                    .into_iter()
-                    .map(|idx| CLAIM_TYPES[idx % CLAIM_TYPES.len()])
+                    .map(|idx| ClaimType::Custom(CustomClaimTypeId(idx as u32 + 1)))
                     .collect(),
             ),
         },
@@ -149,15 +152,18 @@ struct ComplianceRequirementInfo<T: Config> {
 }
 
 impl<T: Config> ComplianceRequirementInfo<T> {
+    /// Adds `i` default trusted issuers, each trusted for the maximum number of claim types.
     pub fn add_default_trusted_claim_issuer(self: &Self, i: u32) {
-        make_issuers::<T>(i, None).into_iter().for_each(|issuer| {
-            Pallet::<T>::add_default_trusted_claim_issuer(
-                self.owner.origin.clone().into(),
-                self.asset_id,
-                issuer,
-            )
-            .unwrap();
-        });
+        make_issuers::<T>(i, Some(max_trusted_issuer_claim_types::<T>()))
+            .into_iter()
+            .for_each(|issuer| {
+                Pallet::<T>::add_default_trusted_claim_issuer(
+                    self.owner.origin.clone().into(),
+                    self.asset_id,
+                    issuer,
+                )
+                .unwrap();
+            });
     }
 }
 
@@ -294,15 +300,9 @@ where
     });
 
     if read_trusted_issuers_storage {
-        // Adds all trusted issuers as the default for the asset_id
-        trusted_issuers.into_iter().for_each(|trusted_issuer| {
-            Pallet::<T>::base_add_default_trusted_claim_issuer(
-                sender.did(),
-                asset_id,
-                trusted_issuer,
-            )
-            .unwrap();
-        });
+        // Adds all trusted issuers as the default for the asset_id.
+        // NB: Storage is written directly, since `n_issuers` can exceed `MaximumNumberOfTrustedIssuers`.
+        TrustedClaimIssuer::<T>::insert(asset_id, trusted_issuers);
         let condition = Condition::new(ConditionType::IsNoneOf(claims), Vec::new());
         return condition;
     }
@@ -322,7 +322,7 @@ pub fn setup_asset_compliance<T: Config>(
     n: u32,
     pause_compliance: bool,
 ) {
-    let claim_types: Vec<ClaimType> = (1..<T as pallet_base::Config>::MaxLen::get())
+    let claim_types: Vec<ClaimType> = (1..T::MaxTrustedIssuerClaimTypes::get())
         .map(|i| ClaimType::Custom(CustomClaimTypeId(i)))
         .chain(core::iter::once(ClaimType::Jurisdiction))
         .collect();
@@ -373,7 +373,10 @@ benchmarks! {
         // INTERNAL: This benchmark only evaluate the adding operation. Its execution should be measured in another module.
         let c in 1..MAX_CONDITIONS_PER_COMPLIANCE;
 
-        let d = ComplianceRequirementBuilder::<T>::new(MAX_TRUSTED_ISSUER_PER_CONDITION, c).build();
+        let d = ComplianceRequirementBuilder::<T>::new(
+            max_issuers_per_condition::<T>(MAX_CONDITIONS_PER_COMPLIANCE),
+            c
+        ).build();
 
     }: _(d.owner.origin, d.asset_id, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
@@ -385,7 +388,7 @@ benchmarks! {
     remove_compliance_requirement {
         // Add the compliance requirement.
         let d = ComplianceRequirementBuilder::<T>::new(
-            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            max_issuers_per_condition::<T>(MAX_CONDITIONS_PER_COMPLIANCE),
             MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
 
@@ -404,7 +407,7 @@ benchmarks! {
 
     pause_asset_compliance {
         let d = ComplianceRequirementBuilder::<T>::new(
-            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            max_issuers_per_condition::<T>(MAX_CONDITIONS_PER_COMPLIANCE),
             MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.asset_id)
@@ -426,13 +429,15 @@ benchmarks! {
 
     add_default_trusted_claim_issuer {
         // Create and add the compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(1, 1)
+        // The conditions have no issuers, so the complexity check depends on the default trusted issuers.
+        let d = ComplianceRequirementBuilder::<T>::new(0, MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement()
             .build();
-        d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS -1);
+        let max_issuers = max_trusted_issuers::<T>();
+        d.add_default_trusted_claim_issuer(max_issuers - 1);
 
         // Add one more for benchmarking.
-        let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS, None);
+        let new_issuer = make_issuer::<T>(max_issuers, Some(max_trusted_issuer_claim_types::<T>()));
     }: _(d.owner.origin, d.asset_id, new_issuer.clone())
     verify {
         let trusted_issuers = TrustedClaimIssuer::<T>::get(d.asset_id);
@@ -446,8 +451,8 @@ benchmarks! {
         let d = ComplianceRequirementBuilder::<T>::new(2, 1)
             .add_compliance_requirement().build();
 
-        // Generate some trusted issuer.
-        d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
+        // Generate the maximum number of trusted issuers.
+        d.add_default_trusted_claim_issuer(max_trusted_issuers::<T>());
 
         // Delete the latest trusted issuer.
         let issuer = TrustedClaimIssuer::<T>::get(d.asset_id).pop().unwrap();
@@ -465,7 +470,7 @@ benchmarks! {
 
         // Add maximum size compliance requirements.
         let d = ComplianceRequirementBuilder::<T>::new(
-            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            max_issuers_per_condition::<T>(MAX_CONDITIONS_PER_COMPLIANCE),
             MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
 
@@ -474,7 +479,10 @@ benchmarks! {
 
         // Build a new set of compliance requirements.
         let (sender_count, receiver_count) = split_conditions(c);
-        let issuers = make_issuers::<T>(MAX_TRUSTED_ISSUER_PER_CONDITION, None);
+        let issuers = make_issuers::<T>(
+            max_issuers_per_condition::<T>(MAX_CONDITIONS_PER_COMPLIANCE),
+            None
+        );
         let new_req = ComplianceRequirement {
             id,
             sender_conditions: make_conditions(sender_count, None, &issuers),
@@ -494,13 +502,15 @@ benchmarks! {
     replace_asset_compliance {
         let c in 0..MAX_COMPLIANCE_REQUIREMENTS;
 
+        // The issuers are limited so that all requirements stay within `MaxConditionComplexity`.
+        let issuers_count =
+            max_issuers_per_condition::<T>(MAX_COMPLIANCE_REQUIREMENTS * MAX_CONDITIONS_PER_COMPLIANCE);
+
         // Always add at least one compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(
-            MAX_TRUSTED_ISSUER_PER_CONDITION,
-            MAX_CONDITIONS_PER_COMPLIANCE)
+        let d = ComplianceRequirementBuilder::<T>::new(issuers_count, MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
 
-        let issuers = make_issuers::<T>(MAX_TRUSTED_ISSUER_PER_CONDITION, None);
+        let issuers = make_issuers::<T>(issuers_count, None);
         let sender_conditions = make_conditions(MAX_SENDER_CONDITIONS_PER_COMPLIANCE, None, &issuers);
         let receiver_conditions = make_conditions(MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE, None, &issuers);
 
@@ -529,7 +539,7 @@ benchmarks! {
     reset_asset_compliance {
         // Add the compliance requirement.
         let d = ComplianceRequirementBuilder::<T>::new(
-            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            max_issuers_per_condition::<T>(MAX_CONDITIONS_PER_COMPLIANCE),
             MAX_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.asset_id)
