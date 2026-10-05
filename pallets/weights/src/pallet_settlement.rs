@@ -55,7 +55,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::UserVenues` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
     /// The range of component `d` is `[1, 2048]`.
     /// The range of component `s` is `[0, 50]`.
-    fn create_venue(d: u32, s: u32, ) -> Weight {
+    fn create_venue(d: u32, s: u32) -> Weight {
         // Minimum execution time: 29_970 nanoseconds.
         Weight::from_parts(34_354_141, 0)
             // Standard Error: 310
@@ -73,7 +73,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::Details` (r:0 w:1)
     // Proof: `Settlement::Details` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `d` is `[1, 2048]`.
-    fn update_venue_details(d: u32, ) -> Weight {
+    fn update_venue_details(d: u32) -> Weight {
         // Minimum execution time: 23_300 nanoseconds.
         Weight::from_parts(26_243_027, 0)
             // Standard Error: 24
@@ -100,7 +100,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::VenueSigners` (r:49 w:49)
     // Proof: `Settlement::VenueSigners` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
     /// The range of component `s` is `[0, 50]`.
-    fn update_venue_signers(s: u32, ) -> Weight {
+    fn update_venue_signers(s: u32) -> Weight {
         // Minimum execution time: 24_990 nanoseconds.
         Weight::from_parts(32_953_301, 0)
             // Standard Error: 7_977
@@ -139,7 +139,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::VenueAllowList` (r:0 w:99)
     // Proof: `Settlement::VenueAllowList` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
     /// The range of component `v` is `[0, 100]`.
-    fn allow_venues(v: u32, ) -> Weight {
+    fn allow_venues(v: u32) -> Weight {
         // Minimum execution time: 31_170 nanoseconds.
         Weight::from_parts(31_484_036, 0)
             // Standard Error: 1_958
@@ -160,7 +160,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::VenueAllowList` (r:0 w:99)
     // Proof: `Settlement::VenueAllowList` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
     /// The range of component `v` is `[0, 100]`.
-    fn disallow_venues(v: u32, ) -> Weight {
+    fn disallow_venues(v: u32) -> Weight {
         // Minimum execution time: 31_370 nanoseconds.
         Weight::from_parts(32_137_814, 0)
             // Standard Error: 1_621
@@ -213,7 +213,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn affirm_with_receipts(f: u32, n: u32, o: u32, ) -> Weight {
+    fn affirm_with_receipts(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 1_242_878 nanoseconds.
         Weight::from_parts(30_424_373, 0)
             // Standard Error: 535_385
@@ -316,7 +316,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn execute_manual_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+    fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 6_248_173 nanoseconds.
         Weight::from_parts(6_250_543_000, 0)
             // Standard Error: 7_262_425
@@ -385,7 +385,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn add_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+    fn add_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 672_040 nanoseconds.
         Weight::from_parts(188_032_294, 0)
             // Standard Error: 734_788
@@ -471,7 +471,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn add_and_affirm_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+    fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 1_123_609 nanoseconds.
         Weight::from_parts(82_249_526, 0)
             // Standard Error: 895_045
@@ -523,7 +523,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::InstructionLegStatus` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
-    fn affirm_instruction(f: u32, n: u32, ) -> Weight {
+    fn affirm_instruction(f: u32, n: u32) -> Weight {
         // Minimum execution time: 619_349 nanoseconds.
         Weight::from_parts(124_190_954, 0)
             // Standard Error: 690_260
@@ -614,7 +614,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn execute_instruction_paused(f: u32, n: u32, o: u32, ) -> Weight {
+    fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 2_593_896 nanoseconds.
         Weight::from_parts(2_623_127_000, 0)
             // Standard Error: 4_441_760
@@ -711,7 +711,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn execute_scheduled_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+    fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 6_362_873 nanoseconds.
         Weight::from_parts(6_411_993_000, 0)
             // Standard Error: 7_320_943
@@ -762,7 +762,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32, ) -> Weight {
+    fn affirm_with_receipts_rcv(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 1_009_779 nanoseconds.
         Weight::from_parts(88_370_689, 0)
             // Standard Error: 355_310
@@ -798,7 +798,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::AffirmsReceived` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
-    fn affirm_instruction_rcv(f: u32, n: u32, ) -> Weight {
+    fn affirm_instruction_rcv(f: u32, n: u32) -> Weight {
         // Minimum execution time: 324_330 nanoseconds.
         Weight::from_parts(152_371_434, 0)
             // Standard Error: 287_537
@@ -848,8 +848,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     fn set_instruction_memo() -> Weight {
         // Minimum execution time: 1_760 nanoseconds.
-        Weight::from_parts(2_150_000, 0)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(2_150_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -905,7 +904,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     /// The range of component `m` is `[0, 4]`.
-    fn add_instruction_with_mediators(f: u32, n: u32, o: u32, m: u32, ) -> Weight {
+    fn add_instruction_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight {
         // Minimum execution time: 675_400 nanoseconds.
         Weight::from_parts(136_906_637, 0)
             // Standard Error: 654_426
@@ -995,7 +994,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     /// The range of component `m` is `[0, 4]`.
-    fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32, ) -> Weight {
+    fn add_and_affirm_with_mediators(f: u32, n: u32, o: u32, m: u32) -> Weight {
         // Minimum execution time: 1_134_939 nanoseconds.
         Weight::from_parts(52_754_445, 0)
             // Standard Error: 931_837
@@ -1069,7 +1068,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn base_reject_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+    fn base_reject_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 535_009 nanoseconds.
         Weight::from_parts(122_842_893, 0)
             // Standard Error: 384_088
@@ -1160,7 +1159,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn lock_instruction_extrinsic(f: u32, n: u32, o: u32, ) -> Weight {
+    fn lock_instruction_extrinsic(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 2_251_757 nanoseconds.
         Weight::from_parts(149_167_170, 0)
             // Standard Error: 2_151_705
@@ -1246,7 +1245,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn execute_locked_instruction(f: u32, n: u32, o: u32, ) -> Weight {
+    fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 3_251_048 nanoseconds.
         Weight::from_parts(3_256_748_000, 0)
             // Standard Error: 3_274_743
@@ -1343,7 +1342,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn execute_manual_instruction_paused(f: u32, n: u32, o: u32, ) -> Weight {
+    fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 2_920_188 nanoseconds.
         Weight::from_parts(769_905_508, 0)
             // Standard Error: 7_119_553
@@ -1536,7 +1535,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn transfer_funds_nft_portfolio_same_did(n: u32, ) -> Weight {
+    fn transfer_funds_nft_portfolio_same_did(n: u32) -> Weight {
         // Minimum execution time: 86_130 nanoseconds.
         Weight::from_parts(49_620_990, 0)
             // Standard Error: 70_952
@@ -1593,7 +1592,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::InstructionLegStatus` (r:0 w:1)
     // Proof: `Settlement::InstructionLegStatus` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn transfer_funds_nft_portfolio_diff_did(n: u32, ) -> Weight {
+    fn transfer_funds_nft_portfolio_diff_did(n: u32) -> Weight {
         // Minimum execution time: 145_780 nanoseconds.
         Weight::from_parts(144_039_121, 0)
             // Standard Error: 82_393
@@ -1624,7 +1623,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn transfer_funds_nft_account_same_did(n: u32, ) -> Weight {
+    fn transfer_funds_nft_account_same_did(n: u32) -> Weight {
         // Minimum execution time: 98_720 nanoseconds.
         Weight::from_parts(53_095_194, 0)
             // Standard Error: 75_154
@@ -1673,7 +1672,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::InstructionLegStatus` (r:0 w:1)
     // Proof: `Settlement::InstructionLegStatus` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn transfer_funds_nft_account_diff_did(n: u32, ) -> Weight {
+    fn transfer_funds_nft_account_diff_did(n: u32) -> Weight {
         // Minimum execution time: 145_350 nanoseconds.
         Weight::from_parts(135_691_764, 0)
             // Standard Error: 79_425

@@ -76,7 +76,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::CollectionKeys` (r:0 w:1)
     // Proof: `Nft::CollectionKeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `n` is `[1, 255]`.
-    fn create_nft_collection(n: u32, ) -> Weight {
+    fn create_nft_collection(n: u32) -> Weight {
         // Minimum execution time: 101_620 nanoseconds.
         Weight::from_parts(107_601_170, 0)
             // Standard Error: 2_947
@@ -112,7 +112,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:1)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 255]`.
-    fn issue_nft(n: u32, ) -> Weight {
+    fn issue_nft(n: u32) -> Weight {
         // Minimum execution time: 78_109 nanoseconds.
         Weight::from_parts(83_644_098, 0)
             // Standard Error: 18_039
@@ -150,7 +150,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:1)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 255]`.
-    fn redeem_nft(n: u32, ) -> Weight {
+    fn redeem_nft(n: u32) -> Weight {
         // Minimum execution time: 94_390 nanoseconds.
         Weight::from_parts(98_787_544, 0)
             // Standard Error: 4_003
@@ -181,7 +181,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn base_nft_transfer(n: u32, ) -> Weight {
+    fn base_nft_transfer(n: u32) -> Weight {
         // Minimum execution time: 157_180 nanoseconds.
         Weight::from_parts(121_716_478, 0)
             // Standard Error: 81_056
@@ -216,7 +216,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn controller_transfer(n: u32, ) -> Weight {
+    fn controller_transfer(n: u32) -> Weight {
         // Minimum execution time: 109_610 nanoseconds.
         Weight::from_parts(73_589_148, 0)
             // Standard Error: 79_859
@@ -257,7 +257,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::Owner` (r:0 w:10)
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn controller_transfer_to(n: u32, ) -> Weight {
+    fn controller_transfer_to(n: u32) -> Weight {
         // Minimum execution time: 123_990 nanoseconds.
         Weight::from_parts(88_993_075, 0)
             // Standard Error: 46_776
@@ -294,7 +294,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Nft::TokenApproval` (r:10 w:10)
     // Proof: `Nft::TokenApproval` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
-    fn spend_nft_approval(n: u32, ) -> Weight {
+    fn spend_nft_approval(n: u32) -> Weight {
         // Minimum execution time: 19_540 nanoseconds.
         Weight::from_parts(13_507_302, 0)
             // Standard Error: 4_245
@@ -321,8 +321,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn nft_transfer_report_best_case() -> Weight {
         // Minimum execution time: 104_180 nanoseconds.
-        Weight::from_parts(107_960_000, 0)
-            .saturating_add(DbWeight::get().reads(9))
+        Weight::from_parts(107_960_000, 0).saturating_add(DbWeight::get().reads(9))
     }
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
     // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
@@ -346,7 +345,6 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Identity::Claims` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn nft_transfer_report_worst_case() -> Weight {
         // Minimum execution time: 285_700 nanoseconds.
-        Weight::from_parts(294_620_000, 0)
-            .saturating_add(DbWeight::get().reads(60))
+        Weight::from_parts(294_620_000, 0).saturating_add(DbWeight::get().reads(60))
     }
 }

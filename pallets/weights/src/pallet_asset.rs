@@ -152,11 +152,15 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 128]`.
     /// The range of component `i` is `[1, 512]`.
     /// The range of component `f` is `[1, 128]`.
-    fn create_asset(_n: u32, i: u32, _f: u32, ) -> Weight {
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight {
         // Minimum execution time: 74_450 nanoseconds.
         Weight::from_parts(82_919_011, 0)
+            // Standard Error: 2_794
+            .saturating_add(Weight::from_parts(675, 0).saturating_mul(n.into()))
             // Standard Error: 591
             .saturating_add(Weight::from_parts(57_040, 0).saturating_mul(i.into()))
+            // Standard Error: 2_794
+            .saturating_add(Weight::from_parts(5_528, 0).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -209,7 +213,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::AssetNames` (r:0 w:1)
     // Proof: `Asset::AssetNames` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `n` is `[1, 128]`.
-    fn rename_asset(n: u32, ) -> Weight {
+    fn rename_asset(n: u32) -> Weight {
         // Minimum execution time: 33_920 nanoseconds.
         Weight::from_parts(37_016_734, 0)
             // Standard Error: 532
@@ -330,7 +334,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::AssetDocuments` (r:0 w:64)
     // Proof: `Asset::AssetDocuments` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `d` is `[1, 64]`.
-    fn add_documents(d: u32, ) -> Weight {
+    fn add_documents(d: u32) -> Weight {
         // Minimum execution time: 46_350 nanoseconds.
         Weight::from_parts(47_702_916, 0)
             // Standard Error: 7_586
@@ -350,7 +354,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::AssetDocuments` (r:0 w:63)
     // Proof: `Asset::AssetDocuments` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `d` is `[1, 64]`.
-    fn remove_documents(d: u32, ) -> Weight {
+    fn remove_documents(d: u32) -> Weight {
         // Minimum execution time: 20_970 nanoseconds.
         Weight::from_parts(20_263_846, 0)
             // Standard Error: 3_507
@@ -369,7 +373,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::FundingRound` (r:0 w:1)
     // Proof: `Asset::FundingRound` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `f` is `[1, 128]`.
-    fn set_funding_round(f: u32, ) -> Weight {
+    fn set_funding_round(f: u32) -> Weight {
         // Minimum execution time: 26_960 nanoseconds.
         Weight::from_parts(29_814_822, 0)
             // Standard Error: 442
@@ -388,7 +392,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::AssetIdentifiers` (r:0 w:1)
     // Proof: `Asset::AssetIdentifiers` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `i` is `[1, 512]`.
-    fn update_identifiers(i: u32, ) -> Weight {
+    fn update_identifiers(i: u32) -> Weight {
         // Minimum execution time: 27_480 nanoseconds.
         Weight::from_parts(30_010_161, 0)
             // Standard Error: 220
@@ -483,7 +487,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::CustomTypes` (r:0 w:1)
     // Proof: `Asset::CustomTypes` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `n` is `[1, 2048]`.
-    fn register_custom_asset_type(n: u32, ) -> Weight {
+    fn register_custom_asset_type(n: u32) -> Weight {
         // Minimum execution time: 25_800 nanoseconds.
         Weight::from_parts(28_499_485, 0)
             // Standard Error: 28
@@ -697,15 +701,13 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Asset::AssetsExemptFromAffirmation` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
     fn exempt_asset_affirmation() -> Weight {
         // Minimum execution time: 8_410 nanoseconds.
-        Weight::from_parts(9_710_000, 0)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(9_710_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Asset::AssetsExemptFromAffirmation` (r:0 w:1)
     // Proof: `Asset::AssetsExemptFromAffirmation` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
     fn remove_asset_affirmation_exemption() -> Weight {
         // Minimum execution time: 8_200 nanoseconds.
-        Weight::from_parts(9_520_000, 0)
-            .saturating_add(DbWeight::get().writes(1))
+        Weight::from_parts(9_520_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -738,7 +740,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::MandatoryMediators` (r:1 w:1)
     // Proof: `Asset::MandatoryMediators` (`max_values`: None, `max_size`: Some(161), added: 2636, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 4]`.
-    fn add_mandatory_mediators(n: u32, ) -> Weight {
+    fn add_mandatory_mediators(n: u32) -> Weight {
         // Minimum execution time: 32_310 nanoseconds.
         Weight::from_parts(35_141_994, 0)
             // Standard Error: 14_025
@@ -757,7 +759,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: `Asset::MandatoryMediators` (r:1 w:1)
     // Proof: `Asset::MandatoryMediators` (`max_values`: None, `max_size`: Some(161), added: 2636, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 4]`.
-    fn remove_mandatory_mediators(n: u32, ) -> Weight {
+    fn remove_mandatory_mediators(n: u32) -> Weight {
         // Minimum execution time: 33_540 nanoseconds.
         Weight::from_parts(36_169_296, 0)
             // Standard Error: 12_665
@@ -823,8 +825,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     fn receiver_affirm_asset_transfer_base_weight() -> Weight {
         // Minimum execution time: 11_430 nanoseconds.
-        Weight::from_parts(12_420_000, 0)
-            .saturating_add(DbWeight::get().reads(1))
+        Weight::from_parts(12_420_000, 0).saturating_add(DbWeight::get().reads(1))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -906,8 +907,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn asset_transfer_report_best_case() -> Weight {
         // Minimum execution time: 123_949 nanoseconds.
-        Weight::from_parts(128_320_000, 0)
-            .saturating_add(DbWeight::get().reads(13))
+        Weight::from_parts(128_320_000, 0).saturating_add(DbWeight::get().reads(13))
     }
     // Storage: `Asset::Assets` (r:1 w:0)
     // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -939,8 +939,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn asset_transfer_report_worst_case() -> Weight {
         // Minimum execution time: 356_379 nanoseconds.
-        Weight::from_parts(375_730_000, 0)
-            .saturating_add(DbWeight::get().reads(76))
+        Weight::from_parts(375_730_000, 0).saturating_add(DbWeight::get().reads(76))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -966,8 +965,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Asset::FrozenBalance` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
     fn get_holders_frozen_balance() -> Weight {
         // Minimum execution time: 9_340 nanoseconds.
-        Weight::from_parts(10_260_000, 0)
-            .saturating_add(DbWeight::get().reads(1))
+        Weight::from_parts(10_260_000, 0).saturating_add(DbWeight::get().reads(1))
     }
     // Storage: `Asset::Assets` (r:1 w:0)
     // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -981,8 +979,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn transfer_is_allowed_for_holder_best_case() -> Weight {
         // Minimum execution time: 82_000 nanoseconds.
-        Weight::from_parts(84_700_000, 0)
-            .saturating_add(DbWeight::get().reads(5))
+        Weight::from_parts(84_700_000, 0).saturating_add(DbWeight::get().reads(5))
     }
     // Storage: `Asset::Assets` (r:1 w:0)
     // Proof: `Asset::Assets` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1000,8 +997,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Identity::Claims` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn transfer_is_allowed_for_holder_worst_case() -> Weight {
         // Minimum execution time: 266_059 nanoseconds.
-        Weight::from_parts(282_360_000, 0)
-            .saturating_add(DbWeight::get().reads(56))
+        Weight::from_parts(282_360_000, 0).saturating_add(DbWeight::get().reads(56))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)

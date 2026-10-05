@@ -48,7 +48,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: `Portfolio::Portfolios` (r:0 w:1)
     // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `l` is `[1, 500]`.
-    fn create_portfolio(l: u32, ) -> Weight {
+    fn create_portfolio(l: u32) -> Weight {
         // Minimum execution time: 24_160 nanoseconds.
         Weight::from_parts(26_679_191, 0)
             // Standard Error: 100
@@ -83,7 +83,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: `Portfolio::NameToNumber` (r:1 w:2)
     // Proof: `Portfolio::NameToNumber` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `i` is `[1, 500]`.
-    fn rename_portfolio(i: u32, ) -> Weight {
+    fn rename_portfolio(i: u32) -> Weight {
         // Minimum execution time: 29_860 nanoseconds.
         Weight::from_parts(32_181_728, 0)
             // Standard Error: 94
@@ -153,7 +153,7 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
-    fn move_portfolio_funds(f: u32, n: u32, ) -> Weight {
+    fn move_portfolio_funds(f: u32, n: u32) -> Weight {
         // Minimum execution time: 478_239 nanoseconds.
         Weight::from_parts(483_309_000, 0)
             // Standard Error: 633_700
