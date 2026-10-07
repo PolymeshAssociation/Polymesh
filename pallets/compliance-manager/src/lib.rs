@@ -260,6 +260,8 @@ pub mod pallet {
         ComplianceRequirementTooComplex,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded,
+        /// `IsAnyOf` and `IsNoneOf` conditions must have at least one claim.
+        EmptyClaimsInCondition,
     }
 
     #[pallet::pallet]
@@ -809,12 +811,16 @@ impl<T: Config> Pallet<T> {
         // Dedup `ClaimType`s in `TrustedFor::Specific`.
         req.dedup();
 
-        // Ensure issuers are limited in length.
+        // Ensure claim lists are not empty and issuers are limited in length.
         Self::ensure_issuers_in_req_limited(req)
     }
 
     fn ensure_issuers_in_req_limited(req: &ComplianceRequirement) -> DispatchResult {
         req.conditions().try_for_each(|cond| {
+            ensure!(
+                !cond.condition_type.has_empty_claims(),
+                Error::<T>::EmptyClaimsInCondition
+            );
             ensure_length_ok::<T>(cond.issuers.len())?;
             cond.issuers
                 .iter()
