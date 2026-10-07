@@ -4213,3 +4213,85 @@ fn set_mandatory_receiver_affirmation() {
         assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
     });
 }
+
+#[test]
+fn affirm_with_receipts_underestimated_count_rejected_before_signature_checks() {
+    ExtBuilder::default().build().execute_with(|| {
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let ticker = Ticker::from_slice_truncated(b"TICKER2".as_ref());
+        let (_, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
+        let amount = 1;
+        let id = InstructionId(0);
+        let expires_at = 100u64;
+
+        let legs: Vec<Leg> = vec![Leg::OffChain {
+            sender_identity: charlie.did,
+            receiver_identity: bob.did,
+            ticker,
+            amount,
+        }];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleManual(System::block_number() + 1),
+            None,
+            None,
+            legs,
+            Some(Memo::default()),
+        ));
+
+        // The receipt is signed over a different amount, so its signature is invalid
+        let receipt = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(0), charlie.did, bob.did, ticker, amount + 1),
+        );
+        let receipts_details = vec![ReceiptDetails::new(
+            0,
+            id,
+            LegId(0),
+            Sr25519Keyring::Alice.to_account_id(),
+            receipt
+                .sign(&Sr25519Keyring::Alice)
+                .expect("Failed to sign receipt")
+                .into(),
+            expires_at,
+            None,
+        )];
+
+        // The understated count is reported instead of the invalid signature
+        assert_noop!(
+            Settlement::affirm_with_receipts_with_count(
+                alice.origin(),
+                id,
+                receipts_details.clone(),
+                Default::default(),
+                Some(AffirmationCount::new(
+                    AssetCount::default(),
+                    AssetCount::default(),
+                    0
+                ))
+            ),
+            Error::NumberOfOffChainTransfersUnderestimated
+        );
+
+        // With a correct count, the signature is verified
+        assert_noop!(
+            Settlement::affirm_with_receipts_with_count(
+                alice.origin(),
+                id,
+                receipts_details,
+                Default::default(),
+                Some(AffirmationCount::new(
+                    AssetCount::default(),
+                    AssetCount::default(),
+                    1
+                ))
+            ),
+            Error::InvalidSignature
+        );
+    });
+}

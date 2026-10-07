@@ -2393,6 +2393,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaxNumberOfReceiptsExceeded
         );
 
+        // Reject an understated off-chain count before verifying any receipt signature
+        if let Some(affirmation_count) = &affirmation_count {
+            ensure!(
+                receipts_details.len() <= affirmation_count.offchain_count() as usize,
+                Error::<T>::NumberOfOffChainTransfersUnderestimated
+            );
+        }
+
         let (caller_did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
 
