@@ -1603,6 +1603,8 @@ impl<T: Config> Pallet<T> {
                 &fund,
                 weight_meter,
             )?;
+            // The receiver must be a valid holder (e.g. user portfolios must exist).
+            Asset::<T>::ensure_valid_holder(&to)?;
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
                     ensure!(amount > 0, Error::<T>::ZeroAmount);
