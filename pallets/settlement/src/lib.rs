@@ -604,6 +604,8 @@ pub mod pallet {
         MaxRelockCountExceeded,
         /// At least one mediator is required for this instruction.
         MissingInstructionMediators,
+        /// The affirmation must include at least one asset holder or receipt.
+        EmptyAffirmation,
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -2281,11 +2283,16 @@ impl<T: Config> Pallet<T> {
     /// - `AffirmsReceived`
     /// - `OffChainAffirmations`
     /// - `LockedTimestamp`
+    ///
+    /// Also cancels the instruction's scheduled execution, if any.
     #[rustfmt::skip]
     fn prune_instruction(
         inst_id: &InstructionId,
         inst_legs: &[(LegId, Leg)],
     ) -> DispatchResult {
+        // Note: ignoring the error here is fine, since the instruction might not be scheduled
+        let _ = T::Scheduler::cancel_named(inst_id.execution_name());
+
         let instruction_details = InstructionDetails::<T>::take(&inst_id);
 
         if let Some(venue_id) = instruction_details.venue_id {
@@ -2411,12 +2418,17 @@ impl<T: Config> Pallet<T> {
             .venue_id
             .ok_or(Error::<T>::OffChainAssetsMustHaveAVenue)?;
 
-        Self::caller_is_permissioned_and_affirmation_is_pending(
-            caller_did,
-            secondary_key.as_ref(),
-            &holder_set,
-            &instruction_id,
-        )?;
+        // Receipts can affirm off-chain legs without any asset holder
+        if holder_set.is_empty() {
+            ensure!(!receipts_details.is_empty(), Error::<T>::EmptyAffirmation);
+        } else {
+            Self::caller_is_permissioned_and_affirmation_is_pending(
+                caller_did,
+                secondary_key.as_ref(),
+                &holder_set,
+                &instruction_id,
+            )?;
+        }
 
         Self::ensure_valid_receipts_details(venue_id, instruction_id, &receipts_details)?;
 
@@ -2510,6 +2522,8 @@ impl<T: Config> Pallet<T> {
         holder_set: &BTreeSet<AssetHolder>,
         inst_id: &InstructionId,
     ) -> DispatchResult {
+        ensure!(!holder_set.is_empty(), Error::<T>::EmptyAffirmation);
+
         // The caller must have permission to affirm the instruction and the affirmation status must be pending
         for asset_holder in holder_set {
             Asset::<T>::ensure_holder_permissions(asset_holder, caller_did, sk)?;
@@ -2820,11 +2834,6 @@ impl<T: Config> Pallet<T> {
         }
 
         Self::release_locks(&inst_id, &inst_legs)?;
-
-        // Note: ignoring the error here is fine, since the instruction might not be scheduled yet
-        let task_name = inst_id.execution_name();
-        let _ = T::Scheduler::cancel_named(task_name);
-
         Self::prune_instruction(&inst_id, &inst_legs)?;
         InstructionStatuses::<T>::insert(
             inst_id,
