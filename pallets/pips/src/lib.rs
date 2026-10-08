@@ -70,6 +70,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+mod migration;
 mod types;
 
 use codec::{Decode, Encode};
@@ -97,9 +98,9 @@ use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
 use polymesh_primitives::constants::PIP_MAX_REPORTING_SIZE;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_primitives::storage_migration_ver;
 use polymesh_primitives::traits::group::GroupTrait;
 use polymesh_primitives::traits::GovernanceGroupTrait;
+use polymesh_primitives::{storage_migrate_on, storage_migration_ver};
 use polymesh_primitives::{Balance, IdentityId, MaybeBlock, Url};
 use polymesh_primitives::{GC_DID, TECHNICAL_DID, UPGRADE_DID};
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
@@ -113,7 +114,7 @@ pub use pallet::*;
 type SkippedCount = u8;
 type System<T> = frame_system::Pallet<T>;
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 pub trait WeightInfo {
     fn set_prune_historical_pips() -> Weight;
@@ -457,6 +458,11 @@ pub mod pallet {
     pub type Proposals<T: Config> =
         StorageMap<_, Twox64Concat, PipId, Pip<T::Proposal, T::AccountId>, OptionQuery>;
 
+    /// The [`Proposer`] for each proposal ([`PipId`]).
+    #[pallet::storage]
+    pub type ProposalProposers<T: Config> =
+        StorageMap<_, Twox64Concat, PipId, Proposer<T::AccountId>, OptionQuery>;
+
     /// The [`VotingResult`] for each proposal ([`PipId`]).
     #[pallet::storage]
     pub type ProposalResult<T: Config> =
@@ -544,12 +550,21 @@ pub mod pallet {
             PendingPipExpiry::<T>::put(self.pending_pip_expiry);
             MaxPipSkipCount::<T>::put(self.max_pip_skip_count);
             ActivePipLimit::<T>::put(self.active_pip_limit);
-            StorageVersion::<T>::put(Version::new(2));
+            StorageVersion::<T>::put(Version::new(3));
         }
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut weight = T::DbWeight::get().reads(1);
+            storage_migrate_on!(StorageVersion<T>, 3, {
+                weight.saturating_accrue(migration::migrate_to_v3::<T>());
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            });
+            weight
+        }
+
         fn on_idle(_now: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
             Self::remove_pending_storage()
         }
@@ -773,6 +788,7 @@ pub mod pallet {
                     expiry,
                 },
             );
+            ProposalProposers::<T>::insert(id, &proposer);
             Proposals::<T>::insert(
                 id,
                 Pip {
@@ -862,10 +878,10 @@ pub mod pallet {
                 ..
             } = pallet_identity::Pallet::<T>::ensure_origin_call_permissions(origin)?;
 
-            let pip = Proposals::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
+            let proposer = ProposalProposers::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
 
             // Proposal must be from the community.
-            let proposer = match pip.proposer {
+            let proposer = match proposer {
                 Proposer::Committee(_) => return Err(Error::<T>::NotFromCommunity.into()),
                 Proposer::Community(p) => p,
             };
@@ -939,9 +955,9 @@ pub mod pallet {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // Ensure proposal is by committee.
-            let pip = Proposals::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
+            let proposer = ProposalProposers::<T>::get(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(
-                matches!(pip.proposer, Proposer::Committee(_)),
+                matches!(proposer, Proposer::Committee(_)),
                 Error::<T>::NotByCommittee
             );
 
@@ -1107,9 +1123,7 @@ pub mod pallet {
         /// # Errors
         /// * `NotACommitteeMember` - If the call is not made by a GC member.
         #[pallet::call_index(13)]
-        #[pallet::weight((<T as Config>::WeightInfo::snapshot(
-            *limit
-        ), Operational))]
+        #[pallet::weight((<T as Config>::WeightInfo::snapshot(*limit), Operational))]
         pub fn snapshot(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
             // Ensure a GC member is executing this.
             let PermissionedCallOriginData {
@@ -1642,7 +1656,7 @@ impl<T: Config> Pallet<T> {
         if prune {
             ProposalResult::<T>::remove(pip_id);
             ProposalMetadata::<T>::remove(pip_id);
-            if let Some(Proposer::Committee(_)) = Proposals::<T>::get(pip_id).map(|p| p.proposer) {
+            if let Some(Proposer::Committee(_)) = ProposalProposers::<T>::take(pip_id) {
                 CommitteePips::<T>::mutate(|list| list.retain(|&i| i != pip_id));
             }
             Proposals::<T>::remove(pip_id);
