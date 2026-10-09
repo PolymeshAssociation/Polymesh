@@ -966,16 +966,16 @@ fn transfer_nft() {
             Some(receiver_portfolio.clone().into())
         );
         assert_eq!(
-            super::storage::EventTest::Nft(Event::NFTHoldingsUpdated(
-                IdentityId::default(),
+            super::storage::EventTest::Nft(Event::NFTHoldingsUpdated {
+                caller_did: IdentityId::default(),
                 nfts,
-                Some(sender_portfolio.into()),
-                Some(receiver_portfolio.into()),
-                HoldingsUpdateReason::Transferred {
+                from: Some(sender_portfolio.into()),
+                to: Some(receiver_portfolio.into()),
+                update_reason: HoldingsUpdateReason::Transferred {
                     instruction_id: Some(InstructionId(0)),
                     instruction_memo: None
                 }
-            )),
+            }),
             System::events().last().unwrap().event,
         );
     });
@@ -1076,13 +1076,13 @@ fn controller_transfer() {
             Some(alice_portfolio.clone().into())
         );
         assert_eq!(
-            super::storage::EventTest::Nft(Event::NFTHoldingsUpdated(
-                alice.did,
+            super::storage::EventTest::Nft(Event::NFTHoldingsUpdated {
+                caller_did: alice.did,
                 nfts,
-                Some(bob_portfolio.into()),
-                Some(alice_portfolio.into()),
-                HoldingsUpdateReason::ControllerTransfer
-            )),
+                from: Some(bob_portfolio.into()),
+                to: Some(alice_portfolio.into()),
+                update_reason: HoldingsUpdateReason::ControllerTransfer
+            }),
             System::events().last().unwrap().event,
         );
     });
