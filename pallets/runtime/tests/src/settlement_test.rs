@@ -2521,17 +2521,17 @@ fn settle_manual_instruction_with_portfolio() {
         let mut system_events = System::events();
         assert_eq!(
             system_events.pop().unwrap().event,
-            super::storage::EventTest::Settlement(Event::SettlementManuallyExecuted(
-                alice.did,
+            super::storage::EventTest::Settlement(Event::SettlementManuallyExecuted {
+                caller_did: alice.did,
                 instruction_id
-            ))
+            })
         );
         assert_eq!(
             system_events.pop().unwrap().event,
-            super::storage::EventTest::Settlement(Event::InstructionExecuted(
-                alice.did,
+            super::storage::EventTest::Settlement(Event::InstructionExecuted {
+                caller_did: alice.did,
                 instruction_id
-            ))
+            })
         );
     });
 }
