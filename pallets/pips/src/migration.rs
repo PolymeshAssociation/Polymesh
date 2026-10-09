@@ -33,5 +33,5 @@ pub(crate) fn migrate_to_v3<T: Config>() -> Weight {
         count,
     );
 
-    T::DbWeight::get().reads_writes(count, count)
+    T::DbWeight::get().reads_writes(count.saturating_add(1), count)
 }

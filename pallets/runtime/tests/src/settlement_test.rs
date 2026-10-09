@@ -4362,6 +4362,7 @@ fn empty_affirmation_rejected() {
     });
 }
 
+#[test]
 fn prune_cancels_scheduled_execution() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
