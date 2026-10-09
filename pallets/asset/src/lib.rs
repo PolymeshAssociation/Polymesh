@@ -3167,7 +3167,10 @@ impl<T: AssetConfig> Pallet<T> {
             Error::<T>::UnexpectedNonFungibleToken
         );
 
-        if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
+        // Clearing the frozen amount is always allowed for accounts, so stale entries can be removed.
+        if amount > 0 {
+            Self::ensure_valid_holder(&asset_holder)?;
+        } else if let AssetHolder::Portfolio(receiver_portfolio_id) = &asset_holder {
             PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio_id)?;
         }
 
@@ -3258,6 +3261,7 @@ impl<T: AssetConfig> Pallet<T> {
             }
             AssetHolder::Account(account) => {
                 if freeze {
+                    Self::ensure_valid_holder(&holder)?;
                     FrozenAccounts::<T>::insert(account.clone(), asset_id, true);
                 } else {
                     FrozenAccounts::<T>::remove(account, &asset_id);

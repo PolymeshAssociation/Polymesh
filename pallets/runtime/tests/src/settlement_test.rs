@@ -4213,3 +4213,237 @@ fn set_mandatory_receiver_affirmation() {
         assert!(Asset::skip_asset_holder_affirmation(&alice_holder, &asset_id).unwrap());
     });
 }
+
+#[test]
+fn affirm_with_receipts_underestimated_count_rejected_before_signature_checks() {
+    ExtBuilder::default().build().execute_with(|| {
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let ticker = Ticker::from_slice_truncated(b"TICKER2".as_ref());
+        let (_, venue_id) = create_and_issue_sample_asset_with_venue(&alice);
+        let amount = 1;
+        let id = InstructionId(0);
+        let expires_at = 100u64;
+
+        let legs: Vec<Leg> = vec![Leg::OffChain {
+            sender_identity: charlie.did,
+            receiver_identity: bob.did,
+            ticker,
+            amount,
+        }];
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleManual(System::block_number() + 1),
+            None,
+            None,
+            legs,
+            Some(Memo::default()),
+        ));
+
+        // The receipt is signed over a different amount, so its signature is invalid
+        let receipt = ChainScopedMessage::<TestStorage, _>::new_unchecked(
+            0,
+            SETTLEMENT_RECEIPT_LABEL,
+            expires_at,
+            Receipt::new(id, LegId(0), charlie.did, bob.did, ticker, amount + 1),
+        );
+        let receipts_details = vec![ReceiptDetails::new(
+            0,
+            id,
+            LegId(0),
+            Sr25519Keyring::Alice.to_account_id(),
+            receipt
+                .sign(&Sr25519Keyring::Alice)
+                .expect("Failed to sign receipt")
+                .into(),
+            expires_at,
+            None,
+        )];
+
+        // The understated count is reported instead of the invalid signature
+        assert_noop!(
+            Settlement::affirm_with_receipts_with_count(
+                alice.origin(),
+                id,
+                receipts_details.clone(),
+                Default::default(),
+                Some(AffirmationCount::new(
+                    AssetCount::default(),
+                    AssetCount::default(),
+                    0
+                ))
+            ),
+            Error::NumberOfOffChainTransfersUnderestimated
+        );
+
+        // With a correct count, the signature is verified
+        assert_noop!(
+            Settlement::affirm_with_receipts_with_count(
+                alice.origin(),
+                id,
+                receipts_details,
+                Default::default(),
+                Some(AffirmationCount::new(
+                    AssetCount::default(),
+                    AssetCount::default(),
+                    1
+                ))
+            ),
+            Error::InvalidSignature
+        );
+    });
+}
+
+#[test]
+fn empty_affirmation_rejected() {
+    test_with_did_registrar(|_eve| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let amount = 100u128;
+
+        // Receiver lacks the required claim, so the scheduled execution fails.
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            alice.origin(),
+            asset_id,
+            Default::default(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(bob.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
+        ));
+
+        let instruction_id = create_instruction(&alice, &bob, venue_counter, asset_id, amount);
+        next_block();
+        assert_instruction_status(instruction_id, InstructionStatus::Failed);
+
+        assert_noop!(
+            Settlement::affirm_instruction(alice.origin(), instruction_id, Default::default()),
+            Error::EmptyAffirmation
+        );
+        assert_noop!(
+            Settlement::affirm_with_receipts(
+                alice.origin(),
+                instruction_id,
+                Vec::new(),
+                Default::default()
+            ),
+            Error::EmptyAffirmation
+        );
+
+        // Fix compliance and execute manually.
+        assert_ok!(ComplianceManager::reset_asset_compliance(
+            alice.origin(),
+            asset_id
+        ));
+        assert_ok!(Settlement::execute_manual_instruction(
+            alice.origin(),
+            instruction_id,
+            Some(PortfolioId::default_portfolio(alice.did).into()),
+            1,
+            0,
+            0,
+            None
+        ));
+        let success_block = System::block_number();
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, bob.did), amount);
+
+        next_block();
+        assert_instruction_status(instruction_id, InstructionStatus::Success(success_block));
+    });
+}
+
+fn prune_cancels_scheduled_execution() {
+    test_with_did_registrar(|_eve| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let dave = User::new(Sr25519Keyring::Dave);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let amount = 100u128;
+
+        // Receiver lacks the required claim, so the scheduled execution fails.
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            alice.origin(),
+            asset_id,
+            Default::default(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(bob.did)
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: dave.did,
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction])
+                }]
+            }],
+        ));
+
+        let instruction_id = InstructionCounter::<TestStorage>::get();
+        assert_ok!(Settlement::add_and_affirm_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
+                asset_id,
+                amount
+            }],
+            default_asset_holder_set(alice.did),
+            None,
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            charlie.origin(),
+            instruction_id,
+            None
+        ));
+        next_block();
+        assert_instruction_status(instruction_id, InstructionStatus::Failed);
+
+        // The mediator re-affirms, which re-queues the execution for the next block.
+        assert_ok!(Settlement::affirm_instruction_as_mediator(
+            charlie.origin(),
+            instruction_id,
+            None
+        ));
+        let execution_block = System::block_number() + 1;
+        assert_eq!(
+            scheduler::Agenda::<TestStorage>::get(execution_block).len(),
+            1
+        );
+
+        // Fix compliance and execute manually: the queued execution is cancelled.
+        assert_ok!(ComplianceManager::reset_asset_compliance(
+            alice.origin(),
+            asset_id
+        ));
+        assert_ok!(Settlement::execute_manual_instruction(
+            alice.origin(),
+            instruction_id,
+            Some(PortfolioId::default_portfolio(alice.did).into()),
+            1,
+            0,
+            0,
+            None
+        ));
+        let success_block = System::block_number();
+        assert!(scheduler::Agenda::<TestStorage>::get(execution_block).is_empty());
+
+        next_block();
+        assert_instruction_status(instruction_id, InstructionStatus::Success(success_block));
+        assert_eq!(BalanceOf::<TestStorage>::get(&asset_id, bob.did), amount);
+    });
+}
