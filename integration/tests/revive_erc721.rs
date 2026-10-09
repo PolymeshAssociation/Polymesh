@@ -10,6 +10,9 @@ use anyhow::Result;
 use alloy::primitives::{Address, U256};
 
 use integration::*;
+use polymesh_api::types::polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataName, AssetMetadataValue,
+};
 use polymesh_precompiles::INonFungibleAsset as ierc721;
 
 /// The zero address, used by the `Transfer` events of `mint` and `burn`.
@@ -540,6 +543,51 @@ async fn erc721_token_uri() -> Result<()> {
         "https://example.com/base/1",
         "token id should be appended when there is no placeholder"
     );
+
+    Ok(())
+}
+
+/// `tokenURI` reverts for an NFT that was never minted (or was burned).
+#[tokio::test]
+#[test_log::test]
+async fn erc721_token_uri_nonexistent() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc721TokenUriMissing"]).await?;
+    let api = tester.api.clone();
+    let owner = &mut users[0];
+
+    let base_token_uri_key = api
+        .query()
+        .asset()
+        .asset_metadata_global_name_to_key(AssetMetadataName(b"baseTokenUri".to_vec()))
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("baseTokenUri global key not registered"))?;
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 TokenUri Missing").await?;
+    let mut caller = SubstrateCaller::new(&api, owner).await?;
+    nft.mint(&mut caller, vec![]).await?;
+
+    api.call()
+        .asset()
+        .set_asset_metadata(
+            nft.asset_id,
+            AssetMetadataKey::Global(base_token_uri_key),
+            AssetMetadataValue(b"https://example.com/nft/{tokenId}.json".to_vec()),
+            None,
+        )?
+        .execute(owner)
+        .await?
+        .ok()
+        .await?;
+    assert_eq!(nft.token_uri(1).await?, "https://example.com/nft/1.json");
+
+    match nft.token_uri(2).await {
+        Ok(uri) => panic!("tokenURI() of a nonexistent NFT should revert, got {uri:?}"),
+        Err(err) => assert!(
+            format!("{err:?}").contains("NFT does not exist"),
+            "unexpected error: {err:?}"
+        ),
+    }
 
     Ok(())
 }

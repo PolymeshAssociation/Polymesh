@@ -23,15 +23,16 @@ use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::{Error, Ext};
 
 use pallet_asset::{AssetIdTicker, AssetMetadataValues, AssetNames};
-use pallet_nft::{CollectionAsset, MetadataValue};
+use pallet_nft::{CollectionAsset, MetadataValue, Owner};
 use polymesh_precompiles::INonFungibleAsset;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::NFTId;
 
+use crate::common::revert;
 use crate::interface::nft::{
     NonFungibleAssetInterface, ERC165_INTERFACE_ID, ERC721_INTERFACE_ID,
-    ERC721_METADATA_INTERFACE_ID,
+    ERC721_METADATA_INTERFACE_ID, ERR_NFT_NOT_FOUND,
 };
 use crate::Config;
 
@@ -76,15 +77,21 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     ///
     /// In either case a literal `{tokenId}` is replaced with the decimal token id; when the
     /// placeholder is absent the id is appended. An unset URI yields an empty string.
+    ///
+    /// Reverts if the NFT does not exist, as required by EIP-721.
     pub(crate) fn token_uri(
         asset_id: AssetId,
         call: &INonFungibleAsset::tokenURICall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        // Worst case: collection lookup, per-NFT value, and the collection-level fallback.
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(3))?;
+        // Worst case: existence check, collection lookup, per-NFT value, and the
+        // collection-level fallback.
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(4))?;
 
         let nft_id = Self::nft_id(call.tokenId)?;
+        if !Owner::<T>::contains_key(asset_id, nft_id) {
+            return Err(revert(ERR_NFT_NOT_FOUND));
+        }
         let collection_id = CollectionAsset::<T>::get(asset_id);
 
         let token_uri = MetadataValue::<T>::get(
