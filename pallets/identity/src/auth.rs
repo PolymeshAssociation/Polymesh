@@ -78,14 +78,14 @@ impl<T: Config> Pallet<T> {
         AuthorizationsGiven::<T>::insert(from, new_auth_id, target.clone());
 
         // This event is split in order to help the event harvesters.
-        Self::deposit_event(Event::AuthorizationAdded(
-            from,
-            target.as_identity().cloned(),
-            target.as_account().cloned(),
-            new_auth_id,
+        Self::deposit_event(Event::AuthorizationAdded {
+            authorized_by: from,
+            target_did: target.as_identity().cloned(),
+            target_key: target.as_account().cloned(),
+            auth_id: new_auth_id,
             authorization_data,
             expiry,
-        ));
+        });
 
         Ok(new_auth_id)
     }
@@ -127,14 +127,22 @@ impl<T: Config> Pallet<T> {
         NumberOfGivenAuths::<T>::mutate(authorizer, |number_of_given_auths| {
             *number_of_given_auths = number_of_given_auths.saturating_sub(1);
         });
-        let id = target.as_identity().cloned();
-        let acc = target.as_account().cloned();
+        let target_did = target.as_identity().cloned();
+        let target_key = target.as_account().cloned();
         let event = if revoked {
-            Event::AuthorizationRevoked
+            Event::AuthorizationRevoked {
+                target_did,
+                target_key,
+                auth_id,
+            }
         } else {
-            Event::AuthorizationRejected
+            Event::AuthorizationRejected {
+                target_did,
+                target_key,
+                auth_id,
+            }
         };
-        Self::deposit_event(event(id, acc, auth_id))
+        Self::deposit_event(event)
     }
 
     /// Use to get the filtered authorization data for a given signatory
@@ -203,11 +211,11 @@ impl<T: Config> Pallet<T> {
         NumberOfGivenAuths::<T>::mutate(auth.authorized_by, |number_of_given_auths| {
             *number_of_given_auths = number_of_given_auths.saturating_sub(1);
         });
-        Self::deposit_event(Event::AuthorizationConsumed(
-            target.as_identity().cloned(),
-            target.as_account().cloned(),
+        Self::deposit_event(Event::AuthorizationConsumed {
+            target_did: target.as_identity().cloned(),
+            target_key: target.as_account().cloned(),
             auth_id,
-        ));
+        });
         Ok(())
     }
 

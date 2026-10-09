@@ -281,91 +281,117 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Identity created.
-        ///
-        /// (DID, primary key, secondary keys)
-        DidCreated(IdentityId, T::AccountId, Vec<SecondaryKey<T::AccountId>>),
+        DidCreated {
+            did: IdentityId,
+            primary_key: T::AccountId,
+            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        },
 
         /// Secondary keys added to identity.
-        ///
-        /// (DID, new keys)
-        SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<T::AccountId>>),
+        SecondaryKeysAdded {
+            did: IdentityId,
+            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        },
 
         /// Secondary keys removed from identity.
-        ///
-        /// (DID, the keys that got removed)
-        SecondaryKeysRemoved(IdentityId, Vec<T::AccountId>),
+        SecondaryKeysRemoved {
+            did: IdentityId,
+            removed_keys: Vec<T::AccountId>,
+        },
 
         /// A secondary key left their identity.
-        ///
-        /// (DID, secondary key)
-        SecondaryKeyLeftIdentity(IdentityId, T::AccountId),
+        SecondaryKeyLeftIdentity {
+            did: IdentityId,
+            secondary_key: T::AccountId,
+        },
 
         /// Secondary key permissions updated.
-        ///
-        /// (DID, updated secondary key, previous permissions, new permissions)
-        SecondaryKeyPermissionsUpdated(IdentityId, T::AccountId, Permissions, Permissions),
+        SecondaryKeyPermissionsUpdated {
+            did: IdentityId,
+            secondary_key: T::AccountId,
+            old_permissions: Permissions,
+            new_permissions: Permissions,
+        },
 
         /// Primary key of identity changed.
-        ///
-        /// (DID, old primary key account ID, new ID)
-        PrimaryKeyUpdated(IdentityId, T::AccountId, T::AccountId),
+        PrimaryKeyUpdated {
+            did: IdentityId,
+            old_primary_key: T::AccountId,
+            new_primary_key: T::AccountId,
+        },
 
         /// Claim added to identity.
-        ///
-        /// (DID, claim)
-        ClaimAdded(IdentityId, IdentityClaim),
+        ClaimAdded {
+            target_did: IdentityId,
+            claim: IdentityClaim,
+        },
 
         /// Claim revoked from identity.
-        ///
-        /// (DID, claim)
-        ClaimRevoked(IdentityId, IdentityClaim),
+        ClaimRevoked {
+            target_did: IdentityId,
+            claim: IdentityClaim,
+        },
 
         /// New authorization added.
-        ///
-        /// (authorised_by, target_did, target_key, auth_id, authorization_data, expiry)
-        AuthorizationAdded(
-            IdentityId,
-            Option<IdentityId>,
-            Option<T::AccountId>,
-            u64,
-            AuthorizationData<T::AccountId>,
-            Option<T::Moment>,
-        ),
+        AuthorizationAdded {
+            authorized_by: IdentityId,
+            /// Set when the authorization targets an identity.
+            target_did: Option<IdentityId>,
+            /// Set when the authorization targets an account.
+            target_key: Option<T::AccountId>,
+            auth_id: u64,
+            authorization_data: AuthorizationData<T::AccountId>,
+            expiry: Option<T::Moment>,
+        },
 
         /// Authorization revoked by the authorizer.
-        ///
-        /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRevoked(Option<IdentityId>, Option<T::AccountId>, u64),
+        AuthorizationRevoked {
+            /// Set when the authorization targets an identity.
+            target_did: Option<IdentityId>,
+            /// Set when the authorization targets an account.
+            target_key: Option<T::AccountId>,
+            auth_id: u64,
+        },
 
         /// Authorization rejected by the user who was authorized.
-        ///
-        /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRejected(Option<IdentityId>, Option<T::AccountId>, u64),
+        AuthorizationRejected {
+            /// Set when the authorization targets an identity.
+            target_did: Option<IdentityId>,
+            /// Set when the authorization targets an account.
+            target_key: Option<T::AccountId>,
+            auth_id: u64,
+        },
 
         /// Authorization consumed.
-        ///
-        /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationConsumed(Option<IdentityId>, Option<T::AccountId>, u64),
+        AuthorizationConsumed {
+            /// Set when the authorization targets an identity.
+            target_did: Option<IdentityId>,
+            /// Set when the authorization targets an account.
+            target_key: Option<T::AccountId>,
+            auth_id: u64,
+        },
 
         /// Accepting Authorization retry limit reached.
-        ///
-        /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRetryLimitReached(Option<IdentityId>, Option<T::AccountId>, u64),
+        AuthorizationRetryLimitReached {
+            /// Set when the authorization targets an identity.
+            target_did: Option<IdentityId>,
+            /// Set when the authorization targets an account.
+            target_key: Option<T::AccountId>,
+            auth_id: u64,
+        },
 
         /// All Secondary keys of the identity ID are frozen.
-        ///
-        /// (DID)
-        SecondaryKeysFrozen(IdentityId),
+        SecondaryKeysFrozen { did: IdentityId },
 
         /// All Secondary keys of the identity ID are unfrozen.
-        ///
-        /// (DID)
-        SecondaryKeysUnfrozen(IdentityId),
+        SecondaryKeysUnfrozen { did: IdentityId },
 
         /// A new CustomClaimType was added.
-        ///
-        /// (DID, id, Type)
-        CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
+        CustomClaimTypeAdded {
+            caller_did: IdentityId,
+            custom_claim_type_id: CustomClaimTypeId,
+            name: Vec<u8>,
+        },
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
@@ -573,7 +599,10 @@ pub mod pallet {
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 Pallet::<T>::add_key_record(secondary_account_id, KeyRecord::SecondaryKey(did));
                 Pallet::<T>::set_key_permissions(&sk.key, &sk.permissions);
-                Pallet::<T>::deposit_event(Event::SecondaryKeysAdded(did, vec![sk]));
+                Pallet::<T>::deposit_event(Event::SecondaryKeysAdded {
+                    did,
+                    secondary_keys: vec![sk],
+                });
             }
         }
     }
