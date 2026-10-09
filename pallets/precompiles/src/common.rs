@@ -47,6 +47,7 @@ pub const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 pub const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
+pub const ERR_WEIGHT_LIMIT_EXCEEDED: &str = "Benchmarked weight limit exceeded";
 pub const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 const ERR_ASSET_NOT_NON_FUNGIBLE: &str = "Asset is not non-fungible";

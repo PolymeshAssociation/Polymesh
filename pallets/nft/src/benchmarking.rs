@@ -372,7 +372,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        // No statistics or compliance rules are set
+        // 50 compliance requirements are set but paused, so none are evaluated (AssetCompliances is still read)
         let (asset_id, sender, receiver, _) =
             setup_nft_transfer::<T>(&alice, &bob, 1, None, None, true, 0, false);
     }: {
@@ -393,7 +393,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
-        // Max Statistics and Compliance rules are set
+        // 50 active compliance requirements are set; statistics are not read by nft_transfer_report
         let (asset_id, sender, receiver, _) =
             setup_nft_transfer::<T>(&alice, &bob, 1, None, None, false, 0, false);
     }: {
