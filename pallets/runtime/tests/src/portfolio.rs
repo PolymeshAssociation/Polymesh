@@ -176,16 +176,16 @@ fn cannot_delete_portfolio_with_asset() {
             }]
         ));
         assert_eq!(
-            EventTest::Portfolio(Event::FundsMovedBetweenPortfolios(
-                owner.did,
-                owner_default_portfolio.clone(),
-                owner_user_portfolio.clone(),
-                FundDescription::Fungible {
+            EventTest::Portfolio(Event::FundsMovedBetweenPortfolios {
+                caller_did: owner.did,
+                from: owner_default_portfolio.clone(),
+                to: owner_user_portfolio.clone(),
+                fund: FundDescription::Fungible {
                     asset_id,
                     amount: move_amount
                 },
-                None
-            )),
+                memo: None
+            }),
             System::events().last().unwrap().event,
         );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
@@ -344,16 +344,16 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         }]
     ));
     assert_eq!(
-        EventTest::Portfolio(Event::FundsMovedBetweenPortfolios(
-            owner.did,
-            owner_default_portfolio,
-            owner_user_portfolio,
-            FundDescription::Fungible {
+        EventTest::Portfolio(Event::FundsMovedBetweenPortfolios {
+            caller_did: owner.did,
+            from: owner_default_portfolio,
+            to: owner_user_portfolio,
+            fund: FundDescription::Fungible {
                 asset_id,
                 amount: move_amount
             },
-            memo.clone()
-        )),
+            memo: memo.clone()
+        }),
         System::events().last().unwrap().event,
     );
     assert_eq!(

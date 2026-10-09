@@ -90,10 +90,10 @@ fn unlock_success_and_parties_can_reject() {
         let mut system_events = System::events();
         assert_eq!(
             system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(Event::InstructionUnlocked(
-                dave.did,
-                InstructionId(0)
-            ))
+            crate::storage::EventTest::Settlement(Event::InstructionUnlocked {
+                caller_did: dave.did,
+                instruction_id: InstructionId(0)
+            })
         );
 
         // Parties can reject while in Pending state (the escape path)

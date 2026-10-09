@@ -88,29 +88,42 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Stat types added to asset.
-        ///
-        /// (Caller DID, AssetId, Stat types)
-        StatTypesAdded(IdentityId, AssetId, Vec<StatType>),
+        StatTypesAdded {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            stat_types: Vec<StatType>,
+        },
         /// Stat types removed from asset.
-        ///
-        /// (Caller DID, AssetId, Stat types)
-        StatTypesRemoved(IdentityId, AssetId, Vec<StatType>),
+        StatTypesRemoved {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            stat_types: Vec<StatType>,
+        },
         /// Asset stats updated.
-        ///
-        /// (Caller DID, AssetId, Stat type, Updates)
-        AssetStatsUpdated(IdentityId, AssetId, StatType, Vec<StatUpdate>),
+        AssetStatsUpdated {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            stat_type: StatType,
+            updates: Vec<StatUpdate>,
+        },
         /// Set Transfer compliance rules for asset.
-        ///
-        /// (Caller DID, AssetId, Transfer conditions)
-        SetAssetTransferCompliance(IdentityId, AssetId, Vec<TransferCondition>),
+        SetAssetTransferCompliance {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            transfer_conditions: Vec<TransferCondition>,
+        },
         /// Add `IdentityId`s exempt for transfer conditions matching exempt key.
-        ///
-        /// (Caller DID, Exempt key, Entities)
-        TransferConditionExemptionsAdded(IdentityId, TransferConditionExemptKey, Vec<IdentityId>),
+        TransferConditionExemptionsAdded {
+            caller_did: IdentityId,
+            exempt_key: TransferConditionExemptKey,
+            entities: Vec<IdentityId>,
+        },
         /// Remove `IdentityId`s exempt for transfer conditions matching exempt key.
-        ///
-        /// (Caller DID, Exempt key, Entities)
-        TransferConditionExemptionsRemoved(IdentityId, TransferConditionExemptKey, Vec<IdentityId>),
+        TransferConditionExemptionsRemoved {
+            caller_did: IdentityId,
+            exempt_key: TransferConditionExemptKey,
+            entities: Vec<IdentityId>,
+        },
     }
 
     #[pallet::error]
@@ -366,10 +379,18 @@ impl<T: Config> Pallet<T> {
         ActiveAssetStats::<T>::insert(&asset_id, stat_types);
 
         if remove_types.len() > 0 {
-            Self::deposit_event(Event::StatTypesRemoved(did, asset_id, remove_types));
+            Self::deposit_event(Event::StatTypesRemoved {
+                caller_did: did,
+                asset_id,
+                stat_types: remove_types,
+            });
         }
         if add_types.len() > 0 {
-            Self::deposit_event(Event::StatTypesAdded(did, asset_id, add_types));
+            Self::deposit_event(Event::StatTypesAdded {
+                caller_did: did,
+                asset_id,
+                stat_types: add_types,
+            });
         }
         Ok(())
     }
@@ -408,7 +429,12 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
 
-        Self::deposit_event(Event::AssetStatsUpdated(did, asset_id, stat_type, updates));
+        Self::deposit_event(Event::AssetStatsUpdated {
+            caller_did: did,
+            asset_id,
+            stat_type,
+            updates,
+        });
         Ok(())
     }
 
@@ -445,11 +471,11 @@ impl<T: Config> Pallet<T> {
             AssetTransferCompliances::<T>::remove(&asset_id);
         }
 
-        Self::deposit_event(Event::SetAssetTransferCompliance(
-            did,
+        Self::deposit_event(Event::SetAssetTransferCompliance {
+            caller_did: did,
             asset_id,
-            transfer_conditions.into_iter().collect(),
-        ));
+            transfer_conditions: transfer_conditions.into_iter().collect(),
+        });
 
         Ok(())
     }
@@ -466,20 +492,20 @@ impl<T: Config> Pallet<T> {
             for entity in &entities {
                 TransferConditionExemptEntities::<T>::insert(&exempt_key, entity, true);
             }
-            Self::deposit_event(Event::TransferConditionExemptionsAdded(
-                did,
+            Self::deposit_event(Event::TransferConditionExemptionsAdded {
+                caller_did: did,
                 exempt_key,
-                entities.into_iter().collect(),
-            ));
+                entities: entities.into_iter().collect(),
+            });
         } else {
             for entity in &entities {
                 TransferConditionExemptEntities::<T>::remove(&exempt_key, entity);
             }
-            Self::deposit_event(Event::TransferConditionExemptionsRemoved(
-                did,
+            Self::deposit_event(Event::TransferConditionExemptionsRemoved {
+                caller_did: did,
                 exempt_key,
-                entities.into_iter().collect(),
-            ));
+                entities: entities.into_iter().collect(),
+            });
         }
         Ok(())
     }

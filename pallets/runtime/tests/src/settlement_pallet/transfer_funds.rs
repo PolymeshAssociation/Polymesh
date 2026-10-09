@@ -90,12 +90,12 @@ fn same_identity_transfer_succeeds() {
 
         assert_eq!(
             events.pop().unwrap().event,
-            crate::storage::RuntimeEvent::Settlement(pallet_settlement::Event::FundsTransferred(
-                alice.did,
+            crate::storage::RuntimeEvent::Settlement(pallet_settlement::Event::FundsTransferred {
+                caller_did: alice.did,
                 from,
                 to,
-                fungible_fund(asset_id, 100)
-            ))
+                fund: fungible_fund(asset_id, 100)
+            })
         );
     });
 }
@@ -132,7 +132,7 @@ fn cross_identity_transfer_creates_settlement() {
             matches!(
                 &record.event,
                 crate::storage::EventTest::Settlement(
-                    pallet_settlement::Event::InstructionExecuted(_, _)
+                    pallet_settlement::Event::InstructionExecuted { .. }
                 )
             )
         }));
@@ -473,7 +473,7 @@ fn nft_cross_identity_creates_settlement() {
             matches!(
                 &record.event,
                 crate::storage::EventTest::Settlement(
-                    pallet_settlement::Event::InstructionExecuted(_, _)
+                    pallet_settlement::Event::InstructionExecuted { .. }
                 )
             )
         }));
@@ -839,7 +839,7 @@ fn cross_identity_transfer_when_caller_has_spending_approval() {
             matches!(
                 &record.event,
                 crate::storage::EventTest::Settlement(
-                    pallet_settlement::Event::InstructionExecuted(_, _)
+                    pallet_settlement::Event::InstructionExecuted { .. }
                 )
             )
         }));
@@ -884,7 +884,7 @@ fn cross_identity_transfer_when_caller_has_portfolio_permissions() {
             matches!(
                 &record.event,
                 crate::storage::EventTest::Settlement(
-                    pallet_settlement::Event::InstructionExecuted(_, _)
+                    pallet_settlement::Event::InstructionExecuted { .. }
                 )
             )
         }));
@@ -947,7 +947,7 @@ fn cross_identity_transfer_when_caller_is_also_the_receiver() {
             matches!(
                 &record.event,
                 crate::storage::EventTest::Settlement(
-                    pallet_settlement::Event::InstructionCreated(..)
+                    pallet_settlement::Event::InstructionCreated { .. }
                 )
             )
         }));

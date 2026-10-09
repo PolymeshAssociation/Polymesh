@@ -489,7 +489,10 @@ fn success() {
         let mut system_events = System::events();
         assert_eq!(
             system_events.pop().unwrap().event,
-            EventTest::Settlement(Event::InstructionLocked(dave.did, InstructionId(0)))
+            EventTest::Settlement(Event::InstructionLocked {
+                caller_did: dave.did,
+                instruction_id: InstructionId(0)
+            })
         );
     });
 }

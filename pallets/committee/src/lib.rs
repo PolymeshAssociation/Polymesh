@@ -230,74 +230,75 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config<I>, I: 'static = ()> {
-        /// A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
-        /// Parameters: caller DID, proposal index, proposal hash.
-        Proposed(IdentityId, ProposalIndex, <T as frame_system::Config>::Hash),
-        /// A motion (given hash) has been voted on by given account, leaving
-        /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        /// caller DID, Proposal index, Proposal hash, current vote, yay vote count, nay vote count, total seats.
-        Voted(
-            IdentityId,
-            ProposalIndex,
-            <T as frame_system::Config>::Hash,
-            bool,
-            MemberCount,
-            MemberCount,
-            MemberCount,
-        ),
-        /// A vote on a motion (given hash) has been retracted.
-        /// caller DID, ProposalIndex, Proposal hash, vote that was retracted
-        VoteRetracted(
-            IdentityId,
-            ProposalIndex,
-            <T as frame_system::Config>::Hash,
-            bool,
-        ),
-        /// Final votes on a motion (given hash)
-        /// caller DID, ProposalIndex, Proposal hash, yes voters, no voter
-        FinalVotes(
-            Option<IdentityId>,
-            ProposalIndex,
-            <T as frame_system::Config>::Hash,
-            Vec<IdentityId>,
-            Vec<IdentityId>,
-        ),
-        /// A motion was approved by the required threshold with the following
-        /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
-        Approved(
-            Option<IdentityId>,
-            <T as frame_system::Config>::Hash,
-            MemberCount,
-            MemberCount,
-            MemberCount,
-        ),
-        /// A motion was rejected by the required threshold with the following
-        /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
-        Rejected(
-            Option<IdentityId>,
-            <T as frame_system::Config>::Hash,
-            MemberCount,
-            MemberCount,
-            MemberCount,
-        ),
+        /// A motion has been proposed.
+        Proposed {
+            caller_did: IdentityId,
+            proposal_index: ProposalIndex,
+            proposal_hash: <T as frame_system::Config>::Hash,
+        },
+        /// A motion has been voted on, leaving the given tally.
+        Voted {
+            caller_did: IdentityId,
+            proposal_index: ProposalIndex,
+            proposal_hash: <T as frame_system::Config>::Hash,
+            aye: bool,
+            yes_votes: MemberCount,
+            no_votes: MemberCount,
+            seats: MemberCount,
+        },
+        /// A vote on a motion has been retracted.
+        VoteRetracted {
+            caller_did: IdentityId,
+            proposal_index: ProposalIndex,
+            proposal_hash: <T as frame_system::Config>::Hash,
+            aye: bool,
+        },
+        /// Final votes on a motion.
+        FinalVotes {
+            caller_did: Option<IdentityId>,
+            proposal_index: ProposalIndex,
+            proposal_hash: <T as frame_system::Config>::Hash,
+            yes_voters: Vec<IdentityId>,
+            no_voters: Vec<IdentityId>,
+        },
+        /// A motion was approved by the required threshold, with the given tally.
+        Approved {
+            caller_did: Option<IdentityId>,
+            proposal_hash: <T as frame_system::Config>::Hash,
+            yes_votes: MemberCount,
+            no_votes: MemberCount,
+            seats: MemberCount,
+        },
+        /// A motion was rejected by the required threshold, with the given tally.
+        Rejected {
+            caller_did: Option<IdentityId>,
+            proposal_hash: <T as frame_system::Config>::Hash,
+            yes_votes: MemberCount,
+            no_votes: MemberCount,
+            seats: MemberCount,
+        },
         /// A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
-        /// Parameters: caller DID, proposal hash, result of proposal dispatch.
-        Executed(
-            Option<IdentityId>,
-            <T as frame_system::Config>::Hash,
-            DispatchResult,
-        ),
+        Executed {
+            caller_did: Option<IdentityId>,
+            proposal_hash: <T as frame_system::Config>::Hash,
+            result: DispatchResult,
+        },
         /// Release coordinator has been updated.
-        /// Parameters: DID of the release coordinator.
-        ReleaseCoordinatorUpdated(Option<IdentityId>),
+        ReleaseCoordinatorUpdated {
+            /// `None` when the release coordinator was removed.
+            release_coordinator: Option<IdentityId>,
+        },
         /// Proposal expiry time has been updated.
-        /// Parameters: caller DID, new expiry time (if any).
-        ExpiresAfterUpdated(IdentityId, MaybeBlock<BlockNumberFor<T>>),
-        /// Voting threshold has been updated
-        /// Parameters: caller DID, numerator, denominator
-        VoteThresholdUpdated(IdentityId, u32, u32),
+        ExpiresAfterUpdated {
+            caller_did: IdentityId,
+            expires_after: MaybeBlock<BlockNumberFor<T>>,
+        },
+        /// Voting threshold has been updated.
+        VoteThresholdUpdated {
+            caller_did: IdentityId,
+            numerator: u32,
+            denominator: u32,
+        },
     }
 
     #[pallet::error]
@@ -340,7 +341,11 @@ pub mod pallet {
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<T, I>>::put((n, d));
-            Self::deposit_event(Event::VoteThresholdUpdated(GC_DID, n, d));
+            Self::deposit_event(Event::VoteThresholdUpdated {
+                caller_did: GC_DID,
+                numerator: n,
+                denominator: d,
+            });
             Ok(())
         }
 
@@ -357,7 +362,9 @@ pub mod pallet {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::ensure_did_is_member(&id)?;
             <ReleaseCoordinator<T, I>>::put(id);
-            Self::deposit_event(Event::ReleaseCoordinatorUpdated(Some(id)));
+            Self::deposit_event(Event::ReleaseCoordinatorUpdated {
+                release_coordinator: Some(id),
+            });
             Ok(())
         }
 
@@ -373,7 +380,10 @@ pub mod pallet {
         ) -> DispatchResult {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
-            Self::deposit_event(Event::ExpiresAfterUpdated(GC_DID, expiry));
+            Self::deposit_event(Event::ExpiresAfterUpdated {
+                caller_did: GC_DID,
+                expires_after: expiry,
+            });
             Ok(())
         }
 
@@ -455,15 +465,15 @@ pub mod pallet {
             <Voting<T, I>>::insert(&proposal, voting);
 
             // 4. Emit event.
-            Self::deposit_event(Event::Voted(
-                did,
-                index,
-                proposal,
-                approve,
-                ayes,
-                nays,
-                Self::seats(),
-            ));
+            Self::deposit_event(Event::Voted {
+                caller_did: did,
+                proposal_index: index,
+                proposal_hash: proposal,
+                aye: approve,
+                yes_votes: ayes,
+                no_votes: nays,
+                seats: Self::seats(),
+            });
 
             // 5. Check whether majority has been reached and if so, execute proposal.
             Self::execute_if_passed(Some(did), proposal);
@@ -518,7 +528,12 @@ pub mod pallet {
                 let idx = voting.index;
                 let remove = |from: &mut Vec<_>, sig| {
                     from.iter().position(|a| *a == id).map(|pos| {
-                        Self::deposit_event(Event::VoteRetracted(id, idx, proposal, sig));
+                        Self::deposit_event(Event::VoteRetracted {
+                            caller_did: id,
+                            proposal_index: idx,
+                            proposal_hash: proposal,
+                            aye: sig,
+                        });
                         from.swap_remove(pos)
                     })
                 };
@@ -551,7 +566,13 @@ pub mod pallet {
             }
 
             Self::finalize_proposal(approved, seats, ayes, nays, proposal, did);
-            let event = Event::FinalVotes(did, voting.index, proposal, voting.ayes, voting.nays);
+            let event = Event::FinalVotes {
+                caller_did: did,
+                proposal_index: voting.index,
+                proposal_hash: proposal,
+                yes_voters: voting.ayes,
+                no_voters: voting.nays,
+            };
             Self::deposit_event(event);
         }
 
@@ -580,11 +601,23 @@ pub mod pallet {
             current_did: Option<IdentityId>,
         ) {
             let event = if approved {
-                Event::Approved
+                Event::Approved {
+                    caller_did: current_did,
+                    proposal_hash: proposal,
+                    yes_votes,
+                    no_votes,
+                    seats,
+                }
             } else {
-                Event::Rejected
+                Event::Rejected {
+                    caller_did: current_did,
+                    proposal_hash: proposal,
+                    yes_votes,
+                    no_votes,
+                    seats,
+                }
             };
-            Self::deposit_event(event(current_did, proposal, yes_votes, no_votes, seats));
+            Self::deposit_event(event);
 
             let proposal_of = <ProposalOf<T, I>>::take(&proposal);
 
@@ -625,7 +658,11 @@ pub mod pallet {
         fn execute(did: Option<IdentityId>, proposal: <T as Config<I>>::Proposal, hash: T::Hash) {
             let origin = RawOrigin::Endorsed(PhantomData).into();
             let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
-            Self::deposit_event(Event::Executed(did, hash, res));
+            Self::deposit_event(Event::Executed {
+                caller_did: did,
+                proposal_hash: hash,
+                result: res,
+            });
         }
 
         /// Any committee member proposes a dispatchable.
@@ -659,7 +696,11 @@ pub mod pallet {
                 };
                 <Voting<T, I>>::insert(proposal_hash, votes);
 
-                Self::deposit_event(Event::Proposed(did, index, proposal_hash));
+                Self::deposit_event(Event::Proposed {
+                    caller_did: did,
+                    proposal_index: index,
+                    proposal_hash,
+                });
             }
 
             Ok(())
@@ -729,7 +770,9 @@ impl<T: Config<I>, I: 'static> ChangeMembers<IdentityId> for Pallet<T, I> {
         if let Some(curr_rc) = ReleaseCoordinator::<T, I>::get() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<T, I>>::kill();
-                Self::deposit_event(Event::ReleaseCoordinatorUpdated(None));
+                Self::deposit_event(Event::ReleaseCoordinatorUpdated {
+                    release_coordinator: None,
+                });
             }
         }
 

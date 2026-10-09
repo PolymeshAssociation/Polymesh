@@ -83,17 +83,22 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Emitted when a new nft collection is created.
-        NftCollectionCreated(IdentityId, AssetId, NFTCollectionId),
+        NftCollectionCreated {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            collection_id: NFTCollectionId,
+        },
         /// Emitted when NFTs were issued, redeemed or transferred.
-        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`NFTs`], the [`AssetHolder`] of the source, the [`AssetHolder`]
-        /// of the destination and the [`HoldingsUpdateReason`].
-        NFTHoldingsUpdated(
-            IdentityId,
-            NFTs,
-            Option<AssetHolder>,
-            Option<AssetHolder>,
-            HoldingsUpdateReason,
-        ),
+        NFTHoldingsUpdated {
+            /// The identity that issued, redeemed or transferred the NFTs.
+            caller_did: IdentityId,
+            nfts: NFTs,
+            /// `None` when NFTs were issued.
+            from: Option<AssetHolder>,
+            /// `None` when NFTs were redeemed.
+            to: Option<AssetHolder>,
+            update_reason: HoldingsUpdateReason,
+        },
         /// A per-token approval was set or revoked.
         ///
         /// `spender` is `None` when the approval was revoked.
@@ -635,11 +640,11 @@ impl<T: Config> Pallet<T> {
         CollectionKeys::<T>::insert(&collection_id, collection_keys);
         CollectionAsset::<T>::insert(&asset_id, &collection_id);
 
-        Self::deposit_event(Event::NftCollectionCreated(
+        Self::deposit_event(Event::NftCollectionCreated {
             caller_did,
             asset_id,
             collection_id,
-        ));
+        });
         Ok(())
     }
 
@@ -702,15 +707,15 @@ impl<T: Config> Pallet<T> {
         }
         Self::add_nft_holding(asset_id, nft_id, caller_holdings.clone())?;
 
-        Self::deposit_event(Event::NFTHoldingsUpdated(
-            holder_did,
-            NFTs::new_unverified(asset_id, vec![nft_id]),
-            None,
-            Some(caller_holdings),
-            HoldingsUpdateReason::Issued {
+        Self::deposit_event(Event::NFTHoldingsUpdated {
+            caller_did: holder_did,
+            nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
+            from: None,
+            to: Some(caller_holdings),
+            update_reason: HoldingsUpdateReason::Issued {
                 funding_round_name: None,
             },
-        ));
+        });
         Ok(())
     }
 
@@ -765,13 +770,13 @@ impl<T: Config> Pallet<T> {
 
         let _ = MetadataValue::<T>::clear_prefix((&collection_id, &nft_id), u32::MAX, None);
 
-        Self::deposit_event(Event::NFTHoldingsUpdated(
-            holder_did,
-            NFTs::new_unverified(asset_id, vec![nft_id]),
-            Some(caller_holding),
-            None,
-            HoldingsUpdateReason::Redeemed,
-        ));
+        Self::deposit_event(Event::NFTHoldingsUpdated {
+            caller_did: holder_did,
+            nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
+            from: Some(caller_holding),
+            to: None,
+            update_reason: HoldingsUpdateReason::Redeemed,
+        });
         Ok(PostDispatchInfo::from(Some(
             <T as Config>::WeightInfo::redeem_nft(n_collection_keys as u32),
         )))
@@ -794,16 +799,16 @@ impl<T: Config> Pallet<T> {
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&sender, receiver.clone(), &nfts)?;
 
-        Self::deposit_event(Event::NFTHoldingsUpdated(
+        Self::deposit_event(Event::NFTHoldingsUpdated {
             caller_did,
             nfts,
-            Some(sender),
-            Some(receiver),
-            HoldingsUpdateReason::Transferred {
+            from: Some(sender),
+            to: Some(receiver),
+            update_reason: HoldingsUpdateReason::Transferred {
                 instruction_id: Some(instruction_id),
                 instruction_memo,
             },
-        ));
+        });
         Ok(())
     }
 
@@ -1119,13 +1124,13 @@ impl<T: Config> Pallet<T> {
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&source, destination.clone(), &nfts)?;
 
-        Self::deposit_event(Event::NFTHoldingsUpdated(
-            holder_did,
+        Self::deposit_event(Event::NFTHoldingsUpdated {
+            caller_did: holder_did,
             nfts,
-            Some(source),
-            Some(destination),
-            HoldingsUpdateReason::ControllerTransfer,
-        ));
+            from: Some(source),
+            to: Some(destination),
+            update_reason: HoldingsUpdateReason::ControllerTransfer,
+        });
         Ok(())
     }
 
@@ -1170,13 +1175,13 @@ impl<T: Config> Pallet<T> {
         // Transfer ownership of the NFTs
         Self::unverified_nfts_transfer(&source, destination.clone(), &nfts)?;
 
-        Self::deposit_event(Event::NFTHoldingsUpdated(
-            caller_data.primary_did,
+        Self::deposit_event(Event::NFTHoldingsUpdated {
+            caller_did: caller_data.primary_did,
             nfts,
-            Some(source),
-            Some(destination),
-            HoldingsUpdateReason::ControllerTransfer,
-        ));
+            from: Some(source),
+            to: Some(destination),
+            update_reason: HoldingsUpdateReason::ControllerTransfer,
+        });
         Ok(())
     }
 
@@ -1327,16 +1332,16 @@ impl<T: Config> Pallet<T> {
         Self::ensure_sender_owns_nfts(&sender, &nfts)?;
         Self::unverified_nfts_transfer(&sender, receiver.clone(), &nfts)?;
 
-        Self::deposit_event(Event::NFTHoldingsUpdated(
+        Self::deposit_event(Event::NFTHoldingsUpdated {
             caller_did,
             nfts,
-            Some(sender),
-            Some(receiver),
-            HoldingsUpdateReason::Transferred {
+            from: Some(sender),
+            to: Some(receiver),
+            update_reason: HoldingsUpdateReason::Transferred {
                 instruction_id: inst_id,
                 instruction_memo: inst_memo,
             },
-        ));
+        });
         Ok(())
     }
 

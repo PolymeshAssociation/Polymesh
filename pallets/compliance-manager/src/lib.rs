@@ -132,32 +132,56 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Emitted when new compliance requirement is created.
-        /// (caller DID, AssetId, ComplianceRequirement).
-        ComplianceRequirementCreated(IdentityId, AssetId, ComplianceRequirement),
+        ComplianceRequirementCreated {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            requirement: ComplianceRequirement,
+        },
         /// Emitted when a compliance requirement is removed.
-        /// (caller DID, AssetId, requirement_id).
-        ComplianceRequirementRemoved(IdentityId, AssetId, u32),
+        ComplianceRequirementRemoved {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            requirement_id: u32,
+        },
         /// Emitted when an asset compliance is replaced.
-        /// Parameters: caller DID, AssetId, new asset compliance.
-        AssetComplianceReplaced(IdentityId, AssetId, Vec<ComplianceRequirement>),
+        AssetComplianceReplaced {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            requirements: Vec<ComplianceRequirement>,
+        },
         /// Emitted when an asset compliance of a asset_id is reset.
-        /// (caller DID, AssetId).
-        AssetComplianceReset(IdentityId, AssetId),
+        AssetComplianceReset {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
         /// Emitted when an asset compliance for a given asset_id gets resume.
-        /// (caller DID, AssetId).
-        AssetComplianceResumed(IdentityId, AssetId),
+        AssetComplianceResumed {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
         /// Emitted when an asset compliance for a given asset_id gets paused.
-        /// (caller DID, AssetId).
-        AssetCompliancePaused(IdentityId, AssetId),
+        AssetCompliancePaused {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
         /// Emitted when compliance requirement get modified/change.
-        /// (caller DID, AssetId, ComplianceRequirement).
-        ComplianceRequirementChanged(IdentityId, AssetId, ComplianceRequirement),
+        ComplianceRequirementChanged {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            requirement: ComplianceRequirement,
+        },
         /// Emitted when default claim issuer list for a given asset_id gets added.
-        /// (caller DID, AssetId, Added TrustedIssuer).
-        TrustedDefaultClaimIssuerAdded(IdentityId, AssetId, TrustedIssuer),
+        TrustedDefaultClaimIssuerAdded {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            issuer: TrustedIssuer,
+        },
         /// Emitted when default claim issuer list for a given asset_id get removed.
-        /// (caller DID, AssetId, Removed TrustedIssuer).
-        TrustedDefaultClaimIssuerRemoved(IdentityId, AssetId, IdentityId),
+        TrustedDefaultClaimIssuerRemoved {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            issuer_did: IdentityId,
+        },
     }
 
     pub trait WeightInfo {
@@ -326,7 +350,11 @@ pub mod pallet {
                 },
             )?;
 
-            Self::deposit_event(Event::ComplianceRequirementRemoved(did, asset_id, id));
+            Self::deposit_event(Event::ComplianceRequirementRemoved {
+                caller_did: did,
+                asset_id,
+                requirement_id: id,
+            });
             Ok(())
         }
 
@@ -381,11 +409,11 @@ pub mod pallet {
             AssetCompliances::<T>::mutate(&asset_id, |old| {
                 old.requirements = asset_compliance.clone()
             });
-            Self::deposit_event(Event::AssetComplianceReplaced(
-                did,
+            Self::deposit_event(Event::AssetComplianceReplaced {
+                caller_did: did,
                 asset_id,
-                asset_compliance,
-            ));
+                requirements: asset_compliance,
+            });
             Ok(())
         }
 
@@ -402,7 +430,10 @@ pub mod pallet {
         pub fn reset_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             AssetCompliances::<T>::remove(asset_id);
-            Self::deposit_event(Event::AssetComplianceReset(did, asset_id));
+            Self::deposit_event(Event::AssetComplianceReset {
+                caller_did: did,
+                asset_id,
+            });
             Ok(())
         }
 
@@ -418,7 +449,10 @@ pub mod pallet {
         #[pallet::call_index(4)]
         pub fn pause_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let did = Self::pause_resume_asset_compliance(origin, &asset_id, true)?;
-            Self::deposit_event(Event::AssetCompliancePaused(did, asset_id));
+            Self::deposit_event(Event::AssetCompliancePaused {
+                caller_did: did,
+                asset_id,
+            });
             Ok(())
         }
 
@@ -434,7 +468,10 @@ pub mod pallet {
         #[pallet::call_index(5)]
         pub fn resume_asset_compliance(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
             let did = Self::pause_resume_asset_compliance(origin, &asset_id, false)?;
-            Self::deposit_event(Event::AssetComplianceResumed(did, asset_id));
+            Self::deposit_event(Event::AssetComplianceResumed {
+                caller_did: did,
+                asset_id,
+            });
             Ok(())
         }
 
@@ -484,9 +521,11 @@ pub mod pallet {
                 );
                 Ok(()) as DispatchResult
             })?;
-            Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(
-                did, asset_id, issuer,
-            ));
+            Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved {
+                caller_did: did,
+                asset_id,
+                issuer_did: issuer,
+            });
             Ok(())
         }
 
@@ -529,7 +568,11 @@ pub mod pallet {
 
             // Store updated asset compliance.
             AssetCompliances::<T>::insert(&asset_id, asset_compliance);
-            Self::deposit_event(Event::ComplianceRequirementChanged(did, asset_id, new_req));
+            Self::deposit_event(Event::ComplianceRequirementChanged {
+                caller_did: did,
+                asset_id,
+                requirement: new_req,
+            });
             Ok(())
         }
     }
@@ -568,9 +611,11 @@ impl<T: Config> Pallet<T> {
 
         // Commit new compliance to storage & emit event.
         AssetCompliances::<T>::insert(&asset_id, asset_compliance);
-        Self::deposit_event(Event::ComplianceRequirementCreated(
-            caller_did, asset_id, new_req,
-        ));
+        Self::deposit_event(Event::ComplianceRequirementCreated {
+            caller_did,
+            asset_id,
+            requirement: new_req,
+        });
         Ok(())
     }
 
@@ -610,9 +655,11 @@ impl<T: Config> Pallet<T> {
             Ok(()) as DispatchResult
         })?;
 
-        Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(
-            caller_did, asset_id, issuer,
-        ));
+        Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded {
+            caller_did,
+            asset_id,
+            issuer,
+        });
         Ok(())
     }
 

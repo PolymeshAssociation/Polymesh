@@ -527,7 +527,11 @@ pub mod pallet {
             });
 
             // Emit event.
-            Self::deposit_event(Event::VoteCast(did, ca_id, votes));
+            Self::deposit_event(Event::VoteCast {
+                voter_did: did,
+                ca_id,
+                votes,
+            });
             Ok(().into())
         }
 
@@ -557,7 +561,11 @@ pub mod pallet {
 
             // Commit new range to storage + emit event.
             TimeRanges::<T>::insert(ca_id, range);
-            Self::deposit_event(Event::RangeChanged(agent, ca_id, range));
+            Self::deposit_event(Event::RangeChanged {
+                agent_did: agent,
+                ca_id,
+                range,
+            });
             Ok(().into())
         }
 
@@ -588,7 +596,11 @@ pub mod pallet {
             // Commit metadata to storage + emit event.
             MotionNumChoices::<T>::insert(ca_id, choices);
             Metas::<T>::insert(ca_id, meta.clone());
-            Self::deposit_event(Event::MetaChanged(agent, ca_id, meta));
+            Self::deposit_event(Event::MetaChanged {
+                agent_did: agent,
+                ca_id,
+                meta,
+            });
             Ok(().into())
         }
 
@@ -612,7 +624,11 @@ pub mod pallet {
 
             // Commit to storage + emit event.
             RCV::<T>::insert(ca_id, rcv);
-            Self::deposit_event(Event::RCVChanged(agent, ca_id, rcv));
+            Self::deposit_event(Event::RCVChanged {
+                agent_did: agent,
+                ca_id,
+                rcv,
+            });
             Ok(().into())
         }
 
@@ -640,34 +656,48 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A corporate ballot was created.
-        ///
-        /// (Agent DID, CA's ID, Voting start/end, Ballot metadata, RCV enabled?)
-        Created(IdentityId, CAId, BallotTimeRange, BallotMeta, bool),
+        Created {
+            agent_did: IdentityId,
+            ca_id: CAId,
+            /// Voting start and end.
+            range: BallotTimeRange,
+            meta: BallotMeta,
+            /// Whether ranked-choice voting is enabled.
+            rcv: bool,
+        },
 
         /// A vote was cast in a corporate ballot.
-        ///
-        /// (voter DID, CAId, Votes)
-        VoteCast(IdentityId, CAId, Vec<BallotVote>),
+        VoteCast {
+            voter_did: IdentityId,
+            ca_id: CAId,
+            votes: Vec<BallotVote>,
+        },
 
         /// A corporate ballot changed its start/end date range.
-        ///
-        /// (Agent DID, CA's ID, Voting start/end)
-        RangeChanged(IdentityId, CAId, BallotTimeRange),
+        RangeChanged {
+            agent_did: IdentityId,
+            ca_id: CAId,
+            /// Voting start and end.
+            range: BallotTimeRange,
+        },
 
         /// A corporate ballot changed its metadata.
-        ///
-        /// (Agent DID, CA's ID, New metadata)
-        MetaChanged(IdentityId, CAId, BallotMeta),
+        MetaChanged {
+            agent_did: IdentityId,
+            ca_id: CAId,
+            meta: BallotMeta,
+        },
 
         /// A corporate ballot changed its RCV support.
-        ///
-        /// (Agent DID, CA's ID, New support)
-        RCVChanged(IdentityId, CAId, bool),
+        RCVChanged {
+            agent_did: IdentityId,
+            ca_id: CAId,
+            /// Whether ranked-choice voting is enabled.
+            rcv: bool,
+        },
 
         /// A corporate ballot was removed.
-        ///
-        /// (Agent DID, CA's ID)
-        Removed(EventDid, CAId),
+        Removed { agent_did: EventDid, ca_id: CAId },
     }
 
     #[pallet::error]
@@ -747,13 +777,13 @@ impl<T: Config> Pallet<T> {
         Metas::<T>::insert(ca_id, ballot_meta.clone());
         RCV::<T>::insert(ca_id, rcv);
 
-        Self::deposit_event(Event::Created(
-            caller_id,
+        Self::deposit_event(Event::Created {
+            agent_did: caller_id,
             ca_id,
-            ballot_time_range,
-            ballot_meta,
+            range: ballot_time_range,
+            meta: ballot_meta,
             rcv,
-        ));
+        });
 
         Ok(())
     }
@@ -773,7 +803,10 @@ impl<T: Config> Pallet<T> {
         RCV::<T>::remove(ca_id);
 
         // Emit event.
-        Self::deposit_event(Event::Removed(agent, ca_id));
+        Self::deposit_event(Event::Removed {
+            agent_did: agent,
+            ca_id,
+        });
         Ok(())
     }
 

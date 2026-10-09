@@ -1480,7 +1480,14 @@ fn register_did_test() {
             assert_eq!(get_primary_key(alice_id), alice.clone());
 
             // Verify DidCreated event was emitted
-            System::assert_has_event(Event::DidCreated(alice_id, alice.clone(), vec![]).into());
+            System::assert_has_event(
+                Event::DidCreated {
+                    did: alice_id,
+                    primary_key: alice.clone(),
+                    secondary_keys: vec![],
+                }
+                .into(),
+            );
 
             // Error: Cannot register DID for account that already has one
             assert_noop!(
@@ -1527,7 +1534,14 @@ fn self_register_did_test() {
             assert_eq!(get_primary_key(bob_id), bob.clone());
 
             // Verify DidCreated event was emitted
-            System::assert_has_event(Event::DidCreated(bob_id, bob.clone(), vec![]).into());
+            System::assert_has_event(
+                Event::DidCreated {
+                    did: bob_id,
+                    primary_key: bob.clone(),
+                    secondary_keys: vec![],
+                }
+                .into(),
+            );
 
             // Error: Cannot register DID for account that already has one
             assert_noop!(
@@ -1950,34 +1964,38 @@ fn cdd_register_did_events() {
             let mut system_events = System::events();
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(Event::AuthorizationAdded(
-                    alice_did,
-                    None,
-                    Some(Sr25519Keyring::Charlie.to_account_id()),
-                    CurrentAuthId::<TestStorage>::get(),
-                    AuthorizationData::JoinIdentity(alice_secondary_keys[1].permissions.clone()),
-                    None,
-                ))
+                super::storage::EventTest::Identity(Event::AuthorizationAdded {
+                    authorized_by: alice_did,
+                    target_did: None,
+                    target_key: Some(Sr25519Keyring::Charlie.to_account_id()),
+                    auth_id: CurrentAuthId::<TestStorage>::get(),
+                    authorization_data: AuthorizationData::JoinIdentity(
+                        alice_secondary_keys[1].permissions.clone()
+                    ),
+                    expiry: None
+                })
             );
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(Event::AuthorizationAdded(
-                    alice_did,
-                    None,
-                    Some(Sr25519Keyring::Dave.to_account_id()),
-                    CurrentAuthId::<TestStorage>::get() - 1,
-                    AuthorizationData::JoinIdentity(alice_secondary_keys[0].permissions.clone()),
-                    None,
-                ))
+                super::storage::EventTest::Identity(Event::AuthorizationAdded {
+                    authorized_by: alice_did,
+                    target_did: None,
+                    target_key: Some(Sr25519Keyring::Dave.to_account_id()),
+                    auth_id: CurrentAuthId::<TestStorage>::get() - 1,
+                    authorization_data: AuthorizationData::JoinIdentity(
+                        alice_secondary_keys[0].permissions.clone()
+                    ),
+                    expiry: None
+                })
             );
             // Make sure a Did Created event was sent
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(Event::DidCreated(
-                    alice_did,
-                    alice_account_id,
-                    alice_secondary_keys.clone()
-                ))
+                super::storage::EventTest::Identity(Event::DidCreated {
+                    did: alice_did,
+                    primary_key: alice_account_id,
+                    secondary_keys: alice_secondary_keys.clone()
+                })
             );
         });
 }

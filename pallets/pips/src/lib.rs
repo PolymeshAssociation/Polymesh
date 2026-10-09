@@ -195,170 +195,138 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Historical PIPs Pruning has been set.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `bool`: The old value of the pruning setting.
-        /// - `bool`: The new value of the pruning setting.
-        HistoricalPipsPruned(IdentityId, bool, bool),
+        HistoricalPipsPruned {
+            caller_did: IdentityId,
+            old_value: bool,
+            new_value: bool,
+        },
         /// A PIP was created with a specified `Balance` stake.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `Proposer<T::AccountId>`: The proposer of the PIP.
-        /// - `PipId`: The ID of the PIP.
-        /// - `Balance`: The deposit amount.
-        /// - `Option<Url>`: The URL for proposal discussion.
-        /// - `Option<PipDescription>`: The description of the proposal.
-        /// - `MaybeBlock<T::BlockNumber>`: The expiry time of the proposal.
-        /// - `ProposalData`: The data of the proposal.
-        ProposalCreated(
-            IdentityId,
-            Proposer<T::AccountId>,
-            PipId,
-            Balance,
-            Option<Url>,
-            Option<PipDescription>,
-            MaybeBlock<BlockNumberFor<T>>,
-            ProposalData,
-        ),
+        ProposalCreated {
+            caller_did: IdentityId,
+            proposer: Proposer<T::AccountId>,
+            pip_id: PipId,
+            deposit: Balance,
+            /// URL for discussing the proposal.
+            url: Option<Url>,
+            description: Option<PipDescription>,
+            expiry: MaybeBlock<BlockNumberFor<T>>,
+            proposal_data: ProposalData,
+        },
         /// The state of a proposal was updated.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `ProposalState`: The new state of the proposal.
-        ProposalStateUpdated(IdentityId, PipId, ProposalState),
+        ProposalStateUpdated {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            state: ProposalState,
+        },
         /// An account voted on a proposal.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `T::AccountId`: The account that voted.
-        /// - `PipId`: The ID of the PIP.
-        /// - `bool`: The vote (true for aye, false for nay).
-        /// - `Balance`: The deposit amount of the vote.
-        Voted(IdentityId, T::AccountId, PipId, bool, Balance),
+        Voted {
+            caller_did: IdentityId,
+            voter: T::AccountId,
+            pip_id: PipId,
+            aye: bool,
+            /// The deposit locked with the vote.
+            deposit: Balance,
+        },
         /// A PIP was closed.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `bool`: Indicates whether the data was pruned.
-        PipClosed(IdentityId, PipId, bool),
+        PipClosed {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            /// Whether the PIP's data was pruned.
+            pruned: bool,
+        },
         /// The execution of a PIP was scheduled.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `BlockNumber`: The block number at which the PIP is scheduled for execution.
-        ExecutionScheduled(IdentityId, PipId, BlockNumberFor<T>),
+        ExecutionScheduled {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            /// Block at which the PIP will be executed.
+            at: BlockNumberFor<T>,
+        },
         /// The default enactment period was changed.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `BlockNumber`: The old enactment period.
-        /// - `BlockNumber`: The new enactment period.
-        DefaultEnactmentPeriodChanged(IdentityId, BlockNumberFor<T>, BlockNumberFor<T>),
+        DefaultEnactmentPeriodChanged {
+            caller_did: IdentityId,
+            old_period: BlockNumberFor<T>,
+            new_period: BlockNumberFor<T>,
+        },
         /// The minimum deposit amount for proposals was changed.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `Balance`: The old deposit amount.
-        /// - `Balance`: The new deposit amount.
-        MinimumProposalDepositChanged(IdentityId, Balance, Balance),
+        MinimumProposalDepositChanged {
+            caller_did: IdentityId,
+            old_deposit: Balance,
+            new_deposit: Balance,
+        },
         /// The expiry time for pending PIPs was changed.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `MaybeBlock<T::BlockNumber>`: The old expiry time.
-        /// - `MaybeBlock<T::BlockNumber>`: The new expiry time.
-        PendingPipExpiryChanged(
-            IdentityId,
-            MaybeBlock<BlockNumberFor<T>>,
-            MaybeBlock<BlockNumberFor<T>>,
-        ),
+        PendingPipExpiryChanged {
+            caller_did: IdentityId,
+            old_expiry: MaybeBlock<BlockNumberFor<T>>,
+            new_expiry: MaybeBlock<BlockNumberFor<T>>,
+        },
         /// The maximum number of times a PIP can be skipped was changed.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `SkippedCount`: The old skip count.
-        /// - `SkippedCount`: The new skip count.
-        MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
+        MaxPipSkipCountChanged {
+            caller_did: IdentityId,
+            old_max: SkippedCount,
+            new_max: SkippedCount,
+        },
         /// The maximum number of active PIPs was changed.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `u32`: The old active PIP limit.
-        /// - `u32`: The new active PIP limit.
-        ActivePipLimitChanged(IdentityId, u32, u32),
+        ActivePipLimitChanged {
+            caller_did: IdentityId,
+            old_limit: u32,
+            new_limit: u32,
+        },
         /// A proposal was refunded.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `Balance`: The total amount refunded.
-        ProposalRefund(IdentityId, PipId, Balance),
+        ProposalRefund {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            amount: Balance,
+        },
         /// The snapshot was cleared.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `SnapshotId`: The ID of the snapshot.
-        SnapshotCleared(IdentityId, SnapshotId),
+        SnapshotCleared {
+            caller_did: IdentityId,
+            snapshot_id: SnapshotId,
+        },
         /// A new snapshot was taken.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `SnapshotId`: The ID of the snapshot.
-        /// - `Vec<SnapshottedPip>`: The list of PIPs in the snapshot.
-        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip>),
+        SnapshotTaken {
+            caller_did: IdentityId,
+            snapshot_id: SnapshotId,
+            pips: Vec<SnapshottedPip>,
+        },
         /// A PIP in the snapshot queue was skipped.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `SkippedCount`: The new skip count.
-        PipSkipped(IdentityId, PipId, SkippedCount),
+        PipSkipped {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            /// The PIP's new skip count.
+            skipped_count: SkippedCount,
+        },
         /// Results were enacted for some PIPs in the snapshot queue.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `Option<SnapshotId>`: The ID of the snapshot, if any.
-        /// - `Vec<(PipId, SkippedCount)>`: The list of skipped PIPs with their new skip counts.
-        /// - `Vec<PipId>`: The list of rejected PIPs.
-        /// - `Vec<PipId>`: The list of approved PIPs.
-        SnapshotResultsEnacted(
-            IdentityId,
-            Option<SnapshotId>,
-            Vec<(PipId, SkippedCount)>,
-            Vec<PipId>,
-            Vec<PipId>,
-        ),
+        SnapshotResultsEnacted {
+            caller_did: IdentityId,
+            snapshot_id: Option<SnapshotId>,
+            /// Skipped PIPs, with their new skip counts.
+            skipped: Vec<(PipId, SkippedCount)>,
+            rejected: Vec<PipId>,
+            approved: Vec<PipId>,
+        },
         /// Scheduling of the PIP for execution failed in the scheduler pallet.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `BlockNumber`: The block number at which the PIP was scheduled for execution.
-        ExecutionSchedulingFailed(IdentityId, PipId, BlockNumberFor<T>),
+        ExecutionSchedulingFailed {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            /// Block at which the PIP was to be executed.
+            at: BlockNumberFor<T>,
+        },
         /// The PIP has been scheduled for expiry.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `BlockNumber`: The block number at which the PIP is scheduled for expiry.
-        ExpiryScheduled(IdentityId, PipId, BlockNumberFor<T>),
+        ExpiryScheduled {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            /// Block at which the PIP will expire.
+            at: BlockNumberFor<T>,
+        },
         /// Scheduling of the PIP for expiry failed in the scheduler pallet.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The DID of the caller.
-        /// - `PipId`: The ID of the PIP.
-        /// - `BlockNumber`: The block number at which the PIP was scheduled for expiry.
-        ExpirySchedulingFailed(IdentityId, PipId, BlockNumberFor<T>),
+        ExpirySchedulingFailed {
+            caller_did: IdentityId,
+            pip_id: PipId,
+            /// Block at which the PIP was to expire.
+            at: BlockNumberFor<T>,
+        },
         /// Cancelling the PIP execution failed in the scheduler pallet.
-        ///
-        /// Parameters:
-        /// - `PipId`: The ID of the PIP.
-        ExecutionCancellingFailed(PipId),
+        ExecutionCancellingFailed { pip_id: PipId },
     }
 
     #[pallet::config]
@@ -574,7 +542,11 @@ pub mod pallet {
             ensure_root(origin)?;
             let old_value = PruneHistoricalPips::<T>::get();
             PruneHistoricalPips::<T>::put(prune);
-            Self::deposit_event(Event::HistoricalPipsPruned(GC_DID, old_value, prune));
+            Self::deposit_event(Event::HistoricalPipsPruned {
+                caller_did: GC_DID,
+                old_value,
+                new_value: prune,
+            });
             Ok(())
         }
 
@@ -595,9 +567,11 @@ pub mod pallet {
             ensure_root(origin)?;
             let old_value = MinimumProposalDeposit::<T>::get();
             MinimumProposalDeposit::<T>::put(deposit);
-            Self::deposit_event(Event::MinimumProposalDepositChanged(
-                GC_DID, old_value, deposit,
-            ));
+            Self::deposit_event(Event::MinimumProposalDepositChanged {
+                caller_did: GC_DID,
+                old_deposit: old_value,
+                new_deposit: deposit,
+            });
             Ok(())
         }
 
@@ -621,9 +595,11 @@ pub mod pallet {
             ensure_root(origin)?;
             let old_value = DefaultEnactmentPeriod::<T>::get();
             DefaultEnactmentPeriod::<T>::put(duration);
-            Self::deposit_event(Event::DefaultEnactmentPeriodChanged(
-                GC_DID, old_value, duration,
-            ));
+            Self::deposit_event(Event::DefaultEnactmentPeriodChanged {
+                caller_did: GC_DID,
+                old_period: old_value,
+                new_period: duration,
+            });
             Ok(())
         }
 
@@ -647,7 +623,11 @@ pub mod pallet {
             ensure_root(origin)?;
             let old_value = PendingPipExpiry::<T>::get();
             PendingPipExpiry::<T>::put(expiry);
-            Self::deposit_event(Event::PendingPipExpiryChanged(GC_DID, old_value, expiry));
+            Self::deposit_event(Event::PendingPipExpiryChanged {
+                caller_did: GC_DID,
+                old_expiry: old_value,
+                new_expiry: expiry,
+            });
             Ok(())
         }
 
@@ -668,7 +648,11 @@ pub mod pallet {
             ensure_root(origin)?;
             let old_value = MaxPipSkipCount::<T>::get();
             MaxPipSkipCount::<T>::put(max);
-            Self::deposit_event(Event::MaxPipSkipCountChanged(GC_DID, old_value, max));
+            Self::deposit_event(Event::MaxPipSkipCountChanged {
+                caller_did: GC_DID,
+                old_max: old_value,
+                new_max: max,
+            });
             Ok(())
         }
 
@@ -689,7 +673,11 @@ pub mod pallet {
             ensure_root(origin)?;
             let old_value = ActivePipLimit::<T>::get();
             ActivePipLimit::<T>::put(limit);
-            Self::deposit_event(Event::ActivePipLimitChanged(GC_DID, old_value, limit));
+            Self::deposit_event(Event::ActivePipLimitChanged {
+                caller_did: GC_DID,
+                old_limit: old_value,
+                new_limit: limit,
+            });
             Ok(())
         }
 
@@ -811,16 +799,16 @@ pub mod pallet {
                 CommitteePips::<T>::append(id);
             }
 
-            Self::deposit_event(Event::<T>::ProposalCreated(
-                did,
+            Self::deposit_event(Event::<T>::ProposalCreated {
+                caller_did: did,
                 proposer,
-                id,
+                pip_id: id,
                 deposit,
                 url,
                 description,
                 expiry,
                 proposal_data,
-            ));
+            });
 
             Ok(())
         }
@@ -908,7 +896,13 @@ pub mod pallet {
                 },
             );
 
-            Self::deposit_event(Event::Voted(primary_did, voter, id, aye_or_nay, deposit));
+            Self::deposit_event(Event::Voted {
+                caller_did: primary_did,
+                voter,
+                pip_id: id,
+                aye: aye_or_nay,
+                deposit,
+            });
 
             Ok(())
         }
@@ -1086,7 +1080,10 @@ pub mod pallet {
                 SnapshotQueue::<T>::kill();
 
                 // 3. Emit event.
-                Self::deposit_event(Event::SnapshotCleared(did, meta.id));
+                Self::deposit_event(Event::SnapshotCleared {
+                    caller_did: did,
+                    snapshot_id: meta.id,
+                });
             }
 
             Ok(())
@@ -1136,7 +1133,11 @@ pub mod pallet {
             SnapshotQueue::<T>::set(queue.clone());
 
             // Emit event.
-            Self::deposit_event(Event::SnapshotTaken(did, id, queue));
+            Self::deposit_event(Event::SnapshotTaken {
+                caller_did: did,
+                snapshot_id: id,
+                pips: queue,
+            });
 
             Ok(Some(<T as Config>::WeightInfo::snapshot(queue_len)).into())
         }
@@ -1218,7 +1219,11 @@ pub mod pallet {
                 // Update skip counts.
                 for (pip_id, new_count) in to_bump_skipped.iter().copied() {
                     PipSkipCount::<T>::insert(pip_id, new_count);
-                    Self::deposit_event(Event::PipSkipped(GC_DID, pip_id, new_count));
+                    Self::deposit_event(Event::PipSkipped {
+                        caller_did: GC_DID,
+                        pip_id,
+                        skipped_count: new_count,
+                    });
                 }
 
                 // Adjust the live queue, removing scheduled and rejected PIPs.
@@ -1237,13 +1242,13 @@ pub mod pallet {
                 }
 
                 let id = SnapshotMeta::<T>::get().map(|m| m.id);
-                let event = Event::SnapshotResultsEnacted(
-                    GC_DID,
-                    id,
-                    to_bump_skipped,
-                    to_reject,
-                    to_approve,
-                );
+                let event = Event::SnapshotResultsEnacted {
+                    caller_did: GC_DID,
+                    snapshot_id: id,
+                    skipped: to_bump_skipped,
+                    rejected: to_reject,
+                    approved: to_approve,
+                };
                 Self::deposit_event(event);
 
                 Ok(())
@@ -1387,8 +1392,16 @@ impl<T: Config> Pallet<T> {
             RawOrigin::Root.into(),
             expire_pip_call,
         ) {
-            Err(_) => Self::deposit_event(Event::ExpirySchedulingFailed(did, id, at)),
-            Ok(_) => Self::deposit_event(Event::ExpiryScheduled(did, id, at)),
+            Err(_) => Self::deposit_event(Event::ExpirySchedulingFailed {
+                caller_did: did,
+                pip_id: id,
+                at,
+            }),
+            Ok(_) => Self::deposit_event(Event::ExpiryScheduled {
+                caller_did: did,
+                pip_id: id,
+                at,
+            }),
         };
 
         Ok(())
@@ -1535,8 +1548,16 @@ impl<T: Config> Pallet<T> {
     /// Emit event based on a `result` from scheduling a PIP for execution.
     fn handle_exec_scheduling_result<A, B>(id: PipId, at: BlockNumberFor<T>, result: Result<A, B>) {
         Self::deposit_event(match result {
-            Err(_) => Event::ExecutionSchedulingFailed(GC_DID, id, at),
-            Ok(_) => Event::ExecutionScheduled(GC_DID, id, at),
+            Err(_) => Event::ExecutionSchedulingFailed {
+                caller_did: GC_DID,
+                pip_id: id,
+                at,
+            },
+            Ok(_) => Event::ExecutionScheduled {
+                caller_did: GC_DID,
+                pip_id: id,
+                at,
+            },
         });
     }
 
@@ -1555,7 +1576,11 @@ impl<T: Config> Pallet<T> {
                 *proposal_state = new_state;
             }
         });
-        Self::deposit_event(Event::ProposalStateUpdated(did, id, new_state));
+        Self::deposit_event(Event::ProposalStateUpdated {
+            caller_did: did,
+            pip_id: id,
+            state: new_state,
+        });
         new_state
     }
 
@@ -1607,7 +1632,7 @@ impl<T: Config> Pallet<T> {
 
         PipToSchedule::<T>::remove(id);
         if T::Scheduler::cancel_named(task_name).is_err() {
-            Self::deposit_event(Event::ExecutionCancellingFailed(id));
+            Self::deposit_event(Event::ExecutionCancellingFailed { pip_id: id });
         }
         Ok(())
     }
@@ -1650,7 +1675,11 @@ impl<T: Config> Pallet<T> {
             ProposalStates::<T>::remove(pip_id);
         }
 
-        Self::deposit_event(Event::PipClosed(did, pip_id, prune));
+        Self::deposit_event(Event::PipClosed {
+            caller_did: did,
+            pip_id,
+            pruned: prune,
+        });
     }
 
     /// Adds `pip_id` to the refund pending queue. If `prune` is true, also adds it to the votes to pruned queue.
@@ -1742,7 +1771,11 @@ impl<T: Config> Pallet<T> {
                 PendingRefunds::<T>::remove(pip_id);
             }
 
-            Self::deposit_event(Event::ProposalRefund(GC_DID, pip_id, refunded_amount));
+            Self::deposit_event(Event::ProposalRefund {
+                caller_did: GC_DID,
+                pip_id,
+                amount: refunded_amount,
+            });
         }
 
         // Checks if there are any votes to be pruned
