@@ -354,24 +354,35 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A capital distribution, with details included,
         /// was created by the DID (permissioned agent) for the CA identified by `CAId`.
-        ///
-        /// (Agent DID, CA's ID, distribution details)
-        Created(EventDid, CAId, Distribution),
+        Created {
+            agent_did: EventDid,
+            ca_id: CAId,
+            distribution: Distribution,
+        },
 
         /// A token holder's benefit of a capital distribution for the given `CAId` was claimed.
-        ///
-        /// (Caller DID, Holder/Claimant DID, CA's ID, updated distribution details, DID's benefit, DID's tax %)
-        BenefitClaimed(EventDid, EventDid, CAId, Distribution, Balance, Tax),
+        BenefitClaimed {
+            caller_did: EventDid,
+            holder_did: EventDid,
+            ca_id: CAId,
+            /// The distribution, updated by the claim.
+            distribution: Distribution,
+            /// The holder's benefit, before tax.
+            benefit: Balance,
+            /// The withholding tax rate applied to the holder.
+            tax: Tax,
+        },
 
-        /// Stats from `push_benefit` was emitted.
-        ///
-        /// (Agent DID, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        Reclaimed(EventDid, CAId, Balance),
+        /// An agent reclaimed the remaining funds of an expired capital distribution.
+        Reclaimed {
+            agent_did: EventDid,
+            ca_id: CAId,
+            /// The remaining funds, unlocked in the distributor portfolio.
+            amount: Balance,
+        },
 
         /// A capital distribution was removed.
-        ///
-        /// (Agent DID, CA's ID)
-        Removed(EventDid, CAId),
+        Removed { agent_did: EventDid, ca_id: CAId },
     }
 
     #[pallet::error]
@@ -491,7 +502,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Emit event.
-        Self::deposit_event(Event::Reclaimed(agent.for_event(), ca_id, dist.remaining));
+        Self::deposit_event(Event::Reclaimed {
+            agent_did: agent.for_event(),
+            ca_id,
+            amount: dist.remaining,
+        });
 
         Ok(())
     }
@@ -520,7 +535,10 @@ impl<T: Config> Pallet<T> {
         Distributions::<T>::remove(ca_id);
 
         // Emit event.
-        Self::deposit_event(Event::Removed(agent, ca_id));
+        Self::deposit_event(Event::Removed {
+            agent_did: agent,
+            ca_id,
+        });
         Ok(())
     }
 
@@ -597,9 +615,14 @@ impl<T: Config> Pallet<T> {
         Distributions::<T>::insert(ca_id, &dist);
 
         // Emit event.
-        Self::deposit_event(Event::BenefitClaimed(
-            actor, holder, ca_id, dist, benefit, tax,
-        ));
+        Self::deposit_event(Event::BenefitClaimed {
+            caller_did: actor,
+            holder_did: holder,
+            ca_id,
+            distribution: dist,
+            benefit,
+            tax,
+        });
 
         Ok(())
     }
@@ -712,7 +735,11 @@ impl<T: Config> Pallet<T> {
         Distributions::<T>::insert(ca_id, &distribution);
 
         // Emit event.
-        Self::deposit_event(Event::Created(agent, ca_id, distribution));
+        Self::deposit_event(Event::Created {
+            agent_did: agent,
+            ca_id,
+            distribution,
+        });
 
         Ok(())
     }
