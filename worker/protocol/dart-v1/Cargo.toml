@@ -1,15 +1,11 @@
 [package]
 name = "polymesh-worker-protocol-dart-v1"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Polymesh Labs"]
 license-file = "../../../LICENSE"
 repository = "https://github.com/PolymeshAssociation/Polymesh"
 description = "Polymesh DART Confidential Assets host functions"
 edition = "2024"
-
-[lib]
-path = "src/lib.rs"
-crate-type = ["lib", "cdylib"]
 
 [dependencies]
 log = "0.4"
@@ -74,6 +70,14 @@ runtime = [
   "ark-ec/host_msm",
   "bulletproofs/host_hash_to_curve",
   "polymesh-worker-extension",
+]
+runtime_only = [
+  "native",
+  "impl_protocol",
+]
+use_host_curves = [
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
 ]
 
 sp-io = [

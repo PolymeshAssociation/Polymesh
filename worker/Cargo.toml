@@ -25,7 +25,7 @@ sp-panic-handler = { workspace = true, default-features = false }
 polkavm = { workspace = true, default-features = true, optional = true }
 
 # WASM engines
-wasmtime = { version = "43.0.0", optional = true }
+wasmtime = { version = "48.0.0", optional = true }
 wasmer = { version = "<=7.1.0", optional = true }
 wasmer-compiler-cranelift = { version = "<=7.1.0", optional = true }
 wasmer-compiler-llvm = { version = "<=7.1.0", optional = true }

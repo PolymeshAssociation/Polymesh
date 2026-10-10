@@ -4,7 +4,7 @@ use std::hint::black_box;
 use codec::{Decode, Encode};
 use polymesh_dart::{
     AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
-    SenderAffirmationProof, curve_tree::AccountTreeConfig,
+    PolymeshLimits, SenderAffirmationProof,
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
@@ -29,8 +29,8 @@ fn bench_backend_kind(kind: BackendKind, c: &mut Criterion) {
     let protocol = Protocol {
         id: PROTOCOL_PDART,
         version: ProtocolVersion {
-            major: 0,
-            minor: 1,
+            major: 1,
+            minor: 0,
             patch: 0,
         },
     };
@@ -200,7 +200,7 @@ fn bench_backend_kind(kind: BackendKind, c: &mut Criterion) {
         let raw_leg_enc = include_bytes!("../data/settlement_2_leg_0.bin");
         let raw_account_root = include_bytes!("../data/block_12_current_account_root.bin");
 
-        let proof = SenderAffirmationProof::<AccountTreeConfig>::decode(&mut &raw_proof[..])
+        let proof = SenderAffirmationProof::<PolymeshLimits>::decode(&mut &raw_proof[..])
             .expect("Failed to decode proof");
         let leg_enc: LegEncrypted =
             Decode::decode(&mut &raw_leg_enc[..]).expect("Failed to decode leg encryption");

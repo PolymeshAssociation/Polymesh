@@ -1,9 +1,20 @@
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
 
 use crate::{WorkRequestId, WorkerSessionId};
 
 /// Errors that can occur in the worker protocol implementation.
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq)]
+#[derive(
+    Clone,
+    Debug,
+    Encode,
+    Decode,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    DecodeWithMemTracking,
+    MaxEncodedLen
+)]
 #[repr(u8)]
 pub enum ProtocolError {
     CustomProtocolError([u8; 3]) = 0,

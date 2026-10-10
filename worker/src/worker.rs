@@ -576,10 +576,15 @@ impl PolymeshWorker {
         let module = self
             .backend
             .load_protocol(config.backends, protocol, loader);
+        let loaded = module.is_some();
 
         let mut inner = self.inner.write();
         let session = inner.create_session(config, protocol, module);
-        log::debug!("Started session with id: {}", session.id);
+        log::debug!(
+            "Started session with id: {}, module loaded: {}",
+            session.id,
+            loaded
+        );
         session
     }
 

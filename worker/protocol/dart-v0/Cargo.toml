@@ -1,0 +1,135 @@
+[package]
+name = "polymesh-worker-protocol-dart-v0"
+version = "0.1.0"
+authors = ["Polymesh Labs"]
+license-file = "../../../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Polymesh DART Confidential Assets host functions"
+edition = "2024"
+
+[workspace]
+resolver = "3"
+
+[patch.crates-io]
+curve_tree_bulletproofs = { package = "bulletproofs", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+curve_tree_relations = { package = "relations", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+ark-ec-divisors = { package = "ark-ec-divisors", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+ark-dlog-gadget = { package = "ark-dlog-gadget", git = "https://github.com/PolymeshAssociation/curve-trees", branch = "dart-v0.1.0" }
+dock_crypto_utils = { git = "https://github.com/PolymeshAssociation/crypto", branch = "dart-v0.1.0" }
+schnorr_pok = { git = "https://github.com/PolymeshAssociation/crypto", branch = "dart-v0.1.0" }
+polymesh-dart = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "dart-v0.1.0" }
+polymesh-dart-bp = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "dart-v0.1.0" }
+polymesh-dart-common = { git = "https://github.com/PolymeshAssociation/polymesh-dart", branch = "dart-v0.1.0" }
+ark-serialize = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-ec = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-host-msm = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+#ark-host-msm-impl = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-ff = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-pallas = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-vesta = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-helios = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-selene = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-wei25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-curve25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+ark-ed25519 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+#ark-bn254 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+#ark-bls12-381 = { git = "https://github.com/PolymeshAssociation/arkworks-algebra.git", branch = "dart-v0.1.0" }
+
+[dependencies]
+log = "0.4"
+
+polymesh-worker-common = { path = "../../common", default-features = false }
+polymesh-worker-extension = { path = "../../extension", default-features = false, optional = true }
+
+# Crypto
+rand_core = { version = "0.6", default-features = false }
+rand_chacha = { version = "0.3", default-features = false }
+
+# DART
+polymesh-dart = { version = "0.1.0", default-features = false, features = [
+  "backend_bp"
+] }
+polymesh-dart-common = { version = "0.1.0", default-features = false }
+ark-ec = { version = "0.5", default-features = false }
+bulletproofs = { version = "2.0.0", default-features = false }
+
+# Substrate
+scale-info = { version = "2.11.6", default-features = false, features = [
+  "derive",
+] }
+codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = ["derive", "max-encoded-len"] }
+sp-std = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
+bounded-collections = { version = "0.3.2", default-features = false, features = ["scale-codec"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+picoalloc = "5.2.0"
+
+[target.'cfg(target_env = "polkavm")'.dependencies]
+polkavm-derive = { version = "0.33", default-features = true }
+picoalloc = "5.2.0"
+
+[features]
+default = ["std", "testing"]
+
+testing = []
+
+# Directly implement protocol logic (i.e. don't use a host function).
+impl_protocol = []
+
+polkavm = [
+  "ark-ec/polkavm",
+  "bulletproofs/polkavm",
+  "polymesh-worker-common/host_logger",
+  "polymesh-worker-common/polkavm",
+  "impl_protocol",
+]
+
+wasm = [
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+  "polymesh-worker-common/host_logger",
+  "impl_protocol",
+]
+
+native = []
+
+runtime = [
+  "native",
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+  "polymesh-worker-extension",
+]
+runtime_only = [
+  "native",
+  "impl_protocol",
+]
+use_host_curves = [
+  "ark-ec/host_msm",
+  "bulletproofs/host_hash_to_curve",
+]
+
+sp-io = [
+  "polymesh-dart/sp-io",
+]
+
+asm = ["polymesh-dart/asm"]
+parallel = [
+  "polymesh-dart/verifier_parallel",
+  "polymesh-dart/parallel",
+]
+
+no_std = ["polymesh-dart/no_std"]
+std = [
+  "impl_protocol",
+  "asm",
+  "parallel",
+  "rand_core/std",
+  "rand_chacha/std",
+  "polymesh-dart/std",
+  "ark-ec/std",
+  "codec/std",
+  "sp-std/std",
+  "bounded-collections/std",
+  "bulletproofs/std",
+]
+runtime-benchmarks = ["testing"]
