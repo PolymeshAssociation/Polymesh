@@ -518,6 +518,8 @@ macro_rules! misc_pallet_impls {
         impl pallet_compliance_manager::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
+            type MaximumNumberOfTrustedIssuers = MaximumNumberOfTrustedIssuers;
+            type MaxTrustedIssuerClaimTypes = MaxTrustedIssuerClaimTypes;
         }
 
         impl pallet_capital_distribution::Config for Runtime {

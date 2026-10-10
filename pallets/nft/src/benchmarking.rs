@@ -68,10 +68,11 @@ fn create_collection_issue_nfts<T: Config>(
 ) -> AssetId {
     let (asset_id, _) = create_collection::<T>(collection_owner, n_keys);
 
+    let max_value_len = <T as pallet_asset::Config>::AssetMetadataValueMaxLength::get();
     let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
         .map(|key| NFTMetadataAttribute {
             key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
-            value: AssetMetadataValue(b"value".to_vec()),
+            value: AssetMetadataValue(vec![b'v'; max_value_len as usize]),
         })
         .collect();
     for _ in 0..n_nfts {
@@ -162,11 +163,12 @@ benchmarks! {
 
         let user = user::<T>("target", 0);
         let (asset_id, collection_id) = create_collection::<T>(&user, n);
+        let max_value_len = <T as pallet_asset::Config>::AssetMetadataValueMaxLength::get();
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
                 NFTMetadataAttribute{
                     key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
-                    value: AssetMetadataValue(b"value".to_vec()),
+                    value: AssetMetadataValue(vec![b'v'; max_value_len as usize]),
                 }
             })
             .collect();
@@ -363,6 +365,48 @@ benchmarks! {
         for i in 1..n + 1 {
             assert!(TokenApproval::<T>::get(asset_id, NFTId(i.into())).is_none());
         }
+    }
+
+    nft_transfer_report_best_case {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        // 50 compliance requirements are set but paused, so none are evaluated (AssetCompliances is still read)
+        let (asset_id, sender, receiver, _) =
+            setup_nft_transfer::<T>(&alice, &bob, 1, None, None, true, 0, false);
+    }: {
+        assert!(
+            Pallet::<T>::nft_transfer_report(
+                &sender,
+                &receiver,
+                &NFTs::new_unverified(asset_id, vec![NFTId(1)]),
+                false,
+                &mut weight_meter
+            )
+            .is_empty()
+        );
+    }
+
+    nft_transfer_report_worst_case {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        // 50 active compliance requirements are set; statistics are not read by nft_transfer_report
+        let (asset_id, sender, receiver, _) =
+            setup_nft_transfer::<T>(&alice, &bob, 1, None, None, false, 0, false);
+    }: {
+        assert!(
+            Pallet::<T>::nft_transfer_report(
+                &sender,
+                &receiver,
+                &NFTs::new_unverified(asset_id, vec![NFTId(1)]),
+                false,
+                &mut weight_meter
+            )
+            .is_empty()
+        );
     }
 
 }
