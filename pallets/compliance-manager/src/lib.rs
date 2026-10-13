@@ -85,7 +85,6 @@ use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
 use sp_std::{convert::From, prelude::*};
 
-use pallet_base::ensure_length_ok;
 use pallet_external_agents::{Config as EAConfig, GroupOfAgent};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::compliance_manager::{
@@ -126,6 +125,15 @@ pub mod pallet {
         /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
         #[pallet::constant]
         type MaxConditionComplexity: Get<u32>;
+
+        /// The maximum number of trusted issuers allowed in the default trusted claim issuers of an asset
+        /// and in the `issuers` list of each condition.
+        #[pallet::constant]
+        type MaximumNumberOfTrustedIssuers: Get<u32>;
+
+        /// The maximum number of claim types a trusted issuer can be trusted for (`TrustedFor::Specific`).
+        #[pallet::constant]
+        type MaxTrustedIssuerClaimTypes: Get<u32>;
     }
 
     #[pallet::event]
@@ -262,6 +270,10 @@ pub mod pallet {
         WeightLimitExceeded,
         /// `IsAnyOf` and `IsNoneOf` conditions must have at least one claim.
         EmptyClaimsInCondition,
+        /// The number of trusted issuers exceeds `MaximumNumberOfTrustedIssuers`.
+        TooManyTrustedIssuers,
+        /// The number of claim types of a trusted issuer exceeds `MaxTrustedIssuerClaimTypes`.
+        TooManyTrustedIssuerClaimTypes,
     }
 
     #[pallet::pallet]
@@ -593,7 +605,7 @@ impl<T: Config> Pallet<T> {
         TrustedClaimIssuer::<T>::try_mutate(asset_id, |issuers| {
             // Ensure we don't have too many issuers now in total.
             let new_count = issuers.len().saturating_add(1);
-            ensure_length_ok::<T>(new_count)?;
+            Self::ensure_trusted_issuers_count_limited(new_count)?;
 
             // Ensure the new issuer is new.
             ensure!(
@@ -821,17 +833,31 @@ impl<T: Config> Pallet<T> {
                 !cond.condition_type.has_empty_claims(),
                 Error::<T>::EmptyClaimsInCondition
             );
-            ensure_length_ok::<T>(cond.issuers.len())?;
+            Self::ensure_trusted_issuers_count_limited(cond.issuers.len())?;
             cond.issuers
                 .iter()
                 .try_for_each(Self::ensure_issuer_limited)
         })
     }
 
+    fn ensure_trusted_issuers_count_limited(count: usize) -> DispatchResult {
+        ensure!(
+            count <= T::MaximumNumberOfTrustedIssuers::get() as usize,
+            Error::<T>::TooManyTrustedIssuers
+        );
+        Ok(())
+    }
+
     fn ensure_issuer_limited(issuer: &TrustedIssuer) -> DispatchResult {
         match &issuer.trusted_for {
             TrustedFor::Any => Ok(()),
-            TrustedFor::Specific(cts) => ensure_length_ok::<T>(cts.len()),
+            TrustedFor::Specific(cts) => {
+                ensure!(
+                    cts.len() <= T::MaxTrustedIssuerClaimTypes::get() as usize,
+                    Error::<T>::TooManyTrustedIssuerClaimTypes
+                );
+                Ok(())
+            }
         }
     }
 

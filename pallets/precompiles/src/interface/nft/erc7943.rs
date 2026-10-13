@@ -27,8 +27,9 @@ use polymesh_precompiles::{INonFungibleAsset, INonFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::nft::NFTs;
 use polymesh_primitives::WeightMeter;
+use sp_runtime::Weight;
 
-use crate::common::Common;
+use crate::common::{revert, Common, ERR_WEIGHT_LIMIT_EXCEEDED};
 use crate::interface::nft::NonFungibleAssetInterface;
 use crate::Config;
 
@@ -39,8 +40,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         call: &INonFungibleAsset::canTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        // `nft_transfer_report` performs the same checks as a single-NFT transfer.
-        let worst_case_weight = <T as pallet_nft::Config>::WeightInfo::base_nft_transfer(1);
+        let best_case_weight =
+            <T as pallet_nft::Config>::WeightInfo::nft_transfer_report_best_case();
+        let worst_case_weight =
+            <T as pallet_nft::Config>::WeightInfo::nft_transfer_report_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
         let nft_id = Self::nft_id(call.tokenId)?;
@@ -48,7 +51,11 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let to = Common::<T>::asset_holder(env, call.to)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        // The best case covers the fixed work, the meter only gets the variable rest
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            Weight::zero(),
+            worst_case_weight.saturating_sub(best_case_weight),
+        );
         let errors = pallet_nft::Pallet::<T>::nft_transfer_report(
             &from,
             &to,
@@ -57,10 +64,12 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             &mut weight_meter,
         );
 
-        let consumed = weight_meter.consumed();
-        if consumed.ref_time() < worst_case_weight.ref_time() {
-            env.adjust_gas(charged, consumed);
+        if weight_meter.limit_exceeded() {
+            return Err(revert(ERR_WEIGHT_LIMIT_EXCEEDED));
         }
+
+        let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
+        env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
         Ok(INonFungibleAsset::canTransferCall::abi_encode_returns(
             &errors.is_empty(),
@@ -122,13 +131,19 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         call: &INonFungibleAsset::canSendCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        let best_case_weight =
+            <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_best_case();
         let worst_case_weight =
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
         let sender = Common::<T>::asset_holder(env, call.account)?;
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        // The best case covers the fixed work, the meter only gets the variable rest
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            Weight::zero(),
+            worst_case_weight.saturating_sub(best_case_weight),
+        );
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(
             &sender,
             &asset_id,
@@ -136,13 +151,12 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             &mut weight_meter,
         );
 
-        let best_case_weight =
-            <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_best_case();
-        let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
-
-        if real_consumed_weight.ref_time() < worst_case_weight.ref_time() {
-            env.adjust_gas(charged, real_consumed_weight);
+        if weight_meter.limit_exceeded() {
+            return Err(revert(ERR_WEIGHT_LIMIT_EXCEEDED));
         }
+
+        let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
+        env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
         Ok(INonFungibleAsset::canSendCall::abi_encode_returns(&allowed))
     }
@@ -153,13 +167,19 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         call: &INonFungibleAsset::canReceiveCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        let best_case_weight =
+            <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_best_case();
         let worst_case_weight =
             <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
         let receiver = Common::<T>::asset_holder(env, call.account)?;
 
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        // The best case covers the fixed work, the meter only gets the variable rest
+        let mut weight_meter = WeightMeter::from_limit_unchecked(
+            Weight::zero(),
+            worst_case_weight.saturating_sub(best_case_weight),
+        );
         let allowed = pallet_asset::Pallet::<T>::transfer_is_allowed_for_holder(
             &receiver,
             &asset_id,
@@ -167,13 +187,12 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             &mut weight_meter,
         );
 
-        let best_case_weight =
-            <T as pallet_asset::Config>::WeightInfo::transfer_is_allowed_for_holder_best_case();
-        let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
-
-        if real_consumed_weight.ref_time() < worst_case_weight.ref_time() {
-            env.adjust_gas(charged, real_consumed_weight);
+        if weight_meter.limit_exceeded() {
+            return Err(revert(ERR_WEIGHT_LIMIT_EXCEEDED));
         }
+
+        let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
+        env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
         Ok(INonFungibleAsset::canReceiveCall::abi_encode_returns(
             &allowed,

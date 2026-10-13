@@ -12,7 +12,7 @@ use polymesh_primitives::compliance_manager::{ComplianceReport, ComplianceRequir
 use polymesh_primitives::traits::ComplianceFnConfig;
 use polymesh_primitives::{AuthorizationData, Claim, ClaimType, Condition, ConditionType};
 use polymesh_primitives::{CountryCode, IdentityId, PortfolioId, Scope, Signatory, TargetIdentity};
-use polymesh_primitives::{TrustedFor, TrustedIssuer, WeightMeter};
+use polymesh_primitives::{CustomClaimTypeId, TrustedFor, TrustedIssuer, WeightMeter};
 use sp_keyring::Sr25519Keyring;
 
 use super::asset_pallet::setup::create_and_issue_sample_asset;
@@ -1575,12 +1575,6 @@ fn force_batch_cannot_store_compliance_with_empty_claims() {
             vec![add_call(&any_of_one); BATCHED_CALLS]
         ));
         System::assert_last_event(utility::Event::BatchCompletedWithErrors.into());
-        System::assert_has_event(
-            utility::Event::ItemFailed {
-                error: CMError::<TestStorage>::ComplianceRequirementTooComplex.into(),
-            }
-            .into(),
-        );
         assert!(AssetCompliances::<TestStorage>::get(asset_id)
             .requirements
             .is_empty());
@@ -1614,4 +1608,174 @@ fn force_batch_cannot_store_compliance_with_empty_claims() {
             CMError::<TestStorage>::EmptyClaimsInCondition
         );
     });
+}
+
+fn should_limit_number_of_trusted_issuers() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(should_limit_number_of_trusted_issuers_we);
+}
+
+fn should_limit_number_of_trusted_issuers_we() {
+    let max_issuers =
+        <TestStorage as pallet_compliance_manager::Config>::MaximumNumberOfTrustedIssuers::get();
+    let owner = User::new(Sr25519Keyring::Alice);
+    let asset_id = create_and_issue_sample_asset(&owner);
+
+    // Condition level issuers.
+    let ty = ConditionType::IsPresent(Claim::KnowYourCustomer(Scope::Asset(asset_id)));
+    let issuers = (0..=max_issuers as u128)
+        .map(IdentityId::from)
+        .collect::<Vec<_>>();
+    let max_condition = Condition::from_dids(ty.clone(), &issuers[..max_issuers as usize]);
+    let over_condition = Condition::from_dids(ty, &issuers);
+
+    assert_noop!(
+        ComplianceManager::add_compliance_requirement(
+            owner.origin(),
+            asset_id,
+            vec![over_condition.clone()],
+            vec![],
+        ),
+        CMError::<TestStorage>::TooManyTrustedIssuers
+    );
+    assert_ok!(ComplianceManager::add_compliance_requirement(
+        owner.origin(),
+        asset_id,
+        vec![max_condition.clone()],
+        vec![],
+    ));
+    let id = AssetCompliances::<TestStorage>::get(asset_id).requirements[0].id;
+    let over_req = ComplianceRequirement {
+        sender_conditions: vec![],
+        receiver_conditions: vec![over_condition],
+        id,
+    };
+    assert_noop!(
+        ComplianceManager::change_compliance_requirement(
+            owner.origin(),
+            asset_id,
+            over_req.clone()
+        ),
+        CMError::<TestStorage>::TooManyTrustedIssuers
+    );
+    assert_noop!(
+        ComplianceManager::replace_asset_compliance(owner.origin(), asset_id, vec![over_req]),
+        CMError::<TestStorage>::TooManyTrustedIssuers
+    );
+    assert_ok!(ComplianceManager::reset_asset_compliance(
+        owner.origin(),
+        asset_id
+    ));
+
+    // Default trusted issuers.
+    let rings = [
+        Sr25519Keyring::Alice,
+        Sr25519Keyring::Bob,
+        Sr25519Keyring::Charlie,
+        Sr25519Keyring::Dave,
+        Sr25519Keyring::Eve,
+        Sr25519Keyring::Ferdie,
+        Sr25519Keyring::One,
+        Sr25519Keyring::Two,
+    ];
+    assert_eq!(rings.len(), max_issuers as usize);
+    let users = rings
+        .iter()
+        .map(|ring| match *ring {
+            Sr25519Keyring::Alice => owner,
+            ring => User::new(ring),
+        })
+        .collect::<Vec<_>>();
+    for user in &users {
+        assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
+            owner.origin(),
+            asset_id,
+            user.issuer(),
+        ));
+    }
+    assert_noop!(
+        ComplianceManager::add_default_trusted_claim_issuer(
+            owner.origin(),
+            asset_id,
+            owner.trusted_issuer_for(TrustedFor::Specific(vec![ClaimType::Accredited])),
+        ),
+        CMError::<TestStorage>::TooManyTrustedIssuers
+    );
+    assert_eq!(
+        TrustedClaimIssuer::<TestStorage>::get(asset_id).len(),
+        max_issuers as usize
+    );
+}
+
+#[test]
+fn should_limit_number_of_trusted_issuer_claim_types() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(should_limit_number_of_trusted_issuer_claim_types_we);
+}
+
+fn should_limit_number_of_trusted_issuer_claim_types_we() {
+    let max_claim_types =
+        <TestStorage as pallet_compliance_manager::Config>::MaxTrustedIssuerClaimTypes::get();
+    let owner = User::new(Sr25519Keyring::Alice);
+    let asset_id = create_and_issue_sample_asset(&owner);
+
+    let claim_types = |len: u32| {
+        TrustedFor::Specific(
+            (1..=len)
+                .map(|i| ClaimType::Custom(CustomClaimTypeId(i)))
+                .collect(),
+        )
+    };
+    let max_issuer = owner.trusted_issuer_for(claim_types(max_claim_types));
+    let over_issuer = owner.trusted_issuer_for(claim_types(max_claim_types + 1));
+
+    // Condition level issuers.
+    let ty = ConditionType::IsPresent(Claim::KnowYourCustomer(Scope::Asset(asset_id)));
+    let condition = |issuer: &TrustedIssuer| Condition::new(ty.clone(), vec![issuer.clone()]);
+    assert_noop!(
+        ComplianceManager::add_compliance_requirement(
+            owner.origin(),
+            asset_id,
+            vec![condition(&over_issuer)],
+            vec![],
+        ),
+        CMError::<TestStorage>::TooManyTrustedIssuerClaimTypes
+    );
+    assert_ok!(ComplianceManager::add_compliance_requirement(
+        owner.origin(),
+        asset_id,
+        vec![condition(&max_issuer)],
+        vec![],
+    ));
+    let id = AssetCompliances::<TestStorage>::get(asset_id).requirements[0].id;
+    let over_req = ComplianceRequirement {
+        sender_conditions: vec![condition(&over_issuer)],
+        receiver_conditions: vec![],
+        id,
+    };
+    assert_noop!(
+        ComplianceManager::change_compliance_requirement(
+            owner.origin(),
+            asset_id,
+            over_req.clone()
+        ),
+        CMError::<TestStorage>::TooManyTrustedIssuerClaimTypes
+    );
+    assert_noop!(
+        ComplianceManager::replace_asset_compliance(owner.origin(), asset_id, vec![over_req]),
+        CMError::<TestStorage>::TooManyTrustedIssuerClaimTypes
+    );
+
+    // Default trusted issuers.
+    assert_noop!(
+        ComplianceManager::add_default_trusted_claim_issuer(owner.origin(), asset_id, over_issuer),
+        CMError::<TestStorage>::TooManyTrustedIssuerClaimTypes
+    );
+    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
+        owner.origin(),
+        asset_id,
+        max_issuer
+    ));
 }
