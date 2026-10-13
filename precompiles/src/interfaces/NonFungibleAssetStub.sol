@@ -145,7 +145,7 @@ interface INonFungibleAsset {
 
     /// @dev Returns true if this contract implements the interface defined by `interfaceId`.
     ///
-    /// Reports `true` for `IERC165`, `IERC721` and `IERC721Metadata`.
+    /// Reports `true` for `IERC165`, `IERC721`, `IERC721Metadata` and `IERC7943NonFungible`.
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
     // ============================================================
@@ -167,6 +167,8 @@ interface INonFungibleAsset {
 
     /// @dev Redeems (burns) the `tokenId` NFT held by the caller's account key.
     ///
+    /// Reverts if the token is frozen for the caller; unfreeze it first.
+    ///
     /// Emits a {Transfer} event to the zero address.
     function burn(uint256 tokenId) external returns (bool);
 
@@ -177,14 +179,32 @@ interface INonFungibleAsset {
     /// @dev Emitted when a token is forcibly transferred by an agent of the collection.
     event ForcedTransfer(address indexed from, address indexed to, uint256 indexed tokenId);
 
+    /// @dev Emitted when `tokenId` is frozen or unfrozen for `account`.
+    event Frozen(address indexed account, uint256 indexed tokenId, bool indexed frozenStatus);
+
     /// @dev Returns true if `tokenId` can currently be transferred from `from` to `to`.
     function canTransfer(address from, address to, uint256 tokenId) external view returns (bool);
 
     /// @dev Forcibly transfers `tokenId` from `from` to `to`, bypassing compliance and
     /// frozen checks. The caller must be an agent of the collection.
     ///
+    /// If the token was frozen for `from`, it is unfrozen first and a {Frozen} event is emitted
+    /// before the {Transfer} event.
+    ///
     /// Emits {ForcedTransfer} and {Transfer} events.
     function forcedTransfer(address from, address to, uint256 tokenId) external returns (bool);
+
+    /// @dev Freezes (`frozenStatus` true) or unfreezes `tokenId` for `account`. A frozen token
+    /// can't be transferred or burned while `account` holds it. The token need not be held by
+    /// `account` yet; the freeze applies if it arrives. The caller must be an agent of the
+    /// collection.
+    ///
+    /// Emits a {Frozen} event.
+    function setFrozenTokens(address account, uint256 tokenId, bool frozenStatus) external returns (bool);
+
+    /// @dev Returns true if `tokenId` is frozen for `account`. It can be true even if `account`
+    /// does not hold the token.
+    function getFrozenTokens(address account, uint256 tokenId) external view returns (bool);
 
     /// @dev Returns true if `account` is currently allowed to send tokens of this collection.
     function canSend(address account) external view returns (bool);
@@ -305,6 +325,19 @@ contract NonFungibleAssetStub is INonFungibleAsset {
 
     function canReceive(address account) external view override returns (bool) {
         account;
+        revert NotExecutable();
+    }
+
+    function setFrozenTokens(address account, uint256 tokenId, bool frozenStatus) external override returns (bool) {
+        account;
+        tokenId;
+        frozenStatus;
+        revert NotExecutable();
+    }
+
+    function getFrozenTokens(address account, uint256 tokenId) external view override returns (bool) {
+        account;
+        tokenId;
         revert NotExecutable();
     }
 }
