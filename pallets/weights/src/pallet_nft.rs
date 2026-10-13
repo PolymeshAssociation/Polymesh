@@ -159,6 +159,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(5))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads(1))
     }
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
     // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
@@ -192,6 +194,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -227,6 +231,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -268,6 +275,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -325,7 +335,10 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
         // Not generated: one more read than measured, for checking in `Portfolio::Portfolios` that
         // the receiving portfolio exists, until this benchmark is run again.
         // Minimum execution time: 104_180 nanoseconds.
-        Weight::from_parts(107_960_000, 0).saturating_add(DbWeight::get().reads(10))
+        Weight::from_parts(107_960_000, 0)
+            .saturating_add(DbWeight::get().reads(10))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads(1))
     }
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
     // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
@@ -351,15 +364,22 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
         // Not generated: one more read than measured, for checking in `Portfolio::Portfolios` that
         // the receiving portfolio exists, until this benchmark is run again.
         // Minimum execution time: 285_700 nanoseconds.
-        Weight::from_parts(294_620_000, 0).saturating_add(DbWeight::get().reads(61))
+        Weight::from_parts(294_620_000, 0)
+            .saturating_add(DbWeight::get().reads(61))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads(1))
     }
-    // TODO: placeholder until `set_nfts_frozen` is benchmarked on the reference machine. Sized
-    // conservatively from `Asset::set_holder_frozen` (same agent permission checks).
-    // Storage: `Identity::KeyRecords` (r:2 w:0)
-    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
-    // Storage: `ExternalAgents::GroupPermissions` (r:1 w:0)
+    // TODO: re-benchmark `set_nfts_frozen` on the reference machine. The execution times are
+    // placeholders; the storage accesses below are from a local benchmark run.
+    // Storage: `Identity::KeyRecords` (r:1 w:0)
+    // Storage: `Identity::IsDidFrozen` (r:1 w:0)
+    // Storage: `Identity::KeyAssetPermissions` (r:1 w:0)
+    // Storage: `Identity::KeyExtrinsicPermissions` (r:1 w:0)
+    // Storage: `Identity::KeyPortfolioPermissions` (r:1 w:0)
     // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
     // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Storage: `ExternalAgents::GroupPermissions` (r:1 w:0)
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
     // Storage: `Identity::DidRecords` (r:1 w:0)
     // Storage: `Portfolio::Portfolios` (r:1 w:0)
@@ -368,7 +388,7 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     fn set_nfts_frozen(n: u32) -> Weight {
         Weight::from_parts(50_000_000, 0)
             .saturating_add(Weight::from_parts(15_000_000, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
