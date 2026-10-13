@@ -163,7 +163,9 @@ interface IFungibleAsset {
     /// @param amount The amount seized.
     event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
 
-    /// @notice Emitted when `setFrozenTokens` is called, changing the frozen `amount` of tokens for `account`.
+    /// @notice Emitted on every `setFrozenTokens` call, even when the amount is unchanged, as ERC-7943
+    /// requires. Also emitted by `freezePartialTokens`, `unfreezePartialTokens`, and by a `forcedTransfer`
+    /// that has to unfreeze tokens, in which case it comes before the `Transfer` event.
     /// @param account The address of the account whose tokens are being frozen.
     /// @param amount The amount of tokens frozen after the change.
     event Frozen(address indexed account, uint256 amount);

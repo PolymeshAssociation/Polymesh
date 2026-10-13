@@ -22,7 +22,7 @@ use pallet_revive::precompiles::Ext;
 
 use pallet_asset::WeightInfo;
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
-use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::{AssetHolder, AssetId};
 use polymesh_primitives::{Balance, WeightMeter};
 use sp_runtime::Weight;
 
@@ -94,9 +94,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         let value = Common::<T>::to_balance(call.amount)?;
 
         // A controller transfer unfreezes the source's tokens when its free balance is too low
-        env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
-        let frozen_before =
-            pallet_asset::Pallet::<T>::get_holders_frozen_balance(&source, &asset_id);
+        let frozen_before = Self::frozen_balance(env, &source, &asset_id)?;
 
         Common::<T>::call_runtime(
             env,
@@ -112,9 +110,7 @@ impl<T: Config> FungibleAssetInterface<T> {
 
         // Only a source that had frozen tokens can have had some unfrozen
         if frozen_before > 0 {
-            env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
-            let frozen_after =
-                pallet_asset::Pallet::<T>::get_holders_frozen_balance(&source, &asset_id);
+            let frozen_after = Self::frozen_balance(env, &source, &asset_id)?;
             if frozen_after != frozen_before {
                 Self::deposit_frozen_change(env, call.from, frozen_before, frozen_after)?;
             }
@@ -145,6 +141,10 @@ impl<T: Config> FungibleAssetInterface<T> {
     }
 
     /// Freezes a specific amount of tokens for a given account.
+    ///
+    /// Always emits `Frozen` with the new total, even when it is unchanged, as ERC-7943 requires.
+    /// So ERC-3643 consumers see the change too, `TokensFrozen` or `TokensUnfrozen` with the
+    /// difference is emitted first when there is one.
     pub(crate) fn set_frozen_tokens(
         asset_id: AssetId,
         call: &IFungibleAsset::setFrozenTokensCall,
@@ -153,6 +153,8 @@ impl<T: Config> FungibleAssetInterface<T> {
         let caller = Common::<T>::caller(env)?;
         let acc_to_freeze = Common::<T>::asset_holder(env, call.account)?;
         let amount = Common::<T>::to_balance(call.amount)?;
+
+        let frozen_before = Self::frozen_balance(env, &acc_to_freeze, &asset_id)?;
 
         Common::<T>::call_runtime(
             env,
@@ -165,13 +167,8 @@ impl<T: Config> FungibleAssetInterface<T> {
             },
         )?;
 
-        Common::<T>::deposit_event(
-            env,
-            IFungibleAssetEvents::Frozen(IFungibleAsset::Frozen {
-                account: call.account.into(),
-                amount: call.amount,
-            }),
-        )?;
+        // ERC-7943 requires `Frozen` on every call, even when the amount is unchanged
+        Self::deposit_frozen_change(env, call.account, frozen_before, amount)?;
 
         Ok(IFungibleAsset::setFrozenTokensCall::abi_encode_returns(
             &true,
@@ -184,11 +181,9 @@ impl<T: Config> FungibleAssetInterface<T> {
         call: &IFungibleAsset::getFrozenTokensCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
-
         let from = Common::<T>::asset_holder(env, call.account)?;
 
-        let frozen_tokens = pallet_asset::Pallet::<T>::get_holders_frozen_balance(&from, &asset_id);
+        let frozen_tokens = Self::frozen_balance(env, &from, &asset_id)?;
         let frozen_tokens = Common::<T>::to_u256(frozen_tokens)?;
 
         Ok(IFungibleAsset::getFrozenTokensCall::abi_encode_returns(
@@ -268,10 +263,28 @@ impl<T: Config> FungibleAssetInterface<T> {
         Ok(IFungibleAsset::canReceiveCall::abi_encode_returns(&allowed))
     }
 
+    /// Reads `holder`'s frozen balance of `asset_id`, charging the weight of the read.
+    ///
+    /// Every frozen-balance read in this precompile goes through here, so none can skip the charge.
+    pub(crate) fn frozen_balance(
+        env: &mut impl Ext<T = T>,
+        holder: &AssetHolder,
+        asset_id: &AssetId,
+    ) -> Result<Balance, Error> {
+        env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
+        Ok(pallet_asset::Pallet::<T>::get_holders_frozen_balance(
+            holder, asset_id,
+        ))
+    }
+
     /// Logs a change of `account`'s frozen tokens from `before` to `after`, for both standards.
     ///
     /// Emits `TokensFrozen` or `TokensUnfrozen` (ERC-3643) with the difference, when there is
     /// one, then `Frozen` (ERC-7943) with the new total. `Frozen` is always emitted.
+    ///
+    /// For calls whose ERC-3643 event reports the requested amount on every call
+    /// (`freezePartialTokens`/`unfreezePartialTokens`), emit that event and then use
+    /// [`Self::deposit_frozen_total`] instead.
     pub(crate) fn deposit_frozen_change(
         env: &mut impl Ext<T = T>,
         account: Address,
