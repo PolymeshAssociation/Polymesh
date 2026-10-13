@@ -347,4 +347,23 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
         // Minimum execution time: 285_700 nanoseconds.
         Weight::from_parts(294_620_000, 0).saturating_add(DbWeight::get().reads(60))
     }
+    // TODO: placeholder until `set_nfts_frozen` is benchmarked on the reference machine. Sized
+    // conservatively from `Asset::set_holder_frozen` (same agent permission checks).
+    // Storage: `Identity::KeyRecords` (r:2 w:0)
+    // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
+    // Storage: `ExternalAgents::GroupPermissions` (r:1 w:0)
+    // Storage: `Permissions::CurrentPalletName` (r:1 w:0)
+    // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
+    // Storage: `Nft::CollectionAsset` (r:1 w:0)
+    // Storage: `Identity::DidRecords` (r:1 w:0)
+    // Storage: `Portfolio::Portfolios` (r:1 w:0)
+    // Storage: `Nft::Owner` (r:10 w:0)
+    // Storage: `Nft::FrozenNFT` (r:0 w:10)
+    fn set_nfts_frozen(n: u32) -> Weight {
+        Weight::from_parts(50_000_000, 0)
+            .saturating_add(Weight::from_parts(15_000_000, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+    }
 }

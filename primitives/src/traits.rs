@@ -17,7 +17,7 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
-use crate::asset::AssetId;
+use crate::asset::{AssetHolder, AssetId};
 use crate::asset_metadata::AssetMetadataKey;
 use crate::transaction_payment::CallPaymentInfo;
 use crate::{Balance, IdentityId, NFTId, PortfolioId, SecondaryKey, WeightMeter};
@@ -154,6 +154,8 @@ pub trait NFTTrait<Origin> {
     fn is_collection_key(asset_id: &AssetId, metadata_key: &AssetMetadataKey) -> bool;
     /// Updates the Owner storage after moving funds between portfolios.
     fn update_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId);
+    /// Returns `true` if the `nft_id` of the `asset_id` is frozen for `asset_holder`.
+    fn is_nft_frozen(asset_id: &AssetId, nft_id: &NFTId, asset_holder: &AssetHolder) -> bool;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
