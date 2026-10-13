@@ -70,7 +70,8 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::convert::From;
 use frame_support::dispatch::{
-    DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+    DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
+    PostDispatchInfo,
 };
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
@@ -1124,11 +1125,17 @@ impl<T: Config> Pallet<T> {
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
         // Ensure `max_weight` was enough to cover the worst-case weight.
+        // The proposal has already been loaded, so don't refund that work.
         let proposal_weight = proposal.get_dispatch_info().call_weight;
-        ensure!(
-            proposal_weight.all_lte(max_weight),
-            Error::<T>::MaxWeightTooLow
-        );
+        if !proposal_weight.all_lte(max_weight) {
+            return Err(DispatchErrorWithPostInfo {
+                post_info: Some(
+                    proposal_weight.saturating_add(<T as Config>::WeightInfo::execute_proposal()),
+                )
+                .into(),
+                error: Error::<T>::MaxWeightTooLow.into(),
+            });
+        }
 
         let (result, actual_weight) =
             match with_call_metadata::<T, _>(proposal.get_call_metadata(), || {
