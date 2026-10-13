@@ -166,6 +166,8 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(3))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
