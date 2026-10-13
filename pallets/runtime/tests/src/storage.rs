@@ -573,11 +573,8 @@ parameter_types! {
     pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
 
     pub const MaxConditionComplexity: u32 = 50;
-    pub const MaxDefaultTrustedClaimIssuers: usize = 10;
-    pub const MaxTrustedIssuerPerCondition: usize = 10;
-    pub const MaxSenderConditionsPerCompliance: usize = 30;
-    pub const MaxReceiverConditionsPerCompliance: usize = 30;
-    pub const MaxCompliancePerRequirement: usize = 10;
+    pub const MaximumNumberOfTrustedIssuers: u32 = 8;
+    pub const MaxTrustedIssuerClaimTypes: u32 = 16;
 
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;

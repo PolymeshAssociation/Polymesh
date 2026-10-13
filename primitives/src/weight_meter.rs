@@ -21,6 +21,7 @@ use scale_info::prelude::string::String;
 pub struct WeightMeter {
     minimum_charge: Weight,
     meter: FrameWeightMeter,
+    limit_exceeded: bool,
 }
 
 impl WeightMeter {
@@ -39,6 +40,7 @@ impl WeightMeter {
         Self {
             minimum_charge,
             meter: FrameWeightMeter::with_limit(limit),
+            limit_exceeded: false,
         }
     }
 
@@ -51,6 +53,7 @@ impl WeightMeter {
         Some(Self {
             minimum_charge,
             meter: FrameWeightMeter::with_limit(limit),
+            limit_exceeded: false,
         })
     }
 
@@ -59,6 +62,7 @@ impl WeightMeter {
         Self {
             minimum_charge,
             meter: FrameWeightMeter::new(),
+            limit_exceeded: false,
         }
     }
 
@@ -67,6 +71,7 @@ impl WeightMeter {
         Self {
             minimum_charge: Weight::zero(),
             meter: FrameWeightMeter::new(),
+            limit_exceeded: false,
         }
     }
 
@@ -83,11 +88,17 @@ impl WeightMeter {
         self.meter.limit()
     }
 
+    /// Returns `true` if any attempt to consume weight went over the limit.
+    pub fn limit_exceeded(&self) -> bool {
+        self.limit_exceeded
+    }
+
     /// Consumes the given weight after checking that it can be consumed. Returns an error otherwise.
     pub fn check_accrue(&mut self, weight: Weight) -> Result<(), String> {
-        self.meter
-            .try_consume(weight)
-            .map_err(|_| "Maximum weight limit exceeded")?;
+        if self.meter.try_consume(weight).is_err() {
+            self.limit_exceeded = true;
+            return Err(String::from("Maximum weight limit exceeded"));
+        }
         Ok(())
     }
 

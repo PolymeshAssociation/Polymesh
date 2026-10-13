@@ -3525,7 +3525,7 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     /// Ensure asset metadata `value` is within the global limit.
-    fn ensure_asset_metadata_value_limited(value: &AssetMetadataValue) -> DispatchResult {
+    pub fn ensure_asset_metadata_value_limited(value: &AssetMetadataValue) -> DispatchResult {
         ensure!(
             value.len() <= T::AssetMetadataValueMaxLength::get() as usize,
             Error::<T>::AssetMetadataValueMaxLengthExceeded
