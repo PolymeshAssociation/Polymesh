@@ -1545,6 +1545,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Removes the NFT from the current holder.
+    ///
+    /// Every path that takes an NFT away from a holder ends here (or in
+    /// `pallet_portfolio::remove_nft_from_portfolio` for portfolio holders), so this is where a
+    /// per-NFT freeze is finally enforced. Callers validate first to report a specific error;
+    /// controller transfers unfreeze the NFTs before calling this.
     fn remove_nft_from_asset_holder(
         asset_id: &AssetId,
         nft_id: &NFTId,
@@ -1570,7 +1575,7 @@ impl<T: Config> Pallet<T> {
                 TokenApproval::<T>::remove(asset_id, nft_id);
             }
             AssetHolder::Portfolio(portfolio_id) => {
-                PortfolioPallet::<T>::remove_nft_from_portfolio(portfolio_id, asset_id, nft_id);
+                PortfolioPallet::<T>::remove_nft_from_portfolio(portfolio_id, asset_id, nft_id)?;
             }
         }
         Owner::<T>::remove(asset_id, nft_id);
