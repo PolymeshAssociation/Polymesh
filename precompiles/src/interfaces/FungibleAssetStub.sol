@@ -213,6 +213,16 @@ interface IFungibleAsset {
     function canReceive(address account) external view returns (bool);
 
     // ============================================================
+    // IERC165 - Standard Interface Detection
+    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/IERC165.sol
+    // ============================================================
+
+    /// @dev Returns true if this contract implements the interface defined by `interfaceId`.
+    ///
+    /// Reports `true` for `IERC165` and `IERC7943Fungible`, as ERC-7943 requires.
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+
+    // ============================================================
     // ERC-3643
     // ============================================================
 
@@ -387,6 +397,11 @@ contract FungibleAssetStub is IFungibleAsset {
 
     function canReceive(address account) external view override returns (bool) {
         account;
+        revert NotExecutable();
+    }
+
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        interfaceId;
         revert NotExecutable();
     }
 

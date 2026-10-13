@@ -1,6 +1,5 @@
-use pallet_precompiles::interface::nft::{
-    ERC165_INTERFACE_ID, ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID,
-};
+use pallet_precompiles::interface::nft::{ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID};
+use pallet_precompiles::interface::ERC165_INTERFACE_ID;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use polymesh_precompiles::INonFungibleAsset;
 

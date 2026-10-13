@@ -15,6 +15,7 @@
 
 use alloc::vec::Vec;
 
+use pallet_revive::precompiles::alloy::primitives::Address;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -22,11 +23,13 @@ use pallet_revive::precompiles::Ext;
 use pallet_asset::WeightInfo;
 use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
-use polymesh_primitives::WeightMeter;
+use polymesh_primitives::{Balance, WeightMeter};
 use sp_runtime::Weight;
 
 use crate::common::{revert, Common, ERR_WEIGHT_LIMIT_EXCEEDED};
-use crate::interface::FungibleAssetInterface;
+use crate::interface::{
+    FungibleAssetInterface, ERC165_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID,
+};
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
@@ -74,6 +77,11 @@ impl<T: Config> FungibleAssetInterface<T> {
 
     /// Takes tokens from one address and transfers them to another.
     ///
+    /// Emits `Transfer` then `ForcedTransfer`, the order of the ERC-7943 reference
+    /// implementation. If the transfer had to unfreeze some of the source's tokens,
+    /// `TokensUnfrozen` (ERC-3643) and `Frozen` (ERC-7943) are emitted first, as ERC-7943
+    /// requires the frozen change to be logged before the transfer.
+    ///
     /// Only an asset holder account is supported as the destination for now.
     pub(crate) fn forced_transfer(
         asset_id: AssetId,
@@ -85,6 +93,11 @@ impl<T: Config> FungibleAssetInterface<T> {
         let destination = Common::<T>::asset_holder(env, call.to)?;
         let value = Common::<T>::to_balance(call.amount)?;
 
+        // A controller transfer unfreezes the source's tokens when its free balance is too low
+        env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
+        let frozen_before =
+            pallet_asset::Pallet::<T>::get_holders_frozen_balance(&source, &asset_id);
+
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
@@ -92,26 +105,37 @@ impl<T: Config> FungibleAssetInterface<T> {
             pallet_asset::Call::<T>::controller_transfer_to {
                 asset_id,
                 value,
-                source,
+                source: source.clone(),
                 destination,
             },
         )?;
 
-        Common::<T>::deposit_event(
-            env,
-            IFungibleAssetEvents::ForcedTransfer(IFungibleAsset::ForcedTransfer {
-                from: call.from.into(),
-                to: call.to.into(),
-                amount: call.amount,
-            }),
-        )?;
+        // Only a source that had frozen tokens can have had some unfrozen
+        if frozen_before > 0 {
+            env.charge(<T as pallet_asset::Config>::WeightInfo::get_holders_frozen_balance())?;
+            let frozen_after =
+                pallet_asset::Pallet::<T>::get_holders_frozen_balance(&source, &asset_id);
+            if frozen_after != frozen_before {
+                Self::deposit_frozen_change(env, call.from, frozen_before, frozen_after)?;
+            }
+        }
 
+        // Same order as the ERC-7943 reference implementation: the base `Transfer` first
         Common::<T>::deposit_event(
             env,
             IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
                 from: call.from,
                 to: call.to,
                 value: call.amount,
+            }),
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::ForcedTransfer(IFungibleAsset::ForcedTransfer {
+                from: call.from,
+                to: call.to,
+                amount: call.amount,
             }),
         )?;
 
@@ -242,5 +266,64 @@ impl<T: Config> FungibleAssetInterface<T> {
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
         Ok(IFungibleAsset::canReceiveCall::abi_encode_returns(&allowed))
+    }
+
+    /// Logs a change of `account`'s frozen tokens from `before` to `after`, for both standards.
+    ///
+    /// Emits `TokensFrozen` or `TokensUnfrozen` (ERC-3643) with the difference, when there is
+    /// one, then `Frozen` (ERC-7943) with the new total. `Frozen` is always emitted.
+    pub(crate) fn deposit_frozen_change(
+        env: &mut impl Ext<T = T>,
+        account: Address,
+        before: Balance,
+        after: Balance,
+    ) -> Result<(), Error> {
+        if after > before {
+            Common::<T>::deposit_event(
+                env,
+                IFungibleAssetEvents::TokensFrozen(IFungibleAsset::TokensFrozen {
+                    account,
+                    amount: Common::<T>::to_u256(after - before)?,
+                }),
+            )?;
+        } else if after < before {
+            Common::<T>::deposit_event(
+                env,
+                IFungibleAssetEvents::TokensUnfrozen(IFungibleAsset::TokensUnfrozen {
+                    account,
+                    amount: Common::<T>::to_u256(before - after)?,
+                }),
+            )?;
+        }
+
+        Self::deposit_frozen_total(env, account, after)
+    }
+
+    /// Emits the ERC-7943 `Frozen` event with `account`'s new frozen `total`.
+    pub(crate) fn deposit_frozen_total(
+        env: &mut impl Ext<T = T>,
+        account: Address,
+        total: Balance,
+    ) -> Result<(), Error> {
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::Frozen(IFungibleAsset::Frozen {
+                account,
+                amount: Common::<T>::to_u256(total)?,
+            }),
+        )
+    }
+
+    /// Returns whether `interfaceId` is one of the interfaces this precompile implements.
+    pub(crate) fn supports_interface(
+        call: &IFungibleAsset::supportsInterfaceCall,
+        _env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let id = call.interfaceId.0;
+        let supported = id == ERC165_INTERFACE_ID || id == ERC7943_FUNGIBLE_INTERFACE_ID;
+
+        Ok(IFungibleAsset::supportsInterfaceCall::abi_encode_returns(
+            &supported,
+        ))
     }
 }
