@@ -202,6 +202,17 @@ impl Token {
         Ok(can_transfer)
     }
 
+    pub async fn supports_interface(&self, interface_id: [u8; 4]) -> Result<bool> {
+        self.node
+            .call(
+                self.address,
+                &ierc20::supportsInterfaceCall {
+                    interfaceId: interface_id.into(),
+                },
+            )
+            .await
+    }
+
     pub async fn get_frozen_tokens(&self, account: Address) -> Result<u128> {
         let value = self
             .node

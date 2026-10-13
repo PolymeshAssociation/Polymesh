@@ -1,7 +1,8 @@
 use pallet_precompiles::interface::nft::{ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID};
-use pallet_precompiles::interface::ERC165_INTERFACE_ID;
-use pallet_revive::precompiles::alloy::sol_types::SolCall;
-use polymesh_precompiles::INonFungibleAsset;
+use pallet_precompiles::interface::{ERC165_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID};
+use pallet_revive::precompiles::alloy::sol_types::{SolCall, SolEvent};
+use polymesh_precompiles::{IFungibleAsset, INonFungibleAsset};
+use sp_core::hashing::keccak_256;
 
 /// An ERC-165 interface id is the XOR of the selectors of the interface's functions.
 fn xor(selectors: &[[u8; 4]]) -> [u8; 4] {
@@ -51,6 +52,90 @@ fn erc165_interface_ids_match_our_selectors() {
         ]),
         ERC721_METADATA_INTERFACE_ID,
         "IERC721Metadata interface id mismatch"
+    );
+}
+
+/// Same check for the fungible precompile, which reports `IERC165` and `IERC7943Fungible`.
+#[test]
+fn erc7943_fungible_interface_ids_match_our_selectors() {
+    assert_eq!(
+        xor(&[IFungibleAsset::supportsInterfaceCall::SELECTOR]),
+        ERC165_INTERFACE_ID,
+        "IERC165 interface id mismatch"
+    );
+
+    assert_eq!(
+        xor(&[
+            IFungibleAsset::forcedTransferCall::SELECTOR,
+            IFungibleAsset::setFrozenTokensCall::SELECTOR,
+            IFungibleAsset::canSendCall::SELECTOR,
+            IFungibleAsset::canReceiveCall::SELECTOR,
+            IFungibleAsset::getFrozenTokensCall::SELECTOR,
+            IFungibleAsset::canTransferCall::SELECTOR,
+        ]),
+        ERC7943_FUNGIBLE_INTERFACE_ID,
+        "IERC7943Fungible interface id mismatch"
+    );
+}
+
+/// The first four bytes of the keccak-256 hash of a canonical function signature.
+fn selector(signature: &str) -> [u8; 4] {
+    keccak_256(signature.as_bytes())[..4].try_into().unwrap()
+}
+
+/// Checks `IFungibleAsset` against the canonical `IERC7943Fungible` of the published EIP
+/// (<https://eips.ethereum.org/EIPS/eip-7943>, status Final).
+///
+/// `erc7943_fungible_interface_ids_match_our_selectors` only shows that our constant matches
+/// our own stub. It cannot catch the stub drifting from the standard, for example a renamed
+/// function or a changed parameter type, and the precompile would then claim an interface it
+/// does not implement. These signatures are copied from the EIP rather than generated from our
+/// stub, so a drift on either side fails here.
+#[test]
+fn erc7943_fungible_matches_the_published_standard() {
+    // (canonical signature, our generated selector)
+    let functions = [
+        (
+            "forcedTransfer(address,address,uint256)",
+            IFungibleAsset::forcedTransferCall::SELECTOR,
+        ),
+        (
+            "setFrozenTokens(address,uint256)",
+            IFungibleAsset::setFrozenTokensCall::SELECTOR,
+        ),
+        ("canSend(address)", IFungibleAsset::canSendCall::SELECTOR),
+        (
+            "canReceive(address)",
+            IFungibleAsset::canReceiveCall::SELECTOR,
+        ),
+        (
+            "getFrozenTokens(address)",
+            IFungibleAsset::getFrozenTokensCall::SELECTOR,
+        ),
+        (
+            "canTransfer(address,address,uint256)",
+            IFungibleAsset::canTransferCall::SELECTOR,
+        ),
+    ];
+    for (signature, ours) in functions {
+        assert_eq!(selector(signature), ours, "{signature} selector mismatch");
+    }
+
+    // The EIP states this id; recomputing it confirms the signature list above is complete.
+    let canonical: Vec<[u8; 4]> = functions.iter().map(|(sig, _)| selector(sig)).collect();
+    assert_eq!(xor(&canonical), [0x3e, 0xdb, 0xb4, 0xc4]);
+    assert_eq!(ERC7943_FUNGIBLE_INTERFACE_ID, [0x3e, 0xdb, 0xb4, 0xc4]);
+
+    // Indexers match on the event topic, so the event signatures must be exact too.
+    assert_eq!(
+        IFungibleAsset::ForcedTransfer::SIGNATURE_HASH.0,
+        keccak_256(b"ForcedTransfer(address,address,uint256)"),
+        "ForcedTransfer event signature mismatch"
+    );
+    assert_eq!(
+        IFungibleAsset::Frozen::SIGNATURE_HASH.0,
+        keccak_256(b"Frozen(address,uint256)"),
+        "Frozen event signature mismatch"
     );
 }
 
