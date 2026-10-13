@@ -47,6 +47,7 @@ pub trait WeightInfo {
     fn spend_nft_approval(n: u32) -> Weight;
     fn nft_transfer_report_best_case() -> Weight;
     fn nft_transfer_report_worst_case() -> Weight;
+    fn set_nfts_frozen(n: u32) -> Weight;
 }
 
 pub use pallet::*;
@@ -132,6 +133,16 @@ pub mod pallet {
             nfts: NFTs,
             source: AssetHolder,
             destination: AssetHolder,
+        },
+        /// `nfts` were frozen or unfrozen for `holder`.
+        ///
+        /// Emitted by `set_nfts_frozen`, and with `frozen: false` when a controller transfer
+        /// unfreezes the NFTs it takes from `holder`.
+        NFTsFrozenStatusUpdated {
+            caller_did: IdentityId,
+            holder: AssetHolder,
+            nfts: NFTs,
+            frozen: bool,
         },
     }
 
@@ -258,6 +269,24 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, AccountId32>,
             NMapKey<Blake2_128Concat, AccountId32>,
             NMapKey<Blake2_128Concat, AssetId>,
+        ),
+        bool,
+        ValueQuery,
+    >;
+
+    /// NFTs an agent has frozen for a holder, keyed by `(asset_id, holder, nft_id)`.
+    ///
+    /// Mirrors the ERC-7943 per-account, per-token freeze. A frozen NFT can't leave `holder`
+    /// except through a controller transfer, which unfreezes it first. A freeze can be set for a
+    /// holder that doesn't hold the NFT yet, and applies if the NFT arrives. `false` is never
+    /// stored; the entry is removed instead.
+    #[pallet::storage]
+    pub type FrozenNFT<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, AssetId>,
+            NMapKey<Blake2_128Concat, AssetHolder>,
+            NMapKey<Blake2_128Concat, NFTId>,
         ),
         bool,
         ValueQuery,
@@ -499,6 +528,38 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::base_controller_transfer_to(origin, nfts, source, destination)
         }
+
+        /// Freezes or unfreezes `nfts` for `holder`.
+        ///
+        /// A frozen NFT can't be transferred, moved between portfolios, redeemed or locked in a
+        /// settlement instruction while `holder` holds it. Controller transfers are exempt and
+        /// unfreeze the NFTs they take. The freeze is per holder, as in ERC-7943: it can be set
+        /// for a holder that doesn't hold the NFT yet, and applies if the NFT arrives.
+        ///
+        /// # Arguments
+        /// * `origin` - is a signer that has permissions to act as an agent of the collection.
+        /// * `holder` - the [`AssetHolder`] the freeze applies to.
+        /// * `nfts` - the [`NFTs`] to freeze or unfreeze.
+        /// * `frozen` - `true` to freeze, `false` to unfreeze.
+        ///
+        /// ## Errors
+        /// - `CollectionNotFound` - if the collection does not exist.
+        /// - `ZeroCount`, `MaxNumberOfNFTsPerLegExceeded`, `DuplicatedNFTId` - if `nfts` is empty,
+        ///   too large or has duplicate ids.
+        /// - `NFTNotFound` - if freezing and any of the NFTs does not exist.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[pallet::weight(<T as Config>::WeightInfo::set_nfts_frozen(nfts.len() as u32))]
+        #[pallet::call_index(8)]
+        pub fn set_nfts_frozen(
+            origin: OriginFor<T>,
+            holder: AssetHolder,
+            nfts: NFTs,
+            frozen: bool,
+        ) -> DispatchResult {
+            Self::base_set_nfts_frozen(origin, holder, nfts, frozen)
+        }
     }
 
     #[pallet::error]
@@ -570,6 +631,10 @@ pub mod pallet {
         InsufficientNFTApproval,
         /// The destination requires receiver affirmation before assets can be moved into it.
         ReceiverAffirmationRequired,
+        /// Failed to transfer an NFT - the NFT is frozen for the sender.
+        InvalidNFTTransferNFTIsFrozen,
+        /// The NFT is frozen.
+        NFTIsFrozen,
     }
 }
 
@@ -760,6 +825,10 @@ impl<T: Config> Pallet<T> {
             !Self::is_nft_locked(&asset_id, &nft_id, &caller_holding),
             Error::<T>::NFTIsLocked
         );
+        ensure!(
+            !Self::is_nft_frozen(&asset_id, &nft_id, &caller_holding),
+            Error::<T>::NFTIsFrozen
+        );
 
         // Burns the NFT
         let new_supply = NFTsInCollection::<T>::get(&asset_id)
@@ -899,7 +968,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if `sender` has all nfts and they are not locked. Otherwise, returns an `Err`.
+    /// Returns `Ok` if `sender` has all nfts and they are neither locked nor frozen. Otherwise,
+    /// returns an `Err`.
     pub fn ensure_nft_ownership(sender: &AssetHolder, nfts: &NFTs) -> DispatchResult {
         for nft_id in nfts.ids() {
             ensure!(
@@ -909,6 +979,10 @@ impl<T: Config> Pallet<T> {
             ensure!(
                 !Self::is_nft_locked(nfts.asset_id(), nft_id, sender),
                 Error::<T>::InvalidNFTTransferNFTIsLocked
+            );
+            ensure!(
+                !Self::is_nft_frozen(nfts.asset_id(), nft_id, sender),
+                Error::<T>::InvalidNFTTransferNFTIsFrozen
             );
         }
 
@@ -1122,6 +1196,7 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| pallet_base::Error::<T>::InvalidAccountId.into())
     }
 
+    #[require_transactional]
     pub fn base_controller_transfer(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
@@ -1137,6 +1212,8 @@ impl<T: Config> Pallet<T> {
         )?;
         let holder_did = pallet_identity::Pallet::<T>::asset_holder_did(&destination)?;
 
+        // Controllers are exempt from per-NFT freezes: unfreeze before validating ownership.
+        Self::unfreeze_nfts_for_controller_transfer(holder_did, &source, &nfts);
         // Verifies if all rules for transfering the NFTs are being respected
         Self::validate_nft_transfer(&source, &destination, &nfts, true, None)?;
         // Transfer ownership of the NFTs
@@ -1161,6 +1238,7 @@ impl<T: Config> Pallet<T> {
     /// Same as [`Self::base_controller_transfer`], but `destination` is given explicitly
     /// instead of being derived from the caller's identity. The transfer is rejected if
     /// `destination` requires receiver affirmation for the NFT's asset.
+    #[require_transactional]
     pub fn base_controller_transfer_to(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
@@ -1194,6 +1272,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // Controllers are exempt from per-NFT freezes: unfreeze before validating ownership.
+        Self::unfreeze_nfts_for_controller_transfer(caller_data.primary_did, &source, &nfts);
         // Verifies if all rules for transferring the NFTs are being respected
         Self::validate_nft_transfer(&source, &destination, &nfts, true, None)?;
         // Transfer ownership of the NFTs
@@ -1278,17 +1358,22 @@ impl<T: Config> Pallet<T> {
             nft_transfer_errors.push(e);
         }
 
-        if skip_locked_check {
-            for nft_id in nfts.ids() {
-                if !Self::is_holder_of_nft(nfts.asset_id(), nft_id, sender) {
-                    nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTNotOwned.into());
-                    break;
-                }
-            }
-        } else {
-            if let Err(e) = Self::ensure_nft_ownership(sender, nfts) {
-                nft_transfer_errors.push(e);
-            }
+        // Report each kind of failure once, whichever NFT it applies to.
+        // Only settlement locks may be skipped, never a freeze.
+        let (mut not_owned, mut locked, mut frozen) = (false, false, false);
+        for nft_id in nfts.ids() {
+            not_owned |= !Self::is_holder_of_nft(nfts.asset_id(), nft_id, sender);
+            locked |= !skip_locked_check && Self::is_nft_locked(nfts.asset_id(), nft_id, sender);
+            frozen |= Self::is_nft_frozen(nfts.asset_id(), nft_id, sender);
+        }
+        if not_owned {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTNotOwned.into());
+        }
+        if locked {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTIsLocked.into());
+        }
+        if frozen {
+            nft_transfer_errors.push(Error::<T>::InvalidNFTTransferNFTIsFrozen.into());
         }
 
         if !IdentityPallet::<T>::is_did_active(receiver_did) {
@@ -1413,12 +1498,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns `Ok` if `sender` holds all nfts.
+    /// Returns `Ok` if `sender` holds all nfts and none of them is frozen.
+    ///
+    /// Unlike [`Self::ensure_nft_ownership`], settlement locks are not checked: the caller has
+    /// already released them.
     fn ensure_sender_owns_nfts(sender: &AssetHolder, nfts: &NFTs) -> DispatchResult {
         for nft_id in nfts.ids() {
             ensure!(
                 Self::is_holder_of_nft(nfts.asset_id(), nft_id, sender),
                 Error::<T>::InvalidNFTTransferNFTNotOwned
+            );
+            ensure!(
+                !Self::is_nft_frozen(nfts.asset_id(), nft_id, sender),
+                Error::<T>::InvalidNFTTransferNFTIsFrozen
             );
         }
         Ok(())
@@ -1460,6 +1552,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         match asset_holder {
             AssetHolder::Account(acc_id) => {
+                ensure!(
+                    !Self::is_nft_frozen(asset_id, nft_id, asset_holder),
+                    Error::<T>::NFTIsFrozen
+                );
                 if NFTHolder::<T>::contains_key((acc_id, asset_id, nft_id)) {
                     Self::mutate_account_nft_count(acc_id, asset_id, |count| {
                         count.saturating_sub(1)
@@ -1542,6 +1638,85 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns `true` if the `nft_id` of the `asset_id` is frozen for `asset_holder`.
+    pub fn is_nft_frozen(asset_id: &AssetId, nft_id: &NFTId, asset_holder: &AssetHolder) -> bool {
+        FrozenNFT::<T>::get((asset_id, asset_holder, nft_id))
+    }
+
+    /// Freezes or unfreezes `nfts` for `holder`.
+    fn base_set_nfts_frozen(
+        origin: T::RuntimeOrigin,
+        holder: AssetHolder,
+        nfts: NFTs,
+        frozen: bool,
+    ) -> DispatchResult {
+        let asset_id = *nfts.asset_id();
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
+        ensure!(
+            CollectionAsset::<T>::contains_key(&asset_id),
+            Error::<T>::CollectionNotFound
+        );
+        Self::ensure_within_nfts_transfer_limits(&nfts)?;
+        Self::ensure_no_duplicate_nfts(&nfts)?;
+        // Only a new freeze needs a valid holder and existing NFTs. Unfreezing only lifts a
+        // restriction, and must stay possible after the NFT is redeemed or the portfolio
+        // deleted, so stale entries can always be cleared.
+        if frozen {
+            AssetPallet::<T>::ensure_valid_holder(&holder)?;
+            for nft_id in nfts.ids() {
+                ensure!(
+                    Owner::<T>::contains_key(&asset_id, nft_id),
+                    Error::<T>::NFTNotFound
+                );
+            }
+        }
+
+        for nft_id in nfts.ids() {
+            if frozen {
+                FrozenNFT::<T>::insert((&asset_id, &holder, nft_id), true);
+            } else {
+                FrozenNFT::<T>::remove((&asset_id, &holder, nft_id));
+            }
+        }
+
+        Self::deposit_event(Event::NFTsFrozenStatusUpdated {
+            caller_did,
+            holder,
+            nfts,
+            frozen,
+        });
+        Ok(())
+    }
+
+    /// Removes the freeze on each of `nfts` frozen for `source`, emitting one
+    /// `NFTsFrozenStatusUpdated` event for those that were frozen.
+    ///
+    /// Only for controller transfers, which take the NFTs from `source` regardless of freezes.
+    /// Must run inside the controller transfer's transaction, so the unfreeze is reverted if the
+    /// transfer fails.
+    fn unfreeze_nfts_for_controller_transfer(
+        caller_did: IdentityId,
+        source: &AssetHolder,
+        nfts: &NFTs,
+    ) {
+        let mut unfrozen = Vec::new();
+        for nft_id in nfts.ids() {
+            if FrozenNFT::<T>::take((nfts.asset_id(), source, nft_id)) {
+                unfrozen.push(*nft_id);
+            }
+        }
+
+        if !unfrozen.is_empty() {
+            Self::deposit_event(Event::NFTsFrozenStatusUpdated {
+                caller_did,
+                holder: source.clone(),
+                nfts: NFTs::new_unverified(*nfts.asset_id(), unfrozen),
+                frozen: false,
+            });
+        }
+    }
+
     /// Locks the given NFT
     pub fn lock_nft(asset_holder: AssetHolder, asset_id: AssetId, nft_id: NFTId) -> DispatchResult {
         ensure!(
@@ -1551,6 +1726,10 @@ impl<T: Config> Pallet<T> {
         ensure!(
             !Self::is_nft_locked(&asset_id, &nft_id, &asset_holder),
             Error::<T>::NFTIsLocked
+        );
+        ensure!(
+            !Self::is_nft_frozen(&asset_id, &nft_id, &asset_holder),
+            Error::<T>::NFTIsFrozen
         );
         pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(&asset_holder, &asset_id)?;
 
@@ -1604,6 +1783,10 @@ impl<T: Config> NFTTrait<T::RuntimeOrigin> for Pallet<T> {
     fn update_nft_owner(asset_id: AssetId, nft_id: NFTId, new_owner_portfolio: PortfolioId) {
         let asset_holder = AssetHolder::Portfolio(new_owner_portfolio);
         Owner::<T>::insert(asset_id, nft_id, asset_holder);
+    }
+
+    fn is_nft_frozen(asset_id: &AssetId, nft_id: &NFTId, asset_holder: &AssetHolder) -> bool {
+        Pallet::<T>::is_nft_frozen(asset_id, nft_id, asset_holder)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
