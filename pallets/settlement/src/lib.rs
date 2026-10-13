@@ -2671,7 +2671,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn execute_settle_on_affirmation_instruction(
+    /// Executes the instruction if it is [`SettlementType::SettleOnAffirmation`] and has no pending affirmations.
+    ///
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
+    pub fn execute_settle_on_affirmation_instruction(
         id: InstructionId,
         affirms_pending: u64,
         settlement_type: SettlementType<BlockNumberFor<T>>,
