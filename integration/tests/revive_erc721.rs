@@ -19,6 +19,8 @@ const ZERO: Address = Address::ZERO;
 const ERC165_ID: [u8; 4] = [0x01, 0xff, 0xc9, 0xa7];
 const ERC721_ID: [u8; 4] = [0x80, 0xac, 0x58, 0xcd];
 const ERC721_METADATA_ID: [u8; 4] = [0x5b, 0x5e, 0x13, 0x9f];
+/// ERC-165 interface id of `IERC7943NonFungible`, from the EIP-7943 specification.
+const ERC7943_ID: [u8; 4] = [0xbf, 0x1e, 0xf5, 0xfe];
 
 /// The precompile metadata is read from the collection's chain state.
 #[tokio::test]
@@ -41,6 +43,7 @@ async fn erc721_metadata() -> Result<()> {
     assert!(nft.supports_interface(ERC165_ID).await?);
     assert!(nft.supports_interface(ERC721_ID).await?);
     assert!(nft.supports_interface(ERC721_METADATA_ID).await?);
+    assert!(nft.supports_interface(ERC7943_ID).await?);
     // An interface we do not implement.
     assert!(!nft.supports_interface([0xde, 0xad, 0xbe, 0xef]).await?);
 
@@ -540,6 +543,186 @@ async fn erc721_token_uri() -> Result<()> {
         "https://example.com/base/1",
         "token id should be appended when there is no placeholder"
     );
+
+    Ok(())
+}
+
+/// An agent can freeze a single token for its holder. While frozen it can't move, and
+/// `canTransfer` reports it; unfreezing restores transfers.
+#[tokio::test]
+#[test_log::test]
+async fn erc721_frozen_token_cannot_move() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc721FreezeAgent", "Erc721FreezeHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, holders) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let holder = &mut holders[0];
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 Freeze").await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    let mut owner_caller = SubstrateCaller::new(&api, owner).await?;
+    nft.mint(&mut owner_caller, vec![]).await?;
+    nft.mint(&mut owner_caller, vec![]).await?;
+    nft.transfer_from(&mut owner_caller, owner_address, holder_address, 1)
+        .await?;
+    nft.transfer_from(&mut owner_caller, owner_address, holder_address, 2)
+        .await?;
+
+    let logs = nft
+        .set_frozen_tokens(&mut owner_caller, holder_address, 1, true)
+        .await?;
+    let events: Vec<ierc721::Frozen> = decode_contract_logs(&logs, &nft.h160())?;
+    assert_eq!(events.len(), 1, "expected one Frozen event");
+    assert_eq!(events[0].account, holder_address);
+    assert_eq!(events[0].tokenId, U256::from(1));
+    assert!(events[0].frozenStatus);
+
+    assert!(nft.get_frozen_tokens(holder_address, 1).await?);
+    assert!(!nft.get_frozen_tokens(holder_address, 2).await?);
+    assert!(!nft.can_transfer(holder_address, owner_address, 1).await?);
+    assert!(nft.can_transfer(holder_address, owner_address, 2).await?);
+
+    // The holder can't move the frozen token, but can move the other one.
+    let mut holder_caller = SubstrateCaller::new(&api, holder).await?;
+    if nft
+        .transfer_from(&mut holder_caller, holder_address, owner_address, 1)
+        .await
+        .is_ok()
+    {
+        panic!("transferFrom() of a frozen token should revert");
+    }
+    assert_eq!(nft.owner_of(1).await?, holder_address);
+    nft.transfer_from(&mut holder_caller, holder_address, owner_address, 2)
+        .await?;
+
+    // Unfreezing restores transfers.
+    let logs = nft
+        .set_frozen_tokens(&mut owner_caller, holder_address, 1, false)
+        .await?;
+    let events: Vec<ierc721::Frozen> = decode_contract_logs(&logs, &nft.h160())?;
+    assert_eq!(events.len(), 1, "expected one Frozen event");
+    assert!(!events[0].frozenStatus);
+    assert!(!nft.get_frozen_tokens(holder_address, 1).await?);
+    nft.transfer_from(&mut holder_caller, holder_address, owner_address, 1)
+        .await?;
+    assert_eq!(nft.owner_of(1).await?, owner_address);
+
+    Ok(())
+}
+
+/// Only an agent of the collection can freeze or unfreeze, not the holder.
+#[tokio::test]
+#[test_log::test]
+async fn erc721_set_frozen_tokens_requires_agent() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc721FreezeAuthAgent", "Erc721FreezeAuthHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, holders) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let holder = &mut holders[0];
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 FreezeAuth").await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    let mut owner_caller = SubstrateCaller::new(&api, owner).await?;
+    nft.mint(&mut owner_caller, vec![]).await?;
+    nft.transfer_from(&mut owner_caller, owner_address, holder_address, 1)
+        .await?;
+    nft.set_frozen_tokens(&mut owner_caller, holder_address, 1, true)
+        .await?;
+
+    let mut holder_caller = SubstrateCaller::new(&api, holder).await?;
+    if nft
+        .set_frozen_tokens(&mut holder_caller, holder_address, 1, false)
+        .await
+        .is_ok()
+    {
+        panic!("setFrozenTokens() by a non-agent should revert");
+    }
+    assert!(nft.get_frozen_tokens(holder_address, 1).await?);
+
+    Ok(())
+}
+
+/// `forcedTransfer` of a frozen token unfreezes it, logging `Frozen` before `Transfer`.
+#[tokio::test]
+#[test_log::test]
+async fn erc721_forced_transfer_unfreezes() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc721ForceFrozenAgent", "Erc721ForceFrozenHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, holders) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let holder = &mut holders[0];
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 ForceFrozen").await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    let mut caller = SubstrateCaller::new(&api, owner).await?;
+    nft.mint(&mut caller, vec![]).await?;
+    nft.transfer_from(&mut caller, owner_address, holder_address, 1)
+        .await?;
+    nft.set_frozen_tokens(&mut caller, holder_address, 1, true)
+        .await?;
+
+    let logs = nft
+        .forced_transfer(&mut caller, holder_address, owner_address, 1)
+        .await?;
+
+    let frozen: Vec<ierc721::Frozen> = decode_contract_logs(&logs, &nft.h160())?;
+    assert_eq!(frozen.len(), 1, "expected one Frozen event");
+    assert_eq!(frozen[0].account, holder_address);
+    assert_eq!(frozen[0].tokenId, U256::from(1));
+    assert!(!frozen[0].frozenStatus);
+
+    // ERC-7943: the `Frozen` event must come before the base `Transfer` event.
+    let frozen_at = contract_log_position::<ierc721::Frozen>(&logs, &nft.h160());
+    let transfer_at = contract_log_position::<ierc721::Transfer>(&logs, &nft.h160());
+    assert!(transfer_at.is_some(), "expected a Transfer event");
+    assert!(frozen_at < transfer_at, "Frozen must precede Transfer");
+
+    assert_eq!(nft.owner_of(1).await?, owner_address);
+    assert!(!nft.get_frozen_tokens(holder_address, 1).await?);
+
+    Ok(())
+}
+
+/// A frozen token can't be burned; it must be unfrozen first.
+#[tokio::test]
+#[test_log::test]
+async fn erc721_burn_frozen_token_reverts() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc721BurnFrozen"]).await?;
+    let api = tester.api.clone();
+    let owner = &mut users[0];
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 BurnFrozen").await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+
+    let mut caller = SubstrateCaller::new(&api, owner).await?;
+    nft.mint(&mut caller, vec![]).await?;
+    nft.set_frozen_tokens(&mut caller, owner_address, 1, true)
+        .await?;
+
+    if nft.burn(&mut caller, 1).await.is_ok() {
+        panic!("burn() of a frozen token should revert");
+    }
+    assert_eq!(nft.owner_of(1).await?, owner_address);
+
+    nft.set_frozen_tokens(&mut caller, owner_address, 1, false)
+        .await?;
+    nft.burn(&mut caller, 1).await?;
 
     Ok(())
 }

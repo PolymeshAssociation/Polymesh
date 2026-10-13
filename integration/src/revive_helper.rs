@@ -153,6 +153,18 @@ pub fn decode_contract_logs<E: SolEvent>(logs: &[ContractLog], address: &H160) -
     Ok(decoded)
 }
 
+/// Returns the index in `logs` of the first event of type `E` that `address` emitted.
+pub fn contract_log_position<E: SolEvent>(logs: &[ContractLog], address: &H160) -> Option<usize> {
+    logs.iter().position(|log| {
+        &log.address == address
+            && log
+                .topics
+                .first()
+                .map(|t| alloy::primitives::B256::from(t.0))
+                == Some(E::SIGNATURE_HASH)
+    })
+}
+
 /// Returns the `ContractEmitted` events of `res`.
 pub async fn contract_logs(res: &mut TransactionResults) -> Result<Vec<ContractLog>> {
     let mut logs = Vec::new();

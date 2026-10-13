@@ -203,6 +203,18 @@ impl Erc721Collection {
             .await
     }
 
+    pub async fn get_frozen_tokens(&self, account: Address, token_id: u64) -> Result<bool> {
+        self.node
+            .call(
+                self.address,
+                &ierc721::getFrozenTokensCall {
+                    account,
+                    tokenId: U256::from(token_id),
+                },
+            )
+            .await
+    }
+
     /// Runs a typed call without submitting it, so tests can assert on revert reasons.
     pub async fn try_call<C: SolCall>(&self, from: Address, call: &C) -> Result<C::Return> {
         self.node.call_from(from, self.address, call).await
@@ -327,6 +339,24 @@ impl Erc721Collection {
                 from,
                 to,
                 tokenId: U256::from(token_id),
+            },
+        )
+        .await
+    }
+
+    pub async fn set_frozen_tokens(
+        &self,
+        caller: &mut dyn ContractCaller,
+        account: Address,
+        token_id: u64,
+        frozen: bool,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(
+            caller,
+            ierc721::setFrozenTokensCall {
+                account,
+                tokenId: U256::from(token_id),
+                frozenStatus: frozen,
             },
         )
         .await
