@@ -210,131 +210,204 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, AssetId, divisibility, asset type, beneficiary DID, asset name, identifiers, funding round
-        AssetCreated(
-            IdentityId,
-            AssetId,
-            bool,
-            AssetType,
-            IdentityId,
-            AssetName,
-            Vec<AssetIdentifier>,
-            Option<FundingRoundName>,
-        ),
+        AssetCreated {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            divisible: bool,
+            asset_type: AssetType,
+            owner_did: IdentityId,
+            name: AssetName,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>,
+        },
         /// Event emitted when any token identifiers are updated.
-        /// caller DID, AssetId, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, AssetId, Vec<AssetIdentifier>),
+        IdentifiersUpdated {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            identifiers: Vec<AssetIdentifier>,
+        },
         /// Event for change in divisibility.
-        /// caller DID, AssetId, divisibility
-        DivisibilityChanged(IdentityId, AssetId, bool),
+        DivisibilityChanged {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            divisible: bool,
+        },
         /// Emit when ticker is registered.
-        /// caller DID / ticker owner did, ticker, ticker owner, expiry
-        TickerRegistered(IdentityId, Ticker, Option<T::Moment>),
+        TickerRegistered {
+            owner_did: IdentityId,
+            ticker: Ticker,
+            /// When the registration expires; `None` if it never does.
+            expiry: Option<T::Moment>,
+        },
         /// Emit when ticker is transferred.
-        /// caller DID / ticker transferred to DID, ticker, from
-        TickerTransferred(IdentityId, Ticker, IdentityId),
+        TickerTransferred {
+            new_owner_did: IdentityId,
+            ticker: Ticker,
+            old_owner_did: IdentityId,
+        },
         /// Emit when token ownership is transferred.
-        /// caller DID / token ownership transferred to DID, AssetId, from
-        AssetOwnershipTransferred(IdentityId, AssetId, IdentityId),
+        AssetOwnershipTransferred {
+            new_owner_did: IdentityId,
+            asset_id: AssetId,
+            old_owner_did: IdentityId,
+        },
         /// An event emitted when an asset is frozen.
-        /// Parameter: caller DID, AssetId.
-        AssetFrozen(IdentityId, AssetId),
+        AssetFrozen {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
         /// An event emitted when an asset is unfrozen.
-        /// Parameter: caller DID, AssetId.
-        AssetUnfrozen(IdentityId, AssetId),
+        AssetUnfrozen {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
         /// An event emitted when a token is renamed.
-        /// Parameters: caller DID, AssetId, new token name.
-        AssetRenamed(IdentityId, AssetId, AssetName),
+        AssetRenamed {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            name: AssetName,
+        },
         /// An event carrying the name of the current funding round of an asset.
-        /// Parameters: caller DID, AssetId, funding round name.
-        FundingRoundSet(IdentityId, AssetId, FundingRoundName),
-        /// A new document attached to an asset
-        DocumentAdded(IdentityId, AssetId, DocumentId, Document),
-        /// A document removed from an asset
-        DocumentRemoved(IdentityId, AssetId, DocumentId),
+        FundingRoundSet {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            funding_round: FundingRoundName,
+        },
+        /// A new document attached to an asset.
+        DocumentAdded {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            document_id: DocumentId,
+            document: Document,
+        },
+        /// A document removed from an asset.
+        DocumentRemoved {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            document_id: DocumentId,
+        },
         /// Event for when a forced transfer takes place.
-        /// caller DID/ controller DID, ExtensionRemoved, Portfolio of token holder, value.
-        ControllerTransfer(IdentityId, AssetId, AssetHolder, Balance),
+        ControllerTransfer {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            /// The holder the tokens were taken from.
+            source: AssetHolder,
+            amount: Balance,
+        },
         /// A custom asset type already exists on-chain.
-        /// caller DID, the ID of the custom asset type, the string contents registered.
-        CustomAssetTypeExists(IdentityId, CustomAssetTypeId, Vec<u8>),
+        CustomAssetTypeExists {
+            caller_did: IdentityId,
+            custom_asset_type_id: CustomAssetTypeId,
+            /// The string contents registered.
+            name: Vec<u8>,
+        },
         /// A custom asset type was registered on-chain.
-        /// caller DID, the ID of the custom asset type, the string contents registered.
-        CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
+        CustomAssetTypeRegistered {
+            caller_did: IdentityId,
+            custom_asset_type_id: CustomAssetTypeId,
+            /// The string contents registered.
+            name: Vec<u8>,
+        },
         /// Set asset metadata value.
-        /// (Caller DID, AssetId, metadata value, optional value details)
-        SetAssetMetadataValue(
-            IdentityId,
-            AssetId,
-            AssetMetadataValue,
-            Option<AssetMetadataValueDetail<T::Moment>>,
-        ),
-        /// Set asset metadata value details (expire, lock status).
-        /// (Caller DID, AssetId, value details)
-        SetAssetMetadataValueDetails(IdentityId, AssetId, AssetMetadataValueDetail<T::Moment>),
+        SetAssetMetadataValue {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            value: AssetMetadataValue,
+            value_detail: Option<AssetMetadataValueDetail<T::Moment>>,
+        },
+        /// Set asset metadata value details (expiry, lock status).
+        SetAssetMetadataValueDetails {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            value_detail: AssetMetadataValueDetail<T::Moment>,
+        },
         /// Register asset metadata local type.
-        /// (Caller DID, AssetId, Local type name, Local type key, type specs)
-        RegisterAssetMetadataLocalType(
-            IdentityId,
-            AssetId,
-            AssetMetadataName,
-            AssetMetadataLocalKey,
-            AssetMetadataSpec,
-        ),
+        RegisterAssetMetadataLocalType {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            name: AssetMetadataName,
+            local_key: AssetMetadataLocalKey,
+            spec: AssetMetadataSpec,
+        },
         /// Register asset metadata global type.
-        /// (Global type name, Global type key, type specs)
-        RegisterAssetMetadataGlobalType(
-            AssetMetadataName,
-            AssetMetadataGlobalKey,
-            AssetMetadataSpec,
-        ),
+        RegisterAssetMetadataGlobalType {
+            name: AssetMetadataName,
+            global_key: AssetMetadataGlobalKey,
+            spec: AssetMetadataSpec,
+        },
         /// An event emitted when the type of an asset changed.
-        /// Parameters: caller DID, AssetId, new token type.
-        AssetTypeChanged(IdentityId, AssetId, AssetType),
+        AssetTypeChanged {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            asset_type: AssetType,
+        },
         /// An event emitted when a local metadata key has been removed.
-        /// Parameters: caller AssetId, Local type name
-        LocalMetadataKeyDeleted(IdentityId, AssetId, AssetMetadataLocalKey),
+        LocalMetadataKeyDeleted {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            local_key: AssetMetadataLocalKey,
+        },
         /// An event emitted when a local metadata value has been removed.
-        /// Parameters: caller AssetId, Local type name
-        MetadataValueDeleted(IdentityId, AssetId, AssetMetadataKey),
+        MetadataValueDeleted {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            key: AssetMetadataKey,
+        },
         /// Emitted when Tokens were issued, redeemed or transferred.
-        /// Contains the [`IdentityId`] of the receiver/issuer/redeemer, the [`AssetId`] for the token, the balance that was issued/transferred/redeemed,
-        /// the [`AssetHolder`] of the source, the [`AssetHolder`] of the destination and the [`HoldingsUpdateReason`].
-        AssetBalanceUpdated(
-            IdentityId,
-            AssetId,
-            Balance,
-            Option<AssetHolder>,
-            Option<AssetHolder>,
-            HoldingsUpdateReason,
-        ),
-        /// An asset has been added to the list of pre aprroved receivement (valid for all identities).
-        /// Parameters: [`AssetId`] of the pre approved asset.
-        AssetAffirmationExemption(AssetId),
-        /// An asset has been removed from the list of pre aprroved receivement (valid for all identities).
-        /// Parameters: [`AssetId`] of the asset.
-        RemoveAssetAffirmationExemption(AssetId),
-        /// An identity has added an asset to the list of pre aprroved receivement.
-        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the pre approved asset.
-        PreApprovedAsset(IdentityId, AssetId),
-        /// An identity has removed an asset to the list of pre aprroved receivement.
-        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the asset.
-        RemovePreApprovedAsset(IdentityId, AssetId),
+        AssetBalanceUpdated {
+            /// The identity that issued, redeemed or transferred the tokens.
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            amount: Balance,
+            /// `None` when tokens were issued.
+            from: Option<AssetHolder>,
+            /// `None` when tokens were redeemed.
+            to: Option<AssetHolder>,
+            update_reason: HoldingsUpdateReason,
+        },
+        /// An asset was added to the list of assets that any identity can receive without affirming.
+        AssetAffirmationExemption { asset_id: AssetId },
+        /// An asset was removed from the list of assets that any identity can receive without affirming.
+        RemoveAssetAffirmationExemption { asset_id: AssetId },
+        /// An identity pre-approved an asset, so it receives the asset without affirming.
+        PreApprovedAsset {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
+        /// An identity removed its pre-approval of an asset.
+        RemovePreApprovedAsset {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+        },
         /// An identity has added mandatory mediators to an asset.
-        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the asset, the identity of all mediators added.
-        AssetMediatorsAdded(IdentityId, AssetId, BTreeSet<IdentityId>),
+        AssetMediatorsAdded {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            mediators: BTreeSet<IdentityId>,
+        },
         /// An identity has removed mediators from an asset.
-        /// Parameters: [`IdentityId`] of caller, [`AssetId`] of the asset, the identity of all mediators removed.
-        AssetMediatorsRemoved(IdentityId, AssetId, BTreeSet<IdentityId>),
+        AssetMediatorsRemoved {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            mediators: BTreeSet<IdentityId>,
+        },
         /// An identity has linked a ticker to an asset.
-        /// Parameters: [`IdentityId`] of caller, [`Ticker`] of the asset, the asset identifier [`AssetId`].
-        TickerLinkedToAsset(IdentityId, Ticker, AssetId),
+        TickerLinkedToAsset {
+            caller_did: IdentityId,
+            ticker: Ticker,
+            asset_id: AssetId,
+        },
         /// An identity has unlinked a ticker from an asset.
-        /// Parameters: [`IdentityId`] of caller, unlinked [`Ticker`], the asset identifier [`AssetId`].
-        TickerUnlinkedFromAsset(IdentityId, Ticker, AssetId),
+        TickerUnlinkedFromAsset {
+            caller_did: IdentityId,
+            ticker: Ticker,
+            asset_id: AssetId,
+        },
         /// Asset Global Metadata Spec has been Updated.
-        /// Parameters: [`AssetMetadataName`] of the metadata, [`AssetMetadataSpec`] of the metadata.
-        GlobalMetadataSpecUpdated(AssetMetadataName, AssetMetadataSpec),
+        GlobalMetadataSpecUpdated {
+            name: AssetMetadataName,
+            spec: AssetMetadataSpec,
+        },
         /// An asset transfer has been created.
         CreatedAssetTransfer {
             asset_id: AssetId,
@@ -2196,11 +2269,11 @@ impl<T: AssetConfig> Pallet<T> {
             // Updates asset details.
             asset_details.owner_did = caller_did;
             Assets::<T>::insert(asset_id, asset_details);
-            Self::deposit_event(Event::AssetOwnershipTransferred(
-                caller_did,
+            Self::deposit_event(Event::AssetOwnershipTransferred {
+                new_owner_did: caller_did,
                 asset_id,
-                previous_owner,
-            ));
+                old_owner_did: previous_owner,
+            });
             Ok(())
         })
     }
@@ -2246,11 +2319,17 @@ impl<T: AssetConfig> Pallet<T> {
                 Error::<T>::AlreadyFrozen
             );
             Frozen::<T>::insert(asset_id, true);
-            Self::deposit_event(Event::AssetFrozen(caller_did, asset_id));
+            Self::deposit_event(Event::AssetFrozen {
+                caller_did,
+                asset_id,
+            });
         } else {
             ensure!(Frozen::<T>::get(&asset_id) == true, Error::<T>::NotFrozen);
             Frozen::<T>::insert(asset_id, false);
-            Self::deposit_event(Event::AssetUnfrozen(caller_did, asset_id));
+            Self::deposit_event(Event::AssetUnfrozen {
+                caller_did,
+                asset_id,
+            });
         }
 
         Ok(())
@@ -2268,7 +2347,11 @@ impl<T: AssetConfig> Pallet<T> {
         let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
 
         AssetNames::<T>::insert(asset_id, asset_name.clone());
-        Self::deposit_event(Event::AssetRenamed(caller_did, asset_id, asset_name));
+        Self::deposit_event(Event::AssetRenamed {
+            caller_did,
+            asset_id,
+            name: asset_name,
+        });
         Ok(())
     }
 
@@ -2357,14 +2440,14 @@ impl<T: AssetConfig> Pallet<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(Event::AssetBalanceUpdated(
-            holder_did,
+        Self::deposit_event(Event::AssetBalanceUpdated {
+            caller_did: holder_did,
             asset_id,
-            value,
-            Some(caller_holding_ctx),
-            None,
-            HoldingsUpdateReason::Redeemed,
-        ));
+            amount: value,
+            from: Some(caller_holding_ctx),
+            to: None,
+            update_reason: HoldingsUpdateReason::Redeemed,
+        });
         Ok(())
     }
 
@@ -2380,7 +2463,11 @@ impl<T: AssetConfig> Pallet<T> {
             ensure!(!asset_details.divisible, Error::<T>::AssetAlreadyDivisible);
             asset_details.divisible = true;
 
-            Self::deposit_event(Event::DivisibilityChanged(caller_did, asset_id, true));
+            Self::deposit_event(Event::DivisibilityChanged {
+                caller_did,
+                asset_id,
+                divisible: true,
+            });
             Ok(())
         })
     }
@@ -2412,7 +2499,12 @@ impl<T: AssetConfig> Pallet<T> {
         // Add the documents & emit events.
         for (id, doc) in (pre.0..).map(DocumentId).zip(docs) {
             AssetDocuments::<T>::insert(asset_id, id, doc.clone());
-            Self::deposit_event(Event::DocumentAdded(did, asset_id, id, doc));
+            Self::deposit_event(Event::DocumentAdded {
+                caller_did: did,
+                asset_id,
+                document_id: id,
+                document: doc,
+            });
         }
         Ok(())
     }
@@ -2425,7 +2517,11 @@ impl<T: AssetConfig> Pallet<T> {
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
         for doc_id in docs_id {
             AssetDocuments::<T>::remove(asset_id, doc_id);
-            Self::deposit_event(Event::DocumentRemoved(caller_did, asset_id, doc_id));
+            Self::deposit_event(Event::DocumentRemoved {
+                caller_did,
+                asset_id,
+                document_id: doc_id,
+            });
         }
         Ok(())
     }
@@ -2439,11 +2535,11 @@ impl<T: AssetConfig> Pallet<T> {
         let caller_did = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
 
         FundingRound::<T>::insert(asset_id, funding_round_name.clone());
-        Self::deposit_event(Event::FundingRoundSet(
+        Self::deposit_event(Event::FundingRoundSet {
             caller_did,
             asset_id,
-            funding_round_name,
-        ));
+            funding_round: funding_round_name,
+        });
         Ok(())
     }
 
@@ -2491,12 +2587,12 @@ impl<T: AssetConfig> Pallet<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(Event::ControllerTransfer(
-            holder_did,
+        Self::deposit_event(Event::ControllerTransfer {
+            caller_did: holder_did,
             asset_id,
             source,
-            transfer_value,
-        ));
+            amount: transfer_value,
+        });
         Ok(())
     }
 
@@ -2650,7 +2746,11 @@ impl<T: AssetConfig> Pallet<T> {
         // Set asset metadata value details.
         AssetMetadataValueDetails::<T>::insert(asset_id, key, &detail);
 
-        Self::deposit_event(Event::SetAssetMetadataValueDetails(did, asset_id, detail));
+        Self::deposit_event(Event::SetAssetMetadataValueDetails {
+            caller_did: did,
+            asset_id,
+            value_detail: detail,
+        });
         Ok(())
     }
 
@@ -2706,7 +2806,11 @@ impl<T: AssetConfig> Pallet<T> {
         // Store global specs.
         AssetMetadataGlobalSpecs::<T>::insert(key, &spec);
 
-        Self::deposit_event(Event::RegisterAssetMetadataGlobalType(name, key, spec));
+        Self::deposit_event(Event::RegisterAssetMetadataGlobalType {
+            name,
+            global_key: key,
+            spec,
+        });
         Ok(())
     }
 
@@ -2728,7 +2832,11 @@ impl<T: AssetConfig> Pallet<T> {
             asset.asset_type = asset_type;
             Ok(())
         })?;
-        Self::deposit_event(Event::AssetTypeChanged(did, asset_id, asset_type));
+        Self::deposit_event(Event::AssetTypeChanged {
+            caller_did: did,
+            asset_id,
+            asset_type,
+        });
         Ok(())
     }
 
@@ -2761,9 +2869,11 @@ impl<T: AssetConfig> Pallet<T> {
         AssetMetadataLocalNameToKey::<T>::remove(&asset_id, &name);
         AssetMetadataLocalKeyToName::<T>::remove(&asset_id, &local_key);
         AssetMetadataLocalSpecs::<T>::remove(&asset_id, &local_key);
-        Self::deposit_event(Event::LocalMetadataKeyDeleted(
-            caller_did, asset_id, local_key,
-        ));
+        Self::deposit_event(Event::LocalMetadataKeyDeleted {
+            caller_did,
+            asset_id,
+            local_key,
+        });
         Ok(())
     }
 
@@ -2797,11 +2907,11 @@ impl<T: AssetConfig> Pallet<T> {
         // Remove the metadata value from storage
         AssetMetadataValues::<T>::remove(&asset_id, &metadata_key);
         AssetMetadataValueDetails::<T>::remove(&asset_id, &metadata_key);
-        Self::deposit_event(Event::MetadataValueDeleted(
+        Self::deposit_event(Event::MetadataValueDeleted {
             caller_did,
             asset_id,
-            metadata_key,
-        ));
+            key: metadata_key,
+        });
         Ok(())
     }
 
@@ -2812,7 +2922,7 @@ impl<T: AssetConfig> Pallet<T> {
     ) -> DispatchResult {
         ensure_root(origin)?;
         AssetsExemptFromAffirmation::<T>::insert(&asset_id, true);
-        Self::deposit_event(Event::AssetAffirmationExemption(asset_id));
+        Self::deposit_event(Event::AssetAffirmationExemption { asset_id });
         Ok(())
     }
 
@@ -2823,7 +2933,9 @@ impl<T: AssetConfig> Pallet<T> {
     ) -> DispatchResult {
         ensure_root(origin)?;
         AssetsExemptFromAffirmation::<T>::remove(&assset_id);
-        Self::deposit_event(Event::RemoveAssetAffirmationExemption(assset_id));
+        Self::deposit_event(Event::RemoveAssetAffirmationExemption {
+            asset_id: assset_id,
+        });
         Ok(())
     }
 
@@ -2831,7 +2943,10 @@ impl<T: AssetConfig> Pallet<T> {
     fn base_pre_approve_asset(origin: T::RuntimeOrigin, asset_id: AssetId) -> DispatchResult {
         let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
         PreApprovedAsset::<T>::insert(&caller_did, &asset_id, true);
-        Self::deposit_event(Event::PreApprovedAsset(caller_did, asset_id));
+        Self::deposit_event(Event::PreApprovedAsset {
+            caller_did,
+            asset_id,
+        });
         Ok(())
     }
 
@@ -2842,7 +2957,10 @@ impl<T: AssetConfig> Pallet<T> {
     ) -> DispatchResult {
         let caller_did = IdentityPallet::<T>::ensure_perms(origin)?;
         PreApprovedAsset::<T>::remove(&caller_did, &asset_id);
-        Self::deposit_event(Event::RemovePreApprovedAsset(caller_did, asset_id));
+        Self::deposit_event(Event::RemovePreApprovedAsset {
+            caller_did,
+            asset_id,
+        });
         Ok(())
     }
 
@@ -2864,11 +2982,11 @@ impl<T: AssetConfig> Pallet<T> {
             Ok(())
         })?;
 
-        Self::deposit_event(Event::AssetMediatorsAdded(
+        Self::deposit_event(Event::AssetMediatorsAdded {
             caller_did,
             asset_id,
-            new_mediators.into_inner(),
-        ));
+            mediators: new_mediators.into_inner(),
+        });
         Ok(())
     }
 
@@ -2886,11 +3004,11 @@ impl<T: AssetConfig> Pallet<T> {
                 mandatory_mediators.remove(mediator);
             }
         });
-        Self::deposit_event(Event::AssetMediatorsRemoved(
+        Self::deposit_event(Event::AssetMediatorsRemoved {
             caller_did,
             asset_id,
-            mediators.into_inner(),
-        ));
+            mediators: mediators.into_inner(),
+        });
         Ok(())
     }
 
@@ -3004,7 +3122,11 @@ impl<T: AssetConfig> Pallet<T> {
         // Links the ticker to the asset
         TickerAssetId::<T>::insert(ticker, asset_id);
         AssetIdTicker::<T>::insert(asset_id, ticker);
-        Self::deposit_event(Event::TickerLinkedToAsset(caller_did, ticker, asset_id));
+        Self::deposit_event(Event::TickerLinkedToAsset {
+            caller_did,
+            ticker,
+            asset_id,
+        });
         Ok(())
     }
 
@@ -3034,7 +3156,11 @@ impl<T: AssetConfig> Pallet<T> {
         TickersOwnedByUser::<T>::remove(caller_did, ticker);
         TickerAssetId::<T>::remove(ticker);
         AssetIdTicker::<T>::remove(asset_id);
-        Self::deposit_event(Event::TickerUnlinkedFromAsset(caller_did, ticker, asset_id));
+        Self::deposit_event(Event::TickerUnlinkedFromAsset {
+            caller_did,
+            ticker,
+            asset_id,
+        });
         Ok(())
     }
 
@@ -3061,10 +3187,10 @@ impl<T: AssetConfig> Pallet<T> {
             }
         })?;
 
-        Self::deposit_event(Event::GlobalMetadataSpecUpdated(
-            asset_metadata_name,
-            asset_metadata_spec,
-        ));
+        Self::deposit_event(Event::GlobalMetadataSpecUpdated {
+            name: asset_metadata_name,
+            spec: asset_metadata_spec,
+        });
 
         Ok(())
     }
@@ -4267,7 +4393,11 @@ impl<T: AssetConfig> Pallet<T> {
         UniqueTickerRegistration::<T>::insert(ticker, TickerRegistration { owner, expiry });
         TickersOwnedByUser::<T>::insert(owner, ticker, true);
 
-        Self::deposit_event(Event::TickerRegistered(owner, ticker, expiry));
+        Self::deposit_event(Event::TickerRegistered {
+            owner_did: owner,
+            ticker,
+            expiry,
+        });
         Ok(())
     }
 
@@ -4278,7 +4408,11 @@ impl<T: AssetConfig> Pallet<T> {
         TickersOwnedByUser::<T>::insert(to, ticker, true);
         reg.owner = to;
         UniqueTickerRegistration::<T>::insert(&ticker, reg);
-        Self::deposit_event(Event::TickerTransferred(to, ticker, from));
+        Self::deposit_event(Event::TickerTransferred {
+            new_owner_did: to,
+            ticker,
+            old_owner_did: from,
+        });
     }
 
     /// All storage writes for creating an asset.
@@ -4304,16 +4438,16 @@ impl<T: AssetConfig> Pallet<T> {
 
         SecurityTokensOwnedByUser::<T>::insert(caller_did, asset_id, true);
 
-        Self::deposit_event(Event::AssetCreated(
+        Self::deposit_event(Event::AssetCreated {
             caller_did,
             asset_id,
             divisible,
             asset_type,
-            caller_did,
-            asset_name,
-            asset_identifiers.clone(),
-            funding_round_name,
-        ));
+            owner_did: caller_did,
+            name: asset_name,
+            identifiers: asset_identifiers.clone(),
+            funding_round: funding_round_name,
+        });
 
         // These emit events which should come after the main AssetCreated event
         Self::unverified_update_asset_identifiers(caller_did, asset_id, asset_identifiers);
@@ -4329,7 +4463,11 @@ impl<T: AssetConfig> Pallet<T> {
         asset_identifiers: Vec<AssetIdentifier>,
     ) {
         AssetIdentifiers::<T>::insert(asset_id, asset_identifiers.clone());
-        Self::deposit_event(Event::IdentifiersUpdated(did, asset_id, asset_identifiers));
+        Self::deposit_event(Event::IdentifiersUpdated {
+            caller_did: did,
+            asset_id,
+            identifiers: asset_identifiers,
+        });
     }
 
     /// All storage writes for issuing tokens.
@@ -4381,16 +4519,16 @@ impl<T: AssetConfig> Pallet<T> {
             *balance = balance.saturating_add(amount_to_issue)
         });
 
-        Self::deposit_event(Event::AssetBalanceUpdated(
-            issuer_did,
+        Self::deposit_event(Event::AssetBalanceUpdated {
+            caller_did: issuer_did,
             asset_id,
-            amount_to_issue,
-            None,
-            Some(issuer),
-            HoldingsUpdateReason::Issued {
+            amount: amount_to_issue,
+            from: None,
+            to: Some(issuer),
+            update_reason: HoldingsUpdateReason::Issued {
                 funding_round_name: Some(funding_round_name),
             },
-        ));
+        });
         Ok(())
     }
 
@@ -4461,17 +4599,17 @@ impl<T: AssetConfig> Pallet<T> {
             weight_meter,
         )?;
 
-        Self::deposit_event(Event::AssetBalanceUpdated(
+        Self::deposit_event(Event::AssetBalanceUpdated {
             caller_did,
             asset_id,
-            transfer_value,
-            Some(sender),
-            Some(receiver),
-            HoldingsUpdateReason::Transferred {
+            amount: transfer_value,
+            from: Some(sender),
+            to: Some(receiver),
+            update_reason: HoldingsUpdateReason::Transferred {
                 instruction_id,
                 instruction_memo,
             },
-        ));
+        });
         Ok(())
     }
 
@@ -4482,22 +4620,22 @@ impl<T: AssetConfig> Pallet<T> {
     ) -> Result<CustomAssetTypeId, DispatchError> {
         match CustomTypesInverse::<T>::try_get(&asset_type_bytes) {
             Ok(type_id) => {
-                Self::deposit_event(Event::<T>::CustomAssetTypeExists(
+                Self::deposit_event(Event::<T>::CustomAssetTypeExists {
                     caller_did,
-                    type_id,
-                    asset_type_bytes,
-                ));
+                    custom_asset_type_id: type_id,
+                    name: asset_type_bytes,
+                });
                 Ok(type_id)
             }
             Err(_) => {
                 let type_id = CustomTypeIdSequence::<T>::try_mutate(try_next_pre::<T, _>)?;
                 CustomTypesInverse::<T>::insert(&asset_type_bytes, type_id);
                 CustomTypes::<T>::insert(type_id, &asset_type_bytes);
-                Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(
+                Self::deposit_event(Event::<T>::CustomAssetTypeRegistered {
                     caller_did,
-                    type_id,
-                    asset_type_bytes,
-                ));
+                    custom_asset_type_id: type_id,
+                    name: asset_type_bytes,
+                });
                 Ok(type_id)
             }
         }
@@ -4533,7 +4671,12 @@ impl<T: AssetConfig> Pallet<T> {
             AssetMetadataValueDetails::<T>::insert(asset_id, key, detail);
         }
 
-        Self::deposit_event(Event::SetAssetMetadataValue(did, asset_id, value, detail));
+        Self::deposit_event(Event::SetAssetMetadataValue {
+            caller_did: did,
+            asset_id,
+            value,
+            value_detail: detail,
+        });
         Ok(())
     }
 
@@ -4562,9 +4705,13 @@ impl<T: AssetConfig> Pallet<T> {
         // Store local specs.
         AssetMetadataLocalSpecs::<T>::insert(asset_id, key, &spec);
 
-        Self::deposit_event(Event::RegisterAssetMetadataLocalType(
-            did, asset_id, name, key, spec,
-        ));
+        Self::deposit_event(Event::RegisterAssetMetadataLocalType {
+            caller_did: did,
+            asset_id,
+            name,
+            local_key: key,
+            spec,
+        });
         Ok(key.into())
     }
 

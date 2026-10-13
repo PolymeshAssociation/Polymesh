@@ -85,30 +85,37 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A checkpoint was created.
-        ///
-        /// (caller DID, AssetId, checkpoint ID, total supply, checkpoint timestamp)
-        CheckpointCreated(
-            Option<IdentityId>,
-            AssetId,
-            CheckpointId,
-            polymesh_primitives::Balance,
-            Moment,
-        ),
+        CheckpointCreated {
+            caller_did: Option<IdentityId>,
+            asset_id: AssetId,
+            checkpoint_id: CheckpointId,
+            /// Total supply of the asset at the checkpoint.
+            total_supply: polymesh_primitives::Balance,
+            timestamp: Moment,
+        },
 
         /// The maximum complexity for an arbitrary asset's schedule set was changed.
-        ///
-        /// (GC DID, the new maximum)
-        MaximumSchedulesComplexityChanged(IdentityId, u64),
+        MaximumSchedulesComplexityChanged {
+            caller_did: IdentityId,
+            /// The new maximum.
+            max_complexity: u64,
+        },
 
         /// A checkpoint schedule was created.
-        ///
-        /// (caller DID, AssetId, schedule id, schedule)
-        ScheduleCreated(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
+        ScheduleCreated {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            schedule_id: ScheduleId,
+            schedule: ScheduleCheckpoints,
+        },
 
         /// A checkpoint schedule was removed.
-        ///
-        /// (caller DID, AssetId, schedule id, schedule)
-        ScheduleRemoved(IdentityId, AssetId, ScheduleId, ScheduleCheckpoints),
+        ScheduleRemoved {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            schedule_id: ScheduleId,
+            schedule: ScheduleCheckpoints,
+        },
     }
 
     #[pallet::pallet]
@@ -307,10 +314,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             SchedulesMaxComplexity::<T>::put(max_complexity);
-            Self::deposit_event(Event::MaximumSchedulesComplexityChanged(
-                GC_DID,
+            Self::deposit_event(Event::MaximumSchedulesComplexityChanged {
+                caller_did: GC_DID,
                 max_complexity,
-            ));
+            });
             Ok(())
         }
 
@@ -571,7 +578,12 @@ impl<T: AssetConfig> Pallet<T> {
         ScheduleRefCount::<T>::insert(asset_id, id, ref_count);
         ScheduleIdSequence::<T>::insert(asset_id, id);
 
-        Self::deposit_event(Event::ScheduleCreated(caller_did, asset_id, id, schedule));
+        Self::deposit_event(Event::ScheduleCreated {
+            caller_did,
+            asset_id,
+            schedule_id: id,
+            schedule,
+        });
         Ok((id, next_at))
     }
 
@@ -605,7 +617,12 @@ impl<T: AssetConfig> Pallet<T> {
         ScheduledCheckpoints::<T>::remove(asset_id, id);
 
         // Emit event.
-        Self::deposit_event(Event::ScheduleRemoved(caller_did, asset_id, id, schedule));
+        Self::deposit_event(Event::ScheduleRemoved {
+            caller_did,
+            asset_id,
+            schedule_id: id,
+            schedule,
+        });
         Ok(())
     }
 
@@ -640,9 +657,13 @@ impl<T: AssetConfig> Pallet<T> {
         Timestamps::<T>::insert(asset_id, id, at);
 
         // Emit event & we're done.
-        Self::deposit_event(Event::CheckpointCreated(
-            caller_did, asset_id, id, supply, at,
-        ));
+        Self::deposit_event(Event::CheckpointCreated {
+            caller_did,
+            asset_id,
+            checkpoint_id: id,
+            total_supply: supply,
+            timestamp: at,
+        });
     }
 
     /// Increment the schedule ref count.

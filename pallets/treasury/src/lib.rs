@@ -83,17 +83,24 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Disbursement to a target Identity.
-        ///
-        /// (treasury identity, target identity, target primary key, amount)
-        TreasuryDisbursement(IdentityId, IdentityId, T::AccountId, BalanceOf<T>),
+        TreasuryDisbursement {
+            treasury_did: IdentityId,
+            target_did: IdentityId,
+            target_primary_key: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// Disbursement to a target Identity failed.
-        ///
-        /// (treasury identity, target identity, target primary key, amount)
-        TreasuryDisbursementFailed(IdentityId, IdentityId, T::AccountId, BalanceOf<T>),
+        TreasuryDisbursementFailed {
+            treasury_did: IdentityId,
+            target_did: IdentityId,
+            target_primary_key: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// Treasury reimbursement.
-        ///
-        /// (source identity, amount)
-        TreasuryReimbursement(IdentityId, BalanceOf<T>),
+        TreasuryReimbursement {
+            source_did: IdentityId,
+            amount: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -183,7 +190,10 @@ impl<T: Config> Pallet<T> {
             ExistenceRequirement::AllowDeath,
         )?;
 
-        Self::deposit_event(Event::TreasuryReimbursement(primary_did, amount));
+        Self::deposit_event(Event::TreasuryReimbursement {
+            source_did: primary_did,
+            amount,
+        });
 
         Ok(())
     }
@@ -212,11 +222,21 @@ impl<T: Config> Pallet<T> {
 
         // Emit event based on transfer results.
         let event = if res.is_ok() {
-            Event::TreasuryDisbursement
+            Event::TreasuryDisbursement {
+                treasury_did: GC_DID,
+                target_did: target,
+                target_primary_key: primary_key,
+                amount,
+            }
         } else {
-            Event::TreasuryDisbursementFailed
+            Event::TreasuryDisbursementFailed {
+                treasury_did: GC_DID,
+                target_did: target,
+                target_primary_key: primary_key,
+                amount,
+            }
         };
-        Self::deposit_event(event(GC_DID, target, primary_key, amount));
+        Self::deposit_event(event);
     }
 
     /// Returns the current balance of the treasury.

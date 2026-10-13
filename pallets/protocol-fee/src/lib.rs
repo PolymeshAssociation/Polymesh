@@ -138,11 +138,17 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// The protocol fee of an operation.
-        FeeSet(IdentityId, Balance),
+        FeeSet {
+            caller_did: IdentityId,
+            fee: Balance,
+        },
         /// The fee coefficient.
-        CoefficientSet(IdentityId, PosRatio),
+        CoefficientSet {
+            caller_did: IdentityId,
+            coefficient: PosRatio,
+        },
         /// Fee charged.
-        FeeCharged(T::AccountId, Balance),
+        FeeCharged { account: T::AccountId, fee: Balance },
     }
 
     #[pallet::call]
@@ -159,7 +165,10 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Coefficient::<T>::put(&coefficient);
-            Self::deposit_event(Event::<T>::CoefficientSet(GC_DID, coefficient));
+            Self::deposit_event(Event::<T>::CoefficientSet {
+                caller_did: GC_DID,
+                coefficient,
+            });
             Ok(().into())
         }
 
@@ -176,7 +185,10 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             BaseFees::<T>::insert(op, &base_fee);
-            Self::deposit_event(Event::<T>::FeeSet(GC_DID, base_fee));
+            Self::deposit_event(Event::<T>::FeeSet {
+                caller_did: GC_DID,
+                fee: base_fee,
+            });
             Ok(().into())
         }
     }
@@ -245,7 +257,10 @@ impl<T: Config> Pallet<T> {
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
 
-        Self::deposit_event(Event::<T>::FeeCharged(fee_key, fee));
+        Self::deposit_event(Event::<T>::FeeCharged {
+            account: fee_key,
+            fee,
+        });
         Ok(ret)
     }
 

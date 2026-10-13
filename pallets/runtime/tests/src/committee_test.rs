@@ -154,11 +154,11 @@ fn single_member_committee_works_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(
-            Some(alice_did),
-            hash,
-            Ok(()),
-        )),
+        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed {
+            caller_did: Some(alice_did),
+            proposal_hash: hash,
+            result: Ok(()),
+        }),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -471,7 +471,11 @@ fn rage_quit_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(None, hash, Ok(()))),
+        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed {
+            caller_did: None,
+            proposal_hash: hash,
+            result: Ok(()),
+        }),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);

@@ -153,18 +153,18 @@ fn storage_rollback() {
         system_events.pop().unwrap();
         assert_eq!(
             system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(Event::FailedToExecuteInstruction(
+            crate::storage::EventTest::Settlement(Event::FailedToExecuteInstruction {
                 instruction_id,
-                Error::<TestStorage>::FailedAssetTransferringConditions.into()
-            ))
+                error: Error::<TestStorage>::FailedAssetTransferringConditions.into()
+            })
         );
         assert_eq!(
             system_events.pop().unwrap().event,
-            crate::storage::EventTest::Settlement(Event::LegFailedExecution(
-                SettlementDID.as_id(),
+            crate::storage::EventTest::Settlement(Event::LegFailedExecution {
+                caller_did: SettlementDID.as_id(),
                 instruction_id,
-                LegId(1)
-            ))
+                leg_id: LegId(1)
+            })
         );
     });
 }

@@ -334,15 +334,18 @@ impl<T: Config> Pallet<T> {
             DidRecords::<T>::insert(target_did, DidRecord::new(new_primary_key.clone()));
 
             let removed_keys = vec![new_primary_key.clone()];
-            Self::deposit_event(Event::SecondaryKeysRemoved(target_did, removed_keys));
+            Self::deposit_event(Event::SecondaryKeysRemoved {
+                did: target_did,
+                removed_keys,
+            });
         } else {
             Self::add_key_record(&new_primary_key, key_record);
         }
-        Self::deposit_event(Event::PrimaryKeyUpdated(
-            target_did,
-            old_primary_key.clone(),
+        Self::deposit_event(Event::PrimaryKeyUpdated {
+            did: target_did,
+            old_primary_key: old_primary_key.clone(),
             new_primary_key,
-        ));
+        });
 
         if let Some(perms) = new_permissions {
             // Convert old primary key to secondary key.
@@ -350,7 +353,10 @@ impl<T: Config> Pallet<T> {
             Self::set_key_permissions(&old_primary_key, &perms);
 
             let sk = SecondaryKey::new(old_primary_key, perms);
-            Self::deposit_event(Event::SecondaryKeysAdded(target_did, vec![sk]));
+            Self::deposit_event(Event::SecondaryKeysAdded {
+                did: target_did,
+                secondary_keys: vec![sk],
+            });
         } else {
             Self::remove_key_record(&old_primary_key, Some(target_did));
         }
@@ -397,12 +403,12 @@ impl<T: Config> Pallet<T> {
         // Update secondary key's permissions.
         Self::set_key_permissions(&key, &permissions);
 
-        Self::deposit_event(Event::SecondaryKeyPermissionsUpdated(
+        Self::deposit_event(Event::SecondaryKeyPermissionsUpdated {
             did,
-            key.clone(),
-            old_perms,
-            permissions,
-        ));
+            secondary_key: key.clone(),
+            old_permissions: old_perms,
+            new_permissions: permissions,
+        });
         Ok(())
     }
 
@@ -429,7 +435,10 @@ impl<T: Config> Pallet<T> {
             Self::set_outdated_autorizations(Signatory::Account(key.clone()));
         }
 
-        Self::deposit_event(Event::SecondaryKeysRemoved(did, keys));
+        Self::deposit_event(Event::SecondaryKeysRemoved {
+            did,
+            removed_keys: keys,
+        });
         Ok(())
     }
 
@@ -504,7 +513,10 @@ impl<T: Config> Pallet<T> {
             Self::set_key_permissions(&sk.key, &sk.permissions);
         }
 
-        Self::deposit_event(Event::SecondaryKeysAdded(did, additional_keys_si));
+        Self::deposit_event(Event::SecondaryKeysAdded {
+            did,
+            secondary_keys: additional_keys_si,
+        });
         Ok(())
     }
 
@@ -544,7 +556,10 @@ impl<T: Config> Pallet<T> {
         Self::set_key_permissions(&key, &permissions);
 
         let sk = SecondaryKey { key, permissions };
-        Self::deposit_event(Event::SecondaryKeysAdded(target_did, vec![sk]));
+        Self::deposit_event(Event::SecondaryKeysAdded {
+            did: target_did,
+            secondary_keys: vec![sk],
+        });
     }
 
     pub(crate) fn leave_identity(origin: T::RuntimeOrigin) -> DispatchResult {
@@ -559,7 +574,10 @@ impl<T: Config> Pallet<T> {
         // Unlink secondary key from the identity.
         Self::remove_key_record(&key, Some(did));
 
-        Self::deposit_event(Event::SecondaryKeyLeftIdentity(did, key));
+        Self::deposit_event(Event::SecondaryKeyLeftIdentity {
+            did,
+            secondary_key: key,
+        });
         Ok(())
     }
 
@@ -574,10 +592,10 @@ impl<T: Config> Pallet<T> {
         let (_, did) = Self::ensure_primary_key(origin)?;
         if freeze {
             IsDidFrozen::<T>::insert(&did, true);
-            Self::deposit_event(Event::SecondaryKeysFrozen(did))
+            Self::deposit_event(Event::SecondaryKeysFrozen { did })
         } else {
             IsDidFrozen::<T>::remove(&did);
-            Self::deposit_event(Event::SecondaryKeysUnfrozen(did));
+            Self::deposit_event(Event::SecondaryKeysUnfrozen { did });
         }
         Ok(())
     }
@@ -629,7 +647,11 @@ impl<T: Config> Pallet<T> {
 
         // Give `InitialPOLYX` to the primary key for testing.
         let _ = T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
-        Self::deposit_event(Event::DidCreated(did, sender, secondary_keys.clone()));
+        Self::deposit_event(Event::DidCreated {
+            did,
+            primary_key: sender,
+            secondary_keys: secondary_keys.clone(),
+        });
 
         // Add join identity authorizations for secondary keys.
         for sk in secondary_keys {
@@ -675,7 +697,11 @@ impl<T: Config> Pallet<T> {
             Self::set_key_permissions(&sk.key, &sk.permissions);
         }
 
-        Self::deposit_event(Event::DidCreated(id, primary_key, secondary_keys));
+        Self::deposit_event(Event::DidCreated {
+            did: id,
+            primary_key,
+            secondary_keys,
+        });
     }
 
     /// Ensure the `key` is a secondary key of the identity `did`.

@@ -172,11 +172,11 @@ impl AssetTracker {
         let mut system_events = System::events();
         self.asset_id = {
             match system_events.pop().unwrap().event {
-                super::storage::EventTest::ExternalAgents(Event::AgentAdded(
-                    _did,
+                super::storage::EventTest::ExternalAgents(Event::AgentAdded {
+                    agent_did: _did,
                     asset_id,
-                    ..,
-                )) => asset_id,
+                    ..
+                }) => asset_id,
                 _ => panic!("Unexpected event"),
             }
         };

@@ -154,29 +154,42 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// An Agent Group was created.
-        ///
-        /// (Caller DID, AG's AssetId, AG's ID, AG's permissions)
-        GroupCreated(EventDid, AssetId, AGId, ExtrinsicPermissions),
+        GroupCreated {
+            caller_did: EventDid,
+            asset_id: AssetId,
+            ag_id: AGId,
+            permissions: ExtrinsicPermissions,
+        },
 
         /// An Agent Group's permissions was updated.
-        ///
-        /// (Caller DID, AG's AssetId, AG's ID, AG's new permissions)
-        GroupPermissionsUpdated(EventDid, AssetId, AGId, ExtrinsicPermissions),
+        GroupPermissionsUpdated {
+            caller_did: EventDid,
+            asset_id: AssetId,
+            ag_id: AGId,
+            permissions: ExtrinsicPermissions,
+        },
 
         /// An agent was added.
-        ///
-        /// (Caller/Agent DID, Agent's AssetId, Agent's group)
-        AgentAdded(EventDid, AssetId, AgentGroup),
+        AgentAdded {
+            agent_did: EventDid,
+            asset_id: AssetId,
+            group: AgentGroup,
+        },
 
         /// An agent was removed.
-        ///
-        /// (Caller DID, Agent's AssetId, Agent's DID)
-        AgentRemoved(EventDid, AssetId, IdentityId),
+        AgentRemoved {
+            caller_did: EventDid,
+            asset_id: AssetId,
+            agent_did: IdentityId,
+        },
 
         /// An agent's group was changed.
-        ///
-        /// (Caller DID, Agent's AssetId, Agent's DID, The new group of the agent)
-        GroupChanged(EventDid, AssetId, IdentityId, AgentGroup),
+        GroupChanged {
+            caller_did: EventDid,
+            asset_id: AssetId,
+            agent_did: IdentityId,
+            group: AgentGroup,
+        },
     }
 
     #[pallet::error]
@@ -419,12 +432,12 @@ impl<T: Config> Pallet<T> {
         )?;
 
         GroupPermissions::<T>::insert(asset_id, ag_id, extrinsics_permissions.clone());
-        Self::deposit_event(Event::GroupCreated(
-            caller_did.for_event(),
+        Self::deposit_event(Event::GroupCreated {
+            caller_did: caller_did.for_event(),
             asset_id,
             ag_id,
-            extrinsics_permissions,
-        ));
+            permissions: extrinsics_permissions,
+        });
         Ok((caller_did, ag_id))
     }
 
@@ -478,12 +491,12 @@ impl<T: Config> Pallet<T> {
         )?;
 
         GroupPermissions::<T>::insert(asset_id, ag_id, extrinsics_permissions.clone());
-        Self::deposit_event(Event::GroupPermissionsUpdated(
-            caller_did.for_event(),
+        Self::deposit_event(Event::GroupPermissionsUpdated {
+            caller_did: caller_did.for_event(),
             asset_id,
             ag_id,
-            extrinsics_permissions,
-        ));
+            permissions: extrinsics_permissions,
+        });
         Ok(())
     }
 
@@ -494,14 +507,22 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let did = Self::ensure_perms(origin, &asset_id)?.for_event();
         Self::try_mutate_agents_group(asset_id, agent, None)?;
-        Self::deposit_event(Event::AgentRemoved(did, asset_id, agent));
+        Self::deposit_event(Event::AgentRemoved {
+            caller_did: did,
+            asset_id,
+            agent_did: agent,
+        });
         Ok(())
     }
 
     fn base_abdicate(origin: OriginFor<T>, asset_id: AssetId) -> DispatchResult {
         let did = Self::ensure_asset_perms(origin, &asset_id)?.primary_did;
         Self::try_mutate_agents_group(asset_id, did, None)?;
-        Self::deposit_event(Event::AgentRemoved(did.for_event(), asset_id, did));
+        Self::deposit_event(Event::AgentRemoved {
+            caller_did: did.for_event(),
+            asset_id,
+            agent_did: did,
+        });
         Ok(())
     }
 
@@ -533,7 +554,12 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         Self::ensure_agent_group_valid(&asset_id, group)?;
         Self::try_mutate_agents_group(asset_id, agent, Some(group))?;
-        Self::deposit_event(Event::GroupChanged(did, asset_id, agent, group));
+        Self::deposit_event(Event::GroupChanged {
+            caller_did: did,
+            asset_id,
+            agent_did: agent,
+            group,
+        });
         Ok(())
     }
 
@@ -596,7 +622,11 @@ impl<T: Config> Pallet<T> {
         }
         GroupOfAgent::<T>::insert(asset_id, did, group);
         AgentOf::<T>::insert(did, asset_id, ());
-        Self::deposit_event(Event::AgentAdded(did.for_event(), asset_id, group));
+        Self::deposit_event(Event::AgentAdded {
+            agent_did: did.for_event(),
+            asset_id,
+            group,
+        });
         Ok(())
     }
 

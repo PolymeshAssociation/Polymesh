@@ -114,91 +114,160 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// A new venue has been created (did, venue_id, details, type)
-        VenueCreated(IdentityId, VenueId, VenueDetails, VenueType),
-        /// An existing venue's details has been updated (did, venue_id, details)
-        VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
-        /// An existing venue's type has been updated (did, venue_id, type)
-        VenueTypeUpdated(IdentityId, VenueId, VenueType),
-        /// An instruction has been affirmed (did, asset_holder, instruction_id)
-        InstructionAffirmed(IdentityId, AssetHolder, InstructionId),
-        /// An affirmation has been withdrawn (did, asset_holder, instruction_id)
-        AffirmationWithdrawn(IdentityId, AssetHolder, InstructionId),
-        /// An instruction has been rejected (did, instruction_id)
-        InstructionRejected(IdentityId, InstructionId),
-        /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
-        ReceiptClaimed(
-            IdentityId,
-            InstructionId,
-            LegId,
-            u64,
-            T::AccountId,
-            Option<ReceiptMetadata>,
-        ),
-        /// Venue filtering has been enabled or disabled for an asset (did, AssetId, filtering_enabled)
-        VenueFiltering(IdentityId, AssetId, bool),
-        /// Venues added to allow list (did, AssetId, vec<venue_id>)
-        VenuesAllowed(IdentityId, AssetId, Vec<VenueId>),
-        /// Venues added to block list (did, AssetId, vec<venue_id>)
-        VenuesBlocked(IdentityId, AssetId, Vec<VenueId>),
-        /// Execution of a leg failed (did, instruction_id, leg_id)
-        LegFailedExecution(IdentityId, InstructionId, LegId),
-        /// Instruction executed successfully(did, instruction_id)
-        InstructionExecuted(IdentityId, InstructionId),
-        /// Venue not part of the token's allow list (did, AssetId, venue_id)
-        VenueUnauthorized(IdentityId, AssetId, VenueId),
-        /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
-        VenueSignersUpdated(IdentityId, VenueId, BTreeSet<T::AccountId>, bool),
-        /// Settlement manually executed (did, id)
-        SettlementManuallyExecuted(IdentityId, InstructionId),
-        /// A new instruction has been created
-        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
-        InstructionCreated(
-            IdentityId,
-            Option<VenueId>,
-            InstructionId,
-            SettlementType<BlockNumberFor<T>>,
-            Option<T::Moment>,
-            Option<T::Moment>,
-            Vec<Leg>,
-            Option<Memo>,
-        ),
+        /// A new venue has been created.
+        VenueCreated {
+            caller_did: IdentityId,
+            venue_id: VenueId,
+            details: VenueDetails,
+            venue_type: VenueType,
+        },
+        /// An existing venue's details has been updated.
+        VenueDetailsUpdated {
+            caller_did: IdentityId,
+            venue_id: VenueId,
+            details: VenueDetails,
+        },
+        /// An existing venue's type has been updated.
+        VenueTypeUpdated {
+            caller_did: IdentityId,
+            venue_id: VenueId,
+            venue_type: VenueType,
+        },
+        /// An instruction has been affirmed.
+        InstructionAffirmed {
+            caller_did: IdentityId,
+            holder: AssetHolder,
+            instruction_id: InstructionId,
+        },
+        /// An affirmation has been withdrawn.
+        AffirmationWithdrawn {
+            caller_did: IdentityId,
+            holder: AssetHolder,
+            instruction_id: InstructionId,
+        },
+        /// An instruction has been rejected.
+        InstructionRejected {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+        },
+        /// A receipt has been claimed.
+        ReceiptClaimed {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+            leg_id: LegId,
+            receipt_uid: u64,
+            signer: T::AccountId,
+            metadata: Option<ReceiptMetadata>,
+        },
+        /// Venue filtering has been enabled or disabled for an asset.
+        VenueFiltering {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            enabled: bool,
+        },
+        /// Venues added to allow list.
+        VenuesAllowed {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            venue_ids: Vec<VenueId>,
+        },
+        /// Venues added to block list.
+        VenuesBlocked {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            venue_ids: Vec<VenueId>,
+        },
+        /// Execution of a leg failed.
+        LegFailedExecution {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+            leg_id: LegId,
+        },
+        /// Instruction executed successfully.
+        InstructionExecuted {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+        },
+        /// Venue not part of the token's allow list.
+        VenueUnauthorized {
+            caller_did: IdentityId,
+            asset_id: AssetId,
+            venue_id: VenueId,
+        },
+        /// An existing venue's signers has been updated.
+        VenueSignersUpdated {
+            caller_did: IdentityId,
+            venue_id: VenueId,
+            signers: BTreeSet<T::AccountId>,
+            /// `true` if the signers were added, `false` if they were removed.
+            added: bool,
+        },
+        /// Settlement manually executed.
+        SettlementManuallyExecuted {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+        },
+        /// A new instruction has been created.
+        InstructionCreated {
+            caller_did: IdentityId,
+            venue_id: Option<VenueId>,
+            instruction_id: InstructionId,
+            settlement_type: SettlementType<BlockNumberFor<T>>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            memo: Option<Memo>,
+        },
         /// Failed to execute instruction.
-        FailedToExecuteInstruction(InstructionId, DispatchError),
+        FailedToExecuteInstruction {
+            instruction_id: InstructionId,
+            error: DispatchError,
+        },
         /// An instruction has been automatically affirmed.
-        /// Parameters: [`IdentityId`] of the caller, [`AssetHolder`] of the receiver, and [`InstructionId`] of the instruction.
-        InstructionAutomaticallyAffirmed(IdentityId, AssetHolder, InstructionId),
-        /// An instruction has affirmed by a mediator.
-        /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
-        MediatorAffirmationReceived(IdentityId, InstructionId, Option<T::Moment>),
+        InstructionAutomaticallyAffirmed {
+            caller_did: IdentityId,
+            holder: AssetHolder,
+            instruction_id: InstructionId,
+        },
+        /// An instruction has been affirmed by a mediator.
+        MediatorAffirmationReceived {
+            mediator_did: IdentityId,
+            instruction_id: InstructionId,
+            /// When the affirmation expires; `None` if it never does.
+            expiry: Option<T::Moment>,
+        },
         /// An instruction affirmation has been withdrawn by a mediator.
-        /// Parameters: [`IdentityId`] of the mediator and [`InstructionId`] of the instruction.
-        MediatorAffirmationWithdrawn(IdentityId, InstructionId),
+        MediatorAffirmationWithdrawn {
+            mediator_did: IdentityId,
+            instruction_id: InstructionId,
+        },
         /// An instruction with mediators has been created.
-        /// Parameters: [`InstructionId`] of the instruction and the [`IdentityId`] of all mediators.
-        InstructionMediators(InstructionId, BTreeSet<IdentityId>),
-        /// An instruction has been sucessfully locked for execution
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The [`IdentityId`] of the caller.
-        /// - `InstructionId`: The [`InstructionId`] of the instruction.
-        InstructionLocked(IdentityId, InstructionId),
+        InstructionMediators {
+            instruction_id: InstructionId,
+            mediators: BTreeSet<IdentityId>,
+        },
+        /// An instruction has been successfully locked for execution.
+        InstructionLocked {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+        },
         /// An identity's mandatory receiver affirmation policy has been updated.
-        MandatoryReceiverAffirmationSet(IdentityId, AffirmationRequirement),
+        MandatoryReceiverAffirmationSet {
+            caller_did: IdentityId,
+            requirement: AffirmationRequirement,
+        },
         /// An instruction has been unlocked by a mediator.
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The [`IdentityId`] of the mediator.
-        /// - `InstructionId`: The [`InstructionId`] of the instruction.
-        InstructionUnlocked(IdentityId, InstructionId),
-        /// Funds have been transferred
-        ///
-        /// Parameters:
-        /// - `IdentityId`: The [`IdentityId`] of the caller.
-        /// - `AssetHolder`: The source [`AssetHolder`] of the transfer.
-        /// - `AssetHolder`: The destination [`AssetHolder`] of the transfer.
-        /// - `Fund`: The [`Fund`] being transferred.
-        FundsTransferred(IdentityId, AssetHolder, AssetHolder, Fund),
+        InstructionUnlocked {
+            caller_did: IdentityId,
+            instruction_id: InstructionId,
+        },
+        /// Funds have been transferred.
+        FundsTransferred {
+            caller_did: IdentityId,
+            from: AssetHolder,
+            to: AssetHolder,
+            fund: Fund,
+        },
     }
 
     pub trait WeightInfo {
@@ -845,7 +914,12 @@ pub mod pallet {
                 <VenueSigners<T>>::insert(id, signer, true);
             }
             UserVenues::<T>::insert(did, id, ());
-            Self::deposit_event(Event::VenueCreated(did, id, details, typ));
+            Self::deposit_event(Event::VenueCreated {
+                caller_did: did,
+                venue_id: id,
+                details,
+                venue_type: typ,
+            });
             Ok(())
         }
 
@@ -866,7 +940,11 @@ pub mod pallet {
 
             // Commit to storage.
             Details::<T>::insert(id, details.clone());
-            Self::deposit_event(Event::VenueDetailsUpdated(caller_did, id, details));
+            Self::deposit_event(Event::VenueDetailsUpdated {
+                caller_did,
+                venue_id: id,
+                details,
+            });
             Ok(())
         }
 
@@ -887,7 +965,11 @@ pub mod pallet {
             venue.venue_type = typ;
             VenueInfo::<T>::insert(id, venue);
 
-            Self::deposit_event(Event::VenueTypeUpdated(caller_did, id, typ));
+            Self::deposit_event(Event::VenueTypeUpdated {
+                caller_did,
+                venue_id: id,
+                venue_type: typ,
+            });
             Ok(())
         }
 
@@ -938,7 +1020,11 @@ pub mod pallet {
             } else {
                 VenueFiltering::<T>::remove(asset_id);
             }
-            Self::deposit_event(Event::VenueFiltering(did, asset_id, enabled));
+            Self::deposit_event(Event::VenueFiltering {
+                caller_did: did,
+                asset_id,
+                enabled,
+            });
             Ok(())
         }
 
@@ -962,7 +1048,11 @@ pub mod pallet {
                 ensure!(venue < &next_venue_id, Error::<T>::InvalidVenue);
                 VenueAllowList::<T>::insert(&asset_id, venue, true);
             }
-            Self::deposit_event(Event::VenuesAllowed(did, asset_id, venues));
+            Self::deposit_event(Event::VenuesAllowed {
+                caller_did: did,
+                asset_id,
+                venue_ids: venues,
+            });
             Ok(())
         }
 
@@ -986,7 +1076,11 @@ pub mod pallet {
                 ensure!(venue < &next_venue_id, Error::<T>::InvalidVenue);
                 VenueAllowList::<T>::remove(&asset_id, venue);
             }
-            Self::deposit_event(Event::VenuesBlocked(did, asset_id, venues));
+            Self::deposit_event(Event::VenuesBlocked {
+                caller_did: did,
+                asset_id,
+                venue_ids: venues,
+            });
             Ok(())
         }
 
@@ -1486,10 +1580,10 @@ pub mod pallet {
             } else {
                 MandatoryReceiverAffirmation::<T>::remove(&caller_did);
             }
-            Self::deposit_event(Event::MandatoryReceiverAffirmationSet(
+            Self::deposit_event(Event::MandatoryReceiverAffirmationSet {
                 caller_did,
                 requirement,
-            ));
+            });
             Ok(())
         }
 
@@ -1631,12 +1725,12 @@ impl<T: Config> Pallet<T> {
                     Nft::<T>::transfer_holders_nfts(&resolved_from, to.clone(), nfts)?;
                 }
             }
-            Self::deposit_event(Event::FundsTransferred(
-                origin_did,
-                resolved_from,
+            Self::deposit_event(Event::FundsTransferred {
+                caller_did: origin_did,
+                from: resolved_from,
                 to,
-                fund.clone(),
-            ));
+                fund: fund.clone(),
+            });
             None
         } else {
             // Cross-identity: authorize and create settlement instruction.
@@ -1863,8 +1957,8 @@ impl<T: Config> Pallet<T> {
             VenueInstructions::<T>::insert(venue_id, instruction_id, ());
         }
 
-        Self::deposit_event(Event::InstructionCreated(
-            did,
+        Self::deposit_event(Event::InstructionCreated {
+            caller_did: did,
             venue_id,
             instruction_id,
             settlement_type,
@@ -1872,7 +1966,7 @@ impl<T: Config> Pallet<T> {
             value_date,
             legs,
             memo,
-        ));
+        });
 
         for asset_holder in instruction_info.holders_pre_approved_difference() {
             UserAffirmations::<T>::insert(
@@ -1881,18 +1975,18 @@ impl<T: Config> Pallet<T> {
                 AffirmationStatus::Affirmed,
             );
             AffirmsReceived::<T>::insert(instruction_id, asset_holder, AffirmationStatus::Affirmed);
-            Self::deposit_event(Event::InstructionAutomaticallyAffirmed(
-                did,
-                asset_holder.clone(),
+            Self::deposit_event(Event::InstructionAutomaticallyAffirmed {
+                caller_did: did,
+                holder: asset_holder.clone(),
                 instruction_id,
-            ));
+            });
         }
 
         if !instruction_info.mediators().is_empty() {
-            Self::deposit_event(Event::InstructionMediators(
+            Self::deposit_event(Event::InstructionMediators {
                 instruction_id,
-                instruction_info.mediators().clone(),
-            ));
+                mediators: instruction_info.mediators().clone(),
+            });
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
@@ -2059,7 +2153,10 @@ impl<T: Config> Pallet<T> {
                 return Err(Error::<T>::FailedAssetTransferringConditions.into());
             }
             Self::prune_instruction(&inst_id, &inst_legs)?;
-            Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
+            Self::deposit_event(Event::InstructionExecuted {
+                caller_did,
+                instruction_id: inst_id,
+            });
             InstructionStatuses::<T>::insert(
                 inst_id,
                 InstructionStatus::Success(System::<T>::block_number()),
@@ -2069,11 +2166,11 @@ impl<T: Config> Pallet<T> {
 
         // Since with_transaction reverts events as well, the event has to be emitted here
         if let Some(failed_leg_id) = failed_leg_id {
-            Self::deposit_event(Event::LegFailedExecution(
+            Self::deposit_event(Event::LegFailedExecution {
                 caller_did,
-                inst_id,
-                failed_leg_id,
-            ));
+                instruction_id: inst_id,
+                leg_id: failed_leg_id,
+            });
         }
 
         tx_result
@@ -2443,14 +2540,14 @@ impl<T: Config> Pallet<T> {
                 AffirmationStatus::Affirmed,
             );
             ReceiptsUsed::<T>::insert(receipt_detail.signer(), receipt_detail.uid(), true);
-            Self::deposit_event(Event::ReceiptClaimed(
+            Self::deposit_event(Event::ReceiptClaimed {
                 caller_did,
                 instruction_id,
-                receipt_detail.leg_id(),
-                receipt_detail.uid(),
-                receipt_detail.signer().clone(),
-                receipt_detail.metadata().clone(),
-            ));
+                leg_id: receipt_detail.leg_id(),
+                receipt_uid: receipt_detail.uid(),
+                signer: receipt_detail.signer().clone(),
+                metadata: receipt_detail.metadata().clone(),
+            });
         }
 
         for asset_holder in holder_set {
@@ -2464,11 +2561,11 @@ impl<T: Config> Pallet<T> {
                 &asset_holder,
                 AffirmationStatus::Affirmed,
             );
-            Self::deposit_event(Event::InstructionAffirmed(
+            Self::deposit_event(Event::InstructionAffirmed {
                 caller_did,
-                asset_holder,
+                holder: asset_holder,
                 instruction_id,
-            ));
+            });
         }
 
         Ok(filtered_legs)
@@ -2536,11 +2633,11 @@ impl<T: Config> Pallet<T> {
         for asset_holder in holder_set {
             UserAffirmations::<T>::insert(&asset_holder, inst_id, AffirmationStatus::Affirmed);
             AffirmsReceived::<T>::insert(inst_id, &asset_holder, AffirmationStatus::Affirmed);
-            Self::deposit_event(Event::InstructionAffirmed(
+            Self::deposit_event(Event::InstructionAffirmed {
                 caller_did,
-                asset_holder,
-                inst_id,
-            ));
+                holder: asset_holder,
+                instruction_id: inst_id,
+            });
         }
 
         InstructionAffirmsPending::<T>::insert(
@@ -2728,12 +2825,12 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::deposit_event(Event::VenueSignersUpdated(
-            did,
+        Self::deposit_event(Event::VenueSignersUpdated {
+            caller_did: did,
             venue_id,
             signers,
-            add_signers,
-        ));
+            added: add_signers,
+        });
         Ok(())
     }
 
@@ -2821,7 +2918,10 @@ impl<T: Config> Pallet<T> {
             InstructionStatus::Rejected(System::<T>::block_number()),
         );
 
-        Self::deposit_event(Event::InstructionRejected(caller_did, inst_id));
+        Self::deposit_event(Event::InstructionRejected {
+            caller_did,
+            instruction_id: inst_id,
+        });
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
@@ -2886,7 +2986,10 @@ impl<T: Config> Pallet<T> {
     ) -> PostDispatchInfo {
         let caller_did = SettlementDID.as_id();
         if let Err(e) = Self::execute_instruction_retryable(id, caller_did, weight_meter, false) {
-            Self::deposit_event(Event::FailedToExecuteInstruction(id, e));
+            Self::deposit_event(Event::FailedToExecuteInstruction {
+                instruction_id: id,
+                error: e,
+            });
         }
         PostDispatchInfo::from(Some(weight_meter.consumed()))
     }
@@ -3102,7 +3205,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::deposit_event(Event::SettlementManuallyExecuted(caller_did, inst_id));
+        Self::deposit_event(Event::SettlementManuallyExecuted {
+            caller_did,
+            instruction_id: inst_id,
+        });
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
@@ -3311,11 +3417,11 @@ impl<T: Config> Pallet<T> {
             Self::maybe_schedule_instruction(n_pending_affirmations, instruction_id, weight_limit)?;
         }
 
-        Self::deposit_event(Event::MediatorAffirmationReceived(
-            caller_did,
+        Self::deposit_event(Event::MediatorAffirmationReceived {
+            mediator_did: caller_did,
             instruction_id,
             expiry,
-        ));
+        });
         Ok(())
     }
 
@@ -3480,7 +3586,10 @@ impl<T: Config> Pallet<T> {
         InstructionStatuses::<T>::insert(inst_id, InstructionStatus::LockedForExecution);
         LockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
 
-        Self::deposit_event(Event::InstructionLocked(caller_did, inst_id));
+        Self::deposit_event(Event::InstructionLocked {
+            caller_did,
+            instruction_id: inst_id,
+        });
         Ok(())
     }
 
@@ -3499,7 +3608,10 @@ impl<T: Config> Pallet<T> {
         LockedTimestamp::<T>::remove(inst_id);
         UnlockedTimestamp::<T>::insert(inst_id, pallet_timestamp::Pallet::<T>::get());
 
-        Self::deposit_event(Event::InstructionUnlocked(caller_did, inst_id));
+        Self::deposit_event(Event::InstructionUnlocked {
+            caller_did,
+            instruction_id: inst_id,
+        });
         Ok(())
     }
 
@@ -3547,7 +3659,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::deposit_event(Event::InstructionExecuted(caller_did, inst_id));
+        Self::deposit_event(Event::InstructionExecuted { caller_did, instruction_id: inst_id });
         InstructionStatuses::<T>::insert(
             inst_id,
             InstructionStatus::Success(System::<T>::block_number())

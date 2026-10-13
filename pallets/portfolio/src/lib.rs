@@ -133,79 +133,63 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// The portfolio has been successfully created.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        /// * portfolio name
-        PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
+        PortfolioCreated {
+            caller_did: IdentityId,
+            portfolio_number: PortfolioNumber,
+            name: PortfolioName,
+        },
         /// The portfolio has been successfully removed.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        PortfolioDeleted(IdentityId, PortfolioNumber),
+        PortfolioDeleted {
+            caller_did: IdentityId,
+            portfolio_number: PortfolioNumber,
+        },
         /// The portfolio identified with `num` has been renamed to `name`.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        /// * portfolio name
-        PortfolioRenamed(IdentityId, PortfolioNumber, PortfolioName),
+        PortfolioRenamed {
+            caller_did: IdentityId,
+            portfolio_number: PortfolioNumber,
+            name: PortfolioName,
+        },
         /// All non-default portfolio numbers and names of a DID.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * vector of number-name pairs
-        UserPortfolios(IdentityId, Vec<(PortfolioNumber, PortfolioName)>),
-        /// Custody of a portfolio has been given to a different identity
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio id
-        /// * portfolio custodian did
-        PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
-        /// Funds have moved between portfolios
-        ///
-        /// # Parameters
-        /// * Origin DID.
-        /// * Source portfolio.
-        /// * Destination portfolio.
-        /// * The type of fund that was moved.
-        /// * Optional memo for the move.
-        FundsMovedBetweenPortfolios(
-            IdentityId,
-            PortfolioId,
-            PortfolioId,
-            FundDescription,
-            Option<Memo>,
-        ),
-        /// A portfolio has pre approved the receivement of an asset.
-        ///
-        /// # Parameters
-        /// * [`IdentityId`] of the caller.
-        /// * [`PortfolioId`] that will receive assets without explicit affirmation.
-        /// * [`AssetId`] of the asset that has been exempt from explicit affirmation.
-        PreApprovedPortfolio(IdentityId, PortfolioId, AssetId),
-        /// A portfolio has removed the approval of an asset.
-        ///
-        /// # Parameters
-        /// * [`IdentityId`] of the caller.
-        /// * [`PortfolioId`] that had its pre approval revoked.
-        /// * [`AssetId`] of the asset that had its pre approval revoked.
-        RevokePreApprovedPortfolio(IdentityId, PortfolioId, AssetId),
+        UserPortfolios {
+            did: IdentityId,
+            portfolios: Vec<(PortfolioNumber, PortfolioName)>,
+        },
+        /// Custody of a portfolio has been given to a different identity.
+        PortfolioCustodianChanged {
+            caller_did: IdentityId,
+            portfolio_id: PortfolioId,
+            custodian_did: IdentityId,
+        },
+        /// Funds have moved between portfolios.
+        FundsMovedBetweenPortfolios {
+            caller_did: IdentityId,
+            from: PortfolioId,
+            to: PortfolioId,
+            fund: FundDescription,
+            memo: Option<Memo>,
+        },
+        /// A portfolio pre-approved an asset, so it receives the asset without affirming.
+        PreApprovedPortfolio {
+            caller_did: IdentityId,
+            portfolio_id: PortfolioId,
+            asset_id: AssetId,
+        },
+        /// A portfolio removed its pre-approval of an asset.
+        RevokePreApprovedPortfolio {
+            caller_did: IdentityId,
+            portfolio_id: PortfolioId,
+            asset_id: AssetId,
+        },
         /// Allow another identity to create portfolios.
-        ///
-        /// # Parameters
-        /// * [`IdentityId`] of the caller.
-        /// * [`IdentityId`] allowed to create portfolios.
-        AllowIdentityToCreatePortfolios(IdentityId, IdentityId),
+        AllowIdentityToCreatePortfolios {
+            caller_did: IdentityId,
+            allowed_did: IdentityId,
+        },
         /// Revoke another identities permission to create portfolios.
-        ///
-        /// # Parameters
-        /// * [`IdentityId`] of the caller.
-        /// * [`IdentityId`] permissions to create portfolios is revoked.
-        RevokeCreatePortfoliosPermission(IdentityId, IdentityId),
+        RevokeCreatePortfoliosPermission {
+            caller_did: IdentityId,
+            revoked_did: IdentityId,
+        },
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -484,7 +468,10 @@ pub mod pallet {
             PortfolioCustodian::<T>::remove(&pid);
 
             // Emit event.
-            Self::deposit_event(Event::PortfolioDeleted(primary_did, portfolio_number));
+            Self::deposit_event(Event::PortfolioDeleted {
+                caller_did: primary_did,
+                portfolio_number,
+            });
             Ok(())
         }
 
@@ -527,11 +514,11 @@ pub mod pallet {
             NameToNumber::<T>::insert(&primary_did, &new_portfolio_name, portfolio_number);
 
             // Emit Event.
-            Self::deposit_event(Event::PortfolioRenamed(
-                primary_did,
+            Self::deposit_event(Event::PortfolioRenamed {
+                caller_did: primary_did,
                 portfolio_number,
-                new_portfolio_name,
-            ));
+                name: new_portfolio_name,
+            });
             Ok(())
         }
 
@@ -558,11 +545,11 @@ pub mod pallet {
             PortfoliosInCustody::<T>::remove(&caller_data.primary_did, &pid);
 
             let portfolio_did = pid.did;
-            Self::deposit_event(Event::PortfolioCustodianChanged(
-                caller_data.primary_did,
-                pid,
-                portfolio_did,
-            ));
+            Self::deposit_event(Event::PortfolioCustodianChanged {
+                caller_did: caller_data.primary_did,
+                portfolio_id: pid,
+                custodian_did: portfolio_did,
+            });
             Ok(())
         }
 
@@ -709,11 +696,11 @@ impl<T: Config> Pallet<T> {
             &portfolio_number,
             portfolio_name.clone(),
         );
-        Self::deposit_event(Event::PortfolioCreated(
-            portfolio_owner_id,
+        Self::deposit_event(Event::PortfolioCreated {
+            caller_did: portfolio_owner_id,
             portfolio_number,
-            portfolio_name,
-        ));
+            name: portfolio_name,
+        });
         Ok(())
     }
 
@@ -905,7 +892,11 @@ impl<T: Config> Pallet<T> {
                 Self::unverified_take_portfolio_custody(&pid, &to);
             }
 
-            Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
+            Self::deposit_event(Event::PortfolioCustodianChanged {
+                caller_did: to,
+                portfolio_id: pid,
+                custodian_did: to,
+            });
             Ok(())
         })
     }
@@ -1011,13 +1002,13 @@ impl<T: Config> Pallet<T> {
                         asset_id,
                         amount,
                     );
-                    Self::deposit_event(Event::FundsMovedBetweenPortfolios(
-                        origin_did,
-                        sender_portfolio.clone(),
-                        receiver_portfolio.clone(),
-                        FundDescription::Fungible { asset_id, amount },
-                        fund.memo,
-                    ));
+                    Self::deposit_event(Event::FundsMovedBetweenPortfolios {
+                        caller_did: origin_did,
+                        from: sender_portfolio.clone(),
+                        to: receiver_portfolio.clone(),
+                        fund: FundDescription::Fungible { asset_id, amount },
+                        memo: fund.memo,
+                    });
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
@@ -1033,13 +1024,13 @@ impl<T: Config> Pallet<T> {
                             receiver_portfolio.clone(),
                         );
                     }
-                    Self::deposit_event(Event::FundsMovedBetweenPortfolios(
-                        origin_did,
-                        sender_portfolio.clone(),
-                        receiver_portfolio.clone(),
-                        FundDescription::NonFungible(nfts),
-                        fund.memo,
-                    ));
+                    Self::deposit_event(Event::FundsMovedBetweenPortfolios {
+                        caller_did: origin_did,
+                        from: sender_portfolio.clone(),
+                        to: receiver_portfolio.clone(),
+                        fund: FundDescription::NonFungible(nfts),
+                        memo: fund.memo,
+                    });
                 }
             }
         }
@@ -1059,11 +1050,11 @@ impl<T: Config> Pallet<T> {
         )?;
 
         PreApprovedPortfolios::<T>::insert(&portfolio_id, asset_id, true);
-        Self::deposit_event(Event::PreApprovedPortfolio(
-            origin_data.primary_did,
+        Self::deposit_event(Event::PreApprovedPortfolio {
+            caller_did: origin_data.primary_did,
             portfolio_id,
             asset_id,
-        ));
+        });
         Ok(())
     }
 
@@ -1081,11 +1072,11 @@ impl<T: Config> Pallet<T> {
         )?;
 
         PreApprovedPortfolios::<T>::remove(&portfolio_id, asset_id);
-        Self::deposit_event(Event::RevokePreApprovedPortfolio(
-            origin_data.primary_did,
+        Self::deposit_event(Event::RevokePreApprovedPortfolio {
+            caller_did: origin_data.primary_did,
             portfolio_id,
             asset_id,
-        ));
+        });
         Ok(())
     }
 
@@ -1099,10 +1090,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SelfAdditionNotAllowed
         );
         AllowedCustodians::<T>::insert(callers_did, trusted_identity, true);
-        Self::deposit_event(Event::AllowIdentityToCreatePortfolios(
-            callers_did,
-            trusted_identity,
-        ));
+        Self::deposit_event(Event::AllowIdentityToCreatePortfolios {
+            caller_did: callers_did,
+            allowed_did: trusted_identity,
+        });
         Ok(())
     }
 
@@ -1112,10 +1103,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let callers_did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
         AllowedCustodians::<T>::remove(callers_did, identity);
-        Self::deposit_event(Event::RevokeCreatePortfoliosPermission(
-            callers_did,
-            identity,
-        ));
+        Self::deposit_event(Event::RevokeCreatePortfoliosPermission {
+            caller_did: callers_did,
+            revoked_did: identity,
+        });
         Ok(())
     }
 
@@ -1137,11 +1128,11 @@ impl<T: Config> Pallet<T> {
         Self::base_create_portfolio(portfolio_owner_id, portfolio_name)?;
         // Updates storage for taking ownership of a portfolio
         Self::unverified_take_portfolio_custody(&portfolio_id, &callers_did);
-        Self::deposit_event(Event::PortfolioCustodianChanged(
-            callers_did,
+        Self::deposit_event(Event::PortfolioCustodianChanged {
+            caller_did: callers_did,
             portfolio_id,
-            callers_did,
-        ));
+            custodian_did: callers_did,
+        });
         Ok(())
     }
 

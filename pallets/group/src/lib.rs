@@ -150,22 +150,37 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config<I>, I: 'static = ()> {
         /// The given member was added; see the transaction for who.
-        /// caller DID, New member DID.
-        MemberAdded(IdentityId, IdentityId),
+        MemberAdded {
+            caller_did: IdentityId,
+            member_did: IdentityId,
+        },
         /// The given member was removed; see the transaction for who.
-        /// caller DID, member DID that get removed.
-        MemberRemoved(IdentityId, IdentityId),
+        MemberRemoved {
+            caller_did: IdentityId,
+            member_did: IdentityId,
+        },
         /// The given member has been revoked at specific time-stamp.
-        /// caller DID, member DID that get revoked.
-        MemberRevoked(IdentityId, IdentityId),
+        MemberRevoked {
+            caller_did: IdentityId,
+            member_did: IdentityId,
+        },
         /// Two members were swapped; see the transaction for who.
-        /// caller DID, Removed DID, New add DID.
-        MembersSwapped(IdentityId, IdentityId, IdentityId),
+        MembersSwapped {
+            caller_did: IdentityId,
+            removed_did: IdentityId,
+            added_did: IdentityId,
+        },
         /// The membership was reset; see the transaction for who the new set is.
-        /// caller DID, List of new members.
-        MembersReset(IdentityId, Vec<IdentityId>),
+        MembersReset {
+            caller_did: IdentityId,
+            members: Vec<IdentityId>,
+        },
         /// The limit of how many active members there can be concurrently was changed.
-        ActiveLimitChanged(IdentityId, MemberCount, MemberCount),
+        ActiveLimitChanged {
+            caller_did: IdentityId,
+            new_limit: MemberCount,
+            old_limit: MemberCount,
+        },
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -243,7 +258,11 @@ pub mod pallet {
                 Error::<T, I>::ActiveMembersLimitOverflow
             );
             let old = ActiveMembersLimit::<T, I>::mutate(|slot| core::mem::replace(slot, limit));
-            Self::deposit_event(Event::ActiveLimitChanged(GC_DID, limit, old));
+            Self::deposit_event(Event::ActiveLimitChanged {
+                caller_did: GC_DID,
+                new_limit: limit,
+                old_limit: old,
+            });
             Ok(())
         }
 
@@ -341,7 +360,11 @@ pub mod pallet {
 
             T::MembershipChanged::change_members_sorted(&[add], &[remove], &members[..]);
             let current_did = GC_DID;
-            Self::deposit_event(Event::MembersSwapped(current_did, remove, add));
+            Self::deposit_event(Event::MembersSwapped {
+                caller_did: current_did,
+                removed_did: remove,
+                added_did: add,
+            });
             Ok(())
         }
 
@@ -365,7 +388,10 @@ pub mod pallet {
                 *m = new_members;
             });
             let current_did = GC_DID;
-            Self::deposit_event(Event::MembersReset(current_did, members));
+            Self::deposit_event(Event::MembersReset {
+                caller_did: current_did,
+                members,
+            });
             Ok(())
         }
 
@@ -462,7 +488,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
         InactiveMembers::<T, I>::put(&members);
         let current_did = GC_DID;
-        Self::deposit_event(Event::MemberRemoved(current_did, who));
+        Self::deposit_event(Event::MemberRemoved {
+            caller_did: current_did,
+            member_did: who,
+        });
         Ok(())
     }
 
@@ -482,7 +511,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         let current_did = GC_DID;
-        Self::deposit_event(Event::MemberRemoved(current_did, who));
+        Self::deposit_event(Event::MemberRemoved {
+            caller_did: current_did,
+            member_did: who,
+        });
         Ok(())
     }
 }
@@ -536,7 +568,10 @@ impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
                 if !Self::is_member_expired(m, now) {
                     true
                 } else {
-                    Self::deposit_event(Event::MemberRemoved(current_did, who));
+                    Self::deposit_event(Event::MemberRemoved {
+                        caller_did: current_did,
+                        member_did: who,
+                    });
                     false
                 }
             });
@@ -550,7 +585,10 @@ impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
             }
         });
 
-        Self::deposit_event(Event::MemberRevoked(current_did, who));
+        Self::deposit_event(Event::MemberRevoked {
+            caller_did: current_did,
+            member_did: who,
+        });
         Ok(())
     }
 
@@ -567,7 +605,10 @@ impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
         let current_did = GC_DID;
-        Self::deposit_event(Event::MemberAdded(current_did, who));
+        Self::deposit_event(Event::MemberAdded {
+            caller_did: current_did,
+            member_did: who,
+        });
         Ok(())
     }
 }

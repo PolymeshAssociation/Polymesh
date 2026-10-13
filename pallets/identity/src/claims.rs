@@ -136,7 +136,10 @@ impl<T: Config> Pallet<T> {
         };
 
         Claims::<T>::insert(&pk, &sk, id_claim.clone());
-        Self::deposit_event(Event::ClaimAdded(target, id_claim));
+        Self::deposit_event(Event::ClaimAdded {
+            target_did: target,
+            claim: id_claim,
+        });
     }
 
     /// Returns claim keys.
@@ -177,7 +180,10 @@ impl<T: Config> Pallet<T> {
         // Remove the claim.
         let claim = Claims::<T>::take(&pk, &sk).ok_or(Error::<T>::ClaimDoesNotExist)?;
         // Emit claim revoked event.
-        Self::deposit_event(Event::ClaimRevoked(target, claim));
+        Self::deposit_event(Event::ClaimRevoked {
+            target_did: target,
+            claim,
+        });
         Ok(())
     }
 
@@ -262,7 +268,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let did = Self::ensure_perms(origin)?;
         let id = Self::unsafe_register_custom_claim_type(ty.clone())?;
-        Self::deposit_event(Event::<T>::CustomClaimTypeAdded(did, id, ty));
+        Self::deposit_event(Event::<T>::CustomClaimTypeAdded {
+            caller_did: did,
+            custom_claim_type_id: id,
+            name: ty,
+        });
         Ok(())
     }
 

@@ -102,7 +102,7 @@ fn proposal(
     let result = Pips::propose(signer, Box::new(proposal), deposit, url, desc);
     let add = result.map_or(0, |_| 1);
     if let Ok(_) = result {
-        assert_last_event!(Event::ProposalCreated(_, _, id, ..), *id == before);
+        assert_last_event!(Event::ProposalCreated { pip_id: id, .. }, *id == before);
         assert_eq!(
             CommitteePips::<TestStorage>::get().contains(&before),
             matches!(proposer, Proposer::Committee(_))
@@ -181,36 +181,56 @@ fn updating_pips_variables_works() {
 
         assert_eq!(PruneHistoricalPips::<TestStorage>::get(), false);
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
-        assert_last_event!(Event::HistoricalPipsPruned(_, false, true));
+        assert_last_event!(Event::HistoricalPipsPruned {
+            old_value: false,
+            new_value: true,
+            ..
+        });
         assert_eq!(PruneHistoricalPips::<TestStorage>::get(), true);
 
         assert_eq!(MinimumProposalDeposit::<TestStorage>::get(), 50);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 10));
-        assert_last_event!(Event::MinimumProposalDepositChanged(_, 50, 10));
+        assert_last_event!(Event::MinimumProposalDepositChanged {
+            old_deposit: 50,
+            new_deposit: 10,
+            ..
+        });
         assert_eq!(MinimumProposalDeposit::<TestStorage>::get(), 10);
 
         assert_eq!(DefaultEnactmentPeriod::<TestStorage>::get(), 100);
         assert_ok!(Pips::set_default_enactment_period(root(), 10));
-        assert_last_event!(Event::DefaultEnactmentPeriodChanged(_, 100, 10));
+        assert_last_event!(Event::DefaultEnactmentPeriodChanged {
+            old_period: 100,
+            new_period: 10,
+            ..
+        });
         assert_eq!(DefaultEnactmentPeriod::<TestStorage>::get(), 10);
 
         assert_eq!(PendingPipExpiry::<TestStorage>::get(), MaybeBlock::None);
         assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
-        assert_last_event!(Event::PendingPipExpiryChanged(
-            _,
-            MaybeBlock::None,
-            MaybeBlock::Some(13)
-        ));
+        assert_last_event!(Event::PendingPipExpiryChanged {
+            old_expiry: MaybeBlock::None,
+            new_expiry: MaybeBlock::Some(13),
+            ..
+        });
         assert_eq!(PendingPipExpiry::<TestStorage>::get(), MaybeBlock::Some(13));
 
         assert_eq!(MaxPipSkipCount::<TestStorage>::get(), 1);
         assert_ok!(Pips::set_max_pip_skip_count(root(), 42));
-        assert_last_event!(Event::MaxPipSkipCountChanged(_, 1, 42));
+        assert_last_event!(Event::MaxPipSkipCountChanged {
+            old_max: 1,
+            new_max: 42,
+            ..
+        });
         assert_eq!(MaxPipSkipCount::<TestStorage>::get(), 42);
 
         assert_eq!(ActivePipLimit::<TestStorage>::get(), 5);
         assert_ok!(Pips::set_active_pip_limit(root(), 42));
-        assert_last_event!(Event::ActivePipLimitChanged(_, 5, 42));
+        assert_last_event!(Event::ActivePipLimitChanged {
+            old_limit: 5,
+            new_limit: 42,
+            ..
+        });
         assert_eq!(ActivePipLimit::<TestStorage>::get(), 42);
     });
 }
@@ -478,7 +498,7 @@ fn proposal_details_are_correct() {
             Some(proposal_url.clone()),
             Some(proposal_desc.clone()),
         ));
-        assert_last_event!(Event::ProposalCreated(..));
+        assert_last_event!(Event::ProposalCreated { .. });
 
         let expected = Pip {
             id: PipId(0),
@@ -594,7 +614,7 @@ fn vote_bond_additional_deposit_works() {
         assert_balance(proposer.acc(), init_free, init_amount);
         assert_ok!(Pips::vote(proposer.origin(), PipId(0), true, amount));
         assert_balance(proposer.acc(), init_free, amount);
-        assert_last_event!(Event::Voted(.., true, _));
+        assert_last_event!(Event::Voted { aye: true, .. });
         assert_votes(PipId(0), proposer.acc(), amount);
     });
 }
@@ -657,7 +677,7 @@ fn vote_unbond_deposit_works() {
         assert_balance(proposer.acc(), init_free, init_amount);
         assert_ok!(Pips::vote(proposer.origin(), PipId(0), true, then_amount));
         assert_balance(proposer.acc(), init_free, then_amount);
-        assert_last_event!(Event::Voted(.., true, _));
+        assert_last_event!(Event::Voted { aye: true, .. });
         assert_votes(PipId(0), proposer.acc(), then_amount);
     });
 }
@@ -801,9 +821,17 @@ fn vote_works() {
         assert_balance(bob.acc(), bob_balance, 0);
         assert_balance(charlie.acc(), charlie_balance, 0);
         assert_ok!(Pips::vote(bob.origin(), id, false, 1337));
-        assert_last_event!(Event::Voted(.., false, 1337));
+        assert_last_event!(Event::Voted {
+            aye: false,
+            deposit: 1337,
+            ..
+        });
         assert_ok!(Pips::vote(charlie.origin(), id, true, 2441));
-        assert_last_event!(Event::Voted(.., true, 2441));
+        assert_last_event!(Event::Voted {
+            aye: true,
+            deposit: 2441,
+            ..
+        });
         assert_balance(bob.acc(), bob_balance, 1337);
         assert_balance(charlie.acc(), charlie_balance, 2441);
         assert_vote_details(
@@ -1871,7 +1899,13 @@ fn enact_snapshot_results_works() {
             vec![(PipId(1), SnapshotResult::Approve)]
         ));
         assert_last_event!(
-            Event::SnapshotResultsEnacted(_, Some(SnapshotId(1)), a, b, c),
+            Event::SnapshotResultsEnacted {
+                snapshot_id: Some(SnapshotId(1)),
+                skipped: a,
+                rejected: b,
+                approved: c,
+                ..
+            },
             a.is_empty() && b.is_empty() && c == &[PipId(1)]
         );
         assert_state(PipId(1), false, ProposalState::Scheduled);
@@ -1881,7 +1915,13 @@ fn enact_snapshot_results_works() {
         assert_ok!(Pips::clear_snapshot(member.origin()));
         assert_ok!(Pips::enact_snapshot_results(gc_vmo(), vec![]));
         assert_last_event!(
-            Event::SnapshotResultsEnacted(_, None, a, b, c),
+            Event::SnapshotResultsEnacted {
+                snapshot_id: None,
+                skipped: a,
+                rejected: b,
+                approved: c,
+                ..
+            },
             a.is_empty() && b.is_empty() && c.is_empty()
         );
     });

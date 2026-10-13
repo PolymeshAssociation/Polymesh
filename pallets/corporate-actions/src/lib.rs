@@ -481,7 +481,10 @@ pub mod pallet {
         pub fn set_max_details_length(origin: OriginFor<T>, length: u32) -> DispatchResult {
             ensure_root(origin)?;
             MaxDetailsLength::<T>::put(length);
-            Self::deposit_event(Event::MaxDetailsLengthChanged(GC_DID, length));
+            Self::deposit_event(Event::MaxDetailsLengthChanged {
+                caller_did: GC_DID,
+                max_length: length,
+            });
             Ok(())
         }
 
@@ -514,7 +517,11 @@ pub mod pallet {
 
             // Commit + emit event.
             DefaultTargetIdentities::<T>::mutate(asset_id, |slot| *slot = new.clone());
-            Self::deposit_event(Event::DefaultTargetIdentitiesChanged(agent, asset_id, new));
+            Self::deposit_event(Event::DefaultTargetIdentitiesChanged {
+                agent_did: agent,
+                asset_id,
+                targets: new,
+            });
             Ok(())
         }
 
@@ -539,7 +546,11 @@ pub mod pallet {
         ) -> DispatchResult {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, &asset_id)?;
             DefaultWithholdingTax::<T>::mutate(asset_id, |slot| *slot = tax);
-            Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, asset_id, tax));
+            Self::deposit_event(Event::DefaultWithholdingTaxChanged {
+                agent_did: agent,
+                asset_id,
+                tax,
+            });
             Ok(())
         }
 
@@ -582,9 +593,12 @@ pub mod pallet {
                 }
                 Ok(())
             })?;
-            Self::deposit_event(Event::DidWithholdingTaxChanged(
-                agent, asset_id, taxed_did, tax,
-            ));
+            Self::deposit_event(Event::DidWithholdingTaxChanged {
+                agent_did: agent,
+                asset_id,
+                taxed_did,
+                tax,
+            });
             Ok(())
         }
 
@@ -682,7 +696,11 @@ pub mod pallet {
 
             // Add the link and emit event.
             CADocLink::<T>::mutate(id, |slot| *slot = docs.clone());
-            Self::deposit_event(Event::CALinkedToDoc(agent, id, docs));
+            Self::deposit_event(Event::CALinkedToDoc {
+                agent_did: agent,
+                ca_id: id,
+                doc_ids: docs,
+            });
             Ok(())
         }
 
@@ -732,7 +750,10 @@ pub mod pallet {
             CorporateActions::<T>::remove(ca_id.asset_id, ca_id.local_id);
             CADocLink::<T>::remove(ca_id);
             Details::<T>::remove(ca_id);
-            Self::deposit_event(Event::CARemoved(agent, ca_id));
+            Self::deposit_event(Event::CARemoved {
+                agent_did: agent,
+                ca_id,
+            });
             Ok(())
         }
 
@@ -789,7 +810,11 @@ pub mod pallet {
 
             // Commit changes + emit event.
             CorporateActions::<T>::insert(ca_id.asset_id, ca_id.local_id, ca.clone());
-            Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
+            Self::deposit_event(Event::RecordDateChanged {
+                agent_did: agent,
+                ca_id,
+                ca,
+            });
             Ok(())
         }
 
@@ -899,28 +924,52 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// The maximum length of `details` in bytes was changed.
-        /// (GC DID, new length)
-        MaxDetailsLengthChanged(IdentityId, u32),
+        MaxDetailsLengthChanged {
+            caller_did: IdentityId,
+            /// New maximum length of `details`, in bytes.
+            max_length: u32,
+        },
         /// The set of default `TargetIdentities` for the asset changed.
-        /// (Agent DID, AssetId, New TargetIdentities)
-        DefaultTargetIdentitiesChanged(IdentityId, AssetId, TargetIdentities),
+        DefaultTargetIdentitiesChanged {
+            agent_did: IdentityId,
+            asset_id: AssetId,
+            targets: TargetIdentities,
+        },
         /// The default withholding tax for the asset changed.
-        /// (Agent DID, AssetId, New Tax).
-        DefaultWithholdingTaxChanged(IdentityId, AssetId, Tax),
+        DefaultWithholdingTaxChanged {
+            agent_did: IdentityId,
+            asset_id: AssetId,
+            tax: Tax,
+        },
         /// The withholding tax specific to a DID for the asset changed.
-        /// (Agent DID, AssetId, Taxed DID, New Tax).
-        DidWithholdingTaxChanged(IdentityId, AssetId, IdentityId, Option<Tax>),
+        DidWithholdingTaxChanged {
+            agent_did: IdentityId,
+            asset_id: AssetId,
+            taxed_did: IdentityId,
+            /// `None` removes the DID-specific tax.
+            tax: Option<Tax>,
+        },
         /// A CA was initiated.
-        /// (Agent DID, CA id, the CA, the CA details)
-        CAInitiated(EventDid, CAId, CorporateAction, CADetails),
+        CAInitiated {
+            agent_did: EventDid,
+            ca_id: CAId,
+            ca: CorporateAction,
+            details: CADetails,
+        },
         /// A CA was linked to a set of docs.
-        /// (Agent DID, CA Id, List of doc identifiers)
-        CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),
+        CALinkedToDoc {
+            agent_did: IdentityId,
+            ca_id: CAId,
+            doc_ids: Vec<DocumentId>,
+        },
         /// A CA was removed.
-        /// (Agent DID, CA Id)
-        CARemoved(EventDid, CAId),
+        CARemoved { agent_did: EventDid, ca_id: CAId },
         /// A CA's record date changed.
-        RecordDateChanged(EventDid, CAId, CorporateAction),
+        RecordDateChanged {
+            agent_did: EventDid,
+            ca_id: CAId,
+            ca: CorporateAction,
+        },
     }
 
     #[pallet::error]
@@ -1033,7 +1082,12 @@ impl<T: Config> Pallet<T> {
         Details::<T>::insert(id, details.clone());
 
         // Emit event.
-        Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
+        Self::deposit_event(Event::CAInitiated {
+            agent_did: agent,
+            ca_id: id,
+            ca,
+            details,
+        });
         Ok(id)
     }
 
