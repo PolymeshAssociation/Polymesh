@@ -1792,7 +1792,7 @@ fn large_batch_proposal(n: usize, remark_len: usize) -> RuntimeCall {
 }
 
 #[test]
-fn approve_max_weight_too_low_is_not_refunded() {
+fn approve_max_weight_too_low_charges_decode_cost() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
@@ -1808,7 +1808,6 @@ fn approve_max_weight_too_low_is_not_refunded() {
         );
 
         let proposal = large_batch_proposal(1_000, 0);
-        let proposal_weight = proposal.get_dispatch_info().call_weight;
         assert_ok!(MultiSig::create_proposal(
             charlie,
             ms_address.clone(),
@@ -1829,16 +1828,12 @@ fn approve_max_weight_too_low_is_not_refunded() {
             .dispatch(dave)
             .expect_err("approve must fail with MaxWeightTooLow");
         assert_eq!(err.error, Error::MaxWeightTooLow.into());
-        assert_eq!(
-            err.post_info.actual_weight,
-            Some(
-                MultiSigWeights::approve()
-                    .saturating_add(MultiSigWeights::execute_proposal())
-                    .saturating_add(proposal_weight)
-            )
-        );
-        // Nothing is refunded: the full pre-dispatch weight is charged.
-        assert_eq!(err.post_info.calc_actual_weight(&info), info.call_weight);
+        // Only the approval and the proposal decoding are charged.
+        let charged = MultiSigWeights::approve().saturating_add(MultiSigWeights::decode_proposal());
+        assert_eq!(err.post_info.actual_weight, Some(charged));
+        // The charged weight was reserved by the pre-dispatch weight.
+        assert!(charged.all_lte(info.call_weight));
+        assert_eq!(err.post_info.calc_actual_weight(&info), charged);
 
         // The vote was rolled back and the proposal is still active.
         assert!(!Votes::<TestStorage>::get(
