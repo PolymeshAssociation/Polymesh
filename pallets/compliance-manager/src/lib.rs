@@ -268,6 +268,8 @@ pub mod pallet {
         ComplianceRequirementTooComplex,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded,
+        /// `IsAnyOf` and `IsNoneOf` conditions must have at least one claim.
+        EmptyClaimsInCondition,
         /// The number of trusted issuers exceeds `MaximumNumberOfTrustedIssuers`.
         TooManyTrustedIssuers,
         /// The number of claim types of a trusted issuer exceeds `MaxTrustedIssuerClaimTypes`.
@@ -821,12 +823,16 @@ impl<T: Config> Pallet<T> {
         // Dedup `ClaimType`s in `TrustedFor::Specific`.
         req.dedup();
 
-        // Ensure issuers are limited in length.
+        // Ensure claim lists are not empty and issuers are limited in length.
         Self::ensure_issuers_in_req_limited(req)
     }
 
     fn ensure_issuers_in_req_limited(req: &ComplianceRequirement) -> DispatchResult {
         req.conditions().try_for_each(|cond| {
+            ensure!(
+                !cond.condition_type.has_empty_claims(),
+                Error::<T>::EmptyClaimsInCondition
+            );
             Self::ensure_trusted_issuers_count_limited(cond.issuers.len())?;
             cond.issuers
                 .iter()

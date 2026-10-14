@@ -66,7 +66,7 @@ use sp_std::prelude::*;
 
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{InstructionStatuses, VenueInfo};
+use pallet_settlement::{InstructionAffirmsPending, InstructionStatuses, VenueInfo};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::crypto::{ChainScopedMessage, STO_FUNDRAISER_RECEIPT_LABEL};
 use polymesh_primitives::settlement::InstructionStatus;
@@ -1052,13 +1052,23 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        Settlement::<T>::affirm_and_execute_instruction(
-            origin,
-            instruction_id,
-            None,
-            investor_portfolios,
-            investor_did,
-        )?;
+        // The investor might have nothing to affirm (e.g. off-chain funding into a pre-approved portfolio)
+        if investor_portfolios.is_empty() {
+            Settlement::<T>::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                InstructionAffirmsPending::<T>::get(instruction_id),
+                SettlementType::SettleOnAffirmation,
+                investor_did,
+            )?;
+        } else {
+            Settlement::<T>::affirm_and_execute_instruction(
+                origin,
+                instruction_id,
+                None,
+                investor_portfolios,
+                investor_did,
+            )?;
+        }
 
         if !matches!(
             InstructionStatuses::<T>::get(instruction_id),
