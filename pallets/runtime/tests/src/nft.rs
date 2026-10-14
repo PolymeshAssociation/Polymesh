@@ -1117,17 +1117,109 @@ fn controller_transfer() {
             Owner::<TestStorage>::get(asset_id, NFTId(1)),
             Some(alice_portfolio.clone().into())
         );
-        assert_eq!(
-            super::storage::EventTest::Nft(Event::NFTHoldingsUpdated(
+        assert_last_events(vec![
+            Event::NFTHoldingsUpdated(
                 alice.did,
+                nfts.clone(),
+                Some(bob_portfolio.clone().into()),
+                Some(alice_portfolio.clone().into()),
+                HoldingsUpdateReason::ControllerTransfer,
+            ),
+            Event::ControllerTransfer {
+                caller_did: alice.did,
                 nfts,
-                Some(bob_portfolio.into()),
-                Some(alice_portfolio.into()),
-                HoldingsUpdateReason::ControllerTransfer
-            )),
-            System::events().last().unwrap().event,
-        );
+                source: bob_portfolio.into(),
+                destination: alice_portfolio.into(),
+            },
+        ]);
     });
+}
+
+/// Successfully transfer an NFT to an explicit destination using `controller_transfer_to`.
+#[test]
+fn controller_transfer_to() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_timestamp(Utc::now().timestamp() as _);
+        System::set_block_number(1);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob: User = User::new(Sr25519Keyring::Bob);
+
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let asset_id = create_nft_collection(
+            alice.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new().into(),
+        );
+        mint_nft(
+            alice.clone(),
+            asset_id.clone(),
+            Vec::new(),
+            AssetHolderKind::DefaultPortfolio,
+        );
+        ComplianceManager::pause_asset_compliance(alice.origin(), asset_id.clone()).unwrap();
+
+        let alice_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let bob_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(asset_id, vec![NFTId(1)]).unwrap();
+        assert_ok!(with_transaction(|| {
+            NFT::base_nft_transfer(
+                alice_portfolio.clone().into(),
+                bob_portfolio.clone().into(),
+                nfts.clone(),
+                InstructionId(0),
+                None,
+                IdentityId::default(),
+                &mut weight_meter,
+            )
+        }));
+
+        assert_ok!(NFT::controller_transfer_to(
+            alice.origin(),
+            nfts.clone(),
+            bob_portfolio.clone().into(),
+            alice_portfolio.clone().into(),
+        ));
+        assert_eq!(
+            Owner::<TestStorage>::get(asset_id, NFTId(1)),
+            Some(alice_portfolio.clone().into())
+        );
+        assert_last_events(vec![
+            Event::NFTHoldingsUpdated(
+                alice.did,
+                nfts.clone(),
+                Some(bob_portfolio.clone().into()),
+                Some(alice_portfolio.clone().into()),
+                HoldingsUpdateReason::ControllerTransfer,
+            ),
+            Event::ControllerTransferTo {
+                caller_did: alice.did,
+                nfts,
+                source: bob_portfolio.into(),
+                destination: alice_portfolio.into(),
+            },
+        ]);
+    });
+}
+
+/// Asserts that the most recent events are exactly `expected`, in order.
+fn assert_last_events(expected: Vec<Event<TestStorage>>) {
+    let events = System::events();
+    let actual: Vec<_> = events[events.len() - expected.len()..]
+        .iter()
+        .map(|record| record.event.clone())
+        .collect();
+    let expected: Vec<_> = expected
+        .into_iter()
+        .map(super::storage::EventTest::Nft)
+        .collect();
+    assert_eq!(actual, expected);
 }
 
 #[test]

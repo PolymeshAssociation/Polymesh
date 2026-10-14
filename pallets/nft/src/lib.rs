@@ -119,6 +119,22 @@ pub mod pallet {
             asset_id: AssetId,
             nft_id: NFTId,
         },
+        /// An agent forced the transfer of NFTs from `source` to one of the caller's holdings,
+        /// via `controller_transfer`.
+        ControllerTransfer {
+            caller_did: IdentityId,
+            nfts: NFTs,
+            source: AssetHolder,
+            destination: AssetHolder,
+        },
+        /// An agent forced the transfer of NFTs from `source` to an arbitrary `destination`,
+        /// via `controller_transfer_to`.
+        ControllerTransferTo {
+            caller_did: IdentityId,
+            nfts: NFTs,
+            source: AssetHolder,
+            destination: AssetHolder,
+        },
     }
 
     /// The total number of NFTs per identity.
@@ -1125,11 +1141,17 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::NFTHoldingsUpdated(
             holder_did,
-            nfts,
-            Some(source),
-            Some(destination),
+            nfts.clone(),
+            Some(source.clone()),
+            Some(destination.clone()),
             HoldingsUpdateReason::ControllerTransfer,
         ));
+        Self::deposit_event(Event::ControllerTransfer {
+            caller_did: holder_did,
+            nfts,
+            source,
+            destination,
+        });
         Ok(())
     }
 
@@ -1176,11 +1198,17 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::NFTHoldingsUpdated(
             caller_data.primary_did,
-            nfts,
-            Some(source),
-            Some(destination),
+            nfts.clone(),
+            Some(source.clone()),
+            Some(destination.clone()),
             HoldingsUpdateReason::ControllerTransfer,
         ));
+        Self::deposit_event(Event::ControllerTransferTo {
+            caller_did: caller_data.primary_did,
+            nfts,
+            source,
+            destination,
+        });
         Ok(())
     }
 
