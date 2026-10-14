@@ -18,6 +18,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::{Error, Ext};
 
@@ -79,6 +80,9 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     /// Takes `tokenId` from `from` and transfers it to `to`.
     ///
     /// Bypasses compliance and frozen checks; the caller must be an agent of the collection.
+    /// If the token was frozen for `from`, the runtime unfreezes it and a `Frozen` event is
+    /// emitted before `Transfer`, as ERC-7943 requires.
+    ///
     /// Only an asset holder account is supported as the destination for now.
     pub(crate) fn forced_transfer(
         asset_id: AssetId,
@@ -91,6 +95,9 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let destination = Common::<T>::asset_holder(env, call.to)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
 
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+        let was_frozen = pallet_nft::Pallet::<T>::is_nft_frozen(&asset_id, &nft_id, &source);
+
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
@@ -101,6 +108,17 @@ impl<T: Config> NonFungibleAssetInterface<T> {
                 destination,
             },
         )?;
+
+        if was_frozen {
+            Common::<T>::deposit_event(
+                env,
+                INonFungibleAssetEvents::Frozen(INonFungibleAsset::Frozen {
+                    account: call.from,
+                    tokenId: call.tokenId,
+                    frozenStatus: false,
+                }),
+            )?;
+        }
 
         Common::<T>::deposit_event(
             env,
@@ -196,6 +214,59 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         Ok(INonFungibleAsset::canReceiveCall::abi_encode_returns(
             &allowed,
+        ))
+    }
+
+    /// Freezes or unfreezes `tokenId` for `account`. The caller must be an agent of the
+    /// collection.
+    pub(crate) fn set_frozen_tokens(
+        asset_id: AssetId,
+        call: &INonFungibleAsset::setFrozenTokensCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+        let nft_id = Self::nft_id(call.tokenId)?;
+        let holder = Common::<T>::asset_holder(env, call.account)?;
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            caller.account_id,
+            pallet_nft::Call::<T>::set_nfts_frozen {
+                holder,
+                nfts: NFTs::new_unverified(asset_id, vec![nft_id]),
+                frozen: call.frozenStatus,
+            },
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            INonFungibleAssetEvents::Frozen(INonFungibleAsset::Frozen {
+                account: call.account,
+                tokenId: call.tokenId,
+                frozenStatus: call.frozenStatus,
+            }),
+        )?;
+
+        Ok(INonFungibleAsset::setFrozenTokensCall::abi_encode_returns(
+            &true,
+        ))
+    }
+
+    /// Returns `true` if `tokenId` is frozen for `account`, whether or not it holds the token.
+    pub(crate) fn get_frozen_tokens(
+        asset_id: AssetId,
+        call: &INonFungibleAsset::getFrozenTokensCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let nft_id = Self::nft_id(call.tokenId)?;
+        let holder = Common::<T>::asset_holder(env, call.account)?;
+        let frozen = pallet_nft::Pallet::<T>::is_nft_frozen(&asset_id, &nft_id, &holder);
+
+        Ok(INonFungibleAsset::getFrozenTokensCall::abi_encode_returns(
+            &frozen,
         ))
     }
 }

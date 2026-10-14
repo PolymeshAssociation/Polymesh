@@ -129,7 +129,8 @@ Pending/Failed instruction.
 
 `validate_nft_transfer` (nft:632-698): collection exists, cross-DID only, sender count, per-leg
 limits (≤ `MaxNumberOfNFTsPerLeg` = 10, `ZeroCount`/dup checks nft:717-731), ownership + not
-locked, receiver overflow; controller transfers return early; else sender-holder/asset frozen
+locked + not frozen for the sender (`ensure_nft_ownership`; per-NFT freeze, doc 04 freeze layers),
+receiver overflow; controller transfers unfreeze first and return early; else sender-holder/asset frozen
 checks, receiver DID active, **compliance** (nft:688). **No statistics for NFTs.** Effects:
 per-DID `NumberOfNFTs` counts + per-NFT owner reassignment (nft:734-766).
 
@@ -138,7 +139,8 @@ per-DID `NumberOfNFTs` counts + per-NFT owner reassignment (nft:734-766).
 - `asset_transfer_report(sender, receiver, asset, value, skip_locked_check)` (asset:3462-3570) —
   accumulates all failing checks; `skip_locked_check=true` ignores locks/frozen when sizing
   balance (used to pre-validate instructions whose locks are already placed).
-- `nft_transfer_report` (nft:830-917) analogous.
+- `nft_transfer_report` (nft:830-917) analogous, except a per-NFT freeze is reported even with
+  `skip_locked_check=true`: only settlement locks are skippable.
 - `Settlement::transfer_report(leg, skip_locked_check)` dispatches per leg type
   (settlement:3695-3724); `execute_instruction_report` uses `skip_locked_check=true`
   (settlement:3729-3759).

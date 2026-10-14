@@ -10,6 +10,7 @@ pallet-asset = { workspace = true, default-features = false  }
 pallet-base = { workspace = true, default-features = false }
 pallet-external-agents = { workspace = true, default-features = false }
 pallet-identity = { workspace = true, default-features = false }
+pallet-permissions = { workspace = true, default-features = false }
 pallet-portfolio = { workspace = true, default-features = false }
 polymesh-primitives = { workspace = true, default-features = false }
 
@@ -36,6 +37,7 @@ std = [
     "pallet-asset/std",
     "pallet-external-agents/std",
     "pallet-identity/std",
+    "pallet-permissions/std",
     "pallet-portfolio/std",
     "polymesh-primitives/std",
     "sp-std/std"
@@ -46,6 +48,7 @@ runtime-benchmarks = [
     "frame-system/runtime-benchmarks",
     "pallet-asset/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
     "pallet-portfolio/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
 ]

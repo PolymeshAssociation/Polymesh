@@ -23,6 +23,7 @@ mod group_test;
 mod identity_test;
 mod multisig;
 mod nft;
+mod nft_freeze;
 mod pips_test;
 mod portfolio;
 mod precompiles;

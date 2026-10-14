@@ -122,13 +122,14 @@ used by compliance/statistics/checkpoints.
 - Effects: checkpoint pre-update (lib.rs:2252); supply/balances −= (lib.rs:2244-2260);
   statistics update (to=None, lib.rs:2264-2272). No protocol fee, **no compliance check**.
 
-### Freeze layers (three distinct mechanisms)
+### Freeze layers (four distinct mechanisms)
 
 | Layer | Set by | Blocks | Ref |
 |---|---|---|---|
 | `Frozen` (asset-wide) | agent `freeze`/`unfreeze` (lib.rs:848/871) | all settlement transfers (`ensure_asset_is_not_frozen` lib.rs:3434, checked lib.rs:3406); **not** issue/redeem; controller transfers exempt | :443 |
 | `FrozenBalance` (amount per holder) | agent `set_frozen_tokens` (lib.rs:1840 → 4431-4460) | reduces available balance: available = balance − locked − frozen (lib.rs:3853-3858); controller transfers bypass and *reduce* it (lib.rs:4207-4218) | :645 |
 | `FrozenAccounts` (bool per holder) | agent `set_holder_frozen` (lib.rs:1852 → 3026) | holder as **sender** only (`ensure_holder_is_not_frozen` lib.rs:3443-3459) | :657 |
+| `Nft::FrozenNFT` (bool per `(asset, holder, nft_id)`) | agent `Nft::set_nfts_frozen` | the NFT leaving that holder by any path: settlement transfer and affirmation lock, locked (`simplified_nft_transfer`) execution, same-DID `transfer_funds`, `move_portfolio_funds`, redeem; reported by `nft_transfer_report` even with `skip_locked_check`. Controller transfers exempt and unfreeze the NFTs they take (reverted if the transfer fails). Can be set for a holder that doesn't hold the NFT yet (ERC-7943) | nft `FrozenNFT` |
 
 ### Documents & funding rounds
 

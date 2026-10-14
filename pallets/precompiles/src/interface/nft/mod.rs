@@ -54,6 +54,8 @@ pub const ERC165_INTERFACE_ID: [u8; 4] = [0x01, 0xff, 0xc9, 0xa7];
 pub const ERC721_INTERFACE_ID: [u8; 4] = [0x80, 0xac, 0x58, 0xcd];
 /// `IERC721Metadata`: `name()`, `symbol()`, `tokenURI(uint256)`.
 pub const ERC721_METADATA_INTERFACE_ID: [u8; 4] = [0x5b, 0x5e, 0x13, 0x9f];
+/// `IERC7943NonFungible`.
+pub const ERC7943_NON_FUNGIBLE_INTERFACE_ID: [u8; 4] = [0xbf, 0x1e, 0xf5, 0xfe];
 
 /// The ERC721 precompile calls exposed by the Polymesh runtime.
 pub struct NonFungibleAssetInterface<T>(PhantomData<T>);
@@ -96,7 +98,8 @@ impl<T: Config> Precompile for NonFungibleAssetInterface<T> {
                 | INonFungibleAssetCalls::totalSupply(_)
                 | INonFungibleAssetCalls::canTransfer(_)
                 | INonFungibleAssetCalls::canSend(_)
-                | INonFungibleAssetCalls::canReceive(_) => {}
+                | INonFungibleAssetCalls::canReceive(_)
+                | INonFungibleAssetCalls::getFrozenTokens(_) => {}
                 _ => return Err(Common::<T>::state_change_denied()),
             }
         }
@@ -141,6 +144,12 @@ impl<T: Config> Precompile for NonFungibleAssetInterface<T> {
             }
             INonFungibleAssetCalls::canSend(call) => Self::can_send(asset_id, call, env),
             INonFungibleAssetCalls::canReceive(call) => Self::can_receive(asset_id, call, env),
+            INonFungibleAssetCalls::setFrozenTokens(call) => {
+                Self::set_frozen_tokens(asset_id, call, env)
+            }
+            INonFungibleAssetCalls::getFrozenTokens(call) => {
+                Self::get_frozen_tokens(asset_id, call, env)
+            }
         }
     }
 }

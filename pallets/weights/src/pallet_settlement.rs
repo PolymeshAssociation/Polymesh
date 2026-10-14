@@ -230,6 +230,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -331,6 +333,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -401,6 +405,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -488,6 +494,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((10_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((10_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -536,6 +544,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Settlement::InstructionLegs` (r:121 w:120)
     // Proof: `Settlement::InstructionLegs` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -629,6 +639,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Settlement::InstructionLegs` (r:121 w:120)
     // Proof: `Settlement::InstructionLegs` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -726,6 +738,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     fn ensure_root_origin() -> Weight {
         // Minimum execution time: 440 nanoseconds.
@@ -779,6 +793,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -811,6 +827,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Portfolio::PortfolioCustodian` (r:1 w:0)
     // Proof: `Portfolio::PortfolioCustodian` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
@@ -923,6 +941,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(m.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1012,6 +1032,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((10_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(m.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1085,6 +1107,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1171,6 +1195,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((22_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
             .saturating_add(DbWeight::get().writes(2))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1260,6 +1286,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1357,6 +1385,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1544,6 +1574,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1601,6 +1633,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(9))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1632,6 +1666,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(3))
             .saturating_add(DbWeight::get().writes((4_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:2 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -1681,6 +1717,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(9))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+            // `Nft::FrozenNFT` check added by hand; remove once re-benchmarked.
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)

@@ -1,5 +1,6 @@
 use pallet_precompiles::interface::nft::{
     ERC165_INTERFACE_ID, ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID,
+    ERC7943_NON_FUNGIBLE_INTERFACE_ID,
 };
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use polymesh_precompiles::INonFungibleAsset;
@@ -52,6 +53,19 @@ fn erc165_interface_ids_match_our_selectors() {
         ]),
         ERC721_METADATA_INTERFACE_ID,
         "IERC721Metadata interface id mismatch"
+    );
+
+    assert_eq!(
+        xor(&[
+            INonFungibleAsset::forcedTransferCall::SELECTOR,
+            INonFungibleAsset::setFrozenTokensCall::SELECTOR,
+            INonFungibleAsset::canSendCall::SELECTOR,
+            INonFungibleAsset::canReceiveCall::SELECTOR,
+            INonFungibleAsset::getFrozenTokensCall::SELECTOR,
+            INonFungibleAsset::canTransferCall::SELECTOR,
+        ]),
+        ERC7943_NON_FUNGIBLE_INTERFACE_ID,
+        "IERC7943NonFungible interface id mismatch"
     );
 }
 

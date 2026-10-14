@@ -31,7 +31,7 @@ use polymesh_primitives::nft::NFTId;
 
 use crate::interface::nft::{
     NonFungibleAssetInterface, ERC165_INTERFACE_ID, ERC721_INTERFACE_ID,
-    ERC721_METADATA_INTERFACE_ID,
+    ERC721_METADATA_INTERFACE_ID, ERC7943_NON_FUNGIBLE_INTERFACE_ID,
 };
 use crate::Config;
 
@@ -120,7 +120,8 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         let id = call.interfaceId.0;
         let supported = id == ERC165_INTERFACE_ID
             || id == ERC721_INTERFACE_ID
-            || id == ERC721_METADATA_INTERFACE_ID;
+            || id == ERC721_METADATA_INTERFACE_ID
+            || id == ERC7943_NON_FUNGIBLE_INTERFACE_ID;
 
         Ok(INonFungibleAsset::supportsInterfaceCall::abi_encode_returns(&supported))
     }

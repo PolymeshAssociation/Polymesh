@@ -57,7 +57,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
-use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::{AssetHolder, AssetId};
 use polymesh_primitives::nft::NFTCount;
 use polymesh_primitives::traits::{
     AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait,
@@ -421,6 +421,8 @@ pub mod pallet {
         InsufficientBalance,
         /// The portfolio is frozen for the given asset.
         PortfolioIsFrozen,
+        /// Frozen NFTs can not be moved between portfolios.
+        InvalidTransferNFTIsFrozen,
     }
 
     #[pallet::call]
@@ -976,12 +978,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Verifies if the portfolio has the nfts and if they are not locked.
+    /// Verifies if the portfolio has the nfts and if they are neither locked nor frozen.
     fn ensure_valid_nfts(
         portfolio: &PortfolioId,
         asset_id: &AssetId,
         nft_ids: &[NFTId],
     ) -> DispatchResult {
+        let holder = AssetHolder::Portfolio(portfolio.clone());
         for nft_id in nft_ids {
             ensure!(
                 Self::is_nft_owner(portfolio, asset_id, nft_id),
@@ -990,6 +993,10 @@ impl<T: Config> Pallet<T> {
             ensure!(
                 !Self::is_nft_locked(portfolio, asset_id, nft_id),
                 Error::<T>::InvalidTransferNFTIsLocked
+            );
+            ensure!(
+                !T::NFT::is_nft_frozen(asset_id, nft_id, &holder),
+                Error::<T>::InvalidTransferNFTIsFrozen
             );
         }
         Ok(())
