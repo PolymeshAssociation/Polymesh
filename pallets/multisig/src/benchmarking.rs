@@ -212,7 +212,7 @@ macro_rules! assert_number_of_signers {
 }
 
 /// Number of calls in the proposal used to benchmark the proposal decoding cost.
-const DECODE_PROPOSAL_CALLS: usize = 500;
+const DECODE_PROPOSAL_CALLS: usize = 10_000;
 
 benchmarks! {
     where_clause {
