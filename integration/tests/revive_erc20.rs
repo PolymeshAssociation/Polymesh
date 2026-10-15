@@ -10,7 +10,11 @@ use anyhow::Result;
 use alloy::primitives::{Address, U256};
 
 use integration::*;
-use polymesh_api::types::polymesh_primitives::settlement::AffirmationRequirement;
+use polymesh_api::types::polymesh_primitives::{
+    asset::AssetHolder,
+    portfolio::{Fund, FundDescription},
+    settlement::AffirmationRequirement,
+};
 use polymesh_precompiles::IFungibleAsset as ierc20;
 
 /// Initial supply issued to the asset owner's account.
@@ -278,6 +282,89 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     {
         panic!("transfer() without receiver affirmation should revert");
     }
+
+    Ok(())
+}
+
+#[tokio::test]
+#[test_log::test]
+async fn erc20_revoke_after_spender_unmap() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc20UnmapOwner", "Erc20UnmapSpender"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, spenders) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let spender = &mut spenders[0];
+
+    let (asset, erc20) = create_erc20_asset(&api, &node, owner, "ERC20 Unmap", MINT).await?;
+    let asset_id = asset.asset_id;
+    let owner_account = owner.account();
+    let spender_account = spender.account();
+    let owner_address = eth_address_of(&api, owner).await?;
+    // The spender's address resolves to its native account while it is mapped.
+    let spender_address = eth_address_of(&api, spender).await?;
+
+    let mut owner_caller = SubstrateCaller::new(&api, owner).await?;
+    erc20
+        .approve(&mut owner_caller, spender_address, 10_000)
+        .await?;
+    assert_eq!(
+        api.query()
+            .asset()
+            .allowances(owner_account, spender_account, asset_id)
+            .await?,
+        10_000
+    );
+
+    // The spender's address now resolves to its `0xEE` fallback account.
+    api.call()
+        .revive()
+        .unmap_account()?
+        .execute(spender)
+        .await?
+        .ok()
+        .await?;
+
+    // The owner revokes the allowance, and the ERC-20 view agrees it is gone.
+    erc20.approve(&mut owner_caller, spender_address, 0).await?;
+    assert_eq!(erc20.allowance(owner_address, spender_address).await?, 0);
+
+    // The native allowance must be revoked as well...
+    assert_eq!(
+        api.query()
+            .asset()
+            .allowances(owner_account, spender_account, asset_id)
+            .await?,
+        0,
+        "the native allowance survived the ERC-20 revocation"
+    );
+
+    // ...so the spender can't move the owner's tokens through settlement.
+    let res = api
+        .call()
+        .settlement()
+        .transfer_funds(
+            Some(AssetHolder::Account(owner_account)),
+            AssetHolder::Account(spender_account),
+            Fund {
+                description: FundDescription::Fungible {
+                    asset_id,
+                    amount: 4_000,
+                },
+                memo: None,
+            },
+        )?
+        .execute(spender)
+        .await?
+        .ok()
+        .await;
+    assert!(
+        res.is_err(),
+        "transfer_funds should fail after the allowance was revoked"
+    );
+    assert_eq!(erc20.balance_of(owner_address).await?, MINT);
 
     Ok(())
 }
