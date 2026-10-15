@@ -9168,6 +9168,7 @@ dependencies = [
 name = "pallet-precompiles"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
@@ -11421,6 +11422,7 @@ dependencies = [
  "pallet-nft",
  "pallet-pips",
  "pallet-portfolio",
+ "pallet-precompiles",
  "pallet-preimage",
  "pallet-protocol-fee",
  "pallet-relayer",
