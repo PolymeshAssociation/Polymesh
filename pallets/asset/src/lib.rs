@@ -3253,6 +3253,9 @@ impl<T: AssetConfig> Pallet<T> {
 
         match &holder {
             AssetHolder::Portfolio(portfolio_id) => {
+                if freeze {
+                    Self::ensure_valid_holder(&holder)?;
+                }
                 pallet_portfolio::Pallet::<T>::set_portfolio_freeze(
                     portfolio_id.clone(),
                     asset_id,
