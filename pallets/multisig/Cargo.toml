@@ -28,6 +28,7 @@ frame-support = { workspace = true, default-features = false }
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
 
 pallet-timestamp = { workspace = true, default-features = false }
+pallet-utility = { workspace = true, default-features = false, optional = true }
 
 [features]
 equalize = []
@@ -45,6 +46,7 @@ std = [
 	"frame-support/std",
 	"polymesh-primitives/std",
 	"pallet-identity/std",
+	"pallet-utility?/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -53,5 +55,6 @@ runtime-benchmarks = [
 	"pallet-identity/runtime-benchmarks",
     "pallet-permissions/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
+    "pallet-utility/runtime-benchmarks",
 ]
 try-runtime = []

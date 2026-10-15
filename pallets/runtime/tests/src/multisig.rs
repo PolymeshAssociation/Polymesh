@@ -1,26 +1,23 @@
-use frame_support::{
-    assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
-    dispatch::DispatchResult, BoundedVec,
-};
+use frame_support::dispatch::{DispatchResult, GetDispatchInfo};
+use frame_support::weights::Weight;
+use frame_support::{assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok};
+use frame_support::{assert_storage_noop, BoundedVec};
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::Dispatchable;
 
 use pallet_identity::MultiPurposeNonce;
-use pallet_multisig::{
-    self as multisig, AdminDid, LastInvalidProposal, MultiSigSignsRequired, NextProposalId,
-    NumberOfSigners, ProposalStates, ProposalVoteCounts, Votes,
-};
+use pallet_multisig::{self as multisig, Proposals, Votes, WeightInfo as _};
+use pallet_multisig::{AdminDid, LastInvalidProposal, MultiSigSignsRequired, NextProposalId};
+use pallet_multisig::{NumberOfSigners, ProposalStates, ProposalVoteCounts};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
-use polymesh_primitives::{
-    AccountId, AuthorizationData, ExtrinsicPermissions, PalletName, PalletPermissions, Permissions,
-    SecondaryKey, Signatory,
-};
-use sp_keyring::Sr25519Keyring;
+use polymesh_primitives::{AccountId, AuthorizationData, ExtrinsicPermissions, PalletName};
+use polymesh_primitives::{PalletPermissions, Permissions, SecondaryKey, Signatory};
 
 use super::asset_test::set_timestamp;
 use super::next_block;
-use super::storage::{
-    add_secondary_key, get_primary_key, get_secondary_keys, RuntimeCall, TestStorage, User,
-};
+use super::storage::{add_secondary_key, get_primary_key, get_secondary_keys};
+use super::storage::{RuntimeCall, TestStorage, User};
 use super::ExtBuilder;
 
 type Balances = pallet_balances::Pallet<TestStorage>;
@@ -32,6 +29,7 @@ type IdError = pallet_identity::Error<TestStorage>;
 type Error = pallet_multisig::Error<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
+type MultiSigWeights = polymesh_weights::pallet_multisig::SubstrateWeight;
 
 fn get_last_auth_id(account: &AccountId) -> u64 {
     let signatory = Signatory::Account(account.clone());
@@ -1779,4 +1777,82 @@ fn perms_with_pallets(n: u64) -> Permissions {
     Permissions::from_pallet_permissions(
         (0..n).map(|p| (PalletName::generate(p), PalletPermissions::whole())),
     )
+}
+
+/// Builds a large proposal: a `batch` of `n` remarks of `remark_len` bytes each.
+fn large_batch_proposal(n: usize, remark_len: usize) -> RuntimeCall {
+    let calls = (0..n)
+        .map(|_| {
+            RuntimeCall::System(frame_system::Call::remark {
+                remark: vec![0u8; remark_len],
+            })
+        })
+        .collect();
+    RuntimeCall::Utility(pallet_utility::Call::batch { calls })
+}
+
+#[test]
+fn approve_max_weight_too_low_charges_decode_cost() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+        let dave_signer = Sr25519Keyring::Dave.to_account_id();
+        let charlie = Origin::signed(charlie_signer.clone());
+        let dave = Origin::signed(dave_signer.clone());
+
+        // 2-of-2 multisig: Dave's approval is the quorum-reaching one.
+        let ms_address = setup_multisig(
+            alice.acc(),
+            2,
+            create_signers(vec![charlie_signer.clone(), dave_signer.clone()]),
+        );
+
+        let proposal = large_batch_proposal(1_000, 0);
+        assert_ok!(MultiSig::create_proposal(
+            charlie,
+            ms_address.clone(),
+            Box::new(proposal),
+            None,
+        ));
+        let proposal_id = NextProposalId::<TestStorage>::get(&ms_address) - 1;
+
+        let approve_call = RuntimeCall::MultiSig(multisig::Call::approve {
+            multisig: ms_address.clone(),
+            proposal_id,
+            max_weight: Some(Weight::from_parts(1, 0)),
+        });
+        let info = approve_call.get_dispatch_info();
+
+        // Dispatch through `RuntimeCall` to get the same transactional semantics as a real extrinsic.
+        let err = approve_call
+            .dispatch(dave)
+            .expect_err("approve must fail with MaxWeightTooLow");
+        assert_eq!(err.error, Error::MaxWeightTooLow.into());
+        // Only the approval and the proposal decoding are charged.
+        let charged = MultiSigWeights::approve().saturating_add(MultiSigWeights::decode_proposal());
+        assert_eq!(err.post_info.actual_weight, Some(charged));
+        // The charged weight was reserved by the pre-dispatch weight.
+        assert!(charged.all_lte(info.call_weight));
+        assert_eq!(err.post_info.calc_actual_weight(&info), charged);
+
+        // The vote was rolled back and the proposal is still active.
+        assert!(!Votes::<TestStorage>::get(
+            (&ms_address, proposal_id),
+            &dave_signer
+        ));
+        assert_eq!(
+            ProposalVoteCounts::<TestStorage>::get(&ms_address, proposal_id)
+                .unwrap()
+                .approvals,
+            1
+        );
+        assert!(Proposals::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
+            Some(ProposalState::Active { until: None })
+        );
+    });
 }

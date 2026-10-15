@@ -9049,6 +9049,7 @@ dependencies = [
  "pallet-identity",
  "pallet-permissions",
  "pallet-timestamp",
+ "pallet-utility",
  "parity-scale-codec",
  "polymesh-primitives",
  "scale-info",

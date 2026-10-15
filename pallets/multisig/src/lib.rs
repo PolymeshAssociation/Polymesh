@@ -70,7 +70,8 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::convert::From;
 use frame_support::dispatch::{
-    DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+    DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
+    PostDispatchInfo,
 };
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
@@ -95,6 +96,7 @@ pub trait WeightInfo {
     fn create_proposal() -> Weight;
     fn approve() -> Weight;
     fn execute_proposal() -> Weight;
+    fn decode_proposal() -> Weight;
     fn reject() -> Weight;
     fn accept_multisig_signer() -> Weight;
     fn add_multisig_signers(signers: u32) -> Weight;
@@ -121,6 +123,7 @@ pub trait WeightInfo {
 
     fn approve_and_execute(max_weight: &Option<Weight>) -> Weight {
         Self::approve()
+            .saturating_add(Self::decode_proposal())
             .saturating_add(Self::execute_proposal())
             .saturating_add(Self::default_max_weight(max_weight))
     }
@@ -1113,22 +1116,25 @@ impl<T: Config> Pallet<T> {
         caller_did: Option<IdentityId>,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
-        // emit proposal approved event
-        Self::deposit_event(Event::ProposalApproved {
-            caller_did,
-            multisig: multisig.clone(),
-            proposal_id,
-        });
         // Take the proposal.
         let proposal = Proposals::<T>::take(multisig, proposal_id)
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
         // Ensure `max_weight` was enough to cover the worst-case weight.
+        // The proposal has already been loaded, so charge for decoding it.
         let proposal_weight = proposal.get_dispatch_info().call_weight;
-        ensure!(
-            proposal_weight.all_lte(max_weight),
-            Error::<T>::MaxWeightTooLow
-        );
+        if !proposal_weight.all_lte(max_weight) {
+            return Err(DispatchErrorWithPostInfo {
+                post_info: Some(<T as Config>::WeightInfo::decode_proposal()).into(),
+                error: Error::<T>::MaxWeightTooLow.into(),
+            });
+        }
+
+        Self::deposit_event(Event::ProposalApproved {
+            caller_did,
+            multisig: multisig.clone(),
+            proposal_id,
+        });
 
         let (result, actual_weight) =
             match with_call_metadata::<T, _>(proposal.get_call_metadata(), || {

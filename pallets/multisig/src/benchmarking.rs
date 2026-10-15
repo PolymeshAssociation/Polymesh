@@ -211,7 +211,16 @@ macro_rules! assert_number_of_signers {
     };
 }
 
+/// Number of calls in the proposal used to benchmark the proposal decoding cost.
+const DECODE_PROPOSAL_CALLS: usize = 10_000;
+
 benchmarks! {
+    where_clause {
+        where
+            T: pallet_utility::Config,
+            <T as Config>::Proposal: From<pallet_utility::Call<T>>,
+    }
+
     create_multisig {
         // Number of signers
         let i in 1 .. T::MaxSigners::get() as u32;
@@ -241,6 +250,19 @@ benchmarks! {
         let did = alice.did.expect("Alice must have a DID");
     }: {
       assert!(MultiSig::<T>::execute_proposal(&multisig, proposal_id, Some(did), Weight::MAX).is_ok());
+    }
+
+    decode_proposal {
+        let (_, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
+        let calls = (0..DECODE_PROPOSAL_CALLS)
+            .map(|_| frame_system::Call::<T>::remark { remark: vec![] }.into())
+            .collect();
+        let proposal: <T as Config>::Proposal = pallet_utility::Call::<T>::batch { calls }.into();
+        Proposals::<T>::insert(&multisig, 0, proposal);
+    }: {
+        // Same work `execute_proposal` does before checking `max_weight`.
+        let proposal = Proposals::<T>::take(&multisig, 0).unwrap();
+        assert!(proposal.get_dispatch_info().call_weight.ref_time() > 0);
     }
 
     reject {
