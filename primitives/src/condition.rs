@@ -52,6 +52,14 @@ pub enum ConditionType {
 }
 
 impl ConditionType {
+    /// Returns `true` if this is an `IsAnyOf` or `IsNoneOf` with an empty list of claims.
+    pub fn has_empty_claims(&self) -> bool {
+        match self {
+            ConditionType::IsNoneOf(claims) | ConditionType::IsAnyOf(claims) => claims.is_empty(),
+            _ => false,
+        }
+    }
+
     /// Return the number of `Claim` or `TargetIdentity`.
     fn count(&self) -> usize {
         match self {
@@ -160,7 +168,7 @@ impl Condition {
         };
         self.condition_type
             .count()
-            // NB: `max(1)` makes sure issuer count is not zero.
+            .max(1)
             .saturating_mul(issuers.max(1))
             .try_into()
             .unwrap_or(u32::MAX)

@@ -192,6 +192,11 @@ NFTs**, compliance checked :688; per-leg cap `MaxNumberOfNFTsCount` = 10).
   (lib.rs:3849-3858, 4207-4218). Statistics *updates* still applied (lib.rs:4224-4232).
 - NFT: `controller_transfer` (nft :281 → 799). Ownership/limit checks still apply; compliance and
   frozen checks skipped (:671-674).
+- Events: both pallets emit a dedicated event per call alongside the generic holdings update.
+  Fungible: `AssetBalanceUpdated` + `asset.ControllerTransfer` / `asset.ControllerTransferTo`.
+  NFT: `NFTHoldingsUpdated` (reason `ControllerTransfer` for both calls) + `nft.ControllerTransfer` /
+  `nft.ControllerTransferTo` (from spec 8_001_030; earlier runtimes emit only `NFTHoldingsUpdated`,
+  so `controller_transfer` vs `controller_transfer_to` can only be told apart by extrinsic there).
 - Purpose: regulatory forced recovery — powerful; watch that only agent-group-permissioned
   callers reach it (`PolymeshV1PIA` group includes it; doc 05 §2).
 
