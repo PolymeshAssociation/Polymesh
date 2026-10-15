@@ -650,10 +650,34 @@ impl<T: Config> Pallet<T> {
 
         // 1. Translate all settlement legs from v0.1 to v1.0.
         let mut legs: u64 = 0;
-        SettlementLegs::<T>::translate(|_, leg_enc: LegEncrypted| {
+        SettlementLegs::<T>::translate(|(settlement_ref, leg_idx), leg_enc: LegEncrypted| {
             legs += 1;
             match leg_enc.from_v0() {
-                Ok(leg_v1) => Some(leg_v1),
+                Ok((leg_v1, asset_id, mediator_count)) => {
+                    if let Some(asset_id) = asset_id {
+                        if mediator_count > 0 {
+                            // When the asset ID is revealed, we need to save the mediator affirmation keys for the leg.
+                            if let Some(keys) = Keys::<T>::get(asset_id) {
+                                if mediator_count != keys.mediators.len() {
+                                    log::warn!("Mediator count mismatch for asset ID {asset_id} during migration");
+                                }
+                                if keys.mediators.len() > 0 {
+                                    LegMediators::<T>::insert(
+                                        (settlement_ref, leg_idx),
+                                        LegMediatorKeys {
+                                            mediators: keys.mediators,
+                                        },
+                                    );
+                                }
+                            } else {
+                                log::warn!("Failed to find mediator keys for asset ID {asset_id} during migration");
+                            }
+                        } else {
+                            // No mediators to save for this leg.
+                        }
+                    }
+                    Some(leg_v1)
+                }
                 Err(err) => {
                     log::warn!("Failed to migrate confidential settlement leg to v1: {err:?}");
                     Some(leg_enc)
