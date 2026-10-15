@@ -1116,12 +1116,6 @@ impl<T: Config> Pallet<T> {
         caller_did: Option<IdentityId>,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
-        // emit proposal approved event
-        Self::deposit_event(Event::ProposalApproved {
-            caller_did,
-            multisig: multisig.clone(),
-            proposal_id,
-        });
         // Take the proposal.
         let proposal = Proposals::<T>::take(multisig, proposal_id)
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
@@ -1135,6 +1129,12 @@ impl<T: Config> Pallet<T> {
                 error: Error::<T>::MaxWeightTooLow.into(),
             });
         }
+
+        Self::deposit_event(Event::ProposalApproved {
+            caller_did,
+            multisig: multisig.clone(),
+            proposal_id,
+        });
 
         let (result, actual_weight) =
             match with_call_metadata::<T, _>(proposal.get_call_metadata(), || {
