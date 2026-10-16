@@ -39,7 +39,12 @@ mod worker_modules_tests {
                 RuntimeEvent::WorkerTesting(WorkerTestingEvent::TestingProtocolTask {
                     result,
                     ..
-                }) => Some(result.as_ref().map(|_| ()).map_err(|err| format!("{err:?}"))),
+                }) => Some(
+                    result
+                        .as_ref()
+                        .map(|_| ())
+                        .map_err(|err| format!("{err:?}")),
+                ),
                 _ => None,
             })
             .ok_or_else(|| {
