@@ -1389,3 +1389,75 @@ fn same_identity_nft_transfer_to_nonexistent_portfolio_rejected() {
         );
     });
 }
+
+#[test]
+fn same_identity_transfer_rejects_receiver_portfolio_without_secondary_key_permission() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new_with(alice.did, Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            b"restricted".into()
+        ));
+        let default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let user_portfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+
+        // Charlie may only operate on alice's default portfolio.
+        let mut permissions = Permissions::default();
+        permissions.portfolio = SubsetRestriction::elem(default_portfolio.clone());
+        add_secondary_key_with_perms(alice.did, charlie.acc(), permissions);
+
+        assert_noop!(
+            Settlement::transfer_funds(
+                charlie.origin(),
+                Some(default_portfolio.clone().into()),
+                user_portfolio.into(),
+                fungible_fund(asset_id, 100),
+            ),
+            PortfolioError::SecondaryKeyNotAuthorizedForPortfolio
+        );
+
+        // Accounts are not portfolio-scoped, so moving to alice's account is still allowed.
+        assert_ok!(Settlement::transfer_funds(
+            charlie.origin(),
+            Some(default_portfolio.into()),
+            AssetHolder::Account(alice.acc()),
+            fungible_fund(asset_id, 100),
+        ));
+    });
+}
+
+#[test]
+fn same_identity_transfer_with_receiver_portfolio_permission_succeeds() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let charlie = User::new_with(alice.did, Sr25519Keyring::Charlie);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            b"allowed".into()
+        ));
+        let default_portfolio = PortfolioId::default_portfolio(alice.did);
+        let user_portfolio = PortfolioId::user_portfolio(alice.did, PortfolioNumber(1));
+
+        let mut permissions = Permissions::default();
+        permissions.portfolio =
+            SubsetRestriction::elems([default_portfolio.clone(), user_portfolio.clone()]);
+        add_secondary_key_with_perms(alice.did, charlie.acc(), permissions);
+
+        assert_ok!(Settlement::transfer_funds(
+            charlie.origin(),
+            Some(default_portfolio.into()),
+            user_portfolio.clone().into(),
+            fungible_fund(asset_id, 100),
+        ));
+        assert_eq!(
+            pallet_portfolio::PortfolioAssetBalances::<TestStorage>::get(
+                &user_portfolio,
+                &asset_id
+            ),
+            100
+        );
+    });
+}

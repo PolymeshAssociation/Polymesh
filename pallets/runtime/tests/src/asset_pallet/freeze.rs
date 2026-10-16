@@ -3,7 +3,8 @@ use sp_keyring::Sr25519Keyring;
 use sp_runtime::AccountId32;
 
 use pallet_asset::{FrozenAccounts, FrozenBalance};
-use polymesh_primitives::AssetHolder;
+use pallet_portfolio::{FrozenPortfolios, PortfolioFrozenAssets};
+use polymesh_primitives::{AssetHolder, IdentityId, PortfolioId};
 
 use super::setup::create_and_issue_sample_asset;
 use crate::storage::User;
@@ -97,6 +98,101 @@ fn freeze_account_with_identity() {
         ));
         assert_eq!(
             FrozenBalance::<TestStorage>::get(&bob.acc(), &asset_id),
+            1_000
+        );
+    });
+}
+
+#[test]
+fn set_holder_frozen_rejects_portfolio_without_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        // Default portfolios are always "valid", so the DID itself must be checked.
+        let unknown_portfolio = PortfolioId::default_portfolio(IdentityId::from([42; 32]));
+
+        assert_noop!(
+            Asset::set_holder_frozen(
+                alice.origin(),
+                AssetHolder::Portfolio(unknown_portfolio.clone()),
+                asset_id,
+                true,
+            ),
+            IdentityError::DidDoesNotExist
+        );
+        assert!(!FrozenPortfolios::<TestStorage>::get(
+            &unknown_portfolio,
+            &asset_id
+        ));
+
+        // Unfreezing is always allowed so stale entries can be cleared.
+        assert_ok!(Asset::set_holder_frozen(
+            alice.origin(),
+            AssetHolder::Portfolio(unknown_portfolio.clone()),
+            asset_id,
+            false,
+        ));
+    });
+}
+
+#[test]
+fn set_frozen_tokens_rejects_portfolio_without_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let unknown_portfolio = PortfolioId::default_portfolio(IdentityId::from([42; 32]));
+
+        assert_noop!(
+            Asset::set_frozen_tokens(
+                alice.origin(),
+                asset_id,
+                AssetHolder::Portfolio(unknown_portfolio.clone()),
+                1_000,
+            ),
+            IdentityError::DidDoesNotExist
+        );
+        assert_eq!(
+            PortfolioFrozenAssets::<TestStorage>::get(&unknown_portfolio, &asset_id),
+            0
+        );
+
+        // Clearing the frozen amount is always allowed so stale entries can be removed.
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            AssetHolder::Portfolio(unknown_portfolio.clone()),
+            0,
+        ));
+    });
+}
+
+#[test]
+fn freeze_portfolio_with_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_sample_asset(&alice);
+        let bob_portfolio = PortfolioId::default_portfolio(bob.did);
+
+        assert_ok!(Asset::set_holder_frozen(
+            alice.origin(),
+            AssetHolder::Portfolio(bob_portfolio.clone()),
+            asset_id,
+            true,
+        ));
+        assert!(FrozenPortfolios::<TestStorage>::get(
+            &bob_portfolio,
+            &asset_id
+        ));
+
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            AssetHolder::Portfolio(bob_portfolio.clone()),
+            1_000,
+        ));
+        assert_eq!(
+            PortfolioFrozenAssets::<TestStorage>::get(&bob_portfolio, &asset_id),
             1_000
         );
     });

@@ -1607,6 +1607,13 @@ impl<T: Config> Pallet<T> {
             )?;
             // The receiver must be a valid holder (e.g. user portfolios must exist).
             Asset::<T>::ensure_valid_holder(&to)?;
+            // Secondary keys must also have access to the receiving portfolio.
+            if let AssetHolder::Portfolio(ref to_portfolio) = to {
+                T::PortfolioFn::ensure_user_portfolio_permission(
+                    origin_data.secondary_key.as_ref(),
+                    to_portfolio,
+                )?;
+            }
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
                     ensure!(amount > 0, Error::<T>::ZeroAmount);

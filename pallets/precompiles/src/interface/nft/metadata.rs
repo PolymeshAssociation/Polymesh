@@ -34,10 +34,10 @@ use crate::interface::nft::{
     NonFungibleAssetInterface, ERC165_INTERFACE_ID, ERC721_INTERFACE_ID,
     ERC721_METADATA_INTERFACE_ID, ERR_NFT_NOT_FOUND,
 };
-use crate::Config;
+use crate::{Config, WeightInfo};
 
 /// The placeholder substituted with the token id when resolving a token URI.
-const TOKEN_ID_PLACEHOLDER: &str = "{tokenId}";
+pub(crate) const TOKEN_ID_PLACEHOLDER: &str = "{tokenId}";
 
 impl<T: Config> NonFungibleAssetInterface<T> {
     /// Returns the name of the collection.
@@ -70,13 +70,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
     /// Returns the token URI for `tokenId`.
     ///
-    /// Resolution order, matching the documented Polymesh semantics of these metadata types:
-    ///
-    /// 1. The NFT's own `tokenUri` metadata value.
-    /// 2. The collection's `baseTokenUri` metadata value.
-    ///
-    /// In either case a literal `{tokenId}` is replaced with the decimal token id; when the
-    /// placeholder is absent the id is appended. An unset URI yields an empty string.
+    /// See [`Self::resolve_token_uri`] for the resolution rules.
     ///
     /// Reverts if the NFT does not exist, as required by EIP-721.
     pub(crate) fn token_uri(
@@ -84,13 +78,26 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         call: &INonFungibleAsset::tokenURICall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        // Worst case: existence check, collection lookup, per-NFT value, and the
-        // collection-level fallback.
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(4))?;
+        env.charge(<T as Config>::WeightInfo::token_uri())?;
 
         let nft_id = Self::nft_id(call.tokenId)?;
+        let uri = Self::resolve_token_uri(asset_id, nft_id).ok_or(revert(ERR_NFT_NOT_FOUND))?;
+
+        Ok(INonFungibleAsset::tokenURICall::abi_encode_returns(&uri))
+    }
+
+    /// Returns the token URI of `nft_id`, or `None` if the NFT does not exist.
+    ///
+    /// Resolution order, matching the documented Polymesh semantics of these metadata types:
+    ///
+    /// 1. The NFT's own `tokenUri` metadata value.
+    /// 2. The collection's `baseTokenUri` metadata value.
+    ///
+    /// In either case a literal `{tokenId}` is replaced with the decimal token id; when the
+    /// placeholder is absent the id is appended. An unset URI yields an empty string.
+    pub(crate) fn resolve_token_uri(asset_id: AssetId, nft_id: NFTId) -> Option<String> {
         if !Owner::<T>::contains_key(asset_id, nft_id) {
-            return Err(revert(ERR_NFT_NOT_FOUND));
+            return None;
         }
         let collection_id = CollectionAsset::<T>::get(asset_id);
 
@@ -110,13 +117,13 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             token_uri.0
         };
 
-        let uri = if raw.is_empty() {
-            String::new()
-        } else {
-            Self::substitute_token_id(&String::from_utf8_lossy(&raw), nft_id)
-        };
-
-        Ok(INonFungibleAsset::tokenURICall::abi_encode_returns(&uri))
+        if raw.is_empty() {
+            return Some(String::new());
+        }
+        Some(Self::substitute_token_id(
+            &String::from_utf8_lossy(&raw),
+            nft_id,
+        ))
     }
 
     /// Returns whether `interfaceId` is one of the interfaces this precompile implements.

@@ -115,6 +115,12 @@ pub trait PortfolioFnTrait<AccountId> {
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<AccountId>>,
     ) -> Result<(), DispatchError>;
+
+    /// Ensures that the secondary key (if any) has permission over `portfolio`.
+    fn ensure_user_portfolio_permission(
+        secondary_key: Option<&SecondaryKey<AccountId>>,
+        portfolio: &PortfolioId,
+    ) -> Result<(), DispatchError>;
 }
 
 /// Supertrait config for pallets that need portfolio custody queries.
