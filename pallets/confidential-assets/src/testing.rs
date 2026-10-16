@@ -18,7 +18,7 @@ use polymesh_dart::{
     ASSET_TREE_M, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
 use polymesh_primitives::erc20::{Name, Symbol};
-use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
+use polymesh_worker_protocol_dart_v1::{GenerateDartProofRequest, GenerateDartProofResponse};
 
 use crate::*;
 

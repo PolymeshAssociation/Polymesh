@@ -31,7 +31,7 @@ impl Backend for NativeBackend {
         match protocol {
             Some(protocol) => {
                 // Native modules don't have module code bytes, so we just encode the protocol.
-                if protocol == polymesh_worker_protocol_dart_v0::PROTOCOL {
+                if protocol == polymesh_worker_protocol_dart_v1::PROTOCOL {
                     Some(Box::new(NativeDartModule))
                 } else if protocol == polymesh_worker_protocol_testing::PROTOCOL {
                     Some(Box::new(NativeTestingModule))

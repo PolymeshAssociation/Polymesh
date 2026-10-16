@@ -102,7 +102,7 @@ jobs:
       - run:
           name: Check deterministic worker module artifacts
           command: |
-            ./worker/rebuild.sh v0
+            ./worker/rebuild.sh v0 v1
             changes="$(git status --porcelain --untracked-files=all -- worker/modules/dart)"
             if [[ -n "$changes" ]]; then
               echo "$changes"

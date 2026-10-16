@@ -8768,7 +8768,7 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-worker-common",
  "polymesh-worker-extension",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-protocol-dart-v1",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "scale-info",
@@ -11550,14 +11550,14 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-worker",
  "polymesh-worker-common",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-protocol-dart-v1",
  "polymesh-worker-protocol-testing",
  "sp-panic-handler",
 ]
 
 [[package]]
-name = "polymesh-worker-protocol-dart-v0"
-version = "0.1.0"
+name = "polymesh-worker-protocol-dart-v1"
+version = "1.0.0"
 dependencies = [
  "ark-ec 0.5.0",
  "bounded-collections",
@@ -11613,7 +11613,7 @@ dependencies = [
  "polymesh-worker",
  "polymesh-worker-common",
  "polymesh-worker-native",
- "polymesh-worker-protocol-dart-v0",
+ "polymesh-worker-protocol-dart-v1",
  "sp-core",
  "test-log",
 ]

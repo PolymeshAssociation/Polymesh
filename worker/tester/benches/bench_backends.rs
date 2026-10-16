@@ -8,7 +8,7 @@ use polymesh_dart::{
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
-use polymesh_worker_protocol_dart_v0::{
+use polymesh_worker_protocol_dart_v1::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
 
