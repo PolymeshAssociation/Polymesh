@@ -1007,16 +1007,19 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Proof: `Permissions::CurrentPalletName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     // Storage: `Permissions::CurrentDispatchableName` (r:1 w:0)
     // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `Identity::DidRecords` (r:1 w:0)
+    // Proof: `Identity::DidRecords` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::Portfolios` (r:1 w:0)
     // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Portfolio::FrozenPortfolios` (r:0 w:1)
     // Proof: `Portfolio::FrozenPortfolios` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
     fn set_holder_frozen() -> Weight {
-        // Minimum execution time: 33_530 nanoseconds.
-        Weight::from_parts(36_420_000, 0)
-            .saturating_add(DbWeight::get().reads(5))
+        // Minimum execution time: 39_260 nanoseconds.
+        Weight::from_parts(42_610_000, 0)
+            .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(1))
     }
+
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
