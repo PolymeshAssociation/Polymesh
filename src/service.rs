@@ -126,7 +126,7 @@ impl<Api> RuntimeApiCollection for Api where
 // precedence rather than assumed to be mutually exclusive: the largest enabled set of host
 // functions wins. This matches how the runtime side selects its implementation (see
 // `pallet_confidential_assets`, which keys off `host_workers` with `not(host_workers)` as the
-// fallback, and `dart-v0`'s `use_host_curves` which layers on top of `runtime_only`).
+// fallback, and `dart-v1`'s `use_host_curves` which layers on top of `runtime_only`).
 //
 // To build with only a subset, disable the default features, e.g.
 // `cargo build --no-default-features --features std,worker_polkavm,worker_wasmtime,worker_wasmer,host_curves`.
