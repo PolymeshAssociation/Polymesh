@@ -318,14 +318,23 @@ async fn erc20_revoke_after_spender_unmap() -> Result<()> {
         10_000
     );
 
-    // The spender's address now resolves to its `0xEE` fallback account.
-    api.call()
+    // Unmapping is disabled, so the spender's address keeps resolving to its native account.
+    // `execute` fails on its own if the extrinsic fails, so watch this one instead.
+    let err = api
+        .call()
         .revive()
         .unmap_account()?
-        .execute(spender)
+        .submit_and_watch(spender)
         .await?
         .ok()
-        .await?;
+        .await
+        .expect_err("unmap_account should be disabled");
+    assert!(
+        err.to_string()
+            .contains("unmap an account when this operation is disabled"),
+        "unexpected error: {err:?}"
+    );
+    assert_eq!(eth_address_of(&api, spender).await?, spender_address);
 
     // The owner revokes the allowance, and the ERC-20 view agrees it is gone.
     erc20.approve(&mut owner_caller, spender_address, 0).await?;
@@ -342,7 +351,7 @@ async fn erc20_revoke_after_spender_unmap() -> Result<()> {
     );
 
     // ...so the spender can't move the owner's tokens through settlement.
-    let res = api
+    let err = api
         .call()
         .settlement()
         .transfer_funds(
@@ -356,13 +365,15 @@ async fn erc20_revoke_after_spender_unmap() -> Result<()> {
                 memo: None,
             },
         )?
-        .execute(spender)
+        .submit_and_watch(spender)
         .await?
         .ok()
-        .await;
+        .await
+        .expect_err("transfer_funds should fail after the allowance was revoked");
     assert!(
-        res.is_err(),
-        "transfer_funds should fail after the allowance was revoked"
+        err.to_string()
+            .contains("allowance for this asset is insufficient"),
+        "unexpected error: {err:?}"
     );
     assert_eq!(erc20.balance_of(owner_address).await?, MINT);
 
