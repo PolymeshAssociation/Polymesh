@@ -12,22 +12,22 @@
     {
       "module_kind": "PolkaVM",
       "module_version": 2,
-      "code_hash": "0xcbf3fb6b0045b76f6d265560a5bf819c72e989cd6e6c16c27f2b8ac2b8ff9232"
+      "code_hash": "0xa9beaca9335e3b9472368d0ee3fd580375afdb74b3952abff97042aea3c293d5"
     },
     {
       "module_kind": "PolkaVM",
       "module_version": 1,
-      "code_hash": "0x2786db7fadd23f225e3464eac8d6a9150b830f2ef9fa8aec9678fca2b5d082de"
+      "code_hash": "0x888bb5db2ec3975dd43c5db6f63dbbda79505870e55a1964f1dafc619a860c98"
     },
     {
       "module_kind": "Wasm",
       "module_version": 2,
-      "code_hash": "0xd72703fa59d8b52ca42a8d096c9e1f8cddd54821313874fbc1a16099be03eeb8"
+      "code_hash": "0xcad81a334959f6ebcf2347972b8a350e0fa87053d7668f70928251a801984c61"
     },
     {
       "module_kind": "Wasm",
       "module_version": 1,
-      "code_hash": "0xe3915b99ccc545bf72f124f7bb6cbc01f3ffdefca3e1fc03dcdaf2086d8294f9"
+      "code_hash": "0x5ffb892d837b8c4e7ae49889bf063ebeb4516ce8a30a6b41f243405ed7bd519b"
     },
     {
       "module_kind": "Native",
