@@ -6,10 +6,12 @@ edition = "2024"
 [dependencies]
 log = "0.4"
 
+codec = { workspace = true, default-features = false }
 sp-panic-handler = { workspace = true, default-features = false }
 
 # Protocols
-polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["native"] }
+polymesh-worker-protocol-dart-v0 = { workspace = true, default-features = false, features = ["native"] }
+polymesh-worker-protocol-testing = { workspace = true, default-features = false, features = ["native"] }
 
 # Worker interface
 polymesh-worker = { workspace = true, default-features = false }
@@ -23,22 +25,25 @@ default = [
 
 testing = [
 	"polymesh-worker-common/testing",
-	"polymesh-worker-protocol-dart-v1/testing",
+	"polymesh-worker-protocol-dart-v0/testing",
+	"polymesh-worker-protocol-testing/testing",
 ]
 
 debug_logging = []
 
 asm = [
-	"polymesh-worker-protocol-dart-v1/asm"
+	"polymesh-worker-protocol-dart-v0/asm"
 ]
 parallel = [
-	"polymesh-worker-protocol-dart-v1/parallel",
+	"polymesh-worker-protocol-dart-v0/parallel",
 ]
 
 std = [
 	"asm",
 	"parallel",
+	"codec/std",
 	"polymesh-worker/std",
 	"polymesh-worker-common/std",
-	"polymesh-worker-protocol-dart-v1/std",
+	"polymesh-worker-protocol-dart-v0/std",
+	"polymesh-worker-protocol-testing/std",
 ]

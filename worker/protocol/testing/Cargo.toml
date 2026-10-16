@@ -1,33 +1,17 @@
 [package]
-name = "polymesh-worker-protocol-dart-v1"
+name = "polymesh-worker-protocol-testing"
 version = "0.1.0"
 authors = ["Polymesh Labs"]
 license-file = "../../../LICENSE"
 repository = "https://github.com/PolymeshAssociation/Polymesh"
-description = "Polymesh DART Confidential Assets host functions"
+description = "Worker module for testing Polymesh Worker"
 edition = "2024"
-
-[lib]
-path = "src/lib.rs"
-crate-type = ["lib", "cdylib"]
 
 [dependencies]
 log = "0.4"
 
 polymesh-worker-common = { workspace = true, default-features = false }
 polymesh-worker-extension = { workspace = true, default-features = false, optional = true }
-
-# Crypto
-rand_core = { workspace = true, default-features = false }
-rand_chacha = { workspace = true, default-features = false }
-
-# DART
-polymesh-dart = { workspace = true, default-features = false, features = [
-  "backend_bp"
-] }
-polymesh-dart-common = { workspace = true, default-features = false }
-ark-ec = { workspace = true, default-features = false }
-bulletproofs = { workspace = true, default-features = false }
 
 # Substrate
 scale-info = { workspace = true, default-features = false, features = [
@@ -45,24 +29,25 @@ polkavm-derive = { workspace = true, default-features = true }
 picoalloc = "5.2.0"
 
 [features]
-default = ["std", "testing"]
+default = ["std", "testing", "version_v0"]
 
 testing = []
+
+# Use feature flags to generate multiple versions of the testing module.
+version_v0 = []
+version_v1 = []
+version_v2 = []
 
 # Directly implement protocol logic (i.e. don't use a host function).
 impl_protocol = []
 
 polkavm = [
-  "ark-ec/polkavm",
-  "bulletproofs/polkavm",
   "polymesh-worker-common/host_logger",
   "polymesh-worker-common/polkavm",
   "impl_protocol",
 ]
 
 wasm = [
-  "ark-ec/host_msm",
-  "bulletproofs/host_hash_to_curve",
   "polymesh-worker-common/host_logger",
   "impl_protocol",
 ]
@@ -71,33 +56,18 @@ native = []
 
 runtime = [
   "native",
-  "ark-ec/host_msm",
-  "bulletproofs/host_hash_to_curve",
   "polymesh-worker-extension",
 ]
-
-sp-io = [
-  "polymesh-dart/sp-io",
+runtime_only = [
+  "native",
+  "impl_protocol",
 ]
 
-asm = ["polymesh-dart/asm"]
-parallel = [
-  "polymesh-dart/verifier_parallel",
-  "polymesh-dart/parallel",
-]
-
-no_std = ["polymesh-dart/no_std"]
+no_std = []
 std = [
   "impl_protocol",
-  "asm",
-  "parallel",
-  "rand_core/std",
-  "rand_chacha/std",
-  "polymesh-dart/std",
-  "ark-ec/std",
   "codec/std",
   "sp-std/std",
   "bounded-collections/std",
-  "bulletproofs/std",
 ]
 runtime-benchmarks = ["testing"]

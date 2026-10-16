@@ -56,12 +56,15 @@ use polymesh_dart::{
     SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
 
+use polymesh_worker_common::WorkerSessionId;
+#[cfg(feature = "host_workers")]
 use polymesh_worker_extension::{
-    native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig, WorkerSessionId,
+    native_polymesh_worker, BackendKind, WorkRequestConfig, WorkerSessionConfig,
 };
-use polymesh_worker_protocol_dart_v1::{
-    UpdateAssetStateRequest, VerifyDartAssetRequest, PROTOCOL as DART_PROTOCOL,
-};
+
+#[cfg(feature = "host_workers")]
+use polymesh_worker_protocol_dart_v0::PROTOCOL as DART_PROTOCOL;
+use polymesh_worker_protocol_dart_v0::{UpdateAssetStateRequest, VerifyDartAssetRequest};
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -2084,11 +2087,12 @@ impl<T: Config> Pallet<T> {
 
         // Handle the leg affirmations in the proof.
         for leg_affirmation in proof.leg_affirmations {
-            Self::base_instant_sender_affirmation(leg_affirmation.sender, false)?;
-            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false)?;
+            // Process mediator affirmations first.
             for mediator in leg_affirmation.mediators {
                 Self::base_mediator_affirmation(mediator)?;
             }
+            Self::base_instant_sender_affirmation(leg_affirmation.sender, false)?;
+            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false)?;
         }
 
         // Ensure that the settlement has executed and finalized.
@@ -2533,9 +2537,14 @@ impl<T: Config> Pallet<T> {
         // Create the Asset State.
         let asset_state = AssetState { asset_id, keys };
         let req = UpdateAssetStateRequest::new(asset_state);
-        let resp = req
-            .update(Self::session_id()?)
-            .map_err(|_| Error::<T>::AssetStateInvalid)?;
+        #[cfg(feature = "host_workers")]
+        let resp = {
+            req.update(Self::session_id()?)
+                .map_err(|_| Error::<T>::AssetStateInvalid)?
+        };
+        #[cfg(not(feature = "host_workers"))]
+        let resp = { req.do_update().map_err(|_| Error::<T>::AssetStateInvalid)? };
+
         let asset_leaf = resp.asset_leaf();
 
         // Update the asset curve tree with the new asset.
@@ -2918,7 +2927,7 @@ impl<T: Config> Pallet<T> {
             // If the DART parameters are already cached, do nothing.
             return false;
         }
-        if let Ok(ctx) = polymesh_worker_protocol_dart_v1::save_context() {
+        if let Ok(ctx) = polymesh_worker_protocol_dart_v0::save_context() {
             CachedDartParameters::<T>::put(ctx);
         }
         true
@@ -2945,32 +2954,47 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn start_session() {
-        // Start worker session.
-        let config = WorkerSessionConfig {
-            work: WorkRequestConfig {
-                use_cache: true,
-                use_thread_pool: false,
-            },
-            init_module: true,
+        #[cfg(feature = "host_workers")]
+        {
+            // Start worker session.
+            let config = WorkerSessionConfig {
+                work: WorkRequestConfig {
+                    use_cache: true,
+                    use_thread_pool: false,
+                },
+                init_module: true,
 
-            backends: BackendKind::all_mask(),
+                backends: BackendKind::all_mask(),
+            }
+            .to_flags_and_backends();
+
+            let session_id =
+                native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
+
+            CurrentWorkerSessionId::<T>::put(session_id);
         }
-        .to_flags_and_backends();
-        let session_id = native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
-
-        CurrentWorkerSessionId::<T>::put(session_id);
     }
 
     pub fn end_session() {
-        // Close the batch.
-        if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
-            native_polymesh_worker::end_session(session_id);
+        #[cfg(feature = "host_workers")]
+        {
+            // Close the batch.
+            if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
+                native_polymesh_worker::end_session(session_id);
+            }
         }
     }
 
     pub fn submit_and_wait(req: VerifyDartAssetRequest) -> DispatchResult {
-        req.submit_and_wait(Self::session_id()?)
-            .map_err(|_| Error::<T>::InvalidProof)?;
+        #[cfg(feature = "host_workers")]
+        {
+            req.submit_and_wait(Self::session_id()?)
+                .map_err(|_| Error::<T>::InvalidProof)?;
+        }
+        #[cfg(not(feature = "host_workers"))]
+        {
+            req.do_verify().map_err(|_| Error::<T>::InvalidProof)?;
+        }
         Ok(())
     }
 
