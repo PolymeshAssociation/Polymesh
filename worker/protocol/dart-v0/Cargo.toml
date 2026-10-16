@@ -58,7 +58,7 @@ scale-info = { version = "2.11.6", default-features = false, features = [
   "derive",
 ] }
 codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = ["derive", "max-encoded-len"] }
-sp-std = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-4", default-features = false }
+sp-std = { git = "https://github.com/PolymeshAssociation/polkadot-sdk", branch = "polymesh-v8-stable2603-7", default-features = false }
 bounded-collections = { version = "0.3.2", default-features = false, features = ["scale-codec"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
