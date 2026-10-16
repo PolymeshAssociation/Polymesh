@@ -2537,9 +2537,14 @@ impl<T: Config> Pallet<T> {
         // Create the Asset State.
         let asset_state = AssetState { asset_id, keys };
         let req = UpdateAssetStateRequest::new(asset_state);
-        let resp = req
-            .update(Self::session_id()?)
-            .map_err(|_| Error::<T>::AssetStateInvalid)?;
+        #[cfg(feature = "host_workers")]
+        let resp = {
+            req.update(Self::session_id()?)
+                .map_err(|_| Error::<T>::AssetStateInvalid)?
+        };
+        #[cfg(not(feature = "host_workers"))]
+        let resp = { req.do_update().map_err(|_| Error::<T>::AssetStateInvalid)? };
+
         let asset_leaf = resp.asset_leaf();
 
         // Update the asset curve tree with the new asset.
