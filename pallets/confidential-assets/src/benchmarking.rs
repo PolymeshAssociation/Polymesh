@@ -13,7 +13,7 @@ use polymesh_dart::{
     curve_tree::{CurveTreeLookup, MultiLeafPathAndRoot},
     FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
 };
-use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
+use polymesh_worker_protocol_dart_v1::{GenerateDartProofRequest, GenerateDartProofResponse};
 
 use polymesh_primitives::erc20::{Name, Symbol};
 

@@ -167,12 +167,52 @@ impl StaticModules {
         );
     }
 
+    fn dart_v1_polkavm_bytes(&self) -> &'static [u8] {
+        #[cfg(not(feature = "testing"))]
+        {
+            include_bytes!("../modules/dart/v1/polymesh-worker-protocol-dart-v1.polkavm.zst")
+        }
+        #[cfg(feature = "testing")]
+        {
+            include_bytes!(
+                "../modules/dart/v1/polymesh-worker-protocol-dart-v1.testing.polkavm.zst"
+            )
+        }
+    }
+
+    fn dart_v1_wasm_bytes(&self) -> &'static [u8] {
+        #[cfg(not(feature = "testing"))]
+        {
+            include_bytes!("../modules/dart/v1/polymesh-worker-protocol-dart-v1.wasm.zst")
+        }
+        #[cfg(feature = "testing")]
+        {
+            include_bytes!("../modules/dart/v1/polymesh-worker-protocol-dart-v1.testing.wasm.zst")
+        }
+    }
+
+    fn add_dart_v1(&mut self) {
+        let protocol = Protocol {
+            id: PROTOCOL_PDART,
+            version: ProtocolVersion::new(1, 0, 0),
+        };
+        self.protocols.insert(
+            protocol,
+            StaticProtocol::new(
+                protocol,
+                self.dart_v1_polkavm_bytes(),
+                self.dart_v1_wasm_bytes(),
+            ),
+        );
+    }
+
     fn initialize(&mut self) {
         if self.initialized {
             return;
         }
         // Add P-DART protocol static modules.
         self.add_dart_v0();
+        self.add_dart_v1();
 
         // Add Testing protocol static modules if the testing feature is enabled.
         #[cfg(feature = "testing")]

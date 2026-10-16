@@ -63,8 +63,8 @@ use polymesh_worker_extension::{
 };
 
 #[cfg(feature = "host_workers")]
-use polymesh_worker_protocol_dart_v0::PROTOCOL as DART_PROTOCOL;
-use polymesh_worker_protocol_dart_v0::{UpdateAssetStateRequest, VerifyDartAssetRequest};
+use polymesh_worker_protocol_dart_v1::PROTOCOL as DART_PROTOCOL;
+use polymesh_worker_protocol_dart_v1::{UpdateAssetStateRequest, VerifyDartAssetRequest};
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -2927,7 +2927,7 @@ impl<T: Config> Pallet<T> {
             // If the DART parameters are already cached, do nothing.
             return false;
         }
-        if let Ok(ctx) = polymesh_worker_protocol_dart_v0::save_context() {
+        if let Ok(ctx) = polymesh_worker_protocol_dart_v1::save_context() {
             CachedDartParameters::<T>::put(ctx);
         }
         true
