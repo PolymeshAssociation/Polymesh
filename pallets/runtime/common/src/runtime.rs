@@ -451,6 +451,7 @@ macro_rules! misc_pallet_impls {
         impl pallet_relayer::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight;
             type SubsidyCallFilter = SubsidyFilter;
+            type RuntimeCall = RuntimeCall;
         }
 
         impl polymesh_primitives::traits::AssetFnConfig for Runtime {

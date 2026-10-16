@@ -880,3 +880,61 @@ fn _relay_unhappy_cases() {
         Error::ExpiredRelayTx
     );
 }
+
+#[test]
+fn reject_nested_relay_tx() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(nested_relay_tx_is_rejected);
+}
+
+fn nested_relay_tx_is_rejected() {
+    System::set_block_number(1);
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let expires_at = 100u64;
+
+    // A `relay_tx` nested directly or through a batch is filtered out.
+    let wrappers: [fn(RuntimeCall) -> RuntimeCall; 2] =
+        [|call| call, |call| call_utility_batch_all(vec![call])];
+    for wrap in wrappers {
+        let nonce = RelayTxNonces::<TestStorage>::get(&bob);
+        let inner = relay_call(
+            Sr25519Keyring::Bob,
+            call_system_remark(1),
+            nonce + 1,
+            expires_at,
+        );
+        let outer = relay_call(Sr25519Keyring::Bob, wrap(inner), nonce, expires_at);
+        assert_ok!(outer.dispatch(RuntimeOrigin::signed(alice.clone())));
+
+        let filtered = frame_system::Error::<TestStorage>::CallFiltered.into();
+        assert!(matches!(
+            System::events().last().map(|e| &e.event),
+            Some(EventTest::Relayer(pallet_relayer::Event::RelayedTx { result: Err(e), .. })) if *e == filtered
+        ));
+        // Only the outer layer consumed a nonce.
+        assert_eq!(RelayTxNonces::<TestStorage>::get(&bob), nonce + 1);
+    }
+}
+
+/// Wraps `inner` in a `relay_tx` from `signer`, signed with `nonce`.
+fn relay_call(
+    signer: Sr25519Keyring,
+    inner: RuntimeCall,
+    nonce: u64,
+    expires_at: u64,
+) -> RuntimeCall {
+    let call = Box::new(inner);
+    let signature =
+        ChainScopedMessage::<TestStorage, _>::new(nonce, RELAY_TX_LABEL, expires_at, &call)
+            .expect("Shouldn't be expired")
+            .sign(&signer)
+            .expect("Should sign");
+    RuntimeCall::Relayer(pallet_relayer::Call::relay_tx {
+        target: signer.to_account_id(),
+        signature: signature.into(),
+        call,
+        expires_at,
+    })
+}
