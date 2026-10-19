@@ -46,7 +46,7 @@ pub mod benchmarking;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::{extract_actual_weight, DispatchResult, GetDispatchInfo};
 use frame_support::pallet_prelude::{DispatchError, DispatchResultWithPostInfo};
-use frame_support::traits::{Contains, GetCallMetadata, IsSubType, IsType, OriginTrait};
+use frame_support::traits::{Contains, GetCallMetadata};
 use frame_support::weights::Weight;
 use frame_support::{ensure, fail};
 use frame_system::{ensure_signed, RawOrigin};
@@ -88,9 +88,6 @@ pub mod pallet {
         type SubsidyCallFilter: frame_support::traits::Contains<
             <Self as frame_system::Config>::RuntimeCall,
         >;
-        /// The overarching call type, used to reject nested `relay_tx` calls.
-        type RuntimeCall: IsSubType<Call<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeCall>;
     }
 
     #[pallet::event]
@@ -236,6 +233,13 @@ pub mod pallet {
     #[pallet::storage]
     pub type RelayTxNonces<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
+
+    /// `relay_tx` reentry guard.
+    ///
+    /// Set while a relayed call is being dispatched, so that nested `relay_tx` calls are
+    /// rejected regardless of how the inner call is dispatched (e.g. through a multisig proposal).
+    #[pallet::storage]
+    pub(super) type RelayReentry<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -384,6 +388,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let caller = ensure_signed(origin)?;
 
+            // Don't allow nested `relay_tx` calls.
+            ensure!(!RelayReentry::<T>::get(), Error::<T>::NestingNotAllowed);
+
             // Get the current nonce for the target and increment it.
             let nonce = RelayTxNonces::<T>::mutate(&target, |nonce| {
                 let current_nonce = *nonce;
@@ -402,13 +409,15 @@ pub mod pallet {
 
             let info = call.get_dispatch_info();
             // Dispatch the call with the `target` as the signed origin.
-            let mut target_origin: T::RuntimeOrigin = RawOrigin::Signed(target.clone()).into();
-            // Don't allow users to nest `relay_tx` calls.
-            target_origin.add_filter(|c: &<T as frame_system::Config>::RuntimeCall| {
-                let c = <T as Config>::RuntimeCall::from_ref(c);
-                !matches!(c.is_sub_type(), Some(Call::relay_tx { .. }))
-            });
-            let result = pallet_utility::Pallet::<T>::dispatch_call(target_origin, false, *call);
+            // Enable the reentry guard before dispatching the call.
+            RelayReentry::<T>::set(true);
+            let result = pallet_utility::Pallet::<T>::dispatch_call(
+                RawOrigin::Signed(target.clone()).into(),
+                false,
+                *call,
+            );
+            // Make sure to reset the reentry guard, even if the call fails.
+            RelayReentry::<T>::set(false);
             // Get the actual weight of this call.
             let weight = extract_actual_weight(&result, &info);
 
@@ -439,6 +448,8 @@ pub mod pallet {
         InvalidSignature,
         /// The relay transaction has expired.
         ExpiredRelayTx,
+        /// Nested `relay_tx` calls are not allowed.
+        NestingNotAllowed,
     }
 }
 
