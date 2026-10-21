@@ -234,6 +234,13 @@ pub mod pallet {
     pub type RelayTxNonces<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, AuthorizationNonce, ValueQuery>;
 
+    /// `relay_tx` reentry guard.
+    ///
+    /// Set while a relayed call is being dispatched, so that nested `relay_tx` calls are
+    /// rejected regardless of how the inner call is dispatched (e.g. through a multisig proposal).
+    #[pallet::storage]
+    pub(super) type RelayReentry<T: Config> = StorageValue<_, bool, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Approve a subsidy for a `user_key`.
@@ -381,6 +388,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let caller = ensure_signed(origin)?;
 
+            // Don't allow nested `relay_tx` calls.
+            ensure!(!RelayReentry::<T>::get(), Error::<T>::NestingNotAllowed);
+
             // Get the current nonce for the target and increment it.
             let nonce = RelayTxNonces::<T>::mutate(&target, |nonce| {
                 let current_nonce = *nonce;
@@ -399,11 +409,15 @@ pub mod pallet {
 
             let info = call.get_dispatch_info();
             // Dispatch the call with the `target` as the signed origin.
+            // Enable the reentry guard before dispatching the call.
+            RelayReentry::<T>::set(true);
             let result = pallet_utility::Pallet::<T>::dispatch_call(
                 RawOrigin::Signed(target.clone()).into(),
                 false,
                 *call,
             );
+            // Make sure to reset the reentry guard, even if the call fails.
+            RelayReentry::<T>::set(false);
             // Get the actual weight of this call.
             let weight = extract_actual_weight(&result, &info);
 
@@ -434,6 +448,8 @@ pub mod pallet {
         InvalidSignature,
         /// The relay transaction has expired.
         ExpiredRelayTx,
+        /// Nested `relay_tx` calls are not allowed.
+        NestingNotAllowed,
     }
 }
 

@@ -21,15 +21,22 @@ extern crate alloc;
 
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::{Get, GetCallMetadata, IsType};
+use frame_support::weights::Weight;
 use frame_system::pallet_prelude::OriginFor;
 use sp_runtime::traits::Dispatchable;
 
 use polymesh_primitives::asset_metadata::AssetMetadataGlobalKey;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 pub mod common;
 pub mod interface;
 
 pub use interface::{FungibleAssetInterface, NonFungibleAssetInterface, PolymeshRuntimeInterface};
+
+pub trait WeightInfo {
+    fn token_uri() -> Weight;
+}
 
 /// Runtime configuration needed by the Polymesh precompiles.
 pub trait Config:
@@ -67,6 +74,9 @@ pub trait Config:
     ///
     /// Used as the fallback when an NFT has no `tokenUri` of its own.
     type BaseTokenUriMetadataKey: Get<AssetMetadataGlobalKey>;
+
+    /// Weight information for the precompile calls.
+    type WeightInfo: WeightInfo;
 }
 
 /// The runtime call type used by the precompiles.

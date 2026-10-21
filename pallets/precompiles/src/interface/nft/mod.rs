@@ -35,7 +35,7 @@ use crate::Config;
 
 mod erc721;
 mod erc7943;
-mod metadata;
+pub(crate) mod metadata;
 mod polymesh_specific;
 
 // ==================== Error Messages ====================
