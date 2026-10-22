@@ -49,7 +49,7 @@ The polymesh-worker crate serves as the core execution engine that:
 ├─────────────────────────────────────────────────────────────┤
 │              Compiled Protocol Modules                      │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │  DART v1: polymesh-worker-protocol-dart-v1           │   │
+│  │  DART v0: polymesh-worker-protocol-dart-v0           │   │
 │  │  Available as: PolkaVM, WASM (+ Native fallback)     │   │
 │  │  Stored as: Compressed binary in crate (zst)         │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -194,7 +194,7 @@ for id in pending_ids {
 - **Per-session coordination**: Each session maintains its own pending work tracking
 - **Response channels**: Crossbeam channels for thread-safe result delivery
 
-## Protocol Implementation: DART v1
+## Protocol Implementation: DART v0
 
 DART is the first protocol implemented in this worker:
 
@@ -202,11 +202,11 @@ DART is the first protocol implemented in this worker:
 
 Two variants are compiled and distributed:
 
-1. **Production**: `polymesh-worker-protocol-dart-v1.{polkavm,wasm}.zst`
+1. **Production**: `polymesh-worker-protocol-dart-v0.{polkavm,wasm}.zst`
    - Optimized for performance
    - Compressed for efficient distribution
 
-2. **Testing**: `polymesh-worker-protocol-dart-v1.testing.{polkavm,wasm}.zst`
+2. **Testing**: `polymesh-worker-protocol-dart-v0.testing.{polkavm,wasm}.zst`
    - Includes proof generation support.
    - Used to generate proofs needed when benchmarking proof verification.
 
@@ -270,11 +270,11 @@ Automated compilation of protocol modules:
 ```bash
 # Build PolkaVM module
 ./build_polkavm.sh
-# Generates: polymesh-worker-protocol-dart-v1.polkavm.zst
+# Generates: polymesh-worker-protocol-dart-v0.polkavm.zst
 
 # Build WASM module
 ./build_wasm.sh
-# Generates: polymesh-worker-protocol-dart-v1.wasm.zst
+# Generates: polymesh-worker-protocol-dart-v0.wasm.zst
 
 # Build testing variants
 ./build_polkavm_testing.sh
@@ -381,7 +381,7 @@ pub trait BackendModuleLoader {
 
 **Built-in implementations:**
 
-- **StaticModules**: Loads DART v1 protocol from embedded binaries
+- **StaticModules**: Loads DART v0 protocol from embedded binaries
 - **SubstrateModuleLoader**: Loads modules from Substrate storage
 
 ## Features
@@ -413,12 +413,50 @@ pub trait BackendModuleLoader {
 # From worker directory
 cd Polymesh/worker
 
-# Build all modules
-./rebuild.sh
+# Reproducibly build modules and release configs for one or more DART versions
+./rebuild.sh v0
 
-# Build specific backend modules
+# Low-level host builds for development only
 ./build_polkavm.sh
 ./build_wasm.sh
+```
+
+`rebuild.sh` builds and runs one pinned `linux/amd64` image per DART version in
+`Dockerfile`. Each image uses the matching Polymesh Rust nightly image and can
+pin its own `polkatool` version. Cargo uses `Cargo.lock`, and the container uses
+fixed paths and isolated build state so host toolchains and caches do not affect
+the committed module files.
+
+`protocol/dart-v0` is a standalone Cargo workspace with its own `Cargo.lock`
+and DART crate patches. Future DART dependency updates in the root workspace do
+not change the dependency graph used to reproduce v0 modules.
+
+### Preparing a DART Release Config
+
+Build one config containing uncompressed version 1 modules for older nodes and
+compressed version 2 modules for newer nodes. Version 2 entries are ordered
+first so compatible nodes prefer them. A single Native version 1 definition is
+used because the native backend supports both module versions.
+
+```bash
+cargo run -r -p polymesh-worker-tools -- build-release-config \
+    --protocol-version 1.0.0 \
+    --polkavm modules/dart/v0/polymesh-worker-protocol-dart-v0.polkavm.zst \
+    --wasm modules/dart/v0/polymesh-worker-protocol-dart-v0.wasm.zst \
+    --output modules/dart/v0/config.scale
+```
+
+Export or verify a saved config:
+
+```bash
+cargo run -r -p polymesh-worker-tools -- export-config-json \
+    --config modules/dart/v0/config.scale \
+    --output modules/dart/v0/config.json
+
+cargo run -r -p polymesh-worker-tools -- check-release-config \
+    --config modules/dart/v0/config.scale \
+    --polkavm modules/dart/v0/polymesh-worker-protocol-dart-v0.polkavm.zst \
+    --wasm modules/dart/v0/polymesh-worker-protocol-dart-v0.wasm.zst
 ```
 
 ## Performance Considerations

@@ -10,7 +10,7 @@ use polymesh_dart::{
     BlockNumber, LeafIndex, NodeLevel, ACCOUNT_TREE_L, ACCOUNT_TREE_M, ASSET_TREE_L, ASSET_TREE_M,
     FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
 };
-use polymesh_worker_protocol_dart_v1::{GetSessionId, HostCurveTreeUpdater};
+use polymesh_worker_protocol_dart_v0::{GetSessionId, HostCurveTreeUpdater};
 
 pub use polymesh_dart::curve_tree::{AccountTreeConfig, AssetTreeConfig, FeeAccountTreeConfig};
 use sp_runtime::Saturating;
