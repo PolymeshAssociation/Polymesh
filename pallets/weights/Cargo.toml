@@ -37,6 +37,7 @@ pallet-multisig = { workspace = true, default-features = false  }
 pallet-nft = { workspace = true, default-features = false  }
 pallet-pips = { workspace = true, default-features = false }
 pallet-portfolio = { workspace = true, default-features = false  }
+pallet-precompiles = { workspace = true, default-features = false }
 pallet-protocol-fee = { workspace = true, default-features = false  }
 pallet-relayer = { workspace = true, default-features = false }
 pallet-settlement = { workspace = true, default-features = false  }
@@ -72,6 +73,7 @@ std = [
     "pallet-nft/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
+    "pallet-precompiles/std",
     "pallet-protocol-fee/std",
     "pallet-relayer/std",
     "pallet-scheduler/std",

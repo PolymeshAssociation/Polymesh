@@ -40,6 +40,7 @@ pub mod pallet_multisig;
 pub mod pallet_nft;
 pub mod pallet_pips;
 pub mod pallet_portfolio;
+pub mod pallet_precompiles;
 pub mod pallet_preimage;
 pub mod pallet_protocol_fee;
 pub mod pallet_relayer;

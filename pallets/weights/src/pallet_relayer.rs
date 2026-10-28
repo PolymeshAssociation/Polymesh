@@ -91,6 +91,8 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    // Storage: `Relayer::RelayReentry` (r:1 w:1)
+    // Proof: `Relayer::RelayReentry` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
     // Storage: `Relayer::RelayTxNonces` (r:1 w:1)
     // Proof: `Relayer::RelayTxNonces` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Timestamp::Now` (r:1 w:0)
@@ -102,9 +104,9 @@ impl pallet_relayer::WeightInfo for SubstrateWeight {
     // Storage: `Permissions::CurrentDispatchableName` (r:1 w:1)
     // Proof: `Permissions::CurrentDispatchableName` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn relay_tx() -> Weight {
-        // Minimum execution time: 68_680 nanoseconds.
-        Weight::from_parts(72_500_000, 0)
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().writes(3))
+        // Minimum execution time: 69_340 nanoseconds.
+        Weight::from_parts(74_350_000, 0)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(4))
     }
 }

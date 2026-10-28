@@ -1344,4 +1344,11 @@ impl<T: Config> PortfolioFnTrait<T::AccountId> for Pallet<T> {
     ) -> Result<(), DispatchError> {
         Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
+
+    fn ensure_user_portfolio_permission(
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        portfolio: &PortfolioId,
+    ) -> Result<(), DispatchError> {
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
+    }
 }

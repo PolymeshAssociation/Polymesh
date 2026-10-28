@@ -13,21 +13,25 @@ use sp_runtime::MultiSignature;
 use pallet_balances::Call as BalancesCall;
 use pallet_relayer::{RelayTxNonces, Subsidy};
 use polymesh_primitives::constants::currency::POLY;
+use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::protocol_fee::ProtocolOp;
 use polymesh_primitives::traits::CurrentFeePayer;
 use polymesh_primitives::transaction_payment::CallPaymentInfo;
-use polymesh_primitives::{AccountId, Balance, Ticker, TransactionError};
+use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{RuntimeCall as DevRuntimeCall, TxFeeHandler};
 use polymesh_transaction_payment::Val;
 
 use super::asset_test::set_timestamp;
+use super::multisig::{create_multisig_default_perms, create_signers};
 use super::pips_test::assert_balance;
 use super::storage::{
-    register_keyring_account_with_balance, EventTest, RuntimeCall, System, TestStorage, User,
+    get_last_auth_id, register_keyring_account_with_balance, EventTest, RuntimeCall, System,
+    TestStorage, User,
 };
 use super::ExtBuilder;
 
 type Relayer = pallet_relayer::Pallet<TestStorage>;
+type MultiSig = pallet_multisig::Pallet<TestStorage>;
 type Subsidies = pallet_relayer::Subsidies<TestStorage>;
 type Identity = pallet_identity::Pallet<TestStorage>;
 type AccountKeyRefCount = pallet_identity::AccountKeyRefCount<TestStorage>;
@@ -878,5 +882,135 @@ fn _relay_unhappy_cases() {
     assert_noop!(
         Relayer::relay_tx(origin.clone(), bob, signature, call, expires_at),
         Error::ExpiredRelayTx
+    );
+}
+
+#[test]
+fn reject_nested_relay_tx() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(nested_relay_tx_is_rejected);
+}
+
+fn nested_relay_tx_is_rejected() {
+    System::set_block_number(1);
+    let alice = Sr25519Keyring::Alice.to_account_id();
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let expires_at = 100u64;
+
+    // A `relay_tx` nested directly or through a batch is rejected.
+    let wrappers: [fn(RuntimeCall) -> RuntimeCall; 2] =
+        [|call| call, |call| call_utility_batch_all(vec![call])];
+    for wrap in wrappers {
+        let nonce = RelayTxNonces::<TestStorage>::get(&bob);
+        let inner = relay_call(
+            Sr25519Keyring::Bob,
+            call_system_remark(1),
+            nonce + 1,
+            expires_at,
+        );
+        let outer = relay_call(Sr25519Keyring::Bob, wrap(inner), nonce, expires_at);
+        assert_ok!(outer.dispatch(RuntimeOrigin::signed(alice.clone())));
+
+        let nested = Error::NestingNotAllowed.into();
+        assert!(matches!(
+            System::events().last().map(|e| &e.event),
+            Some(EventTest::Relayer(pallet_relayer::Event::RelayedTx { result: Err(e), .. })) if *e == nested
+        ));
+        // Only the outer layer consumed a nonce.
+        assert_eq!(RelayTxNonces::<TestStorage>::get(&bob), nonce + 1);
+    }
+}
+
+/// Wraps `inner` in a `relay_tx` from `signer`, signed with `nonce`.
+fn relay_call(
+    signer: Sr25519Keyring,
+    inner: RuntimeCall,
+    nonce: u64,
+    expires_at: u64,
+) -> RuntimeCall {
+    let call = Box::new(inner);
+    let signature =
+        ChainScopedMessage::<TestStorage, _>::new(nonce, RELAY_TX_LABEL, expires_at, &call)
+            .expect("Shouldn't be expired")
+            .sign(&signer)
+            .expect("Should sign");
+    RuntimeCall::Relayer(pallet_relayer::Call::relay_tx {
+        target: signer.to_account_id(),
+        signature: signature.into(),
+        call,
+        expires_at,
+    })
+}
+
+#[test]
+fn reject_nested_relay_tx_through_multisig() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(nested_relay_tx_through_multisig_is_rejected);
+}
+
+fn nested_relay_tx_through_multisig_is_rejected() {
+    System::set_block_number(1);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = Sr25519Keyring::Bob.to_account_id();
+    let charlie = Sr25519Keyring::Charlie.to_account_id();
+    let expires_at = 100u64;
+
+    // A 1-of-1 multisig with bob as signer executes proposals as soon as they are created.
+    let ms_address =
+        create_multisig_default_perms(alice.acc(), create_signers(vec![bob.clone()]), 1);
+    let auth_id = get_last_auth_id(&Signatory::Account(bob.clone()));
+    assert_ok!(MultiSig::accept_multisig_signer(
+        RuntimeOrigin::signed(bob.clone()),
+        auth_id
+    ));
+
+    // relay_tx(bob) -> MultiSig::create_proposal -> relay_tx(charlie).
+    // The multisig dispatches the proposal with a fresh `Signed(multisig)` origin.
+    let charlie_nonce = RelayTxNonces::<TestStorage>::get(&charlie);
+    let inner = relay_call(
+        Sr25519Keyring::Charlie,
+        call_system_remark(1),
+        charlie_nonce,
+        expires_at,
+    );
+    let proposal_id = pallet_multisig::NextProposalId::<TestStorage>::get(&ms_address);
+    let create_proposal = RuntimeCall::MultiSig(pallet_multisig::Call::create_proposal {
+        multisig: ms_address.clone(),
+        proposal: Box::new(inner),
+        expiry: None,
+    });
+    let bob_nonce = RelayTxNonces::<TestStorage>::get(&bob);
+    let outer = relay_call(Sr25519Keyring::Bob, create_proposal, bob_nonce, expires_at);
+    assert_ok!(outer.dispatch(RuntimeOrigin::signed(alice.acc())));
+
+    // The outer relay consumed bob's nonce.
+    assert_eq!(RelayTxNonces::<TestStorage>::get(&bob), bob_nonce + 1);
+    // The nested relay must not have executed, so charlie's nonce is untouched.
+    assert_eq!(RelayTxNonces::<TestStorage>::get(&charlie), charlie_nonce);
+    assert_eq!(
+        pallet_multisig::ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
+        Some(ProposalState::ExecutionFailed)
+    );
+
+    // The reentry guard was reset, so a later relay for charlie works.
+    let relay = relay_call(
+        Sr25519Keyring::Charlie,
+        call_system_remark(1),
+        charlie_nonce,
+        expires_at,
+    );
+    assert_ok!(relay.dispatch(RuntimeOrigin::signed(alice.acc())));
+    assert!(matches!(
+        System::events().last().map(|e| &e.event),
+        Some(EventTest::Relayer(pallet_relayer::Event::RelayedTx {
+            result: Ok(()),
+            ..
+        }))
+    ));
+    assert_eq!(
+        RelayTxNonces::<TestStorage>::get(&charlie),
+        charlie_nonce + 1
     );
 }

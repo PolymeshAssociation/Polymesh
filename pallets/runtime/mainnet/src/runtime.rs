@@ -196,6 +196,7 @@ impl pallet_precompiles::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type TokenUriMetadataKey = TokenUriMetadataKey;
     type BaseTokenUriMetadataKey = BaseTokenUriMetadataKey;
+    type WeightInfo = polymesh_weights::pallet_precompiles::SubstrateWeight;
 }
 
 // Staking

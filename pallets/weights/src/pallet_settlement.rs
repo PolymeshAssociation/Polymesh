@@ -1029,13 +1029,21 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::InstructionStatuses` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
     // Storage: `Settlement::InstructionMediatorsAffirmations` (r:1 w:1)
     // Proof: `Settlement::InstructionMediatorsAffirmations` (`max_values`: None, `max_size`: Some(58), added: 2533, mode: `MaxEncodedLen`)
+    // Storage: `Timestamp::Now` (r:1 w:0)
+    // Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
     // Storage: `Settlement::InstructionAffirmsPending` (r:1 w:1)
     // Proof: `Settlement::InstructionAffirmsPending` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+    // Storage: `Settlement::InstructionLegs` (r:121 w:0)
+    // Proof: `Settlement::InstructionLegs` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Scheduler::Lookup` (r:1 w:1)
+    // Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+    // Storage: `Scheduler::Agenda` (r:1 w:1)
+    // Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(10463), added: 12938, mode: `MaxEncodedLen`)
     fn affirm_instruction_as_mediator() -> Weight {
-        // Minimum execution time: 73_679 nanoseconds.
-        Weight::from_parts(75_510_000, 0)
-            .saturating_add(DbWeight::get().reads(5))
-            .saturating_add(DbWeight::get().writes(2))
+        // Minimum execution time: 644_728 nanoseconds.
+        Weight::from_parts(665_968_000, 0)
+            .saturating_add(DbWeight::get().reads(129))
+            .saturating_add(DbWeight::get().writes(4))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)

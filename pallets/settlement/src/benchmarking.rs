@@ -223,6 +223,42 @@ fn setup_execute_instruction<T>(
 where
     T: Config,
 {
+    let (parameters, m_user) = setup_instruction_pending_mediators::<T>(
+        sender,
+        receiver,
+        settlement_type,
+        venue_id,
+        f,
+        n,
+        o,
+        m,
+        pause_compliance,
+        pause_restrictions,
+    );
+    // All instruction mediators must affirm the instruction
+    m_user.into_iter().for_each(|u| {
+        Pallet::<T>::affirm_instruction_as_mediator(u.origin.into(), InstructionId(1), None)
+            .unwrap();
+    });
+    parameters
+}
+
+/// Same as [`setup_execute_instruction`], but the `m` instruction mediators are returned without affirming.
+fn setup_instruction_pending_mediators<T>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    settlement_type: SettlementType<BlockNumberFor<T>>,
+    venue_id: VenueId,
+    f: u32,
+    n: u32,
+    o: u32,
+    m: u32,
+    pause_compliance: bool,
+    pause_restrictions: bool,
+) -> (Parameters<T>, Vec<User<T>>)
+where
+    T: Config,
+{
     let (m_user, m_identity) = set_instruction_mediators::<T>(m);
     // Creates the instruction. All assets, collections, portfolios and rules are created here.
     let parameters = setup_legs::<T>(
@@ -274,7 +310,7 @@ where
         rcv_holdings,
     )
     .unwrap();
-    // All mediators must affirm the instruction
+    // All asset mediators must affirm the instruction
     parameters.asset_mediators.iter().for_each(|u| {
         Pallet::<T>::affirm_instruction_as_mediator(
             u.origin.clone().into(),
@@ -283,11 +319,7 @@ where
         )
         .unwrap();
     });
-    m_user.into_iter().for_each(|u| {
-        Pallet::<T>::affirm_instruction_as_mediator(u.origin.into(), InstructionId(1), None)
-            .unwrap();
-    });
-    parameters
+    (parameters, m_user)
 }
 
 /// Returns the receipt details, signed by `signer`, of a transfer of `amount` for `format!("OFFTicker{}", leg_id).
@@ -830,33 +862,35 @@ benchmarks! {
     }: _(alice.origin, Some(venue_id), settlement_type, None, None, parameters.legs, sdr_holdings, memo, mediators.try_into().unwrap())
 
     affirm_instruction_as_mediator {
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let david = UserBuilder::<T>::default().generate_did().build("David");
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let memo = Some(Memo::default());
-        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
-        let mediators = BTreeSet::from([david.did()]);
+        let f = T::MaxNumberOfFungibleAssets::get();
+        let n = T::MaxNumberOfNFTs::get();
+        let o = T::MaxNumberOfOffChainAssets::get();
+        let m = T::MaxInstructionMediators::get();
 
-        let parameters = setup_legs::<T>(
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
+
+        let (_, mut m_user) = setup_instruction_pending_mediators::<T>(
             &alice,
             &bob,
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get(),
+            SettlementType::SettleOnAffirmation,
+            venue_id,
+            f,
+            n,
+            o,
+            m,
             false,
             false,
         );
-        Pallet::<T>::add_instruction_with_mediators(
-            alice.origin.clone().into(),
-            Some(venue_id),
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            parameters.legs,
-            memo,
-            mediators.try_into().unwrap()
-        ).unwrap();
-    }: _(david.origin, InstructionId(1), None)
+        let last_mediator = m_user.pop().unwrap();
+        m_user.into_iter().for_each(|u| {
+            Pallet::<T>::affirm_instruction_as_mediator(u.origin.into(), InstructionId(1), None)
+                .unwrap();
+        });
+        assert_eq!(InstructionAffirmsPending::<T>::get(InstructionId(1)), 1);
+        let expiry = pallet_timestamp::Pallet::<T>::get() + 1000u32.into();
+    }: _(last_mediator.origin, InstructionId(1), Some(expiry))
 
     base_reject_instruction {
         let f in 0..T::MaxNumberOfFungibleAssets::get();

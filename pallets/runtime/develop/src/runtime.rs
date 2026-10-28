@@ -218,6 +218,7 @@ impl pallet_precompiles::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type TokenUriMetadataKey = TokenUriMetadataKey;
     type BaseTokenUriMetadataKey = BaseTokenUriMetadataKey;
+    type WeightInfo = polymesh_weights::pallet_precompiles::SubstrateWeight;
 }
 
 /// Confidential assets parameters
@@ -632,6 +633,7 @@ mod benches {
         [pallet_validators, Validators]
         [polymesh_transaction_payment, PolymeshTransactionPayment]
         [pallet_nft, Nft]
+        [pallet_precompiles, PrecompilesBench::<Runtime>]
         [pallet_revive, Revive]
         [pallet_migrations, MultiBlockMigrations]
     );
@@ -650,6 +652,7 @@ polymesh_runtime_common::runtime_apis! {
             use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
+            use pallet_precompiles::benchmarking::Pallet as PrecompilesBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
             impl baseline::Config for Runtime {}
@@ -691,6 +694,7 @@ polymesh_runtime_common::runtime_apis! {
             use pallet_session_benchmarking::Pallet as SessionBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
+            use pallet_precompiles::benchmarking::Pallet as PrecompilesBench;
 
             let mut list = Vec::<BenchmarkList>::new();
             list_benchmarks!(list, extra);
