@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 8_001_030,
+    spec_version: 8_002_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 8,
@@ -491,6 +491,9 @@ mod runtime {
 
     #[runtime::pallet_index(55)]
     pub type MultiBlockMigrations = pallet_migrations::Pallet<Runtime>;
+
+    #[runtime::pallet_index(60)]
+    pub type WorkerModules = pallet_worker_modules::Pallet<Runtime>;
 
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
