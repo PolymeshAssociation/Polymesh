@@ -21,7 +21,7 @@ rand_chacha = { workspace = true, default-features = false, optional = true }
 
 # DART
 polymesh-dart = { workspace = true, default-features = false, features = [
-  "backend_bp", "sp-io"
+  "backend_bp", "host_proofs", "sp-io"
 ] }
 polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false }
 
