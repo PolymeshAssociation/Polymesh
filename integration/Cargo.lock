@@ -1961,6 +1961,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "chacha20"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+dependencies = [
+ "cfg-if",
+ "cipher",
+ "cpufeatures 0.2.17",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
+dependencies = [
+ "aead",
+ "chacha20",
+ "cipher",
+ "poly1305",
+ "zeroize",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5140,7 +5164,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c916fa1d436c2198e0194b50fe91d2e10e2783f8"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1c671bd3e19d717aae834bdbc15c2d254af2e6bb"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -5153,6 +5177,7 @@ dependencies = [
  "blake2",
  "bounded-collections",
  "bulletproofs",
+ "chacha20poly1305",
  "digest 0.10.7",
  "dock_crypto_utils",
  "hex",
@@ -5176,7 +5201,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c916fa1d436c2198e0194b50fe91d2e10e2783f8"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1c671bd3e19d717aae834bdbc15c2d254af2e6bb"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -5185,7 +5210,6 @@ dependencies = [
  "ark-pallas",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
- "blake2",
  "bulletproofs",
  "digest 0.10.7",
  "dock_crypto_utils",
@@ -5207,7 +5231,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#c916fa1d436c2198e0194b50fe91d2e10e2783f8"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=main#1c671bd3e19d717aae834bdbc15c2d254af2e6bb"
 
 [[package]]
 name = "polymesh-precompiles"

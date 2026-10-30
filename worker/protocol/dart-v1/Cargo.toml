@@ -19,7 +19,8 @@ rand_chacha = { workspace = true, default-features = false }
 
 # DART
 polymesh-dart = { workspace = true, default-features = false, features = [
-  "backend_bp"
+  "backend_bp",
+  "host_proofs"
 ] }
 polymesh-dart-common = { workspace = true, default-features = false }
 ark-ec = { workspace = true, default-features = false }

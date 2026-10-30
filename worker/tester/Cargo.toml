@@ -12,7 +12,7 @@ polymesh-worker-native = { workspace = true, default-features = false }
 polymesh-worker-common = { workspace = true, default-features = false }
 polymesh-worker-protocol-dart-v1 = { workspace = true, default-features = false, features = ["native"] }
 
-polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp"]}
+polymesh-dart = { workspace = true, default-features = false, features = ["backend_bp", "host_proofs"]}
 
 codec = { workspace = true, default-features = false, features = ["derive"] }
 
