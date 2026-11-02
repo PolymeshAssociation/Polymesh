@@ -628,13 +628,12 @@ impl<T: Config> Pallet<T> {
 
     /// Migrate confidential-assets storage from version 0 to version 1.
     ///
-    /// - Translates every v0.1 DART settlement leg to v1.0 via `LegEncrypted::from_v0()`.
-    ///   Legs that fail conversion are left untouched (they were unaffirmable anyway).
-    /// - Finalizes stuck `Rejected` settlements with no pending finalizations.
+    /// - Rejects all `Pending` settlements via the normal reject path (their v0.1 legs can't be affirmed).
+    /// - Finalizes `Rejected` settlements that already had no pending finalizations.
     ///
-    /// Idempotency comes from the version gate alone: the migration runs at most once,
-    /// so `from_v0()` can never see an already-v1 leg. No-op on fresh chains (genesis
-    /// already puts version 1).
+    /// v0.1 settlement legs are not migrated: since the DART unbounded-mint fix they can't be
+    /// converted to v1.0 on-chain, so they stay as-is (unaffirmable).
+    /// No-op on fresh chains (genesis already puts version 1).
     pub fn migrate_to_v1() -> Weight {
         let mut reads: u64 = 1; // On-chain storage version read.
         let mut writes: u64 = 0;
@@ -648,72 +647,63 @@ impl<T: Config> Pallet<T> {
         reads += 3;
         writes += 3;
 
-        // 1. Translate all settlement legs from v0.1 to v1.0.
-        let mut legs: u64 = 0;
-        SettlementLegs::<T>::translate(|(settlement_ref, leg_idx), leg_enc: LegEncrypted| {
-            legs += 1;
-            match leg_enc.from_v0() {
-                Ok((leg_v1, asset_id, mediator_count)) => {
-                    if let Some(asset_id) = asset_id {
-                        if mediator_count > 0 {
-                            // When the asset ID is revealed, we need to save the mediator affirmation keys for the leg.
-                            if let Some(keys) = Keys::<T>::get(asset_id) {
-                                if mediator_count != keys.mediators.len() {
-                                    log::warn!("Mediator count mismatch for asset ID {asset_id} during migration");
-                                }
-                                if keys.mediators.len() > 0 {
-                                    LegMediators::<T>::insert(
-                                        (settlement_ref, leg_idx),
-                                        LegMediatorKeys {
-                                            mediators: keys.mediators,
-                                        },
-                                    );
-                                }
-                            } else {
-                                log::warn!("Failed to find mediator keys for asset ID {asset_id} during migration");
-                            }
-                        } else {
-                            // No mediators to save for this leg.
-                        }
-                    }
-                    Some(leg_v1)
-                }
-                Err(err) => {
-                    log::warn!("Failed to migrate confidential settlement leg to v1: {err:?}");
-                    Some(leg_enc)
-                }
-            }
-        });
-        // `translate` reads and rewrites every leg.
-        log::info!("Migrated {legs} settlement legs to v1");
-        reads += legs;
-        writes += legs;
-
-        // 2. Finalize stuck `Rejected` settlements (no pending finalizations).
+        // 1. Collect `Pending` settlements and stuck `Rejected` ones (no pending finalizations).
+        let mut pending = Vec::new();
         let mut stuck = Vec::new();
         let mut settlements = 0;
         for (settlement_ref, status) in SettlementState::<T>::iter() {
             settlements += 1;
-            if status == SettlementStatus::Rejected
-                && SettlementPendingFinalizations::<T>::get(settlement_ref) == 0
-            {
-                reads += 1;
-                stuck.push(settlement_ref);
+            match status {
+                SettlementStatus::Pending => pending.push(settlement_ref),
+                SettlementStatus::Rejected => {
+                    reads += 1;
+                    if SettlementPendingFinalizations::<T>::get(settlement_ref) == 0 {
+                        stuck.push(settlement_ref);
+                    }
+                }
+                _ => (),
             }
         }
-        log::info!("Found {stuck:?} stuck settlements to finalize out of {settlements} total");
         reads += settlements;
+
         // Conservative bound per finalized settlement: `finalize_settlement` does
         // 1 read + 4 writes plus 1 read + 6 writes per leg, up to `MaxSettlementLegs`.
         let max_legs = T::MaxSettlementLegs::get() as u64;
+        let finalize_reads = 1 + max_legs;
+        let finalize_writes = 4 + 6 * max_legs;
+
+        // 2. Reject `Pending` settlements (finalizes those with no pending finalizations).
+        log::info!(
+            "Rejecting {} pending confidential settlements out of {settlements} total",
+            pending.len()
+        );
+        for settlement_ref in pending {
+            let pending_finals = SettlementPendingFinalizations::<T>::get(settlement_ref);
+            let update = UpdateSettlementStatus::<T> {
+                settlement_ref,
+                leg_id: 0,
+                status: SettlementStatus::Pending,
+                _marker: core::marker::PhantomData,
+            };
+            if let Err(err) = update.reject(pending_finals) {
+                log::error!(
+                    "Failed to reject pending confidential settlement during migration: {err:?}"
+                );
+            }
+            reads += 1 + finalize_reads;
+            writes += 2 + finalize_writes;
+        }
+
+        // 3. Finalize stuck `Rejected` settlements.
+        log::info!("Finalizing {} stuck confidential settlements", stuck.len());
         for settlement_ref in stuck {
             if let Err(err) = Self::finalize_settlement(settlement_ref) {
                 log::error!(
                     "Failed to finalize stuck confidential settlement during migration: {err:?}"
                 );
             } else {
-                reads += 1 + max_legs;
-                writes += 4 + 6 * max_legs;
+                reads += finalize_reads;
+                writes += finalize_writes;
             }
         }
 
