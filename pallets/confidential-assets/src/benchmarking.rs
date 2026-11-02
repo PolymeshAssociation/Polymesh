@@ -101,7 +101,7 @@ benchmarks! {
 
     session_overhead {
     }: {
-        Pallet::<T>::start_session();
+        Pallet::<T>::session_id()?;
         Pallet::<T>::end_session();
     }
 

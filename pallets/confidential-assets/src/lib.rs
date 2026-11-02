@@ -1383,7 +1383,7 @@ pub mod pallet {
     pub(crate) type RequiredClaims<T: Config> =
         StorageMap<_, Twox64Concat, RoleKind, RequiredClaim<T>, OptionQuery>;
 
-    /// The WorkerSessionId for the current block.
+    /// The WorkerSessionId for the current block (started lazily, removed in `on_finalize`).
     #[pallet::storage]
     pub(crate) type CurrentWorkerSessionId<T: Config> =
         StorageValue<_, WorkerSessionId, OptionQuery>;
@@ -3706,12 +3706,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn init_block() -> Weight {
-        Self::start_session();
-
         // Prune old curve tree roots.
         let now = pallet_timestamp::Pallet::<T>::get();
         let prune_weight = Self::curve_tree_pruning(now);
 
+        // `on_init` includes `session_overhead` for the lazily started worker session.
         <T as Config>::WeightInfo::on_init().saturating_add(prune_weight)
     }
 
@@ -3725,35 +3724,10 @@ impl<T: Config> Pallet<T> {
         Self::end_session();
     }
 
-    pub fn start_session() {
-        #[cfg(feature = "host_workers")]
-        {
-            // Start worker session.
-            let config = WorkerSessionConfig {
-                work: WorkRequestConfig {
-                    use_cache: true,
-                    use_thread_pool: false,
-                },
-                init_module: true,
-
-                backends: BackendKind::all_mask(),
-            }
-            .to_flags_and_backends();
-
-            let session_id =
-                native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
-
-            CurrentWorkerSessionId::<T>::put(session_id);
-        }
-    }
-
     pub fn end_session() {
         #[cfg(feature = "host_workers")]
-        {
-            // Close the batch.
-            if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
-                native_polymesh_worker::end_session(session_id);
-            }
+        if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
+            native_polymesh_worker::end_session(session_id);
         }
     }
 
@@ -3770,8 +3744,34 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// The worker session for the current block, started lazily on first use.
+    ///
+    /// Nodes drop sessions at the end of the runtime call; `end_session` also ends it for older
+    /// nodes that keep sessions in a global table.
     pub fn session_id() -> Result<WorkerSessionId, DispatchError> {
-        CurrentWorkerSessionId::<T>::get().ok_or(Error::<T>::NoCurrentWorkerSession.into())
+        #[cfg(feature = "host_workers")]
+        {
+            if let Some(session_id) = CurrentWorkerSessionId::<T>::get() {
+                return Ok(session_id);
+            }
+            let config = WorkerSessionConfig {
+                work: WorkRequestConfig {
+                    use_cache: true,
+                    use_thread_pool: false,
+                },
+                init_module: true,
+
+                backends: BackendKind::all_mask(),
+            }
+            .to_flags_and_backends();
+
+            let session_id =
+                native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
+            CurrentWorkerSessionId::<T>::put(session_id);
+            Ok(session_id)
+        }
+        #[cfg(not(feature = "host_workers"))]
+        Err(Error::<T>::NoCurrentWorkerSession.into())
     }
 
     /// Transfer funds to the fee account.

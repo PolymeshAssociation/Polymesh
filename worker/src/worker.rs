@@ -1,11 +1,6 @@
 use codec::Encode;
 use parking_lot::RwLock;
-use std::{
-    collections::BTreeMap,
-    ops::Deref,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::BTreeMap, ops::Deref, sync::Arc};
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
 
@@ -22,13 +17,6 @@ use polymesh_worker_common::{
 };
 
 pub const WORK_CACHE_CAPACITY: usize = 10_000;
-
-/// Once reached, empty or stale sessions (leaked by aborted block executions) are pruned.
-/// A pruned session's requests fall back to runtime execution.
-pub const MAX_WORKER_SESSIONS: usize = 10_000;
-
-/// Non-empty sessions older than this are considered leaked (e.g. failed block import).
-pub const MAX_WORKER_SESSION_AGE: Duration = Duration::from_secs(60);
 
 struct PushWorkResponse {
     request_id: WorkRequestId,
@@ -177,7 +165,6 @@ pub struct WorkerSession {
     pub config: WorkerSessionConfig,
     pub protocol: Protocol,
     pub module: Option<ProtocolModuleRef>,
-    created: Instant,
 
     tx: Sender<PushWorkResponse>,
 
@@ -198,23 +185,11 @@ impl WorkerSession {
             config,
             protocol,
             module,
-            created: Instant::now(),
 
             tx,
 
             inner: RwLock::new(WorkerSessionInner::new(rx)),
         }))
-    }
-
-    /// Can be pruned: no requests submitted, or older than `MAX_WORKER_SESSION_AGE`.
-    fn is_prunable(&self) -> bool {
-        if self.created.elapsed() >= MAX_WORKER_SESSION_AGE {
-            return true;
-        }
-        // A locked session is in use, so not empty.
-        self.inner
-            .try_read()
-            .is_some_and(|inner| inner.next_id == 0)
     }
 
     /// Hash identifying the verifier: module config + code hash, or the protocol hash if no module is loaded.
@@ -448,59 +423,12 @@ impl WorkerSessionRef {
     }
 }
 
-/// The main worker struct that manages sessions.
-struct PolymeshWorkerInner {
-    sessions: BTreeMap<WorkerSessionId, WorkerSessionRef>,
-
-    next_session_id: WorkerSessionId,
-}
-
-impl PolymeshWorkerInner {
-    fn new() -> Self {
-        Self {
-            next_session_id: 0,
-            sessions: BTreeMap::new(),
-        }
-    }
-
-    fn create_session(
-        &mut self,
-        config: WorkerSessionConfig,
-        protocol: Protocol,
-        module: Option<ProtocolModuleRef>,
-    ) -> WorkerSessionRef {
-        if self.sessions.len() >= MAX_WORKER_SESSIONS {
-            let before = self.sessions.len();
-            self.sessions.retain(|_, session| !session.is_prunable());
-            log::warn!(
-                "Too many worker sessions, pruned {} empty or stale sessions",
-                before - self.sessions.len()
-            );
-        }
-        let session_id = self.next_session_id;
-        self.next_session_id += 1;
-        let session = WorkerSession::new(session_id, config, protocol, module);
-        self.sessions.insert(session_id, session.clone());
-        session
-    }
-
-    fn get_session(&self, session_id: WorkerSessionId) -> Result<WorkerSessionRef, WorkerError> {
-        self.sessions
-            .get(&session_id)
-            .cloned()
-            .ok_or(WorkerError::SessionNotFound(session_id))
-    }
-
-    fn remove_session(&mut self, session_id: WorkerSessionId) -> Option<WorkerSessionRef> {
-        self.sessions.remove(&session_id)
-    }
-}
-
 pub type PolymeshWorkerRef = Arc<PolymeshWorker>;
 
-/// The shared state of the Polymesh Worker, which manages sessions and backends.
+/// The shared state of the Polymesh Worker (backends, result cache and thread pool).
+///
+/// Sessions are owned by the caller (the externalities extension), scoping them to a runtime call.
 pub struct PolymeshWorker {
-    inner: RwLock<PolymeshWorkerInner>,
     backend: BackendManagerRef,
     cache: WorkRequestCache,
     pool: Option<rayon::ThreadPool>,
@@ -543,20 +471,10 @@ impl PolymeshWorker {
             }
         };
         Arc::new(Self {
-            inner: RwLock::new(PolymeshWorkerInner::new()),
             backend: BackendManager::new(),
             cache: WorkRequestCache::new(WORK_CACHE_CAPACITY),
             pool,
         })
-    }
-
-    /// Get the session for the given session id.
-    pub fn get_session(
-        &self,
-        session_id: WorkerSessionId,
-    ) -> Result<WorkerSessionRef, WorkerError> {
-        let inner = self.inner.read();
-        inner.get_session(session_id)
     }
 
     /// Preload the backend modules for the given protocol and backend bitmask.
@@ -594,9 +512,10 @@ impl PolymeshWorker {
         Ok(work_result)
     }
 
-    /// Create a new worker session with the given config.
+    /// Create a new worker session with the given id and config.  The caller owns the session.
     pub fn start_session(
         &self,
+        session_id: WorkerSessionId,
         config: WorkerSessionConfig,
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
@@ -607,8 +526,7 @@ impl PolymeshWorker {
             .load_protocol(config.backends, protocol, loader);
         let loaded = module.is_some();
 
-        let mut inner = self.inner.write();
-        let session = inner.create_session(config, protocol, module);
+        let session = WorkerSession::new(session_id, config, protocol, module);
         log::debug!(
             "Started session with id: {}, module loaded: {}",
             session.id,
@@ -620,56 +538,35 @@ impl PolymeshWorker {
     /// Execute a batch of work requests in the given session.
     pub fn session_execute_batch(
         &self,
-        session_id: WorkerSessionId,
+        session: &WorkerSessionRef,
         config: WorkRequestConfig,
         batch: Vec<WorkRequest>,
     ) -> Vec<(WorkRequestId, WorkStatus)> {
-        // First get the session for the given session id.
-        let session = match self.get_session(session_id) {
-            Ok(session) => session,
-            Err(err) => {
-                log::error!("Failed to submit work request: {err:?}");
-                return vec![];
-            }
-        };
-
         batch
             .into_iter()
             .map(|work| session.execute_request(self, &config, work))
             .collect()
     }
 
-    /// Execute a protocol-specific work request for the given session id.
+    /// Execute a protocol-specific work request in the given session.
     pub fn session_execute_request(
         &self,
-        session_id: WorkerSessionId,
+        session: &WorkerSessionRef,
         config: WorkRequestConfig,
         work: WorkRequest,
     ) -> (WorkRequestId, WorkStatus) {
-        // First get the session for the given session id.
-        let session = match self.get_session(session_id) {
-            Ok(session) => session,
-            Err(err) => {
-                log::error!("Failed to submit work request: {err:?}");
-                return (0, WorkStatus::SessionNotFound);
-            }
-        };
-
         session.execute_request(self, &config, work)
     }
 
-    /// Execute a protocol-specific work request for the given session id and wait for the results.
+    /// Execute a protocol-specific work request in the given session and wait for the results.
     pub fn session_execute_request_and_wait(
         &self,
-        session_id: WorkerSessionId,
+        session: &WorkerSessionRef,
         mut config: WorkRequestConfig,
         work: WorkRequest,
     ) -> Result<WorkResponseResult, WorkerError> {
         // Force the `use_thread_pool` flag to be false for synchronous execution, since the caller is waiting for the results and we don't want to spawn a new thread for the execution.
         config.use_thread_pool = false;
-
-        // First get the session for the given session id.
-        let session = self.get_session(session_id)?;
 
         // Merge the session config with the work request config to get the effective config for the work request execution.
         let config = session.merge_config(&config);
@@ -712,65 +609,32 @@ impl PolymeshWorker {
         Ok(result)
     }
 
-    /// Push the result of a work request execution back to the worker for the given session and request id.
+    /// Push the result of a work request execution back to the given session.
     pub fn session_push_result(
         &self,
-        session_id: WorkerSessionId,
+        session: &WorkerSessionRef,
         request_id: WorkRequestId,
         result: WorkResponseResult,
-    ) -> Result<(), WorkerError> {
-        // First get the session for the given session id.
-        let session = self.get_session(session_id)?;
-
-        // Push the work response result to the session.
+    ) {
         session.push_response(request_id, Some(result), false);
-
-        Ok(())
-    }
-
-    /// Get the number of requests in the session.
-    pub fn session_num_requests(&self, session_id: WorkerSessionId) -> Result<u32, WorkerError> {
-        // First get the session for the given session id.
-        let session = self.get_session(session_id)?;
-
-        Ok(session.num_requests())
     }
 
     /// Get the result of a work request execution for the given session and request id.
     pub fn session_get_result(
         &self,
-        session_id: WorkerSessionId,
+        session: &WorkerSessionRef,
         request_id: WorkRequestId,
     ) -> Result<WorkResponseResult, WorkerError> {
-        // First get the session for the given session id.
-        let session = self.get_session(session_id)?;
-
-        // Get the work response result for the given request id.
-        let result = session
+        session
             .get_response(request_id, Some(&self.cache))
-            .ok_or(WorkerError::SessionRequestNotFound(session_id, request_id))?;
-        Ok(result)
+            .ok_or(WorkerError::SessionRequestNotFound(session.id, request_id))
     }
 
-    /// Get the next completed work request and its result for the given session id.
+    /// Get the next completed work request and its result for the given session.
     pub fn session_next_result(
         &self,
-        session_id: WorkerSessionId,
-    ) -> Result<Option<(WorkRequestId, WorkResponseResult)>, WorkerError> {
-        // First get the session for the given session id.
-        let session = self.get_session(session_id)?;
-
-        // Get the next completed work request and its result.
-        Ok(session.next_result(Some(&self.cache)))
-    }
-
-    /// End the worker session with the given session id.
-    pub fn end_session(&self, session_id: WorkerSessionId) -> Result<(), WorkerError> {
-        let mut inner = self.inner.write();
-        log::debug!("Ending session with id: {}", session_id);
-        inner
-            .remove_session(session_id)
-            .ok_or(WorkerError::SessionNotFound(session_id))?;
-        Ok(())
+        session: &WorkerSessionRef,
+    ) -> Option<(WorkRequestId, WorkResponseResult)> {
+        session.next_result(Some(&self.cache))
     }
 }

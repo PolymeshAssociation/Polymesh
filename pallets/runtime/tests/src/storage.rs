@@ -418,6 +418,9 @@ mod runtime {
     #[runtime::pallet_index(60)]
     pub type WorkerModules = pallet_worker_modules::Pallet<Runtime>;
 
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
+
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
 
@@ -426,6 +429,39 @@ mod runtime {
 }
 
 polymesh_runtime_common::runtime_apis! {}
+
+parameter_types! {
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMaxRelayerCommission: Balance = 10 * POLY;
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000;
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000;
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000;
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000;
+}
+
+impl pallet_confidential_assets::Config for Runtime {
+    type Currency = Balances;
+    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
+    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+    type MaxRelayerCommission = ConfidentialAssetsMaxRelayerCommission;
+    type MaxAssetDataLength = frame_support::traits::ConstU32<8192>;
+    type MaxKeysPerRegProof = frame_support::traits::ConstU32<20>;
+    type MaxBatchedProofs = frame_support::traits::ConstU32<10>;
+    type MaxFeeAccountRegProofs = frame_support::traits::ConstU32<10>;
+    type MaxFeeAccountTopupProofs = frame_support::traits::ConstU32<10>;
+    type MaxAccountAssetRegProofs = frame_support::traits::ConstU32<10>;
+    type MaxSettlementLegs = frame_support::traits::ConstU32<10>;
+    type MaxSettlementMemoLength = frame_support::traits::ConstU32<256>;
+    type MaxAssetAuditors = frame_support::traits::ConstU32<2>;
+    type MaxAssetMediators = frame_support::traits::ConstU32<2>;
+    type MaxAssetEncryptionKeys = frame_support::traits::ConstU32<2>;
+    type MaxTrustedClaimIssuers = frame_support::traits::ConstU32<2>;
+    type MaxSharedKeyRecipients = frame_support::traits::ConstU32<5>;
+    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
+    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
+    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
+    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
+}
 
 // Precompiles
 type Precompiles = (

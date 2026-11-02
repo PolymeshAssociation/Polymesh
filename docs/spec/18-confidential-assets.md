@@ -53,7 +53,7 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 - Settlements: `SettlementState` (:1002), `SettlementLegs` (encrypted legs :1020-1025),
   `SettlementPendingAffirmations` / `SettlementPendingFinalizations` (:1035-1042),
   `LegAffirmationStatus` (:1047-1056), memo (:1007).
-- Worker session: `CurrentWorkerSessionId` (:1060).
+- Worker session: `CurrentWorkerSessionId` (set lazily, taken in `on_finalize`; see §6).
 
 ## 3. Extrinsics (selected; full list lib.rs:1153-1883)
 
@@ -199,8 +199,7 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
 
 - Trees are recomputed **once per block**: extrinsics only append leaves; `on_finalize` commits
   batched leaves and re-roots (`finalize_block` lib.rs:2936-2944, `commit_leaves_to_tree`
-  :2895-2913); `on_initialize` starts the per-block worker session and prunes old roots
-  (:2926-2934).
+  :2895-2913); `on_initialize` prunes old roots (:2926-2934).
 - Roots are timestamped per block (`TimestampedTreeRoot`, curve_tree.rs:159-254) and kept
   historically; a proof's `root_block` is accepted only if younger than
   `MaxAssetCurveTreeRootAge` (24h) / `MaxAccountCurveTreeRootAge` (2d) /
@@ -216,6 +215,11 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
   (worker/protocol/dart-v1/src/verify.rs:30-124) covers registration, minting, settlement,
   affirmation, revert, claim, fee-payment and key-distribution proofs. A worker panic ⇒ proof
   rejected (worker/native/src/lib.rs:48-74).
+- **Worker session**: started lazily by `Pallet::session_id()` (`start_session` host function,
+  id cached in `CurrentWorkerSessionId`) and ended in `on_finalize`. The host keeps sessions in
+  a `WorkerSessionExt` externalities extension, so they are also dropped when the runtime
+  call's extensions are dropped (one `ApiRef` for block building/import, one call for
+  `state_call`/benchmarks).
 
 ## 7. Invariants & review checklist
 
@@ -231,8 +235,9 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
       (deposits on register/topup; withdrawals only via verified payment proofs).
 - [ ] Proof context binding: batched proofs bind to content hash (`fee_payment_ctx`), settlement
       proofs bind to root_block — never verify a proof without its binding context.
-- [ ] Worker sessions must bracket every block (`NoCurrentWorkerSession` guard); upgrading the
-      worker protocol blob is consensus-critical.
+- [ ] Worker sessions are scoped to the runtime call (host `WorkerSessionExt`); an unknown
+      session id makes requests fall back to runtime execution. Upgrading the worker protocol
+      blob is consensus-critical.
 
 ## 8. Test map
 

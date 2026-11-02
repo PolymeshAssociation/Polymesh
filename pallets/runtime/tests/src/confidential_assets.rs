@@ -5,8 +5,8 @@ use pallet_confidential_assets::{
 };
 use polymesh_dart::{AccountKeys, AssetId, AssetKeys, AssetState, LeafIndex};
 use polymesh_primitives::IdentityId;
-use polymesh_runtime_develop::Runtime;
-use sp_runtime::BuildStorage;
+
+use crate::{ExtBuilder, TestStorage as Runtime};
 
 #[storage_alias]
 type Details<T: pallet_confidential_assets::Config> =
@@ -20,15 +20,8 @@ type Keys<T: pallet_confidential_assets::Config> =
 type AssetLeaves<T: pallet_confidential_assets::Config> =
     StorageMap<Pallet<T>, Twox64Concat, LeafIndex, AssetLeaf, OptionQuery>;
 
-#[storage_alias]
-type CurrentWorkerSessionId<T: pallet_confidential_assets::Config> =
-    StorageValue<Pallet<T>, u32, OptionQuery>;
-
 fn with_asset(test: impl FnOnce(IdentityId, AssetState)) {
-    let storage = frame_system::GenesisConfig::<Runtime>::default()
-        .build_storage()
-        .unwrap();
-    sp_io::TestExternalities::new(storage).execute_with(|| {
+    ExtBuilder::default().build().execute_with(|| {
         frame_system::Pallet::<Runtime>::set_block_number(1);
         let owner = IdentityId::from(1u128);
         let auditor = AccountKeys::from_seed("FreezeAuditor").unwrap().enc.public;
@@ -42,7 +35,6 @@ fn with_asset(test: impl FnOnce(IdentityId, AssetState)) {
             },
         );
         Keys::<Runtime>::insert(0, &state.keys);
-        CurrentWorkerSessionId::<Runtime>::put(0);
         test(owner, state);
     });
 }
@@ -189,38 +181,6 @@ fn confidential_assets_freeze_rejects_non_owner_and_missing_asset() {
         assert_noop!(
             Pallet::<Runtime>::set_asset_frozen(RawOrigin::None.into(), state.asset_id, true),
             sp_runtime::DispatchError::BadOrigin
-        );
-    });
-}
-
-#[test]
-fn confidential_assets_freeze_rolls_back_failed_leaf_update() {
-    with_asset(|_, state| {
-        CurrentWorkerSessionId::<Runtime>::kill();
-        assert_noop!(
-            Pallet::<Runtime>::set_asset_frozen(RawOrigin::Root.into(), state.asset_id, true),
-            Error::<Runtime>::NoCurrentWorkerSession
-        );
-        assert_eq!(AssetFrozen::<Runtime>::get(state.asset_id), None);
-        CurrentWorkerSessionId::<Runtime>::put(0);
-        assert_ok!(Pallet::<Runtime>::set_asset_frozen(
-            RawOrigin::Root.into(),
-            state.asset_id,
-            true
-        ));
-        let frozen_leaf = AssetLeaves::<Runtime>::get(LeafIndex::from(state.asset_id));
-        CurrentWorkerSessionId::<Runtime>::kill();
-        assert_noop!(
-            Pallet::<Runtime>::set_asset_frozen(RawOrigin::Root.into(), state.asset_id, false),
-            Error::<Runtime>::NoCurrentWorkerSession
-        );
-        assert_eq!(
-            AssetFrozen::<Runtime>::get(state.asset_id),
-            Some(FreezeOrigin::Root)
-        );
-        assert_eq!(
-            AssetLeaves::<Runtime>::get(LeafIndex::from(state.asset_id)),
-            frozen_leaf
         );
     });
 }

@@ -32,11 +32,9 @@ pub fn generate<T: Config>(req: GenerateDartProofRequest) -> GenerateDartProofRe
         .expect("Failed to generate proof")
 }
 
-// Make sure the pallet is initialized.
+// Start the worker session before the measured code.
 pub fn init_block<T: Config>() {
-    if Pallet::<T>::session_id().is_err() {
-        Pallet::<T>::init_block();
-    }
+    let _ = Pallet::<T>::session_id();
 }
 
 pub fn set_skip_verify<T: Config>(_skip: bool) {
