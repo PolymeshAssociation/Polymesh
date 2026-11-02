@@ -15,6 +15,8 @@ use polymesh_worker_common::{
 
 pub mod backend;
 pub mod cache;
+#[cfg(target_os = "linux")]
+pub mod native_process;
 pub mod worker;
 
 /// The max supported worker version.

@@ -136,10 +136,63 @@ mod worker_modules_tests {
         Ok(())
     }
 
-    // TODO: Cover Native traps after it uses the VM-equivalent bounded picoalloc heap and scratch.
     #[tokio::test]
     #[test_log::test]
-    #[ignore = "requires a dev runtime with testing requests enabled and a VM worker backend"]
+    #[ignore = "requires a dev runtime with testing requests enabled"]
+    async fn test_trap_fallback_builtin_module() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut users = tester.users(&["WorkerBuiltinTrapTester"]).await?.into_iter();
+        let mut user = users.next().expect("User not found");
+        let protocol = tester
+            .api
+            .query()
+            .worker_testing()
+            .current_protocol_version()
+            .await?
+            .ok_or_else(|| anyhow!("Current protocol version not found"))?;
+        let original_sessions = tester
+            .api
+            .query()
+            .worker_testing()
+            .enable_work_session()
+            .await?;
+        let mut helper = WorkerModulesHelper::new(&tester, protocol.clone());
+        helper
+            .sudo_call(
+                tester
+                    .api
+                    .call()
+                    .worker_testing()
+                    .set_enable_work_session(true)?,
+            )
+            .await?;
+
+        let result = async {
+            check_active_version(&tester, &mut user, &protocol, true).await?;
+            check_vm_trap(&tester, &mut user).await?;
+            check_active_version(&tester, &mut user, &protocol, true).await?;
+            check_vm_trap(&tester, &mut user).await?;
+            check_active_version(&tester, &mut user, &protocol, true).await
+        }
+        .await;
+
+        let restore_sessions = helper
+            .sudo_call(
+                tester
+                    .api
+                    .call()
+                    .worker_testing()
+                    .set_enable_work_session(original_sessions)?,
+            )
+            .await;
+        result?;
+        restore_sessions?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    #[ignore = "requires a dev runtime with testing requests enabled and a VM worker backend (uploaded modules)"]
     async fn test_vm_trap_fallback() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester.users(&["WorkerVmTrapTester"]).await?.into_iter();

@@ -13,4 +13,5 @@ fi
 for VERSION in "${VERSIONS[@]}"; do
     "$SCRIPT_DIR/build_polkavm.sh" "$VERSION"
     "$SCRIPT_DIR/build_wasm.sh" "$VERSION"
+    "$SCRIPT_DIR/build_native.sh" "$VERSION"
 done

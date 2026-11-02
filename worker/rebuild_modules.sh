@@ -24,6 +24,10 @@ for VERSION in "${VERSIONS[@]}"; do
 	./build_polkavm.sh "$VERSION" "testing"
 	./build_wasm.sh "$VERSION"
 	./build_wasm.sh "$VERSION" "testing"
+	if [ "$VERSION" != "v0" ]; then
+		./build_native.sh "$VERSION"
+		./build_native.sh "$VERSION" "testing"
+	fi
 
 	crate="polymesh-worker-protocol-dart-$VERSION"
 	module_dir="modules/dart/$VERSION"

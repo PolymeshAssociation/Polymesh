@@ -11527,6 +11527,7 @@ dependencies = [
  "crossbeam",
  "digest 0.10.7",
  "lazy_static",
+ "libc",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.5",
@@ -11645,6 +11646,7 @@ dependencies = [
  "polymesh-worker-common",
  "polymesh-worker-native",
  "polymesh-worker-protocol-dart-v1",
+ "polymesh-worker-protocol-testing",
  "sp-core",
  "test-log",
 ]

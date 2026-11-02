@@ -9,6 +9,51 @@ use polymesh_worker_protocol_dart_v1::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
 
+/// Run the testing protocol in native worker processes, including a trap.
+fn native_testing() {
+    use polymesh_worker_protocol_testing::{
+        PROTOCOL, TestWorkRequest, TestWorkResponse, VerifyVersionRequest,
+    };
+
+    let backend = polymesh_worker_native::NativeBackend;
+    let module = backend
+        .load_module(&PROTOCOL.encode())
+        .expect("Failed to load native testing module");
+    let verify = WorkRequest::new(TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+        protocol: PROTOCOL,
+    }));
+    let trap = WorkRequest::new(TestWorkRequest::Trap);
+
+    for round in 0..2 {
+        let now = std::time::Instant::now();
+        let mut instance = module
+            .instantiate()
+            .expect("Failed to start worker process");
+        println!("[{round}] Worker process started in: {:?}", now.elapsed());
+        instance.initialize(None).expect("Failed to initialize");
+        let ctx = instance.save_context().expect("Failed to save context");
+        println!(
+            "[{round}] Saved context: {:?} bytes",
+            ctx.map(|ctx| ctx.len())
+        );
+
+        let res = instance.execute(&verify).expect("VerifyVersion failed");
+        let res = res.expect("VerifyVersion protocol error");
+        let res: TestWorkResponse = res.decode().expect("Failed to decode response");
+        println!("[{round}] VerifyVersion: {res:?}");
+
+        let now = std::time::Instant::now();
+        let res = instance.execute(&trap);
+        println!("[{round}] Trap: {res:?} in {:?}", now.elapsed());
+        assert!(matches!(res, Err(WorkerError::ModuleExecutionFailed)));
+        assert!(matches!(
+            instance.execute(&verify),
+            Err(WorkerError::ModuleExecutionFailed)
+        ));
+    }
+    println!("Native testing protocol: OK");
+}
+
 pub fn signer_to_did(signer_name: &str) -> [u8; 32] {
     let mut did = [0u8; 32];
     let name_bytes = signer_name.as_bytes();
@@ -18,7 +63,12 @@ pub fn signer_to_did(signer_name: &str) -> [u8; 32] {
 }
 
 pub fn main() {
+    polymesh_worker_native::run_child_if_requested();
     env_logger::init();
+    if std::env::args().nth(1).as_deref() == Some("native-testing") {
+        native_testing();
+        return;
+    }
     // Parse the first command line argument as the backend kind, default to PolkaVM if not provided or invalid.
     let backend_kind = std::env::args()
         .nth(1)

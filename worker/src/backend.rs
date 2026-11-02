@@ -24,12 +24,10 @@ mod tests {
         ];
         let backends = Backends::with_backends(&kinds, None);
         assert_eq!(backends.backends.len(), kinds.len());
-        let wasm_bytes = include_bytes!(
-            "../modules/testing/v0/polymesh-worker-protocol-testing.wasm.zst"
-        );
-        let polkavm_bytes = include_bytes!(
-            "../modules/testing/v0/polymesh-worker-protocol-testing.polkavm.zst"
-        );
+        let wasm_bytes =
+            include_bytes!("../modules/testing/v0/polymesh-worker-protocol-testing.wasm.zst");
+        let polkavm_bytes =
+            include_bytes!("../modules/testing/v0/polymesh-worker-protocol-testing.polkavm.zst");
         for backend in &backends.backends {
             let module_bytes = match backend.kind() {
                 BackendKind::PolkaVM => decompress_module_code(polkavm_bytes).unwrap(),
@@ -41,7 +39,10 @@ mod tests {
             let result = instance.execute(&WorkRequest::new(TestWorkRequest::Trap));
             let fallback = match result {
                 Err(WorkerError::ModuleExecutionFailed) => TestWorkRequest::Trap.execute(),
-                other => panic!("{:?} returned {other:?} for the trap request", backend.kind()),
+                other => panic!(
+                    "{:?} returned {other:?} for the trap request",
+                    backend.kind()
+                ),
             };
             assert_eq!(
                 fallback,

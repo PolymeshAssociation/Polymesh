@@ -110,9 +110,8 @@ mod tests {
             assert!(module.0.cache.lock().instances.is_empty());
             {
                 let mut instance = module.get_instance().unwrap();
-                let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest {
-                    protocol: PROTOCOL,
-                });
+                let request =
+                    TestWorkRequest::VerifyVersion(VerifyVersionRequest { protocol: PROTOCOL });
                 assert!(matches!(
                     instance.execute(&WorkRequest::new(request)),
                     Ok(Ok(_))

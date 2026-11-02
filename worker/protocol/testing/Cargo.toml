@@ -28,6 +28,9 @@ picoalloc = "5.2.0"
 polkavm-derive = { workspace = true, default-features = true }
 picoalloc = "5.2.0"
 
+[target.'cfg(not(any(target_family = "wasm", target_env = "polkavm")))'.dependencies]
+picoalloc = { version = "5.2.0", optional = true }
+
 [features]
 default = ["std", "testing", "version_v0"]
 
@@ -49,6 +52,13 @@ polkavm = [
 
 wasm = [
   "polymesh-worker-common/host_logger",
+  "impl_protocol",
+]
+
+# Native shared library loaded by the native backend's worker process.
+native_module = [
+  "dep:picoalloc",
+  "polymesh-worker-common/native_module",
   "impl_protocol",
 ]
 
