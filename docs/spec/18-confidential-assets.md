@@ -163,7 +163,8 @@ holding only another role's claim.
   (`sender_revert_affirmation` / `receiver_revert_affirmation` / mediator reject) finalize
   the settlement once all pending finals complete — rejected settlements must not get stuck.
 - Finalization prunes **everything except the `SettlementState` Finalized tombstone**:
-  `SettlementPendingFinalizations`, `SettlementMemo`, `SettlementLegCount`, `SettlementLegs`,
+  `SettlementPendingFinalizations`, `SettlementPendingAffirmations`, `SettlementMemo`,
+  `SettlementLegCount`, `SettlementLegs`,
   `LegAffirmationStatus` and `LegMediators` are all removed. The tombstone is kept **forever**
   — it is the settlement-proof replay guard in `base_create_settlement`
   (`SettlementAlreadyExists`).

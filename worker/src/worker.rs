@@ -1,9 +1,10 @@
 use codec::Encode;
 use parking_lot::RwLock;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     ops::Deref,
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
@@ -21,6 +22,13 @@ use polymesh_worker_common::{
 };
 
 pub const WORK_CACHE_CAPACITY: usize = 10_000;
+
+/// Once reached, empty or stale sessions (leaked by aborted block executions) are pruned.
+/// A pruned session's requests fall back to runtime execution.
+pub const MAX_WORKER_SESSIONS: usize = 10_000;
+
+/// Non-empty sessions older than this are considered leaked (e.g. failed block import).
+pub const MAX_WORKER_SESSION_AGE: Duration = Duration::from_secs(60);
 
 struct PushWorkResponse {
     request_id: WorkRequestId,
@@ -169,6 +177,7 @@ pub struct WorkerSession {
     pub config: WorkerSessionConfig,
     pub protocol: Protocol,
     pub module: Option<ProtocolModuleRef>,
+    created: Instant,
 
     tx: Sender<PushWorkResponse>,
 
@@ -189,6 +198,7 @@ impl WorkerSession {
             config,
             protocol,
             module,
+            created: Instant::now(),
 
             tx,
 
@@ -196,10 +206,21 @@ impl WorkerSession {
         }))
     }
 
-    /// Get the module code hash if the session has a module reference, otherwise get the protocol hash as the fallback.
+    /// Can be pruned: no requests submitted, or older than `MAX_WORKER_SESSION_AGE`.
+    fn is_prunable(&self) -> bool {
+        if self.created.elapsed() >= MAX_WORKER_SESSION_AGE {
+            return true;
+        }
+        // A locked session is in use, so not empty.
+        self.inner
+            .try_read()
+            .is_some_and(|inner| inner.next_id == 0)
+    }
+
+    /// Hash identifying the verifier: module config + code hash, or the protocol hash if no module is loaded.
     pub fn module_or_protocol_hash(&self) -> BackendCodeHash {
         if let Some(module) = &self.module {
-            module.code_hash()
+            (module.config_hash(), module.code_hash()).using_encoded(crate::blake2b256_hash)
         } else {
             self.protocol.using_encoded(crate::blake2b256_hash)
         }
@@ -429,7 +450,7 @@ impl WorkerSessionRef {
 
 /// The main worker struct that manages sessions.
 struct PolymeshWorkerInner {
-    sessions: HashMap<WorkerSessionId, WorkerSessionRef>,
+    sessions: BTreeMap<WorkerSessionId, WorkerSessionRef>,
 
     next_session_id: WorkerSessionId,
 }
@@ -438,7 +459,7 @@ impl PolymeshWorkerInner {
     fn new() -> Self {
         Self {
             next_session_id: 0,
-            sessions: HashMap::new(),
+            sessions: BTreeMap::new(),
         }
     }
 
@@ -448,6 +469,14 @@ impl PolymeshWorkerInner {
         protocol: Protocol,
         module: Option<ProtocolModuleRef>,
     ) -> WorkerSessionRef {
+        if self.sessions.len() >= MAX_WORKER_SESSIONS {
+            let before = self.sessions.len();
+            self.sessions.retain(|_, session| !session.is_prunable());
+            log::warn!(
+                "Too many worker sessions, pruned {} empty or stale sessions",
+                before - self.sessions.len()
+            );
+        }
         let session_id = self.next_session_id;
         self.next_session_id += 1;
         let session = WorkerSession::new(session_id, config, protocol, module);

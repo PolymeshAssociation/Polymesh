@@ -72,6 +72,7 @@ impl ProtocolModuleInstanceCache {
 /// A loaded protocol module, which can be used to create module instances for executing work requests.
 pub struct ProtocolModule {
     pub kind: BackendKind,
+    pub config_hash: ProtocolModuleConfigHash,
     pub code_hash: BackendCodeHash,
     module: Box<dyn BackendModule>,
     initialization_method: ResolvedInitializationMethod,
@@ -81,6 +82,7 @@ pub struct ProtocolModule {
 impl ProtocolModule {
     fn load_from_backend(
         config: &ProtocolModuleConfig,
+        config_hash: ProtocolModuleConfigHash,
         backend: &Box<dyn Backend>,
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
@@ -152,6 +154,7 @@ impl ProtocolModule {
 
         Some(ProtocolModuleRef(Arc::new(Self {
             kind,
+            config_hash,
             code_hash: module_def.code_hash,
             module,
             initialization_method,
@@ -174,7 +177,7 @@ impl ProtocolModule {
             if !backend.is_in_bitmask(allowed) {
                 continue;
             }
-            let module = Self::load_from_backend(&config, backend, protocol, loader);
+            let module = Self::load_from_backend(&config, config_hash, backend, protocol, loader);
             if module.is_some() {
                 log::info!("Loaded protocol module using backend {:?}", backend.kind());
                 return module;
@@ -238,9 +241,14 @@ impl ProtocolModuleRef {
         cache.return_instance(instance);
     }
 
-    /// Get the code hash of the module, which is used for caching work responses.
+    /// Get the code hash of the module.
     pub fn code_hash(&self) -> BackendCodeHash {
         self.0.code_hash
+    }
+
+    /// Get the hash of the protocol config (code hashes + initialization context) the module was loaded from.
+    pub fn config_hash(&self) -> ProtocolModuleConfigHash {
+        self.0.config_hash
     }
 }
 

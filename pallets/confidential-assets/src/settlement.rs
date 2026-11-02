@@ -580,12 +580,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// The `SettlementState` entry is kept as `Finalized` forever: it is the
     /// settlement-proof replay guard in `base_create_settlement`. Everything else
-    /// (`SettlementPendingFinalizations`, `SettlementMemo`, `SettlementLegCount`,
-    /// `SettlementLegs`, `LegAffirmationStatus`, `LegMediators`) is removed.
+    /// (`SettlementPendingFinalizations`, `SettlementPendingAffirmations`, `SettlementMemo`,
+    /// `SettlementLegCount`, `SettlementLegs`, `LegAffirmationStatus`, `LegMediators`) is removed.
     pub fn finalize_settlement(settlement_ref: SettlementRef) -> DispatchResult {
         // Prune all settlement state.
         // Remove pending finalizations for the settlement.
         SettlementPendingFinalizations::<T>::remove(settlement_ref);
+        SettlementPendingAffirmations::<T>::remove(settlement_ref);
         // Remove the settlement memo.
         SettlementMemo::<T>::remove(settlement_ref);
         // Remove the settlement legs and affirmation statuses.
@@ -595,24 +596,10 @@ impl<T: Config> Pallet<T> {
         for leg_id in 0..leg_count {
             let leg_id = leg_id as LegId;
 
-            // Remove affirmation statuses for sender and receiver.
-            LegAffirmationStatus::<T>::remove((settlement_ref, leg_id, LegAffirmParty::Sender));
-            LegAffirmationStatus::<T>::remove((settlement_ref, leg_id, LegAffirmParty::Receiver));
-
-            // Remove the leg.
-            if let Some(leg) = SettlementLegs::<T>::take((settlement_ref, leg_id)) {
-                // Remove affirmation statuses for mediators.
-                let mediators = leg.mediator_count().ok().unwrap_or(0) as u8;
-                for mediator_index in 0..mediators {
-                    LegAffirmationStatus::<T>::remove((
-                        settlement_ref,
-                        leg_id,
-                        LegAffirmParty::Mediator(mediator_index),
-                    ));
-                }
-            }
-
-            // Remove the leg mediators (only present for legs with revealed asset ids).
+            // Remove sender, receiver and all mediator affirmation statuses.
+            let limit = 2 + <PolymeshLimits as DartLimits>::MaxAssetMediators::get();
+            let _ = LegAffirmationStatus::<T>::clear_prefix((settlement_ref, leg_id), limit, None);
+            SettlementLegs::<T>::remove((settlement_ref, leg_id));
             LegMediators::<T>::remove((settlement_ref, leg_id));
         }
 

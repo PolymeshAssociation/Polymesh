@@ -1007,6 +1007,8 @@ pub mod pallet {
         AssetIsFrozen,
         /// Only Root may change a Root freeze.
         AssetFrozenByRoot,
+        /// No more confidential asset IDs are available.
+        AssetIdOverflow,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1919,7 +1921,11 @@ pub mod pallet {
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
         #[pallet::call_index(13)]
-        #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(proof.count_leg_affirmations()))]
+        #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(SettlementCounts {
+            // Charge creation for every leg; `leg_affirmations` is optional and may be shorter.
+            leg_count: proof.settlement.legs.len() as u32,
+            ..proof.count_leg_affirmations()
+        }))]
         pub fn batched_settlement(
             origin: OriginFor<T>,
             proof: BatchedSettlementProof<PolymeshLimits>,
@@ -2559,7 +2565,7 @@ impl<T: Config> Pallet<T> {
         // Allocate a new asset ID.
         let asset_id = NextAssetId::<T>::get();
         // Increment the next asset ID for the next call.
-        NextAssetId::<T>::put(asset_id.saturating_add(1));
+        NextAssetId::<T>::put(asset_id.checked_add(1).ok_or(Error::<T>::AssetIdOverflow)?);
 
         // Create the asset details.
         let asset_detail = AssetDetails {
