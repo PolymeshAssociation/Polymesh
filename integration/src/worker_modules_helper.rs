@@ -48,7 +48,6 @@ impl WorkerModulesHelper {
         // `sudo` reports a failed inner call through the `Sudid` event rather than failing the
         // extrinsic, so the event has to be checked as well.
         check_sudo_result(&mut res).await?;
-        res.wait_finalized().await?;
         Ok(())
     }
 
