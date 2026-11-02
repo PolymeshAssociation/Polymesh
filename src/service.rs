@@ -14,7 +14,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use prometheus_endpoint::Registry;
-use sc_client_api::{Backend, BlockBackend};
+use sc_client_api::{Backend, BlockBackend, ExecutorProvider};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_consensus_beefy as beefy;
 use sc_consensus_grandpa as grandpa;
@@ -334,6 +334,9 @@ where
             vec![Arc::new(grandpa::GrandpaPruningFilter)],
         )?;
     let client = Arc::new(client);
+    client
+        .execution_extensions()
+        .set_extensions_factory(polymesh_worker_extension::WorkerSessionExtensionsFactory);
 
     let telemetry = telemetry.map(|(worker, telemetry)| {
         task_manager

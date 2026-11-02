@@ -1,7 +1,9 @@
 use core::any::TypeId;
 use std::collections::BTreeMap;
 
-use sp_externalities::Externalities;
+use sc_client_api::execution_extensions::ExtensionsFactory;
+use sp_externalities::{Extensions, Externalities};
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use polymesh_worker::{WORKER_VERSION, worker::*};
 use polymesh_worker_common::{
@@ -11,7 +13,8 @@ use polymesh_worker_common::{
 
 use crate::*;
 
-/// Worker sessions started during one runtime call (or one `ApiRef` for block building).
+/// Worker sessions started during one runtime call, or one `ApiRef` (block building/import)
+/// when registered by [`WorkerSessionExtensionsFactory`].
 #[derive(Default)]
 pub struct WorkerSessions {
     sessions: BTreeMap<WorkerSessionId, WorkerSessionRef>,
@@ -21,6 +24,20 @@ pub struct WorkerSessions {
 sp_externalities::decl_extension! {
     /// Holds the worker sessions; they are dropped together with the call's extensions.
     pub struct WorkerSessionExt(WorkerSessions);
+}
+
+/// Registers [`WorkerSessionExt`] up front, so sessions outlive a single runtime call.
+///
+/// Extensions registered from a host function only live for that call; `start_session` falls
+/// back to that where the factory isn't used (e.g. benchmarks).
+pub struct WorkerSessionExtensionsFactory;
+
+impl<Block: BlockT> ExtensionsFactory<Block> for WorkerSessionExtensionsFactory {
+    fn extensions_for(&self, _: Block::Hash, _: NumberFor<Block>) -> Extensions {
+        let mut extensions = Extensions::new();
+        extensions.register(WorkerSessionExt(WorkerSessions::default()));
+        extensions
+    }
 }
 
 fn sessions(ext: &mut dyn Externalities) -> Option<&mut WorkerSessions> {
