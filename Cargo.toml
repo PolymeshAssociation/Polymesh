@@ -540,6 +540,7 @@ runtime-benchmarks = [
     "polymesh-runtime-mainnet/runtime-benchmarks",
     "polymesh-worker-extension/runtime-benchmarks",
     "polymesh-worker/testing",
+    "polymesh-worker-native/testing",
 ]
 
 # Only build a "ci" runtime.
