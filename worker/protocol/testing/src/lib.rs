@@ -137,6 +137,8 @@ impl VerifyVersionRequest {
 )]
 pub enum TestWorkRequest {
     VerifyVersion(VerifyVersionRequest),
+    #[cfg(feature = "testing")]
+    Trap,
 }
 
 impl TestWorkRequest {
@@ -145,6 +147,13 @@ impl TestWorkRequest {
             Self::VerifyVersion(req) => {
                 let res = req.do_verify()?;
                 Ok(TestWorkResponse::VerifyVersion(res))
+            }
+            #[cfg(feature = "testing")]
+            Self::Trap => {
+                #[cfg(not(feature = "native"))]
+                panic!("Testing worker VM trap");
+                #[cfg(feature = "native")]
+                Ok(TestWorkResponse::TrapFallback)
             }
         }
     }
@@ -296,6 +305,21 @@ pub struct VerifyVersionResponse {}
 )]
 pub enum TestWorkResponse {
     VerifyVersion(VerifyVersionResponse),
+    #[cfg(feature = "testing")]
+    TrapFallback,
+}
+
+#[cfg(all(test, feature = "testing", feature = "native"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trap_request_succeeds_in_runtime_fallback() {
+        assert_eq!(
+            TestWorkRequest::Trap.do_execute(),
+            Ok(TestWorkResponse::TrapFallback)
+        );
+    }
 }
 
 #[cfg(not(feature = "impl_protocol"))]

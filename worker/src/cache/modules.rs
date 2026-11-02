@@ -13,7 +13,7 @@ pub const MAX_MODULE_INSTANCES_PER_PROTOCOL: usize = 32;
 
 /// An instance of a loaded protocol module, which can be used to execute work requests.
 ///
-/// The instance will be returned to the module's cache when dropped, so it can be reused for future requests.
+/// Only instances whose execution completed without a worker error are returned to the cache.
 pub struct ProtocolModuleInstance {
     instance: Option<Box<dyn BackendModuleInstance>>,
     module: ProtocolModuleRef,
@@ -36,11 +36,89 @@ impl ProtocolModuleInstance {
     }
 
     pub fn execute(&mut self, req: &WorkRequest) -> Result<WorkResponseResult, WorkerError> {
-        if let Some(instance) = &mut self.instance {
-            instance.execute(req)
-        } else {
-            // This shouldn't happen because the instance should only be taken when dropping, but we return an error just in case.
-            Err(WorkerError::ModuleExecutionFailed)
+        let mut instance = self
+            .instance
+            .take()
+            .ok_or(WorkerError::ModuleExecutionFailed)?;
+        let result = instance.execute(req);
+        if result.is_ok() {
+            self.instance = Some(instance);
+        }
+        result
+    }
+}
+
+#[cfg(all(test, feature = "testing"))]
+mod tests {
+    use super::*;
+    use crate::backend::Backends;
+    use polymesh_worker_protocol_testing::{PROTOCOL, TestWorkRequest, VerifyVersionRequest};
+
+    #[test]
+    fn trapped_instances_are_discarded_but_protocol_errors_are_cached() {
+        let kinds = [
+            #[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
+            BackendKind::PolkaVM,
+            #[cfg(feature = "wasmer")]
+            BackendKind::Wasmer,
+            #[cfg(feature = "wasmtime")]
+            BackendKind::Wasmtime,
+        ];
+        let backends = Backends::with_backends(&kinds, None);
+        assert_eq!(backends.backends.len(), kinds.len());
+        for backend in &backends.backends {
+            let bytes: &[u8] = match backend.kind() {
+                BackendKind::PolkaVM => include_bytes!(
+                    "../../modules/testing/v0/polymesh-worker-protocol-testing.polkavm.zst"
+                ),
+                _ => include_bytes!(
+                    "../../modules/testing/v0/polymesh-worker-protocol-testing.wasm.zst"
+                ),
+            };
+            let module = ProtocolModuleRef(Arc::new(ProtocolModule {
+                kind: backend.kind(),
+                config_hash: [0; 32],
+                code_hash: [0; 32],
+                module: backend
+                    .load_module(&decompress_module_code(bytes).unwrap())
+                    .unwrap(),
+                initialization_method: ResolvedInitializationMethod::InitializeNoContext,
+                cache: Mutex::new(ProtocolModuleInstanceCache::new()),
+            }));
+            {
+                let mut instance = module.get_instance().unwrap();
+                let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+                    protocol: Protocol {
+                        version: ProtocolVersion::new(99, 0, 0),
+                        ..PROTOCOL
+                    },
+                });
+                assert!(matches!(
+                    instance.execute(&WorkRequest::new(request)),
+                    Ok(Err(_))
+                ));
+            }
+            assert_eq!(module.0.cache.lock().instances.len(), 1);
+            {
+                let mut instance = module.get_instance().unwrap();
+                assert!(matches!(
+                    instance.execute(&WorkRequest::new(TestWorkRequest::Trap)),
+                    Err(WorkerError::ModuleExecutionFailed)
+                ));
+                assert!(instance.instance.is_none());
+            }
+            assert!(module.0.cache.lock().instances.is_empty());
+            {
+                let mut instance = module.get_instance().unwrap();
+                let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+                    protocol: PROTOCOL,
+                });
+                assert!(matches!(
+                    instance.execute(&WorkRequest::new(request)),
+                    Ok(Ok(_))
+                ));
+            }
+            assert_eq!(module.0.cache.lock().instances.len(), 1);
         }
     }
 }

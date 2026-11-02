@@ -11532,6 +11532,7 @@ dependencies = [
  "parking_lot 0.12.5",
  "polkavm 0.33.1",
  "polymesh-worker-common",
+ "polymesh-worker-protocol-testing",
  "rayon",
  "schnellru",
  "sp-maybe-compressed-blob",

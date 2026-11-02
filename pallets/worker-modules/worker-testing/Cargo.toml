@@ -46,7 +46,11 @@ no_host_fns = [
 	"polymesh-worker-protocol-testing/runtime_only",
 ]
 
-testing = ["polymesh-worker-extension?/testing", "polymesh-worker-common/testing"]
+testing = [
+  "polymesh-worker-extension?/testing",
+  "polymesh-worker-common/testing",
+  "polymesh-worker-protocol-testing/testing",
+]
 
 no_std = [
   "polymesh-worker-protocol-testing/no_std"

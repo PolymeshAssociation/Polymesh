@@ -41,6 +41,9 @@ digest = { version = "0.10.7", default-features = false }
 ark-host-msm-impl = { workspace = true, default-features = false }
 bulletproofs = { workspace = true, default-features = false, features = ["impl_host_hash_to_curve"] }
 
+[dev-dependencies]
+polymesh-worker-protocol-testing = { workspace = true, default-features = false, features = ["std", "native", "testing"] }
+
 [features]
 default = [
 	"std",
