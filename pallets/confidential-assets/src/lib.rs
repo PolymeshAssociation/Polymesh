@@ -1009,6 +1009,8 @@ pub mod pallet {
         AssetFrozenByRoot,
         /// No more confidential asset IDs are available.
         AssetIdOverflow,
+        /// A registration or proof batch exceeds its runtime-configured limit.
+        TooManyProofs,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1489,6 +1491,10 @@ pub mod pallet {
             proof: AccountRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+            ensure!(
+                proof.len() <= T::MaxKeysPerRegProof::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             // Ensure the accounts haven't already been registered.
             for account in &proof.accounts {
@@ -1546,6 +1552,10 @@ pub mod pallet {
             proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+            ensure!(
+                proof.len() <= T::MaxKeysPerRegProof::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             for encryption_key in &proof.keys {
                 Self::base_register_encryption_key(caller_did, *encryption_key)?;
@@ -1611,6 +1621,10 @@ pub mod pallet {
         ) -> DispatchResult {
             // Ensure the caller is allowed to make this call.
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+            ensure!(
+                proof.len() <= T::MaxAccountAssetRegProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             let mut seen_account = BTreeSet::new();
             let mut seen_asset = BTreeSet::new();
@@ -1961,6 +1975,10 @@ pub mod pallet {
                 primary_did: caller_did,
                 ..
             } = PalletIdentity::<T>::ensure_origin_call_permissions(origin)?;
+            ensure!(
+                proof.len() <= T::MaxFeeAccountRegProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             // Deposit the total POLYX amount into the fee pool.
             let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
@@ -2030,6 +2048,10 @@ pub mod pallet {
                 primary_did: caller_did,
                 ..
             } = PalletIdentity::<T>::ensure_origin_call_permissions(origin)?;
+            ensure!(
+                proof.len() <= T::MaxFeeAccountTopupProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             // Deposit the total POLYX amount into the fee pool.
             let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
@@ -2108,6 +2130,10 @@ pub mod pallet {
             proof: BatchedProofs<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
+            ensure!(
+                proof.len() <= T::MaxBatchedProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             Self::process_batched_proofs(proof)
         }
@@ -3025,6 +3051,11 @@ impl<T: Config> Pallet<T> {
         relayer: T::AccountId,
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> DispatchResultWithPostInfo {
+        ensure!(
+            proof.batched_proofs.len() <= T::MaxBatchedProofs::get() as usize,
+            Error::<T>::TooManyProofs
+        );
+
         #[cfg(not(feature = "runtime-benchmarks"))]
         {
             // Ensure the batched proofs is not empty.

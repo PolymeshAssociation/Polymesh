@@ -3,8 +3,12 @@ use frame_system::RawOrigin;
 use pallet_confidential_assets::{
     AssetDetails, AssetFrozen, AssetLeaf, Error, FreezeOrigin, Pallet,
 };
-use polymesh_dart::{AccountKeys, AssetId, AssetKeys, AssetState, LeafIndex};
-use polymesh_primitives::IdentityId;
+use polymesh_dart::{
+    AccountKeys, AccountRegistrationProof, AssetId, AssetKeys, AssetState,
+    EncryptionKeyRegistrationProof, LeafIndex, PolymeshLimits,
+};
+use polymesh_primitives::{AccountId, IdentityId};
+use rand::thread_rng;
 
 use crate::{ExtBuilder, TestStorage as Runtime};
 
@@ -36,6 +40,51 @@ fn with_asset(test: impl FnOnce(IdentityId, AssetState)) {
         );
         Keys::<Runtime>::insert(0, &state.keys);
         test(owner, state);
+    });
+}
+
+#[test]
+fn confidential_assets_registration_proofs_enforce_runtime_key_limit() {
+    ExtBuilder::default().build().execute_with(|| {
+        let account = AccountId::new([71; 32]);
+        let did =
+            pallet_identity::Pallet::<Runtime>::testing_register_did(account.clone()).unwrap();
+        let did_bytes: [u8; 32] = did.into();
+        let accounts = (0..21)
+            .map(|index| AccountKeys::from_seed(&format!("RegistrationLimit{index}")).unwrap())
+            .collect::<Vec<_>>();
+        let mut rng = thread_rng();
+
+        let account_proof =
+            AccountRegistrationProof::<PolymeshLimits>::new(&mut rng, &accounts, &did_bytes)
+                .unwrap();
+        assert_eq!(account_proof.len(), 21);
+        assert_noop!(
+            Pallet::<Runtime>::register_accounts(
+                RawOrigin::Signed(account.clone()).into(),
+                account_proof,
+            ),
+            Error::<Runtime>::TooManyProofs
+        );
+
+        let encryption_keys = accounts
+            .iter()
+            .map(|account| account.enc.clone())
+            .collect::<Vec<_>>();
+        let encryption_proof = EncryptionKeyRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &encryption_keys,
+            &did_bytes,
+        )
+        .unwrap();
+        assert_eq!(encryption_proof.len(), 21);
+        assert_noop!(
+            Pallet::<Runtime>::register_encryption_keys(
+                RawOrigin::Signed(account).into(),
+                encryption_proof,
+            ),
+            Error::<Runtime>::TooManyProofs
+        );
     });
 }
 
