@@ -269,8 +269,9 @@ weights/fee measurements, and live worker differential tests remain deployment g
 
 - [ ] **Nullifier uniqueness** (`NullifierAlreadyUsed`) is the double-spend defense — every
       state-consuming proof path must check-and-insert atomically.
-- [ ] Root age windows bound proof staleness; extending max ages or pruning windows changes the
-      security/liveness tradeoff — keep `RECENT_BLOCKS_TO_KEEP` ≥ age windows in blocks.
+- [x] Root age windows bound proof staleness; every proof lookup rejects missing or expired roots.
+  Pruning removes only expired roots and stops at the first unexpired root, so
+  `RECENT_BLOCKS_TO_KEEP` is a work-avoidance margin, not a requirement to cover the age window.
 - [ ] Leaf commits are batched per block; any new leaf-writing path must go through the
       `NextLeafIndex`/`LastCommitted*` machinery or root recomputation misses leaves.
 - [ ] Settlement pending counters (affirmations/finalizations) must be exact — premature zero ⇒
