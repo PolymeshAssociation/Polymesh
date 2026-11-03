@@ -653,21 +653,19 @@ where
         fee: Balance,
         call: Option<&<T as frame_system::Config>::RuntimeCall>,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        match (Self::get_subsidy(user_key, fee)?, call) {
-            (Some(s), Some(call)) => {
-                // Ensure the call can be subsidised.
-                if !Self::ensure_subsidy_call(call)? {
-                    // The caller must pay for the transaction themselves.
-                    return Ok(None);
-                }
-                Ok(Some(s.paying_key))
-            }
-            (Some(s), None) => {
-                // No pallet restriction applied (protocol fees).
-                Ok(Some(s.paying_key))
-            }
-            (None, _) => Ok(None),
+        // No subsidy: the caller pays.
+        if !Subsidies::<T>::contains_key(user_key) {
+            return Ok(None);
         }
+
+        if let Some(call) = call {
+            // The caller must pay for the transaction themselves.
+            if !Self::ensure_subsidy_call(call)? {
+                return Ok(None);
+            }
+        }
+
+        Ok(Self::get_subsidy(user_key, fee)?.map(|s| s.paying_key))
     }
 
     fn debit_subsidy(
