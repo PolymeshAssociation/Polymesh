@@ -314,8 +314,7 @@ fn confidential_assets_ordinary_submission_context() {
         ));
         let keys = AccountKeys::from_seed("SubmissionFee").unwrap();
         let fee_state = FeeAccountState::new(&mut thread_rng(), &keys.acct.public, 0, 100).unwrap();
-        let context =
-            polymesh_dart::relayer_batch_proof_context(&fee_state.nullifier().unwrap());
+        let context = polymesh_dart::relayer_batch_proof_context(&fee_state.nullifier().unwrap());
         let bound = submission_settlement(&context, 1, false);
         assert_noop!(
             Pallet::<Runtime>::create_settlement(
