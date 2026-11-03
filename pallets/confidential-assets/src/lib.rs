@@ -1241,13 +1241,6 @@ pub mod pallet {
     pub(super) type AccountStateCommitmentNullifiers<T: Config> =
         StorageMap<_, Identity, AccountStateNullifier, (), OptionQuery>;
 
-    /// Confidential fee account egistrations.
-    ///
-    /// The chain must prevent the same account from registering the multiple times.
-    #[pallet::storage]
-    pub(super) type FeeAccountRegistrations<T: Config> =
-        StorageMap<_, Twox64Concat, AccountPublicKey, bool, ValueQuery>;
-
     /// Leaf storage for Confidential fee accounts curve tree.
     ///
     /// The leaves are immutable, so we use a simple storage map.
