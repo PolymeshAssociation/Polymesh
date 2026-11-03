@@ -96,6 +96,10 @@ current_release = [
     "polymesh-api-tester/polymesh_v8",
 ]
 
+# Enables live worker differential log assertions; the node must be built with
+# the root workspace's `worker-differential` feature and `WORKER_DIFF_LOG` set.
+worker-differential = []
+
 [dependencies]
 anyhow = "1"
 log = "0.4"

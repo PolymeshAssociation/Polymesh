@@ -543,6 +543,13 @@ runtime-benchmarks = [
     "polymesh-worker-native/testing",
 ]
 
+# Execute each worker request through every available compatible backend and log comparisons.
+worker-differential = [
+    "polymesh-worker/worker-differential",
+    "polymesh-worker/testing",
+    "polymesh-worker-native/testing",
+]
+
 # Only build a "ci" runtime.
 ci-runtime = ["polymesh-runtime-develop/ci-runtime"]
 

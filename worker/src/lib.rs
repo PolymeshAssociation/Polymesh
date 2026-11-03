@@ -15,6 +15,12 @@ use polymesh_worker_common::{
 
 pub mod backend;
 pub mod cache;
+#[cfg(feature = "worker-differential")]
+mod differential;
+#[cfg(feature = "worker-differential")]
+pub fn initialize_differential_log() {
+    differential::initialize_log();
+}
 #[cfg(target_os = "linux")]
 pub mod native_process;
 pub mod worker;

@@ -246,6 +246,33 @@ cargo build -p polymesh-worker-tester
 - Test protocol module compilation and execution
 - Compare backend performance characteristics
 
+### Node differential mode
+
+The opt-in `worker-differential` node feature runs each worker request through every available compatible backend, bypasses the result cache, and appends JSONL comparisons to `WORKER_DIFF_LOG`. Records contain request/result hashes and backend/context metadata, not request or response payloads. `WORKER_DIFF_LOG` only selects the output path; the node must be compiled with `worker-differential`. Feature-enabled nodes create the file at startup, while feature-off nodes warn that the setting is ignored.
+
+Build the node and start it with a writable log path and the desired backend set:
+
+```bash
+cargo build --locked --release --features ci-runtime,worker-differential
+WORKER_DIFF_LOG=/tmp/worker-diff.jsonl POLYMESH_WORKER_BACKENDS=all \
+    ./target/release/polymesh --bob --dev --tmp \
+    --unsafe-force-node-key-generation --no-prometheus --no-telemetry
+```
+
+After the node is accepting RPC, export the same log path and node URL in the integration terminal. Run the full suite to compare real DART requests as well as the testing protocol request:
+
+```bash
+cd integration
+export POLYMESH_NODE_URL=ws://127.0.0.1:9944
+export WORKER_DIFF_LOG=/tmp/worker-diff.jsonl
+# Required after starting a fresh --tmp chain; do not run on a healthy existing chain.
+./reset_db.sh
+cargo nextest run --release --features current_release,timed,worker-differential --locked
+python3 check_worker_diff_log.py "$WORKER_DIFF_LOG"
+```
+
+The integration feature only enables the log assertion; the node must also be built with the root `worker-differential` feature. Set `WORKER_DIFF_LOG` in both processes. At least two compatible backends must be available. The checker fails on any non-match, missing backend, malformed/empty log, or incomplete comparison. The full suite's `revive_*` tests also need eth-rpc; see `integration/AGENTS.md` for its startup command and `ETH_RPC_URL` setting.
+
 ### CLI Tools (`tools/`)
 
 Protocol module management and utilities:

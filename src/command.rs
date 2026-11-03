@@ -161,6 +161,14 @@ where
     });
     // Initialize Polymesh worker backends.
     Backends::init_global_backends::<polymesh_worker_native::NativeBackend>(&supported_kinds);
+    #[cfg(feature = "worker-differential")]
+    polymesh_worker::initialize_differential_log();
+    #[cfg(not(feature = "worker-differential"))]
+    if std::env::var_os("WORKER_DIFF_LOG").is_some() {
+        log::warn!(
+            "WORKER_DIFF_LOG is set, but this node was built without the worker-differential feature"
+        );
+    }
     // Print the available backends after initialization.
     let backends = Backends::get_available_backends();
     println!("Polymesh Worker: Available backends: {:?}", backends);

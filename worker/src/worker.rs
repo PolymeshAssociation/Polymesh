@@ -16,6 +16,28 @@ use polymesh_worker_common::{
     WorkResponseResult, WorkStatus, WorkerSessionId, config::*, error::*,
 };
 
+fn execute_on_modules(
+    protocol: Protocol,
+    modules: &[ProtocolModuleRef],
+    work: &WorkRequest,
+) -> Result<WorkResponseResult, WorkerError> {
+    #[cfg(not(feature = "worker-differential"))]
+    let _ = protocol;
+
+    #[cfg(feature = "worker-differential")]
+    {
+        crate::differential::execute(protocol, work, modules)
+    }
+    #[cfg(not(feature = "worker-differential"))]
+    {
+        let module = modules.first().ok_or(WorkerError::ModuleExecutionFailed)?;
+        let mut instance = module
+            .get_instance()
+            .ok_or(WorkerError::ModuleExecutionFailed)?;
+        instance.execute(work)
+    }
+}
+
 pub const WORK_CACHE_CAPACITY: usize = 10_000;
 
 struct PushWorkResponse {
@@ -164,7 +186,7 @@ pub struct WorkerSession {
     pub id: WorkerSessionId,
     pub config: WorkerSessionConfig,
     pub protocol: Protocol,
-    pub module: Option<ProtocolModuleRef>,
+    pub modules: Vec<ProtocolModuleRef>,
 
     tx: Sender<PushWorkResponse>,
 
@@ -177,14 +199,14 @@ impl WorkerSession {
         id: WorkerSessionId,
         config: WorkerSessionConfig,
         protocol: Protocol,
-        module: Option<ProtocolModuleRef>,
+        modules: Vec<ProtocolModuleRef>,
     ) -> WorkerSessionRef {
         let (tx, rx) = unbounded();
         WorkerSessionRef(Arc::new(Self {
             id,
             config,
             protocol,
-            module,
+            modules,
 
             tx,
 
@@ -194,7 +216,7 @@ impl WorkerSession {
 
     /// Hash identifying the verifier: module config + code hash, or the protocol hash if no module is loaded.
     pub fn module_or_protocol_hash(&self) -> BackendCodeHash {
-        if let Some(module) = &self.module {
+        if let Some(module) = self.modules.first() {
             (module.config_hash(), module.code_hash()).using_encoded(crate::blake2b256_hash)
         } else {
             self.protocol.using_encoded(crate::blake2b256_hash)
@@ -269,30 +291,36 @@ impl WorkerSession {
 
     /// Get protocol module from the session, if the session has a module reference.  Otherwise, return None, and the caller can try getting the protocol module from the backend.
     pub fn get_protocol_module(&self) -> Option<ProtocolModuleRef> {
-        self.module.clone()
+        self.modules.first().cloned()
     }
 
     /// Get module instance for the session's protocol, if the session has a module reference.
     pub fn get_protocol_instance(&self) -> Option<ProtocolModuleInstance> {
-        let module = self.module.as_ref()?;
+        let module = self.modules.first()?;
         module.get_instance()
+    }
+
+    fn get_protocol_modules(&self) -> Vec<ProtocolModuleRef> {
+        self.modules.clone()
+    }
+
+    fn execute_modules(
+        &self,
+        modules: &[ProtocolModuleRef],
+        work: &WorkRequest,
+    ) -> Result<WorkResponseResult, WorkerError> {
+        execute_on_modules(self.protocol, modules, work)
     }
 
     // Try executing the work request on the host and return the status.
     fn try_execute_work(
         &self,
-        module: ProtocolModuleRef,
+        modules: Vec<ProtocolModuleRef>,
         request_id: WorkRequestId,
         work: WorkRequest,
         cache: Option<(WorkRequestHash, WorkRequestCache)>,
     ) -> Result<WorkStatus, WorkerError> {
-        // Get the protocol module instance for the session's protocol.
-        let mut instance = module
-            .get_instance()
-            .ok_or(WorkerError::ModuleExecutionFailed)?;
-
-        // Execute the work request using the protocol module instance.
-        let result = instance.execute(&work)?;
+        let result = self.execute_modules(&modules, &work)?;
 
         // If caching is enabled, we insert the result into the cache for future reuse.
         let cached = if let Some((req_hash, cache)) = cache {
@@ -326,7 +354,8 @@ impl WorkerSessionRef {
         // Merge the session config with the work request config to get the effective config for the work request execution.
         let config = self.merge_config(config);
 
-        let (req_hash, cached_value) = if config.use_cache {
+        let use_cache = config.use_cache && !cfg!(feature = "worker-differential");
+        let (req_hash, cached_value) = if use_cache {
             let hash = self.hash_request(&work);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
@@ -370,19 +399,22 @@ impl WorkerSessionRef {
         }
 
         // Get the protocol module either from the session, if we fail to get the protocol module, we return an error status to fallback to runtime execution.
-        let Some(module) = self.get_protocol_module() else {
+        let modules = self.get_protocol_modules();
+        if modules.is_empty() {
+            #[cfg(feature = "worker-differential")]
+            crate::differential::record_unavailable(self.protocol, &work);
             log::error!(
                 "Failed to get protocol module for protocol {:?} to execute work request.",
                 self.protocol
             );
             return (request_id, WorkStatus::ExecutionFailedFallbackToRuntime);
-        };
+        }
 
         // Execute closure to support either thread pool execution or direct execution, and if execution fails, we return an error status to fallback to runtime execution.
         let cache = req_hash.map(|hash| (hash, worker.cache.clone()));
 
         let execute = move |session: &WorkerSession, is_thread: bool| {
-            match session.try_execute_work(module, request_id, work, cache) {
+            match session.try_execute_work(modules, request_id, work, cache) {
                 Ok(status) => status,
                 Err(err) => {
                     log::error!("Failed to execute work request: {err:?}");
@@ -395,7 +427,8 @@ impl WorkerSessionRef {
             }
         };
 
-        let status = match (config.use_thread_pool, &worker.pool) {
+        let use_thread_pool = config.use_thread_pool && !cfg!(feature = "worker-differential");
+        let status = match (use_thread_pool, &worker.pool) {
             (true, Some(pool)) => {
                 log::debug!(
                     "Spawning a new thread to execute work request with id: {} for session id: {}.",
@@ -484,6 +517,10 @@ impl PolymeshWorker {
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
     ) -> Result<(), WorkerError> {
+        #[cfg(feature = "worker-differential")]
+        self.backend
+            .load_protocols(allowed_backends, protocol, loader);
+        #[cfg(not(feature = "worker-differential"))]
         self.backend
             .load_protocol(allowed_backends, protocol, loader);
 
@@ -497,19 +534,16 @@ impl PolymeshWorker {
         request: WorkRequest,
         loader: &mut dyn BackendModuleLoader,
     ) -> Result<WorkResponseResult, WorkerError> {
-        // Get the protocol module instance for the given protocol and backends.
-        let module = self
+        #[cfg(feature = "worker-differential")]
+        let modules = self.backend.load_protocols(backends, protocol, loader);
+        #[cfg(not(feature = "worker-differential"))]
+        let modules = self
             .backend
             .load_protocol(backends, protocol, loader)
-            .ok_or(WorkerError::ModuleExecutionFailed)?;
-        let mut instance = module
-            .get_instance()
-            .ok_or(WorkerError::ModuleExecutionFailed)?;
+            .into_iter()
+            .collect::<Vec<_>>();
 
-        // Execute the work request using the protocol module instance.
-        let work_result = instance.execute(&request)?;
-
-        Ok(work_result)
+        execute_on_modules(protocol, &modules, &request)
     }
 
     /// Create a new worker session with the given id and config.  The caller owns the session.
@@ -520,13 +554,19 @@ impl PolymeshWorker {
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
     ) -> WorkerSessionRef {
-        // Ensure the protocol is loaded before starting the session.
-        let module = self
+        #[cfg(feature = "worker-differential")]
+        let modules = self
             .backend
-            .load_protocol(config.backends, protocol, loader);
-        let loaded = module.is_some();
+            .load_protocols(config.backends, protocol, loader);
+        #[cfg(not(feature = "worker-differential"))]
+        let modules = self
+            .backend
+            .load_protocol(config.backends, protocol, loader)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let loaded = !modules.is_empty();
 
-        let session = WorkerSession::new(session_id, config, protocol, module);
+        let session = WorkerSession::new(session_id, config, protocol, modules);
         log::debug!(
             "Started session with id: {}, module loaded: {}",
             session.id,
@@ -572,7 +612,8 @@ impl PolymeshWorker {
         let config = session.merge_config(&config);
 
         // If caching is enabled, hash the work request to get the cache key and check if the response for the work request is already cached, and if so, return the cached response.
-        let req_hash = if config.use_cache {
+        let use_cache = config.use_cache && !cfg!(feature = "worker-differential");
+        let req_hash = if use_cache {
             let hash = session.hash_request(&work);
 
             // Check if the response for the work request is already cached, and if so, return the cached response.
@@ -595,12 +636,8 @@ impl PolymeshWorker {
         };
 
         // Get the protocol module instance for the session's protocol.
-        let mut instance = session
-            .get_protocol_instance()
-            .ok_or(WorkerError::ModuleExecutionFailed)?;
-
-        // Execute the work request using the protocol module instance.
-        let result = instance.execute(&work)?;
+        let modules = session.get_protocol_modules();
+        let result = execute_on_modules(session.protocol, &modules, &work)?;
 
         if let Some(req_hash) = req_hash {
             self.cache.insert(req_hash, result.clone());

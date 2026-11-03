@@ -4,6 +4,8 @@ mod worker_modules_tests {
     use anyhow::{anyhow, Context, Result};
     use codec::{Decode, Encode};
     use polymesh_api::types::polymesh_worker_protocol_testing::TestWorkRequest;
+    #[cfg(feature = "worker-differential")]
+    use polymesh_api::types::polymesh_worker_protocol_testing::VerifyVersionRequest;
 
     use integration::{
         worker_modules_helper::*, PolymeshTester, RuntimeEvent, User, WorkerTestingEvent,
@@ -141,7 +143,10 @@ mod worker_modules_tests {
     #[ignore = "requires a dev runtime with testing requests enabled"]
     async fn test_trap_fallback_builtin_module() -> Result<()> {
         let mut tester = PolymeshTester::new().await?;
-        let mut users = tester.users(&["WorkerBuiltinTrapTester"]).await?.into_iter();
+        let mut users = tester
+            .users(&["WorkerBuiltinTrapTester"])
+            .await?
+            .into_iter();
         let mut user = users.next().expect("User not found");
         let protocol = tester
             .api
@@ -335,6 +340,16 @@ mod worker_modules_tests {
     #[tokio::test]
     #[test_log::test]
     async fn test_protocol_upgrades() -> Result<()> {
+        #[cfg(feature = "worker-differential")]
+        let (diff_log_path, diff_log_start) = {
+            let path = std::env::var_os("WORKER_DIFF_LOG")
+                .context("WORKER_DIFF_LOG must be set for differential worker tests")?;
+            let len = std::fs::metadata(&path)
+                .map(|metadata| metadata.len() as usize)
+                .unwrap_or_default();
+            (path, len)
+        };
+
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester.users(&["ProtocolTester"]).await?.into_iter();
         let mut user = users.next().expect("User not found");
@@ -362,6 +377,34 @@ mod worker_modules_tests {
 
         // Run the `VerifyVersion` work request against the genesis protocol version.
         check_active_version(&tester, &mut user, &protocol, true).await?;
+
+        #[cfg(feature = "worker-differential")]
+        {
+            let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+                protocol: protocol.clone(),
+            });
+            let request_hash = sp_core::blake2_256(&request.encode().encode())
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>();
+            let log = std::fs::read(&diff_log_path)?;
+            let appended = log
+                .get(diff_log_start..)
+                .ok_or_else(|| anyhow!("WORKER_DIFF_LOG was truncated during the test"))?;
+            let appended = std::str::from_utf8(appended)?;
+            let record = appended
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .find(|record| record["request_hash"].as_str() == Some(&request_hash))
+                .ok_or_else(|| anyhow!("no differential record found for test_version request"))?;
+
+            if record["status"] != "match" {
+                return Err(anyhow!("worker backends disagreed: {record}"));
+            }
+            if record["backends"].as_array().map_or(0, Vec::len) < 2 {
+                return Err(anyhow!("fewer than two backends were compared: {record}"));
+            }
+        }
 
         // Register the testing protocol with the WorkerModules pallet.
         worker_helper

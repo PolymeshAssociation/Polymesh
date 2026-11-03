@@ -11536,6 +11536,7 @@ dependencies = [
  "polymesh-worker-protocol-testing",
  "rayon",
  "schnellru",
+ "serde_json",
  "sp-maybe-compressed-blob",
  "sp-panic-handler",
  "wasmer",

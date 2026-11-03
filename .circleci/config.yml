@@ -154,7 +154,7 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Build ci-runtime
-          command: cargo build --locked --release --features ci-runtime
+          command: cargo build --locked --release --features ci-runtime,worker-differential
           no_output_timeout: 30m
       - save-sccache-cache
       - run:
@@ -508,6 +508,8 @@ jobs:
       - RUST_BACKTRACE: "1"
       - WAIT_FOR_FINALIZE: "1"
       - ETH_RPC_URL: http://127.0.0.1:8545
+      - POLYMESH_WORKER_BACKENDS: all
+      - WORKER_DIFF_LOG: /tmp/worker-diff.jsonl
     steps:
       - checkout
       - attach_workspace:
@@ -524,6 +526,9 @@ jobs:
       - run:
           name: Install cargo-nextest
           command: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "$HOME/.cargo/bin"
+      - run:
+          name: Clear worker differential log
+          command: rm -f "$WORKER_DIFF_LOG"
       - run:
           name: Start a Polymesh ci-runtime dev chain using the previous chain version.
           command: >-
@@ -563,9 +568,27 @@ jobs:
             exit 1
       - run:
           name: Run polymesh-api integration tests
-          command: cargo nextest run --release --features current_release,timed --locked
+          command: cargo nextest run --release --features current_release,timed,worker-differential --locked
           working_directory: ./integration
           no_output_timeout: 30m
+      - run:
+          name: Fail on worker backend mismatches
+          command: python3 check_worker_diff_log.py "$WORKER_DIFF_LOG"
+          working_directory: ./integration
+          when: always
+      - run:
+          name: Preserve worker differential log
+          command: |
+            if [ -f "$WORKER_DIFF_LOG" ]; then
+              cp "$WORKER_DIFF_LOG" ./worker-diff.jsonl
+            else
+              : > ./worker-diff.jsonl
+            fi
+          working_directory: ./integration
+          when: always
+      - store_artifacts:
+          path: ./integration/worker-diff.jsonl
+          destination: worker-diff.jsonl
   contract-deploy-test-foundry:
     machine:
       image: ubuntu-2204:current

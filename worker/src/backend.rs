@@ -207,6 +207,16 @@ impl BackendManager {
 
         self.inner.lock().load_protocol(allowed, protocol, loader)
     }
+
+    /// Load the protocol module for every available compatible backend.
+    pub fn load_protocols(
+        &self,
+        allowed: BackendBitmask,
+        protocol: Protocol,
+        loader: &mut dyn BackendModuleLoader,
+    ) -> Vec<ProtocolModuleRef> {
+        self.inner.lock().load_protocols(allowed, protocol, loader)
+    }
 }
 
 pub trait BackendModuleLoader {
