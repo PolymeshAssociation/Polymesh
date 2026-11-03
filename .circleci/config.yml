@@ -469,7 +469,7 @@ jobs:
       - run:
           name: Tests
           command: >-
-            cargo test
+            cargo nextest run
             --package pallet-validators
             --package pallet-group
             --package pallet-sudo

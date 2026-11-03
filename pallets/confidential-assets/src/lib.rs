@@ -1030,12 +1030,12 @@ pub mod pallet {
 
     /// Mapping of Confidential Asset ID to its details.
     #[pallet::storage]
-    pub(super) type Details<T: Config> =
+    pub type Details<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetDetails<T>, OptionQuery>;
 
     /// Mapping of Confidential Asset ID to its auditor and mediator keys.
     #[pallet::storage]
-    pub(super) type Keys<T: Config> =
+    pub type Keys<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetKeys, OptionQuery>;
 
     /// Who froze the asset; no entry means unfrozen.
@@ -1089,7 +1089,7 @@ pub mod pallet {
 
     /// Confidential account to identity mapping.
     #[pallet::storage]
-    pub(super) type AccountDid<T: Config> =
+    pub type AccountDid<T: Config> =
         StorageMap<_, Twox64Concat, AccountPublicKey, IdentityId, OptionQuery>;
 
     /// Mapping of identity to their Confidential accounts.
@@ -1106,7 +1106,7 @@ pub mod pallet {
 
     /// Confidential fee account to identity mapping.
     #[pallet::storage]
-    pub(super) type FeeAccountDid<T: Config> =
+    pub type FeeAccountDid<T: Config> =
         StorageMap<_, Twox64Concat, AccountPublicKey, IdentityId, OptionQuery>;
 
     /// Mapping of Confidential account public keys to their encryption keys.
@@ -1139,7 +1139,7 @@ pub mod pallet {
     ///
     /// A counted map is used since we need to support updating the leaves in the tree.
     #[pallet::storage]
-    pub(super) type AssetLeaves<T: Config> =
+    pub type AssetLeaves<T: Config> =
         CountedStorageMap<_, Twox64Concat, LeafIndex, AssetLeaf, OptionQuery>;
 
     /// Inner node storage for Confidential assets curve tree.
@@ -1485,6 +1485,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `AccountAlreadyCreated` if the dart account or encryption key is already registered.
+        /// * `NotAccountOwner` if the account key is registered to another identity as a fee account.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::register_accounts(proof.len() as u32))]
         pub fn register_accounts(
@@ -1499,6 +1500,12 @@ pub mod pallet {
 
             // Ensure the accounts haven't already been registered.
             for account in &proof.accounts {
+                if let Some(fee_account_did) = FeeAccountDid::<T>::get(&account.acct) {
+                    ensure!(
+                        fee_account_did == caller_did,
+                        Error::<T>::NotAccountOwner
+                    );
+                }
                 // Ensure the dart account doesn't exist.
                 ensure!(
                     !AccountDid::<T>::contains_key(&account.acct),
@@ -1634,10 +1641,11 @@ pub mod pallet {
                 if !seen_account.contains(&p.account) {
                     seen_account.insert(p.account.clone());
                     // Ensure the Confidential account is registered to the caller's identity.
-                    Self::ensure_dart_account_and_encryption_key_registered(
+                    let key_did = Self::ensure_dart_account_and_encryption_key_registered(
                         &p.account.acct,
                         &p.account.enc,
                     )?;
+                    ensure!(key_did == caller_did, Error::<T>::NotAccountOwner);
                 }
                 if !seen_asset.contains(&p.asset_id) {
                     seen_asset.insert(p.asset_id);
@@ -1961,6 +1969,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `FeeAccountAlreadyRegistered` if the fee account or encryption key is already registered.
+        /// * `NotAccountOwner` if the account key is registered to another identity as an asset account.
         /// * `NullifierAlreadyUsed` if the nullifier for the fee account state commitment has already been used.
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
         /// * `InvalidProof` if the proof is invalid.
@@ -1981,13 +1990,12 @@ pub mod pallet {
                 Error::<T>::TooManyProofs
             );
 
-            // Deposit the total POLYX amount into the fee pool.
-            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
-            Self::fee_account_deposit(sender, amount)?;
-
             // Ensure the fee accounts haven't already been registered.
             let mut registrations = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
+                if let Some(account_did) = AccountDid::<T>::get(&p.account) {
+                    ensure!(account_did == caller_did, Error::<T>::NotAccountOwner);
+                }
                 // Ensure the fee account doesn't exist.
                 ensure!(
                     !FeeAccountDid::<T>::contains_key(&p.account),
@@ -2002,6 +2010,10 @@ pub mod pallet {
                 let amount = Self::amount_to_balance(p.amount)?;
                 registrations.push((p.account, amount, p.account_state_commitment));
             }
+
+            // Deposit the total POLYX amount into the fee pool.
+            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
+            Self::fee_account_deposit(sender, amount)?;
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedFeeAccountRegistration {
@@ -2035,6 +2047,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `FeeAccountMissing` if the fee account is not registered.
+        /// * `NotAccountOwner` if the caller does not own the fee account.
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
         /// * `InvalidProof` if the proof is invalid.
         /// * `InsufficientBalance` if the caller has insufficient balance to pay the deposit.
@@ -2054,18 +2067,13 @@ pub mod pallet {
                 Error::<T>::TooManyProofs
             );
 
-            // Deposit the total POLYX amount into the fee pool.
-            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
-            Self::fee_account_deposit(sender, amount)?;
-
             let mut seen_nullifier = BTreeSet::new();
             let mut topups = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
-                // Ensure the fee account exists.
-                ensure!(
-                    FeeAccountDid::<T>::contains_key(&p.account),
-                    Error::<T>::FeeAccountMissing
-                );
+                // Ensure the caller owns the fee account.
+                let fee_account_did =
+                    FeeAccountDid::<T>::get(&p.account).ok_or(Error::<T>::FeeAccountMissing)?;
+                ensure!(fee_account_did == caller_did, Error::<T>::NotAccountOwner);
                 // Ensure the fee asset id is valid.  Only one is supported now.
                 ensure!(p.asset_id == FEE_ASSET_ID, Error::<T>::InvalidFeeAssetId);
 
@@ -2086,6 +2094,10 @@ pub mod pallet {
                     p.nullifier,
                 ));
             }
+
+            // Deposit the total POLYX amount into the fee pool.
+            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
+            Self::fee_account_deposit(sender, amount)?;
 
             // Get the root block and curve tree root.
             let root_block: BlockNumberFor<T> = proof.root_block.into();

@@ -1,28 +1,19 @@
-use frame_support::{assert_noop, assert_ok, pallet_prelude::*, storage_alias};
+use frame_support::{assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
-    AssetDetails, AssetFrozen, AssetLeaf, Error, FreezeOrigin, Pallet,
+    AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error, FeeAccountDid,
+    FreezeOrigin, Keys, Pallet,
 };
 use polymesh_dart::{
-    AccountKeys, AccountRegistrationProof, AssetId, AssetKeys, AssetState,
-    EncryptionKeyRegistrationProof, LeafIndex, PolymeshLimits,
+    curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
+    AccountKeys, AccountRegistrationProof, AssetState, BatchedFeeAccountRegistrationProof,
+    BatchedFeeAccountTopupProof, EncryptionKeyRegistrationProof, FeeAccountRegistrationProof,
+    LeafIndex, PolymeshLimits, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
 };
 use polymesh_primitives::{AccountId, IdentityId};
-use rand::thread_rng;
+use rand::{rngs::StdRng, thread_rng, SeedableRng};
 
 use crate::{ExtBuilder, TestStorage as Runtime};
-
-#[storage_alias]
-type Details<T: pallet_confidential_assets::Config> =
-    StorageMap<Pallet<T>, Twox64Concat, AssetId, AssetDetails<T>, OptionQuery>;
-
-#[storage_alias]
-type Keys<T: pallet_confidential_assets::Config> =
-    StorageMap<Pallet<T>, Twox64Concat, AssetId, AssetKeys, OptionQuery>;
-
-#[storage_alias]
-type AssetLeaves<T: pallet_confidential_assets::Config> =
-    StorageMap<Pallet<T>, Twox64Concat, LeafIndex, AssetLeaf, OptionQuery>;
 
 fn with_asset(test: impl FnOnce(IdentityId, AssetState)) {
     ExtBuilder::default().build().execute_with(|| {
@@ -84,6 +75,127 @@ fn confidential_assets_registration_proofs_enforce_runtime_key_limit() {
                 encryption_proof,
             ),
             Error::<Runtime>::TooManyProofs
+        );
+    });
+}
+
+#[test]
+fn confidential_assets_account_key_ownership_is_shared_between_asset_and_fee_accounts() {
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        let owner = AccountId::new([74; 32]);
+        let other_owner = AccountId::new([75; 32]);
+        let owner_did =
+            pallet_identity::Pallet::<Runtime>::testing_register_did(owner.clone()).unwrap();
+        let other_did =
+            pallet_identity::Pallet::<Runtime>::testing_register_did(other_owner).unwrap();
+        let owner_did_bytes: [u8; 32] = owner_did.into();
+        let other_did_bytes: [u8; 32] = other_did.into();
+        let mut rng = StdRng::from_entropy();
+        let _ =
+            pallet_balances::Pallet::<Runtime>::make_free_balance_be(&owner, 10_000_000_000u128);
+
+        let shared_keys = AccountKeys::from_seed("SharedAccountOwnership").unwrap();
+        let (fee_registration, _) = FeeAccountRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &shared_keys.acct,
+            FEE_ASSET_ID,
+            100,
+            &owner_did_bytes,
+        )
+        .unwrap();
+        let fee_registration = BatchedFeeAccountRegistrationProof {
+            proofs: vec![fee_registration].try_into().unwrap(),
+        };
+        assert_ok!(Pallet::<Runtime>::register_fee_accounts(
+            RawOrigin::Signed(owner.clone()).into(),
+            fee_registration,
+        ));
+
+        let account_registration = AccountRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &[shared_keys.clone()],
+            &owner_did_bytes,
+        )
+        .unwrap();
+        assert_ok!(Pallet::<Runtime>::register_accounts(
+            RawOrigin::Signed(owner.clone()).into(),
+            account_registration,
+        ));
+
+        let fee_owned_by_other = AccountKeys::from_seed("FeeOwnedByOther").unwrap();
+        AccountDid::<Runtime>::insert(&fee_owned_by_other.acct.public, other_did);
+        let (fee_registration, _) = FeeAccountRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &fee_owned_by_other.acct,
+            FEE_ASSET_ID,
+            100,
+            &owner_did_bytes,
+        )
+        .unwrap();
+        let fee_registration = BatchedFeeAccountRegistrationProof {
+            proofs: vec![fee_registration].try_into().unwrap(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::register_fee_accounts(
+                RawOrigin::Signed(owner.clone()).into(),
+                fee_registration,
+            ),
+            Error::<Runtime>::NotAccountOwner
+        );
+
+        let account_owned_by_other = AccountKeys::from_seed("AccountOwnedByOther").unwrap();
+        FeeAccountDid::<Runtime>::insert(&account_owned_by_other.acct.public, other_did);
+        let account_registration = AccountRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &[account_owned_by_other],
+            &owner_did_bytes,
+        )
+        .unwrap();
+        assert_noop!(
+            Pallet::<Runtime>::register_accounts(
+                RawOrigin::Signed(owner.clone()).into(),
+                account_registration,
+            ),
+            Error::<Runtime>::NotAccountOwner
+        );
+
+        let topup_keys = AccountKeys::from_seed("TopupAccountOwnedByOther").unwrap();
+        let (_, fee_state) = FeeAccountRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &topup_keys.acct,
+            FEE_ASSET_ID,
+            100,
+            &other_did_bytes,
+        )
+        .unwrap();
+        let mut fee_tree =
+            ProverCurveTree::<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>::new(1)
+                .unwrap();
+        fee_tree.set_block_number(1).unwrap();
+        fee_tree
+            .insert(
+                fee_state
+                    .current_commitment()
+                    .unwrap()
+                    .as_leaf_value()
+                    .unwrap(),
+            )
+            .unwrap();
+        fee_tree.store_root().unwrap();
+        let mut topups = [(&topup_keys.acct, 1, fee_state)];
+        let topup = BatchedFeeAccountTopupProof::<PolymeshLimits>::new(
+            &mut rng,
+            &mut topups,
+            &[],
+            &fee_tree,
+        )
+        .unwrap();
+
+        FeeAccountDid::<Runtime>::insert(&topup_keys.acct.public, other_did);
+        assert_noop!(
+            Pallet::<Runtime>::topup_fee_accounts(RawOrigin::Signed(owner).into(), topup,),
+            Error::<Runtime>::NotAccountOwner
         );
     });
 }
