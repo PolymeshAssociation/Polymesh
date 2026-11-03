@@ -716,12 +716,13 @@ impl<T: Config<I>, I: 'static> ChangeMembers<IdentityId> for Pallet<T, I> {
         <Members<T, I>>::put(new);
 
         // Remove accounts from all current voting in motions.
+        // NOTE: every outgoing member's vote must be removed, so don't short-circuit.
         Proposals::<T, I>::get()
             .into_iter()
             .filter(|proposal| {
-                outgoing
-                    .iter()
-                    .any(|id| Self::remove_vote_from(*id, *proposal))
+                outgoing.iter().fold(false, |removed, id| {
+                    Self::remove_vote_from(*id, *proposal) | removed
+                })
             })
             .for_each(|proposal| Self::execute_if_passed(None, proposal));
 

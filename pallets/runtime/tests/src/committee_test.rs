@@ -671,6 +671,52 @@ fn mesh_1065_regression_test() {
 }
 
 #[test]
+fn removing_multiple_members_retracts_all_their_votes() {
+    ExtBuilder::default()
+        .governance_committee_vote_threshold((1, 1))
+        .build()
+        .execute_with(removing_multiple_members_retracts_all_their_votes_we);
+}
+
+fn removing_multiple_members_retracts_all_their_votes_we() {
+    System::set_block_number(1);
+
+    let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+    let bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+    let charlie_signer = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+    let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
+    let dave_did = register_keyring_account(Sr25519Keyring::Dave).unwrap();
+    set_members(vec![alice_did, bob_did, charlie_did, dave_did]);
+    assert_mem_len(4);
+
+    let hash = hash_enact_snapshot_results();
+    let ayes = || {
+        let mut ayes = Voting::<TestStorage, committee::Instance1>::get(&hash)
+            .expect("motion should still be open")
+            .ayes;
+        ayes.sort();
+        ayes
+    };
+
+    // Bob and Charlie both vote for the same motion.
+    assert_ok!(vote(&bob_signer, true));
+    assert_ok!(vote(&charlie_signer, true));
+    let mut expected = vec![bob_did, charlie_did];
+    expected.sort();
+    assert_eq!(ayes(), expected);
+
+    // Remove Bob and Charlie in a single membership change.
+    set_members(vec![alice_did, dave_did]);
+    assert_mem_len(2);
+    assert_mem(bob_did, false);
+    assert_mem(charlie_did, false);
+
+    // Both outgoing members' votes must be retracted, not only the first one.
+    assert_eq!(ayes(), Vec::<IdentityId>::new());
+}
+
+#[test]
 fn expiry_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
