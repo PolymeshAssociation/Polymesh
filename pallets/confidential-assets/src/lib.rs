@@ -1058,7 +1058,7 @@ pub mod pallet {
     pub(super) type Decimals<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, u8, OptionQuery>;
 
-    /// Mapping of asset owner to their assets.
+    /// Client-facing index of the confidential assets owned by each identity.
     #[pallet::storage]
     pub(super) type OwnerAssets<T: Config> = StorageNMap<
         _,
@@ -1494,10 +1494,7 @@ pub mod pallet {
             // Ensure the accounts haven't already been registered.
             for account in &proof.accounts {
                 if let Some(fee_account_did) = FeeAccountDid::<T>::get(&account.acct) {
-                    ensure!(
-                        fee_account_did == caller_did,
-                        Error::<T>::NotAccountOwner
-                    );
+                    ensure!(fee_account_did == caller_did, Error::<T>::NotAccountOwner);
                 }
                 // Ensure the dart account doesn't exist.
                 ensure!(
