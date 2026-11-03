@@ -53,6 +53,103 @@ mod confidential_assets_tests {
 
     #[tokio::test]
     #[test_log::test]
+    async fn mediated_mixed_visibility_settlement_finalizes_and_prunes_legs() -> Result<()> {
+        let tester = DartAssetTester::init(&[
+            "FinalizeAuditor",
+            "FinalizeMediator",
+            "FinalizeIssuer",
+            "FinalizeHiddenReceiver",
+            "FinalizeRevealedReceiver",
+            "FinalizeVenue",
+        ])
+        .await?;
+        let auditor = tester.user("FinalizeAuditor").await;
+        let mediator = tester.user("FinalizeMediator").await;
+        let issuer = tester.user("FinalizeIssuer").await;
+        let hidden_receiver = tester.user("FinalizeHiddenReceiver").await;
+        let revealed_receiver = tester.user("FinalizeRevealedReceiver").await;
+        let venue = tester.user("FinalizeVenue").await;
+
+        let asset = tester
+            .create_asset(
+                &issuer,
+                "Mixed Visibility Finalization",
+                &[&mediator],
+                &[&auditor],
+                Some(1_000),
+            )
+            .await?;
+        hidden_receiver.register_account().await?;
+        hidden_receiver.register_account_asset(asset.id).await?;
+        revealed_receiver.register_account().await?;
+        revealed_receiver.register_account_asset(asset.id).await?;
+
+        let settlement = DartSettlementState::new(
+            &tester,
+            &venue,
+            &[
+                DartLeg {
+                    sender: issuer.clone(),
+                    receiver: hidden_receiver,
+                    asset_id: asset.id,
+                    amount: 100,
+                    config: Default::default(),
+                },
+                DartLeg {
+                    sender: issuer.clone(),
+                    receiver: revealed_receiver,
+                    asset_id: asset.id,
+                    amount: 100,
+                    config: LegConfig {
+                        reveal_asset_id: true,
+                        ..Default::default()
+                    },
+                },
+            ],
+            Some(b"Mixed visibility finalization"),
+        )
+        .await?;
+
+        let hidden_leg = tester
+            .get_settlement_leg(settlement.legs[0].leg_ref)
+            .await?
+            .expect("hidden settlement leg should exist before finalization");
+        assert!(!hidden_leg.is_asset_id_revealed()?);
+        let revealed_leg = tester
+            .get_settlement_leg(settlement.legs[1].leg_ref)
+            .await?
+            .expect("revealed settlement leg should exist before finalization");
+        assert!(revealed_leg.is_asset_id_revealed()?);
+
+        settlement.senders_affirm_legs(&tester).await?;
+        settlement.receivers_affirm_legs(&tester).await?;
+        settlement.mediators_affirm_legs(&tester, true).await?;
+        for leg in &settlement.legs {
+            leg.sender
+                .sender_counter_update(&tester, leg.leg_ref)
+                .await?;
+        }
+        settlement.receivers_claim_assets(&tester).await?;
+
+        let api = tester.api().await;
+        let status = api
+            .query()
+            .confidential_assets()
+            .settlement_state(to_scale(&settlement.settlement_ref))
+            .await?;
+        assert!(matches!(
+            status,
+            Some(polymesh_api::types::pallet_confidential_assets::settlement::SettlementStatus::Finalized)
+        ));
+        for leg in &settlement.legs {
+            assert!(tester.get_settlement_leg(leg.leg_ref).await?.is_none());
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
     async fn simple_dart_funding_instant_settlement() -> Result<()> {
         const NUM_ASSETS: usize = 5;
         let mut names = vec!["Auditor1".to_string()];
