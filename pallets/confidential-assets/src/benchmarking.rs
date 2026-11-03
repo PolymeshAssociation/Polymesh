@@ -608,6 +608,7 @@ benchmarks! {
 
         // Generate the settlement proof.
         let req = GenerateDartProofRequest::CreateSettlement {
+            ctx: None,
             paths: MultiLeafPathAndRoot::from_paths(paths).expect("Failed to create MultiLeafPathAndRoot"),
             settlement,
         };

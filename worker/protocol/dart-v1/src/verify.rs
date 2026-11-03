@@ -26,6 +26,7 @@ use polymesh_worker_common::{ProtocolError, WorkSeed, WorkerSessionId};
 use crate::{AccountTreeRoot, AssetTreeRoot, Did, Error, FeeAccountTreeRoot};
 
 /// Verify DART asset proof request.
+/// Optional context bytes are opaque to the protocol; `None` means no context.
 #[derive(Encode, Decode, Clone)]
 pub enum VerifyDartAssetRequest {
     AccountRegistration {
@@ -47,41 +48,49 @@ pub enum VerifyDartAssetRequest {
         proof: AssetMintingProof<PolymeshLimits>,
     },
     CreateSettlement {
+        ctx: Option<Vec<u8>>,
         root: AssetTreeRoot,
         asset_lookup: AssetKeysLookup,
         proof: SettlementProof<PolymeshLimits>,
     },
     SenderAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: SenderAffirmationProof<PolymeshLimits>,
     },
     ReceiverAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: ReceiverAffirmationProof<PolymeshLimits>,
     },
     MediatorAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         mediator: Option<AccountPublicKey>,
         proof: MediatorAffirmationProof<PolymeshLimits>,
     },
     SenderCounterUpdate {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: SenderCounterUpdateProof<PolymeshLimits>,
     },
     SenderRevertAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
     },
     ReceiverRevertAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
     },
     ReceiverClaim {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: ReceiverClaimProof<PolymeshLimits>,
@@ -110,11 +119,13 @@ pub enum VerifyDartAssetRequest {
         proof: FeeAccountPaymentProof<PolymeshLimits>,
     },
     InstantSenderAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: InstantSenderAffirmationProof<PolymeshLimits>,
     },
     InstantReceiverAffirmation {
+        ctx: Option<Vec<u8>>,
         leg_enc: LegEncrypted,
         root: AccountTreeRoot,
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
@@ -159,91 +170,147 @@ impl VerifyDartAssetRequest {
                 proof.verify(did, root, &mut rng)?;
             }
             Self::CreateSettlement {
+                ctx,
                 root,
                 asset_lookup,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.batched_verify(root, &asset_lookup, &mut rng)?;
+                let context = ctx.as_deref().unwrap_or_default();
+                if proof.legs.len() < 2 {
+                    proof.verify_with_context(context, root, &asset_lookup, &mut rng)?;
+                } else {
+                    proof.batched_verify_with_context(context, root, &asset_lookup, &mut rng)?;
+                }
             }
             Self::SenderAffirmation {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::ReceiverAffirmation {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::InstantSenderAffirmation {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::InstantReceiverAffirmation {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::MediatorAffirmation {
+                ctx,
                 leg_enc,
                 mediator: None,
                 proof,
             } => {
                 let med_enc = leg_enc.mediator_encryption(proof.key_index)?;
-                proof.verify(&med_enc)?;
+                proof.verify_with_context(ctx.as_deref().unwrap_or_default(), &med_enc)?;
             }
             Self::MediatorAffirmation {
+                ctx,
                 leg_enc: _,
                 mediator: Some(mediator),
                 proof,
             } => {
-                proof.verify_revealed(mediator)?;
+                proof.verify_revealed_with_context(ctx.as_deref().unwrap_or_default(), mediator)?;
             }
             Self::SenderCounterUpdate {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::SenderRevertAffirmation {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::ReceiverRevertAffirmation {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::ReceiverClaim {
+                ctx,
                 leg_enc,
                 root,
                 proof,
             } => {
                 let mut rng = Rng::from_seed(seed);
-                proof.verify(&leg_enc, root, &mut rng)?;
+                proof.verify_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &leg_enc,
+                    root,
+                    &mut rng,
+                )?;
             }
             Self::FeeAccountRegistration { did, proof } => {
                 proof.verify(did)?;

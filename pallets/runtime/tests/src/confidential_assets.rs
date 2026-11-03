@@ -251,3 +251,210 @@ fn confidential_assets_frozen_revealed_lookup_rejected() {
         ));
     });
 }
+
+fn submission_settlement(
+    context: &[u8],
+    legs: usize,
+    revealed: bool,
+) -> polymesh_dart::SettlementProof<PolymeshLimits> {
+    use polymesh_dart::{
+        curve_tree::{AssetTreeConfig, ProverCurveTree},
+        LegBuilder, LegConfig, SettlementBuilder, ASSET_TREE_L, ASSET_TREE_M,
+    };
+    let sender = AccountKeys::from_seed("SubmissionSender").unwrap();
+    let receiver = AccountKeys::from_seed("SubmissionReceiver").unwrap();
+    let asset = AssetState::new::<()>(0, &[], &[]).unwrap();
+    Keys::<Runtime>::insert(0, &asset.keys);
+    let mut tree = ProverCurveTree::<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>::new(1).unwrap();
+    tree.set_block_number(1).unwrap();
+    tree.insert(asset.commitment().unwrap()).unwrap();
+    tree.store_root().unwrap();
+    Pallet::<Runtime>::store_asset_curve_tree_root(
+        pallet_confidential_assets::TimestampedTreeRoot::new(tree.root().unwrap()),
+    );
+    let mut builder = SettlementBuilder::<PolymeshLimits>::new(b"SubmissionContext");
+    for _ in 0..legs {
+        builder.add_leg(LegBuilder {
+            sender: sender.public_keys(),
+            receiver: receiver.public_keys(),
+            asset: asset.clone(),
+            amount: 1,
+            config: LegConfig {
+                reveal_asset_id: revealed,
+                ..Default::default()
+            },
+            public_enc_keys: vec![],
+        });
+    }
+    builder
+        .encrypt_and_prove_with_context(context, &mut thread_rng(), &tree)
+        .unwrap()
+}
+
+#[test]
+fn confidential_assets_ordinary_submission_context() {
+    use polymesh_dart::{BatchedProof, BatchedProofs, FeeAccountState};
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        let account = AccountId::new([72; 32]);
+        let ordinary = submission_settlement(&[], 1, false);
+        assert_ok!(Pallet::<Runtime>::create_settlement(
+            RawOrigin::Signed(account.clone()).into(),
+            ordinary,
+        ));
+        let ordinary = submission_settlement(&[], 2, false);
+        let batch = BatchedProofs {
+            proofs: vec![BatchedProof::CreateSettlement(ordinary)]
+                .try_into()
+                .unwrap(),
+        };
+        assert_ok!(Pallet::<Runtime>::submit_batched_proofs(
+            RawOrigin::Signed(account.clone()).into(),
+            batch,
+        ));
+        let keys = AccountKeys::from_seed("SubmissionFee").unwrap();
+        let fee_state = FeeAccountState::new(&mut thread_rng(), &keys.acct.public, 0, 100).unwrap();
+        let context =
+            polymesh_dart::relayer_batch_proof_context(&fee_state.nullifier().unwrap());
+        let bound = submission_settlement(&context, 1, false);
+        assert_noop!(
+            Pallet::<Runtime>::create_settlement(
+                RawOrigin::Signed(account.clone()).into(),
+                bound.clone(),
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+        let batch = BatchedProofs {
+            proofs: vec![BatchedProof::CreateSettlement(bound)]
+                .try_into()
+                .unwrap(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::submit_batched_proofs(RawOrigin::Signed(account).into(), batch),
+            Error::<Runtime>::InvalidProof
+        );
+    });
+}
+
+#[test]
+fn confidential_assets_relayer_context_and_payment_persistence() {
+    use codec::Encode;
+    use frame_support::traits::Currency;
+    use polymesh_dart::{
+        curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
+        BatchedProof, BatchedProofs, FeeAccountRegistrationProof, FeePaymentWithBatchedProofs,
+        FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
+    };
+
+    for (broadcast, invalid_batch, legs, revealed) in [
+        (true, false, 1, false),
+        (false, false, 2, false),
+        (false, false, 1, true),
+        (true, false, 2, true),
+        (false, true, 1, false),
+    ] {
+        ExtBuilder::default().build().execute_with(|| {
+            frame_system::Pallet::<Runtime>::set_block_number(1);
+            let mut rng = thread_rng();
+            let keys = AccountKeys::from_seed("RelayerContextFee").unwrap();
+            let (_, mut fee_state) = FeeAccountRegistrationProof::<PolymeshLimits>::new(
+                &mut rng,
+                &keys.acct,
+                FEE_ASSET_ID,
+                10_000_000,
+                &[0; 32],
+            )
+            .unwrap();
+            let context = polymesh_dart::relayer_batch_proof_context(
+                &fee_state.current_state.nullifier().unwrap(),
+            );
+            let settlement = submission_settlement(&context, legs, revealed);
+            let settlement_ref = settlement.settlement_ref();
+            let mut proofs = vec![BatchedProof::CreateSettlement(settlement.clone())];
+            if invalid_batch {
+                proofs.push(BatchedProof::CreateSettlement(settlement));
+            }
+            let batch = BatchedProofs::<PolymeshLimits> {
+                proofs: proofs.try_into().unwrap(),
+            };
+            let mut tree = ProverCurveTree::<
+                FEE_ACCOUNT_TREE_L,
+                FEE_ACCOUNT_TREE_M,
+                FeeAccountTreeConfig,
+            >::new(1)
+            .unwrap();
+            tree.set_block_number(1).unwrap();
+            tree.insert(
+                fee_state
+                    .current_commitment()
+                    .unwrap()
+                    .as_leaf_value()
+                    .unwrap(),
+            )
+            .unwrap();
+            tree.store_root().unwrap();
+            Pallet::<Runtime>::store_fee_account_curve_tree_root(
+                pallet_confidential_assets::TimestampedTreeRoot::new(tree.root().unwrap()),
+            );
+            let relayer = AccountId::new([73; 32]);
+            let target = (!broadcast).then(|| relayer.encode());
+            let payment = FeePaymentWithBatchedProofs::new(
+                &mut rng,
+                &keys.acct,
+                batch,
+                &mut fee_state,
+                target.as_deref(),
+                1_000_000,
+                &tree,
+            )
+            .unwrap();
+            assert_eq!(
+                context,
+                polymesh_dart::relayer_batch_proof_context(&payment.fee_payment.nullifier)
+            );
+            let batch_hash = payment.fee_payment_ctx(target.as_deref());
+            let nullifier = payment.fee_payment.nullifier;
+            let _ = pallet_balances::Pallet::<Runtime>::make_free_balance_be(
+                &Pallet::<Runtime>::fee_account_id(),
+                10_000_000,
+            );
+            let before = pallet_balances::Pallet::<Runtime>::free_balance(&relayer);
+            let post = Pallet::<Runtime>::relayer_submit_batched_proofs(
+                RawOrigin::Signed(relayer.clone()).into(),
+                payment.clone(),
+            )
+            .unwrap();
+            assert_eq!(post.actual_weight, None);
+            assert_eq!(
+                pallet_balances::Pallet::<Runtime>::free_balance(&relayer),
+                before + 1_000_000
+            );
+            let result = if invalid_batch {
+                Err(Error::<Runtime>::SettlementAlreadyExists.into())
+            } else {
+                Ok(())
+            };
+            frame_system::Pallet::<Runtime>::assert_last_event(
+                pallet_confidential_assets::Event::<Runtime>::RelayerBatchedProofs {
+                    relayer: relayer.clone(),
+                    batch_hash,
+                    amount: 1_000_000,
+                    batch_result: result,
+                }
+                .into(),
+            );
+            assert!(matches!(
+                Pallet::<Runtime>::ensure_settlement_finalized(settlement_ref),
+                Err(error) if error == if invalid_batch {
+                    Error::<Runtime>::SettlementNotFound.into()
+                } else {
+                    Error::<Runtime>::SettlementNotExecuted.into()
+                }
+            ));
+            assert!(matches!(
+                Pallet::<Runtime>::ensure_fee_account_state_nullifier_unique(&nullifier),
+                Err(Error::<Runtime>::NullifierAlreadyUsed)
+            ));
+        });
+    }
+}

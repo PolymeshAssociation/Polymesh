@@ -195,6 +195,50 @@ privacy:
 
 This decouples the fee-paying origin from sender/receiver/mediator identities.
 
+### Proof submission binding
+
+Every proof in a relayer batch, including settlement creation and all nested instant-settlement
+proofs, is verified with context bytes selected by the pallet. The runtime derives the context
+from the enclosing fee-payment proof's nullifier before moving that proof, and processes
+the batch only after payment verification succeeds. Direct extrinsics, direct composite
+settlements, and ordinary `submit_batched_proofs` all select `None` internally. Callers
+cannot supply a dispatch-level context or override the fee nullifier. Verification never
+falls back from relayer context to ordinary verification.
+
+The DART v1 protocol accepts an opaque `ctx: Option<Vec<u8>>` for affected verification and
+generation requests. `None` passes an empty slice to DART, just like `Some(Vec::new())`.
+The protocol does not interpret the context. The shared
+`polymesh_dart::relayer_batch_proof_context` defines the client/verifier bytes. Pallet handlers
+borrow these bytes as `Option<&Vec<u8>>` and clone them into owned worker requests:
+
+- Ordinary: `None` (empty bytes), preserving existing ordinary proof transcripts.
+- Relayer batch: `Some` containing the SCALE encoding of
+  `(b"polymesh/dart/submission/v1".as_slice(), 1u8, fee_nullifier)`. The domain slice has a
+  SCALE length prefix; the nullifier uses its canonical SCALE encoding. No extra batch envelope
+  is required.
+
+DART's `*_with_context` APIs compose these bytes with the existing operation-specific context,
+including settlement memo/root/leg digest/index and affirmation leg references. The worker
+request includes the optional context bytes, so request/cache hashes distinguish ordinary submissions
+and different fee nullifiers. Settlement verification uses `verify_with_context` for fewer
+than two legs: the local DART API's batched single-leg shortcut currently drops the context.
+Multi-leg verification retains the optimized `batched_verify_with_context` path.
+
+Clients must top up/select the fee state first, snapshot its current-state nullifier, generate
+every batch proof with that context, assemble the ordered batch, and then generate the payment
+from the same fee state. Integration builders check the state has not advanced and the completed
+payment uses the snapshotted nullifier. Instant-settlement participants use the venue's context,
+not their own fee accounts. Existing complete-batch ordering/content and broadcast/target fee
+commitments remain unchanged. Failed batches retain payment, reimbursement, and the consumed
+fee nullifier; successful fee verification followed by batch failure does not reduce the
+declared call weight to a processed prefix.
+
+This changes the undeployed DART v1 worker request ABI without bumping its `1.0.0` version.
+Matching native, PolkaVM, WASM, and testing modules must be rebuilt together before deploying v1.
+DART v0 dependencies and historical modules are unchanged. No pallet storage layout or
+extrinsic/proof payload change is introduced. Full confidential-asset benchmarks, refreshed
+weights/fee measurements, and live worker differential tests remain deployment gates.
+
 ## 6. Curve trees, roots & the worker engine
 
 - Trees are recomputed **once per block**: extrinsics only append leaves; `on_finalize` commits
@@ -233,8 +277,9 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
       premature execute/finalize.
 - [ ] Fee-pool solvency: pool balance must always cover Σ outstanding private fee balances
       (deposits on register/topup; withdrawals only via verified payment proofs).
-- [ ] Proof context binding: batched proofs bind to content hash (`fee_payment_ctx`), settlement
-      proofs bind to root_block — never verify a proof without its binding context.
+- [ ] Proof context binding: fee payments bind to the complete batch and target
+  (`fee_payment_ctx`); every relayer-batch proof additionally binds to that payment's
+  spent-state nullifier. Preserve settlement/leg bindings and never retry in ordinary mode.
 - [ ] Worker sessions are scoped to the runtime call (host `WorkerSessionExt`); an unknown
       session id makes requests fall back to runtime execution. Upgrading the worker protocol
       blob is consensus-critical.

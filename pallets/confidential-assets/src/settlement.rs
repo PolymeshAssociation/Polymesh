@@ -241,6 +241,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: SenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         self.ensure_pending()?;
 
@@ -249,6 +250,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::SenderAffirmation {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -265,6 +267,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: ReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         self.ensure_pending()?;
 
@@ -273,6 +276,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::ReceiverAffirmation {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -288,6 +292,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: InstantSenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         self.ensure_pending()?;
 
@@ -296,6 +301,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::InstantSenderAffirmation {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -312,6 +318,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: InstantReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         self.ensure_pending()?;
 
@@ -320,6 +327,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::InstantReceiverAffirmation {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -334,6 +342,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     pub fn mediator_affirmation(
         &self,
         proof: MediatorAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         self.ensure_pending()?;
 
@@ -360,6 +369,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::MediatorAffirmation {
+            ctx: ctx.cloned(),
             leg_enc,
             mediator,
             proof,
@@ -379,6 +389,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: SenderCounterUpdateProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         // The sender can only update the counter if the settlement has been executed.
         ensure!(
@@ -391,6 +402,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::SenderCounterUpdate {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -408,6 +420,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: SenderRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let status = self.status;
         // The sender can only reverse if the settlement has been rejected or is still pending.
@@ -421,6 +434,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::SenderRevertAffirmation {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -443,6 +457,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: ReceiverRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let status = self.status;
         // The receiver can only reverse if the settlement has been rejected or is still pending.
@@ -456,6 +471,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::ReceiverRevertAffirmation {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),
@@ -476,6 +492,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
         &self,
         proof: ReceiverClaimProof<PolymeshLimits, AccountTreeConfig>,
         root: AccountTreeRoot,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         // The receiver can only claim if the settlement has been executed.
         ensure!(
@@ -488,6 +505,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
 
         // verify the proof.
         Pallet::<T>::submit_and_wait(VerifyDartAssetRequest::ReceiverClaim {
+            ctx: ctx.cloned(),
             leg_enc: self.get_leg()?,
             root,
             proof: proof.clone(),

@@ -235,6 +235,7 @@ pub fn main() {
         execute_work(
             "verify_sender_affirm_proof",
             DartWorkRequest::VerifyProof(VerifyDartAssetRequest::SenderAffirmation {
+                ctx: None,
                 proof,
                 leg_enc,
                 root,

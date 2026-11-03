@@ -63,10 +63,12 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     CreateSettlement {
+        ctx: Option<Vec<u8>>,
         paths: MultiLeafPathAndRoot<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>,
         settlement: SettlementBuilder<PolymeshLimits>,
     },
     SenderAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -75,6 +77,7 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     ReceiverAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -83,6 +86,7 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     MediatorAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -90,6 +94,7 @@ pub enum GenerateDartProofRequest {
         accept: bool,
     },
     ReceiverClaim {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -98,6 +103,7 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     SenderCounterUpdate {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -106,6 +112,7 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     SenderRevertAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -114,6 +121,7 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     ReceiverRevertAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -151,6 +159,7 @@ pub enum GenerateDartProofRequest {
         account_state: FeeAccountAssetState,
     },
     InstantSenderAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -159,6 +168,7 @@ pub enum GenerateDartProofRequest {
         account_state: AccountAssetState,
     },
     InstantReceiverAffirmation {
+        ctx: Option<Vec<u8>>,
         keys: AccountKeys,
         leg_ref: LegRef,
         leg_enc: LegEncrypted,
@@ -250,13 +260,19 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::CreateSettlement {
+                ctx,
                 paths,
                 settlement: builder,
             } => {
-                let proof = builder.encrypt_and_prove(&mut rng, paths)?;
+                let proof = builder.encrypt_and_prove_with_context(
+                    ctx.as_deref().unwrap_or_default(),
+                    &mut rng,
+                    paths,
+                )?;
                 Ok(GenerateDartProofResponse::CreateSettlement { proof })
             }
             Self::SenderAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -264,10 +280,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = SenderAffirmationProof::new(
+                let proof = SenderAffirmationProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     amount,
                     &leg_enc,
                     &mut account_state,
@@ -280,6 +297,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::ReceiverAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -287,10 +305,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = ReceiverAffirmationProof::new(
+                let proof = ReceiverAffirmationProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     &leg_enc,
                     amount,
                     &mut account_state,
@@ -303,6 +322,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::InstantSenderAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -310,10 +330,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = InstantSenderAffirmationProof::new(
+                let proof = InstantSenderAffirmationProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     amount,
                     &leg_enc,
                     &mut account_state,
@@ -326,6 +347,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::InstantReceiverAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -333,10 +355,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = InstantReceiverAffirmationProof::new(
+                let proof = InstantReceiverAffirmationProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     amount,
                     &leg_enc,
                     &mut account_state,
@@ -349,6 +372,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::MediatorAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -356,12 +380,19 @@ impl GenerateDartProofRequest {
                 accept,
             } => {
                 let med_enc = leg_enc.mediator_encryption(key_index)?;
-                let proof = MediatorAffirmationProof::new(
-                    &mut rng, &leg_ref, &med_enc, &keys, key_index, accept,
+                let proof = MediatorAffirmationProof::new_with_context(
+                    &mut rng,
+                    &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
+                    &med_enc,
+                    &keys,
+                    key_index,
+                    accept,
                 )?;
                 Ok(GenerateDartProofResponse::MediatorAffirmation { proof })
             }
             Self::ReceiverClaim {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -369,10 +400,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = ReceiverClaimProof::new(
+                let proof = ReceiverClaimProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     amount,
                     &leg_enc,
                     &mut account_state,
@@ -384,6 +416,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::SenderCounterUpdate {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -391,10 +424,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = SenderCounterUpdateProof::new(
+                let proof = SenderCounterUpdateProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     &leg_enc,
                     amount,
                     &mut account_state,
@@ -406,6 +440,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::SenderRevertAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -413,10 +448,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = SenderRevertAffirmationProof::new(
+                let proof = SenderRevertAffirmationProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     amount,
                     &leg_enc,
                     &mut account_state,
@@ -428,6 +464,7 @@ impl GenerateDartProofRequest {
                 })
             }
             Self::ReceiverRevertAffirmation {
+                ctx,
                 keys,
                 leg_ref,
                 leg_enc,
@@ -435,10 +472,11 @@ impl GenerateDartProofRequest {
                 path,
                 mut account_state,
             } => {
-                let proof = ReceiverRevertAffirmationProof::new(
+                let proof = ReceiverRevertAffirmationProof::new_with_context(
                     &mut rng,
                     &keys,
                     &leg_ref,
+                    ctx.as_deref().unwrap_or_default(),
                     &leg_enc,
                     amount,
                     &mut account_state,

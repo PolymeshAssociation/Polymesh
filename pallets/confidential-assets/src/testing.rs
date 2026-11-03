@@ -456,6 +456,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::SenderAffirmation {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             amount,
@@ -501,6 +502,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::InstantSenderAffirmation {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             amount,
@@ -565,6 +567,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::ReceiverAffirmation {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             leg_enc: leg_enc.clone(),
@@ -610,6 +613,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::InstantReceiverAffirmation {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             amount,
@@ -674,6 +678,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::ReceiverClaim {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             amount,
@@ -738,6 +743,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::SenderRevertAffirmation {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             amount,
@@ -802,6 +808,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::ReceiverRevertAffirmation {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             leg_enc: leg_enc.clone(),
@@ -866,6 +873,7 @@ impl<T: Config> DartUserInner<T> {
             .current_commitment()
             .expect("current commitment");
         let req = GenerateDartProofRequest::SenderCounterUpdate {
+            ctx: None,
             keys: self.keys.clone(),
             leg_ref,
             leg_enc: leg_enc.clone(),
@@ -929,6 +937,7 @@ impl<T: Config> DartUserInner<T> {
 
         // Generate the mediator affirmation proof.
         let req = GenerateDartProofRequest::MediatorAffirmation {
+            ctx: None,
             leg_ref,
             leg_enc: leg_enc.clone(),
             keys: self.keys.clone(),
@@ -1611,6 +1620,7 @@ impl<T: Config> DartSettlementState<T> {
             .expect("Failed to get path to leaf")])
         .expect("Failed to create MultiLeafPathAndRoot");
         let req = GenerateDartProofRequest::CreateSettlement {
+            ctx: None,
             paths,
             settlement: settlement,
         };

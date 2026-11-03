@@ -1,6 +1,7 @@
 use ark_ec::short_weierstrass::SWCurveConfig;
 use polymesh_api_tester::AccountId;
 use polymesh_dart::{
+    relayer_batch_proof_context,
     BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, FeeAccountAssetState,
     FeeAccountRegistrationProof, FeeAccountTopupProof, FeePaymentWithBatchedProofs,
     InstantSettlementLegAffirmations, LegConfig, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
@@ -493,6 +494,7 @@ pub struct DartProofSubmitter {
     account: AccountKeyPair,
     method: DartProofSubmissionMethod,
     fee_state: Option<DartUserFeeAccountAssetState>,
+    submission: Option<Vec<u8>>,
 }
 
 impl DartProofSubmitter {
@@ -505,6 +507,7 @@ impl DartProofSubmitter {
             account,
             method: DartProofSubmissionMethod::Direct,
             fee_state: None,
+            submission: None,
         }
     }
 
@@ -650,24 +653,39 @@ impl DartProofSubmitter {
         }
     }
 
+    pub async fn prepare_submission_context(
+        &mut self,
+    ) -> Result<Option<Vec<u8>>> {
+        if !self.method.is_relayer() {
+            return Ok(None);
+        }
+        if self.submission.is_some() {
+            return Ok(self.submission.clone());
+        }
+        self.fee_account_topup_if_needed(10_000_000, false).await?;
+        let fee_state = self.fee_state.as_ref().expect("Fee account initialized");
+        self.submission = Some(relayer_batch_proof_context(
+            &fee_state.fee_account_state.current_state.nullifier()?,
+        ));
+        Ok(self.submission.clone())
+    }
+
     pub async fn fee_payment_batch(
         &mut self,
         target: Option<AccountId>,
         batched: BatchedProofs<()>,
     ) -> Result<FeePaymentWithBatchedProofs<()>> {
-        // Fixed, conservative balance used only to decide whether the fee account needs a topup.
-        // The actual fee amount used for the payment proof below is always the Runtime API
-        // estimate, fetched at the same block as the fee account's curve tree path/root.
-        const FEE_TOPUP_CHECK_AMOUNT: DartBalance = 10_000_000;
-
-        // Topup our fee account if needed.
-        self.fee_account_topup_if_needed(FEE_TOPUP_CHECK_AMOUNT, false)
-            .await?;
-
+        let submission = self.submission.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("Prepare the fee submission context before generating batch proofs")
+        })?;
         let fee_state = self
             .fee_state
             .as_mut()
-            .expect("Shouldn't happen since we just topped up");
+            .ok_or_else(|| anyhow::anyhow!("Fee account has not been initialized"))?;
+        let current_submission = relayer_batch_proof_context(
+            &fee_state.fee_account_state.current_state.nullifier()?,
+        );
+        anyhow::ensure!(submission == &current_submission, "Fee state changed; regenerate batch proofs");
 
         // Lookup our current fee account state in the on-chain fee account curve tree. This
         // fixes the curve tree height/root that both the fee estimate below and the payment
@@ -692,7 +710,7 @@ impl DartProofSubmitter {
         // Generate fee payment proof.
         let mut rng = rand::thread_rng();
         let target = target.map(|acc| acc.encode());
-        Ok(FeePaymentWithBatchedProofs::new(
+        let payment = FeePaymentWithBatchedProofs::new(
             &mut rng,
             &self.account,
             batched,
@@ -700,7 +718,13 @@ impl DartProofSubmitter {
             target.as_deref(),
             tx_fee,
             &fee_account_lookup,
-        )?)
+        )?;
+        anyhow::ensure!(
+            submission == &relayer_batch_proof_context(&payment.fee_payment.nullifier),
+            "Fee payment nullifier does not match batch proofs"
+        );
+        self.submission = None;
+        Ok(payment)
     }
 
     pub async fn update_leaf_index(
@@ -945,6 +969,7 @@ pub struct DartUserInner {
     pub enc_registered: bool,
     pub assets: BTreeMap<DartAssetId, DartUserAccountAssetState>,
     pub submitter: DartProofSubmitter,
+    proof_submission: Option<Vec<u8>>,
 }
 
 impl DartUserInner {
@@ -961,6 +986,7 @@ impl DartUserInner {
             registered: false,
             enc_registered: false,
             assets: BTreeMap::new(),
+            proof_submission: None,
         }
     }
 
@@ -1302,6 +1328,13 @@ impl DartUserInner {
         Ok(())
     }
 
+    async fn proof_context(&mut self) -> Result<Vec<u8>> {
+        if let Some(context) = &self.proof_submission {
+            return Ok(context.clone());
+        }
+        Ok(self.submitter.prepare_submission_context().await?.unwrap_or_default())
+    }
+
     pub async fn sender_affirmation_proof(
         &mut self,
         tester: &DartAssetTester,
@@ -1310,6 +1343,7 @@ impl DartUserInner {
         asset_id: DartAssetId,
         amount: DartBalance,
     ) -> Result<SenderAffirmationProof> {
+        let context = self.proof_context().await?;
         // Try to decrypt the leg as the sender
         let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
 
@@ -1337,10 +1371,11 @@ impl DartUserInner {
         // Generate sender affirmation proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            SenderAffirmationProof::new(
+            SenderAffirmationProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 amount,
                 &leg_enc,
                 asset_state.as_mut(),
@@ -1359,6 +1394,7 @@ impl DartUserInner {
         asset_id: DartAssetId,
         amount: DartBalance,
     ) -> Result<ReceiverAffirmationProof> {
+        let context = self.proof_context().await?;
         // Try to decrypt the leg as the receiver
         let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
 
@@ -1386,10 +1422,11 @@ impl DartUserInner {
         // Generate receiver affirmation proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            ReceiverAffirmationProof::new(
+            ReceiverAffirmationProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 &leg_enc,
                 amount,
                 asset_state.as_mut(),
@@ -1470,6 +1507,7 @@ impl DartUserInner {
         asset_id: DartAssetId,
         amount: DartBalance,
     ) -> Result<InstantSenderAffirmationProof> {
+        let context = self.proof_context().await?;
         // Try to decrypt the leg as the sender
         let leg = leg_enc.decrypt(LegRole::sender(), &self.keys)?;
 
@@ -1497,10 +1535,11 @@ impl DartUserInner {
         // Generate sender affirmation proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            InstantSenderAffirmationProof::new(
+            InstantSenderAffirmationProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 amount,
                 &leg_enc,
                 asset_state.as_mut(),
@@ -1519,6 +1558,7 @@ impl DartUserInner {
         asset_id: DartAssetId,
         amount: DartBalance,
     ) -> Result<InstantReceiverAffirmationProof> {
+        let context = self.proof_context().await?;
         // Try to decrypt the leg as the receiver
         let leg = leg_enc.decrypt(LegRole::receiver(), &self.keys)?;
 
@@ -1546,10 +1586,11 @@ impl DartUserInner {
         // Generate receiver affirmation proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            InstantReceiverAffirmationProof::new(
+            InstantReceiverAffirmationProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 amount,
                 &leg_enc,
                 asset_state.as_mut(),
@@ -1630,6 +1671,7 @@ impl DartUserInner {
         accept: bool,
         asset_and_amount: Option<(DartAssetId, DartBalance)>,
     ) -> Result<MediatorAffirmationProof> {
+        let context = self.proof_context().await?;
         let asset_id = asset_and_amount.map(|(asset_id, _)| asset_id);
         let amount = asset_and_amount.map(|(_, amount)| amount);
         // Get the encrypted settlement leg from the chain.
@@ -1664,9 +1706,10 @@ impl DartUserInner {
         if leg_enc.is_asset_id_revealed()? {
             // Generate mediator affirmation proof.
             let mut rng = rand::thread_rng();
-            Ok(MediatorAffirmationProof::new_revealed(
+            Ok(MediatorAffirmationProof::new_revealed_with_context(
                 &mut rng,
                 &leg_ref,
+                &context,
                 &self.keys,
                 mediator_id,
                 accept,
@@ -1675,9 +1718,10 @@ impl DartUserInner {
             // Generate mediator affirmation proof.
             let mut rng = rand::thread_rng();
             let med_enc = leg_enc.mediator_encryption(mediator_id)?;
-            Ok(MediatorAffirmationProof::new(
+            Ok(MediatorAffirmationProof::new_with_context(
                 &mut rng,
                 &leg_ref,
+                &context,
                 &med_enc,
                 &self.keys,
                 mediator_id,
@@ -1722,6 +1766,7 @@ impl DartUserInner {
         tester: &DartAssetTester,
         leg_ref: LegRef,
     ) -> Result<()> {
+        let context = self.proof_context().await?;
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1746,10 +1791,11 @@ impl DartUserInner {
         // Generate receiver claim proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            ReceiverClaimProof::new(
+            ReceiverClaimProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 amount,
                 &leg_enc,
                 asset_state.as_mut(),
@@ -1776,6 +1822,7 @@ impl DartUserInner {
         tester: &DartAssetTester,
         leg_ref: LegRef,
     ) -> Result<()> {
+        let context = self.proof_context().await?;
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1799,10 +1846,11 @@ impl DartUserInner {
         // Generate sender counter update proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            SenderCounterUpdateProof::new(
+            SenderCounterUpdateProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 &leg_enc,
                 amount,
                 asset_state.as_mut(),
@@ -1829,6 +1877,7 @@ impl DartUserInner {
         tester: &DartAssetTester,
         leg_ref: LegRef,
     ) -> Result<()> {
+        let context = self.proof_context().await?;
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1853,10 +1902,11 @@ impl DartUserInner {
         // Generate sender revert proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            SenderRevertAffirmationProof::new(
+            SenderRevertAffirmationProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 amount,
                 &leg_enc,
                 asset_state.as_mut(),
@@ -1883,6 +1933,7 @@ impl DartUserInner {
         tester: &DartAssetTester,
         leg_ref: LegRef,
     ) -> Result<()> {
+        let context = self.proof_context().await?;
         // Get the encrypted settlement leg from the chain.
         let leg_enc = tester
             .get_settlement_leg(leg_ref)
@@ -1907,10 +1958,11 @@ impl DartUserInner {
         // Generate receiver revert proof.
         let proof = {
             let mut rng = rand::thread_rng();
-            ReceiverRevertAffirmationProof::new(
+            ReceiverRevertAffirmationProof::new_with_context(
                 &mut rng,
                 &self.keys,
                 &leg_ref,
+                &context,
                 &leg_enc,
                 amount,
                 asset_state.as_mut(),
@@ -2977,6 +3029,8 @@ impl DartSettlementState {
         affirm_and_claim: bool,
         use_instant: bool,
     ) -> Result<Self> {
+        let context = venue.0.write().await.submitter.prepare_submission_context().await?
+            .unwrap_or_default();
         let asset_tree = tester.asset_tree().await;
         let block_number = asset_tree.get_block_number().await?;
         let root = asset_tree.fetch_root(Some(block_number)).await?;
@@ -3027,7 +3081,7 @@ impl DartSettlementState {
         // Create the settlement to transfer assets to all investors.
         let proof = {
             let mut rng = rand::thread_rng();
-            settlement.build(&mut rng)?
+            settlement.build_with_context(&context, &mut rng)?
         };
         let settlement_ref = proof.settlement_ref();
 
@@ -3046,21 +3100,40 @@ impl DartSettlementState {
                 let amount = leg_state.amount;
                 let leg_enc = leg.leg_enc();
                 // Sender instant affirmation proof.
-                let sender = leg_state
-                    .sender
-                    .instant_sender_affirmation_proof(tester, leg_ref, leg_enc, asset_id, amount)
-                    .await?;
+                let sender = {
+                    let mut sender = leg_state.sender.0.write().await;
+                    let previous = sender.proof_submission.replace(context.clone());
+                    let result = sender.instant_sender_affirmation_proof(
+                        tester, leg_ref, leg_enc, asset_id, amount,
+                    ).await;
+                    sender.proof_submission = previous;
+                    result?
+                };
                 // Receiver instant affirmation proof.
-                let receiver = leg_state
-                    .receiver
-                    .instant_receiver_affirmation_proof(tester, leg_ref, leg_enc, asset_id, amount)
-                    .await?;
+                let receiver = {
+                    let mut receiver = leg_state.receiver.0.write().await;
+                    let previous = receiver.proof_submission.replace(context.clone());
+                    let result = receiver.instant_receiver_affirmation_proof(
+                        tester, leg_ref, leg_enc, asset_id, amount,
+                    ).await;
+                    receiver.proof_submission = previous;
+                    result?
+                };
 
                 let mut mediators = Vec::new();
                 for (id, mediator) in leg_state.mediators.values().enumerate() {
-                    let mediator_proof = mediator
-                        .mediator_affirmation_proof(tester, leg_ref, id as _, true, None)
-                        .await?;
+                    let keys = mediator.0.read().await.keys.clone();
+                    let mut rng = rand::thread_rng();
+                    let mediator_proof = if leg_enc.is_asset_id_revealed()? {
+                        MediatorAffirmationProof::new_revealed_with_context(
+                            &mut rng, &leg_ref, &context, &keys, id as _, true,
+                        )?
+                    } else {
+                        let med_enc = leg_enc.mediator_encryption(id as _)?;
+                        MediatorAffirmationProof::new_with_context(
+                            &mut rng, &leg_ref, &context, &med_enc, &keys, id as _, true,
+                        )?
+                    };
                     mediators.push(mediator_proof);
                 }
 

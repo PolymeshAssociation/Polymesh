@@ -51,6 +51,7 @@ use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
 use polymesh_dart::{
+    relayer_batch_proof_context,
     AccountPublicKey, AccountRegistrationProof, AccountStateCommitment, AccountStateNullifier,
     AccountStateUpdate, AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
     BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
@@ -1762,7 +1763,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_create_settlement(proof)
+            Self::base_create_settlement(proof, None)
         }
 
         /// Sender affirms a settlement leg.
@@ -1785,7 +1786,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_sender_affirmation(proof)
+            Self::base_sender_affirmation(proof, None)
         }
 
         /// Receiver affirms a settlement leg.
@@ -1808,7 +1809,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_receiver_affirmation(proof)
+            Self::base_receiver_affirmation(proof, None)
         }
 
         /// Mediator affirms a settlement leg.
@@ -1832,7 +1833,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_mediator_affirmation(proof)
+            Self::base_mediator_affirmation(proof, None)
         }
 
         /// Sender updates their counter after a settlement has been executed.
@@ -1854,7 +1855,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_sender_update_counter(proof)
+            Self::base_sender_update_counter(proof, None)
         }
 
         /// Sender reverts their affirmation.
@@ -1876,7 +1877,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_sender_revert_affirmation(proof)
+            Self::base_sender_revert_affirmation(proof, None)
         }
 
         /// Receiver reverts their affirmation.
@@ -1898,7 +1899,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_receiver_revert_affirmation(proof)
+            Self::base_receiver_revert_affirmation(proof, None)
         }
 
         /// Receiver claims their assets after a settlement has been executed.
@@ -1920,7 +1921,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_receiver_claim(proof)
+            Self::base_receiver_claim(proof, None)
         }
 
         /// Create a settlement with batched leg affirmations.
@@ -1946,7 +1947,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_batched_settlement(proof)
+            Self::base_batched_settlement(proof, None)
         }
 
         /// Batch register multiple fee accounts.
@@ -2135,7 +2136,7 @@ pub mod pallet {
                 Error::<T>::TooManyProofs
             );
 
-            Self::process_batched_proofs(proof)
+            Self::process_batched_proofs(proof, None)
         }
 
         /// Relayer submit a batch of proofs paid using a private fee payment.
@@ -2186,7 +2187,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_execute_instant_settlement(proof)
+            Self::base_execute_instant_settlement(proof, None)
         }
 
         /// Sender affirms a settlement leg as the last pending affirmation.
@@ -2213,7 +2214,7 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             // Perform the base instant sender affirmation.
-            Self::base_instant_sender_affirmation(proof, true)
+            Self::base_instant_sender_affirmation(proof, true, None)
         }
 
         /// Receiver affirms a settlement leg as the last pending affirmation.
@@ -2240,7 +2241,7 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             // Perform the base instant receiver affirmation.
-            Self::base_instant_receiver_affirmation(proof, true)
+            Self::base_instant_receiver_affirmation(proof, true, None)
         }
 
         /// Set the required claim for a gated role (Root only).
@@ -2648,7 +2649,10 @@ impl<T: Config> Pallet<T> {
         Self::update_asset_leaf(caller_did, asset_id, &mediators, &auditors, false)
     }
 
-    pub fn base_create_settlement(proof: SettlementProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_create_settlement(
+        proof: SettlementProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> DispatchResult {
         let settlement_ref = proof.settlement_ref();
         #[cfg(not(feature = "runtime-benchmarks"))]
         {
@@ -2673,6 +2677,7 @@ impl<T: Config> Pallet<T> {
         // Verify the settlement proof.
         let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
+            ctx: ctx.cloned(),
             root,
             asset_lookup: asset_lookup.clone(),
             proof,
@@ -2753,6 +2758,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_batched_settlement(
         proof: BatchedSettlementProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
@@ -2761,15 +2767,15 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the settlement with the provided proof.
-        Self::base_create_settlement(proof.settlement)?;
+        Self::base_create_settlement(proof.settlement, ctx)?;
 
         // Handle the leg affirmations in the proof.
         for leg_affirmation in proof.leg_affirmations {
             if let Some(sender_proof) = leg_affirmation.sender {
-                Self::base_sender_affirmation(sender_proof)?;
+                Self::base_sender_affirmation(sender_proof, ctx)?;
             }
             if let Some(receiver_proof) = leg_affirmation.receiver {
-                Self::base_receiver_affirmation(receiver_proof)?;
+                Self::base_receiver_affirmation(receiver_proof, ctx)?;
             }
         }
 
@@ -2778,6 +2784,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         // Handle revealed asset ids, needed to check mediator affirmations in leg references.
         let asset_lookup = Self::get_asset_keys_lookup(proof.settlement.revealed_asset_ids())?;
@@ -2790,16 +2797,16 @@ impl<T: Config> Pallet<T> {
         let settlement_ref = proof.settlement.settlement_ref();
 
         // Create the settlement with the provided proof.
-        Self::base_create_settlement(proof.settlement)?;
+        Self::base_create_settlement(proof.settlement, ctx)?;
 
         // Handle the leg affirmations in the proof.
         for leg_affirmation in proof.leg_affirmations {
             // Process mediator affirmations first.
             for mediator in leg_affirmation.mediators {
-                Self::base_mediator_affirmation(mediator)?;
+                Self::base_mediator_affirmation(mediator, ctx)?;
             }
-            Self::base_instant_sender_affirmation(leg_affirmation.sender, false)?;
-            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false)?;
+            Self::base_instant_sender_affirmation(leg_affirmation.sender, false, ctx)?;
+            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false, ctx)?;
         }
 
         // Ensure that the settlement has executed and finalized.
@@ -2810,6 +2817,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_sender_affirmation(
         proof: SenderAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2818,7 +2826,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the sender affirmation proof and update the settlement and leg status.
-            update_settlement.sender_affirmation(proof, root)
+            update_settlement.sender_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the sender affirmation.
@@ -2829,6 +2837,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_receiver_affirmation(
         proof: ReceiverAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2837,7 +2846,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the receiver affirmation proof and update the settlement and leg status.
-            update_settlement.receiver_affirmation(proof, root)
+            update_settlement.receiver_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the receiver affirmation.
@@ -2849,6 +2858,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_instant_sender_affirmation(
         proof: InstantSenderAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let settlement_ref = leg_ref.settlement_ref();
@@ -2865,7 +2875,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the instant sender affirmation proof and update the settlement and leg status.
-            update_settlement.instant_sender_affirmation(proof, root)
+            update_settlement.instant_sender_affirmation(proof, root, ctx)
         })?;
 
         // If this is a normal settlement, ensure the settlement has executed.
@@ -2884,6 +2894,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_instant_receiver_affirmation(
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let settlement_ref = leg_ref.settlement_ref();
@@ -2900,7 +2911,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the instant receiver affirmation proof and update the settlement and leg status.
-            update_settlement.instant_receiver_affirmation(proof, root)
+            update_settlement.instant_receiver_affirmation(proof, root, ctx)
         })?;
 
         // For normal settlements, ensure the settlement has executed.
@@ -2953,6 +2964,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_mediator_affirmation(
         proof: MediatorAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let accept = proof.accept;
@@ -2961,7 +2973,7 @@ impl<T: Config> Pallet<T> {
         let update_settlement = UpdateSettlementStatus::<T>::new(leg_ref)?;
 
         // Verify the mediator affirmation proof and update the settlement and leg status.
-        update_settlement.mediator_affirmation(proof)?;
+        update_settlement.mediator_affirmation(proof, ctx)?;
 
         // Emit an event for the mediator affirmation.
         if accept {
@@ -2975,6 +2987,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_sender_update_counter(
         proof: SenderCounterUpdateProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2983,7 +2996,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the sender update proof and update the settlement and leg status.
-            update_settlement.sender_counter_update(proof, root)
+            update_settlement.sender_counter_update(proof, root, ctx)
         })?;
 
         // Emit an event for the sender update counter.
@@ -2994,6 +3007,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_sender_revert_affirmation(
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -3002,7 +3016,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the sender revert affirmation proof and update the settlement and leg status.
-            update_settlement.sender_revert_affirmation(proof, root)
+            update_settlement.sender_revert_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the sender revert affirmation.
@@ -3013,6 +3027,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_receiver_revert_affirmation(
         proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -3021,7 +3036,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the receiver revert affirmation proof and update the settlement and leg status.
-            update_settlement.receiver_revert_affirmation(proof, root)
+            update_settlement.receiver_revert_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the receiver revert affirmation.
@@ -3030,7 +3045,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_receiver_claim(proof: ReceiverClaimProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_receiver_claim(
+        proof: ReceiverClaimProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -3038,7 +3056,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the receiver claim proof and update the settlement and leg status.
-            update_settlement.receiver_claim(proof, root)
+            update_settlement.receiver_claim(proof, root, ctx)
         })?;
 
         // Emit an event for the receiver claim.
@@ -3074,6 +3092,8 @@ impl<T: Config> Pallet<T> {
             Some(relayer.encode())
         };
         let batch_hash = proof.fee_payment_ctx(target.as_deref());
+        let context = relayer_batch_proof_context(&proof.fee_payment.nullifier);
+        let ctx = Some(&context);
         let verify_res = Self::verify_fee_payment(relayer.clone(), batch_hash, proof.fee_payment);
 
         // If the fee payment verification fails, return an error but still charge the relayer for the verification cost.
@@ -3091,7 +3111,7 @@ impl<T: Config> Pallet<T> {
 
         // Process the batched Confidential proofs.  The proofs are processed inside of a transaction so that
         // if any proof fails, the entire batch is reverted (but the relayer is still paid).
-        let batch_result = Self::process_batched_proofs_atomic(proof.batched_proofs);
+        let batch_result = Self::process_batched_proofs_atomic(proof.batched_proofs, ctx);
 
         // Emit an event for the relayer batched proofs submission.
         Self::deposit_event(Event::<T>::RelayerBatchedProofs {
@@ -3188,10 +3208,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs inside a transaction.
-    pub fn process_batched_proofs_atomic(proof: BatchedProofs<PolymeshLimits>) -> DispatchResult {
+    pub fn process_batched_proofs_atomic(
+        proof: BatchedProofs<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> DispatchResult {
         use frame_support::storage::TransactionOutcome;
         frame_support::storage::with_transaction(|| {
-            let res = Self::process_batched_proofs(proof);
+            let res = Self::process_batched_proofs(proof, ctx);
             if res.is_ok() {
                 TransactionOutcome::Commit(res)
             } else {
@@ -3201,29 +3224,32 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs, this should be called inside a transaction.
-    pub fn process_batched_proofs(proof: BatchedProofs<PolymeshLimits>) -> DispatchResult {
+    pub fn process_batched_proofs(
+        proof: BatchedProofs<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> DispatchResult {
         for proof in proof.proofs {
             match proof {
-                BatchedProof::CreateSettlement(p) => Self::base_create_settlement(p)?,
-                BatchedProof::SenderAffirmation(p) => Self::base_sender_affirmation(p)?,
-                BatchedProof::ReceiverAffirmation(p) => Self::base_receiver_affirmation(p)?,
-                BatchedProof::MediatorAffirmation(p) => Self::base_mediator_affirmation(p)?,
-                BatchedProof::SenderCounterUpdate(p) => Self::base_sender_update_counter(p)?,
+                BatchedProof::CreateSettlement(p) => Self::base_create_settlement(p, ctx)?,
+                BatchedProof::SenderAffirmation(p) => Self::base_sender_affirmation(p, ctx)?,
+                BatchedProof::ReceiverAffirmation(p) => Self::base_receiver_affirmation(p, ctx)?,
+                BatchedProof::MediatorAffirmation(p) => Self::base_mediator_affirmation(p, ctx)?,
+                BatchedProof::SenderCounterUpdate(p) => Self::base_sender_update_counter(p, ctx)?,
                 BatchedProof::SenderRevertAffirmation(p) => {
-                    Self::base_sender_revert_affirmation(p)?
+                    Self::base_sender_revert_affirmation(p, ctx)?
                 }
                 BatchedProof::ReceiverRevertAffirmation(p) => {
-                    Self::base_receiver_revert_affirmation(p)?
+                    Self::base_receiver_revert_affirmation(p, ctx)?
                 }
-                BatchedProof::ReceiverClaim(p) => Self::base_receiver_claim(p)?,
+                BatchedProof::ReceiverClaim(p) => Self::base_receiver_claim(p, ctx)?,
                 BatchedProof::ExecuteInstantSettlement(p) => {
-                    Self::base_execute_instant_settlement(p)?
+                    Self::base_execute_instant_settlement(p, ctx)?
                 }
                 BatchedProof::InstantSenderAffirmation(p) => {
-                    Self::base_instant_sender_affirmation(p, true)?
+                    Self::base_instant_sender_affirmation(p, true, ctx)?
                 }
                 BatchedProof::InstantReceiverAffirmation(p) => {
-                    Self::base_instant_receiver_affirmation(p, true)?
+                    Self::base_instant_receiver_affirmation(p, true, ctx)?
                 }
             }
         }
@@ -3706,23 +3732,19 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn update_account_curve_tree_root() {
-        // Get the account curve tree.
-        let mut tree =
-            Self::get_account_curve_tree().expect("Account curve tree should be initialized; qed");
-
-        // Commit the delayed updates to the account curve tree.
-        tree.commit_leaves_to_tree()
-            .expect("Account curve tree should be able to commit leaves; qed");
+        let result = Self::get_account_curve_tree()
+            .and_then(|mut tree| tree.commit_leaves_to_tree().map(|_| ()));
+        if let Err(error) = result {
+            log::error!("Failed to commit account curve tree at block finalization: {error:?}");
+        }
     }
 
     pub fn update_fee_account_curve_tree_root() {
-        // Get the fee account curve tree.
-        let mut tree = Self::get_fee_account_curve_tree()
-            .expect("Fee Account curve tree should be initialized; qed");
-
-        // Commit the delayed updates to the account curve tree.
-        tree.commit_leaves_to_tree()
-            .expect("Fee Account curve tree should be able to commit leaves; qed");
+        let result = Self::get_fee_account_curve_tree()
+            .and_then(|mut tree| tree.commit_leaves_to_tree().map(|_| ()));
+        if let Err(error) = result {
+            log::error!("Failed to commit fee account curve tree at block finalization: {error:?}");
+        }
     }
 
     fn generate_and_save_dart_params() -> bool {
