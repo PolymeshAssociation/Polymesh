@@ -1610,6 +1610,7 @@ pub mod pallet {
         /// * `AssetMissing` if the Confidential asset is not registered.
         /// * `AccountAssetAlreadyRegistered` if the Confidential account has already registered the Confidential asset.
         /// * `NotAccountOwner` if the caller is not the owner of the Confidential account.
+        /// * `EncryptionKeyMismatch` if the proof key doesn't match the account's registered key.
         /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::register_account_assets_with_leaf(proof.len() as u32))]
@@ -1699,7 +1700,8 @@ pub mod pallet {
             proof: AssetMintingProof<PolymeshLimits>,
         ) -> DispatchResult {
             // Ensure the caller has the required permissions to mint the asset.
-            let caller_did = Self::ensure_dart_account_permissions(origin, &proof.pk)?;
+            let caller_did =
+                Self::ensure_dart_account_permissions(origin, &proof.pk, &proof.pk_enc)?;
 
             // Ensure the caller is the owner of the Confidential asset.
             let mut asset_details = Self::ensure_dart_asset_owner(caller_did, proof.asset_id)?;
@@ -3498,15 +3500,18 @@ impl<T: Config> Pallet<T> {
         Ok(asset_detail)
     }
 
-    /// Ensure the caller has the required permissions to access the Confidential account.
+    /// Ensure the caller owns the Confidential account and its registered encryption key.
     pub fn ensure_dart_account_permissions(
         origin: OriginFor<T>,
         account: &AccountPublicKey,
+        encryption: &EncryptionPublicKey,
     ) -> Result<IdentityId, DispatchError> {
         // Ensure the caller is allowed to make this call.
         let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
-        // Ensure the Confidential account is registered to the caller's identity.
-        Self::ensure_dart_account_owner(caller_did, account)?;
+        // Ensure the account and encryption key are registered together to the caller's identity.
+        let account_did =
+            Self::ensure_dart_account_and_encryption_key_registered(account, encryption)?;
+        ensure!(account_did == caller_did, Error::<T>::NotAccountOwner);
         // Return the caller's identity.
         Ok(caller_did)
     }
