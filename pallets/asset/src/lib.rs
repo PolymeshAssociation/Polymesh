@@ -1240,6 +1240,7 @@ pub mod pallet {
         /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
+        /// * `AssetMetadataValueIsEmpty` - If `details` lock an empty metadata value.
         #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::set_asset_metadata())]
         pub fn set_asset_metadata(
@@ -1306,6 +1307,7 @@ pub mod pallet {
         /// * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
+        /// * `AssetMetadataValueIsEmpty` - If `details` lock an empty metadata value.
         #[pallet::call_index(19)]
         #[pallet::weight(<T as Config>::WeightInfo::register_and_set_local_asset_metadata())]
         pub fn register_and_set_local_asset_metadata(
@@ -2643,8 +2645,10 @@ impl<T: AssetConfig> Pallet<T> {
 
         // Prevent locking an asset metadata with no value
         if detail.is_locked(<pallet_timestamp::Pallet<T>>::get()) {
-            AssetMetadataValues::<T>::try_get(&asset_id, &key)
-                .map_err(|_| Error::<T>::AssetMetadataValueIsEmpty)?;
+            ensure!(
+                AssetMetadataValues::<T>::get(&asset_id, &key).is_some_and(|v| !v.0.is_empty()),
+                Error::<T>::AssetMetadataValueIsEmpty
+            );
         }
 
         // Set asset metadata value details.
@@ -4531,6 +4535,14 @@ impl<T: AssetConfig> Pallet<T> {
             !Self::is_asset_metadata_locked(&asset_id, key),
             Error::<T>::AssetMetadataValueIsLocked
         );
+
+        // Prevent locking an asset metadata with no value
+        if let Some(ref detail) = detail {
+            ensure!(
+                !value.0.is_empty() || !detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
+                Error::<T>::AssetMetadataValueIsEmpty
+            );
+        }
 
         // Set asset metadata value for asset.
         AssetMetadataValues::<T>::insert(asset_id, key, &value);
