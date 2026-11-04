@@ -20,7 +20,7 @@ use frame_support::pallet_prelude::DispatchError;
 use frame_support::{
     dispatch::{
         DispatchClass, DispatchErrorWithPostInfo, DispatchInfo, DispatchResult,
-        DispatchResultWithPostInfo, Pays,
+        DispatchResultWithPostInfo, Pays, PostDispatchInfo,
     },
     ensure,
     traits::{
@@ -173,6 +173,7 @@ pub trait WeightInfo {
     fn set_asset_frozen() -> Weight;
     fn create_settlement(l: u32) -> Weight;
     fn mediator_affirmation() -> Weight;
+    fn finalize_settlement(l: u32) -> Weight;
 
     // Account state transition weights.
     fn register_account_assets(p: u32) -> Weight;
@@ -212,9 +213,10 @@ pub trait WeightInfo {
                     .saturating_mul(counts.receiver_count),
             )
             .saturating_add(Self::mediator_affirmation().saturating_mul(counts.mediator_count))
+            .saturating_add(Self::finalize_settlement(counts.leg_count))
     }
 
-    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>) -> Weight {
+    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>, max_settlement_legs: u32) -> Weight {
         let mut weight = Weight::zero();
         for proof in &batch.proofs {
             match proof {
@@ -229,19 +231,29 @@ pub trait WeightInfo {
                     weight = weight.saturating_add(Self::receiver_affirmation_with_leaf());
                 }
                 BatchedProof::MediatorAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::mediator_affirmation());
+                    weight = weight
+                        .saturating_add(Self::mediator_affirmation())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
                 BatchedProof::SenderCounterUpdate(_proof) => {
-                    weight = weight.saturating_add(Self::sender_update_counter_with_leaf());
+                    weight = weight
+                        .saturating_add(Self::sender_update_counter_with_leaf())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
                 BatchedProof::SenderRevertAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::sender_revert_affirmation_with_leaf());
+                    weight = weight
+                        .saturating_add(Self::sender_revert_affirmation_with_leaf())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
                 BatchedProof::ReceiverRevertAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::receiver_revert_affirmation_with_leaf());
+                    weight = weight
+                        .saturating_add(Self::receiver_revert_affirmation_with_leaf())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
                 BatchedProof::ReceiverClaim(_proof) => {
-                    weight = weight.saturating_add(Self::receiver_claim_with_leaf());
+                    weight = weight
+                        .saturating_add(Self::receiver_claim_with_leaf())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
                 BatchedProof::ExecuteInstantSettlement(proof) => {
                     weight = weight.saturating_add(Self::execute_instant_settlement(
@@ -249,10 +261,14 @@ pub trait WeightInfo {
                     ))
                 }
                 BatchedProof::InstantSenderAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::instant_sender_affirmation_with_leaf());
+                    weight = weight
+                        .saturating_add(Self::instant_sender_affirmation_with_leaf())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
                 BatchedProof::InstantReceiverAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::instant_receiver_affirmation_with_leaf());
+                    weight = weight
+                        .saturating_add(Self::instant_receiver_affirmation_with_leaf())
+                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
                 }
             }
         }
@@ -261,12 +277,17 @@ pub trait WeightInfo {
 
     fn relayer_submit_batched_proofs(
         batch: &FeePaymentWithBatchedProofs<PolymeshLimits>,
+        max_settlement_legs: u32,
     ) -> Weight {
-        Self::relayer_batched_proofs(&batch.batched_proofs)
+        Self::relayer_batched_proofs(&batch.batched_proofs, max_settlement_legs)
     }
 
-    fn relayer_batched_proofs(batch: &BatchedProofs<PolymeshLimits>) -> Weight {
-        Self::verify_fee_payment_with_leaf().saturating_add(Self::batched_proofs(batch))
+    fn relayer_batched_proofs(
+        batch: &BatchedProofs<PolymeshLimits>,
+        max_settlement_legs: u32,
+    ) -> Weight {
+        Self::verify_fee_payment_with_leaf()
+            .saturating_add(Self::batched_proofs(batch, max_settlement_legs))
     }
 
     fn on_init() -> Weight {
@@ -1826,14 +1847,25 @@ pub mod pallet {
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the mediator.
         /// * `WrongMediatorId` if the mediator ID does not match the expected mediator for the leg.
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::mediator_affirmation())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::mediator_affirmation()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn mediator_affirmation(
             origin: OriginFor<T>,
             proof: MediatorAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_mediator_affirmation(proof, None)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_mediator_affirmation(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::mediator_affirmation(),
+            ))
         }
 
         /// Sender updates their counter after a settlement has been executed.
@@ -1848,14 +1880,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(9)]
-        #[pallet::weight(<T as Config>::WeightInfo::sender_update_counter_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::sender_update_counter_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn sender_update_counter(
             origin: OriginFor<T>,
             proof: SenderCounterUpdateProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_sender_update_counter(proof, None)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_sender_update_counter(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::sender_update_counter_with_leaf(),
+            ))
         }
 
         /// Sender reverts their affirmation.
@@ -1870,14 +1913,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(10)]
-        #[pallet::weight(<T as Config>::WeightInfo::sender_revert_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::sender_revert_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn sender_revert_affirmation(
             origin: OriginFor<T>,
             proof: SenderRevertAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_sender_revert_affirmation(proof, None)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_sender_revert_affirmation(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::sender_revert_affirmation_with_leaf(),
+            ))
         }
 
         /// Receiver reverts their affirmation.
@@ -1892,14 +1946,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(11)]
-        #[pallet::weight(<T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn receiver_revert_affirmation(
             origin: OriginFor<T>,
             proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_receiver_revert_affirmation(proof, None)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_receiver_revert_affirmation(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf(),
+            ))
         }
 
         /// Receiver claims their assets after a settlement has been executed.
@@ -1914,14 +1979,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(12)]
-        #[pallet::weight(<T as Config>::WeightInfo::receiver_claim_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::receiver_claim_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn receiver_claim(
             origin: OriginFor<T>,
             proof: ReceiverClaimProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_receiver_claim(proof, None)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_receiver_claim(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::receiver_claim_with_leaf(),
+            ))
         }
 
         /// Create a settlement with batched leg affirmations.
@@ -2129,7 +2205,10 @@ pub mod pallet {
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidProof` if any of the proofs are invalid.
         #[pallet::call_index(16)]
-        #[pallet::weight(<T as Config>::WeightInfo::batched_proofs(&proof))]
+        #[pallet::weight(<T as Config>::WeightInfo::batched_proofs(
+            &proof,
+            T::MaxSettlementLegs::get(),
+        ))]
         pub fn submit_batched_proofs(
             origin: OriginFor<T>,
             proof: BatchedProofs<PolymeshLimits>,
@@ -2162,7 +2241,10 @@ pub mod pallet {
         /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
         /// * `InsufficientFeePayment` if the fee payment is insufficient to cover the relayer fee.
         #[pallet::call_index(17)]
-        #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof))]
+        #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(
+            &proof,
+            T::MaxSettlementLegs::get(),
+        ))]
         pub fn relayer_submit_batched_proofs(
             origin: OriginFor<T>,
             proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
@@ -2210,15 +2292,26 @@ pub mod pallet {
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the sender.
         /// * `NotLastPendingAffirmation` if the sender affirmation is not the last pending affirmation for the settlement.
         #[pallet::call_index(19)]
-        #[pallet::weight(<T as Config>::WeightInfo::instant_sender_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::instant_sender_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn instant_sender_affirmation(
             origin: OriginFor<T>,
             proof: InstantSenderAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
             // Perform the base instant sender affirmation.
-            Self::base_instant_sender_affirmation(proof, true, None)
+            Self::base_instant_sender_affirmation(proof, true, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::instant_sender_affirmation_with_leaf(),
+            ))
         }
 
         /// Receiver affirms a settlement leg as the last pending affirmation.
@@ -2237,15 +2330,26 @@ pub mod pallet {
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the receiver.
         /// * `NotLastPendingAffirmation` if the receiver affirmation is not the last pending affirmation for the settlement.
         #[pallet::call_index(20)]
-        #[pallet::weight(<T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn instant_receiver_affirmation(
             origin: OriginFor<T>,
             proof: InstantReceiverAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
             // Perform the base instant receiver affirmation.
-            Self::base_instant_receiver_affirmation(proof, true, None)
+            Self::base_instant_receiver_affirmation(proof, true, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf(),
+            ))
         }
 
         /// Set the required claim for a gated role (Root only).
@@ -2362,6 +2466,38 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    fn settlement_leg_count(settlement_ref: SettlementRef) -> u32 {
+        SettlementLegCount::<T>::get(settlement_ref)
+            .map(|count| count.0)
+            .unwrap_or_default()
+    }
+
+    pub fn settlement_finalization_dispatch_weight(leg_count: u32) -> Weight {
+        <T as Config>::WeightInfo::finalize_settlement(leg_count)
+            .saturating_add(T::DbWeight::get().reads(2))
+    }
+
+    fn settlement_post_dispatch_info(
+        settlement_ref: SettlementRef,
+        leg_count: u32,
+        base_weight: Weight,
+    ) -> PostDispatchInfo {
+        let finalization_weight =
+            if SettlementState::<T>::get(settlement_ref) == Some(SettlementStatus::Finalized) {
+                <T as Config>::WeightInfo::finalize_settlement(leg_count)
+            } else {
+                Weight::zero()
+            };
+        PostDispatchInfo {
+            actual_weight: Some(
+                base_weight
+                    .saturating_add(T::DbWeight::get().reads(2))
+                    .saturating_add(finalization_weight),
+            ),
+            pays_fee: Pays::Yes,
+        }
+    }
+
     fn asset_freeze_caller(origin: OriginFor<T>) -> Result<Option<IdentityId>, DispatchError> {
         if ensure_root(origin.clone()).is_ok() {
             Ok(None)
@@ -3136,7 +3272,10 @@ impl<T: Config> Pallet<T> {
         T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
         let dispatch_info = DispatchInfo {
-            call_weight: <T as Config>::WeightInfo::relayer_batched_proofs(batch),
+            call_weight: <T as Config>::WeightInfo::relayer_batched_proofs(
+                batch,
+                T::MaxSettlementLegs::get(),
+            ),
             extension_weight,
             class: DispatchClass::Normal,
             pays_fee: Pays::Yes,

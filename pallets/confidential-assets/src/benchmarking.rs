@@ -286,8 +286,9 @@ benchmarks! {
 
     create_asset {
         let k in 1 .. core::cmp::min(
-            <T as Config>::MaxAssetMediators::get(),
             <T as Config>::MaxAssetEncryptionKeys::get(),
+            <T as Config>::MaxAssetMediators::get()
+                .saturating_add(<T as Config>::MaxAssetAuditors::get()),
         );
 
         init_block::<T>();
@@ -297,9 +298,19 @@ benchmarks! {
         onboard_role::<T>(asset_issuer.did(), RoleKind::AssetCreator);
         onboard_role::<T>(asset_issuer.did(), RoleKind::Auditor);
 
+        let mediator_count = core::cmp::min(k, <T as Config>::MaxAssetMediators::get());
+        let auditor_count = k.saturating_sub(mediator_count);
         let mut mediator_keys = BoundedBTreeMap::new();
-        let auditor_keys = BoundedBTreeSet::new();
-        for i in 0..k {
+        let mut auditor_keys = BoundedBTreeSet::new();
+        for i in 0..auditor_count {
+            let auditor = DartUser::<T>::auditor_user("Auditor", 0, i);
+            auditor.register_encryption_key();
+            onboard_role::<T>(auditor.did(), RoleKind::Auditor);
+            auditor_keys
+                .try_insert(auditor.public_keys().enc)
+                .expect("Failed to push auditor keys");
+        }
+        for i in 0..mediator_count {
             let mediator = DartUser::<T>::auditor_user("Mediator", 0, i);
             mediator.register_account();
             onboard_role::<T>(mediator.did(), RoleKind::Auditor);
@@ -331,12 +342,22 @@ benchmarks! {
 
     update_asset_keys {
         let k in 1 .. core::cmp::min(
-            <T as Config>::MaxAssetMediators::get(),
             <T as Config>::MaxAssetEncryptionKeys::get(),
+            <T as Config>::MaxAssetMediators::get()
+                .saturating_add(<T as Config>::MaxAssetAuditors::get()),
         );
 
         let mut off_chain = OffchainProverState::<T>::new();
-        let asset = DartTestAsset::<T>::new(&mut off_chain, "Update Asset", 0, k, 0, None);
+        let mediator_count = core::cmp::min(k, <T as Config>::MaxAssetMediators::get());
+        let auditor_count = k.saturating_sub(mediator_count);
+        let asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Update Asset",
+            0,
+            mediator_count,
+            auditor_count,
+            None,
+        );
         onboard_role::<T>(asset.issuer.did(), RoleKind::Auditor);
         let mut mediator_keys = BoundedBTreeMap::new();
         for (i, mediator) in asset.mediators.iter().enumerate() {
@@ -353,17 +374,29 @@ benchmarks! {
                 .try_insert(keys.acct, shared_key.public)
                 .expect("Failed to push mediator keys");
         }
-        let auditor_keys = BoundedBTreeSet::new();
+        let mut auditor_keys = BoundedBTreeSet::new();
+        for auditor in &asset.auditors {
+            auditor_keys
+                .try_insert(auditor.public_keys().enc)
+                .expect("Failed to push auditor keys");
+        }
     }: _(asset.issuer.raw_origin(), asset.id, mediator_keys, auditor_keys)
 
     set_asset_frozen {
         let mut off_chain = OffchainProverState::<T>::new();
+        let key_count = core::cmp::min(
+            <T as Config>::MaxAssetEncryptionKeys::get(),
+            <T as Config>::MaxAssetMediators::get()
+                .saturating_add(<T as Config>::MaxAssetAuditors::get()),
+        );
+        let mediator_count = core::cmp::min(key_count, <T as Config>::MaxAssetMediators::get());
+        let auditor_count = key_count.saturating_sub(mediator_count);
         let asset = DartTestAsset::<T>::new(
             &mut off_chain,
             "Set Asset Frozen",
             0,
-            <T as Config>::MaxAssetMediators::get(),
-            0,
+            mediator_count,
+            auditor_count,
             None,
         );
     }: _(asset.issuer.raw_origin(), asset.id, true)
@@ -622,6 +655,48 @@ benchmarks! {
         set_skip_verify::<T>(false);
 
     }: _(venue.raw_origin(), proof)
+
+    finalize_settlement {
+        // Number of settlement legs whose affirmation and leg storage is pruned.
+        let l in 1 .. <T as Config>::MaxSettlementLegs::get();
+
+        let mut off_chain = OffchainProverState::<T>::new();
+        let mut asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Finalize Settlement",
+            0,
+            T::MaxAssetMediators::get(),
+            0,
+            Some(1_000),
+        );
+        let (settlement, _) = DartSettlementState::create_investors_and_fund(
+            &mut asset,
+            l as usize,
+            100,
+            &mut off_chain,
+        );
+        let mediator_keys: BTreeSet<_> = asset
+            .mediators
+            .iter()
+            .map(|mediator| mediator.public_keys().acct)
+            .collect();
+        for leg in &settlement.legs {
+            LegMediators::<T>::insert(
+                (settlement.settlement_ref, leg.leg_ref.leg_id),
+                LegMediatorKeys {
+                    mediators: mediator_keys.clone(),
+                },
+            );
+        }
+    }: {
+        Pallet::<T>::finalize_settlement(settlement.settlement_ref)?;
+    }
+    verify {
+        assert_eq!(
+            SettlementState::<T>::get(settlement.settlement_ref),
+            Some(SettlementStatus::Finalized),
+        );
+    }
 
     sender_affirmation {
         // Offchain prover state.
