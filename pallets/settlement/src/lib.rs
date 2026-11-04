@@ -1633,12 +1633,7 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(ref nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
-                    pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(
-                        &resolved_from,
-                        nfts.asset_id(),
-                    )?;
-                    Asset::<T>::ensure_asset_is_not_frozen(nfts.asset_id())?;
-                    Nft::<T>::ensure_nft_ownership(&resolved_from, nfts)?;
+                    Nft::<T>::ensure_same_identity_nft_transfer(&resolved_from, nfts)?;
                     Nft::<T>::transfer_holders_nfts(&resolved_from, to.clone(), nfts)?;
                 }
             }

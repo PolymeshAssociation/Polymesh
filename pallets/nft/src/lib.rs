@@ -1308,6 +1308,37 @@ impl<T: Config> Pallet<T> {
         nft_transfer_errors
     }
 
+    /// Returns `Ok` if `sender` can move `nfts` to another holder of its own identity.
+    ///
+    /// The NFTs stay with the same identity, so compliance rules don't apply.
+    pub fn ensure_same_identity_nft_transfer(sender: &AssetHolder, nfts: &NFTs) -> DispatchResult {
+        pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(sender, nfts.asset_id())?;
+        pallet_asset::Pallet::<T>::ensure_asset_is_not_frozen(nfts.asset_id())?;
+        Self::ensure_nft_ownership(sender, nfts)
+    }
+
+    /// Returns `true` if `Settlement::transfer_funds` can move `nfts` from `sender` to `receiver`..
+    pub fn can_transfer_funds(
+        sender: &AssetHolder,
+        receiver: &AssetHolder,
+        nfts: &NFTs,
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(sender);
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(receiver);
+        match (sender_did, receiver_did) {
+            (Ok(sender_did), Ok(receiver_did)) if sender_did == receiver_did => {
+                sender != receiver
+                    && pallet_asset::Pallet::<T>::ensure_valid_holder(receiver).is_ok()
+                    && Self::ensure_same_identity_nft_transfer(sender, nfts).is_ok()
+            }
+            (Ok(_), Ok(_)) => {
+                Self::nft_transfer_report(sender, receiver, nfts, false, weight_meter).is_empty()
+            }
+            _ => false,
+        }
+    }
+
     /// Adds one to `CurrentCollectionId`.
     fn update_current_collection_id() -> Result<NFTCollectionId, DispatchError> {
         CurrentCollectionId::<T>::try_mutate(|current_collection_id| match current_collection_id {

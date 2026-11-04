@@ -56,13 +56,8 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             Weight::zero(),
             worst_case_weight.saturating_sub(best_case_weight),
         );
-        let errors = pallet_nft::Pallet::<T>::nft_transfer_report(
-            &from,
-            &to,
-            &nfts,
-            false,
-            &mut weight_meter,
-        );
+        let can_transfer =
+            pallet_nft::Pallet::<T>::can_transfer_funds(&from, &to, &nfts, &mut weight_meter);
 
         if weight_meter.limit_exceeded() {
             return Err(revert(ERR_WEIGHT_LIMIT_EXCEEDED));
@@ -72,7 +67,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
         Ok(INonFungibleAsset::canTransferCall::abi_encode_returns(
-            &errors.is_empty(),
+            &can_transfer,
         ))
     }
 
