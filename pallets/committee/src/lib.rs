@@ -542,8 +542,10 @@ pub mod pallet {
 
             let threshold = <VoteThreshold<T, I>>::get();
             let seats = Self::seats();
-            let satisfied =
-                |main, other| main >= other && Self::is_threshold_satisfied(main, seats, threshold);
+            // A motion without votes never passes, even if there are no seats or the threshold is 0.
+            let satisfied = |main, other| {
+                main > 0 && main >= other && Self::is_threshold_satisfied(main, seats, threshold)
+            };
             let approved = satisfied(ayes, nays);
             let rejected = satisfied(nays, ayes);
             if !approved && !rejected {
