@@ -606,6 +606,8 @@ pub mod pallet {
         MissingInstructionMediators,
         /// The affirmation must include at least one asset holder or receipt.
         EmptyAffirmation,
+        /// An instruction must have at least one leg.
+        InstructionHasNoLegs,
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -1919,6 +1921,9 @@ impl<T: Config> Pallet<T> {
         legs: &[Leg],
         venue_id: &Option<VenueId>,
     ) -> Result<InstructionInfo, DispatchError> {
+        // An instruction without legs may have no party able to reject or execute it.
+        ensure!(!legs.is_empty(), Error::<T>::InstructionHasNoLegs);
+
         // Tracks the number of fungible, non-fungible and offchain assets across the legs
         let mut instruction_asset_count = AssetCount::default();
         // Tracks all asset holders that have not been pre-affirmed

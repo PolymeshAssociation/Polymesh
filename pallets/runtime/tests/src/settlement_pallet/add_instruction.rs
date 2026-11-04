@@ -164,3 +164,66 @@ fn failing_to_schedule_instruction() {
         );
     });
 }
+
+#[test]
+fn instruction_without_legs_is_rejected() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let holder = AssetHolder::from(PortfolioId::default_portfolio(alice.did));
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            Default::default(),
+            VenueType::Other
+        ));
+
+        for venue_id in [None, Some(VenueId(0))] {
+            for settlement_type in [
+                SettlementType::SettleOnAffirmation,
+                SettlementType::SettleManual(0),
+                SettlementType::SettleOnBlock(System::block_number() + 1),
+            ] {
+                assert_noop!(
+                    Settlement::add_instruction(
+                        alice.origin(),
+                        venue_id,
+                        settlement_type,
+                        None,
+                        None,
+                        Vec::new(),
+                        None,
+                    ),
+                    SettlementError::InstructionHasNoLegs
+                );
+                assert_noop!(
+                    Settlement::add_and_affirm_instruction(
+                        alice.origin(),
+                        venue_id,
+                        settlement_type,
+                        None,
+                        None,
+                        Vec::new(),
+                        BTreeSet::from([holder.clone()]).try_into().unwrap(),
+                        None,
+                    ),
+                    SettlementError::InstructionHasNoLegs
+                );
+            }
+
+            assert_noop!(
+                Settlement::add_instruction_with_mediators(
+                    alice.origin(),
+                    venue_id,
+                    SettlementType::SettleAfterLock,
+                    None,
+                    None,
+                    Vec::new(),
+                    None,
+                    BTreeSet::from([bob.did]).try_into().unwrap(),
+                ),
+                SettlementError::InstructionHasNoLegs
+            );
+        }
+    });
+}

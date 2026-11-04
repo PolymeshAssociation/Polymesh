@@ -75,6 +75,8 @@ lock timings, `develop/src/runtime.rs:98-107`): `MaxNumberOfFungibleAssets` 10,
 
 - `SettleOnBlock` must be a future block (:1765); **`SettleAfterLock` requires ≥1 instruction
   mediator** (:1771-1779); value_date ≥ trade_date (:1784).
+- At least one leg is required (`InstructionHasNoLegs`, `ensure_valid_legs`): without legs, an
+  instruction with no venue or mediators has no party able to reject or execute it.
 - Per-leg validation (`ensure_valid_leg` :2886-2936): fungible/NFT sender-DID ≠ receiver-DID
   (`SameSenderReceiver` :2901/:2915), amount > 0, venue filtering, NFT per-leg caps, off-chain
   distinct identities. Instruction-wide caps (:2990-3004).
