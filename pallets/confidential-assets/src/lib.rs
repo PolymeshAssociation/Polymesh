@@ -203,8 +203,10 @@ pub trait WeightInfo {
             .saturating_add(Self::mediator_affirmation().saturating_mul(counts.mediator_count))
     }
 
+    /// A successful instant settlement is always finalized.
     fn execute_instant_settlement(counts: SettlementCounts) -> Weight {
         Self::create_settlement(counts.leg_count)
+            .saturating_add(Self::finalize_settlement(counts.leg_count))
             .saturating_add(
                 Self::instant_sender_affirmation_with_leaf().saturating_mul(counts.sender_count),
             )
@@ -213,81 +215,72 @@ pub trait WeightInfo {
                     .saturating_mul(counts.receiver_count),
             )
             .saturating_add(Self::mediator_affirmation().saturating_mul(counts.mediator_count))
-            .saturating_add(Self::finalize_settlement(counts.leg_count))
     }
 
-    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>, max_settlement_legs: u32) -> Weight {
-        let mut weight = Weight::zero();
-        for proof in &batch.proofs {
-            match proof {
-                BatchedProof::CreateSettlement(proof) => {
-                    weight =
-                        weight.saturating_add(Self::create_settlement(proof.legs.len() as u32));
-                }
-                BatchedProof::SenderAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::sender_affirmation_with_leaf());
-                }
-                BatchedProof::ReceiverAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::receiver_affirmation_with_leaf());
-                }
-                BatchedProof::MediatorAffirmation(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::mediator_affirmation())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
-                BatchedProof::SenderCounterUpdate(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::sender_update_counter_with_leaf())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
-                BatchedProof::SenderRevertAffirmation(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::sender_revert_affirmation_with_leaf())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
-                BatchedProof::ReceiverRevertAffirmation(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::receiver_revert_affirmation_with_leaf())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
-                BatchedProof::ReceiverClaim(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::receiver_claim_with_leaf())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
-                BatchedProof::ExecuteInstantSettlement(proof) => {
-                    weight = weight.saturating_add(Self::execute_instant_settlement(
-                        proof.count_leg_affirmations(),
-                    ))
-                }
-                BatchedProof::InstantSenderAffirmation(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::instant_sender_affirmation_with_leaf())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
-                BatchedProof::InstantReceiverAffirmation(_proof) => {
-                    weight = weight
-                        .saturating_add(Self::instant_receiver_affirmation_with_leaf())
-                        .saturating_add(Self::finalize_settlement(max_settlement_legs));
-                }
+    /// Weight of a batched proof, excluding finalization of an existing settlement.
+    fn batched_proof_base(proof: &BatchedProof<PolymeshLimits>) -> Weight {
+        match proof {
+            BatchedProof::CreateSettlement(proof) => {
+                Self::create_settlement(proof.legs.len() as u32)
+            }
+            BatchedProof::SenderAffirmation(_) => Self::sender_affirmation_with_leaf(),
+            BatchedProof::ReceiverAffirmation(_) => Self::receiver_affirmation_with_leaf(),
+            BatchedProof::MediatorAffirmation(..) => Self::mediator_affirmation(),
+            BatchedProof::SenderCounterUpdate(..) => Self::sender_update_counter_with_leaf(),
+            BatchedProof::SenderRevertAffirmation(..) => {
+                Self::sender_revert_affirmation_with_leaf()
+            }
+            BatchedProof::ReceiverRevertAffirmation(..) => {
+                Self::receiver_revert_affirmation_with_leaf()
+            }
+            BatchedProof::ReceiverClaim(..) => Self::receiver_claim_with_leaf(),
+            BatchedProof::ExecuteInstantSettlement(proof) => {
+                Self::execute_instant_settlement(proof.count_leg_affirmations())
+            }
+            BatchedProof::InstantSenderAffirmation(..) => {
+                Self::instant_sender_affirmation_with_leaf()
+            }
+            BatchedProof::InstantReceiverAffirmation(..) => {
+                Self::instant_receiver_affirmation_with_leaf()
             }
         }
-        weight
+    }
+
+    /// Worst-case weight of a batched proof, assuming it finalizes the settlement.
+    ///
+    /// Provided leg counts are verified before the proof is processed, `None` means `max_legs`.
+    fn batched_proof(proof: &BatchedProof<PolymeshLimits>, max_legs: u32) -> Weight {
+        let base = Self::batched_proof_base(proof);
+        let legs = match proof {
+            // Only a mediator reject can finalize.
+            BatchedProof::MediatorAffirmation(proof, legs) if !proof.accept => legs,
+            BatchedProof::SenderCounterUpdate(_, legs)
+            | BatchedProof::SenderRevertAffirmation(_, legs)
+            | BatchedProof::ReceiverRevertAffirmation(_, legs)
+            | BatchedProof::ReceiverClaim(_, legs)
+            | BatchedProof::InstantSenderAffirmation(_, legs)
+            | BatchedProof::InstantReceiverAffirmation(_, legs) => legs,
+            _ => return base,
+        };
+        let leg_count = legs.map_or(max_legs, u32::from).min(max_legs);
+        base.saturating_add(Self::finalize_settlement(leg_count))
+    }
+
+    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>, max_legs: u32) -> Weight {
+        batch.proofs.iter().fold(Weight::zero(), |weight, proof| {
+            weight.saturating_add(Self::batched_proof(proof, max_legs))
+        })
     }
 
     fn relayer_submit_batched_proofs(
         batch: &FeePaymentWithBatchedProofs<PolymeshLimits>,
-        max_settlement_legs: u32,
+        max_legs: u32,
     ) -> Weight {
-        Self::relayer_batched_proofs(&batch.batched_proofs, max_settlement_legs)
+        Self::relayer_batched_proofs(&batch.batched_proofs, max_legs)
     }
 
-    fn relayer_batched_proofs(
-        batch: &BatchedProofs<PolymeshLimits>,
-        max_settlement_legs: u32,
-    ) -> Weight {
-        Self::verify_fee_payment_with_leaf()
-            .saturating_add(Self::batched_proofs(batch, max_settlement_legs))
+    fn relayer_batched_proofs(batch: &BatchedProofs<PolymeshLimits>, max_legs: u32) -> Weight {
+        Self::verify_fee_payment_with_leaf().saturating_add(Self::batched_proofs(batch, max_legs))
     }
 
     fn on_init() -> Weight {
@@ -1033,6 +1026,8 @@ pub mod pallet {
         AssetIdOverflow,
         /// A registration or proof batch exceeds its runtime-configured limit.
         TooManyProofs,
+        /// The leg count provided with a batched proof doesn't match the settlement.
+        SettlementLegCountMismatch,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -1848,23 +1843,30 @@ pub mod pallet {
         /// * `WrongMediatorId` if the mediator ID does not match the expected mediator for the leg.
         #[pallet::call_index(8)]
         #[pallet::weight(
-            <T as Config>::WeightInfo::mediator_affirmation()
-                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
-                    T::MaxSettlementLegs::get(),
-                ))
+            <T as Config>::WeightInfo::mediator_affirmation().saturating_add(if proof.accept {
+                Weight::zero()
+            } else {
+                Pallet::<T>::settlement_finalization_dispatch_weight(T::MaxSettlementLegs::get())
+            })
         )]
         pub fn mediator_affirmation(
             origin: OriginFor<T>,
             proof: MediatorAffirmationProof<PolymeshLimits>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
+            let base_weight = <T as Config>::WeightInfo::mediator_affirmation();
+            // Only a reject can finalize the settlement.
+            if proof.accept {
+                Self::base_mediator_affirmation(proof, None)?;
+                return Ok(Some(base_weight).into());
+            }
             let settlement_ref = proof.leg_ref.settlement;
             let leg_count = Self::settlement_leg_count(settlement_ref);
             Self::base_mediator_affirmation(proof, None)?;
             Ok(Self::settlement_post_dispatch_info(
                 settlement_ref,
                 leg_count,
-                <T as Config>::WeightInfo::mediator_affirmation(),
+                base_weight,
             ))
         }
 
@@ -2205,21 +2207,25 @@ pub mod pallet {
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidProof` if any of the proofs are invalid.
         #[pallet::call_index(16)]
-        #[pallet::weight(<T as Config>::WeightInfo::batched_proofs(
-            &proof,
-            T::MaxSettlementLegs::get(),
-        ))]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::batched_proofs(&proof, T::MaxSettlementLegs::get())
+        )]
         pub fn submit_batched_proofs(
             origin: OriginFor<T>,
             proof: BatchedProofs<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
             ensure!(
                 proof.len() <= T::MaxBatchedProofs::get() as usize,
                 Error::<T>::TooManyProofs
             );
 
-            Self::process_batched_proofs(proof, None)
+            let actual_weight = Self::process_batched_proofs(proof, None)?;
+
+            Ok(PostDispatchInfo {
+                actual_weight: Some(actual_weight),
+                pays_fee: Pays::Yes,
+            })
         }
 
         /// Relayer submit a batch of proofs paid using a private fee payment.
@@ -2472,9 +2478,36 @@ impl<T: Config> Pallet<T> {
             .unwrap_or_default()
     }
 
+    /// Verify the provided leg count, read before the proof can finalize (and prune) the settlement.
+    fn finalizing_leg_count(
+        settlement_ref: SettlementRef,
+        legs: Option<u8>,
+    ) -> Result<(SettlementRef, u32), DispatchError> {
+        let leg_count = Self::settlement_leg_count(settlement_ref);
+        if let Some(legs) = legs {
+            ensure!(
+                u32::from(legs) == leg_count,
+                Error::<T>::SettlementLegCountMismatch
+            );
+        }
+        Ok((settlement_ref, leg_count))
+    }
+
     pub fn settlement_finalization_dispatch_weight(leg_count: u32) -> Weight {
         <T as Config>::WeightInfo::finalize_settlement(leg_count)
             .saturating_add(T::DbWeight::get().reads(2))
+    }
+
+    /// Actual finalization weight, `leg_count` must be read before the settlement is finalized.
+    fn settlement_finalization_actual_weight(
+        settlement_ref: SettlementRef,
+        leg_count: u32,
+    ) -> Weight {
+        if SettlementState::<T>::get(settlement_ref) == Some(SettlementStatus::Finalized) {
+            <T as Config>::WeightInfo::finalize_settlement(leg_count)
+        } else {
+            Weight::zero()
+        }
     }
 
     fn settlement_post_dispatch_info(
@@ -2482,17 +2515,14 @@ impl<T: Config> Pallet<T> {
         leg_count: u32,
         base_weight: Weight,
     ) -> PostDispatchInfo {
-        let finalization_weight =
-            if SettlementState::<T>::get(settlement_ref) == Some(SettlementStatus::Finalized) {
-                <T as Config>::WeightInfo::finalize_settlement(leg_count)
-            } else {
-                Weight::zero()
-            };
         PostDispatchInfo {
             actual_weight: Some(
                 base_weight
                     .saturating_add(T::DbWeight::get().reads(2))
-                    .saturating_add(finalization_weight),
+                    .saturating_add(Self::settlement_finalization_actual_weight(
+                        settlement_ref,
+                        leg_count,
+                    )),
             ),
             pays_fee: Pays::Yes,
         }
@@ -3252,16 +3282,20 @@ impl<T: Config> Pallet<T> {
         // Process the batched Confidential proofs.  The proofs are processed inside of a transaction so that
         // if any proof fails, the entire batch is reverted (but the relayer is still paid).
         let batch_result = Self::process_batched_proofs_atomic(proof.batched_proofs, ctx);
+        // A failed batch is charged the full declared weight.
+        let actual_weight = batch_result.as_ref().ok().map(|weight| {
+            <T as Config>::WeightInfo::verify_fee_payment_with_leaf().saturating_add(*weight)
+        });
 
         // Emit an event for the relayer batched proofs submission.
         Self::deposit_event(Event::<T>::RelayerBatchedProofs {
             relayer,
             batch_hash,
             amount,
-            batch_result,
+            batch_result: batch_result.map(|_| ()),
         });
 
-        Ok(().into())
+        Ok(actual_weight.into())
     }
 
     pub fn relayer_submit_batched_fee_info(
@@ -3354,7 +3388,7 @@ impl<T: Config> Pallet<T> {
     pub fn process_batched_proofs_atomic(
         proof: BatchedProofs<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
-    ) -> DispatchResult {
+    ) -> Result<Weight, DispatchError> {
         use frame_support::storage::TransactionOutcome;
         frame_support::storage::with_transaction(|| {
             let res = Self::process_batched_proofs(proof, ctx);
@@ -3367,36 +3401,83 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs, this should be called inside a transaction.
+    ///
+    /// Returns the actual weight used.
     pub fn process_batched_proofs(
         proof: BatchedProofs<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
-    ) -> DispatchResult {
+    ) -> Result<Weight, DispatchError> {
+        let mut weight = Weight::zero();
         for proof in proof.proofs {
-            match proof {
-                BatchedProof::CreateSettlement(p) => Self::base_create_settlement(p, ctx)?,
-                BatchedProof::SenderAffirmation(p) => Self::base_sender_affirmation(p, ctx)?,
-                BatchedProof::ReceiverAffirmation(p) => Self::base_receiver_affirmation(p, ctx)?,
-                BatchedProof::MediatorAffirmation(p) => Self::base_mediator_affirmation(p, ctx)?,
-                BatchedProof::SenderCounterUpdate(p) => Self::base_sender_update_counter(p, ctx)?,
-                BatchedProof::SenderRevertAffirmation(p) => {
-                    Self::base_sender_revert_affirmation(p, ctx)?
+            weight = weight.saturating_add(<T as Config>::WeightInfo::batched_proof_base(&proof));
+            let finalizing = match proof {
+                BatchedProof::CreateSettlement(p) => {
+                    Self::base_create_settlement(p, ctx)?;
+                    None
                 }
-                BatchedProof::ReceiverRevertAffirmation(p) => {
-                    Self::base_receiver_revert_affirmation(p, ctx)?
+                BatchedProof::SenderAffirmation(p) => {
+                    Self::base_sender_affirmation(p, ctx)?;
+                    None
                 }
-                BatchedProof::ReceiverClaim(p) => Self::base_receiver_claim(p, ctx)?,
+                BatchedProof::ReceiverAffirmation(p) => {
+                    Self::base_receiver_affirmation(p, ctx)?;
+                    None
+                }
+                BatchedProof::MediatorAffirmation(p, legs) => {
+                    // Only a mediator reject can finalize.
+                    let finalizing = if p.accept {
+                        None
+                    } else {
+                        Some(Self::finalizing_leg_count(p.leg_ref.settlement, legs)?)
+                    };
+                    Self::base_mediator_affirmation(p, ctx)?;
+                    finalizing
+                }
+                BatchedProof::SenderCounterUpdate(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_sender_update_counter(p, ctx)?;
+                    Some(finalizing)
+                }
+                BatchedProof::SenderRevertAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_sender_revert_affirmation(p, ctx)?;
+                    Some(finalizing)
+                }
+                BatchedProof::ReceiverRevertAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_receiver_revert_affirmation(p, ctx)?;
+                    Some(finalizing)
+                }
+                BatchedProof::ReceiverClaim(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_receiver_claim(p, ctx)?;
+                    Some(finalizing)
+                }
                 BatchedProof::ExecuteInstantSettlement(p) => {
-                    Self::base_execute_instant_settlement(p, ctx)?
+                    Self::base_execute_instant_settlement(p, ctx)?;
+                    None
                 }
-                BatchedProof::InstantSenderAffirmation(p) => {
-                    Self::base_instant_sender_affirmation(p, true, ctx)?
+                BatchedProof::InstantSenderAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_instant_sender_affirmation(p, true, ctx)?;
+                    Some(finalizing)
                 }
-                BatchedProof::InstantReceiverAffirmation(p) => {
-                    Self::base_instant_receiver_affirmation(p, true, ctx)?
+                BatchedProof::InstantReceiverAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_instant_receiver_affirmation(p, true, ctx)?;
+                    Some(finalizing)
                 }
+            };
+
+            // Check if the settlement was finalized and add its weight contribution.
+            if let Some((settlement_ref, leg_count)) = finalizing {
+                weight = weight.saturating_add(Self::settlement_finalization_actual_weight(
+                    settlement_ref,
+                    leg_count,
+                ));
             }
         }
-        Ok(())
+        Ok(weight)
     }
 
     /// Handle account state update proof verification and insertion.

@@ -1,11 +1,10 @@
 use ark_ec::short_weierstrass::SWCurveConfig;
 use polymesh_api_tester::AccountId;
 use polymesh_dart::{
-    relayer_batch_proof_context,
-    BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof, FeeAccountAssetState,
-    FeeAccountRegistrationProof, FeeAccountTopupProof, FeePaymentWithBatchedProofs,
-    InstantSettlementLegAffirmations, LegConfig, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M,
-    FEE_ASSET_ID,
+    relayer_batch_proof_context, BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof,
+    FeeAccountAssetState, FeeAccountRegistrationProof, FeeAccountTopupProof,
+    FeePaymentWithBatchedProofs, InstantSettlementLegAffirmations, LegConfig, FEE_ACCOUNT_TREE_L,
+    FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -653,9 +652,7 @@ impl DartProofSubmitter {
         }
     }
 
-    pub async fn prepare_submission_context(
-        &mut self,
-    ) -> Result<Option<Vec<u8>>> {
+    pub async fn prepare_submission_context(&mut self) -> Result<Option<Vec<u8>>> {
         if !self.method.is_relayer() {
             return Ok(None);
         }
@@ -682,10 +679,12 @@ impl DartProofSubmitter {
             .fee_state
             .as_mut()
             .ok_or_else(|| anyhow::anyhow!("Fee account has not been initialized"))?;
-        let current_submission = relayer_batch_proof_context(
-            &fee_state.fee_account_state.current_state.nullifier()?,
+        let current_submission =
+            relayer_batch_proof_context(&fee_state.fee_account_state.current_state.nullifier()?);
+        anyhow::ensure!(
+            submission == &current_submission,
+            "Fee state changed; regenerate batch proofs"
         );
-        anyhow::ensure!(submission == &current_submission, "Fee state changed; regenerate batch proofs");
 
         // Lookup our current fee account state in the on-chain fee account curve tree. This
         // fixes the curve tree height/root that both the fee estimate below and the payment
@@ -1332,7 +1331,11 @@ impl DartUserInner {
         if let Some(context) = &self.proof_submission {
             return Ok(context.clone());
         }
-        Ok(self.submitter.prepare_submission_context().await?.unwrap_or_default())
+        Ok(self
+            .submitter
+            .prepare_submission_context()
+            .await?
+            .unwrap_or_default())
     }
 
     pub async fn sender_affirmation_proof(
@@ -1622,7 +1625,7 @@ impl DartUserInner {
         // Submit the instant sender affirmation proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::InstantSenderAffirmation(proof))
+            .submit_batch_proof(BatchedProof::InstantSenderAffirmation(proof, None))
             .await?;
 
         // Update the asset state with the new leaf index.
@@ -1653,7 +1656,7 @@ impl DartUserInner {
         // Submit the instant receiver affirmation proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::InstantReceiverAffirmation(proof))
+            .submit_batch_proof(BatchedProof::InstantReceiverAffirmation(proof, None))
             .await?;
 
         // Update the asset state with the new leaf index.
@@ -1746,7 +1749,7 @@ impl DartUserInner {
         // Submit the mediator affirmation proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::MediatorAffirmation(proof))
+            .submit_batch_proof(BatchedProof::MediatorAffirmation(proof, None))
             .await?;
         res.ok().await?;
         wait_for_results(&mut res).await?;
@@ -1806,7 +1809,7 @@ impl DartUserInner {
         // Submit the receiver claim proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::ReceiverClaim(proof))
+            .submit_batch_proof(BatchedProof::ReceiverClaim(proof, None))
             .await?;
 
         // Update the asset state with the new leaf index.
@@ -1861,7 +1864,7 @@ impl DartUserInner {
         // Submit the sender counter update proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::SenderCounterUpdate(proof))
+            .submit_batch_proof(BatchedProof::SenderCounterUpdate(proof, None))
             .await?;
 
         // Update the asset state with the new leaf index.
@@ -1917,7 +1920,7 @@ impl DartUserInner {
         // Submit the sender revert proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::SenderRevertAffirmation(proof))
+            .submit_batch_proof(BatchedProof::SenderRevertAffirmation(proof, None))
             .await?;
 
         // Update the asset state with the new leaf index.
@@ -1973,7 +1976,7 @@ impl DartUserInner {
         // Submit the receiver revert proof.
         let mut res = self
             .submitter
-            .submit_batch_proof(BatchedProof::ReceiverRevertAffirmation(proof))
+            .submit_batch_proof(BatchedProof::ReceiverRevertAffirmation(proof, None))
             .await?;
 
         // Update the asset state with the new leaf index.
@@ -2195,7 +2198,11 @@ impl DartUser {
         tester: &DartAssetTester,
         leg_ref: LegRef,
     ) -> Result<()> {
-        self.0.write().await.sender_counter_update(tester, leg_ref).await
+        self.0
+            .write()
+            .await
+            .sender_counter_update(tester, leg_ref)
+            .await
     }
 
     pub async fn receiver_affirmation_proof(
@@ -3029,7 +3036,13 @@ impl DartSettlementState {
         affirm_and_claim: bool,
         use_instant: bool,
     ) -> Result<Self> {
-        let context = venue.0.write().await.submitter.prepare_submission_context().await?
+        let context = venue
+            .0
+            .write()
+            .await
+            .submitter
+            .prepare_submission_context()
+            .await?
             .unwrap_or_default();
         let asset_tree = tester.asset_tree().await;
         let block_number = asset_tree.get_block_number().await?;
@@ -3103,9 +3116,11 @@ impl DartSettlementState {
                 let sender = {
                     let mut sender = leg_state.sender.0.write().await;
                     let previous = sender.proof_submission.replace(context.clone());
-                    let result = sender.instant_sender_affirmation_proof(
-                        tester, leg_ref, leg_enc, asset_id, amount,
-                    ).await;
+                    let result = sender
+                        .instant_sender_affirmation_proof(
+                            tester, leg_ref, leg_enc, asset_id, amount,
+                        )
+                        .await;
                     sender.proof_submission = previous;
                     result?
                 };
@@ -3113,9 +3128,11 @@ impl DartSettlementState {
                 let receiver = {
                     let mut receiver = leg_state.receiver.0.write().await;
                     let previous = receiver.proof_submission.replace(context.clone());
-                    let result = receiver.instant_receiver_affirmation_proof(
-                        tester, leg_ref, leg_enc, asset_id, amount,
-                    ).await;
+                    let result = receiver
+                        .instant_receiver_affirmation_proof(
+                            tester, leg_ref, leg_enc, asset_id, amount,
+                        )
+                        .await;
                     receiver.proof_submission = previous;
                     result?
                 };

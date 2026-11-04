@@ -1,8 +1,11 @@
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{
+    assert_noop, assert_ok,
+    traits::{Currency, Get},
+};
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
-    AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error, FeeAccountDid,
-    FreezeOrigin, Keys, Pallet,
+    weights::SubstrateWeight, AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error,
+    FeeAccountDid, FreezeOrigin, Keys, Pallet, WeightInfo,
 };
 use polymesh_dart::{
     curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
@@ -535,7 +538,14 @@ fn confidential_assets_relayer_context_and_payment_persistence() {
                 payment.clone(),
             )
             .unwrap();
-            assert_eq!(post.actual_weight, None);
+            // A failed batch is charged the full declared weight.
+            let expected_weight = (!invalid_batch).then(|| {
+                SubstrateWeight::relayer_batched_proofs(
+                    &payment.batched_proofs,
+                    <Runtime as pallet_confidential_assets::Config>::MaxSettlementLegs::get(),
+                )
+            });
+            assert_eq!(post.actual_weight, expected_weight);
             assert_eq!(
                 pallet_balances::Pallet::<Runtime>::free_balance(&relayer),
                 before + 1_000_000
