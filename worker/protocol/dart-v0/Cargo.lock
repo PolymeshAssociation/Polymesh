@@ -93,7 +93,7 @@ dependencies = [
 [[package]]
 name = "ark-curve25519"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -103,7 +103,7 @@ dependencies = [
 [[package]]
 name = "ark-dlog-gadget"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#c37812ba7a88831c0fe2c411fa6ea9035f927dac"
 dependencies = [
  "ark-curve25519",
  "ark-ec",
@@ -129,7 +129,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ahash",
  "ark-ff",
@@ -151,7 +151,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#c37812ba7a88831c0fe2c411fa6ea9035f927dac"
 dependencies = [
  "ark-curve25519",
  "ark-ec",
@@ -177,7 +177,7 @@ dependencies = [
 [[package]]
 name = "ark-ed25519"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-curve25519",
  "ark-ec",
@@ -188,7 +188,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -205,7 +205,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "quote",
  "syn 2.0.117",
@@ -214,7 +214,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -226,7 +226,7 @@ dependencies = [
 [[package]]
 name = "ark-helios"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -238,7 +238,7 @@ dependencies = [
 [[package]]
 name = "ark-host-msm"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-serialize",
  "ark-std",
@@ -248,7 +248,7 @@ dependencies = [
 [[package]]
 name = "ark-pallas"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -275,7 +275,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ahash",
  "ark-ff",
@@ -300,7 +300,7 @@ dependencies = [
 [[package]]
 name = "ark-selene"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-curve25519",
  "ark-ec",
@@ -312,7 +312,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -326,7 +326,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -359,7 +359,7 @@ dependencies = [
 [[package]]
 name = "ark-vesta"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -371,7 +371,7 @@ dependencies = [
 [[package]]
 name = "ark-wei25519"
 version = "0.5.0"
-source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#8d51050e7bc04319360acb237679dcd9e36838c4"
+source = "git+https://github.com/PolymeshAssociation/arkworks-algebra.git?branch=dart-v0.1.0#78293c66a89c34dede911f1b4adce164cf1cedc2"
 dependencies = [
  "ark-curve25519",
  "ark-ec",
@@ -529,7 +529,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#c37812ba7a88831c0fe2c411fa6ea9035f927dac"
 dependencies = [
  "ahash",
  "ark-ec",
@@ -2143,7 +2143,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 [[package]]
 name = "relations"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#f77c6a3535304e7e12c3fb6d9ecdd4560da81b31"
+source = "git+https://github.com/PolymeshAssociation/curve-trees?branch=dart-v0.1.0#c37812ba7a88831c0fe2c411fa6ea9035f927dac"
 dependencies = [
  "ark-crypto-primitives",
  "ark-dlog-gadget",
@@ -2488,7 +2488,7 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 [[package]]
 name = "sp-core"
 version = "40.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "array-bytes",
  "bip39",
@@ -2522,7 +2522,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-hashing"
 version = "0.1.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -2535,7 +2535,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "15.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "proc-macro-warning",
  "proc-macro2",
@@ -2546,7 +2546,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.32.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -2556,7 +2556,7 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "45.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "bytes",
  "docify",
@@ -2582,7 +2582,7 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.46.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "parity-scale-codec",
  "sp-core",
@@ -2592,7 +2592,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "34.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -2610,7 +2610,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "21.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "Inflector",
  "expander",
@@ -2623,7 +2623,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.50.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "hash-db",
  "log",
@@ -2638,12 +2638,12 @@ dependencies = [
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 
 [[package]]
 name = "sp-storage"
 version = "23.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "parity-scale-codec",
  "ref-cast",
@@ -2653,7 +2653,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "19.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -2663,7 +2663,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "43.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "foldhash",
  "hash-db",
@@ -2680,7 +2680,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "24.0.0"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -2725,7 +2725,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "substrate-bip39"
 version = "0.6.1"
-source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#af3de00ed929577fdd7c1491f16b47cdf80f9ea1"
+source = "git+https://github.com/PolymeshAssociation/polkadot-sdk?branch=polymesh-v8-stable2603-7#e313b08b5568c2d5b213ba1fd270fb4ed73fbeae"
 dependencies = [
  "hmac",
  "pbkdf2",
