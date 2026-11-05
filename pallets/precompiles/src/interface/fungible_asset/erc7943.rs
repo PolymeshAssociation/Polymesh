@@ -106,6 +106,15 @@ impl<T: Config> FungibleAssetInterface<T> {
             }),
         )?;
 
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::Transfer(IFungibleAsset::Transfer {
+                from: call.from,
+                to: call.to,
+                value: call.amount,
+            }),
+        )?;
+
         Ok(IFungibleAsset::forcedTransferCall::abi_encode_returns(
             &true,
         ))

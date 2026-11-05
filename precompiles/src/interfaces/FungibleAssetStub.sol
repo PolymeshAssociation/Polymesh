@@ -179,6 +179,7 @@ interface IFungibleAsset {
 
     /// @notice Takes tokens from one address and transfers them to another.
     /// @dev Requires specific authorization. Used for regulatory compliance or recovery scenarios.
+    /// Emits {ForcedTransfer} and {Transfer} events.
     /// @param from The address from which `amount` is taken.
     /// @param to The address which receives the seized tokens.
     /// @param amount The amount to force transfer.
