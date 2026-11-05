@@ -608,11 +608,12 @@ impl FilteredLegs {
                     ref receiver,
                     ..
                 } => {
-                    if asset_holder_set.contains(sender) {
-                        sender_subset.push((leg_id, leg));
-                        sender_asset_count.add_fungible();
-                    } else if asset_holder_set.contains(receiver) {
+                    if asset_holder_set.contains(receiver) {
                         receiver_asset_count.add_fungible();
+                    }
+                    if asset_holder_set.contains(sender) {
+                        sender_asset_count.add_fungible();
+                        sender_subset.push((leg_id, leg));
                     }
                 }
                 Leg::NonFungible {
@@ -620,11 +621,12 @@ impl FilteredLegs {
                     ref receiver,
                     ref nfts,
                 } => {
+                    if asset_holder_set.contains(receiver) {
+                        receiver_asset_count.add_non_fungible(&nfts);
+                    }
                     if asset_holder_set.contains(sender) {
                         sender_asset_count.add_non_fungible(&nfts);
                         sender_subset.push((leg_id, leg));
-                    } else if asset_holder_set.contains(receiver) {
-                        receiver_asset_count.add_non_fungible(&nfts);
                     }
                 }
                 Leg::OffChain { .. } => continue,
