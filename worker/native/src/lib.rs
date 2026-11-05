@@ -19,6 +19,22 @@ pub use polymesh_worker::native_process::run_child_if_requested;
 #[cfg(not(target_os = "linux"))]
 pub fn run_child_if_requested() {}
 
+pub fn execute_native_work(
+    execute: impl FnOnce() -> WorkResponseResult,
+) -> Result<WorkResponseResult, WorkerError> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _guard = sp_panic_handler::AbortGuard::force_unwind();
+        execute()
+    }));
+    match result {
+        Ok(result) => Ok(result),
+        Err(_) => {
+            log::warn!("NATIVE_WORKER: panic while executing a work request");
+            Err(WorkerError::ModuleExecutionFailed)
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn testing_module() -> Option<Box<dyn BackendModule>> {
     process_module(include_bytes!(

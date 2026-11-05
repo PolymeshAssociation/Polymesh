@@ -243,3 +243,36 @@ pub fn main() {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DartWorkRequest;
+    use polymesh_worker_common::{ProtocolError, module::catch_runtime_fallback};
+
+    #[test]
+    fn runtime_fallback_panics_become_protocol_errors() {
+        let result: Result<(), ProtocolError> =
+            catch_runtime_fallback(|| panic!("runtime fallback panic"));
+        assert!(matches!(result, Err(ProtocolError::ExecuteWorkFailed)));
+    }
+
+    #[test]
+    fn native_worker_panics_request_runtime_fallback() {
+        let result = polymesh_worker_native::execute_native_work(|| panic!("native worker panic"));
+        assert!(matches!(
+            result,
+            Err(polymesh_worker_common::WorkerError::ModuleExecutionFailed)
+        ));
+    }
+
+    #[test]
+    fn oversized_runtime_requests_are_rejected_before_decode() {
+        use polymesh_worker_common::{MAX_WORK_REQUEST_SIZE, ProtocolError, WorkRequest};
+
+        let request = WorkRequest(vec![0; MAX_WORK_REQUEST_SIZE + 1]);
+        assert!(matches!(
+            DartWorkRequest::execute_work(&request),
+            Err(ProtocolError::UnexpectedResponse)
+        ));
+    }
+}

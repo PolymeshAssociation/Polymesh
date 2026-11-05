@@ -152,6 +152,8 @@ pub struct BackendModuleDefinition {
 
 /// The maximum module code size limit, used for decompression safety (e.g. to prevent decompression bombs).
 pub const MODULE_CODE_SIZE_LIMIT: usize = 10 * 1024 * 1024; // 10 MB
+/// Maximum encoded work request/response size, matching the DART worker scratch limit.
+pub const MAX_WORK_REQUEST_SIZE: usize = 10 * 1024 * 1024;
 
 /// Pack a fat pointer (ptr and length) into a u64.
 pub fn pack_fat_pointer(ptr: u32, len: u32) -> u64 {

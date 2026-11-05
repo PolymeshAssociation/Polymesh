@@ -10,6 +10,23 @@ pub mod __private {
     pub use log;
 }
 
+/// Catch a runtime fallback panic where the runtime target supports unwinding.
+/// No-std Wasm targets cannot unwind; bounded requests and protocol validation
+/// remain the protection there.
+pub fn catch_runtime_fallback<T>(
+    execute: impl FnOnce() -> Result<T, crate::ProtocolError>,
+) -> Result<T, crate::ProtocolError> {
+    #[cfg(feature = "std")]
+    {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(execute))
+            .unwrap_or(Err(crate::ProtocolError::ExecuteWorkFailed))
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        execute()
+    }
+}
+
 /// Module runtime: panic handler, picoalloc heap, scratch pad and the `initialize`/`execute`
 /// exports used by the worker backends.
 ///
@@ -250,6 +267,9 @@ macro_rules! impl_work_request {
             pub fn execute_work(
                 req: &$crate::WorkRequest,
             ) -> Result<$response, $crate::ProtocolError> {
+                if req.0.len() > $crate::MAX_WORK_REQUEST_SIZE {
+                    return Err($crate::ProtocolError::UnexpectedResponse);
+                }
                 let req: Self = req.decode()?;
                 req.do_execute()
             }
@@ -257,7 +277,11 @@ macro_rules! impl_work_request {
 
         pub fn execute_work_request(req: &$crate::WorkRequest) -> $crate::WorkResponseResult {
             let res = <$request>::execute_work(req)?;
-            Ok($crate::WorkResponse::new(res))
+            let response = $crate::WorkResponse::new(res);
+            if response.0.len() > $crate::MAX_WORK_REQUEST_SIZE {
+                return Err($crate::ProtocolError::UnexpectedResponse);
+            }
+            Ok(response)
         }
 
         #[cfg(feature = "impl_protocol")]
@@ -276,6 +300,17 @@ macro_rules! impl_work_request {
 
         #[cfg(not(feature = "impl_protocol"))]
         impl $request {
+            fn do_execute_fallback(self) -> Result<$response, $crate::ProtocolError> {
+                if codec::Encode::encode(&self).len() > $crate::MAX_WORK_REQUEST_SIZE {
+                    return Err($crate::ProtocolError::UnexpectedResponse);
+                }
+                let response = $crate::module::catch_runtime_fallback(|| self.do_execute())?;
+                if codec::Encode::encode(&response).len() > $crate::MAX_WORK_REQUEST_SIZE {
+                    return Err($crate::ProtocolError::UnexpectedResponse);
+                }
+                Ok(response)
+            }
+
             /// Execute a work request without a session, and return the results.
             pub fn execute(self) -> Result<$response, $crate::ProtocolError> {
                 let req = $crate::WorkRequest::new(&self);
@@ -295,7 +330,7 @@ macro_rules! impl_work_request {
                             "Host failed to execute work, falling back to runtime execution: {:?}",
                             err
                         );
-                        self.do_execute()
+                        self.do_execute_fallback()
                     }
                 }
             }
@@ -325,7 +360,7 @@ macro_rules! impl_work_request {
                             session_id,
                             request_id
                         );
-                        let result = self.do_execute().map($crate::WorkResponse::new);
+                        let result = self.do_execute_fallback().map($crate::WorkResponse::new);
 
                         // Push the results back to the session, and return the request id if the push is successful.
                         $crate::WorkerError::result_from_u64(
@@ -371,7 +406,7 @@ macro_rules! impl_work_request {
                             "Host failed to execute work, falling back to runtime execution: {:?}",
                             err
                         );
-                        self.do_execute()
+                        self.do_execute_fallback()
                     }
                 }
             }
