@@ -157,6 +157,66 @@ fn add_multisig_signers_duplicate_signers() {
 }
 
 #[test]
+fn removed_signer_cannot_rejoin_with_outstanding_invitation() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = Sr25519Keyring::Bob.to_account_id();
+        let eve = Sr25519Keyring::Eve.to_account_id();
+        let eve_origin = || Origin::signed(eve.clone());
+
+        let ms_address =
+            create_multisig_default_perms(alice.acc(), create_signers(vec![bob.clone()]), 1);
+        assert_ok!(MultiSig::accept_multisig_signer(
+            Origin::signed(bob.clone()),
+            get_last_auth_id(&bob)
+        ));
+
+        let invite_eve = || {
+            assert_ok!(MultiSig::add_multisig_signers_via_admin(
+                alice.origin(),
+                ms_address.clone(),
+                create_signers(vec![eve.clone()]),
+            ));
+            get_last_auth_id(&eve)
+        };
+
+        // Eve joins, leaving a second invitation outstanding, and is removed by the admin.
+        let stale_auth_id = invite_eve();
+        assert_ok!(MultiSig::accept_multisig_signer(eve_origin(), invite_eve()));
+        assert_ok!(MultiSig::remove_multisig_signers_via_admin(
+            alice.origin(),
+            ms_address.clone(),
+            create_signers(vec![eve.clone()]),
+        ));
+
+        // The outstanding invitation can't be used to rejoin.
+        assert_noop!(
+            MultiSig::accept_multisig_signer(eve_origin(), stale_auth_id),
+            IdError::InvalidAuthorization
+        );
+        assert_eq!(MultiSig::ms_signers(ms_address.clone(), eve.clone()), false);
+        assert_eq!(NumberOfSigners::<TestStorage>::get(&ms_address), 1);
+
+        // An invitation issued after the removal is still valid.
+        let stale_auth_id = invite_eve();
+        assert_ok!(MultiSig::accept_multisig_signer(eve_origin(), invite_eve()));
+        assert_eq!(MultiSig::ms_signers(ms_address.clone(), eve.clone()), true);
+        assert_eq!(NumberOfSigners::<TestStorage>::get(&ms_address), 2);
+
+        // Removal by the multisig itself invalidates outstanding invitations as well.
+        assert_ok!(MultiSig::remove_multisig_signers(
+            Origin::signed(ms_address.clone()),
+            create_signers(vec![eve.clone()]),
+        ));
+        assert_noop!(
+            MultiSig::accept_multisig_signer(eve_origin(), stale_auth_id),
+            IdError::InvalidAuthorization
+        );
+        assert_eq!(MultiSig::ms_signers(ms_address.clone(), eve.clone()), false);
+    });
+}
+
+#[test]
 fn join_multisig() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);

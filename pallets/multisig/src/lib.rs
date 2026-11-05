@@ -1006,6 +1006,8 @@ impl<T: Config> Pallet<T> {
             Self::ensure_ms_signer(&multisig, signer)?;
             IdentityPallet::<T>::remove_key_record(signer, None);
             MultiSigSigners::<T>::remove(&multisig, signer);
+            // Outstanding invitations must not allow a removed signer to rejoin.
+            IdentityPallet::<T>::set_outdated_autorizations(Signatory::Account(signer.clone()));
         }
 
         NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);

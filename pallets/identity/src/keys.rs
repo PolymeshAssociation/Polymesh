@@ -435,7 +435,7 @@ impl<T: Config> Pallet<T> {
 
     /// Sets all authorizations with auth_id less or equal to the current id as invalid for the
     /// `signatory_account`.
-    fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
+    pub fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
         let current_auth_id = CurrentAuthId::<T>::get();
         OutdatedAuthorizations::<T>::insert(signatory_account, current_auth_id);
     }
