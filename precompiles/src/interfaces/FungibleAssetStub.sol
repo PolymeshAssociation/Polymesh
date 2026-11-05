@@ -235,6 +235,8 @@ interface IFungibleAsset {
     function setName(string calldata name) external;
 
     /// @notice Sets the token symbol. Only the owner of the token contract can call this function.
+    /// @dev The symbol is a unique ticker, which the caller must be able to register. The previous
+    /// ticker is released.It must be owned by the caller. Setting the current symbol again has no effect.
     function setSymbol(string calldata symbol) external;
 
     /// @notice Pauses the token contract, preventing token transfers. Only an agent of the token can call this function.
