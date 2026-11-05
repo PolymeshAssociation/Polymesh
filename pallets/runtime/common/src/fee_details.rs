@@ -51,8 +51,7 @@ where
         auth_id: &u64,
         call_type: CallType,
     ) -> Result<AccountId, InvalidTransaction> {
-        if let Some(auth) =
-            Identity::<A>::get_non_expired_auth(&Signatory::Account(account_id), auth_id)
+        if let Some(auth) = Identity::<A>::get_valid_auth(&Signatory::Account(account_id), auth_id)
         {
             match call_type {
                 CallType::RemoveAuthorization => {
