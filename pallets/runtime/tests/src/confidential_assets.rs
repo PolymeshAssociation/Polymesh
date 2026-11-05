@@ -6,7 +6,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
     weights::SubstrateWeight, AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error,
-    FeeAccountDid, FreezeOrigin, Keys, Pallet, WeightInfo, RELAYER_SUBMIT_EXTENSION_MARKER_KEY,
+    FeeAccountDid, FreezeOrigin, Keys, Pallet, RelayerSubmitExtensionMarker, WeightInfo,
 };
 use polymesh_dart::{
     curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
@@ -656,7 +656,7 @@ fn confidential_assets_relayer_context_and_payment_persistence() {
                 pallet_balances::Pallet::<Runtime>::free_balance(&relayer),
                 before
             );
-            sp_io::storage::set(RELAYER_SUBMIT_EXTENSION_MARKER_KEY, &[]);
+            RelayerSubmitExtensionMarker::<Runtime>::put(());
             let post = Pallet::<Runtime>::relayer_submit_batched_proofs(
                 RawOrigin::Signed(relayer.clone()).into(),
                 payment.clone(),

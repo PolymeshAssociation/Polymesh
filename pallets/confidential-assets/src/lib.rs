@@ -137,8 +137,6 @@ pub const RECENT_BLOCKS_TO_KEEP: u32 = 100;
 /// for the relayer, whereas underestimating it would make the estimated minimum fee payment
 /// insufficient to cover the actual transaction fee.
 pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
-pub const RELAYER_SUBMIT_EXTENSION_MARKER_KEY: &[u8] =
-    b":polymesh:confidential-assets:relayer-submit-extension-marker";
 
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
@@ -485,7 +483,7 @@ where
     ) -> Result<Self::Pre, TransactionValidityError> {
         if let Some(proof) = Self::proof(call) {
             Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
-            sp_io::storage::set(RELAYER_SUBMIT_EXTENSION_MARKER_KEY, &[]);
+            pallet::RelayerSubmitExtensionMarker::<T>::put(());
             Ok(true)
         } else {
             Ok(false)
@@ -500,7 +498,7 @@ where
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if pre {
-            sp_io::storage::clear(RELAYER_SUBMIT_EXTENSION_MARKER_KEY);
+            pallet::RelayerSubmitExtensionMarker::<T>::kill();
         }
         Ok(())
     }
@@ -1073,6 +1071,10 @@ pub mod pallet {
     /// Cache DART parameters.
     #[pallet::storage]
     pub(crate) type CachedDartParameters<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+    /// Marks a relayer submission while its transaction extension is executing.
+    #[pallet::storage]
+    pub type RelayerSubmitExtensionMarker<T: Config> = StorageValue<_, (), OptionQuery>;
 
     /// Next Asset ID to be used for Confidential assets.
     #[pallet::storage]
@@ -3275,7 +3277,7 @@ impl<T: Config> Pallet<T> {
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> DispatchResultWithPostInfo {
         ensure!(
-            sp_io::storage::exists(RELAYER_SUBMIT_EXTENSION_MARKER_KEY),
+            pallet::RelayerSubmitExtensionMarker::<T>::exists(),
             Error::<T>::RelayerCallMustBeTopLevel
         );
 
