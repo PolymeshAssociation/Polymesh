@@ -848,6 +848,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidNFTTransferSenderDidMatchesReceiverDid
         );
 
+        // Verifies that the receiving portfolio exists
+        if let AssetHolder::Portfolio(receiver_portfolio) = receiver {
+            PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio)?;
+        }
+
         // Verifies that the sender has the required nft count
         let nfts_transferred = nfts.len() as u64;
         ensure!(
@@ -1248,6 +1253,12 @@ impl<T: Config> Pallet<T> {
         if sender_did == receiver_did {
             nft_transfer_errors
                 .push(Error::<T>::InvalidNFTTransferSenderDidMatchesReceiverDid.into());
+        }
+
+        if let AssetHolder::Portfolio(receiver_portfolio) = receiver {
+            if let Err(e) = PortfolioPallet::<T>::ensure_portfolio_validity(receiver_portfolio) {
+                nft_transfer_errors.push(e);
+            }
         }
 
         let nfts_transferred = nfts.len() as u64;

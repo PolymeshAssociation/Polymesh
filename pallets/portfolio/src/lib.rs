@@ -893,6 +893,8 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::DefaultPortfoliosCannotHaveCustodians
             );
 
+            Self::ensure_portfolio_validity(&pid)?;
+
             let curr = Self::custodian(&pid);
             pallet_identity::Pallet::<T>::ensure_auth_by(from, curr)?;
 
