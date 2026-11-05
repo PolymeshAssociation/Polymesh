@@ -106,6 +106,57 @@ fn create_multisig_required_signers() {
 }
 
 #[test]
+fn create_multisig_duplicate_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let eve_signer = Sr25519Keyring::Eve.to_account_id();
+
+        let create = |signers: Vec<AccountId>, nsigs| {
+            create_multisig_result(alice.acc(), create_signers(signers), nsigs)
+        };
+
+        // The threshold can't be met by repeating a signer.
+        assert_noop!(
+            create(vec![bob_signer.clone(), bob_signer.clone()], 2),
+            Error::DuplicateSigners
+        );
+        // Duplicates are rejected even if the distinct signers could meet the threshold.
+        assert_noop!(
+            create(
+                vec![bob_signer.clone(), eve_signer.clone(), bob_signer.clone()],
+                2
+            ),
+            Error::DuplicateSigners
+        );
+
+        assert_ok!(create(vec![bob_signer, eve_signer], 2));
+    });
+}
+
+#[test]
+fn add_multisig_signers_duplicate_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob_signer = Sr25519Keyring::Bob.to_account_id();
+        let eve_signer = Sr25519Keyring::Eve.to_account_id();
+
+        let ms_address =
+            create_multisig_default_perms(alice.acc(), create_signers(vec![bob_signer.clone()]), 1);
+        let duplicates = || create_signers(vec![eve_signer.clone(), eve_signer.clone()]);
+
+        assert_noop!(
+            MultiSig::add_multisig_signers(Origin::signed(ms_address.clone()), duplicates()),
+            Error::DuplicateSigners
+        );
+        assert_noop!(
+            MultiSig::add_multisig_signers_via_admin(alice.origin(), ms_address, duplicates()),
+            Error::DuplicateSigners
+        );
+    });
+}
+
+#[test]
 fn join_multisig() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
