@@ -84,6 +84,11 @@ or overwrite it with an issuer freeze. Repeating an authorized call in the same 
 emit `AssetFrozen`/`AssetUnfrozen` with the acting authority. `recommit_asset_leaf` emits
 `AssetStateLeafUpdated` after every successful asset-leaf write, including key updates.
 
+Freezing is scoped to preventing new asset transfers: it rejects new settlement and instant-settlement
+proofs for the asset, subject to the hidden-asset root-age window below. It does not disable issuer
+administration such as minting, account registration, or updating auditor and mediator keys. These
+operations preserve the frozen state; only an authorized unfreeze clears it.
+
 State changes and asset-tree updates use FRAME's extrinsic storage transaction, without an
 explicit `transactional` attribute: failed worker execution or tree
 updates leave both freeze authority and the asset leaf unchanged. Key updates retain the freeze

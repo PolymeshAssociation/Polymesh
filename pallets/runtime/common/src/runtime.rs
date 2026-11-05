@@ -851,7 +851,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_migrations::SubstrateWeight;
         }
 
-        pub type MaxModuleCodeSize = polymesh_primitives::ConstSize<{ 2 * 1024 * 1024 }>; // 2 MiB
+        pub type MaxModuleCodeSize = polymesh_primitives::ConstSize<{ 3 * 1024 * 1024 }>; // 3 MiB
         pub type MaxModuleContextSize = polymesh_primitives::ConstSize<{ 2 * 1024 * 1024 }>; // 2 MiB
         pub type MaxModulesPerConfig = polymesh_primitives::ConstSize<8>; // 8 modules per config
 
