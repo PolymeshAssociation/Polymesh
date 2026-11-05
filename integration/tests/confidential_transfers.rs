@@ -5,7 +5,36 @@ mod confidential_assets_tests {
     use anyhow::Result;
 
     use integration::confidential_assets_helper::*;
-    use polymesh_dart::LegConfig;
+    use integration::*;
+    use polymesh_dart::{BatchedProofs, LegConfig};
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn relayer_submission_nested_in_utility_batch_is_rejected() -> Result<()> {
+        let tester = DartAssetTester::init_with_relayer(&["NestedRelayerSubmitter"], "Relayer")
+            .await?;
+        let submitter = tester.user("NestedRelayerSubmitter").await;
+        let relayer = tester.user("Relayer").await;
+        let payment = submitter
+            .build_relayer_fee_payment(BatchedProofs::new())
+            .await?;
+        let mut result = relayer.relayer_submit_batch_nested(payment).await?;
+
+        let events = result.events().await?.expect("utility batch events");
+        let batch_error = events.0.iter().find_map(|record| match &record.event {
+            RuntimeEvent::Utility(UtilityEvent::BatchInterrupted { error, .. }) => {
+                Some(format!("{error:?}"))
+            }
+            _ => None,
+        });
+        assert!(
+            batch_error
+                .as_deref()
+                .is_some_and(|error| error.contains("RelayerCallMustBeTopLevel")),
+            "nested relayer call must fail the top-level-only guard: {batch_error:?}"
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     #[test_log::test]

@@ -1,20 +1,23 @@
+use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok,
-    traits::{Currency, Get},
+    traits::{Currency, Get, StorageVersion},
 };
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
     weights::SubstrateWeight, AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error,
-    FeeAccountDid, FreezeOrigin, Keys, Pallet, WeightInfo,
+    FeeAccountDid, FreezeOrigin, Keys, Pallet, WeightInfo, RELAYER_SUBMIT_EXTENSION_MARKER_KEY,
 };
 use polymesh_dart::{
     curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
-    AccountKeys, AccountRegistrationProof, AssetState, BatchedFeeAccountRegistrationProof,
-    BatchedFeeAccountTopupProof, EncryptionKeyRegistrationProof, FeeAccountRegistrationProof,
-    LeafIndex, PolymeshLimits, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
+    AccountKeys, AccountPublicKey, AccountRegistrationProof, AssetState,
+    BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof,
+    EncryptionKeyRegistrationProof, EncryptionPublicKey, FeeAccountRegistrationProof, LeafIndex,
+    PolymeshLimits, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
 };
 use polymesh_primitives::{AccountId, IdentityId};
 use rand::{rngs::StdRng, thread_rng, SeedableRng};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{ExtBuilder, TestStorage as Runtime};
 
@@ -323,6 +326,115 @@ fn confidential_assets_leaf_update_events() {
 }
 
 #[test]
+fn confidential_assets_migrate_v0_keys_and_asset_leaf() {
+    #[derive(Encode)]
+    struct LegacyKeys {
+        enc_keys: BTreeSet<EncryptionPublicKey>,
+        mediators: BTreeMap<AccountPublicKey, u8>,
+    }
+
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        let asset_id = 0;
+        let owner = IdentityId::from(1u128);
+        let mediator_a = AccountKeys::from_seed("LegacyMediatorA").unwrap();
+        let mediator_b = AccountKeys::from_seed("LegacyMediatorB").unwrap();
+        let enc_keys = BTreeSet::from([mediator_a.enc.public, mediator_b.enc.public]);
+        let mediator_index = |key: EncryptionPublicKey| {
+            enc_keys
+                .iter()
+                .position(|candidate| *candidate == key)
+                .unwrap() as u8
+        };
+        let mediator_a_index = mediator_index(mediator_a.enc.public);
+        let mediator_b_index = mediator_index(mediator_b.enc.public);
+        let mediators = BTreeMap::from([
+            (mediator_a.acct.public, mediator_a_index),
+            (mediator_b.acct.public, mediator_b_index),
+        ]);
+        let old_keys = LegacyKeys {
+            enc_keys,
+            mediators,
+        };
+        let raw_keys = old_keys.encode();
+
+        Details::<Runtime>::insert(
+            asset_id,
+            AssetDetails::<Runtime> {
+                owner_did: owner,
+                total_supply: 0,
+                data: Default::default(),
+            },
+        );
+        sp_io::storage::set(&Keys::<Runtime>::hashed_key_for(asset_id), &raw_keys);
+
+        let mediator_pairs = [
+            (mediator_a.acct.public, mediator_a.enc.public),
+            (mediator_b.acct.public, mediator_b.enc.public),
+        ];
+        let expected = AssetState::new::<PolymeshLimits>(asset_id, &mediator_pairs, &[]).unwrap();
+        let stale_key = AccountKeys::from_seed("LegacyStaleAuditor")
+            .unwrap()
+            .enc
+            .public;
+        let stale_leaf = AssetState::new::<PolymeshLimits>(asset_id, &[], &[stale_key])
+            .unwrap()
+            .commitment()
+            .unwrap();
+        AssetLeaves::<Runtime>::insert(LeafIndex::from(asset_id), stale_leaf);
+
+        StorageVersion::new(0).put::<pallet_confidential_assets::Pallet<Runtime>>();
+        let _migration_weight = Pallet::<Runtime>::migrate_to_v1();
+
+        let migrated_keys = Keys::<Runtime>::get(asset_id).unwrap();
+        assert_eq!(migrated_keys.enc_keys, expected.keys.enc_keys);
+        assert_eq!(migrated_keys.mediators, expected.keys.mediators);
+        assert_eq!(
+            AssetLeaves::<Runtime>::get(LeafIndex::from(asset_id)),
+            Some(expected.commitment().unwrap())
+        );
+        assert!(Pallet::<Runtime>::get_asset_curve_tree_root(1).is_ok());
+        assert_eq!(
+            StorageVersion::get::<pallet_confidential_assets::Pallet<Runtime>>(),
+            StorageVersion::new(1)
+        );
+    });
+}
+
+#[test]
+fn confidential_assets_migration_skips_invalid_legacy_keys_without_panic() {
+    ExtBuilder::default().build().execute_with(|| {
+        let asset_id = 0;
+        Details::<Runtime>::insert(
+            asset_id,
+            AssetDetails::<Runtime> {
+                owner_did: IdentityId::from(1u128),
+                total_supply: 0,
+                data: Default::default(),
+            },
+        );
+        let invalid_keys = vec![0xff];
+        sp_io::storage::set(&Keys::<Runtime>::hashed_key_for(asset_id), &invalid_keys);
+        StorageVersion::new(0).put::<pallet_confidential_assets::Pallet<Runtime>>();
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            Pallet::<Runtime>::migrate_to_v1()
+        }));
+
+        assert!(result.is_ok());
+        assert_eq!(
+            StorageVersion::get::<pallet_confidential_assets::Pallet<Runtime>>(),
+            StorageVersion::new(1)
+        );
+        assert_eq!(
+            sp_io::storage::get(&Keys::<Runtime>::hashed_key_for(asset_id))
+                .map(|bytes| bytes.to_vec()),
+            Some(invalid_keys)
+        );
+    });
+}
+
+#[test]
 fn confidential_assets_freeze_rejects_non_owner_and_missing_asset() {
     with_asset(|_, state| {
         let other_did = IdentityId::from(2u128);
@@ -533,6 +645,18 @@ fn confidential_assets_relayer_context_and_payment_persistence() {
                 10_000_000,
             );
             let before = pallet_balances::Pallet::<Runtime>::free_balance(&relayer);
+            assert_noop!(
+                Pallet::<Runtime>::relayer_submit_batched_proofs(
+                    RawOrigin::Signed(relayer.clone()).into(),
+                    payment.clone(),
+                ),
+                Error::<Runtime>::RelayerCallMustBeTopLevel
+            );
+            assert_eq!(
+                pallet_balances::Pallet::<Runtime>::free_balance(&relayer),
+                before
+            );
+            sp_io::storage::set(RELAYER_SUBMIT_EXTENSION_MARKER_KEY, &[]);
             let post = Pallet::<Runtime>::relayer_submit_batched_proofs(
                 RawOrigin::Signed(relayer.clone()).into(),
                 payment.clone(),

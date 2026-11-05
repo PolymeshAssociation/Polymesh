@@ -39,7 +39,9 @@ use polymesh_primitives::{
     Balance, Claim, IdentityId, Scope,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{AccountIdConversion, DispatchInfoOf, Dispatchable, TransactionExtension};
+use sp_runtime::traits::{
+    AccountIdConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 };
@@ -135,6 +137,8 @@ pub const RECENT_BLOCKS_TO_KEEP: u32 = 100;
 /// for the relayer, whereas underestimating it would make the estimated minimum fee payment
 /// insufficient to cover the actual transaction fee.
 pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
+pub const RELAYER_SUBMIT_EXTENSION_MARKER_KEY: &[u8] =
+    b":polymesh:confidential-assets:relayer-submit-extension-marker";
 
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
@@ -389,6 +393,26 @@ where
         }
     }
 
+    fn check_fee_bounds(
+        proof: &FeePaymentWithBatchedProofs<PolymeshLimits>,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+    ) -> Result<(), InvalidTransaction>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+        BalanceOf<T>: Into<u128>,
+    {
+        let amount = Pallet::<T>::amount_to_balance(proof.fee_payment.amount)
+            .map_err(|_| InvalidTransaction::Payment)?;
+        let minimum_fee =
+            pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
+        let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
+        if amount < minimum_fee || amount > maximum_fee {
+            return Err(InvalidTransaction::Payment);
+        }
+        Ok(())
+    }
+
     pub fn relayer_submit_batched_proofs_weight() -> Weight {
         T::DbWeight::get().reads(2)
     }
@@ -403,7 +427,7 @@ where
     const IDENTIFIER: &'static str = "CheckRelayerSubmitBatchedProofs";
     type Implicit = ();
     type Val = ();
-    type Pre = ();
+    type Pre = bool;
 
     fn weight(&self, call: &T::RuntimeCall) -> Weight {
         if Self::proof(call).is_some() {
@@ -438,16 +462,7 @@ where
             return Err(InvalidTransaction::Stale.into());
         }
 
-        let amount = Pallet::<T>::amount_to_balance(proof.fee_payment.amount)
-            .map_err(|_| InvalidTransaction::Payment)?;
-        let minimum_fee =
-            pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
-        let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
-        let commission = amount.saturating_sub(minimum_fee);
-        log::debug!(target: "confidential-assets", "tx_len: {:?}, Amount: {:?}, Minimum fee: {:?}, Maximum fee: {:?}, Commission: {:?}", len, amount, minimum_fee, maximum_fee, commission);
-        if amount < minimum_fee || amount > maximum_fee {
-            return Err(InvalidTransaction::Payment.into());
-        }
+        Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
 
         let valid = ValidTransaction {
             provides: sp_std::vec![(
@@ -464,10 +479,29 @@ where
         self,
         _val: Self::Val,
         _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
-        _call: &T::RuntimeCall,
-        _info: &DispatchInfoOf<T::RuntimeCall>,
-        _len: usize,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
+        if let Some(proof) = Self::proof(call) {
+            Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
+            sp_io::storage::set(RELAYER_SUBMIT_EXTENSION_MARKER_KEY, &[]);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn post_dispatch(
+        pre: Self::Pre,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+        _result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        if pre {
+            sp_io::storage::clear(RELAYER_SUBMIT_EXTENSION_MARKER_KEY);
+        }
         Ok(())
     }
 }
@@ -926,8 +960,6 @@ pub mod pallet {
         FeeAccountMissing,
         /// Confidential fee account already registered.
         FeeAccountAlreadyRegistered,
-        /// Insufficient fee payment amount.
-        InsufficientFeePaymentAmount,
         /// Invalid Fee Payment proof.
         InvalidFeePaymentProof,
         /// Batch of proofs can't be empty.
@@ -1026,6 +1058,8 @@ pub mod pallet {
         AssetIdOverflow,
         /// A registration or proof batch exceeds its runtime-configured limit.
         TooManyProofs,
+        /// Relayer proof submission is only permitted as the top-level call.
+        RelayerCallMustBeTopLevel,
         /// The leg count provided with a batched proof doesn't match the settlement.
         SettlementLegCountMismatch,
     }
@@ -2245,7 +2279,8 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
-        /// * `InsufficientFeePayment` if the fee payment is insufficient to cover the relayer fee.
+        /// * `InvalidTransaction::Payment` if the fee amount is outside the configured bounds.
+        /// * `RelayerCallMustBeTopLevel` if this call is nested or the signed extension did not run.
         #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(
             &proof,
@@ -3239,6 +3274,11 @@ impl<T: Config> Pallet<T> {
         relayer: T::AccountId,
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> DispatchResultWithPostInfo {
+        ensure!(
+            sp_io::storage::exists(RELAYER_SUBMIT_EXTENSION_MARKER_KEY),
+            Error::<T>::RelayerCallMustBeTopLevel
+        );
+
         ensure!(
             proof.batched_proofs.len() <= T::MaxBatchedProofs::get() as usize,
             Error::<T>::TooManyProofs

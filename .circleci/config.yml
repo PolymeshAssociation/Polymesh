@@ -589,6 +589,40 @@ jobs:
       - store_artifacts:
           path: ./integration/worker-diff.jsonl
           destination: worker-diff.jsonl
+      - run:
+          name: Start runtime-fallback-only DART chain
+          command: >-
+            env -u WORKER_DIFF_LOG POLYMESH_WORKER_BACKENDS=none
+            ./assets/ci-runtime/polymesh --bob --dev --tmp
+            --unsafe-force-node-key-generation --no-prometheus --no-telemetry
+            --pool-limit 100000 --port 30334 --rpc-port 9935 --ws-port 9945
+          background: true
+      - run:
+          name: Wait for runtime-fallback chain
+          command: |
+            for _ in $(seq 1 60); do
+              if curl -sf -H 'Content-Type: application/json' \
+                  -d '{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}' \
+                  http://127.0.0.1:9935 > /dev/null; then
+                echo "runtime-fallback chain is up"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "runtime-fallback chain did not start" >&2
+            exit 1
+      - run:
+          name: Reset runtime-fallback test accounts
+          command: ./reset_db.sh
+          working_directory: ./integration
+      - run:
+          name: Run confidential transfer tests with runtime fallback only
+          command: cargo nextest run --release --features current_release,timed --locked -E 'binary(confidential_transfers)'
+          working_directory: ./integration
+          environment:
+            POLYMESH_NODE_URL: ws://127.0.0.1:9945
+            POLYMESH_WORKER_BACKENDS: none
+          no_output_timeout: 30m
   contract-deploy-test-foundry:
     machine:
       image: ubuntu-2204:current

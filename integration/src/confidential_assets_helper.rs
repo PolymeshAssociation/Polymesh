@@ -2091,6 +2091,35 @@ impl DartUser {
         self.0.write().await.relayer_submit_batch(batch).await
     }
 
+    pub async fn build_relayer_fee_payment(
+        &self,
+        batched: BatchedProofs<()>,
+    ) -> Result<FeePaymentWithBatchedProofs<()>> {
+        let mut user = self.0.write().await;
+        user.submitter.prepare_submission_context().await?;
+        let target = user.submitter.method.relayer_account_id().await;
+        user.submitter.fee_payment_batch(target, batched).await
+    }
+
+    pub async fn relayer_submit_batch_nested(
+        &self,
+        batch: FeePaymentWithBatchedProofs<()>,
+    ) -> Result<TransactionResults> {
+        let mut relayer = self.0.write().await;
+        let api = relayer.submitter.api.clone();
+        let nested_call = api
+            .call()
+            .confidential_assets()
+            .relayer_submit_batched_proofs(to_scale(&batch))?
+            .into_runtime_call();
+        api.call()
+            .utility()
+            .batch(vec![nested_call])?
+            .submit_and_watch(&mut relayer.submitter.user)
+            .await
+            .map_err(Into::into)
+    }
+
     pub async fn register_account_asset(&self, asset_id: DartAssetId) -> Result<()> {
         self.0.write().await.register_account_asset(asset_id).await
     }
