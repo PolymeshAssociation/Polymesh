@@ -257,7 +257,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::AffirmsReceived` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
     // Storage: `Settlement::VenueFiltering` (r:110 w:0)
     // Proof: `Settlement::VenueFiltering` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedAssets` (r:10 w:10)
     // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
@@ -319,6 +319,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 6_306_413 nanoseconds.
         Weight::from_parts(6_306_413_000, 0)
             // Standard Error: 7_408_191
@@ -329,7 +331,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((111_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((72_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(11))
+            .saturating_add(DbWeight::get().writes(12))
             .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
@@ -561,7 +563,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::InstructionDetails` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
     // Storage: `Settlement::VenueFiltering` (r:110 w:0)
     // Proof: `Settlement::VenueFiltering` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedAssets` (r:10 w:10)
     // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
@@ -621,6 +623,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 2_583_798 nanoseconds.
         Weight::from_parts(1_200_409, 0)
             // Standard Error: 2_063_698
@@ -633,7 +637,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((27_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((22_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(13))
+            .saturating_add(DbWeight::get().writes(14))
             .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
@@ -660,7 +664,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::InstructionDetails` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
     // Storage: `Settlement::VenueFiltering` (r:110 w:0)
     // Proof: `Settlement::VenueFiltering` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedAssets` (r:10 w:10)
     // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
@@ -724,6 +728,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 6_433_193 nanoseconds.
         Weight::from_parts(6_444_533_000, 0)
             // Standard Error: 7_363_095
@@ -734,7 +740,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((111_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((72_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(13))
+            .saturating_add(DbWeight::get().writes(14))
             .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
@@ -1081,10 +1087,14 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::AffirmsReceived` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
     // Storage: `Settlement::InstructionRelockCount` (r:0 w:1)
     // Proof: `Settlement::InstructionRelockCount` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `MaxEncodedLen`)
+    // Storage: `Settlement::InstructionMemos` (r:0 w:1)
+    // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn base_reject_instruction(f: u32, n: u32, o: u32) -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 550_449 nanoseconds.
         Weight::from_parts(112_815_054, 0)
             // Standard Error: 319_500
@@ -1097,7 +1107,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((7_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(11))
+            .saturating_add(DbWeight::get().writes(12))
             .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
@@ -1208,7 +1218,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Portfolio::PortfolioLockedNFT` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedAssets` (r:10 w:10)
     // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::Portfolios` (r:110 w:0)
     // Proof: `Portfolio::Portfolios` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1264,6 +1274,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_locked_instruction(f: u32, n: u32, o: u32) -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 3_078_707 nanoseconds.
         Weight::from_parts(74_313_575, 0)
             // Standard Error: 1_328_838
@@ -1276,7 +1288,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((54_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((15_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(11))
+            .saturating_add(DbWeight::get().writes(12))
             .saturating_add(DbWeight::get().writes((26_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))
@@ -1307,7 +1319,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::AffirmsReceived` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
     // Storage: `Settlement::VenueFiltering` (r:110 w:0)
     // Proof: `Settlement::VenueFiltering` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Portfolio::PortfolioLockedAssets` (r:10 w:10)
     // Proof: `Portfolio::PortfolioLockedAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
@@ -1365,6 +1377,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
     fn execute_manual_instruction_paused(f: u32, n: u32, o: u32) -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 2_610_667 nanoseconds.
         Weight::from_parts(29_995_498, 0)
             // Standard Error: 2_547_964
@@ -1377,7 +1391,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((27_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((22_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(o.into())))
-            .saturating_add(DbWeight::get().writes(11))
+            .saturating_add(DbWeight::get().writes(12))
             .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().writes((18_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(o.into())))

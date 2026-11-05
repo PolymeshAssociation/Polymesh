@@ -2290,6 +2290,7 @@ impl<T: Config> Pallet<T> {
     /// - `AffirmsReceived`
     /// - `OffChainAffirmations`
     /// - `LockedTimestamp`
+    /// - `InstructionMemos`
     ///
     /// Also cancels the instruction's scheduled execution, if any.
     #[rustfmt::skip]
@@ -2310,6 +2311,7 @@ impl<T: Config> Pallet<T> {
         LockedTimestamp::<T>::remove(inst_id);
         UnlockedTimestamp::<T>::remove(inst_id);
         InstructionRelockCount::<T>::remove(inst_id);
+        InstructionMemos::<T>::remove(inst_id);
 
         let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(inst_id, u32::MAX, None);
 
