@@ -962,21 +962,31 @@ pub mod pallet {
         /// * `InvalidGranularity` - If the value to redeem does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::redeem())]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(<T as Config>::WeightInfo::redeem()))]
         pub fn redeem(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             asset_holder_kind: AssetHolderKind,
-        ) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        ) -> DispatchResultWithPostInfo {
+            let base_weight = <T as Config>::WeightInfo::redeem();
+            let mut weight_meter = WeightMeter::from_limit_unchecked(
+                base_weight,
+                Self::weight_limit_with_statistics(base_weight),
+            );
+            weight_meter
+                .check_accrue(base_weight)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
             Self::base_redeem(
                 origin,
                 asset_id,
                 value,
                 asset_holder_kind,
                 &mut weight_meter,
-            )
+            )?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// If the asset associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
@@ -1131,15 +1141,23 @@ pub mod pallet {
         /// * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[pallet::call_index(14)]
-        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer())]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(<T as Config>::WeightInfo::controller_transfer()))]
         pub fn controller_transfer(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             source: AssetHolder,
             destination_kind: AssetHolderKind,
-        ) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        ) -> DispatchResultWithPostInfo {
+            let base_weight = <T as Config>::WeightInfo::controller_transfer();
+            let mut weight_meter = WeightMeter::from_limit_unchecked(
+                base_weight,
+                Self::weight_limit_with_statistics(base_weight),
+            );
+            weight_meter
+                .check_accrue(base_weight)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
             Self::base_controller_transfer(
                 origin,
                 asset_id,
@@ -1147,7 +1165,9 @@ pub mod pallet {
                 source,
                 destination_kind,
                 &mut weight_meter,
-            )
+            )?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Registers a custom asset type.
@@ -1892,15 +1912,23 @@ pub mod pallet {
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         /// * `ReceiverAffirmationRequired` - If `destination` requires receiver affirmation for the asset.
         #[pallet::call_index(40)]
-        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer_to())]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(<T as Config>::WeightInfo::controller_transfer_to()))]
         pub fn controller_transfer_to(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             source: AssetHolder,
             destination: AssetHolder,
-        ) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        ) -> DispatchResultWithPostInfo {
+            let base_weight = <T as Config>::WeightInfo::controller_transfer_to();
+            let mut weight_meter = WeightMeter::from_limit_unchecked(
+                base_weight,
+                Self::weight_limit_with_statistics(base_weight),
+            );
+            weight_meter
+                .check_accrue(base_weight)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
             Self::base_controller_transfer_to(
                 origin,
                 asset_id,
@@ -1908,7 +1936,9 @@ pub mod pallet {
                 source,
                 destination,
                 &mut weight_meter,
-            )
+            )?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Freezes an additional `amount` of `asset_id` tokens from `asset_holder`, on top of
@@ -2308,6 +2338,14 @@ impl<T: AssetConfig> Pallet<T> {
         )?;
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+    }
+
+    /// Returns `base_weight` plus the worst-case weight of updating the asset's statistics.
+    ///
+    /// `base_weight` must not include the per-statistic updates. These only run when the
+    /// statistics change, so the `redeem` and `controller_transfer*` benchmarks don't measure them.
+    fn weight_limit_with_statistics(base_weight: Weight) -> Weight {
+        base_weight.saturating_add(Statistics::<T>::update_asset_stats_weight_limit())
     }
 
     /// Reduces `value` tokens from `asset_holder_kind` and [`AssetDetails::total_supply`].
