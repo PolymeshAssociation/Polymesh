@@ -14,7 +14,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, DispatchResult};
-use frame_support::traits::{Imbalance, SuppressedDrop};
+use frame_support::traits::{Contains, Imbalance, SuppressedDrop};
 use frame_support::weights::Weight;
 use frame_support::DebugNoBound;
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -82,6 +82,13 @@ pub mod pallet {
         type GovernanceCommittee: GroupTrait<Self::Moment>;
 
         type Identity: IdentityFnTrait<Self::AccountId>;
+
+        /// Accounts allowed to submit signed `DispatchClass::Operational` transactions.
+        ///
+        /// The dispatch class is computed without looking at the origin, and origins are only
+        /// checked when dispatching. Without this filter any funded account could use the higher
+        /// priority and the block space reserved for `Operational` transactions.
+        type OperationalCallers: Contains<Self::AccountId>;
     }
 
     #[cfg(feature = "disable_fees")]
@@ -344,6 +351,19 @@ where
         }
     }
 
+    /// Ensures that only `T::OperationalCallers` can submit `DispatchClass::Operational` transactions.
+    pub(crate) fn ensure_valid_operational_caller(
+        who: &T::AccountId,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+    ) -> Result<(), TransactionValidityError> {
+        if info.class == DispatchClass::Operational && !T::OperationalCallers::contains(who) {
+            return Err(TransactionValidityError::Invalid(
+                InvalidTransaction::Custom(TransactionError::NotOperationalCaller as u8),
+            ));
+        }
+        Ok(())
+    }
+
     // -----------------------------------------------------------------
 }
 
@@ -433,6 +453,7 @@ where
         };
 
         let tip = self.ensure_valid_tip(&who, info)?;
+        Self::ensure_valid_operational_caller(&who, info)?;
 
         let (fee_with_tip, subsidiser) = self.can_withdraw_fee(who.clone(), call, info, len)?;
 

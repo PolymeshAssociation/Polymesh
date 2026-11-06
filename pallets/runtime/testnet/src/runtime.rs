@@ -352,6 +352,9 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     type MaxWinnersPerPage = polymesh_runtime_common::MaxActiveValidators;
 }
 
+/// Accounts allowed to submit signed `Operational` transactions.
+pub type OperationalCallers = CommitteeMembers;
+
 polymesh_runtime_common::misc_pallet_impls!();
 
 #[frame_support::runtime]

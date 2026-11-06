@@ -243,6 +243,22 @@ macro_rules! misc_pallet_impls {
             type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
             type Identity = Identity;
+            type OperationalCallers = OperationalCallers;
+        }
+
+        /// Accounts whose identity is a member of the Governance, Technical or Upgrade committee.
+        pub struct CommitteeMembers;
+
+        impl frame_support::traits::Contains<polymesh_primitives::AccountId> for CommitteeMembers {
+            fn contains(who: &polymesh_primitives::AccountId) -> bool {
+                use polymesh_primitives::traits::group::GroupTrait;
+
+                Identity::get_identity(who).is_some_and(|did| {
+                    PolymeshCommittee::is_member(&did)
+                        || TechnicalCommittee::is_member(&did)
+                        || UpgradeCommittee::is_member(&did)
+                })
+            }
         }
 
         impl pallet_balances::Config for Runtime {

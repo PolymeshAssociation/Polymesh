@@ -782,6 +782,9 @@ impl pallet_sudo::Config for Runtime {
     type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+/// Accounts allowed to submit signed `Operational` transactions.
+pub type OperationalCallers = CommitteeMembers;
+
 polymesh_runtime_common::misc_pallet_impls!();
 
 pub type GovernanceCommittee = group::Pallet<TestStorage, group::Instance1>;
