@@ -235,16 +235,20 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof: `MultiSig::MultiSigSigners` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::NextProposalId` (r:1 w:0)
     // Proof: `MultiSig::NextProposalId` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Identity::CurrentAuthId` (r:1 w:0)
+    // Proof: `Identity::CurrentAuthId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `Identity::OutdatedAuthorizations` (r:0 w:49)
+    // Proof: `Identity::OutdatedAuthorizations` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `i` is `[2, 50]`.
     fn remove_multisig_signers(i: u32) -> Weight {
         // Minimum execution time: 51_250 nanoseconds.
         Weight::from_parts(30_382_072, 0)
             // Standard Error: 17_021
             .saturating_add(Weight::from_parts(12_517_750, 0).saturating_mul(i.into()))
-            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(3))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(i.into())))
     }
     // Storage: `Identity::KeyRecords` (r:2 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -288,16 +292,20 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof: `MultiSig::MultiSigSigners` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::NextProposalId` (r:1 w:0)
     // Proof: `MultiSig::NextProposalId` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Identity::CurrentAuthId` (r:1 w:0)
+    // Proof: `Identity::CurrentAuthId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+    // Storage: `Identity::OutdatedAuthorizations` (r:0 w:49)
+    // Proof: `Identity::OutdatedAuthorizations` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `i` is `[2, 50]`.
     fn remove_multisig_signers_via_admin(i: u32) -> Weight {
         // Minimum execution time: 59_820 nanoseconds.
         Weight::from_parts(41_193_974, 0)
             // Standard Error: 13_672
             .saturating_add(Weight::from_parts(12_370_403, 0).saturating_mul(i.into()))
-            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(i.into())))
             .saturating_add(DbWeight::get().writes(3))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(i.into())))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(i.into())))
     }
     // Storage: `MultiSig::MultiSigSignsRequired` (r:1 w:1)
     // Proof: `MultiSig::MultiSigSignsRequired` (`max_values`: None, `max_size`: None, mode: `Measured`)

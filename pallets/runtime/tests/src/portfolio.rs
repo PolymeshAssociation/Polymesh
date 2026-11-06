@@ -1235,6 +1235,35 @@ fn assign_custody_of_default_portfolio() {
     });
 }
 
+/// A pending custody authorization can't be accepted after the portfolio has been deleted.
+#[test]
+fn accept_custody_of_deleted_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (owner, num) = create_portfolio();
+        let bob = User::new(Sr25519Keyring::Bob);
+        let portfolio_id = PortfolioId::user_portfolio(owner.did, num);
+
+        let auth_id = Identity::add_auth(
+            owner.did,
+            Signatory::from(bob.did),
+            AuthorizationData::PortfolioCustody(portfolio_id.clone()),
+            None,
+        )
+        .unwrap();
+        assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
+
+        assert_noop!(
+            Portfolio::accept_portfolio_custody(bob.origin(), auth_id),
+            Error::PortfolioDoesNotExist
+        );
+        assert_eq!(PortfolioCustodian::<TestStorage>::get(&portfolio_id), None);
+        assert!(!PortfoliosInCustody::<TestStorage>::get(
+            &bob.did,
+            &portfolio_id
+        ));
+    });
+}
+
 #[test]
 fn move_funds_from_frozen_portfolio() {
     ExtBuilder::default().build().execute_with(|| {

@@ -542,8 +542,10 @@ pub mod pallet {
 
             let threshold = <VoteThreshold<T, I>>::get();
             let seats = Self::seats();
-            let satisfied =
-                |main, other| main >= other && Self::is_threshold_satisfied(main, seats, threshold);
+            // A motion without votes never passes, even if there are no seats or the threshold is 0.
+            let satisfied = |main, other| {
+                main > 0 && main >= other && Self::is_threshold_satisfied(main, seats, threshold)
+            };
             let approved = satisfied(ayes, nays);
             let rejected = satisfied(nays, ayes);
             if !approved && !rejected {
@@ -716,12 +718,13 @@ impl<T: Config<I>, I: 'static> ChangeMembers<IdentityId> for Pallet<T, I> {
         <Members<T, I>>::put(new);
 
         // Remove accounts from all current voting in motions.
+        // NOTE: every outgoing member's vote must be removed, so don't short-circuit.
         Proposals::<T, I>::get()
             .into_iter()
             .filter(|proposal| {
-                outgoing
-                    .iter()
-                    .any(|id| Self::remove_vote_from(*id, *proposal))
+                outgoing.iter().fold(false, |removed, id| {
+                    Self::remove_vote_from(*id, *proposal) | removed
+                })
             })
             .for_each(|proposal| Self::execute_if_passed(None, proposal));
 

@@ -425,7 +425,8 @@ impl<T: Config> Pallet<T> {
         for key in &keys {
             // Unlink the secondary account key.
             Self::remove_key_record(key, Some(did));
-            // Sets all authorizations for key as outdated (these will be deleted on_intialize)
+            // Sets all authorizations for key as outdated. These stay in storage until they are
+            // removed through `remove_authorization`.
             Self::set_outdated_autorizations(Signatory::Account(key.clone()));
         }
 
@@ -435,7 +436,7 @@ impl<T: Config> Pallet<T> {
 
     /// Sets all authorizations with auth_id less or equal to the current id as invalid for the
     /// `signatory_account`.
-    fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
+    pub fn set_outdated_autorizations(signatory_account: Signatory<T::AccountId>) {
         let current_auth_id = CurrentAuthId::<T>::get();
         OutdatedAuthorizations::<T>::insert(signatory_account, current_auth_id);
     }

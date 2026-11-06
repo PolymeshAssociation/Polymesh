@@ -104,7 +104,9 @@ impl<T: Config> Pallet<T> {
             None
         };
 
-        let auth = Self::ensure_authorization(&target, auth_id)?;
+        // Outdated authorizations can't be used, but must still be removable.
+        let auth = Authorizations::<T>::get(&target, auth_id)
+            .ok_or_else(|| Error::<T>::InvalidAuthorization)?;
         let revoked = Some(auth.authorized_by) == from_did;
         ensure!(
             revoked || target.eq_either(from_did, &sender),
@@ -158,17 +160,25 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns an auth id if it is present and not expired.
-    pub fn get_non_expired_auth(
+    /// Returns an authorization if it is present, not outdated, not expired and has retries left.
+    pub fn get_valid_auth(
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
+        if Self::is_auth_outdated(target, *auth_id) {
+            return None;
+        }
         Authorizations::<T>::get(target, *auth_id).filter(|auth| {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
                 && auth.count > 0
         })
+    }
+
+    /// Returns `true` if `auth_id` was invalidated for `target` through [`OutdatedAuthorizations`].
+    fn is_auth_outdated(target: &Signatory<T::AccountId>, auth_id: u64) -> bool {
+        OutdatedAuthorizations::<T>::get(target).is_some_and(|outdated_id| auth_id <= outdated_id)
     }
 
     /// Given that `auth_by` is the DID that issued an authorization,
@@ -219,11 +229,10 @@ impl<T: Config> Pallet<T> {
         let auth = Authorizations::<T>::get(target, auth_id)
             .ok_or_else(|| Error::<T>::InvalidAuthorization)?;
         // Ensures the authorization is not outdated
-        if let Some(outdated_id) = OutdatedAuthorizations::<T>::get(target) {
-            if auth_id <= outdated_id {
-                return Err(Error::<T>::InvalidAuthorization.into());
-            }
-        }
+        ensure!(
+            !Self::is_auth_outdated(target, auth_id),
+            Error::<T>::InvalidAuthorization
+        );
         Ok(auth)
     }
 

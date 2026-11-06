@@ -423,6 +423,101 @@ fn do_user_remove_subsidy_transaction_fee_test() {
 }
 
 #[test]
+fn user_remove_subsidy_with_exhausted_allowance_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(&do_user_remove_subsidy_with_exhausted_allowance_test);
+}
+
+fn do_user_remove_subsidy_with_exhausted_allowance_test() {
+    let bob = User::new(Sr25519Keyring::Bob);
+    let alice = User::new(Sr25519Keyring::Alice);
+
+    setup_subsidy(bob, alice, 100 * POLY);
+
+    // The paying key drains the allowance to zero.
+    assert_ok!(Relayer::update_polyx_limit(
+        alice.origin(),
+        bob.acc(),
+        0u128
+    ));
+    assert_subsidy(bob, Some((alice, 0)));
+
+    let len = 10;
+    let call_info = info_from_weight(5);
+    let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
+    // Bob can afford the fee on his own.
+    assert!(Balances::free_balance(&bob.acc()) > transaction_fee);
+    assert!(transaction_fee > 0);
+
+    let validate = |call: &RuntimeCall| {
+        ChargeTransactionPayment::from(0)
+            .validate(
+                RuntimeOrigin::signed(bob.acc()),
+                call,
+                &call_info,
+                len,
+                Default::default(),
+                &TxBaseImplication(()),
+                TransactionSource::InBlock,
+            )
+            .map(|_| ())
+    };
+    let payment_err = Err(TransactionValidityError::Invalid(
+        InvalidTransaction::Payment,
+    ));
+
+    // Subsidisable calls are rejected: the budget can't cover the fee.
+    assert_eq!(validate(&call_balance_transfer(1)), payment_err);
+
+    // Non-subsidisable calls are still rejected by the call filter.
+    assert_invalid_subsidy_call(&bob.acc(), &call_system_remark(42));
+
+    // `Relayer` calls are self-paid, so Bob can always detach from the subsidy,
+    let prev_alice_balance = Balances::free_balance(&alice.acc());
+    let prev_bob_balance = Balances::free_balance(&bob.acc());
+    let remove_call = call_relayer_remove_subsidy(bob.acc(), alice.acc());
+    let val = ChargeTransactionPayment::from(0)
+        .validate(
+            RuntimeOrigin::signed(bob.acc()),
+            &remove_call,
+            &call_info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+    let pre = ChargeTransactionPayment::from(0)
+        .prepare(
+            val.1,
+            &RuntimeOrigin::signed(bob.acc()),
+            &remove_call,
+            &call_info,
+            len,
+        )
+        .unwrap();
+    assert_ok!(remove_call.dispatch(bob.origin()));
+    assert_ok!(ChargeTransactionPayment::post_dispatch(
+        pre,
+        &call_info,
+        &mut post_info_from_weight(5),
+        len,
+        &Ok(())
+    ));
+
+    // Bob paid the fee himself, and the subsidy is gone.
+    assert_eq!(Balances::free_balance(&alice.acc()), prev_alice_balance);
+    assert_eq!(
+        prev_bob_balance - Balances::free_balance(&bob.acc()),
+        transaction_fee
+    );
+    assert_subsidy(bob, None);
+}
+
+#[test]
 fn relayer_transaction_and_protocol_fees_test() {
     ExtBuilder::default()
         .monied(true)

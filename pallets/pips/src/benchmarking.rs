@@ -52,8 +52,34 @@ use limits::*;
 
 pub const MAX_SKIPPED_COUNT: u8 = 255;
 
+/// The `MaxScheduledPerBlock` value of the scheduler pallet in all runtimes.
+const MAX_SCHEDULED_PER_BLOCK: u32 = 50;
+
 fn zeroize_deposit<T: Config>() {
     Pallet::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+}
+
+/// Enables PIP expiry and fills the agenda of the expiry block, leaving a single free slot.
+///
+/// `propose` then schedules its expiry task on the costliest agenda it can succeed on.
+fn setup_worst_case_expiry<T: Config>() {
+    let expires_after: BlockNumberFor<T> = 100u32.into();
+    Pallet::<T>::set_pending_pip_expiry(RawOrigin::Root.into(), MaybeBlock::Some(expires_after))
+        .unwrap();
+
+    let at = System::<T>::block_number() + expires_after;
+    // `PipId(0)` is left for the proposal being benchmarked.
+    for id in 1..MAX_SCHEDULED_PER_BLOCK {
+        Pallet::<T>::schedule_pip_for_expiry(PipId(id), at).unwrap();
+    }
+}
+
+/// Ensures that the PIP being benchmarked was scheduled for expiry.
+fn expiry_verify<T: Config>() {
+    assert!(
+        T::Scheduler::next_dispatch_time(PipId(0).expiry_name()).is_ok(),
+        "PIP wasn't scheduled for expiry"
+    );
 }
 
 /// Makes a proposal.
@@ -206,9 +232,11 @@ benchmarks! {
         let some_desc = Some(description.clone());
         let origin = user.origin();
         zeroize_deposit::<T>();
+        setup_worst_case_expiry::<T>();
     }: propose(origin, proposal, 42u32.into(), some_url, some_desc)
     verify {
         propose_verify::<T>(url, description).unwrap();
+        expiry_verify::<T>();
     }
 
     // `propose` from a committee origin.
@@ -217,6 +245,7 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::try_successful_origin().unwrap();
         zeroize_deposit::<T>();
+        setup_worst_case_expiry::<T>();
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
         let call = Call::<T>::propose { proposal, deposit: 0u32.into(), url: some_url, description: some_desc };
@@ -225,6 +254,7 @@ benchmarks! {
     }
     verify {
         propose_verify::<T>(url, description).unwrap();
+        expiry_verify::<T>();
     }
 
     vote {

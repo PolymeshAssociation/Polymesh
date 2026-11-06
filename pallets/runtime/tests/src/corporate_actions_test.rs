@@ -2075,7 +2075,11 @@ fn dist_claim_not_targeted() {
             ));
             id
         };
-        test_not_targeted(ca, foo, bar, |id| Dist::claim(foo.origin(), id));
+        test_not_targeted(ca, foo, bar, |id| {
+            Dist::claim(foo.origin(), id)
+                .map(|_| ())
+                .map_err(|e| e.error)
+        });
     });
 }
 

@@ -79,6 +79,7 @@ use frame_support::weights::Weight;
 use frame_support::{ensure, BoundedVec};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Dispatchable, Hash};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
@@ -223,6 +224,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
+        ///   Must not contain duplicates.
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
         /// * `permissions` - optional custom permissions.  Only the primary key can provide custom permissions.
         #[pallet::call_index(0)]
@@ -241,6 +243,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let (caller, caller_did) =
                 IdentityPallet::<T>::ensure_valid_origin(origin, permissions.is_some())?;
+            Self::ensure_no_duplicate_signers(&signers)?;
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
             Self::ensure_sigs_in_bounds(signers_len, sigs_required)?;
             Self::base_create_multisig(
@@ -722,6 +725,8 @@ pub mod pallet {
         AdminNotFound,
         /// The extrinsic expected a different `AuthorizationType` than what the `data.auth_type()` is.
         BadAuthorizationType,
+        /// The list of signers contains the same account more than once.
+        DuplicateSigners,
     }
 
     /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -907,6 +912,16 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// A key can only be accepted as a signer once.
+    fn ensure_no_duplicate_signers(signers: &[T::AccountId]) -> DispatchResult {
+        let mut seen = BTreeSet::new();
+        ensure!(
+            signers.iter().all(|signer| seen.insert(signer)),
+            Error::<T>::DuplicateSigners
+        );
+        Ok(())
+    }
+
     fn ensure_sigs_in_bounds(num_signers: u64, required: u64) -> DispatchResult {
         ensure!(required > 0, Error::<T>::RequiredSignersIsZero);
         ensure!(num_signers >= required, Error::<T>::NotEnoughSigners);
@@ -959,6 +974,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // Ensure `multisig` is a MultiSig and get it's DID.
         let ms_did = Self::ensure_ms_has_did(&multisig)?;
+        Self::ensure_no_duplicate_signers(&signers)?;
         // Don't allow adding too many signers.
         Self::ensure_max_signers(&multisig, signers.len() as u64)?;
 
@@ -990,6 +1006,8 @@ impl<T: Config> Pallet<T> {
             Self::ensure_ms_signer(&multisig, signer)?;
             IdentityPallet::<T>::remove_key_record(signer, None);
             MultiSigSigners::<T>::remove(&multisig, signer);
+            // Outstanding invitations must not allow a removed signer to rejoin.
+            IdentityPallet::<T>::set_outdated_autorizations(Signatory::Account(signer.clone()));
         }
 
         NumberOfSigners::<T>::insert(&multisig, pending_num_of_signers);

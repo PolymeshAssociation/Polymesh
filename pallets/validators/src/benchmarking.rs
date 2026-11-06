@@ -127,11 +127,17 @@ const USER_SEED: u32 = 999666;
 
 benchmarks! {
     add_permissioned_validator {
+        let m in 0 .. 20;
+
         clear_validators_and_nominators::<T>();
         let (stash, controller) =
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
         StakingPallet::<T>::set_validator_count(RawOrigin::Root.into(), 10).unwrap();
         let did = get_did::<T>(&stash);
+        for i in 0 .. m {
+            let other = create_funded_user::<T>("other", i, 1000);
+            Validators::<T>::insert(other, ValidatorPrefs::default());
+        }
     }: _(RawOrigin::Root, did, Some(1))
     verify {
         let identity_preferences = Pallet::<T>::permissioned_identity(did);

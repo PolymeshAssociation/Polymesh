@@ -125,11 +125,16 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: `Pips::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Pips::ProposalStates` (r:0 w:1)
     // Proof: `Pips::ProposalStates` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
+    // Storage: `Scheduler::Lookup` (r:1 w:1)
+    // Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+    // Storage: `Scheduler::Agenda` (r:1 w:1)
+    // Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(10463), added: 12938, mode: `MaxEncodedLen`)
     fn propose_from_community() -> Weight {
-        // Minimum execution time: 101_560 nanoseconds.
-        Weight::from_parts(108_929_000, 0)
-            .saturating_add(DbWeight::get().reads(14))
-            .saturating_add(DbWeight::get().writes(12))
+        // Not generated: the measured 108_929_000 plus `pallet_scheduler::schedule_named(49)`
+        // (49_238_678, r:2, w:2) for the expiry task, until this benchmark is run again.
+        Weight::from_parts(158_167_678, 0)
+            .saturating_add(DbWeight::get().reads(16))
+            .saturating_add(DbWeight::get().writes(14))
     }
     // Storage: `Pips::PipIdSequence` (r:1 w:1)
     // Proof: `Pips::PipIdSequence` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)

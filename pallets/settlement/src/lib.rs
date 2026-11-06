@@ -606,6 +606,8 @@ pub mod pallet {
         MissingInstructionMediators,
         /// The affirmation must include at least one asset holder or receipt.
         EmptyAffirmation,
+        /// An instruction must have at least one leg.
+        InstructionHasNoLegs,
     }
 
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -1633,12 +1635,7 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(ref nfts) => {
                     ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
-                    pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(
-                        &resolved_from,
-                        nfts.asset_id(),
-                    )?;
-                    Asset::<T>::ensure_asset_is_not_frozen(nfts.asset_id())?;
-                    Nft::<T>::ensure_nft_ownership(&resolved_from, nfts)?;
+                    Nft::<T>::ensure_same_identity_nft_transfer(&resolved_from, nfts)?;
                     Nft::<T>::transfer_holders_nfts(&resolved_from, to.clone(), nfts)?;
                 }
             }
@@ -1924,6 +1921,9 @@ impl<T: Config> Pallet<T> {
         legs: &[Leg],
         venue_id: &Option<VenueId>,
     ) -> Result<InstructionInfo, DispatchError> {
+        // An instruction without legs may have no party able to reject or execute it.
+        ensure!(!legs.is_empty(), Error::<T>::InstructionHasNoLegs);
+
         // Tracks the number of fungible, non-fungible and offchain assets across the legs
         let mut instruction_asset_count = AssetCount::default();
         // Tracks all asset holders that have not been pre-affirmed
@@ -2290,6 +2290,7 @@ impl<T: Config> Pallet<T> {
     /// - `AffirmsReceived`
     /// - `OffChainAffirmations`
     /// - `LockedTimestamp`
+    /// - `InstructionMemos`
     ///
     /// Also cancels the instruction's scheduled execution, if any.
     #[rustfmt::skip]
@@ -2310,6 +2311,7 @@ impl<T: Config> Pallet<T> {
         LockedTimestamp::<T>::remove(inst_id);
         UnlockedTimestamp::<T>::remove(inst_id);
         InstructionRelockCount::<T>::remove(inst_id);
+        InstructionMemos::<T>::remove(inst_id);
 
         let _ = InstructionMediatorsAffirmations::<T>::clear_prefix(inst_id, u32::MAX, None);
 

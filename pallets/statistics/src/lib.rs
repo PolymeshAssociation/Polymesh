@@ -625,6 +625,16 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns the worst-case weight consumed by [`Self::update_asset_stats`].
+    pub fn update_asset_stats_weight_limit() -> Weight {
+        let max_stats = T::MaxStatsPerAsset::get();
+        let max_stat_weight = <T as Config>::WeightInfo::update_asset_count_stats(2)
+            .max(<T as Config>::WeightInfo::update_asset_balance_stats(2));
+
+        <T as Config>::WeightInfo::active_asset_statistics_load(max_stats)
+            .saturating_add(max_stat_weight.saturating_mul(max_stats as u64))
+    }
+
     /// Update asset stats.
     pub fn update_asset_stats(
         asset_id: AssetId,
