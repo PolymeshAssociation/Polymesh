@@ -595,7 +595,7 @@ jobs:
             env -u WORKER_DIFF_LOG POLYMESH_WORKER_BACKENDS=none
             ./assets/ci-runtime/polymesh --bob --dev --tmp
             --unsafe-force-node-key-generation --no-prometheus --no-telemetry
-            --pool-limit 100000 --port 30334 --rpc-port 9935 --ws-port 9945
+            --pool-limit 100000 --port 30334 --rpc-port 9945
           background: true
       - run:
           name: Wait for runtime-fallback chain
@@ -603,7 +603,7 @@ jobs:
             for _ in $(seq 1 60); do
               if curl -sf -H 'Content-Type: application/json' \
                   -d '{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}' \
-                  http://127.0.0.1:9935 > /dev/null; then
+                  http://127.0.0.1:9945 > /dev/null; then
                 echo "runtime-fallback chain is up"
                 exit 0
               fi
