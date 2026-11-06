@@ -15,36 +15,47 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use codec::{Compact, Decode, Encode};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::{
-    dispatch::{DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{
+        DispatchClass, DispatchErrorWithPostInfo, DispatchInfo, DispatchResult,
+        DispatchResultWithPostInfo, Pays, PostDispatchInfo,
+    },
     ensure,
     traits::{
         fungible::{Inspect, Mutate},
         tokens::Preservation::Expendable,
-        Get,
+        Get, IsSubType,
     },
     weights::{Weight, WeightToFee},
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::{AssetKeysLookup, ReceiverRevertAffirmationProof};
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
+use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
-    Balance, IdentityId,
+    Balance, Claim, IdentityId, Scope,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{
+    AccountIdConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+};
+use sp_runtime::transaction_validity::{
+    InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+};
 use sp_runtime::Saturating;
 use sp_runtime::{BoundedBTreeMap, BoundedBTreeSet};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::From;
+use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
 use polymesh_dart::{
-    AccountPublicKey, AccountRegistrationProof, AccountStateCommitment, AccountStateNullifier,
-    AccountStateUpdate, AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
+    relayer_batch_proof_context, AccountPublicKey, AccountRegistrationProof,
+    AccountStateCommitment, AccountStateNullifier, AccountStateUpdate,
+    AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
     BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, BatchedProof, BatchedProofs, BatchedSettlementProof, DartLimits,
     EncryptionKeyRegistrationProof, EncryptionPublicKey, Error as DartError,
@@ -63,11 +74,20 @@ use polymesh_worker_extension::{
 };
 
 #[cfg(feature = "host_workers")]
-use polymesh_worker_protocol_dart_v0::PROTOCOL as DART_PROTOCOL;
-use polymesh_worker_protocol_dart_v0::{UpdateAssetStateRequest, VerifyDartAssetRequest};
+use polymesh_worker_protocol_dart_v1::PROTOCOL as DART_PROTOCOL;
+use polymesh_worker_protocol_dart_v1::{UpdateAssetStateRequest, VerifyDartAssetRequest};
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct RelayerSubmitBatchedFeeInfo<FeeBalance = Balance> {
+    /// Dispatch weight including transaction extensions, but excluding base extrinsic weight.
+    pub weight: Weight,
+    /// Transaction fee including base, length, and adjusted weight fees.
+    pub fee: FeeBalance,
+}
 
 pub type AuditorKeys =
     BoundedBTreeSet<EncryptionPublicKey, <PolymeshLimits as DartLimits>::MaxAssetAuditors>;
@@ -108,6 +128,16 @@ pub const MAX_ROOT_PRUNING_BLOCKS: u32 = 10;
 /// Avoid wasting time checking recent blocks, since the roots in those blocks will not be older than the maximum root age.
 pub const RECENT_BLOCKS_TO_KEEP: u32 = 100;
 
+/// Fixed byte overhead of a signed `relayer_submit_batched_proofs` extrinsic (preamble, address,
+/// signature, and transaction extensions), used by `relayer_submit_batched_fee_info` to estimate
+/// the extrinsic's total length.
+///
+/// A real extrinsic's overhead varies with its account's nonce size, era, and signature scheme,
+/// so this deliberately overestimates the common case; the excess just becomes extra commission
+/// for the relayer, whereas underestimating it would make the estimated minimum fee payment
+/// insufficient to cover the actual transaction fee.
+pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
+
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
 #[cfg(feature = "testing")]
@@ -140,9 +170,12 @@ pub trait WeightInfo {
 
     fn register_encryption_keys(k: u32) -> Weight;
 
-    fn create_asset() -> Weight;
+    fn create_asset(key_count: u32) -> Weight;
+    fn update_asset_keys(key_count: u32) -> Weight;
+    fn set_asset_frozen() -> Weight;
     fn create_settlement(l: u32) -> Weight;
     fn mediator_affirmation() -> Weight;
+    fn finalize_settlement(l: u32) -> Weight;
 
     // Account state transition weights.
     fn register_account_assets(p: u32) -> Weight;
@@ -156,6 +189,11 @@ pub trait WeightInfo {
     fn receiver_revert_affirmation() -> Weight;
     fn receiver_claim() -> Weight;
 
+    fn set_required_claim() -> Weight;
+    fn remove_required_claim() -> Weight;
+
+    fn distribute_encryption_key(r: u32) -> Weight;
+
     fn batched_settlement(counts: SettlementCounts) -> Weight {
         Self::create_settlement(counts.leg_count)
             .saturating_add(
@@ -167,8 +205,10 @@ pub trait WeightInfo {
             .saturating_add(Self::mediator_affirmation().saturating_mul(counts.mediator_count))
     }
 
+    /// A successful instant settlement is always finalized.
     fn execute_instant_settlement(counts: SettlementCounts) -> Weight {
         Self::create_settlement(counts.leg_count)
+            .saturating_add(Self::finalize_settlement(counts.leg_count))
             .saturating_add(
                 Self::instant_sender_affirmation_with_leaf().saturating_mul(counts.sender_count),
             )
@@ -179,56 +219,70 @@ pub trait WeightInfo {
             .saturating_add(Self::mediator_affirmation().saturating_mul(counts.mediator_count))
     }
 
-    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>) -> Weight {
-        let mut weight = Weight::zero();
-        for proof in &batch.proofs {
-            match proof {
-                BatchedProof::CreateSettlement(proof) => {
-                    weight =
-                        weight.saturating_add(Self::create_settlement(proof.legs.len() as u32));
-                }
-                BatchedProof::SenderAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::sender_affirmation_with_leaf());
-                }
-                BatchedProof::ReceiverAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::receiver_affirmation_with_leaf());
-                }
-                BatchedProof::MediatorAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::mediator_affirmation());
-                }
-                BatchedProof::SenderCounterUpdate(_proof) => {
-                    weight = weight.saturating_add(Self::sender_update_counter_with_leaf());
-                }
-                BatchedProof::SenderRevertAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::sender_revert_affirmation_with_leaf());
-                }
-                BatchedProof::ReceiverRevertAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::receiver_revert_affirmation_with_leaf());
-                }
-                BatchedProof::ReceiverClaim(_proof) => {
-                    weight = weight.saturating_add(Self::receiver_claim_with_leaf());
-                }
-                BatchedProof::ExecuteInstantSettlement(proof) => {
-                    weight = weight.saturating_add(Self::execute_instant_settlement(
-                        proof.count_leg_affirmations(),
-                    ))
-                }
-                BatchedProof::InstantSenderAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::instant_sender_affirmation_with_leaf());
-                }
-                BatchedProof::InstantReceiverAffirmation(_proof) => {
-                    weight = weight.saturating_add(Self::instant_receiver_affirmation_with_leaf());
-                }
+    /// Weight of a batched proof, excluding finalization of an existing settlement.
+    fn batched_proof_base(proof: &BatchedProof<PolymeshLimits>) -> Weight {
+        match proof {
+            BatchedProof::CreateSettlement(proof) => {
+                Self::create_settlement(proof.legs.len() as u32)
+            }
+            BatchedProof::SenderAffirmation(_) => Self::sender_affirmation_with_leaf(),
+            BatchedProof::ReceiverAffirmation(_) => Self::receiver_affirmation_with_leaf(),
+            BatchedProof::MediatorAffirmation(..) => Self::mediator_affirmation(),
+            BatchedProof::SenderCounterUpdate(..) => Self::sender_update_counter_with_leaf(),
+            BatchedProof::SenderRevertAffirmation(..) => {
+                Self::sender_revert_affirmation_with_leaf()
+            }
+            BatchedProof::ReceiverRevertAffirmation(..) => {
+                Self::receiver_revert_affirmation_with_leaf()
+            }
+            BatchedProof::ReceiverClaim(..) => Self::receiver_claim_with_leaf(),
+            BatchedProof::ExecuteInstantSettlement(proof) => {
+                Self::execute_instant_settlement(proof.count_leg_affirmations())
+            }
+            BatchedProof::InstantSenderAffirmation(..) => {
+                Self::instant_sender_affirmation_with_leaf()
+            }
+            BatchedProof::InstantReceiverAffirmation(..) => {
+                Self::instant_receiver_affirmation_with_leaf()
             }
         }
-        weight
+    }
+
+    /// Worst-case weight of a batched proof, assuming it finalizes the settlement.
+    ///
+    /// Provided leg counts are verified before the proof is processed, `None` means `max_legs`.
+    fn batched_proof(proof: &BatchedProof<PolymeshLimits>, max_legs: u32) -> Weight {
+        let base = Self::batched_proof_base(proof);
+        let legs = match proof {
+            // Only a mediator reject can finalize.
+            BatchedProof::MediatorAffirmation(proof, legs) if !proof.accept => legs,
+            BatchedProof::SenderCounterUpdate(_, legs)
+            | BatchedProof::SenderRevertAffirmation(_, legs)
+            | BatchedProof::ReceiverRevertAffirmation(_, legs)
+            | BatchedProof::ReceiverClaim(_, legs)
+            | BatchedProof::InstantSenderAffirmation(_, legs)
+            | BatchedProof::InstantReceiverAffirmation(_, legs) => legs,
+            _ => return base,
+        };
+        let leg_count = legs.map_or(max_legs, u32::from).min(max_legs);
+        base.saturating_add(Self::finalize_settlement(leg_count))
+    }
+
+    fn batched_proofs(batch: &BatchedProofs<PolymeshLimits>, max_legs: u32) -> Weight {
+        batch.proofs.iter().fold(Weight::zero(), |weight, proof| {
+            weight.saturating_add(Self::batched_proof(proof, max_legs))
+        })
     }
 
     fn relayer_submit_batched_proofs(
         batch: &FeePaymentWithBatchedProofs<PolymeshLimits>,
+        max_legs: u32,
     ) -> Weight {
-        Self::verify_fee_payment_with_leaf()
-            .saturating_add(Self::batched_proofs(&batch.batched_proofs))
+        Self::relayer_batched_proofs(&batch.batched_proofs, max_legs)
+    }
+
+    fn relayer_batched_proofs(batch: &BatchedProofs<PolymeshLimits>, max_legs: u32) -> Weight {
+        Self::verify_fee_payment_with_leaf().saturating_add(Self::batched_proofs(batch, max_legs))
     }
 
     fn on_init() -> Weight {
@@ -304,6 +358,163 @@ pub trait WeightInfo {
     }
 }
 
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CheckRelayerSubmitBatchedProofs<T>(PhantomData<T>);
+
+impl<T> Default for CheckRelayerSubmitBatchedProofs<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T> CheckRelayerSubmitBatchedProofs<T> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T: Config> sp_std::fmt::Debug for CheckRelayerSubmitBatchedProofs<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "CheckRelayerSubmitBatchedProofs")
+    }
+}
+
+impl<T: Config + Send + Sync> CheckRelayerSubmitBatchedProofs<T>
+where
+    T::RuntimeCall: IsSubType<Call<T>>,
+{
+    fn proof(call: &T::RuntimeCall) -> Option<&FeePaymentWithBatchedProofs<PolymeshLimits>> {
+        match call.is_sub_type()? {
+            Call::relayer_submit_batched_proofs { proof } => Some(proof),
+            _ => None,
+        }
+    }
+
+    fn check_fee_bounds(
+        proof: &FeePaymentWithBatchedProofs<PolymeshLimits>,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+    ) -> Result<(), InvalidTransaction>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+        BalanceOf<T>: Into<u128>,
+    {
+        let amount = Pallet::<T>::amount_to_balance(proof.fee_payment.amount)
+            .map_err(|_| InvalidTransaction::Payment)?;
+        let minimum_fee =
+            pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, 0u32.into());
+        let maximum_fee = minimum_fee.saturating_add(T::MaxRelayerCommission::get());
+        if amount < minimum_fee || amount > maximum_fee {
+            return Err(InvalidTransaction::Payment);
+        }
+        Ok(())
+    }
+
+    pub fn relayer_submit_batched_proofs_weight() -> Weight {
+        T::DbWeight::get().reads(2)
+    }
+}
+
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall>
+    for CheckRelayerSubmitBatchedProofs<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo> + IsSubType<Call<T>>,
+    BalanceOf<T>: Send + Sync + Into<u128>,
+{
+    const IDENTIFIER: &'static str = "CheckRelayerSubmitBatchedProofs";
+    type Implicit = ();
+    type Val = ();
+    type Pre = bool;
+
+    fn weight(&self, call: &T::RuntimeCall) -> Weight {
+        if Self::proof(call).is_some() {
+            Self::relayer_submit_batched_proofs_weight()
+        } else {
+            Weight::zero()
+        }
+    }
+
+    fn validate(
+        &self,
+        origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+        _: (),
+        _implication: &impl Encode,
+        _source: TransactionSource,
+    ) -> Result<
+        (
+            ValidTransaction,
+            Self::Val,
+            <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        ),
+        TransactionValidityError,
+    > {
+        let Some(proof) = Self::proof(call) else {
+            return Ok((ValidTransaction::default(), (), origin));
+        };
+
+        if FeeAccountStateCommitmentNullifiers::<T>::contains_key(&proof.fee_payment.nullifier) {
+            return Err(InvalidTransaction::Stale.into());
+        }
+
+        Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
+
+        let relayer =
+            frame_system::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::Call)?;
+        let target = if proof.is_broadcast {
+            None
+        } else {
+            Some(relayer.encode())
+        };
+        let batch_hash = proof.fee_payment_ctx(target.as_deref());
+
+        let valid = ValidTransaction {
+            provides: sp_std::vec![(
+                b"confidential-assets-fee-nullifier",
+                &proof.fee_payment.nullifier,
+                batch_hash,
+                target,
+            )
+                .encode(),],
+            ..Default::default()
+        };
+        Ok((valid, (), origin))
+    }
+
+    fn prepare(
+        self,
+        _val: Self::Val,
+        _origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        if let Some(proof) = Self::proof(call) {
+            Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
+            pallet::RelayerSubmitExtensionMarker::<T>::put(());
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn post_dispatch(
+        pre: Self::Pre,
+        _info: &DispatchInfoOf<T::RuntimeCall>,
+        _post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+        _len: usize,
+        _result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        if pre {
+            pallet::RelayerSubmitExtensionMarker::<T>::kill();
+        }
+        Ok(())
+    }
+}
+
 /// Confidential asset details.
 #[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -316,6 +527,79 @@ pub struct AssetDetails<T: Config> {
     pub data: BoundedVec<u8, T::MaxAssetDataLength>,
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
+pub enum FreezeOrigin {
+    Issuer,
+    Root,
+}
+
+/// Represents a settlement leg with a revealed asset ID and its mediators' affirmation keys.
+///
+/// This struct is used to store the asset ID and the corresponding mediators' affirmation keys for settlement legs where the asset ID is revealed.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
+pub struct LegMediatorKeys {
+    /// The mediators' affirmation keys for this asset.
+    pub mediators: BTreeSet<AccountPublicKey>,
+}
+
+/// Roles gated by a required identity claim.
+#[derive(
+    Copy,
+    Clone,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    Debug,
+    TypeInfo,
+    PartialEq,
+    Eq
+)]
+pub enum RoleKind {
+    /// Creator of a confidential asset.
+    AssetCreator,
+    /// Auditor of a confidential asset.
+    Auditor,
+    /// Mediator of a confidential settlement.
+    Mediator,
+}
+
+impl RoleKind {
+    /// Custom scope of this role's default (genesis) KYC claim.
+    pub fn default_claim_scope(&self) -> &'static [u8] {
+        match self {
+            RoleKind::AssetCreator => b"DART:AssetCreator",
+            RoleKind::Auditor => b"DART:Auditor",
+            RoleKind::Mediator => b"DART:Mediator",
+        }
+    }
+
+    /// Default (genesis) claim for this role: `KnowYourCustomer(Custom(default_claim_scope))`.
+    pub fn default_claim(&self) -> Claim {
+        Claim::KnowYourCustomer(Scope::Custom(self.default_claim_scope().to_vec()))
+    }
+}
+
+/// Required-claim spec for a gated role: the claim plus the bounded list of
+/// trusted claim issuers. Only live (unexpired) claims equal to `claim` count.
+#[derive(Clone, Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
+#[scale_info(skip_type_params(T))]
+pub struct RequiredClaim<T: Config> {
+    /// The required claim (type, scope and value).
+    pub claim: Claim,
+    /// DIDs trusted to issue the required claim.
+    pub trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+}
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -323,7 +607,10 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
 
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -344,6 +631,10 @@ pub mod pallet {
         /// Maximum total supply.
         #[pallet::constant]
         type MaxTotalSupply: Get<Balance>;
+
+        /// Maximum fee a relayer may charge above the transaction fee.
+        #[pallet::constant]
+        type MaxRelayerCommission: Get<BalanceOf<Self>>;
 
         /// Maximum asset data length.
         #[pallet::constant]
@@ -384,6 +675,14 @@ pub mod pallet {
         /// The maximum number of asset mediators.
         #[pallet::constant]
         type MaxAssetMediators: Get<u32>;
+
+        /// The maximum number of trusted claim issuers per gated action.
+        #[pallet::constant]
+        type MaxTrustedClaimIssuers: Get<u32>;
+
+        /// The maximum number of recipients a shared encryption key can be distributed to.
+        #[pallet::constant]
+        type MaxSharedKeyRecipients: Get<u32>;
 
         /// The maximum number of asset encryption keys (mediators + auditors).
         #[pallet::constant]
@@ -621,6 +920,39 @@ pub mod pallet {
             /// Batch results.
             batch_result: DispatchResult,
         },
+        /// Required claim set for a gated role.
+        RequiredClaimSet {
+            /// Gated role.
+            role: RoleKind,
+            /// Required claim.
+            claim: Claim,
+            /// Trusted claim issuers.
+            trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+        },
+        /// Required claim removed for a gated role (back to permissionless).
+        RequiredClaimRemoved {
+            /// Gated role.
+            role: RoleKind,
+        },
+        /// An encryption key has been distributed (shared) to recipient encryption keys.
+        ///
+        /// Recipients decrypt the shared secret key from `proof`.
+        EncryptionKeyDistributed {
+            /// Caller's identity (owner of the shared key).
+            caller_did: IdentityId,
+            /// The shared encryption key.
+            encryption_key: EncryptionPublicKey,
+            /// Key distribution proof (contains the recipients and their ciphertexts).
+            proof: KeyDistributionProof<PolymeshLimits>,
+        },
+        AssetFrozen {
+            asset_id: ConfidentialAssetId,
+            freeze_origin: FreezeOrigin,
+        },
+        AssetUnfrozen {
+            asset_id: ConfidentialAssetId,
+            unfreeze_origin: FreezeOrigin,
+        },
     }
 
     #[pallet::error]
@@ -637,8 +969,6 @@ pub mod pallet {
         FeeAccountMissing,
         /// Confidential fee account already registered.
         FeeAccountAlreadyRegistered,
-        /// Insufficient fee payment amount.
-        InsufficientFeePaymentAmount,
         /// Invalid Fee Payment proof.
         InvalidFeePaymentProof,
         /// Batch of proofs can't be empty.
@@ -717,6 +1047,30 @@ pub mod pallet {
         InvalidAssetName,
         /// Invalid affirmation status transition.
         InvalidAffirmationStatusTransition,
+        /// Missing leg mediators.
+        MissingLegMediators,
+        /// Encryption key does not match the registered key for the account.
+        EncryptionKeyMismatch,
+        /// DID does not hold the required claim from a trusted issuer (or it expired).
+        MissingRequiredClaim,
+        /// Key distribution requires at least one recipient.
+        NoKeyRecipients,
+        /// Too many recipients for the shared encryption key.
+        TooManySharedKeyRecipients,
+        /// The shared encryption key hasn't been distributed to the mediator's encryption key.
+        EncryptionKeyNotShared,
+        /// A frozen asset cannot be used in a new settlement.
+        AssetIsFrozen,
+        /// Only Root may change a Root freeze.
+        AssetFrozenByRoot,
+        /// No more confidential asset IDs are available.
+        AssetIdOverflow,
+        /// A registration or proof batch exceeds its runtime-configured limit.
+        TooManyProofs,
+        /// Relayer proof submission is only permitted as the top-level call.
+        RelayerCallMustBeTopLevel,
+        /// The leg count provided with a batched proof doesn't match the settlement.
+        SettlementLegCountMismatch,
     }
 
     impl<T: Config> From<DartError> for Error<T> {
@@ -729,19 +1083,28 @@ pub mod pallet {
     #[pallet::storage]
     pub(crate) type CachedDartParameters<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
+    /// Marks a relayer submission while its transaction extension is executing.
+    #[pallet::storage]
+    pub type RelayerSubmitExtensionMarker<T: Config> = StorageValue<_, (), OptionQuery>;
+
     /// Next Asset ID to be used for Confidential assets.
     #[pallet::storage]
     pub(crate) type NextAssetId<T: Config> = StorageValue<_, ConfidentialAssetId, ValueQuery>;
 
     /// Mapping of Confidential Asset ID to its details.
     #[pallet::storage]
-    pub(super) type Details<T: Config> =
+    pub type Details<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetDetails<T>, OptionQuery>;
 
     /// Mapping of Confidential Asset ID to its auditor and mediator keys.
     #[pallet::storage]
-    pub(super) type Keys<T: Config> =
+    pub type Keys<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, AssetKeys, OptionQuery>;
+
+    /// Who froze the asset; no entry means unfrozen.
+    #[pallet::storage]
+    pub type AssetFrozen<T: Config> =
+        StorageMap<_, Twox64Concat, ConfidentialAssetId, FreezeOrigin, OptionQuery>;
 
     /// A Confidential assets token name.
     #[pallet::storage]
@@ -758,7 +1121,7 @@ pub mod pallet {
     pub(super) type Decimals<T: Config> =
         StorageMap<_, Twox64Concat, ConfidentialAssetId, u8, OptionQuery>;
 
-    /// Mapping of asset owner to their assets.
+    /// Client-facing index of the confidential assets owned by each identity.
     #[pallet::storage]
     pub(super) type OwnerAssets<T: Config> = StorageNMap<
         _,
@@ -777,9 +1140,19 @@ pub mod pallet {
     pub(super) type EncryptionKeyDid<T: Config> =
         StorageMap<_, Twox64Concat, EncryptionPublicKey, IdentityId, OptionQuery>;
 
+    /// Recipient encryption keys a shared encryption key has been distributed to.
+    #[pallet::storage]
+    pub(super) type SharedKeyRecipients<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        EncryptionPublicKey,
+        BoundedBTreeSet<EncryptionPublicKey, T::MaxSharedKeyRecipients>,
+        ValueQuery,
+    >;
+
     /// Confidential account to identity mapping.
     #[pallet::storage]
-    pub(super) type AccountDid<T: Config> =
+    pub type AccountDid<T: Config> =
         StorageMap<_, Twox64Concat, AccountPublicKey, IdentityId, OptionQuery>;
 
     /// Mapping of identity to their Confidential accounts.
@@ -796,7 +1169,7 @@ pub mod pallet {
 
     /// Confidential fee account to identity mapping.
     #[pallet::storage]
-    pub(super) type FeeAccountDid<T: Config> =
+    pub type FeeAccountDid<T: Config> =
         StorageMap<_, Twox64Concat, AccountPublicKey, IdentityId, OptionQuery>;
 
     /// Mapping of Confidential account public keys to their encryption keys.
@@ -829,7 +1202,7 @@ pub mod pallet {
     ///
     /// A counted map is used since we need to support updating the leaves in the tree.
     #[pallet::storage]
-    pub(super) type AssetLeaves<T: Config> =
+    pub type AssetLeaves<T: Config> =
         CountedStorageMap<_, Twox64Concat, LeafIndex, AssetLeaf, OptionQuery>;
 
     /// Inner node storage for Confidential assets curve tree.
@@ -930,13 +1303,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type AccountStateCommitmentNullifiers<T: Config> =
         StorageMap<_, Identity, AccountStateNullifier, (), OptionQuery>;
-
-    /// Confidential fee account egistrations.
-    ///
-    /// The chain must prevent the same account from registering the multiple times.
-    #[pallet::storage]
-    pub(super) type FeeAccountRegistrations<T: Config> =
-        StorageMap<_, Twox64Concat, AccountPublicKey, bool, ValueQuery>;
 
     /// Leaf storage for Confidential fee accounts curve tree.
     ///
@@ -1059,7 +1425,24 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// The WorkerSessionId for the current block.
+    /// For settlement legs with revealed asset IDs, this keeps track of the mediators' affirmation keys.
+    #[pallet::storage]
+    pub(crate) type LegMediators<T: Config> = StorageNMap<
+        _,
+        (NMapKey<Identity, SettlementRef>, NMapKey<Identity, LegId>),
+        LegMediatorKeys,
+        OptionQuery,
+    >;
+
+    /// Required-claim spec for each gated role.
+    ///
+    /// `None` means the role is permissionless (preserves dev behavior).
+    /// Mediators fall back to the auditor spec when no mediator spec is set.
+    #[pallet::storage]
+    pub(crate) type RequiredClaims<T: Config> =
+        StorageMap<_, Twox64Concat, RoleKind, RequiredClaim<T>, OptionQuery>;
+
+    /// The WorkerSessionId for the current block (started lazily, removed in `on_finalize`).
     #[pallet::storage]
     pub(crate) type CurrentWorkerSessionId<T: Config> =
         StorageValue<_, WorkerSessionId, OptionQuery>;
@@ -1067,6 +1450,8 @@ pub mod pallet {
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T> {
+        /// Trusted KYC claim issuer for all gated roles; `None` blocks all roles.
+        pub trusted_issuer: Option<IdentityId>,
         #[serde(skip)]
         pub _config: sp_std::marker::PhantomData<T>,
     }
@@ -1074,6 +1459,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            Pallet::<T>::initialize_required_claims(self.trusted_issuer);
             // Initialize the curve tree heights.
             AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
             AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
@@ -1116,6 +1502,9 @@ pub mod pallet {
             }
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 0));
 
+            // Recover stuck settlements (0 -> 1).
+            weight = weight.saturating_add(Self::migrate_to_v1());
+
             weight
         }
 
@@ -1152,6 +1541,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `AccountAlreadyCreated` if the dart account or encryption key is already registered.
+        /// * `NotAccountOwner` if the account key is registered to another identity as a fee account.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::register_accounts(proof.len() as u32))]
         pub fn register_accounts(
@@ -1159,9 +1549,16 @@ pub mod pallet {
             proof: AccountRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+            ensure!(
+                proof.len() <= T::MaxKeysPerRegProof::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             // Ensure the accounts haven't already been registered.
             for account in &proof.accounts {
+                if let Some(fee_account_did) = FeeAccountDid::<T>::get(&account.acct) {
+                    ensure!(fee_account_did == caller_did, Error::<T>::NotAccountOwner);
+                }
                 // Ensure the dart account doesn't exist.
                 ensure!(
                     !AccountDid::<T>::contains_key(&account.acct),
@@ -1216,19 +1613,13 @@ pub mod pallet {
             proof: EncryptionKeyRegistrationProof<PolymeshLimits>,
         ) -> DispatchResult {
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+            ensure!(
+                proof.len() <= T::MaxKeysPerRegProof::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             for encryption_key in &proof.keys {
-                // Ensure the encryption key doesn't exist.
-                ensure!(
-                    !EncryptionKeyDid::<T>::contains_key(&encryption_key),
-                    Error::<T>::EncryptionKeyAlreadyRegistered
-                );
-                EncryptionKeyDid::<T>::insert(&encryption_key, caller_did);
-
-                Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
-                    caller_did,
-                    encryption_key: *encryption_key,
-                });
+                Self::base_register_encryption_key(caller_did, *encryption_key)?;
             }
 
             // Verify the proof.
@@ -1250,7 +1641,9 @@ pub mod pallet {
         /// * `AccountMissing` if the auditor or mediator is not registered.
         /// * `EncryptionKeyMissing` if the encryption key of the auditor or mediator is not registered.
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::create_asset())]
+        #[pallet::weight(<T as Config>::WeightInfo::create_asset(
+            mediators.len().saturating_add(auditors.len()) as u32
+        ))]
         pub fn create_asset(
             origin: OriginFor<T>,
             name: Name,
@@ -1280,6 +1673,7 @@ pub mod pallet {
         /// * `AssetMissing` if the Confidential asset is not registered.
         /// * `AccountAssetAlreadyRegistered` if the Confidential account has already registered the Confidential asset.
         /// * `NotAccountOwner` if the caller is not the owner of the Confidential account.
+        /// * `EncryptionKeyMismatch` if the proof key doesn't match the account's registered key.
         /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::register_account_assets_with_leaf(proof.len() as u32))]
@@ -1289,15 +1683,23 @@ pub mod pallet {
         ) -> DispatchResult {
             // Ensure the caller is allowed to make this call.
             let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+            ensure!(
+                proof.len() <= T::MaxAccountAssetRegProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             let mut seen_account = BTreeSet::new();
             let mut seen_asset = BTreeSet::new();
             let mut registrations = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
-                if !seen_account.contains(&p.account.acct) {
-                    seen_account.insert(p.account.acct.clone());
+                if !seen_account.contains(&p.account) {
+                    seen_account.insert(p.account.clone());
                     // Ensure the Confidential account is registered to the caller's identity.
-                    Self::ensure_dart_account_owner(caller_did, &p.account.acct)?;
+                    let key_did = Self::ensure_dart_account_and_encryption_key_registered(
+                        &p.account.acct,
+                        &p.account.enc,
+                    )?;
+                    ensure!(key_did == caller_did, Error::<T>::NotAccountOwner);
                 }
                 if !seen_asset.contains(&p.asset_id) {
                     seen_asset.insert(p.asset_id);
@@ -1316,8 +1718,10 @@ pub mod pallet {
             }
 
             // Verify the proof.
+            // TODO: Support force-transfer/freeze keys (`pk_t`) once the pallet tracks them per asset.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
                 did: caller_did.into(),
+                asset_lookup: AssetPkTLookup::new(),
                 proof,
             })?;
 
@@ -1359,7 +1763,8 @@ pub mod pallet {
             proof: AssetMintingProof<PolymeshLimits>,
         ) -> DispatchResult {
             // Ensure the caller has the required permissions to mint the asset.
-            let caller_did = Self::ensure_dart_account_permissions(origin, &proof.pk)?;
+            let caller_did =
+                Self::ensure_dart_account_permissions(origin, &proof.pk, &proof.pk_enc)?;
 
             // Ensure the caller is the owner of the Confidential asset.
             let mut asset_details = Self::ensure_dart_asset_owner(caller_did, proof.asset_id)?;
@@ -1421,7 +1826,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_create_settlement(proof)
+            Self::base_create_settlement(proof, None)
         }
 
         /// Sender affirms a settlement leg.
@@ -1444,7 +1849,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_sender_affirmation(proof)
+            Self::base_sender_affirmation(proof, None)
         }
 
         /// Receiver affirms a settlement leg.
@@ -1467,7 +1872,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_receiver_affirmation(proof)
+            Self::base_receiver_affirmation(proof, None)
         }
 
         /// Mediator affirms a settlement leg.
@@ -1484,14 +1889,32 @@ pub mod pallet {
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the mediator.
         /// * `WrongMediatorId` if the mediator ID does not match the expected mediator for the leg.
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::mediator_affirmation())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::mediator_affirmation().saturating_add(if proof.accept {
+                Weight::zero()
+            } else {
+                Pallet::<T>::settlement_finalization_dispatch_weight(T::MaxSettlementLegs::get())
+            })
+        )]
         pub fn mediator_affirmation(
             origin: OriginFor<T>,
             proof: MediatorAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_mediator_affirmation(proof)
+            let base_weight = <T as Config>::WeightInfo::mediator_affirmation();
+            // Only a reject can finalize the settlement.
+            if proof.accept {
+                Self::base_mediator_affirmation(proof, None)?;
+                return Ok(Some(base_weight).into());
+            }
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_mediator_affirmation(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                base_weight,
+            ))
         }
 
         /// Sender updates their counter after a settlement has been executed.
@@ -1506,14 +1929,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(9)]
-        #[pallet::weight(<T as Config>::WeightInfo::sender_update_counter_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::sender_update_counter_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn sender_update_counter(
             origin: OriginFor<T>,
             proof: SenderCounterUpdateProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_sender_update_counter(proof)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_sender_update_counter(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::sender_update_counter_with_leaf(),
+            ))
         }
 
         /// Sender reverts their affirmation.
@@ -1528,14 +1962,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(10)]
-        #[pallet::weight(<T as Config>::WeightInfo::sender_revert_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::sender_revert_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn sender_revert_affirmation(
             origin: OriginFor<T>,
             proof: SenderRevertAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_sender_revert_affirmation(proof)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_sender_revert_affirmation(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::sender_revert_affirmation_with_leaf(),
+            ))
         }
 
         /// Receiver reverts their affirmation.
@@ -1550,14 +1995,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(11)]
-        #[pallet::weight(<T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn receiver_revert_affirmation(
             origin: OriginFor<T>,
             proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_receiver_revert_affirmation(proof)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_receiver_revert_affirmation(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf(),
+            ))
         }
 
         /// Receiver claims their assets after a settlement has been executed.
@@ -1572,14 +2028,25 @@ pub mod pallet {
         /// * `SettlementNotFound` if the settlement is not found.
         /// * `LegNotFound` if the leg is not found in the settlement.
         #[pallet::call_index(12)]
-        #[pallet::weight(<T as Config>::WeightInfo::receiver_claim_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::receiver_claim_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn receiver_claim(
             origin: OriginFor<T>,
             proof: ReceiverClaimProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
-            Self::base_receiver_claim(proof)
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
+            Self::base_receiver_claim(proof, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::receiver_claim_with_leaf(),
+            ))
         }
 
         /// Create a settlement with batched leg affirmations.
@@ -1594,14 +2061,18 @@ pub mod pallet {
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
         #[pallet::call_index(13)]
-        #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(proof.count_leg_affirmations()))]
+        #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(SettlementCounts {
+            // Charge creation for every leg; `leg_affirmations` is optional and may be shorter.
+            leg_count: proof.settlement.legs.len() as u32,
+            ..proof.count_leg_affirmations()
+        }))]
         pub fn batched_settlement(
             origin: OriginFor<T>,
             proof: BatchedSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_batched_settlement(proof)
+            Self::base_batched_settlement(proof, None)
         }
 
         /// Batch register multiple fee accounts.
@@ -1615,6 +2086,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `FeeAccountAlreadyRegistered` if the fee account or encryption key is already registered.
+        /// * `NotAccountOwner` if the account key is registered to another identity as an asset account.
         /// * `NullifierAlreadyUsed` if the nullifier for the fee account state commitment has already been used.
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
         /// * `InvalidProof` if the proof is invalid.
@@ -1630,14 +2102,17 @@ pub mod pallet {
                 primary_did: caller_did,
                 ..
             } = PalletIdentity::<T>::ensure_origin_call_permissions(origin)?;
-
-            // Deposit the total POLYX amount into the fee pool.
-            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
-            Self::fee_account_deposit(sender, amount)?;
+            ensure!(
+                proof.len() <= T::MaxFeeAccountRegProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             // Ensure the fee accounts haven't already been registered.
             let mut registrations = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
+                if let Some(account_did) = AccountDid::<T>::get(&p.account) {
+                    ensure!(account_did == caller_did, Error::<T>::NotAccountOwner);
+                }
                 // Ensure the fee account doesn't exist.
                 ensure!(
                     !FeeAccountDid::<T>::contains_key(&p.account),
@@ -1652,6 +2127,10 @@ pub mod pallet {
                 let amount = Self::amount_to_balance(p.amount)?;
                 registrations.push((p.account, amount, p.account_state_commitment));
             }
+
+            // Deposit the total POLYX amount into the fee pool.
+            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
+            Self::fee_account_deposit(sender, amount)?;
 
             // Verify the proof.
             Self::submit_and_wait(VerifyDartAssetRequest::BatchedFeeAccountRegistration {
@@ -1685,6 +2164,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `FeeAccountMissing` if the fee account is not registered.
+        /// * `NotAccountOwner` if the caller does not own the fee account.
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
         /// * `InvalidProof` if the proof is invalid.
         /// * `InsufficientBalance` if the caller has insufficient balance to pay the deposit.
@@ -1699,19 +2179,18 @@ pub mod pallet {
                 primary_did: caller_did,
                 ..
             } = PalletIdentity::<T>::ensure_origin_call_permissions(origin)?;
-
-            // Deposit the total POLYX amount into the fee pool.
-            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
-            Self::fee_account_deposit(sender, amount)?;
+            ensure!(
+                proof.len() <= T::MaxFeeAccountTopupProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
             let mut seen_nullifier = BTreeSet::new();
             let mut topups = Vec::with_capacity(proof.proofs.len());
             for p in &proof.proofs {
-                // Ensure the fee account exists.
-                ensure!(
-                    FeeAccountDid::<T>::contains_key(&p.account),
-                    Error::<T>::FeeAccountMissing
-                );
+                // Ensure the caller owns the fee account.
+                let fee_account_did =
+                    FeeAccountDid::<T>::get(&p.account).ok_or(Error::<T>::FeeAccountMissing)?;
+                ensure!(fee_account_did == caller_did, Error::<T>::NotAccountOwner);
                 // Ensure the fee asset id is valid.  Only one is supported now.
                 ensure!(p.asset_id == FEE_ASSET_ID, Error::<T>::InvalidFeeAssetId);
 
@@ -1732,6 +2211,10 @@ pub mod pallet {
                     p.nullifier,
                 ));
             }
+
+            // Deposit the total POLYX amount into the fee pool.
+            let amount = Self::amount_to_balance(proof.total_amount(FEE_ASSET_ID))?;
+            Self::fee_account_deposit(sender, amount)?;
 
             // Get the root block and curve tree root.
             let root_block: BlockNumberFor<T> = proof.root_block.into();
@@ -1771,14 +2254,25 @@ pub mod pallet {
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidProof` if any of the proofs are invalid.
         #[pallet::call_index(16)]
-        #[pallet::weight(<T as Config>::WeightInfo::batched_proofs(&proof))]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::batched_proofs(&proof, T::MaxSettlementLegs::get())
+        )]
         pub fn submit_batched_proofs(
             origin: OriginFor<T>,
             proof: BatchedProofs<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
+            ensure!(
+                proof.len() <= T::MaxBatchedProofs::get() as usize,
+                Error::<T>::TooManyProofs
+            );
 
-            Self::process_batched_proofs(proof)
+            let actual_weight = Self::process_batched_proofs(proof, None)?;
+
+            Ok(PostDispatchInfo {
+                actual_weight: Some(actual_weight),
+                pays_fee: Pays::Yes,
+            })
         }
 
         /// Relayer submit a batch of proofs paid using a private fee payment.
@@ -1788,8 +2282,11 @@ pub mod pallet {
         ///
         /// Relayers can charge a commission fee on top of the transaction fee (i.e. `commission fee + transaction fee = fee amount`).
         ///
-        /// Relayers should verify that the fee payment proof is valid before submitting the batched Confidential proofs.  They are not required
-        /// to verify the batched Confidential proofs.  If the user's Confidential proofs are invalid, the user is still responsible for paying the fee to the relayer.
+        /// Relayers are responsible for checking the fee payment terms and the fee and batch proofs before submission.
+        /// The signed extension checks whether the fee nullifier is already spent; a concurrent spend can still make
+        /// that check stale before inclusion. Fee-payment roots are checked against the shorter relayer root-age limit
+        /// during dispatch, so relayers should submit with enough time remaining for inclusion. If the batch proofs
+        /// are invalid, the user is still responsible for paying the fee to the relayer.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.  This is the relayer.
@@ -1798,9 +2295,13 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
-        /// * `InsufficientFeePayment` if the fee payment is insufficient to cover the relayer fee.
+        /// * `CurveTreeRootNotFound` if the fee payment root is missing or too old.
+        /// * `RelayerCallMustBeTopLevel` if this call is nested or the signed extension did not run.
         #[pallet::call_index(17)]
-        #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof))]
+        #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(
+            &proof,
+            T::MaxSettlementLegs::get(),
+        ))]
         pub fn relayer_submit_batched_proofs(
             origin: OriginFor<T>,
             proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
@@ -1829,7 +2330,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_execute_instant_settlement(proof)
+            Self::base_execute_instant_settlement(proof, None)
         }
 
         /// Sender affirms a settlement leg as the last pending affirmation.
@@ -1848,15 +2349,26 @@ pub mod pallet {
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the sender.
         /// * `NotLastPendingAffirmation` if the sender affirmation is not the last pending affirmation for the settlement.
         #[pallet::call_index(19)]
-        #[pallet::weight(<T as Config>::WeightInfo::instant_sender_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::instant_sender_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn instant_sender_affirmation(
             origin: OriginFor<T>,
             proof: InstantSenderAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
             // Perform the base instant sender affirmation.
-            Self::base_instant_sender_affirmation(proof, true)
+            Self::base_instant_sender_affirmation(proof, true, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::instant_sender_affirmation_with_leaf(),
+            ))
         }
 
         /// Receiver affirms a settlement leg as the last pending affirmation.
@@ -1875,20 +2387,403 @@ pub mod pallet {
         /// * `AlreadyAffirmed` if the leg has already been affirmed by the receiver.
         /// * `NotLastPendingAffirmation` if the receiver affirmation is not the last pending affirmation for the settlement.
         #[pallet::call_index(20)]
-        #[pallet::weight(<T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf()
+                .saturating_add(Pallet::<T>::settlement_finalization_dispatch_weight(
+                    T::MaxSettlementLegs::get(),
+                ))
+        )]
         pub fn instant_receiver_affirmation(
             origin: OriginFor<T>,
             proof: InstantReceiverAffirmationProof<PolymeshLimits>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-
+            let settlement_ref = proof.leg_ref.settlement;
+            let leg_count = Self::settlement_leg_count(settlement_ref);
             // Perform the base instant receiver affirmation.
-            Self::base_instant_receiver_affirmation(proof, true)
+            Self::base_instant_receiver_affirmation(proof, true, None)?;
+            Ok(Self::settlement_post_dispatch_info(
+                settlement_ref,
+                leg_count,
+                <T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf(),
+            ))
+        }
+
+        /// Set the required claim for a gated role (Root only).
+        ///
+        /// While a spec is set, a DID acting in that role must hold a live
+        /// (unexpired) claim equal to `claim` from one of `trusted_issuers`.
+        /// An empty issuer list blocks the role entirely (deny-all); remove the spec
+        /// (see `remove_required_claim`) to restore permissionless behavior.
+        /// Mediators fall back to the auditor spec when no mediator spec is set.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be Root).
+        /// * `role` - The gated role.
+        /// * `claim` - The required claim (type, scope and value).
+        /// * `trusted_issuers` - DIDs trusted to issue the required claim.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root.
+        #[pallet::call_index(21)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_required_claim())]
+        pub fn set_required_claim(
+            origin: OriginFor<T>,
+            role: RoleKind,
+            claim: Claim,
+            trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::base_set_required_claim(role, claim, trusted_issuers)
+        }
+
+        /// Remove the required claim for a gated role (Root only).
+        ///
+        /// The role becomes permissionless again (mediators keep falling back to the
+        /// auditor spec while that one is set).
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must be Root).
+        /// * `role` - The gated role.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root.
+        #[pallet::call_index(22)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_required_claim())]
+        pub fn remove_required_claim(origin: OriginFor<T>, role: RoleKind) -> DispatchResult {
+            ensure_root(origin)?;
+
+            RequiredClaims::<T>::remove(role);
+            Self::deposit_event(Event::<T>::RequiredClaimRemoved { role });
+            Ok(())
+        }
+
+        /// Register a new shared encryption key and distribute it to registered encryption keys.
+        ///
+        /// The shared key is linked to the caller's DID (normally the asset issuer). It can then
+        /// be used as an asset auditor key, or as a mediator key by the owner of a Confidential
+        /// account whose encryption key it was distributed to.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (must meet the asset creator or auditor requirements).
+        /// * `proof` - The key distribution proof.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `MissingRequiredClaim` if the caller doesn't meet the asset creator or auditor
+        ///   requirements, or a recipient's DID doesn't meet the auditor requirements.
+        /// * `EncryptionKeyAlreadyRegistered` if the shared key is already registered.
+        /// * `EncryptionKeyMissing` if a recipient key isn't registered.
+        /// * `NoKeyRecipients` if the proof has no recipients.
+        /// * `TooManySharedKeyRecipients` if the proof exceeds `MaxSharedKeyRecipients`.
+        /// * `InvalidProof` if the proof is invalid.
+        #[pallet::call_index(23)]
+        #[pallet::weight(<T as Config>::WeightInfo::distribute_encryption_key(proof.recipient_pks.len() as u32))]
+        pub fn distribute_encryption_key(
+            origin: OriginFor<T>,
+            proof: KeyDistributionProof<PolymeshLimits>,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            Self::base_distribute_encryption_key(caller_did, proof)
+        }
+
+        /// Update the auditor and mediator encryption keys for an asset.
+        ///
+        /// The asset owner must retain the required live claims for every selected auditor and
+        /// mediator. Existing settlements keep their creation-time encrypted legs and mediator set.
+        #[pallet::call_index(24)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_asset_keys(
+            mediators.len().saturating_add(auditors.len()) as u32
+        ))]
+        pub fn update_asset_keys(
+            origin: OriginFor<T>,
+            asset_id: ConfidentialAssetId,
+            mediators: MediatorKeys,
+            auditors: AuditorKeys,
+        ) -> DispatchResult {
+            let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
+
+            Self::base_update_asset_keys(caller_did, asset_id, mediators, auditors)
+        }
+
+        /// Set the freeze state as the issuer or Root. Only Root may change a Root freeze.
+        #[pallet::call_index(25)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_asset_frozen())]
+        pub fn set_asset_frozen(
+            origin: OriginFor<T>,
+            asset_id: ConfidentialAssetId,
+            frozen: bool,
+        ) -> DispatchResult {
+            let caller_did = Self::asset_freeze_caller(origin)?;
+            Self::base_set_asset_frozen(caller_did, asset_id, frozen)
         }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn settlement_leg_count(settlement_ref: SettlementRef) -> u32 {
+        SettlementLegCount::<T>::get(settlement_ref)
+            .map(|count| count.0)
+            .unwrap_or_default()
+    }
+
+    /// Verify the provided leg count, read before the proof can finalize (and prune) the settlement.
+    fn finalizing_leg_count(
+        settlement_ref: SettlementRef,
+        legs: Option<u8>,
+    ) -> Result<(SettlementRef, u32), DispatchError> {
+        let leg_count = Self::settlement_leg_count(settlement_ref);
+        if let Some(legs) = legs {
+            ensure!(
+                u32::from(legs) == leg_count,
+                Error::<T>::SettlementLegCountMismatch
+            );
+        }
+        Ok((settlement_ref, leg_count))
+    }
+
+    pub fn settlement_finalization_dispatch_weight(leg_count: u32) -> Weight {
+        <T as Config>::WeightInfo::finalize_settlement(leg_count)
+            .saturating_add(T::DbWeight::get().reads(2))
+    }
+
+    /// Actual finalization weight, `leg_count` must be read before the settlement is finalized.
+    fn settlement_finalization_actual_weight(
+        settlement_ref: SettlementRef,
+        leg_count: u32,
+    ) -> Weight {
+        if SettlementState::<T>::get(settlement_ref) == Some(SettlementStatus::Finalized) {
+            <T as Config>::WeightInfo::finalize_settlement(leg_count)
+        } else {
+            Weight::zero()
+        }
+    }
+
+    fn settlement_post_dispatch_info(
+        settlement_ref: SettlementRef,
+        leg_count: u32,
+        base_weight: Weight,
+    ) -> PostDispatchInfo {
+        PostDispatchInfo {
+            actual_weight: Some(
+                base_weight
+                    .saturating_add(T::DbWeight::get().reads(2))
+                    .saturating_add(Self::settlement_finalization_actual_weight(
+                        settlement_ref,
+                        leg_count,
+                    )),
+            ),
+            pays_fee: Pays::Yes,
+        }
+    }
+
+    fn asset_freeze_caller(origin: OriginFor<T>) -> Result<Option<IdentityId>, DispatchError> {
+        if ensure_root(origin.clone()).is_ok() {
+            Ok(None)
+        } else {
+            Ok(Some(PalletIdentity::<T>::ensure_perms(origin)?))
+        }
+    }
+
+    fn asset_freeze_origin(
+        caller_did: Option<IdentityId>,
+        asset_id: ConfidentialAssetId,
+    ) -> Result<FreezeOrigin, DispatchError> {
+        match caller_did {
+            Some(did) => {
+                Self::ensure_dart_asset_owner(did, asset_id)?;
+                Ok(FreezeOrigin::Issuer)
+            }
+            None => {
+                Self::ensure_dart_asset_exists(asset_id)?;
+                Ok(FreezeOrigin::Root)
+            }
+        }
+    }
+
+    pub fn base_set_asset_frozen(
+        caller_did: Option<IdentityId>,
+        asset_id: ConfidentialAssetId,
+        frozen: bool,
+    ) -> DispatchResult {
+        let freeze_origin = Self::asset_freeze_origin(caller_did, asset_id)?;
+        let current = AssetFrozen::<T>::get(asset_id);
+        ensure!(
+            current != Some(FreezeOrigin::Root) || freeze_origin == FreezeOrigin::Root,
+            Error::<T>::AssetFrozenByRoot
+        );
+        let next = if frozen { Some(freeze_origin) } else { None };
+        if current == next {
+            return Ok(());
+        }
+        let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+        AssetFrozen::<T>::set(asset_id, next);
+        Self::recommit_asset_leaf(AssetState {
+            asset_id,
+            frozen,
+            keys,
+        })?;
+        if frozen {
+            Self::deposit_event(Event::<T>::AssetFrozen {
+                asset_id,
+                freeze_origin,
+            });
+        } else {
+            Self::deposit_event(Event::<T>::AssetUnfrozen {
+                asset_id,
+                unfreeze_origin: freeze_origin,
+            });
+        }
+        Ok(())
+    }
+
+    /// Set the required claim for a gated role.
+    ///
+    /// An empty issuer list blocks the role entirely (deny-all) until replaced.
+    pub fn base_set_required_claim(
+        role: RoleKind,
+        claim: Claim,
+        trusted_issuers: BoundedVec<IdentityId, T::MaxTrustedClaimIssuers>,
+    ) -> DispatchResult {
+        RequiredClaims::<T>::insert(
+            role,
+            RequiredClaim {
+                claim: claim.clone(),
+                trusted_issuers: trusted_issuers.clone(),
+            },
+        );
+        Self::deposit_event(Event::<T>::RequiredClaimSet {
+            role,
+            claim,
+            trusted_issuers,
+        });
+        Ok(())
+    }
+
+    /// Register a new shared encryption key for the caller and distribute it to the proof's
+    /// recipient encryption keys.
+    pub fn base_distribute_encryption_key(
+        caller_did: IdentityId,
+        proof: KeyDistributionProof<PolymeshLimits>,
+    ) -> DispatchResult {
+        let encryption_key = proof.public_key;
+        let recipient_keys = &proof.recipient_pks;
+        ensure!(!recipient_keys.is_empty(), Error::<T>::NoKeyRecipients);
+
+        Self::ensure_role_claim(caller_did, RoleKind::Auditor)?;
+        ensure!(
+            !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+            Error::<T>::EncryptionKeyAlreadyRegistered
+        );
+
+        let mut recipients = BoundedBTreeSet::<_, T::MaxSharedKeyRecipients>::new();
+        for recipient in recipient_keys {
+            recipients
+                .try_insert(*recipient)
+                .map_err(|_| Error::<T>::TooManySharedKeyRecipients)?;
+            let recipient_did = Self::ensure_encryption_key_registered(recipient)?;
+            Self::ensure_role_claim(recipient_did, RoleKind::Auditor)?;
+        }
+
+        // The proof shows knowledge of the shared secret key, bound to the caller's DID.
+        Self::submit_and_wait(VerifyDartAssetRequest::KeyDistribution {
+            did: caller_did.into(),
+            proof: proof.clone(),
+        })?;
+
+        Self::base_register_encryption_key(caller_did, encryption_key)?;
+        SharedKeyRecipients::<T>::insert(&encryption_key, recipients);
+        Self::deposit_event(Event::<T>::EncryptionKeyDistributed {
+            caller_did,
+            encryption_key,
+            proof,
+        });
+        Ok(())
+    }
+
+    /// Register an encryption key to a DID and emit its registration event.
+    fn base_register_encryption_key(
+        did: IdentityId,
+        encryption_key: EncryptionPublicKey,
+    ) -> DispatchResult {
+        ensure!(
+            !EncryptionKeyDid::<T>::contains_key(&encryption_key),
+            Error::<T>::EncryptionKeyAlreadyRegistered
+        );
+        EncryptionKeyDid::<T>::insert(&encryption_key, did);
+        Self::deposit_event(Event::<T>::EncryptionKeyRegistered {
+            caller_did: did,
+            encryption_key,
+        });
+        Ok(())
+    }
+
+    /// Default spec: the role's default claim from `trusted_issuer`, or deny-all when `None`.
+    fn default_required_claim(
+        role: RoleKind,
+        trusted_issuer: Option<IdentityId>,
+    ) -> RequiredClaim<T> {
+        let mut trusted_issuers = BoundedVec::new();
+        if let Some(issuer) = trusted_issuer {
+            // `MaxTrustedClaimIssuers` of zero leaves the role blocked.
+            let _ = trusted_issuers.try_push(issuer);
+        }
+        RequiredClaim {
+            claim: role.default_claim(),
+            trusted_issuers,
+        }
+    }
+
+    /// Install the default spec for every role without one.
+    ///
+    /// With no `trusted_issuer` all roles start blocked, so no one can act before Root
+    /// installs the correct claim requirements (Mainnet safety).
+    /// Root changes the spec per role via `set_required_claim`.
+    pub(crate) fn initialize_required_claims(trusted_issuer: Option<IdentityId>) {
+        for role in [
+            RoleKind::AssetCreator,
+            RoleKind::Auditor,
+            RoleKind::Mediator,
+        ] {
+            if !RequiredClaims::<T>::contains_key(role) {
+                RequiredClaims::<T>::insert(
+                    role,
+                    Self::default_required_claim(role, trusted_issuer),
+                );
+            }
+        }
+    }
+
+    /// Resolve the effective claim spec for a role.
+    ///
+    /// Mediators fall back to the auditor spec when no mediator spec is set, so one
+    /// spec can cover both auditors and mediators. Returns `None` when the role is
+    /// permissionless.
+    fn required_claim_for(role: RoleKind) -> Option<RequiredClaim<T>> {
+        RequiredClaims::<T>::get(role).or_else(|| match role {
+            RoleKind::Mediator => RequiredClaims::<T>::get(RoleKind::Auditor),
+            _ => None,
+        })
+    }
+
+    /// Ensure `did` holds a live (unexpired) claim equal to the one required for `role`
+    /// from one of the role's trusted issuers.
+    /// No-op while no spec applies (the role is permissionless).
+    pub fn ensure_role_claim(did: IdentityId, role: RoleKind) -> Result<(), Error<T>> {
+        if let Some(spec) = Self::required_claim_for(role) {
+            let claim_type = spec.claim.claim_type();
+            let scope = spec.claim.as_scope().cloned();
+            let has_claim = spec.trusted_issuers.iter().any(|issuer| {
+                PalletIdentity::<T>::fetch_claim(did, claim_type, *issuer, scope.clone())
+                    .is_some_and(|id_claim| id_claim.claim == spec.claim)
+            });
+            ensure!(has_claim, Error::<T>::MissingRequiredClaim);
+        }
+        Ok(())
+    }
+
     /// Create a new Confidential asset.
     pub fn base_create_asset(
         owner_did: IdentityId,
@@ -1908,6 +2803,9 @@ impl<T: Config> Pallet<T> {
         // Ensure `decimals` is valid.
         ensure!(decimals <= MAX_DECIMALS, Error::<T>::TooManyDecimals);
 
+        // Ensure the owner meets the asset-creator requirements (if gated).
+        Self::ensure_role_claim(owner_did, RoleKind::AssetCreator)?;
+
         // Ensure the auditor or mediator is registered.
         Self::ensure_mediators_registered(&mediators)?;
         Self::ensure_auditors_registered(&auditors)?;
@@ -1915,7 +2813,7 @@ impl<T: Config> Pallet<T> {
         // Allocate a new asset ID.
         let asset_id = NextAssetId::<T>::get();
         // Increment the next asset ID for the next call.
-        NextAssetId::<T>::put(asset_id.saturating_add(1));
+        NextAssetId::<T>::put(asset_id.checked_add(1).ok_or(Error::<T>::AssetIdOverflow)?);
 
         // Create the asset details.
         let asset_detail = AssetDetails {
@@ -1954,13 +2852,38 @@ impl<T: Config> Pallet<T> {
         Ok(asset_id)
     }
 
-    pub fn base_create_settlement(proof: SettlementProof<PolymeshLimits>) -> DispatchResult {
+    /// Update the keys for an existing asset after checking its owner and selected key roles.
+    pub fn base_update_asset_keys(
+        caller_did: IdentityId,
+        asset_id: ConfidentialAssetId,
+        mediators: MediatorKeys,
+        auditors: AuditorKeys,
+    ) -> DispatchResult {
+        // Ensure the caller is the owner of the asset before updating keys.
+        Self::ensure_dart_asset_owner(caller_did, asset_id)?;
+
+        // Ensure that the new mediator and auditor keys are registered before updating the asset leaf.
+        Self::ensure_mediators_registered(&mediators)?;
+        Self::ensure_auditors_registered(&auditors)?;
+
+        // Update the asset leaf with the new mediator and auditor keys.
+        Self::update_asset_leaf(caller_did, asset_id, &mediators, &auditors, false)
+    }
+
+    pub fn base_create_settlement(
+        proof: SettlementProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> DispatchResult {
         let settlement_ref = proof.settlement_ref();
         #[cfg(not(feature = "runtime-benchmarks"))]
         {
             // Ensure the settlement has at least one leg.
             ensure!(proof.legs.len() > 0, Error::<T>::SettlementMissingLegs);
         }
+        ensure!(
+            proof.legs.len() <= T::MaxSettlementLegs::get() as usize,
+            Error::<T>::SettlementTooManyLegs
+        );
 
         // Ensure that the settlement does not exist.  This also prevents replay of the same settlement proof.
         ensure!(
@@ -1968,25 +2891,20 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SettlementAlreadyExists
         );
 
+        // Handle revealed asset ids.
+        let asset_lookup = Self::get_asset_keys_lookup(proof.revealed_asset_ids())?;
+
         // Get details of the settlement.
         let memo = proof.memo.clone();
         let proof_legs = proof.legs.clone();
         let root_block: BlockNumberFor<T> = proof.root_block.into();
 
-        // Handle revealed asset ids.
-        let mut asset_lookup = AssetKeysLookup::new();
-        for asset_id in proof.revealed_asset_ids() {
-            // Ensure the asset exists and get the asset keys.
-            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
-            let asset_state = AssetState { asset_id, keys };
-            asset_lookup.add(asset_state);
-        }
-
         // Verify the settlement proof.
         let root = Self::get_asset_curve_tree_root(root_block)?;
         Self::submit_and_wait(VerifyDartAssetRequest::CreateSettlement {
+            ctx: ctx.cloned(),
             root,
-            asset_lookup,
+            asset_lookup: asset_lookup.clone(),
             proof,
         })?;
 
@@ -1997,7 +2915,23 @@ impl<T: Config> Pallet<T> {
         let mut pending_affirmations = 0;
         for (leg_idx, leg) in proof_legs.iter().enumerate() {
             let leg_idx = leg_idx as LegId;
-            let mediators = leg.mediator_count().map_err(Error::<T>::from)? as u32;
+            let mediators = if let Some(asset_id) = leg.revealed_asset_id() {
+                // When the asset ID is revealed, we need to save the mediator affirmation keys for the leg.
+                let asset_keys = asset_lookup
+                    .assets
+                    .get(&asset_id)
+                    .ok_or(Error::<T>::AssetMissing)?;
+                LegMediators::<T>::insert(
+                    (settlement_ref, leg_idx),
+                    LegMediatorKeys {
+                        mediators: asset_keys.mediators.clone(),
+                    },
+                );
+                asset_keys.mediators.len() as u32
+            } else {
+                leg.mediator_count(&asset_lookup)
+                    .map_err(Error::<T>::from)? as u32
+            };
 
             pending_affirmations = pending_affirmations
                 .saturating_add(2)
@@ -2049,6 +2983,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_batched_settlement(
         proof: BatchedSettlementProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
@@ -2057,15 +2992,15 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the settlement with the provided proof.
-        Self::base_create_settlement(proof.settlement)?;
+        Self::base_create_settlement(proof.settlement, ctx)?;
 
         // Handle the leg affirmations in the proof.
         for leg_affirmation in proof.leg_affirmations {
             if let Some(sender_proof) = leg_affirmation.sender {
-                Self::base_sender_affirmation(sender_proof)?;
+                Self::base_sender_affirmation(sender_proof, ctx)?;
             }
             if let Some(receiver_proof) = leg_affirmation.receiver {
-                Self::base_receiver_affirmation(receiver_proof)?;
+                Self::base_receiver_affirmation(receiver_proof, ctx)?;
             }
         }
 
@@ -2074,25 +3009,29 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
+        // Handle revealed asset ids, needed to check mediator affirmations in leg references.
+        let asset_lookup = Self::get_asset_keys_lookup(proof.settlement.revealed_asset_ids())?;
+
         // Ensure that the all the leg affirmations have the same settlement reference.
         ensure!(
-            proof.check_leg_references(),
+            proof.check_leg_references(&asset_lookup),
             Error::<T>::BatchedSettlementInvalidLegRefs
         );
         let settlement_ref = proof.settlement.settlement_ref();
 
         // Create the settlement with the provided proof.
-        Self::base_create_settlement(proof.settlement)?;
+        Self::base_create_settlement(proof.settlement, ctx)?;
 
         // Handle the leg affirmations in the proof.
         for leg_affirmation in proof.leg_affirmations {
             // Process mediator affirmations first.
             for mediator in leg_affirmation.mediators {
-                Self::base_mediator_affirmation(mediator)?;
+                Self::base_mediator_affirmation(mediator, ctx)?;
             }
-            Self::base_instant_sender_affirmation(leg_affirmation.sender, false)?;
-            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false)?;
+            Self::base_instant_sender_affirmation(leg_affirmation.sender, false, ctx)?;
+            Self::base_instant_receiver_affirmation(leg_affirmation.receiver, false, ctx)?;
         }
 
         // Ensure that the settlement has executed and finalized.
@@ -2103,6 +3042,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_sender_affirmation(
         proof: SenderAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2111,7 +3051,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the sender affirmation proof and update the settlement and leg status.
-            update_settlement.sender_affirmation(proof, root)
+            update_settlement.sender_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the sender affirmation.
@@ -2122,6 +3062,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_receiver_affirmation(
         proof: ReceiverAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2130,7 +3071,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the receiver affirmation proof and update the settlement and leg status.
-            update_settlement.receiver_affirmation(proof, root)
+            update_settlement.receiver_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the receiver affirmation.
@@ -2142,6 +3083,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_instant_sender_affirmation(
         proof: InstantSenderAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let settlement_ref = leg_ref.settlement_ref();
@@ -2158,7 +3100,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the instant sender affirmation proof and update the settlement and leg status.
-            update_settlement.instant_sender_affirmation(proof, root)
+            update_settlement.instant_sender_affirmation(proof, root, ctx)
         })?;
 
         // If this is a normal settlement, ensure the settlement has executed.
@@ -2177,6 +3119,7 @@ impl<T: Config> Pallet<T> {
     pub fn base_instant_receiver_affirmation(
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let settlement_ref = leg_ref.settlement_ref();
@@ -2193,7 +3136,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the instant receiver affirmation proof and update the settlement and leg status.
-            update_settlement.instant_receiver_affirmation(proof, root)
+            update_settlement.instant_receiver_affirmation(proof, root, ctx)
         })?;
 
         // For normal settlements, ensure the settlement has executed.
@@ -2246,6 +3189,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_mediator_affirmation(
         proof: MediatorAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         let accept = proof.accept;
@@ -2254,7 +3198,7 @@ impl<T: Config> Pallet<T> {
         let update_settlement = UpdateSettlementStatus::<T>::new(leg_ref)?;
 
         // Verify the mediator affirmation proof and update the settlement and leg status.
-        update_settlement.mediator_affirmation(proof)?;
+        update_settlement.mediator_affirmation(proof, ctx)?;
 
         // Emit an event for the mediator affirmation.
         if accept {
@@ -2268,6 +3212,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_sender_update_counter(
         proof: SenderCounterUpdateProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2276,7 +3221,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the sender update proof and update the settlement and leg status.
-            update_settlement.sender_counter_update(proof, root)
+            update_settlement.sender_counter_update(proof, root, ctx)
         })?;
 
         // Emit an event for the sender update counter.
@@ -2287,6 +3232,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_sender_revert_affirmation(
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2295,7 +3241,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the sender revert affirmation proof and update the settlement and leg status.
-            update_settlement.sender_revert_affirmation(proof, root)
+            update_settlement.sender_revert_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the sender revert affirmation.
@@ -2306,6 +3252,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn base_receiver_revert_affirmation(
         proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
     ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
@@ -2314,7 +3261,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the receiver revert affirmation proof and update the settlement and leg status.
-            update_settlement.receiver_revert_affirmation(proof, root)
+            update_settlement.receiver_revert_affirmation(proof, root, ctx)
         })?;
 
         // Emit an event for the receiver revert affirmation.
@@ -2323,7 +3270,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn base_receiver_claim(proof: ReceiverClaimProof<PolymeshLimits>) -> DispatchResult {
+    pub fn base_receiver_claim(
+        proof: ReceiverClaimProof<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> DispatchResult {
         let leg_ref = proof.leg_ref;
         // Handle the account state update proof and verify the nullifier.
         Self::handle_account_state_update_proof(proof, |proof, root| {
@@ -2331,7 +3281,7 @@ impl<T: Config> Pallet<T> {
             let update_settlement = UpdateSettlementStatus::<T>::new(proof.leg_ref)?;
 
             // Verify the receiver claim proof and update the settlement and leg status.
-            update_settlement.receiver_claim(proof, root)
+            update_settlement.receiver_claim(proof, root, ctx)
         })?;
 
         // Emit an event for the receiver claim.
@@ -2344,6 +3294,16 @@ impl<T: Config> Pallet<T> {
         relayer: T::AccountId,
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> DispatchResultWithPostInfo {
+        ensure!(
+            pallet::RelayerSubmitExtensionMarker::<T>::exists(),
+            Error::<T>::RelayerCallMustBeTopLevel
+        );
+
+        ensure!(
+            proof.batched_proofs.len() <= T::MaxBatchedProofs::get() as usize,
+            Error::<T>::TooManyProofs
+        );
+
         #[cfg(not(feature = "runtime-benchmarks"))]
         {
             // Ensure the batched proofs is not empty.
@@ -2353,14 +3313,18 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // Calculate the batch weight and corresponding tx fee.
-        let batch_weight = <T as Config>::WeightInfo::relayer_submit_batched_proofs(&proof);
-        let batch_tx_fee = T::WeightToFee::weight_to_fee(&batch_weight);
-
         // Verify the fee payment proof.
-        let batch_hash = proof.fee_payment_ctx();
-        let verify_res =
-            Self::verify_fee_payment(relayer.clone(), batch_tx_fee, batch_hash, proof.fee_payment);
+        let target = if proof.is_broadcast {
+            // If the proof is broadcast, anyone can submit it and receive the fee.
+            None
+        } else {
+            // Otherwise, only the relayer who submits the proof can receive the fee.
+            Some(relayer.encode())
+        };
+        let batch_hash = proof.fee_payment_ctx(target.as_deref());
+        let context = relayer_batch_proof_context(&proof.fee_payment.nullifier);
+        let ctx = Some(&context);
+        let verify_res = Self::verify_fee_payment(relayer.clone(), batch_hash, proof.fee_payment);
 
         // If the fee payment verification fails, return an error but still charge the relayer for the verification cost.
         let amount = match verify_res {
@@ -2377,34 +3341,78 @@ impl<T: Config> Pallet<T> {
 
         // Process the batched Confidential proofs.  The proofs are processed inside of a transaction so that
         // if any proof fails, the entire batch is reverted (but the relayer is still paid).
-        let batch_result = Self::process_batched_proofs_atomic(proof.batched_proofs);
+        let batch_result = Self::process_batched_proofs_atomic(proof.batched_proofs, ctx);
+        // A failed batch is charged the full declared weight.
+        let actual_weight = batch_result.as_ref().ok().map(|weight| {
+            <T as Config>::WeightInfo::verify_fee_payment_with_leaf().saturating_add(*weight)
+        });
 
         // Emit an event for the relayer batched proofs submission.
         Self::deposit_event(Event::<T>::RelayerBatchedProofs {
             relayer,
             batch_hash,
             amount,
-            batch_result,
+            batch_result: batch_result.map(|_| ()),
         });
 
-        Ok(().into())
+        Ok(actual_weight.into())
+    }
+
+    pub fn relayer_submit_batched_fee_info(
+        batch: &BatchedProofs<PolymeshLimits>,
+        extension_weight: Weight,
+    ) -> RelayerSubmitBatchedFeeInfo<BalanceOf<T>>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+    {
+        let dispatch_info = DispatchInfo {
+            call_weight: <T as Config>::WeightInfo::relayer_batched_proofs(
+                batch,
+                T::MaxSettlementLegs::get(),
+            ),
+            extension_weight,
+            class: DispatchClass::Normal,
+            pays_fee: Pays::Yes,
+        };
+        let call_len = Self::estimate_relayer_submit_batched_len(batch);
+        let len_bytes = Compact(call_len).encoded_size() as u32;
+        let len = RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD
+            .saturating_add(call_len)
+            .saturating_add(len_bytes);
+        RelayerSubmitBatchedFeeInfo {
+            weight: dispatch_info.total_weight(),
+            fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
+                len,
+                &dispatch_info,
+                0u32.into(),
+            ),
+        }
+    }
+
+    /// Estimates the SCALE-encoded length of the `relayer_submit_batched_proofs` call itself
+    /// (excluding the extrinsic preamble, address, signature, and transaction extensions).
+    ///
+    /// The fee payment proof isn't available yet at this point (its size depends on the fee
+    /// amount, which is what we're trying to determine), so its length is estimated from the
+    /// current fee account curve tree height.
+    pub fn estimate_relayer_submit_batched_len(batch: &BatchedProofs<PolymeshLimits>) -> u32 {
+        // `estimate_encoded_size` requires a positive height; an empty tree still needs one level
+        // for the fee account's own registration/topup proof.
+        let height = FeeAccountCurveTreeHeight::<T>::get().max(1);
+        let fee_payment_proof_len =
+            FeeAccountPaymentProof::<PolymeshLimits>::estimate_encoded_size(height);
+        // +1 for `FeePaymentWithBatchedProofs::is_broadcast`, which isn't part of the payment proof.
+        batch.encoded_size() as u32 + fee_payment_proof_len as u32 + 1
     }
 
     pub fn verify_fee_payment(
         relayer: T::AccountId,
-        batch_tx_fee: BalanceOf<T>,
         batch_hash: ProofHash,
         proof: FeeAccountPaymentProof<PolymeshLimits>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         let account_state_commitment = proof.updated_account_state_commitment;
         let nullifier = proof.nullifier;
         let amount = Self::amount_to_balance(proof.amount)?;
-
-        // TODO: Put a cap on the maximum commission fee that a relayer can charge.
-        ensure!(
-            amount >= batch_tx_fee,
-            Error::<T>::InsufficientFeePaymentAmount
-        );
 
         // Ensure the fee asset id is valid.  Only one is supported now.
         ensure!(
@@ -2437,10 +3445,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs inside a transaction.
-    pub fn process_batched_proofs_atomic(proof: BatchedProofs<PolymeshLimits>) -> DispatchResult {
+    pub fn process_batched_proofs_atomic(
+        proof: BatchedProofs<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> Result<Weight, DispatchError> {
         use frame_support::storage::TransactionOutcome;
         frame_support::storage::with_transaction(|| {
-            let res = Self::process_batched_proofs(proof);
+            let res = Self::process_batched_proofs(proof, ctx);
             if res.is_ok() {
                 TransactionOutcome::Commit(res)
             } else {
@@ -2450,33 +3461,83 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs, this should be called inside a transaction.
-    pub fn process_batched_proofs(proof: BatchedProofs<PolymeshLimits>) -> DispatchResult {
+    ///
+    /// Returns the actual weight used.
+    pub fn process_batched_proofs(
+        proof: BatchedProofs<PolymeshLimits>,
+        ctx: Option<&Vec<u8>>,
+    ) -> Result<Weight, DispatchError> {
+        let mut weight = Weight::zero();
         for proof in proof.proofs {
-            match proof {
-                BatchedProof::CreateSettlement(p) => Self::base_create_settlement(p)?,
-                BatchedProof::SenderAffirmation(p) => Self::base_sender_affirmation(p)?,
-                BatchedProof::ReceiverAffirmation(p) => Self::base_receiver_affirmation(p)?,
-                BatchedProof::MediatorAffirmation(p) => Self::base_mediator_affirmation(p)?,
-                BatchedProof::SenderCounterUpdate(p) => Self::base_sender_update_counter(p)?,
-                BatchedProof::SenderRevertAffirmation(p) => {
-                    Self::base_sender_revert_affirmation(p)?
+            weight = weight.saturating_add(<T as Config>::WeightInfo::batched_proof_base(&proof));
+            let finalizing = match proof {
+                BatchedProof::CreateSettlement(p) => {
+                    Self::base_create_settlement(p, ctx)?;
+                    None
                 }
-                BatchedProof::ReceiverRevertAffirmation(p) => {
-                    Self::base_receiver_revert_affirmation(p)?
+                BatchedProof::SenderAffirmation(p) => {
+                    Self::base_sender_affirmation(p, ctx)?;
+                    None
                 }
-                BatchedProof::ReceiverClaim(p) => Self::base_receiver_claim(p)?,
+                BatchedProof::ReceiverAffirmation(p) => {
+                    Self::base_receiver_affirmation(p, ctx)?;
+                    None
+                }
+                BatchedProof::MediatorAffirmation(p, legs) => {
+                    // Only a mediator reject can finalize.
+                    let finalizing = if p.accept {
+                        None
+                    } else {
+                        Some(Self::finalizing_leg_count(p.leg_ref.settlement, legs)?)
+                    };
+                    Self::base_mediator_affirmation(p, ctx)?;
+                    finalizing
+                }
+                BatchedProof::SenderCounterUpdate(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_sender_update_counter(p, ctx)?;
+                    Some(finalizing)
+                }
+                BatchedProof::SenderRevertAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_sender_revert_affirmation(p, ctx)?;
+                    Some(finalizing)
+                }
+                BatchedProof::ReceiverRevertAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_receiver_revert_affirmation(p, ctx)?;
+                    Some(finalizing)
+                }
+                BatchedProof::ReceiverClaim(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_receiver_claim(p, ctx)?;
+                    Some(finalizing)
+                }
                 BatchedProof::ExecuteInstantSettlement(p) => {
-                    Self::base_execute_instant_settlement(p)?
+                    Self::base_execute_instant_settlement(p, ctx)?;
+                    None
                 }
-                BatchedProof::InstantSenderAffirmation(p) => {
-                    Self::base_instant_sender_affirmation(p, true)?
+                BatchedProof::InstantSenderAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_instant_sender_affirmation(p, true, ctx)?;
+                    Some(finalizing)
                 }
-                BatchedProof::InstantReceiverAffirmation(p) => {
-                    Self::base_instant_receiver_affirmation(p, true)?
+                BatchedProof::InstantReceiverAffirmation(p, legs) => {
+                    let finalizing = Self::finalizing_leg_count(p.leg_ref.settlement, legs)?;
+                    Self::base_instant_receiver_affirmation(p, true, ctx)?;
+                    Some(finalizing)
                 }
+            };
+
+            // Check if the settlement was finalized and add its weight contribution.
+            if let Some((settlement_ref, leg_count)) = finalizing {
+                weight = weight.saturating_add(Self::settlement_finalization_actual_weight(
+                    settlement_ref,
+                    leg_count,
+                ));
             }
         }
-        Ok(())
+        Ok(weight)
     }
 
     /// Handle account state update proof verification and insertion.
@@ -2535,22 +3596,12 @@ impl<T: Config> Pallet<T> {
         Keys::<T>::insert(asset_id, &keys);
 
         // Create the Asset State.
-        let asset_state = AssetState { asset_id, keys };
-        let req = UpdateAssetStateRequest::new(asset_state);
-        #[cfg(feature = "host_workers")]
-        let resp = {
-            req.update(Self::session_id()?)
-                .map_err(|_| Error::<T>::AssetStateInvalid)?
+        let asset_state = AssetState {
+            asset_id,
+            frozen: AssetFrozen::<T>::get(asset_id).is_some(),
+            keys,
         };
-        #[cfg(not(feature = "host_workers"))]
-        let resp = { req.do_update().map_err(|_| Error::<T>::AssetStateInvalid)? };
-
-        let asset_leaf = resp.asset_leaf();
-
-        // Update the asset curve tree with the new asset.
-        let mut asset_curve_tree = Self::get_asset_curve_tree()?;
-        let leaf_index = asset_id.into();
-        asset_curve_tree.update_leaf(leaf_index, asset_leaf)?;
+        Self::recommit_asset_leaf(asset_state)?;
 
         // Emit an event for the asset state update.
         if !is_create {
@@ -2562,11 +3613,26 @@ impl<T: Config> Pallet<T> {
                 mediators: mediators.clone(),
             });
         }
+        Ok(())
+    }
+
+    fn recommit_asset_leaf(asset_state: AssetState) -> DispatchResult {
+        let leaf_index = asset_state.asset_id.into();
+        let req = UpdateAssetStateRequest::new(asset_state);
+        #[cfg(feature = "host_workers")]
+        let resp = {
+            req.update(Self::session_id()?)
+                .map_err(|_| Error::<T>::AssetStateInvalid)?
+        };
+        #[cfg(not(feature = "host_workers"))]
+        let resp = { req.do_update().map_err(|_| Error::<T>::AssetStateInvalid)? };
+
+        let asset_leaf = resp.asset_leaf();
+        Self::get_asset_curve_tree()?.update_leaf(leaf_index, asset_leaf)?;
         Self::deposit_event(Event::<T>::AssetStateLeafUpdated {
             leaf_index,
             asset_leaf,
         });
-
         Ok(())
     }
 
@@ -2667,6 +3733,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Ensure Confidential account is registered and linked to the given encryption key.
+    pub fn ensure_dart_account_and_encryption_key_registered(
+        account: &AccountPublicKey,
+        encryption: &EncryptionPublicKey,
+    ) -> Result<IdentityId, Error<T>> {
+        let identity_id = Self::ensure_dart_account_registered(account)?;
+        let account_encryption =
+            AccountEncryptionKey::<T>::get(account).ok_or(Error::<T>::EncryptionKeyMissing)?;
+        ensure!(
+            account_encryption == *encryption,
+            Error::<T>::EncryptionKeyMismatch
+        );
+        Ok(identity_id)
+    }
+
     /// Ensure Confidential account is registered.
     pub fn ensure_dart_account_registered(
         account: &AccountPublicKey,
@@ -2699,15 +3780,18 @@ impl<T: Config> Pallet<T> {
         Ok(asset_detail)
     }
 
-    /// Ensure the caller has the required permissions to access the Confidential account.
+    /// Ensure the caller owns the Confidential account and its registered encryption key.
     pub fn ensure_dart_account_permissions(
         origin: OriginFor<T>,
         account: &AccountPublicKey,
+        encryption: &EncryptionPublicKey,
     ) -> Result<IdentityId, DispatchError> {
         // Ensure the caller is allowed to make this call.
         let caller_did = PalletIdentity::<T>::ensure_perms(origin)?;
-        // Ensure the Confidential account is registered to the caller's identity.
-        Self::ensure_dart_account_owner(caller_did, account)?;
+        // Ensure the account and encryption key are registered together to the caller's identity.
+        let account_did =
+            Self::ensure_dart_account_and_encryption_key_registered(account, encryption)?;
+        ensure!(account_did == caller_did, Error::<T>::NotAccountOwner);
         // Return the caller's identity.
         Ok(caller_did)
     }
@@ -2719,6 +3803,23 @@ impl<T: Config> Pallet<T> {
         Details::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)
     }
 
+    pub fn get_asset_keys_lookup(
+        asset_ids: BTreeSet<ConfidentialAssetId>,
+    ) -> Result<AssetKeysLookup, Error<T>> {
+        let mut asset_lookup = AssetKeysLookup::new();
+        for asset_id in asset_ids {
+            let keys = Keys::<T>::get(asset_id).ok_or(Error::<T>::AssetMissing)?;
+            let asset_state = AssetState {
+                asset_id,
+                frozen: AssetFrozen::<T>::get(asset_id).is_some(),
+                keys,
+            };
+            ensure!(!asset_state.frozen, Error::<T>::AssetIsFrozen);
+            asset_lookup.add(asset_state);
+        }
+        Ok(asset_lookup)
+    }
+
     /// Ensure encryption key is registered.
     pub fn ensure_encryption_key_registered(
         encryption_key: &EncryptionPublicKey,
@@ -2726,18 +3827,33 @@ impl<T: Config> Pallet<T> {
         EncryptionKeyDid::<T>::get(encryption_key).ok_or(Error::<T>::EncryptionKeyMissing)
     }
 
-    /// Ensure auditor encryption public keys are registered.
+    /// Ensure auditor encryption public keys are registered and meet the auditor requirements.
+    ///
+    /// Shared keys are linked to their creator's DID like any other registered encryption key.
     pub fn ensure_auditors_registered(keys: &AuditorKeys) -> Result<(), Error<T>> {
         for key in keys {
-            Self::ensure_encryption_key_registered(key)?;
+            let did = Self::ensure_encryption_key_registered(key)?;
+            Self::ensure_role_claim(did, RoleKind::Auditor)?;
         }
         Ok(())
     }
 
-    /// Ensure mediator encryption public keys are registered.
+    /// Ensure mediator encryption public keys are registered and meet the mediator requirements.
+    ///
+    /// The mediator's encryption key is either the account's own encryption key or a shared
+    /// key that was distributed to the account's own encryption key.
     pub fn ensure_mediators_registered(keys: &MediatorKeys) -> Result<(), Error<T>> {
-        for key in keys {
-            Self::ensure_dart_account_registered(&key.0)?;
+        for (acct, enc) in keys {
+            let did = Self::ensure_dart_account_registered(acct)?;
+            let account_enc =
+                AccountEncryptionKey::<T>::get(acct).ok_or(Error::<T>::EncryptionKeyMissing)?;
+            if account_enc != *enc {
+                ensure!(
+                    SharedKeyRecipients::<T>::get(enc).contains(&account_enc),
+                    Error::<T>::EncryptionKeyNotShared
+                );
+            }
+            Self::ensure_role_claim(did, RoleKind::Mediator)?;
         }
         Ok(())
     }
@@ -2903,23 +4019,19 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn update_account_curve_tree_root() {
-        // Get the account curve tree.
-        let mut tree =
-            Self::get_account_curve_tree().expect("Account curve tree should be initialized; qed");
-
-        // Commit the delayed updates to the account curve tree.
-        tree.commit_leaves_to_tree()
-            .expect("Account curve tree should be able to commit leaves; qed");
+        let result = Self::get_account_curve_tree()
+            .and_then(|mut tree| tree.commit_leaves_to_tree().map(|_| ()));
+        if let Err(error) = result {
+            log::error!("Failed to commit account curve tree at block finalization: {error:?}");
+        }
     }
 
     pub fn update_fee_account_curve_tree_root() {
-        // Get the fee account curve tree.
-        let mut tree = Self::get_fee_account_curve_tree()
-            .expect("Fee Account curve tree should be initialized; qed");
-
-        // Commit the delayed updates to the account curve tree.
-        tree.commit_leaves_to_tree()
-            .expect("Fee Account curve tree should be able to commit leaves; qed");
+        let result = Self::get_fee_account_curve_tree()
+            .and_then(|mut tree| tree.commit_leaves_to_tree().map(|_| ()));
+        if let Err(error) = result {
+            log::error!("Failed to commit fee account curve tree at block finalization: {error:?}");
+        }
     }
 
     fn generate_and_save_dart_params() -> bool {
@@ -2927,19 +4039,18 @@ impl<T: Config> Pallet<T> {
             // If the DART parameters are already cached, do nothing.
             return false;
         }
-        if let Ok(ctx) = polymesh_worker_protocol_dart_v0::save_context() {
+        if let Ok(ctx) = polymesh_worker_protocol_dart_v1::save_context() {
             CachedDartParameters::<T>::put(ctx);
         }
         true
     }
 
     pub fn init_block() -> Weight {
-        Self::start_session();
-
         // Prune old curve tree roots.
         let now = pallet_timestamp::Pallet::<T>::get();
         let prune_weight = Self::curve_tree_pruning(now);
 
+        // `on_init` includes `session_overhead` for the lazily started worker session.
         <T as Config>::WeightInfo::on_init().saturating_add(prune_weight)
     }
 
@@ -2953,35 +4064,10 @@ impl<T: Config> Pallet<T> {
         Self::end_session();
     }
 
-    pub fn start_session() {
-        #[cfg(feature = "host_workers")]
-        {
-            // Start worker session.
-            let config = WorkerSessionConfig {
-                work: WorkRequestConfig {
-                    use_cache: true,
-                    use_thread_pool: false,
-                },
-                init_module: true,
-
-                backends: BackendKind::all_mask(),
-            }
-            .to_flags_and_backends();
-
-            let session_id =
-                native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
-
-            CurrentWorkerSessionId::<T>::put(session_id);
-        }
-    }
-
     pub fn end_session() {
         #[cfg(feature = "host_workers")]
-        {
-            // Close the batch.
-            if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
-                native_polymesh_worker::end_session(session_id);
-            }
+        if let Some(session_id) = CurrentWorkerSessionId::<T>::take() {
+            native_polymesh_worker::end_session(session_id);
         }
     }
 
@@ -2998,8 +4084,32 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// The worker session for the current block, started lazily on first use.
+    ///
+    /// Nodes drop sessions at the end of the runtime call; `end_session` also ends it for older
+    /// nodes that keep sessions in a global table.
     pub fn session_id() -> Result<WorkerSessionId, DispatchError> {
-        CurrentWorkerSessionId::<T>::get().ok_or(Error::<T>::NoCurrentWorkerSession.into())
+        #[cfg(feature = "host_workers")]
+        {
+            if let Some(session_id) = CurrentWorkerSessionId::<T>::get() {
+                return Ok(session_id);
+            }
+            let config = WorkerSessionConfig {
+                work: WorkRequestConfig {
+                    use_cache: true,
+                    use_thread_pool: false,
+                },
+                backends: BackendKind::all_mask(),
+            }
+            .to_flags_and_backends();
+
+            let session_id =
+                native_polymesh_worker::start_session(config, DART_PROTOCOL.to_number());
+            CurrentWorkerSessionId::<T>::put(session_id);
+            Ok(session_id)
+        }
+        #[cfg(not(feature = "host_workers"))]
+        Err(Error::<T>::NoCurrentWorkerSession.into())
     }
 
     /// Transfer funds to the fee account.

@@ -2,6 +2,7 @@
 // Copyright (c) 2023 Polymesh
 
 use frame_benchmarking::benchmarks;
+use frame_system::RawOrigin;
 use sp_consensus_babe::Slot;
 use sp_std::vec;
 use sp_std::vec::Vec;
@@ -11,9 +12,9 @@ use rand_core::SeedableRng;
 
 use polymesh_dart::{
     curve_tree::{CurveTreeLookup, MultiLeafPathAndRoot},
-    FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
+    DartLimits, FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
 };
-use polymesh_worker_protocol_dart_v0::{GenerateDartProofRequest, GenerateDartProofResponse};
+use polymesh_worker_protocol_dart_v1::{GenerateDartProofRequest, GenerateDartProofResponse};
 
 use polymesh_primitives::erc20::{Name, Symbol};
 
@@ -84,6 +85,10 @@ fn init_curve_trees<T: Config>() {
     Pallet::<T>::update_fee_account_curve_tree_root();
 }
 
+fn role_claim() -> Claim {
+    RoleKind::Auditor.default_claim()
+}
+
 benchmarks! {
     where_clause { where T: Config + pallet_babe::Config, Slot: From<T::Moment> }
 
@@ -96,7 +101,7 @@ benchmarks! {
 
     session_overhead {
     }: {
-        Pallet::<T>::start_session();
+        Pallet::<T>::session_id()?;
         Pallet::<T>::end_session();
     }
 
@@ -280,23 +285,45 @@ benchmarks! {
     }: _(user.raw_origin(), proof)
 
     create_asset {
+        let k in 1 .. core::cmp::min(
+            <T as Config>::MaxAssetEncryptionKeys::get(),
+            <T as Config>::MaxAssetMediators::get()
+                .saturating_add(<T as Config>::MaxAssetAuditors::get()),
+        );
+
         init_block::<T>();
 
-        // Create an asset issuer and create an asset.
         let asset_issuer = DartUser::<T>::new("AssetIssuer");
-
-        // Register the asset issuer's account.
         asset_issuer.register_account();
+        onboard_role::<T>(asset_issuer.did(), RoleKind::AssetCreator);
+        onboard_role::<T>(asset_issuer.did(), RoleKind::Auditor);
 
-        // Create the maximum number of mediators.
-        let auditor_keys = BoundedBTreeSet::new();
+        let mediator_count = core::cmp::min(k, <T as Config>::MaxAssetMediators::get());
+        let auditor_count = k.saturating_sub(mediator_count);
         let mut mediator_keys = BoundedBTreeMap::new();
-        for i in 0..<T as Config>::MaxAssetMediators::get() {
+        let mut auditor_keys = BoundedBTreeSet::new();
+        for i in 0..auditor_count {
+            let auditor = DartUser::<T>::auditor_user("Auditor", 0, i);
+            auditor.register_encryption_key();
+            onboard_role::<T>(auditor.did(), RoleKind::Auditor);
+            auditor_keys
+                .try_insert(auditor.public_keys().enc)
+                .expect("Failed to push auditor keys");
+        }
+        for i in 0..mediator_count {
             let mediator = DartUser::<T>::auditor_user("Mediator", 0, i);
             mediator.register_account();
-            let med_keys = mediator.public_keys();
+            onboard_role::<T>(mediator.did(), RoleKind::Auditor);
+            onboard_role::<T>(mediator.did(), RoleKind::Mediator);
+
+            let mediator_enc = mediator.public_keys().enc;
+            let shared_key = DartUser::<T>::auditor_user("SharedMediatorKey", 1, i)
+                .keys()
+                .enc
+                .clone();
+            asset_issuer.distribute_encryption_key(shared_key.clone(), vec![mediator_enc]);
             mediator_keys
-                .try_insert(med_keys.acct, med_keys.enc)
+                .try_insert(mediator.public_keys().acct, shared_key.public)
                 .expect("Failed to push mediator keys");
         }
 
@@ -312,6 +339,76 @@ benchmarks! {
         // Asset Decimals.
         let decimals = 2u8;
     }: _(asset_issuer.raw_origin(), name, symbol, decimals, mediator_keys, auditor_keys, data)
+
+    update_asset_keys {
+        let k in 1 .. core::cmp::min(
+            <T as Config>::MaxAssetEncryptionKeys::get(),
+            <T as Config>::MaxAssetMediators::get()
+                .saturating_add(<T as Config>::MaxAssetAuditors::get()),
+        );
+
+        let mut off_chain = OffchainProverState::<T>::new();
+        let mediator_count = core::cmp::min(k, <T as Config>::MaxAssetMediators::get());
+        let auditor_count = k.saturating_sub(mediator_count);
+        let asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Update Asset",
+            0,
+            mediator_count,
+            auditor_count,
+            None,
+        );
+        onboard_role::<T>(asset.issuer.did(), RoleKind::Auditor);
+        let mut mediator_keys = BoundedBTreeMap::new();
+        for (i, mediator) in asset.mediators.iter().enumerate() {
+            onboard_role::<T>(mediator.did(), RoleKind::Auditor);
+            let keys = mediator.public_keys();
+            let shared_key = DartUser::<T>::auditor_user("UpdatedSharedMediatorKey", 1, i as u32)
+                .keys()
+                .enc
+                .clone();
+            asset
+                .issuer
+                .distribute_encryption_key(shared_key.clone(), vec![keys.enc]);
+            mediator_keys
+                .try_insert(keys.acct, shared_key.public)
+                .expect("Failed to push mediator keys");
+        }
+        let mut auditor_keys = BoundedBTreeSet::new();
+        for auditor in &asset.auditors {
+            auditor_keys
+                .try_insert(auditor.public_keys().enc)
+                .expect("Failed to push auditor keys");
+        }
+    }: _(asset.issuer.raw_origin(), asset.id, mediator_keys, auditor_keys)
+
+    set_asset_frozen {
+        let mut off_chain = OffchainProverState::<T>::new();
+        let key_count = core::cmp::min(
+            <T as Config>::MaxAssetEncryptionKeys::get(),
+            <T as Config>::MaxAssetMediators::get()
+                .saturating_add(<T as Config>::MaxAssetAuditors::get()),
+        );
+        let mediator_count = core::cmp::min(key_count, <T as Config>::MaxAssetMediators::get());
+        let auditor_count = key_count.saturating_sub(mediator_count);
+        let asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Set Asset Frozen",
+            0,
+            mediator_count,
+            auditor_count,
+            None,
+        );
+    }: _(asset.issuer.raw_origin(), asset.id, true)
+    verify {
+        assert_eq!(AssetFrozen::<T>::get(asset.id), Some(FreezeOrigin::Issuer));
+        let mut state = asset.asset_state();
+        state.frozen = true;
+        assert_eq!(
+            AssetLeaves::<T>::get(LeafIndex::from(asset.id)),
+            Some(state.commitment().expect("Asset commitment")),
+        );
+    }
 
     register_account_assets {
         // Number of proofs to batch.
@@ -333,7 +430,7 @@ benchmarks! {
             let account = user.new_account("Batching account", idx);
 
             accounts.push(account.keys());
-            account_assets.push((account.keys(), asset.id, 0));
+            account_assets.push((account.keys(), asset.id, 0, None));
         }
 
         // Register all the accounts first.
@@ -464,7 +561,6 @@ benchmarks! {
 
         // Generate the fee payment proof.
         let amount = 42u64;
-        let batch_tx_fee = Pallet::<T>::amount_to_balance(amount).expect("Failed to convert amount to balance");
         let batch_hash = ProofHash([42u8; 32]);
         let req = GenerateDartProofRequest::FeeAccountPayment {
             ctx: batch_hash,
@@ -483,7 +579,6 @@ benchmarks! {
     }: {
         Pallet::<T>::verify_fee_payment(
             relayer,
-            batch_tx_fee,
             batch_hash,
             proof,
         ).expect("Failed to verify fee payment proof");
@@ -546,6 +641,7 @@ benchmarks! {
 
         // Generate the settlement proof.
         let req = GenerateDartProofRequest::CreateSettlement {
+            ctx: None,
             paths: MultiLeafPathAndRoot::from_paths(paths).expect("Failed to create MultiLeafPathAndRoot"),
             settlement,
         };
@@ -559,6 +655,48 @@ benchmarks! {
         set_skip_verify::<T>(false);
 
     }: _(venue.raw_origin(), proof)
+
+    finalize_settlement {
+        // Number of settlement legs whose affirmation and leg storage is pruned.
+        let l in 1 .. <T as Config>::MaxSettlementLegs::get();
+
+        let mut off_chain = OffchainProverState::<T>::new();
+        let mut asset = DartTestAsset::<T>::new(
+            &mut off_chain,
+            "Finalize Settlement",
+            0,
+            T::MaxAssetMediators::get(),
+            0,
+            Some(1_000),
+        );
+        let (settlement, _) = DartSettlementState::create_investors_and_fund(
+            &mut asset,
+            l as usize,
+            100,
+            &mut off_chain,
+        );
+        let mediator_keys: BTreeSet<_> = asset
+            .mediators
+            .iter()
+            .map(|mediator| mediator.public_keys().acct)
+            .collect();
+        for leg in &settlement.legs {
+            LegMediators::<T>::insert(
+                (settlement.settlement_ref, leg.leg_ref.leg_id),
+                LegMediatorKeys {
+                    mediators: mediator_keys.clone(),
+                },
+            );
+        }
+    }: {
+        Pallet::<T>::finalize_settlement(settlement.settlement_ref)?;
+    }
+    verify {
+        assert_eq!(
+            SettlementState::<T>::get(settlement.settlement_ref),
+            Some(SettlementStatus::Finalized),
+        );
+    }
 
     sender_affirmation {
         // Offchain prover state.
@@ -723,7 +861,7 @@ benchmarks! {
         off_chain.apply_new_leaves();
 
         // Generate the sender's update counter proof.
-        let (proof, _) = leg.sender.sender_counter_update_proof(&off_chain, leg.leg_ref, leg.asset_id);
+        let (proof, _) = leg.sender.sender_counter_update_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.sender.raw_origin(), proof)
 
     sender_revert_affirmation {
@@ -783,6 +921,42 @@ benchmarks! {
         leg.mediator_affirmation(&off_chain, false);
 
         // Generate the receiver's revert affirmation proof.
-        let (proof, _) = leg.receiver.receiver_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id);
+        let (proof, _) = leg.receiver.receiver_revert_affirmation_proof(&off_chain, leg.leg_ref, leg.asset_id, leg.amount);
     }: _(leg.receiver.raw_origin(), proof)
+
+    set_required_claim {
+        let trusted_issuers = role_claim_issuers::<T>();
+    }: _(RawOrigin::Root, RoleKind::Auditor, role_claim(), trusted_issuers)
+
+    remove_required_claim {
+        Pallet::<T>::base_set_required_claim(
+            RoleKind::Auditor,
+            role_claim(),
+            role_claim_issuers::<T>(),
+        )?;
+    }: _(RawOrigin::Root, RoleKind::Auditor)
+
+    distribute_encryption_key {
+        // DART's proof bound can be lower than the runtime storage bound.
+        let r in 1 .. core::cmp::min(
+            T::MaxSharedKeyRecipients::get(),
+            <PolymeshLimits as DartLimits>::MaxKeyDistributionRecipients::get(),
+        );
+
+        init_block::<T>();
+
+        let owner = DartUser::<T>::new("KeyOwner");
+        // The distributor has the only required role: Auditor.
+        onboard_role::<T>(owner.did(), RoleKind::Auditor);
+
+        let recipients = (0..r)
+            .map(|i| {
+                let recipient = DartUser::<T>::auditor_user("KeyRecipient", 0, i);
+                recipient.register_encryption_key();
+                onboard_role::<T>(recipient.did(), RoleKind::Auditor);
+                recipient.public_keys().enc
+            })
+            .collect();
+        let proof = owner.distribute_encryption_key_proof(owner.keys().enc.clone(), recipients);
+    }: _(owner.raw_origin(), proof)
 }

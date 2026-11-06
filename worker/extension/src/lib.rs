@@ -42,15 +42,29 @@ pub trait NativePolymeshWorker {
     }
 
     /// Start a new session.  This is normally done at the start of a block.
+    ///
+    /// Sessions live in an externalities extension, so they are dropped at the end of the
+    /// runtime call even if `end_session` is never called.
     fn start_session(
         &mut self,
         flags_and_backends: WorkerConfigFlagsAndBackends,
         default_protocol: ProtocolNumber,
     ) -> WorkerSessionId {
-        let ext = PolymeshWorkerExt::new();
-        let mut loader = SubstrateModuleLoader(&mut **self);
-        let (flags, backends) = unpack_flags_and_backends(flags_and_backends);
-        ext.start_session(flags, backends, default_protocol, &mut loader)
+        // Unknown session id: requests fall back to runtime execution.
+        let Some(session_id) = next_session_id(&mut **self) else {
+            return WorkerSessionId::MAX;
+        };
+        let session = {
+            let mut loader = SubstrateModuleLoader(&mut **self);
+            PolymeshWorkerExt::new().start_session(
+                session_id,
+                flags_and_backends,
+                default_protocol,
+                &mut loader,
+            )
+        };
+        insert_session(&mut **self, session);
+        session_id
     }
 
     /// Execute a batch of work requests within the given session.
@@ -60,8 +74,15 @@ pub trait NativePolymeshWorker {
         flags: WorkerConfigFlags,
         work_reqs: PassFatPointerAndRead<Vec<u8>>,
     ) -> AllocateAndReturnByCodec<Vec<WorkStatusFlagsAndId>> {
-        let ext = PolymeshWorkerExt::new();
-        ext.session_execute_batch(session_id, flags, work_reqs)
+        match get_session(&mut **self, session_id) {
+            Ok(session) => {
+                PolymeshWorkerExt::new().session_execute_batch(&session, flags, work_reqs)
+            }
+            Err(err) => {
+                log::error!("Failed to submit work request: {err:?}");
+                Vec::new()
+            }
+        }
     }
 
     /// Execute a protocol-specific work request for the given session id.
@@ -71,8 +92,15 @@ pub trait NativePolymeshWorker {
         flags: WorkerConfigFlags,
         request: PassFatPointerAndRead<Vec<u8>>,
     ) -> WorkStatusFlagsAndId {
-        let ext = PolymeshWorkerExt::new();
-        ext.session_execute_request(session_id, flags, request)
+        match get_session(&mut **self, session_id) {
+            Ok(session) => {
+                PolymeshWorkerExt::new().session_execute_request(&session, flags, request)
+            }
+            Err(err) => {
+                log::error!("Failed to submit work request: {err:?}");
+                pack_work_status_flags_and_id(WorkStatus::SessionNotFound, 0, 0)
+            }
+        }
     }
 
     /// Execute work request in the give session and wait for the results.
@@ -82,8 +110,8 @@ pub trait NativePolymeshWorker {
         flags: WorkerConfigFlags,
         request: PassFatPointerAndRead<Vec<u8>>,
     ) -> AllocateAndReturnByCodec<Result<WorkResponseResult, WorkerError>> {
-        let ext = PolymeshWorkerExt::new();
-        ext.session_execute_request_and_wait(session_id, flags, request)
+        let session = get_session(&mut **self, session_id)?;
+        PolymeshWorkerExt::new().session_execute_request_and_wait(&session, flags, request)
     }
 
     /// Push the work result for the given session id and request id.
@@ -95,15 +123,18 @@ pub trait NativePolymeshWorker {
         request_id: WorkRequestId,
         result: PassFatPointerAndDecode<WorkResponseResult>,
     ) -> WorkerErrorNum {
-        let ext = PolymeshWorkerExt::new();
-        ext.session_push_result(session_id, request_id, result)
-            .into()
+        let res = get_session(&mut **self, session_id).map(|session| {
+            PolymeshWorkerExt::new().session_push_result(&session, request_id, result)
+        });
+        WorkerError::from(res).into()
     }
 
     /// Get the number of requests in the session.
     fn session_num_requests(session_id: WorkerSessionId) -> WorkerErrorNum {
-        let ext = PolymeshWorkerExt::new();
-        ext.session_num_requests(session_id).into()
+        let res = sp_externalities::with_externalities(|ext| get_session(ext, session_id))
+            .unwrap_or(Err(WorkerError::SessionNotFound(session_id)))
+            .map(|session| session.num_requests());
+        WorkerError::from(res).into()
     }
 
     /// Get the request result for the given session id and request id.
@@ -112,13 +143,16 @@ pub trait NativePolymeshWorker {
         session_id: WorkerSessionId,
         request_id: WorkRequestId,
     ) -> AllocateAndReturnByCodec<Result<WorkResponseResult, WorkerError>> {
-        let ext = PolymeshWorkerExt::new();
-        ext.session_get_result(session_id, request_id)
+        let session = get_session(&mut **self, session_id)?;
+        PolymeshWorkerExt::new().session_get_result(&session, request_id)
     }
 
     /// End the session with the given session id.  This is normally done at the end of a block.
     fn end_session(session_id: WorkerSessionId) {
-        let ext = PolymeshWorkerExt::new();
-        ext.end_session(session_id)
+        log::debug!("Ending session id: {}", session_id);
+        let res = sp_externalities::with_externalities(|ext| remove_session(ext, session_id));
+        if let Some(Err(err)) = res {
+            log::error!("Failed to end session: {err:?}");
+        }
     }
 }

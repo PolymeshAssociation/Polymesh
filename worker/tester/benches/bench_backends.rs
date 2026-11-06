@@ -1,14 +1,14 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group};
 use std::hint::black_box;
 
 use codec::{Decode, Encode};
 use polymesh_dart::{
-    AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
-    PolymeshLimits, SenderAffirmationProof,
+    AccountAssetRegistrationProof, AssetPkTLookup, BatchedAccountAssetRegistrationProof,
+    LegEncrypted, PolymeshLimits, SenderAffirmationProof,
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
-use polymesh_worker_protocol_dart_v0::{
+use polymesh_worker_protocol_dart_v1::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
 
@@ -186,6 +186,7 @@ fn bench_backend_kind(kind: BackendKind, c: &mut Criterion) {
                                         .try_into()
                                         .expect("Proof vector has incorrect length"),
                                 },
+                                asset_lookup: AssetPkTLookup::new(),
                             },
                         ),
                     ));
@@ -218,6 +219,7 @@ fn bench_backend_kind(kind: BackendKind, c: &mut Criterion) {
                             proof: proof.clone(),
                             leg_enc: leg_enc.clone(),
                             root: root.clone(),
+                            ctx: None,
                         }),
                     ));
                 })
@@ -249,4 +251,8 @@ criterion_group!(
     bench_wasmer,
     bench_wasmtime
 );
-criterion_main!(backend_benches);
+
+fn main() {
+    polymesh_worker_native::run_child_if_requested();
+    backend_benches();
+}

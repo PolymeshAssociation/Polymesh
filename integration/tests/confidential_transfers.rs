@@ -5,7 +5,36 @@ mod confidential_assets_tests {
     use anyhow::Result;
 
     use integration::confidential_assets_helper::*;
-    use polymesh_dart::LegConfig;
+    use integration::*;
+    use polymesh_dart::{BatchedProofs, LegConfig};
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn relayer_submission_nested_in_utility_batch_is_rejected() -> Result<()> {
+        let tester = DartAssetTester::init_with_relayer(&["NestedRelayerSubmitter"], "Relayer")
+            .await?;
+        let submitter = tester.user("NestedRelayerSubmitter").await;
+        let relayer = tester.user("Relayer").await;
+        let payment = submitter
+            .build_relayer_fee_payment(BatchedProofs::new())
+            .await?;
+        let mut result = relayer.relayer_submit_batch_nested(payment).await?;
+
+        let events = result.events().await?.expect("utility batch events");
+        let batch_error = events.0.iter().find_map(|record| match &record.event {
+            RuntimeEvent::Utility(UtilityEvent::BatchInterrupted { error, .. }) => {
+                Some(format!("{error:?}"))
+            }
+            _ => None,
+        });
+        assert!(
+            batch_error
+                .as_deref()
+                .is_some_and(|error| error.contains("RelayerCallMustBeTopLevel")),
+            "nested relayer call must fail the top-level-only guard: {batch_error:?}"
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     #[test_log::test]
@@ -46,6 +75,103 @@ mod confidential_assets_tests {
         // Wait for all tasks to complete.
         for task in tasks {
             task.await??;
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn mediated_mixed_visibility_settlement_finalizes_and_prunes_legs() -> Result<()> {
+        let tester = DartAssetTester::init(&[
+            "FinalizeAuditor",
+            "FinalizeMediator",
+            "FinalizeIssuer",
+            "FinalizeHiddenReceiver",
+            "FinalizeRevealedReceiver",
+            "FinalizeVenue",
+        ])
+        .await?;
+        let auditor = tester.user("FinalizeAuditor").await;
+        let mediator = tester.user("FinalizeMediator").await;
+        let issuer = tester.user("FinalizeIssuer").await;
+        let hidden_receiver = tester.user("FinalizeHiddenReceiver").await;
+        let revealed_receiver = tester.user("FinalizeRevealedReceiver").await;
+        let venue = tester.user("FinalizeVenue").await;
+
+        let asset = tester
+            .create_asset(
+                &issuer,
+                "Mixed Visibility Finalization",
+                &[&mediator],
+                &[&auditor],
+                Some(1_000),
+            )
+            .await?;
+        hidden_receiver.register_account().await?;
+        hidden_receiver.register_account_asset(asset.id).await?;
+        revealed_receiver.register_account().await?;
+        revealed_receiver.register_account_asset(asset.id).await?;
+
+        let settlement = DartSettlementState::new(
+            &tester,
+            &venue,
+            &[
+                DartLeg {
+                    sender: issuer.clone(),
+                    receiver: hidden_receiver,
+                    asset_id: asset.id,
+                    amount: 100,
+                    config: Default::default(),
+                },
+                DartLeg {
+                    sender: issuer.clone(),
+                    receiver: revealed_receiver,
+                    asset_id: asset.id,
+                    amount: 100,
+                    config: LegConfig {
+                        reveal_asset_id: true,
+                        ..Default::default()
+                    },
+                },
+            ],
+            Some(b"Mixed visibility finalization"),
+        )
+        .await?;
+
+        let hidden_leg = tester
+            .get_settlement_leg(settlement.legs[0].leg_ref)
+            .await?
+            .expect("hidden settlement leg should exist before finalization");
+        assert!(!hidden_leg.is_asset_id_revealed()?);
+        let revealed_leg = tester
+            .get_settlement_leg(settlement.legs[1].leg_ref)
+            .await?
+            .expect("revealed settlement leg should exist before finalization");
+        assert!(revealed_leg.is_asset_id_revealed()?);
+
+        settlement.senders_affirm_legs(&tester).await?;
+        settlement.receivers_affirm_legs(&tester).await?;
+        settlement.mediators_affirm_legs(&tester, true).await?;
+        for leg in &settlement.legs {
+            leg.sender
+                .sender_counter_update(&tester, leg.leg_ref)
+                .await?;
+        }
+        settlement.receivers_claim_assets(&tester).await?;
+
+        let api = tester.api().await;
+        let status = api
+            .query()
+            .confidential_assets()
+            .settlement_state(to_scale(&settlement.settlement_ref))
+            .await?;
+        assert!(matches!(
+            status,
+            Some(polymesh_api::types::pallet_confidential_assets::settlement::SettlementStatus::Finalized)
+        ));
+        for leg in &settlement.legs {
+            assert!(tester.get_settlement_leg(leg.leg_ref).await?.is_none());
         }
 
         Ok(())
@@ -134,7 +260,7 @@ mod confidential_assets_tests {
         user.fee_account_topup(100_000_000).await?;
 
         // Set the relayer for the fee account.
-        user.set_relayer(relayer).await;
+        user.set_relayer(relayer, true).await;
 
         let asset = asset_task.await??;
         // Create a settlement proof to be submitted using a relayer.

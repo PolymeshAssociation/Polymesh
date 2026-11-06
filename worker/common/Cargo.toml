@@ -26,6 +26,9 @@ default = ["std", "testing"]
 
 host_logger = []
 
+# For protocol modules built as native shared libraries (see `native_module.rs`).
+native_module = ["host_logger"]
+
 # For the host-side.
 impl_host_logger = ["host_logger"]
 

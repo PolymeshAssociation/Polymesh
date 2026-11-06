@@ -13,7 +13,7 @@ pub const MAX_MODULE_INSTANCES_PER_PROTOCOL: usize = 32;
 
 /// An instance of a loaded protocol module, which can be used to execute work requests.
 ///
-/// The instance will be returned to the module's cache when dropped, so it can be reused for future requests.
+/// Only instances whose execution completed without a worker error are returned to the cache.
 pub struct ProtocolModuleInstance {
     instance: Option<Box<dyn BackendModuleInstance>>,
     module: ProtocolModuleRef,
@@ -36,11 +36,90 @@ impl ProtocolModuleInstance {
     }
 
     pub fn execute(&mut self, req: &WorkRequest) -> Result<WorkResponseResult, WorkerError> {
-        if let Some(instance) = &mut self.instance {
-            instance.execute(req)
-        } else {
-            // This shouldn't happen because the instance should only be taken when dropping, but we return an error just in case.
-            Err(WorkerError::ModuleExecutionFailed)
+        let mut instance = self
+            .instance
+            .take()
+            .ok_or(WorkerError::ModuleExecutionFailed)?;
+        let result = instance.execute(req);
+        if result.is_ok() {
+            self.instance = Some(instance);
+        }
+        result
+    }
+}
+
+#[cfg(all(test, feature = "testing"))]
+mod tests {
+    use super::*;
+    use crate::backend::Backends;
+    use polymesh_worker_protocol_testing::{PROTOCOL, TestWorkRequest, VerifyVersionRequest};
+
+    #[test]
+    fn trapped_instances_are_discarded_but_protocol_errors_are_cached() {
+        let kinds = [
+            #[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
+            BackendKind::PolkaVM,
+            #[cfg(feature = "wasmer")]
+            BackendKind::Wasmer,
+            #[cfg(feature = "wasmtime")]
+            BackendKind::Wasmtime,
+        ];
+        let backends = Backends::with_backends(&kinds, None);
+        assert_eq!(backends.backends.len(), kinds.len());
+        for backend in &backends.backends {
+            let bytes: &[u8] = match backend.kind() {
+                BackendKind::PolkaVM => include_bytes!(
+                    "../../modules/testing/v0/polymesh-worker-protocol-testing.polkavm.zst"
+                ),
+                _ => include_bytes!(
+                    "../../modules/testing/v0/polymesh-worker-protocol-testing.wasm.zst"
+                ),
+            };
+            let module = ProtocolModuleRef(Arc::new(ProtocolModule {
+                kind: backend.kind(),
+                config_hash: [0; 32],
+                code_hash: [0; 32],
+                #[cfg(feature = "worker-differential")]
+                expected_backends: vec![backend.kind()],
+                module: backend
+                    .load_module(&decompress_module_code(bytes).unwrap())
+                    .unwrap(),
+                initialization_method: ResolvedInitializationMethod::InitializeNoContext,
+                cache: Mutex::new(ProtocolModuleInstanceCache::new()),
+            }));
+            {
+                let mut instance = module.get_instance().unwrap();
+                let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+                    protocol: Protocol {
+                        version: ProtocolVersion::new(99, 0, 0),
+                        ..PROTOCOL
+                    },
+                });
+                assert!(matches!(
+                    instance.execute(&WorkRequest::new(request)),
+                    Ok(Err(_))
+                ));
+            }
+            assert_eq!(module.0.cache.lock().instances.len(), 1);
+            {
+                let mut instance = module.get_instance().unwrap();
+                assert!(matches!(
+                    instance.execute(&WorkRequest::new(TestWorkRequest::Trap)),
+                    Err(WorkerError::ModuleExecutionFailed)
+                ));
+                assert!(instance.instance.is_none());
+            }
+            assert!(module.0.cache.lock().instances.is_empty());
+            {
+                let mut instance = module.get_instance().unwrap();
+                let request =
+                    TestWorkRequest::VerifyVersion(VerifyVersionRequest { protocol: PROTOCOL });
+                assert!(matches!(
+                    instance.execute(&WorkRequest::new(request)),
+                    Ok(Ok(_))
+                ));
+            }
+            assert_eq!(module.0.cache.lock().instances.len(), 1);
         }
     }
 }
@@ -72,7 +151,10 @@ impl ProtocolModuleInstanceCache {
 /// A loaded protocol module, which can be used to create module instances for executing work requests.
 pub struct ProtocolModule {
     pub kind: BackendKind,
+    pub config_hash: ProtocolModuleConfigHash,
     pub code_hash: BackendCodeHash,
+    #[cfg(feature = "worker-differential")]
+    expected_backends: Vec<BackendKind>,
     module: Box<dyn BackendModule>,
     initialization_method: ResolvedInitializationMethod,
     cache: Mutex<ProtocolModuleInstanceCache>,
@@ -81,10 +163,15 @@ pub struct ProtocolModule {
 impl ProtocolModule {
     fn load_from_backend(
         config: &ProtocolModuleConfig,
+        config_hash: ProtocolModuleConfigHash,
+        allowed: BackendBitmask,
         backend: &Box<dyn Backend>,
         protocol: Protocol,
         loader: &mut dyn BackendModuleLoader,
     ) -> Option<ProtocolModuleRef> {
+        #[cfg(not(feature = "worker-differential"))]
+        let _ = allowed;
+
         let kind = backend.kind();
         let module_kind = kind.to_module_kind();
 
@@ -108,6 +195,21 @@ impl ProtocolModule {
 
         // Try loading the module into the backend.  If this fails, it means that the module code is not compatible with this backend.
         let module = backend.load_module(&module_bytes)?;
+
+        #[cfg(feature = "worker-differential")]
+        let expected_backends = BACKENDS
+            .read()
+            .backends
+            .iter()
+            .filter(|candidate| {
+                candidate.is_in_bitmask(allowed)
+                    && config.modules.iter().any(|definition| {
+                        definition.module_kind == candidate.kind().to_module_kind()
+                            && candidate.is_module_compatible(definition.module_version)
+                    })
+            })
+            .map(|candidate| candidate.kind())
+            .collect();
 
         // Check if we should initialize the context from the first instance.  If so, we need to execute the initialization method once to get the context data, which will be cached for future instances.
         let initialization_method =
@@ -152,35 +254,14 @@ impl ProtocolModule {
 
         Some(ProtocolModuleRef(Arc::new(Self {
             kind,
+            config_hash,
             code_hash: module_def.code_hash,
+            #[cfg(feature = "worker-differential")]
+            expected_backends,
             module,
             initialization_method,
             cache: Mutex::new(ProtocolModuleInstanceCache::new()),
         })))
-    }
-
-    pub fn load(
-        allowed: BackendBitmask,
-        protocol: Protocol,
-        config_hash: ProtocolModuleConfigHash,
-        loader: &mut dyn BackendModuleLoader,
-    ) -> Option<ProtocolModuleRef> {
-        let backends = BACKENDS.read();
-
-        // Load protocol config.
-        let config = loader.get_protocol_module_config(protocol, config_hash)?;
-
-        for backend in &backends.backends {
-            if !backend.is_in_bitmask(allowed) {
-                continue;
-            }
-            let module = Self::load_from_backend(&config, backend, protocol, loader);
-            if module.is_some() {
-                log::info!("Loaded protocol module using backend {:?}", backend.kind());
-                return module;
-            }
-        }
-        None
     }
 }
 
@@ -238,14 +319,41 @@ impl ProtocolModuleRef {
         cache.return_instance(instance);
     }
 
-    /// Get the code hash of the module, which is used for caching work responses.
+    /// Get the code hash of the module.
     pub fn code_hash(&self) -> BackendCodeHash {
         self.0.code_hash
+    }
+
+    /// Get the hash of the protocol config (code hashes + initialization context) the module was loaded from.
+    pub fn config_hash(&self) -> ProtocolModuleConfigHash {
+        self.0.config_hash
+    }
+
+    /// Get the backend kind used by this protocol module.
+    pub fn kind(&self) -> BackendKind {
+        self.0.kind
+    }
+
+    /// Get backends with compatible modules declared by this protocol config.
+    #[cfg(feature = "worker-differential")]
+    pub fn expected_backends(&self) -> &[BackendKind] {
+        &self.0.expected_backends
+    }
+
+    /// Fingerprint the context loaded by this backend, if one is configured.
+    pub fn context_hash(&self) -> Option<BackendContextHash> {
+        match &self.0.initialization_method {
+            ResolvedInitializationMethod::ContextData(context) => {
+                Some(crate::blake2b256_hash(context))
+            }
+            ResolvedInitializationMethod::NoInitializationNeeded
+            | ResolvedInitializationMethod::InitializeNoContext => None,
+        }
     }
 }
 
 pub(crate) struct BackendModuleCache {
-    protocols: BTreeMap<ProtocolModuleConfigHash, ProtocolModuleRef>,
+    protocols: BTreeMap<(ProtocolModuleConfigHash, BackendKind), ProtocolModuleRef>,
     builtin: StaticModules,
 }
 
@@ -266,31 +374,148 @@ impl BackendModuleCache {
     ) -> Option<ProtocolModuleRef> {
         // First try loading from `loader`.
         if let Some(config_hash) = loader.get_protocol_module_config_hash(protocol) {
-            if let Some(module) = self.protocols.get(&config_hash) {
-                return Some(module.clone());
-            }
-
-            // Try loading the protocol module from the available backends.
-            if let Some(module) = ProtocolModule::load(allowed, protocol, config_hash, loader) {
-                self.protocols.insert(config_hash, module.clone());
+            if let Some(module) = Self::load_first_from_config(
+                &mut self.protocols,
+                allowed,
+                protocol,
+                config_hash,
+                loader,
+            ) {
                 return Some(module);
             }
         }
 
         // Fallback to the builtin static modules.
-        if let Some(config_hash) = self.builtin.get_protocol_module_config_hash(protocol) {
-            if let Some(module) = self.protocols.get(&config_hash) {
-                return Some(module.clone());
-            }
+        let config_hash = self.builtin.get_protocol_module_config_hash(protocol)?;
+        Self::load_first_from_config(
+            &mut self.protocols,
+            allowed,
+            protocol,
+            config_hash,
+            &mut self.builtin,
+        )
+    }
 
-            if let Some(module) =
-                ProtocolModule::load(allowed, protocol, config_hash, &mut self.builtin)
-            {
-                self.protocols.insert(config_hash, module.clone());
-                return Some(module);
+    pub(crate) fn load_protocols(
+        &mut self,
+        allowed: BackendBitmask,
+        protocol: Protocol,
+        loader: &mut dyn BackendModuleLoader,
+    ) -> Vec<ProtocolModuleRef> {
+        // First try loading from `loader`.
+        if let Some(config_hash) = loader.get_protocol_module_config_hash(protocol) {
+            let loaded = Self::load_all_from_config(
+                &mut self.protocols,
+                allowed,
+                protocol,
+                config_hash,
+                loader,
+            );
+            if !loaded.is_empty() {
+                return loaded;
             }
         }
 
+        // Fallback to the builtin static modules.
+        if let Some(config_hash) = self.builtin.get_protocol_module_config_hash(protocol) {
+            return Self::load_all_from_config(
+                &mut self.protocols,
+                allowed,
+                protocol,
+                config_hash,
+                &mut self.builtin,
+            );
+        }
+
+        Vec::new()
+    }
+
+    fn load_first_from_config(
+        protocols: &mut BTreeMap<(ProtocolModuleConfigHash, BackendKind), ProtocolModuleRef>,
+        allowed: BackendBitmask,
+        protocol: Protocol,
+        config_hash: ProtocolModuleConfigHash,
+        loader: &mut dyn BackendModuleLoader,
+    ) -> Option<ProtocolModuleRef> {
+        let backends = BACKENDS.read();
+        let mut config = None;
+
+        for backend in &backends.backends {
+            if !backend.is_in_bitmask(allowed) {
+                continue;
+            }
+
+            let kind = backend.kind();
+            let key = (config_hash, kind);
+            if let Some(module) = protocols.get(&key) {
+                return Some(module.clone());
+            }
+
+            if config.is_none() {
+                config = loader.get_protocol_module_config(protocol, config_hash);
+            }
+            let Some(config) = config.as_ref() else {
+                return None;
+            };
+
+            if let Some(module) = ProtocolModule::load_from_backend(
+                config,
+                config_hash,
+                allowed,
+                backend,
+                protocol,
+                loader,
+            ) {
+                log::info!("Loaded protocol module using backend {kind:?}");
+                protocols.insert(key, module.clone());
+                return Some(module);
+            }
+        }
         None
+    }
+
+    fn load_all_from_config(
+        protocols: &mut BTreeMap<(ProtocolModuleConfigHash, BackendKind), ProtocolModuleRef>,
+        allowed: BackendBitmask,
+        protocol: Protocol,
+        config_hash: ProtocolModuleConfigHash,
+        loader: &mut dyn BackendModuleLoader,
+    ) -> Vec<ProtocolModuleRef> {
+        let backends = BACKENDS.read();
+        let mut modules = Vec::new();
+        let mut config = None;
+        for backend in &backends.backends {
+            if !backend.is_in_bitmask(allowed) {
+                continue;
+            }
+
+            let kind = backend.kind();
+            let key = (config_hash, kind);
+            if let Some(module) = protocols.get(&key) {
+                modules.push(module.clone());
+                continue;
+            }
+
+            if config.is_none() {
+                config = loader.get_protocol_module_config(protocol, config_hash);
+            }
+            let Some(config) = config.as_ref() else {
+                return modules;
+            };
+
+            if let Some(module) = ProtocolModule::load_from_backend(
+                config,
+                config_hash,
+                allowed,
+                backend,
+                protocol,
+                loader,
+            ) {
+                log::info!("Loaded protocol module using backend {kind:?}");
+                protocols.insert(key, module.clone());
+                modules.push(module);
+            }
+        }
+        modules
     }
 }
