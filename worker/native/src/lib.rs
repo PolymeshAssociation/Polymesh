@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 
-use polymesh_worker::backend::{Backend, BackendModule, BackendModuleInstance};
+use polymesh_worker::backend::{Backend, BackendModule};
 use polymesh_worker::{ProtocolError, WorkRequest, WorkerError};
 use polymesh_worker_common::*;
 
