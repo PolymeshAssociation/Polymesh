@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/configure_native_target.sh"
+
 VERSION=${1:-"v1"}
 TESTING=${2:-""}
 if [ -n "$TESTING" ]; then
@@ -10,18 +13,33 @@ else
     NAME_TAG=""
 fi
 
+target="${3:-x86_64-unknown-linux-gnu}"
+case "$target" in
+  x86_64-unknown-linux-gnu)
+    ARCH_TAG=""
+    ;;
+  aarch64-unknown-linux-gnu)
+    ARCH_TAG=".aarch64"
+    ;;
+  *)
+    echo "Unsupported native module target: $target" >&2
+    exit 1
+    ;;
+esac
+  configure_native_target "$target"
+
 if [ "$VERSION" = "v0" ]; then
   echo "Native modules are not supported for DART v0" >&2
   exit 1
 fi
 
-target="x86_64-unknown-linux-gnu"
 crate="polymesh-worker-protocol-dart-$VERSION"
 lib_name="libpolymesh_worker_protocol_dart_$VERSION"
 so_path="../target/$target/release/$lib_name.so"
 
-output_path="./modules/dart/$VERSION/$crate$NAME_TAG.native.so"
+output_path="./modules/dart/$VERSION/$crate$NAME_TAG.native$ARCH_TAG.so"
 rm -f "$output_path" "$so_path"
+rm -f "$output_path.zst"
 
 worker_tools() {
   if [ -n "${POLYMESH_WORKER_TOOLS:-}" ]; then

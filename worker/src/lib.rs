@@ -21,7 +21,10 @@ mod differential;
 pub fn initialize_differential_log() {
     differential::initialize_log();
 }
-#[cfg(target_os = "linux")]
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 pub mod native_process;
 pub mod worker;
 

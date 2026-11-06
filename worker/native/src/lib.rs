@@ -3,21 +3,20 @@ use codec::Decode;
 use polymesh_worker::backend::{Backend, BackendModule};
 use polymesh_worker_common::*;
 
-#[cfg(not(target_os = "linux"))]
-mod dart;
-#[cfg(not(target_os = "linux"))]
-mod testing;
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+#[path = "child_process.rs"]
+mod mode;
+#[cfg(not(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+)))]
+#[path = "in_process.rs"]
+mod mode;
 
-#[cfg(not(target_os = "linux"))]
-use dart::NativeDartModule;
-#[cfg(not(target_os = "linux"))]
-use testing::NativeTestingModule;
-
-#[cfg(target_os = "linux")]
-pub use polymesh_worker::native_process::run_child_if_requested;
-
-#[cfg(not(target_os = "linux"))]
-pub fn run_child_if_requested() {}
+pub use mode::run_child_if_requested;
 
 pub fn execute_native_work(
     execute: impl FnOnce() -> WorkResponseResult,
@@ -33,43 +32,6 @@ pub fn execute_native_work(
             Err(WorkerError::ModuleExecutionFailed)
         }
     }
-}
-
-#[cfg(target_os = "linux")]
-fn testing_module() -> Option<Box<dyn BackendModule>> {
-    process_module(include_bytes!(
-        "../../modules/testing/v0/polymesh-worker-protocol-testing.native.so.zst"
-    ))
-}
-
-#[cfg(target_os = "linux")]
-fn dart_module() -> Option<Box<dyn BackendModule>> {
-    #[cfg(feature = "testing")]
-    let library = include_bytes!(
-        "../../modules/dart/v1/polymesh-worker-protocol-dart-v1.testing.native.so.zst"
-    );
-    #[cfg(not(feature = "testing"))]
-    let library =
-        include_bytes!("../../modules/dart/v1/polymesh-worker-protocol-dart-v1.native.so.zst");
-    process_module(library)
-}
-
-#[cfg(target_os = "linux")]
-fn process_module(compressed: &[u8]) -> Option<Box<dyn BackendModule>> {
-    let library = polymesh_worker::decompress_module_code(compressed)?;
-    Some(Box::new(
-        polymesh_worker::native_process::NativeProcessModule::new(library),
-    ))
-}
-
-#[cfg(not(target_os = "linux"))]
-fn testing_module() -> Option<Box<dyn BackendModule>> {
-    Some(Box::new(NativeTestingModule))
-}
-
-#[cfg(not(target_os = "linux"))]
-fn dart_module() -> Option<Box<dyn BackendModule>> {
-    Some(Box::new(NativeDartModule))
 }
 
 #[derive(Clone, Debug)]
@@ -95,16 +57,16 @@ impl Backend for NativeBackend {
             Some(protocol) => {
                 // Native modules don't have module code bytes, so we just encode the protocol.
                 if protocol == polymesh_worker_protocol_dart_v1::PROTOCOL {
-                    dart_module()
+                    mode::dart_module()
                 } else if protocol == polymesh_worker_protocol_testing::PROTOCOL {
-                    testing_module()
+                    mode::testing_module()
                 } else {
                     None
                 }
             }
             None => {
                 // Fallback to the native DART module.
-                dart_module()
+                mode::dart_module()
             }
         }
     }

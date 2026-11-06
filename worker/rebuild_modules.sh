@@ -10,6 +10,9 @@ worker_tools() {
 	fi
 }
 
+./protocol/testing/build_native.sh v0
+./protocol/testing/build_native.sh v0 aarch64-unknown-linux-gnu
+
 for VERSION in "${VERSIONS[@]}"; do
 	case "$VERSION" in
 		v0) PROTOCOL_VERSION="0.1.0" ;;
@@ -27,6 +30,8 @@ for VERSION in "${VERSIONS[@]}"; do
 	if [ "$VERSION" != "v0" ]; then
 		./build_native.sh "$VERSION"
 		./build_native.sh "$VERSION" "testing"
+		./build_native.sh "$VERSION" "" aarch64-unknown-linux-gnu
+		./build_native.sh "$VERSION" "testing" aarch64-unknown-linux-gnu
 	fi
 
 	crate="polymesh-worker-protocol-dart-$VERSION"
