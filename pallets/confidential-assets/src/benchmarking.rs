@@ -12,7 +12,7 @@ use rand_core::SeedableRng;
 
 use polymesh_dart::{
     curve_tree::{CurveTreeLookup, MultiLeafPathAndRoot},
-    FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
+    DartLimits, FeeAccountState, LegBuilder, SettlementBuilder, ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_L,
 };
 use polymesh_worker_protocol_dart_v1::{GenerateDartProofRequest, GenerateDartProofResponse};
 
@@ -937,8 +937,11 @@ benchmarks! {
     }: _(RawOrigin::Root, RoleKind::Auditor)
 
     distribute_encryption_key {
-        // Number of recipients.
-        let r in 1 .. T::MaxSharedKeyRecipients::get();
+        // DART's proof bound can be lower than the runtime storage bound.
+        let r in 1 .. core::cmp::min(
+            T::MaxSharedKeyRecipients::get(),
+            <PolymeshLimits as DartLimits>::MaxKeyDistributionRecipients::get(),
+        );
 
         init_block::<T>();
 
