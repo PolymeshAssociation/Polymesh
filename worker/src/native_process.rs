@@ -259,14 +259,26 @@ mod child {
         batch_hash_to_curve: host_batch_hash_to_curve,
     };
 
-    fn module_slice(fat_ptr: u64) -> Option<&'static mut [u8]> {
+    fn module_range(fat_ptr: u64) -> Option<(*mut u8, usize)> {
         let (ptr, len) = unpack_fat_pointer(fat_ptr);
         let (base, size) = *MEMORY.get()?;
         let (ptr, len) = (ptr as usize, len as usize);
-        if ptr < base || ptr.checked_add(len)? > base + size {
+        if ptr < base || ptr.checked_add(len)? > base.checked_add(size)? {
             return None;
         }
-        Some(unsafe { std::slice::from_raw_parts_mut(ptr as *mut u8, len) })
+        Some((ptr as *mut u8, len))
+    }
+
+    fn module_slice(fat_ptr: u64) -> Option<&'static [u8]> {
+        let (ptr, len) = module_range(fat_ptr)?;
+        // The validated range is within the process-lifetime module mapping.
+        Some(unsafe { std::slice::from_raw_parts(ptr, len) })
+    }
+
+    fn module_slice_mut(fat_ptr: u64) -> Option<&'static mut [u8]> {
+        let (ptr, len) = module_range(fat_ptr)?;
+        // The validated range is within the process-lifetime module mapping.
+        Some(unsafe { std::slice::from_raw_parts_mut(ptr, len) })
     }
 
     extern "C" fn host_logger_max_level() -> u32 {
@@ -291,7 +303,7 @@ mod child {
     }
 
     extern "C" fn host_msm_unchecked(fat_ptr: u64) -> u32 {
-        match module_slice(fat_ptr) {
+        match module_slice_mut(fat_ptr) {
             Some(buffer) => {
                 let len = buffer.len() as u32;
                 ark_host_msm_impl::host_msm_unchecked(buffer, len)
@@ -301,7 +313,7 @@ mod child {
     }
 
     extern "C" fn host_batch_hash_to_curve(fat_ptr: u64) -> u32 {
-        match module_slice(fat_ptr) {
+        match module_slice_mut(fat_ptr) {
             Some(buffer) => {
                 let len = buffer.len() as u32;
                 bulletproofs::batch_hash_to_curve(buffer, len)
