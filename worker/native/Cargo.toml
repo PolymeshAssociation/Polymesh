@@ -3,6 +3,9 @@ name = "polymesh-worker-native"
 version = "0.1.0"
 edition = "2024"
 
+[build-dependencies]
+sp-maybe-compressed-blob = { workspace = true, default-features = false }
+
 [dependencies]
 log = "0.4"
 

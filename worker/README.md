@@ -307,7 +307,7 @@ Automated compilation of protocol modules:
 ./build_polkavm_testing.sh
 ./build_wasm_testing.sh
 
-# Full rebuild of PolkaVM, WASM, native modules, and testing variants.
+# Full rebuild of PolkaVM, WASM, and testing variants.
 ./rebuild.sh
 ```
 
@@ -456,27 +456,37 @@ the committed module files.
 
 ### Building Native Modules
 
-The standard `./rebuild.sh v0 v1` workflow builds the applicable x86_64 and
-AArch64 native modules in the pinned Docker builder and compresses them with
-`polymesh-worker-tools`. No host cross-compiler setup is needed for this path.
+`polymesh-worker-native/build.rs` builds native modules from source whenever
+Cargo builds the native backend for x86_64 or AArch64 GNU/Linux. It uses the
+target of the enclosing build, the pinned nightly toolchain, `Cargo.lock`, and
+a `no_std` cdylib configuration with `panic=abort`. DART proof generation is
+enabled only when the backend's `testing` feature is enabled.
 
-For native-only iteration, the scripts can also build modules directly on the
-host. The pinned Rust toolchain includes `aarch64-unknown-linux-gnu`; when
-cross-building from x86_64, install an AArch64 GNU cross compiler and sysroot
-(for Debian, `gcc-aarch64-linux-gnu` and `libc6-dev-arm64-cross`). The scripts
-select `aarch64-linux-gnu-gcc` when available; override
+The shared objects are compressed using Substrate's compressed-blob format
+and embedded from Cargo's `OUT_DIR`. Nested Cargo builds use a separate target
+directory to avoid locking the enclosing build. The build script runs on every
+Cargo invocation so transitive source changes are checked; nested Cargo builds
+reuse their incremental artifacts. Native libraries in `worker/modules` are
+ignored, never embedded, and must not be committed. CI rejects tracked native
+libraries, and ARM64 builds no longer consume artifacts from another CI job.
+
+The deterministic `./rebuild.sh v0 v1` workflow builds only VM artifacts and
+release configs. Building native modules does not require Docker.
+
+For native-only iteration, build the native backend crate directly with Cargo.
+When cross-building from x86_64 to AArch64, install an AArch64 GNU cross
+compiler and sysroot (for Debian, `gcc-aarch64-linux-gnu` and
+`libc6-dev-arm64-cross`). The build script defaults to `aarch64-linux-gnu-gcc`
+for this cross-build; override
 `CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER` and
 `CC_aarch64_unknown_linux_gnu` if your toolchain uses different paths.
 
 ```bash
-cd worker
-./build_native.sh v1 "" aarch64-unknown-linux-gnu
-./build_native.sh v1 testing aarch64-unknown-linux-gnu
-./protocol/testing/build_native.sh v0 aarch64-unknown-linux-gnu
+# From the repository root
+cargo build --locked -p polymesh-worker-native
+cargo build --locked -p polymesh-worker-native --no-default-features --features std
+cargo build --locked -p polymesh-worker-native --target aarch64-unknown-linux-gnu
 ```
-
-The ARM64 `.so` files are compressed with `polymesh-worker-tools` and written
-beside the x86_64 artifacts with an `.aarch64` suffix before `.so.zst`.
 
 `protocol/dart-v0` is a standalone Cargo workspace with its own `Cargo.lock`
 and DART crate patches. Future DART dependency updates in the root workspace do

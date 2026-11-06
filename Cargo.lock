@@ -11616,6 +11616,7 @@ dependencies = [
  "polymesh-worker-common",
  "polymesh-worker-protocol-dart-v1",
  "polymesh-worker-protocol-testing",
+ "sp-maybe-compressed-blob",
  "sp-panic-handler",
 ]
 

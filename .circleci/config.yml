@@ -68,6 +68,14 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Reject checked-in native worker libraries
+          command: |
+            artifacts="$(git ls-files -- 'worker/modules/*.so' 'worker/modules/*.so.zst')"
+            if [[ -n "$artifacts" ]]; then
+              echo "$artifacts"
+              exit 1
+            fi
+      - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
       - run:
@@ -103,19 +111,13 @@ jobs:
           name: Check deterministic worker module artifacts
           command: |
             ./worker/rebuild.sh v0 v1
-            changes="$(git status --porcelain --untracked-files=all -- worker/modules/dart | awk '!/worker\/modules\/dart\/.*\.native(\.aarch64)?\.so(\.zst)?$/')"
+            changes="$(git status --porcelain --untracked-files=all -- worker/modules/dart)"
             if [[ -n "$changes" ]]; then
               echo "$changes"
               git diff -- worker/modules/dart
               exit 1
             fi
           no_output_timeout: 30m
-      - persist_to_workspace:
-          root: .
-          paths:
-            - worker/modules/testing/v0/polymesh-worker-protocol-testing.native.aarch64.so.zst
-            - worker/modules/dart/v1/polymesh-worker-protocol-dart-v1.native.aarch64.so.zst
-            - worker/modules/dart/v1/polymesh-worker-protocol-dart-v1.testing.native.aarch64.so.zst
   build:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2026-09-01
@@ -186,8 +188,6 @@ jobs:
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
-      - attach_workspace:
-          at: .
       - setup-sccache
       - restore-sccache-cache
       - run:
@@ -1042,9 +1042,7 @@ workflows:
       - test
       - build
       - build-ci
-      - build-arm64:
-          requires:
-            - check-worker-modules
+      - build-arm64
       - benchmark-build
       - coverage
       - rust-integration-test:
