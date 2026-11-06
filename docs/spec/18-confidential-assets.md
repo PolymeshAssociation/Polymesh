@@ -3,7 +3,7 @@
 Sources: `pallets/confidential-assets/src/{lib.rs,settlement.rs,curve_tree.rs}`,
 `worker/` (proof-execution engine), external crate `polymesh-dart`
 (github.com/PolymeshAssociation/polymesh-dart, pinned in root `Cargo.toml:39-41`).
-Availability: **develop & testnet only** (pallet index 70); not in mainnet.
+Availability: **develop, testnet, and mainnet** (pallet index 70).
 Related specs: [14-fees-and-extensions](14-fees-and-extensions.md), [README](README.md) runtime matrix.
 
 ## 1. Purpose & privacy model

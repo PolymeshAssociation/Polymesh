@@ -102,6 +102,7 @@ substrate-test-utils = { workspace = true }
 
 # Runtime APIs
 node-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-confidential-assets-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-staking-runtime-api = { workspace = true, default-features = false }

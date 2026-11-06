@@ -44,7 +44,8 @@ use crate::constants::time::*;
 /// 100% goes to the block author.
 pub type DealWithFees = Author<Runtime>;
 pub type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<Runtime>;
-pub type ConfidentialAssetsTxExtension = ();
+type ConfidentialAssetsTxExtension =
+    pallet_confidential_assets::CheckRelayerSubmitBatchedProofs<Runtime>;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -106,6 +107,14 @@ parameter_types! {
     pub const MaximumLockPeriod: Moment = 86_400_000; // 24 hours
     pub const RelockCooldown: Moment = 14_400_000; // 4 hours
     pub const MaxRelockCount: u32 = 3;
+
+    // Confidential asset parameters
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMaxRelayerCommission: Balance = 10 * ONE_POLY;
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 14_400_000; // 4 hours
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
@@ -199,6 +208,21 @@ impl pallet_precompiles::Config for Runtime {
     type BaseTokenUriMetadataKey = BaseTokenUriMetadataKey;
     type WeightInfo = polymesh_weights::pallet_precompiles::SubstrateWeight;
 }
+
+/// Confidential assets parameters.
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<20>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxTrustedClaimIssuers = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxSharedKeyRecipients = polymesh_dart::ConstSize<5>;
 
 // Staking
 pallet_staking_reward_curve::build! {
@@ -495,6 +519,9 @@ mod runtime {
 
     #[runtime::pallet_index(60)]
     pub type WorkerModules = pallet_worker_modules::Pallet<Runtime>;
+
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
 
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;

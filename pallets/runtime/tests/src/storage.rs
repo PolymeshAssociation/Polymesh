@@ -439,29 +439,19 @@ parameter_types! {
     pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 14_400_000;
 }
 
-impl pallet_confidential_assets::Config for Runtime {
-    type Currency = Balances;
-    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
-    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
-    type MaxRelayerCommission = ConfidentialAssetsMaxRelayerCommission;
-    type MaxAssetDataLength = frame_support::traits::ConstU32<8192>;
-    type MaxKeysPerRegProof = frame_support::traits::ConstU32<20>;
-    type MaxBatchedProofs = frame_support::traits::ConstU32<10>;
-    type MaxFeeAccountRegProofs = frame_support::traits::ConstU32<10>;
-    type MaxFeeAccountTopupProofs = frame_support::traits::ConstU32<10>;
-    type MaxAccountAssetRegProofs = frame_support::traits::ConstU32<10>;
-    type MaxSettlementLegs = frame_support::traits::ConstU32<10>;
-    type MaxSettlementMemoLength = frame_support::traits::ConstU32<256>;
-    type MaxAssetAuditors = frame_support::traits::ConstU32<2>;
-    type MaxAssetMediators = frame_support::traits::ConstU32<2>;
-    type MaxAssetEncryptionKeys = frame_support::traits::ConstU32<2>;
-    type MaxTrustedClaimIssuers = frame_support::traits::ConstU32<2>;
-    type MaxSharedKeyRecipients = frame_support::traits::ConstU32<5>;
-    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
-    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
-    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
-    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
-}
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<20>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxTrustedClaimIssuers = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxSharedKeyRecipients = polymesh_dart::ConstSize<5>;
 
 // Precompiles
 type Precompiles = (

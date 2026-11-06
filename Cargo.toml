@@ -512,16 +512,19 @@ default = [
 host_workers = [
     "polymesh-runtime-develop/host_workers",
     "polymesh-runtime-testnet/host_workers",
+    "polymesh-runtime-mainnet/host_workers",
 ]
 # No host functions
 no_host_fns = [
     "polymesh-runtime-develop/no_host_fns",
     "polymesh-runtime-testnet/no_host_fns",
+    "polymesh-runtime-mainnet/no_host_fns",
 ]
 # Verify proofs in runtime with only these host functions: msm + Hash to Curve
 host_curves = [
     "polymesh-runtime-develop/host_curves",
     "polymesh-runtime-testnet/host_curves",
+    "polymesh-runtime-mainnet/host_curves",
 ]
 
 disable_fees = [
