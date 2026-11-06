@@ -273,9 +273,10 @@ pub mod pallet {
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[pallet::call_index(1)]
-        #[pallet::weight(Pallet::<T>::benefit_weight_limit(Pallet::<T>::claim_base_weight()))]
+        #[pallet::weight(Pallet::<T>::benefit_weight_limit(Pallet::<T>::claim_base_weight(), ca_id.asset_id))]
         pub fn claim(origin: OriginFor<T>, ca_id: CAId) -> DispatchResultWithPostInfo {
-            let mut weight_meter = Self::benefit_weight_meter(Self::claim_base_weight());
+            let mut weight_meter =
+                Self::benefit_weight_meter(Self::claim_base_weight(), ca_id.asset_id);
             Self::base_claim(origin, ca_id, &mut weight_meter)?;
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
@@ -305,13 +306,14 @@ pub mod pallet {
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[pallet::call_index(2)]
-        #[pallet::weight(Pallet::<T>::benefit_weight_limit(Pallet::<T>::push_benefit_base_weight()))]
+        #[pallet::weight(Pallet::<T>::benefit_weight_limit(Pallet::<T>::push_benefit_base_weight(), ca_id.asset_id))]
         pub fn push_benefit(
             origin: OriginFor<T>,
             ca_id: CAId,
             holder: IdentityId,
         ) -> DispatchResultWithPostInfo {
-            let mut weight_meter = Self::benefit_weight_meter(Self::push_benefit_base_weight());
+            let mut weight_meter =
+                Self::benefit_weight_meter(Self::push_benefit_base_weight(), ca_id.asset_id);
             Self::base_push_benefit(origin, ca_id, holder, &mut weight_meter)?;
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
@@ -444,12 +446,14 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    /// Benchmarked weight of `claim`, excluding the currency's transfer restrictions.
+    /// Benchmarked weight of `claim`, excluding the currency's transfer restrictions
+    /// and reading the holder's balance at the record date.
     fn claim_base_weight() -> Weight {
         <T as ca::Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())
     }
 
-    /// Benchmarked weight of `push_benefit`, excluding the currency's transfer restrictions.
+    /// Benchmarked weight of `push_benefit`, excluding the currency's transfer restrictions
+    /// and reading the holder's balance at the record date.
     fn push_benefit_base_weight() -> Weight {
         <T as ca::Config>::DistWeightInfo::push_benefit(
             T::MaxTargetIds::get(),
@@ -458,17 +462,20 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Worst-case weight of paying a benefit, given the `base` weight of the extrinsic.
-    fn benefit_weight_limit(base: Weight) -> Weight {
-        base.saturating_add(
-            <T as pallet_asset::Config>::SettlementFn::try_execute_weight(AssetCount::new(1, 0, 0)),
-        )
+    fn benefit_weight_limit(base: Weight, asset_id: AssetId) -> Weight {
+        base.saturating_add(<Checkpoint<T>>::balance_at_max_weight(asset_id))
+            .saturating_add(
+                <T as pallet_asset::Config>::SettlementFn::try_execute_weight(AssetCount::new(
+                    1, 0, 0,
+                )),
+            )
     }
 
     /// Returns a meter that has already consumed `base`,
     /// and is limited to the weight declared by [`Self::benefit_weight_limit`].
-    fn benefit_weight_meter(base: Weight) -> WeightMeter {
+    fn benefit_weight_meter(base: Weight, asset_id: AssetId) -> WeightMeter {
         let mut weight_meter =
-            WeightMeter::from_limit_unchecked(base, Self::benefit_weight_limit(base));
+            WeightMeter::from_limit_unchecked(base, Self::benefit_weight_limit(base, asset_id));
         // Cannot fail, as the limit includes `base`.
         let _ = weight_meter.consume_weight_until_limit(base);
         weight_meter
@@ -574,7 +581,8 @@ impl<T: Config> Pallet<T> {
 
     /// Transfer `holder`'s benefit in `ca_id` to them.
     ///
-    /// The cost of the currency's transfer restrictions is consumed from `weight_meter`.
+    /// The cost of reading the holder's balance at the record date
+    /// and of the currency's transfer restrictions is consumed from `weight_meter`.
     fn transfer_benefit(
         actor: EventDid,
         holder: IdentityId,
@@ -598,7 +606,10 @@ impl<T: Config> Pallet<T> {
         let cp_id = <CA<T>>::record_date_cp(&ca, ca_id)?;
 
         // Compute `balance * amount / supply`, i.e. DID's benefit.
-        let balance = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);
+        let (balance, balance_updates) = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);
+        // Cannot fail, as the limit includes the worst case of this read.
+        let _ = weight_meter
+            .consume_weight_until_limit(<Checkpoint<T>>::balance_at_weight(balance_updates));
         let benefit = Self::benefit_of(balance, dist.per_share)?;
 
         // Ensure we have enough remaining.

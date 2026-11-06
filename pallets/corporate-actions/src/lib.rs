@@ -1068,14 +1068,21 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
-    pub(crate) fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> Balance {
+    ///
+    /// Also returns the length of the `BalanceUpdates` history that was decoded,
+    /// which callers must price using `Checkpoint::balance_at_weight`.
+    pub(crate) fn balance_at_cp(
+        did: IdentityId,
+        ca_id: CAId,
+        cp: Option<CheckpointId>,
+    ) -> (Balance, u32) {
         let asset_id = ca_id.asset_id;
         match cp {
             // CP exists, use it.
-            Some(cp_id) => <Asset<T>>::get_balance_at(asset_id, did, cp_id),
+            Some(cp_id) => <Asset<T>>::get_balance_at_with_updates(asset_id, did, cp_id),
             // Although record date has passed, no transfers have happened yet for `asset_id`.
             // Thus, there is no checkpoint ID, and we must use current balance instead.
-            None => BalanceOf::<T>::get(asset_id, did),
+            None => (BalanceOf::<T>::get(asset_id, did), 0),
         }
     }
 
