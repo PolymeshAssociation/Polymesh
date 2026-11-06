@@ -210,6 +210,17 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns the number of validators whose stash key belongs to `identity`.
+    fn count_validators_of(identity: IdentityId) -> u32 {
+        Validators::<T>::iter_keys()
+            .filter(|stash| {
+                pallet_identity::KeyRecords::<T>::get(stash)
+                    .and_then(|record| record.get_did_key_type())
+                    .is_some_and(|(did, _)| did == identity)
+            })
+            .count() as u32
+    }
+
     /// Returns the maximum number of validators per identiy
     pub fn maximum_number_of_validators_per_identity() -> u32 {
         (T::MaxValidatorPerIdentity::get() * ValidatorCount::<T>::get()).max(1)
@@ -232,21 +243,20 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IdentityIsInactive
         );
 
-        match intended_count {
+        let mut prefs = match intended_count {
             Some(intended_count) => {
                 ensure!(
                     intended_count < Self::maximum_number_of_validators_per_identity(),
                     Error::<T>::IntendedCountIsExceedingConsensusLimit
                 );
-                PermissionedIdentity::<T>::insert(
-                    &identity,
-                    PermissionedIdentityPrefs::new(intended_count),
-                );
+                PermissionedIdentityPrefs::new(intended_count)
             }
-            None => {
-                PermissionedIdentity::<T>::insert(&identity, PermissionedIdentityPrefs::default());
-            }
-        }
+            None => PermissionedIdentityPrefs::default(),
+        };
+        // De-permissioning doesn't chill the identity's stashes, so they may still be validating.
+        // This can exceed `intended_count`, which only stops the identity from adding more.
+        prefs.running_count = Self::count_validators_of(identity);
+        PermissionedIdentity::<T>::insert(&identity, prefs);
 
         Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityAdded {
             governance_councill_did: GC_DID,

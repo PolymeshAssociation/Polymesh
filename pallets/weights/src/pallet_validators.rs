@@ -39,10 +39,17 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     // Proof: `Validators::PermissionedIdentity` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Staking::ValidatorCount` (r:1 w:0)
     // Proof: `Staking::ValidatorCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-    fn add_permissioned_validator() -> Weight {
+    // Storage: `Staking::Validators` (r:151 w:0)
+    // Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+    // Storage: `Identity::KeyRecords` (r:150 w:0)
+    // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+    fn add_permissioned_validator(m: u32) -> Weight {
         // Minimum execution time: 21_750 nanoseconds.
         Weight::from_parts(23_790_000, 0)
-            .saturating_add(DbWeight::get().reads(2))
+            // Not benchmarked yet: per-validator ref time taken from `set_commission_cap`.
+            .saturating_add(Weight::from_parts(5_151_183, 0).saturating_mul(m.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(m.into())))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Validators::PermissionedIdentity` (r:1 w:1)

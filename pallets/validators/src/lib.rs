@@ -72,7 +72,7 @@ macro_rules! log {
 
 /// Weight functions needed for pallet_staking.
 pub trait WeightInfo {
-    fn add_permissioned_validator() -> Weight;
+    fn add_permissioned_validator(m: u32) -> Weight;
     fn remove_permissioned_validator() -> Weight;
     fn change_slashing_allowed_for() -> Weight;
     fn update_permissioned_validator_intended_count() -> Weight;
@@ -272,7 +272,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator(20))]
         pub fn add_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
