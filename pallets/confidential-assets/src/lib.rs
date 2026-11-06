@@ -462,12 +462,25 @@ where
 
         Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
 
+        let relayer = frame_system::ensure_signed(origin.clone())
+            .map_err(|_| InvalidTransaction::Call)?;
+        let target = if proof.is_broadcast {
+            None
+        } else {
+            Some(relayer.encode())
+        };
+        let batch_hash = proof.fee_payment_ctx(target.as_deref());
+
         let valid = ValidTransaction {
-            provides: sp_std::vec![(
-                b"confidential-assets-fee-nullifier",
-                &proof.fee_payment.nullifier
-            )
-                .encode(),],
+            provides: sp_std::vec![
+                (
+                    b"confidential-assets-fee-nullifier",
+                    &proof.fee_payment.nullifier,
+                    batch_hash,
+                    target,
+                )
+                    .encode(),
+            ],
             ..Default::default()
         };
         Ok((valid, (), origin))
@@ -2866,6 +2879,10 @@ impl<T: Config> Pallet<T> {
             // Ensure the settlement has at least one leg.
             ensure!(proof.legs.len() > 0, Error::<T>::SettlementMissingLegs);
         }
+        ensure!(
+            proof.legs.len() <= T::MaxSettlementLegs::get() as usize,
+            Error::<T>::SettlementTooManyLegs
+        );
 
         // Ensure that the settlement does not exist.  This also prevents replay of the same settlement proof.
         ensure!(

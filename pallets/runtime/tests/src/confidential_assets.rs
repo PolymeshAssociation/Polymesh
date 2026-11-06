@@ -519,6 +519,21 @@ fn submission_settlement(
 }
 
 #[test]
+fn confidential_assets_create_settlement_enforces_runtime_leg_limit() {
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        let account = AccountId::new([73; 32]);
+        let proof = submission_settlement(&[], 11, false);
+
+        assert_eq!(proof.legs.len(), 11);
+        assert_noop!(
+            Pallet::<Runtime>::create_settlement(RawOrigin::Signed(account).into(), proof),
+            Error::<Runtime>::SettlementTooManyLegs
+        );
+    });
+}
+
+#[test]
 fn confidential_assets_ordinary_submission_context() {
     use polymesh_dart::{BatchedProof, BatchedProofs, FeeAccountState};
     ExtBuilder::default().build().execute_with(|| {
