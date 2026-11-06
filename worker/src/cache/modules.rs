@@ -438,7 +438,7 @@ impl BackendModuleCache {
         loader: &mut dyn BackendModuleLoader,
     ) -> Option<ProtocolModuleRef> {
         let backends = BACKENDS.read();
-        let config = loader.get_protocol_module_config(protocol, config_hash)?;
+        let mut config = None;
 
         for backend in &backends.backends {
             if !backend.is_in_bitmask(allowed) {
@@ -451,8 +451,15 @@ impl BackendModuleCache {
                 return Some(module.clone());
             }
 
+            if config.is_none() {
+                config = loader.get_protocol_module_config(protocol, config_hash);
+            }
+            let Some(config) = config.as_ref() else {
+                return None;
+            };
+
             if let Some(module) = ProtocolModule::load_from_backend(
-                &config,
+                config,
                 config_hash,
                 allowed,
                 backend,
@@ -475,11 +482,8 @@ impl BackendModuleCache {
         loader: &mut dyn BackendModuleLoader,
     ) -> Vec<ProtocolModuleRef> {
         let backends = BACKENDS.read();
-        let Some(config) = loader.get_protocol_module_config(protocol, config_hash) else {
-            return Vec::new();
-        };
-
         let mut modules = Vec::new();
+        let mut config = None;
         for backend in &backends.backends {
             if !backend.is_in_bitmask(allowed) {
                 continue;
@@ -492,8 +496,15 @@ impl BackendModuleCache {
                 continue;
             }
 
+            if config.is_none() {
+                config = loader.get_protocol_module_config(protocol, config_hash);
+            }
+            let Some(config) = config.as_ref() else {
+                return modules;
+            };
+
             if let Some(module) = ProtocolModule::load_from_backend(
-                &config,
+                config,
                 config_hash,
                 allowed,
                 backend,
