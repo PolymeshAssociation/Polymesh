@@ -4099,8 +4099,6 @@ impl<T: Config> Pallet<T> {
                     use_cache: true,
                     use_thread_pool: false,
                 },
-                init_module: true,
-
                 backends: BackendKind::all_mask(),
             }
             .to_flags_and_backends();
