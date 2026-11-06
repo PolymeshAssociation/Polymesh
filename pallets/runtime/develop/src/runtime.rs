@@ -371,6 +371,18 @@ impl frame_election_provider_support::onchain::Config for OnChainSeqPhragmen {
     type MaxWinnersPerPage = polymesh_runtime_common::MaxActiveValidators;
 }
 
+/// The sudo key, as `sudo` calls inherit the dispatch class of the wrapped call.
+pub struct SudoKey;
+
+impl frame_support::traits::Contains<polymesh_primitives::AccountId> for SudoKey {
+    fn contains(who: &polymesh_primitives::AccountId) -> bool {
+        pallet_sudo::Key::<Runtime>::get().as_ref() == Some(who)
+    }
+}
+
+/// Accounts allowed to submit signed `Operational` transactions.
+pub type OperationalCallers = (CommitteeMembers, SudoKey);
+
 polymesh_runtime_common::misc_pallet_impls!();
 
 #[frame_support::runtime]

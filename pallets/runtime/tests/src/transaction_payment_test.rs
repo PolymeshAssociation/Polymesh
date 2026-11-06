@@ -20,7 +20,9 @@ use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::traits::CurrentFeePayer;
 use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::TransactionError;
-use polymesh_primitives::{AccountId, AuthorizationData, Permissions, Signatory};
+use polymesh_primitives::{
+    AccountId, AuthorizationData, Claim, ClaimType, IdentityId, Permissions, Scope, Signatory,
+};
 use polymesh_transaction_payment::{ChargeTransactionPayment, Val};
 
 use super::ext_builder::ExtBuilder;
@@ -244,6 +246,7 @@ fn signed_extension_allows_free_transactions() {
     ExtBuilder::default()
         .transaction_fees(100, 1, 1)
         .balance_factor(0)
+        .governance_committee(vec![Sr25519Keyring::Bob.to_account_id()])
         .build()
         .execute_with(|| {
             let user = Sr25519Keyring::Bob.to_account_id();
@@ -765,6 +768,104 @@ fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
             TransactionSource::InBlock,
         )
         .is_err());
+}
+
+#[test]
+fn operational_tx_is_restricted_to_committee_members() {
+    let gc_member = Sr25519Keyring::Charlie.to_account_id();
+
+    ExtBuilder::default()
+        .monied(true)
+        .governance_committee(vec![gc_member.clone()])
+        .build()
+        .execute_with(|| {
+            let validate = |origin: RuntimeOrigin, info: &DispatchInfo| {
+                ChargeTransactionPayment::<TestStorage>::from(0)
+                    .validate(
+                        origin,
+                        &call(),
+                        info,
+                        10,
+                        Default::default(),
+                        &TxBaseImplication(()),
+                        TransactionSource::InBlock,
+                    )
+                    .map(|_| ())
+            };
+            let not_allowed = Err(TransactionValidityError::Invalid(
+                InvalidTransaction::Custom(TransactionError::NotOperationalCaller as u8),
+            ));
+            let alice = User::new(Sr25519Keyring::Alice);
+            let operational_info = operational_info_from_weight(100);
+
+            // A funded account outside the committees can't submit any operational call. That
+            // includes committee calls and an empty batch, which is always operational.
+            let vote: RuntimeCall =
+                pallet_committee::Call::<TestStorage, pallet_committee::Instance1>::vote {
+                    proposal: Default::default(),
+                    index: 0,
+                    approve: true,
+                }
+                .into();
+            let empty_batch: RuntimeCall =
+                pallet_utility::Call::<TestStorage>::batch { calls: vec![] }.into();
+            for info in [
+                operational_info,
+                vote.get_dispatch_info(),
+                empty_batch.get_dispatch_info(),
+            ] {
+                assert_eq!(info.class, DispatchClass::Operational);
+                assert_eq!(validate(alice.origin(), &info), not_allowed);
+            }
+
+            // Normal transactions and unsigned operational ones are not affected.
+            assert_ok!(validate(alice.origin(), &info_from_weight(100)));
+            assert_ok!(validate(RuntimeOrigin::none(), &operational_info));
+
+            // Members of any of the committees are allowed.
+            assert_ok!(validate(
+                RuntimeOrigin::signed(gc_member.clone()),
+                &operational_info
+            ));
+            pallet_committee::Members::<TestStorage, pallet_committee::Instance3>::put(vec![
+                alice.did,
+            ]);
+            assert_ok!(validate(alice.origin(), &operational_info));
+            pallet_committee::Members::<TestStorage, pallet_committee::Instance3>::kill();
+            assert_eq!(validate(alice.origin(), &operational_info), not_allowed);
+            pallet_committee::Members::<TestStorage, pallet_committee::Instance4>::put(vec![
+                alice.did,
+            ]);
+            assert_ok!(validate(alice.origin(), &operational_info));
+        });
+}
+
+#[test]
+fn revoke_claim_class_does_not_depend_on_claim_type() {
+    ExtBuilder::default().build().execute_with(|| {
+        let target = IdentityId::from(1u128);
+        let revoke_by_index = |claim_type| -> RuntimeCall {
+            pallet_identity::Call::<TestStorage>::revoke_claim_by_index {
+                target,
+                claim_type,
+                scope: None,
+            }
+            .into()
+        };
+        let revoke = |claim| -> RuntimeCall {
+            pallet_identity::Call::<TestStorage>::revoke_claim { target, claim }.into()
+        };
+        let scope = Scope::Identity(target);
+
+        for call in [
+            revoke_by_index(ClaimType::CustomerDueDiligence),
+            revoke_by_index(ClaimType::Accredited),
+            revoke(Claim::CustomerDueDiligence(Default::default())),
+            revoke(Claim::Accredited(scope)),
+        ] {
+            assert_eq!(call.get_dispatch_info().class, DispatchClass::Normal);
+        }
+    });
 }
 
 #[test]

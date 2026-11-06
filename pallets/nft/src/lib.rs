@@ -438,7 +438,8 @@ pub mod pallet {
         ///   operator for the collection.
         ///
         /// # Permissions
-        /// * Asset
+        /// * Extrinsic only. The asset permissions of a secondary key are not checked,
+        ///   as they scope agent actions rather than approvals made by a holder.
         #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::approve())]
         pub fn approve(
@@ -466,7 +467,8 @@ pub mod pallet {
         /// * `approved` - `true` to grant, `false` to revoke.
         ///
         /// # Permissions
-        /// * Asset
+        /// * Extrinsic only. The asset permissions of a secondary key are not checked,
+        ///   as they scope agent actions rather than approvals made by a holder.
         #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::set_approval_for_all())]
         pub fn set_approval_for_all(

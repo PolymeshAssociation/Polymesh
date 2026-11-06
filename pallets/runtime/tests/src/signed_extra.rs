@@ -223,3 +223,36 @@ fn operational_tx() -> Result<(), String> {
     assert_eq!(tx_validity.0.priority, 162525085696);
     Ok(())
 }
+
+#[test]
+fn operational_tx_sudo_key_ext() -> Result<(), String> {
+    make_min_storage()?.execute_with(operational_tx_sudo_key)
+}
+
+/// `sudo` calls inherit the dispatch class of the wrapped call, so the sudo key has to be able to
+/// submit operational transactions, even though it isn't a committee member.
+fn operational_tx_sudo_key() -> Result<(), String> {
+    let bob: AccountId = Sr25519Keyring::Bob.public().into();
+    let (call, len) = make_call();
+    let info = DispatchInfo {
+        call_weight: Weight::from_parts(100, 0),
+        class: DispatchClass::Operational,
+        ..Default::default()
+    };
+    let validate = || {
+        make_signed_extra(0, 10, 0, 0u128.into()).validate(
+            RuntimeOrigin::signed(bob.clone()),
+            &call,
+            &info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+    };
+
+    assert!(validate().is_err());
+    pallet_sudo::Key::<Runtime>::put(bob.clone());
+    assert!(validate().is_ok());
+    Ok(())
+}

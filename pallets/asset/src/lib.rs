@@ -3621,8 +3621,19 @@ impl<T: AssetConfig> Pallet<T> {
     }
 
     pub fn get_balance_at(asset_id: AssetId, did: IdentityId, at: CheckpointId) -> Balance {
-        <Checkpoint<T>>::balance_at(asset_id, did, at)
-            .unwrap_or_else(|| BalanceOf::<T>::get(&asset_id, &did))
+        Self::get_balance_at_with_updates(asset_id, did, at).0
+    }
+
+    /// Same as [`Self::get_balance_at`], but also returns the length of the decoded
+    /// `BalanceUpdates` history, as in [`checkpoint::Pallet::balance_at_with_updates`].
+    pub fn get_balance_at_with_updates(
+        asset_id: AssetId,
+        did: IdentityId,
+        at: CheckpointId,
+    ) -> (Balance, u32) {
+        let (balance, updates) = Checkpoint::<T>::balance_at_with_updates(asset_id, did, at);
+        let balance = balance.unwrap_or_else(|| BalanceOf::<T>::get(&asset_id, &did));
+        (balance, updates)
     }
 
     pub fn validate_asset_transfer(
