@@ -194,9 +194,16 @@ privacy:
    `relayer_submit_batched_proofs` (:1800 → :2338-2386): the `FeePaymentWithBatchedProofs`
    includes a `FeeAccountPaymentProof` bound to the batch content hash (:2356), spending the
    user's private fee balance (nullifier double-spend check :2411). The pool reimburses the
-   relayer publicly (:2429); the fee must cover the weight-derived tx fee (:2399-2402,
-   commission permitted). **The batch rolls back atomically on failure but the relayer is still
-   paid** (:2360-2383) — relayers are compensated for wasted work; users must trust their proofs.
+   relayer publicly (:2429). Relayers should preflight the fee payment and batch proofs. The
+  signed extension enforces the weight-derived fee floor and commission cap (:2399-2402), and
+  rejects an already-spent nullifier; dispatch rechecks the nullifier and verifies the payment
+  proof. Fee-account roots have a four-hour maximum age (two minutes in `ci-runtime`) for both
+  top-ups and relayer payments. Users should choose fresh asset/account roots whose remaining
+  validity exceeds that of the fee-account root, so they cannot expire first while a relayer is
+  holding the submission. If a root expires before inclusion, dispatch fails and the relayer pays
+  the transaction fee. **The batch rolls back atomically on
+  failure but the relayer is still paid once the fee payment succeeds** (:2360-2383) — relayers
+  are compensated for wasted batch work; users must trust their proofs.
 
 This decouples the fee-paying origin from sender/receiver/mediator identities.
 

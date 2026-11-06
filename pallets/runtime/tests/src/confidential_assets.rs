@@ -21,6 +21,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{ExtBuilder, TestStorage as Runtime};
 
+type Timestamp = pallet_timestamp::Pallet<Runtime>;
+
 fn with_asset(test: impl FnOnce(IdentityId, AssetState)) {
     ExtBuilder::default().build().execute_with(|| {
         frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -37,6 +39,62 @@ fn with_asset(test: impl FnOnce(IdentityId, AssetState)) {
         );
         Keys::<Runtime>::insert(0, &state.keys);
         test(owner, state);
+    });
+}
+
+#[test]
+fn fee_account_root_expires_after_four_hours_for_all_uses() {
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        pallet_babe::CurrentSlot::<Runtime>::set(sp_consensus_babe::Slot::from(
+            1 / pallet_babe::Pallet::<Runtime>::slot_duration(),
+        ));
+        Timestamp::set_timestamp(1);
+
+        let mut rng = StdRng::from_entropy();
+        let account = AccountKeys::from_seed("RelayerFeeRootAge").unwrap();
+        let (_, fee_state) = FeeAccountRegistrationProof::<PolymeshLimits>::new(
+            &mut rng,
+            &account.acct,
+            FEE_ASSET_ID,
+            100,
+            &[0; 32],
+        )
+        .unwrap();
+        let mut fee_tree =
+            ProverCurveTree::<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig>::new(1)
+                .unwrap();
+        fee_tree.set_block_number(1).unwrap();
+        fee_tree
+            .insert(
+                fee_state
+                    .current_commitment()
+                    .unwrap()
+                    .as_leaf_value()
+                    .unwrap(),
+            )
+            .unwrap();
+        let root_block = Pallet::<Runtime>::store_fee_account_curve_tree_root(
+            pallet_confidential_assets::TimestampedTreeRoot::new(fee_tree.root().unwrap()),
+        );
+
+        let timestamp = 14_400_001;
+        pallet_babe::CurrentSlot::<Runtime>::set(sp_consensus_babe::Slot::from(
+            timestamp / pallet_babe::Pallet::<Runtime>::slot_duration(),
+        ));
+        Timestamp::set_timestamp(timestamp);
+
+        assert!(Pallet::<Runtime>::get_fee_account_curve_tree_root(root_block.into()).is_ok());
+
+        let timestamp = 14_400_002;
+        pallet_babe::CurrentSlot::<Runtime>::set(sp_consensus_babe::Slot::from(
+            timestamp / pallet_babe::Pallet::<Runtime>::slot_duration(),
+        ));
+        Timestamp::set_timestamp(timestamp);
+        assert!(matches!(
+            Pallet::<Runtime>::get_fee_account_curve_tree_root(root_block.into()),
+            Err(Error::CurveTreeRootNotFound)
+        ));
     });
 }
 

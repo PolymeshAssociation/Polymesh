@@ -2282,8 +2282,11 @@ pub mod pallet {
         ///
         /// Relayers can charge a commission fee on top of the transaction fee (i.e. `commission fee + transaction fee = fee amount`).
         ///
-        /// Relayers should verify that the fee payment proof is valid before submitting the batched Confidential proofs.  They are not required
-        /// to verify the batched Confidential proofs.  If the user's Confidential proofs are invalid, the user is still responsible for paying the fee to the relayer.
+        /// Relayers are responsible for checking the fee payment terms and the fee and batch proofs before submission.
+        /// The signed extension checks whether the fee nullifier is already spent; a concurrent spend can still make
+        /// that check stale before inclusion. Fee-payment roots are checked against the shorter relayer root-age limit
+        /// during dispatch, so relayers should submit with enough time remaining for inclusion. If the batch proofs
+        /// are invalid, the user is still responsible for paying the fee to the relayer.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.  This is the relayer.
@@ -2292,7 +2295,7 @@ pub mod pallet {
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
         /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
-        /// * `InvalidTransaction::Payment` if the fee amount is outside the configured bounds.
+        /// * `CurveTreeRootNotFound` if the fee payment root is missing or too old.
         /// * `RelayerCallMustBeTopLevel` if this call is nested or the signed extension did not run.
         #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(

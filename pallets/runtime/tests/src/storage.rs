@@ -436,7 +436,7 @@ parameter_types! {
     pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000;
     pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000;
     pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000;
-    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000;
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 14_400_000;
 }
 
 impl pallet_confidential_assets::Config for Runtime {
