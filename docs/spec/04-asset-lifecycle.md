@@ -179,6 +179,9 @@ Two independent mechanisms, both account-key scoped (portfolio-held NFTs cannot 
 Consumption happens in settlement's `ensure_transfer_source_authorized` via
 `Nft::spend_nft_approval`; see doc 09 §4.
 
+Both check extrinsic permissions only. Skipping the secondary key's asset permissions is deliberate
+(doc 02 §5): they scope agent actions, and these calls act for the signing key, not as an agent.
+
 ### NFT transfers — see doc 09 §6 (validation `validate_nft_transfer` :631; **no statistics for
 NFTs**, compliance checked :688; per-leg cap `MaxNumberOfNFTsCount` = 10).
 
