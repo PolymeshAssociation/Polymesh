@@ -3717,7 +3717,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -10896,7 +10896,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart-v1.0.0#7e1e33d238c80ff4b4f792369c77f10bd82e0bed"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart-v1.0.0#406b8349e9cffeaaa48b854573f62286d6b37b7c"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10935,7 +10935,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-bp"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart-v1.0.0#7e1e33d238c80ff4b4f792369c77f10bd82e0bed"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart-v1.0.0#406b8349e9cffeaaa48b854573f62286d6b37b7c"
 dependencies = [
  "ark-dlog-gadget",
  "ark-ec 0.5.0",
@@ -10967,7 +10967,7 @@ dependencies = [
 [[package]]
 name = "polymesh-dart-common"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart-v1.0.0#7e1e33d238c80ff4b4f792369c77f10bd82e0bed"
+source = "git+https://github.com/PolymeshAssociation/polymesh-dart?branch=dart-v1.0.0#406b8349e9cffeaaa48b854573f62286d6b37b7c"
 
 [[package]]
 name = "polymesh-exec-macro"
