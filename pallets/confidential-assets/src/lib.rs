@@ -462,8 +462,8 @@ where
 
         Self::check_fee_bounds(proof, info, len).map_err(TransactionValidityError::from)?;
 
-        let relayer = frame_system::ensure_signed(origin.clone())
-            .map_err(|_| InvalidTransaction::Call)?;
+        let relayer =
+            frame_system::ensure_signed(origin.clone()).map_err(|_| InvalidTransaction::Call)?;
         let target = if proof.is_broadcast {
             None
         } else {
@@ -472,15 +472,13 @@ where
         let batch_hash = proof.fee_payment_ctx(target.as_deref());
 
         let valid = ValidTransaction {
-            provides: sp_std::vec![
-                (
-                    b"confidential-assets-fee-nullifier",
-                    &proof.fee_payment.nullifier,
-                    batch_hash,
-                    target,
-                )
-                    .encode(),
-            ],
+            provides: sp_std::vec![(
+                b"confidential-assets-fee-nullifier",
+                &proof.fee_payment.nullifier,
+                batch_hash,
+                target,
+            )
+                .encode(),],
             ..Default::default()
         };
         Ok((valid, (), origin))
