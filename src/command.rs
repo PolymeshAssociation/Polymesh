@@ -174,6 +174,13 @@ where
     println!("Polymesh Worker: Available backends: {:?}", backends);
 
     match &cli.subcommand {
+        Some(Subcommand::WorkerSelfTest) => match polymesh_worker_native::self_test_dart_v1() {
+            Ok(()) => {
+                println!("Native DART v1 worker self-test passed.");
+                Ok(())
+            }
+            Err(err) => Err(format!("Native DART v1 worker self-test failed: {err:?}").into()),
+        },
         None => {
             let runner = cli.create_runner(&cli.run)?;
 

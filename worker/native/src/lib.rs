@@ -1,6 +1,7 @@
-use codec::Decode;
+use codec::{Decode, Encode};
 
-use polymesh_worker::backend::{Backend, BackendModule};
+use polymesh_worker::backend::{Backend, BackendModule, BackendModuleInstance};
+use polymesh_worker::{ProtocolError, WorkRequest, WorkerError};
 use polymesh_worker_common::*;
 
 #[cfg(all(
@@ -17,6 +18,27 @@ mod mode;
 mod mode;
 
 pub use mode::run_child_if_requested;
+
+/// Verify that the embedded native DART v1 module loads, initializes, and executes work.
+pub fn self_test_dart_v1() -> Result<(), WorkerError> {
+    let module = NativeBackend
+        .load_module(&polymesh_worker_protocol_dart_v1::PROTOCOL.encode())
+        .ok_or(WorkerError::NoBackendAvailable)?;
+    let mut instance = module
+        .instantiate()
+        .ok_or(WorkerError::ModuleInitializationFailed)?;
+
+    instance.initialize(None)?;
+    let context = instance
+        .save_context()?
+        .ok_or(WorkerError::ModuleSaveContextFailed)?;
+    instance.initialize(Some(&context))?;
+
+    match instance.execute(&WorkRequest(vec![0]))? {
+        Err(ProtocolError::DecodingFailed) => Ok(()),
+        _ => Err(WorkerError::ModuleExecutionFailed),
+    }
+}
 
 pub fn execute_native_work(
     execute: impl FnOnce() -> WorkResponseResult,

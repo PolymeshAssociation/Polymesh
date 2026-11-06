@@ -195,6 +195,9 @@ jobs:
           command: cargo build --locked --release
           no_output_timeout: 30m
       - run:
+          name: Native DART v1 worker self-test
+          command: ./target/release/polymesh worker-self-test
+      - run:
           name: Create assets directory for releases
           command: mkdir ./assets
       - run:
