@@ -235,6 +235,7 @@ fn save_protocol_context() {
 }
 
 pub fn main() -> Result<()> {
+    polymesh_worker_native::run_child_if_requested();
     env_logger::init();
 
     match Cli::parse().command {

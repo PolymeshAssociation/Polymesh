@@ -1,4 +1,4 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group};
 use std::hint::black_box;
 
 use codec::{Decode, Encode};
@@ -251,4 +251,8 @@ criterion_group!(
     bench_wasmer,
     bench_wasmtime
 );
-criterion_main!(backend_benches);
+
+fn main() {
+    polymesh_worker_native::run_child_if_requested();
+    backend_benches();
+}
