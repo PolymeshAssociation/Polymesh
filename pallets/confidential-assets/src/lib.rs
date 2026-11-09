@@ -2466,13 +2466,13 @@ pub mod pallet {
         /// account whose encryption key it was distributed to.
         ///
         /// # Arguments
-        /// * `origin` - The origin of the call (must meet the asset creator or auditor requirements).
+        /// * `origin` - The origin of the call (must meet the auditor requirements).
         /// * `proof` - The key distribution proof.
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `MissingRequiredClaim` if the caller doesn't meet the asset creator or auditor
-        ///   requirements, or a recipient's DID doesn't meet the auditor requirements.
+        /// * `MissingRequiredClaim` if the caller doesn't meet the auditor requirements, or a
+        ///   recipient's DID doesn't meet the auditor requirements.
         /// * `EncryptionKeyAlreadyRegistered` if the shared key is already registered.
         /// * `EncryptionKeyMissing` if a recipient key isn't registered.
         /// * `NoKeyRecipients` if the proof has no recipients.

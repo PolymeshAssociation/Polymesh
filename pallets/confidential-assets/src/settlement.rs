@@ -685,6 +685,10 @@ impl<T: Config> Pallet<T> {
                 enc_keys: legacy.enc_keys,
                 mediators: legacy.mediators.keys().copied().collect(),
             };
+            // Charge the per-key update weight before deriving the leaf so the
+            // charge also covers assets that fail the derivation below.
+            let key_count = keys.enc_keys.len().saturating_add(keys.mediators.len()) as u32;
+            weight = weight.saturating_add(<T as Config>::WeightInfo::update_asset_keys(key_count));
             let asset_state = AssetState {
                 asset_id,
                 frozen: false,
@@ -699,7 +703,6 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
             };
-            weight = weight.saturating_add(<T as Config>::WeightInfo::update_asset_keys(2));
             if let Err(error) = tree.update_leaf(asset_id.into(), leaf) {
                 log::error!(
                     "Skipping v0 asset {asset_id}: failed to recommit v1 asset leaf: {error:?}"
