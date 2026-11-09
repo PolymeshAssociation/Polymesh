@@ -198,7 +198,11 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        if let Some(did) = pallet_identity::Pallet::<T>::get_identity(stash) {
+        let stash_did = pallet_identity::KeyRecords::<T>::get(stash)
+            .and_then(|record| record.get_did_key_type())
+            .map(|(did, _)| did);
+
+        if let Some(did) = stash_did {
             PermissionedIdentity::<T>::mutate(&did, |preferences| {
                 if let Some(p) = preferences {
                     if p.running_count > 0 {
@@ -208,17 +212,6 @@ impl<T: Config> Pallet<T> {
             });
             pallet_identity::Pallet::<T>::remove_account_key_ref_count(&stash);
         }
-    }
-
-    /// Returns the number of validators whose stash key belongs to `identity`.
-    fn count_validators_of(identity: IdentityId) -> u32 {
-        Validators::<T>::iter_keys()
-            .filter(|stash| {
-                pallet_identity::KeyRecords::<T>::get(stash)
-                    .and_then(|record| record.get_did_key_type())
-                    .is_some_and(|(did, _)| did == identity)
-            })
-            .count() as u32
     }
 
     /// Returns the maximum number of validators per identiy
@@ -243,20 +236,21 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IdentityIsInactive
         );
 
-        let mut prefs = match intended_count {
+        match intended_count {
             Some(intended_count) => {
                 ensure!(
                     intended_count < Self::maximum_number_of_validators_per_identity(),
                     Error::<T>::IntendedCountIsExceedingConsensusLimit
                 );
-                PermissionedIdentityPrefs::new(intended_count)
+                PermissionedIdentity::<T>::insert(
+                    &identity,
+                    PermissionedIdentityPrefs::new(intended_count),
+                );
             }
-            None => PermissionedIdentityPrefs::default(),
-        };
-        // De-permissioning doesn't chill the identity's stashes, so they may still be validating.
-        // This can exceed `intended_count`, which only stops the identity from adding more.
-        prefs.running_count = Self::count_validators_of(identity);
-        PermissionedIdentity::<T>::insert(&identity, prefs);
+            None => {
+                PermissionedIdentity::<T>::insert(&identity, PermissionedIdentityPrefs::default());
+            }
+        }
 
         Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityAdded {
             governance_councill_did: GC_DID,
@@ -275,6 +269,14 @@ impl<T: Config> Pallet<T> {
             Self::permissioned_identity(&identity).is_some(),
             Error::<T>::IdentityNotFound
         );
+
+        // Chill every stash of the identity that is still validating
+        let stashes: Vec<T::AccountId> = pallet_identity::DidKeys::<T>::iter_key_prefix(identity)
+            .filter(|key| Validators::<T>::contains_key(key))
+            .collect();
+        for stash in &stashes {
+            StakingPallet::<T>::chill_stash(stash);
+        }
 
         PermissionedIdentity::<T>::remove(&identity);
 

@@ -72,8 +72,8 @@ macro_rules! log {
 
 /// Weight functions needed for pallet_staking.
 pub trait WeightInfo {
-    fn add_permissioned_validator(m: u32) -> Weight;
-    fn remove_permissioned_validator() -> Weight;
+    fn add_permissioned_validator() -> Weight;
+    fn remove_permissioned_validator(s: u32) -> Weight;
     fn change_slashing_allowed_for() -> Weight;
     fn update_permissioned_validator_intended_count() -> Weight;
     fn chill_from_governance(n: u32) -> Weight;
@@ -272,7 +272,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator(20))]
+        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator())]
         pub fn add_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
@@ -288,8 +288,12 @@ pub mod pallet {
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
         /// * identity Validator's IdentityId.
+        ///
+        /// All stashes of `identity` that are still validating are chilled.
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator())]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator(
+            Pallet::<T>::permissioned_identity(identity).map_or(0, |prefs| prefs.running_count)
+        ))]
         pub fn remove_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,

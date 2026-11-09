@@ -127,17 +127,11 @@ const USER_SEED: u32 = 999666;
 
 benchmarks! {
     add_permissioned_validator {
-        let m in 0 .. 20;
-
         clear_validators_and_nominators::<T>();
         let (stash, controller) =
             create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
         StakingPallet::<T>::set_validator_count(RawOrigin::Root.into(), 10).unwrap();
         let did = get_did::<T>(&stash);
-        for i in 0 .. m {
-            let other = create_funded_user::<T>("other", i, 1000);
-            Validators::<T>::insert(other, ValidatorPrefs::default());
-        }
     }: _(RawOrigin::Root, did, Some(1))
     verify {
         let identity_preferences = Pallet::<T>::permissioned_identity(did);
@@ -146,15 +140,33 @@ benchmarks! {
     }
 
     remove_permissioned_validator {
-        clear_validators_and_nominators::<T>();
-        let (stash, controller) =
-            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
-        add_permissioned_validator_::<T>(&stash);
-        let did = get_did::<T>(&stash);
+        let s in 0 .. 100;
+
+        let validator = create_funded_user::<T>("validator", USER_SEED, 10_000);
+        StakingPallet::<T>::set_validator_count(RawOrigin::Root.into(), 1_000).unwrap();
+        let did = get_did::<T>(&validator);
+        Pallet::<T>::add_permissioned_validator(RawOrigin::Root.into(), did, Some(100)).unwrap();
+
+        let mut stashes = Vec::new();
+        for x in 0 .. s {
+            let key = UserBuilder::<T>::default().seed(x).balance(10_000u32).build("key").account();
+            let _ = T::Currency::issue(10_000u32.into());
+            pallet_identity::Pallet::<T>::unsafe_join_identity(did, Permissions::default(), key.clone());
+            StakingPallet::<T>::bond(
+                RawOrigin::Signed(key.clone()).into(),
+                2_000_000u32.into(),
+                RewardDestination::Staked
+            )
+            .unwrap();
+            StakingPallet::<T>::validate(RawOrigin::Signed(key.clone()).into(), ValidatorPrefs::default())?;
+            stashes.push(key);
+        }
     }: _(RawOrigin::Root, did)
     verify {
-        let identity_preferences = Pallet::<T>::permissioned_identity(did);
-        assert!(identity_preferences.is_none());
+        assert!(Pallet::<T>::permissioned_identity(did).is_none());
+        for stash in stashes {
+            assert!(!<Validators<T>>::contains_key(&stash));
+        }
     }
 
     change_slashing_allowed_for {}: _(RawOrigin::Root, SlashingSwitch::ValidatorAndNominator)
