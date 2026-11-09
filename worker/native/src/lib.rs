@@ -6,12 +6,14 @@ use polymesh_worker_common::*;
 
 #[cfg(all(
     target_os = "linux",
+    target_env = "gnu",
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 #[path = "child_process.rs"]
 mod mode;
 #[cfg(not(all(
     target_os = "linux",
+    target_env = "gnu",
     any(target_arch = "x86_64", target_arch = "aarch64")
 )))]
 #[path = "in_process.rs"]

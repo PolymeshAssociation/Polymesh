@@ -68,14 +68,8 @@ fn main() {
         target.as_str(),
         "x86_64-unknown-linux-gnu" | "aarch64-unknown-linux-gnu"
     ) {
-        assert!(
-            env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("linux")
-                || !matches!(
-                    env::var("CARGO_CFG_TARGET_ARCH").as_deref(),
-                    Ok("x86_64" | "aarch64")
-                ),
-            "unsupported native worker module target: {target}"
-        );
+        // Non-GNU Linux targets (e.g. musl) and other platforms use the
+        // in-process native backend instead; no module is built or embedded.
         return;
     }
     let manifest = env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set by Cargo");
