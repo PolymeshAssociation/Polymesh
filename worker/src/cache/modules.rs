@@ -353,7 +353,7 @@ impl ProtocolModuleRef {
 }
 
 pub(crate) struct BackendModuleCache {
-    protocols: BTreeMap<(ProtocolModuleConfigHash, BackendKind), ProtocolModuleRef>,
+    protocols: BTreeMap<(ProtocolModuleConfigHash, BackendKind, BackendBitmask), ProtocolModuleRef>,
     builtin: StaticModules,
 }
 
@@ -431,7 +431,10 @@ impl BackendModuleCache {
     }
 
     fn load_first_from_config(
-        protocols: &mut BTreeMap<(ProtocolModuleConfigHash, BackendKind), ProtocolModuleRef>,
+        protocols: &mut BTreeMap<
+            (ProtocolModuleConfigHash, BackendKind, BackendBitmask),
+            ProtocolModuleRef,
+        >,
         allowed: BackendBitmask,
         protocol: Protocol,
         config_hash: ProtocolModuleConfigHash,
@@ -446,7 +449,10 @@ impl BackendModuleCache {
             }
 
             let kind = backend.kind();
-            let key = (config_hash, kind);
+            // The allowed mask is part of the cache identity: the module's
+            // `expected_backends` (used by the differential log) must reflect
+            // the mask of this load, not the mask of the first load.
+            let key = (config_hash, kind, allowed);
             if let Some(module) = protocols.get(&key) {
                 return Some(module.clone());
             }
@@ -475,7 +481,10 @@ impl BackendModuleCache {
     }
 
     fn load_all_from_config(
-        protocols: &mut BTreeMap<(ProtocolModuleConfigHash, BackendKind), ProtocolModuleRef>,
+        protocols: &mut BTreeMap<
+            (ProtocolModuleConfigHash, BackendKind, BackendBitmask),
+            ProtocolModuleRef,
+        >,
         allowed: BackendBitmask,
         protocol: Protocol,
         config_hash: ProtocolModuleConfigHash,
@@ -490,7 +499,10 @@ impl BackendModuleCache {
             }
 
             let kind = backend.kind();
-            let key = (config_hash, kind);
+            // The allowed mask is part of the cache identity: the module's
+            // `expected_backends` (used by the differential log) must reflect
+            // the mask of this load, not the mask of the first load.
+            let key = (config_hash, kind, allowed);
             if let Some(module) = protocols.get(&key) {
                 modules.push(module.clone());
                 continue;
