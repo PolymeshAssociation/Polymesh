@@ -290,15 +290,20 @@ pub mod pallet {
         /// * identity Validator's IdentityId.
         ///
         /// All stashes of `identity` that are still validating are chilled.
+        ///
+        /// The worst-case weight is charged up front and refunded down to the number of stashes
+        /// actually chilled.
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator(
-            Pallet::<T>::permissioned_identity(identity).map_or(0, |prefs| prefs.running_count)
+            Pallet::<T>::max_validators_per_identity_bound()
         ))]
         pub fn remove_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
-        ) -> DispatchResult {
-            Self::base_remove_permissioned_validator(origin, identity)
+        ) -> DispatchResultWithPostInfo {
+            let chilled = Self::base_remove_permissioned_validator(origin, identity)?;
+            let actual_weight = <T as Config>::WeightInfo::remove_permissioned_validator(chilled);
+            Ok(Some(actual_weight).into())
         }
 
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.

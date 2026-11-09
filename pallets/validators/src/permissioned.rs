@@ -259,10 +259,18 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Returns a static upper bound on the number of validators a single identity can run.
+    pub fn max_validators_per_identity_bound() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * <T as StakingConfig>::MaxValidatorSet::get())
+            .max(1)
+            .saturating_sub(1)
+    }
+
+    /// Removes the permissioned `identity` and returns the number of stashes that were chilled.
     pub(crate) fn base_remove_permissioned_validator(
         origin: OriginFor<T>,
         identity: IdentityId,
-    ) -> DispatchResult {
+    ) -> Result<u32, DispatchError> {
         T::AdminOrigin::ensure_origin(origin)?;
 
         ensure!(
@@ -284,7 +292,7 @@ impl<T: Config> Pallet<T> {
             governance_councill_did: GC_DID,
             validators_identity: identity,
         });
-        Ok(())
+        Ok(stashes.len() as u32)
     }
 
     pub(crate) fn base_change_slashing_allowed_for(

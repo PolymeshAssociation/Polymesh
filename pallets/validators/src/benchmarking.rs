@@ -140,12 +140,15 @@ benchmarks! {
     }
 
     remove_permissioned_validator {
-        let s in 0 .. 100;
+        let s in 0 .. Pallet::<T>::max_validators_per_identity_bound();
 
         let validator = create_funded_user::<T>("validator", USER_SEED, 10_000);
-        StakingPallet::<T>::set_validator_count(RawOrigin::Root.into(), 1_000).unwrap();
+        StakingPallet::<T>::set_validator_count(
+            RawOrigin::Root.into(),
+            <T as pallet_staking::Config>::MaxValidatorSet::get()
+        ).unwrap();
         let did = get_did::<T>(&validator);
-        Pallet::<T>::add_permissioned_validator(RawOrigin::Root.into(), did, Some(100)).unwrap();
+        Pallet::<T>::add_permissioned_validator(RawOrigin::Root.into(), did, Some(s)).unwrap();
 
         let mut stashes = Vec::new();
         for x in 0 .. s {

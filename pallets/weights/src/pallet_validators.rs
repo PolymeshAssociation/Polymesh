@@ -47,7 +47,7 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     }
     // Storage: `Validators::PermissionedIdentity` (r:1 w:1)
     // Proof: `Validators::PermissionedIdentity` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
-    /// The range of component `s` is `[0, 100]`.
+    /// The range of component `s` is `[0, 329]`.
     fn remove_permissioned_validator(s: u32) -> Weight {
         // Minimum execution time: 16_530 nanoseconds.
         Weight::from_parts(18_270_000, 0)
