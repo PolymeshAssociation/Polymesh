@@ -99,6 +99,24 @@ benchmarks! {
         Pallet::<T>::generate_and_save_dart_params();
     }
 
+    // Informational: measures the cost of loading the DART parameters from `CachedDartParameters`
+    // storage (2MB read + SCALE decode + deserialization), for comparison with
+    // `generate_and_save_dart_params`.  Marked `extra` so it is only run with `--extra`.
+    #[extra]
+    load_dart_params {
+        // Ensure the DART parameters are cached in storage.
+        if !CachedDartParameters::<T>::exists() {
+            Pallet::<T>::generate_and_save_dart_params();
+        }
+    }: {
+        // Make sure to unload the previously loaded parameters.
+        polymesh_dart::init::unload_params();
+        polymesh_dart::init::load_params(
+            &CachedDartParameters::<T>::get().expect("Cached DART parameters exist; qed"),
+        )
+        .expect("Failed to load cached DART parameters; qed");
+    }
+
     session_overhead {
     }: {
         Pallet::<T>::session_id()?;

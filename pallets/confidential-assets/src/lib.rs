@@ -4091,6 +4091,25 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Load the DART parameters used by in-runtime verification from `CachedDartParameters`,
+    /// if they are not already loaded.
+    ///
+    /// Installed as the worker fallback hook (see `set_runtime_fallback_hook`), so that the
+    /// runtime re-execution of a request whose host execution failed uses the parameters saved
+    /// to storage instead of regenerating them.  It is a no-op when the parameters are already
+    /// loaded or unavailable (fresh chains), in which case the verifier regenerates them lazily
+    /// as before.
+    #[cfg(feature = "host_workers")]
+    fn ensure_dart_params_loaded() {
+        if !polymesh_dart::init::check_params_loaded() {
+            if let Some(params) = CachedDartParameters::<T>::get() {
+                if let Err(error) = polymesh_dart::init::load_params(&params) {
+                    log::error!("Failed to load cached DART parameters: {error:?}");
+                }
+            }
+        }
+    }
+
     /// The worker session for the current block, started lazily on first use.
     ///
     /// Nodes drop sessions at the end of the runtime call; `end_session` also ends it for older
@@ -4098,6 +4117,13 @@ impl<T: Config> Pallet<T> {
     pub fn session_id() -> Result<WorkerSessionId, DispatchError> {
         #[cfg(feature = "host_workers")]
         {
+            // Register the fallback hook, so that a fallback to runtime verification loads the
+            // DART parameters from storage instead of regenerating them.  The hook is stored in
+            // the protocol crate's globals, which are scoped to the runtime call.
+            polymesh_worker_protocol_dart_v1::set_runtime_fallback_hook(
+                Pallet::<T>::ensure_dart_params_loaded,
+            );
+
             if let Some(session_id) = CurrentWorkerSessionId::<T>::get() {
                 return Ok(session_id);
             }

@@ -253,6 +253,50 @@ macro_rules! impl_module_runtime {
                 }
             }
         }
+
+        /// A hook run just before a work request is re-executed in the runtime after host execution
+        /// failed (i.e. on the fallback to runtime execution).  It is set by the runtime once per
+        /// runtime call, and lives in the runtime's globals.
+        #[cfg(feature = "std")]
+        static RUNTIME_FALLBACK_HOOK: std::sync::OnceLock<fn()> = std::sync::OnceLock::new();
+
+        #[cfg(not(feature = "std"))]
+        static mut RUNTIME_FALLBACK_HOOK: Option<fn()> = None;
+
+        /// Set the fallback hook.  The hook is stored in the runtime's globals, which are scoped to
+        /// the current runtime call, so it must be registered once per runtime call.
+        ///
+        /// Available in every build so callers compile uniformly; the hook is only invoked by the
+        /// builds that support the fallback to runtime execution (`not(impl_protocol)`).
+        pub fn set_runtime_fallback_hook(hook: fn()) {
+            #[cfg(feature = "std")]
+            {
+                let _ = RUNTIME_FALLBACK_HOOK.set(hook);
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                unsafe {
+                    RUNTIME_FALLBACK_HOOK = Some(hook);
+                }
+            }
+        }
+
+        /// Run the fallback hook, if one has been set.
+        #[cfg(not(feature = "impl_protocol"))]
+        fn run_runtime_fallback_hook() {
+            #[cfg(feature = "std")]
+            {
+                if let Some(hook) = RUNTIME_FALLBACK_HOOK.get() {
+                    hook();
+                }
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                if let Some(hook) = unsafe { RUNTIME_FALLBACK_HOOK } {
+                    hook();
+                }
+            }
+        }
     };
 }
 
@@ -260,6 +304,10 @@ macro_rules! impl_module_runtime {
 /// (with fallback to runtime execution) and `execute_work_request`.
 ///
 /// The request type must implement `fn do_execute(self) -> Result<$response, ProtocolError>`.
+///
+/// The calling crate must provide `fn run_runtime_fallback_hook()`, which is invoked just before
+/// the request is re-executed in the runtime, i.e. only when host execution failed and the
+/// fallback to runtime execution actually happens.  A no-op implementation is fine.
 #[macro_export]
 macro_rules! impl_work_request {
     ($request:ty, $response:ty, $protocol:expr) => {
@@ -304,6 +352,9 @@ macro_rules! impl_work_request {
                 if codec::Encode::encode(&self).len() > $crate::MAX_WORK_REQUEST_SIZE {
                     return Err($crate::ProtocolError::UnexpectedResponse);
                 }
+                // Run the fallback hook (e.g. to prepare runtime-side state such as the
+                // verification parameters) before executing the request in the runtime.
+                run_runtime_fallback_hook();
                 let response = $crate::module::catch_runtime_fallback(|| self.do_execute())?;
                 if codec::Encode::encode(&response).len() > $crate::MAX_WORK_REQUEST_SIZE {
                     return Err($crate::ProtocolError::UnexpectedResponse);
