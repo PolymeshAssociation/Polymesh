@@ -76,22 +76,19 @@ impl Backend for NativeBackend {
     }
 
     fn load_module(&self, module_bytes: &[u8]) -> Option<Box<dyn BackendModule>> {
-        let protocol = Protocol::decode(&mut &module_bytes[..]).ok();
-        match protocol {
-            Some(protocol) => {
-                // Native modules don't have module code bytes, so we just encode the protocol.
-                if protocol == polymesh_worker_protocol_dart_v1::PROTOCOL {
-                    mode::dart_module()
-                } else if protocol == polymesh_worker_protocol_testing::PROTOCOL {
-                    mode::testing_module()
-                } else {
-                    None
-                }
-            }
-            None => {
-                // Fallback to the native DART module.
-                mode::dart_module()
-            }
+        // The native backend carries no module code of its own: its "code" bytes are the
+        // SCALE encoding of the protocol itself (`pallet-worker-modules` enforces this on
+        // upload).  Only use the native backend when the requested protocol matches the
+        // protocol compiled into this node binary *exactly* (id and major/minor/patch);
+        // otherwise the loader must fall back to a backend that loads the correct module
+        // from chain storage.
+        let protocol = Protocol::decode(&mut &module_bytes[..]).ok()?;
+        if protocol == polymesh_worker_protocol_dart_v1::PROTOCOL {
+            mode::dart_module()
+        } else if protocol == polymesh_worker_protocol_testing::PROTOCOL {
+            mode::testing_module()
+        } else {
+            None
         }
     }
 }
