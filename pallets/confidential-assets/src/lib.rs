@@ -3294,6 +3294,16 @@ impl<T: Config> Pallet<T> {
         relayer: T::AccountId,
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
     ) -> DispatchResultWithPostInfo {
+        // The fee-payment nullifier is checked first: if it was already burnt by a competing
+        // transaction (for example another batch spending the same fee state), the proof is
+        // never verified, so only charge for this cheap storage lookup.
+        if FeeAccountStateCommitmentNullifiers::<T>::contains_key(&proof.fee_payment.nullifier) {
+            return Err(DispatchErrorWithPostInfo {
+                post_info: Some(T::DbWeight::get().reads(1)).into(),
+                error: Error::<T>::NullifierAlreadyUsed.into(),
+            });
+        }
+
         ensure!(
             pallet::RelayerSubmitExtensionMarker::<T>::exists(),
             Error::<T>::RelayerCallMustBeTopLevel
@@ -3326,11 +3336,11 @@ impl<T: Config> Pallet<T> {
         let ctx = Some(&context);
         let verify_res = Self::verify_fee_payment(relayer.clone(), batch_hash, proof.fee_payment);
 
-        // If the fee payment verification fails, return an error but still charge the relayer for the verification cost.
+        // If the fee payment verification fails, return an error but still charge the relayer
+        // for the verification cost.
         let amount = match verify_res {
             Ok(amount) => amount,
             Err(error) => {
-                // Only charge for the fee payment verification cost.
                 return Err(DispatchErrorWithPostInfo {
                     post_info: Some(<T as Config>::WeightInfo::verify_fee_payment_with_leaf())
                         .into(),
@@ -3419,9 +3429,6 @@ impl<T: Config> Pallet<T> {
             proof.asset_id == FEE_ASSET_ID,
             Error::<T>::InvalidFeeAssetId
         );
-
-        // Ensure the nullifier is unique in storage.
-        Self::ensure_fee_account_state_nullifier_unique(&nullifier)?;
 
         // Get the root block and curve tree root.
         let root_block: BlockNumberFor<T> = proof.root_block.into();
