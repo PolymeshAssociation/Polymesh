@@ -107,7 +107,7 @@ ownership and Root precedence, not a fresh validation of every auditor/mediator 
 
 No registry: auditors/mediators never register — they just need valid claims on their DIDs.
 Root can gate three roles with a required-claim spec (`RequiredClaims`: `Claim` + bounded
-trusted-issuer list, `MaxTrustedClaimIssuers = 2` in develop and testnet): `AssetCreator`,
+trusted-issuer list, `MaxTrustedClaimIssuers = 2` in develop, testnet and mainnet): `AssetCreator`,
 `Auditor`, `Mediator`.
 Mediators fall back to the auditor spec when no mediator spec is set, so one spec can cover both.
 An empty issuer list blocks the role entirely (deny-all).
@@ -133,7 +133,7 @@ key, and registers the shared key (`EncryptionKeyDid` → caller; must not alrea
 so each shared key is distributed once). The caller (normally the asset issuer) and every
 recipient key's DID must meet the `Auditor` requirements at distribution time. Recipients are
 stored in `SharedKeyRecipients` (bounded by `MaxSharedKeyRecipients`); there is no removal yet
-(key de-registration is future work). `MaxSharedKeyRecipients = 5` in develop and testnet.
+(key de-registration is future work). `MaxSharedKeyRecipients = 5` in develop, testnet and mainnet.
 - Auditor keys, shared or not: the DID linked to the encryption key must meet the `Auditor`
   requirements at asset creation. For shared keys this is the key creator; recipient claims are
   not re-checked at asset creation.
@@ -196,8 +196,10 @@ privacy:
    user's private fee balance (nullifier double-spend check :2411). The pool reimburses the
    relayer publicly (:2429). Relayers should preflight the fee payment and batch proofs. The
   signed extension enforces the weight-derived fee floor and commission cap (:2399-2402), and
-  rejects an already-spent nullifier; dispatch rechecks the nullifier and verifies the payment
-  proof. Fee-account roots have a four-hour maximum age (two minutes in `ci-runtime`) for both
+  rejects an already-spent nullifier; dispatch rechecks the nullifier as its very first check and
+  verifies the payment proof. If the nullifier was already burnt by a competing transaction, that
+  first check fails and charges only a trivial fee (the proof is never verified); other
+  verification failures charge the full verification weight. Fee-account roots have a four-hour maximum age (two minutes in `ci-runtime`) for both
   top-ups and relayer payments. Users should choose fresh asset/account roots whose remaining
   validity exceeds that of the fee-account root, so they cannot expire first while a relayer is
   holding the submission. If a root expires before inclusion, dispatch fails and the relayer pays
@@ -269,8 +271,12 @@ weights/fee measurements, and live worker differential tests remain deployment g
   `worker/README.md`). The pallet calls it synchronously via a runtime interface
   (`submit_and_wait` lib.rs:2970-2974); request enum `VerifyDartAssetRequest`
   (worker/protocol/dart-v1/src/verify.rs:30-124) covers registration, minting, settlement,
-  affirmation, revert, claim, fee-payment and key-distribution proofs. A worker panic ⇒ proof
-  rejected (worker/native/src/lib.rs:48-74).
+  affirmation, revert, claim, fee-payment and key-distribution proofs. If a worker backend fails
+  to execute a request (e.g. a module trap or OOM), verification falls back to the runtime (WASM),
+  which is the authoritative verifier (`worker/common/src/module.rs` `do_execute_fallback`).
+  A panic during that runtime re-verification aborts the runtime call: the extrinsic can never be
+  included, block production skips it and removes it from the tx pool, and a block containing it
+  fails to import.
 - **Worker session**: started lazily by `Pallet::session_id()` (`start_session` host function,
   id cached in `CurrentWorkerSessionId`) and ended in `on_finalize`. The host keeps sessions in
   a `WorkerSessionExt` externalities extension, so they are also dropped when the runtime
