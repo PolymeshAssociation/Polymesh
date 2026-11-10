@@ -123,6 +123,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
             stash_did_prefs.running_count += 1;
             pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
             PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
+            IdentityValidatorStashes::<T>::insert(stash_did, stash, ());
         }
 
         Ok(())
@@ -211,6 +212,7 @@ impl<T: Config> Pallet<T> {
                 }
             });
             pallet_identity::Pallet::<T>::remove_account_key_ref_count(&stash);
+            IdentityValidatorStashes::<T>::remove(did, stash);
         }
     }
 
@@ -266,6 +268,14 @@ impl<T: Config> Pallet<T> {
             .saturating_sub(1)
     }
 
+    /// Weight of `remove_permissioned_validator`.
+    pub fn remove_permissioned_validator_weight(stashes: u32) -> Weight {
+        let per_stash = <T as StakingConfig>::WeightInfo::chill()
+            .saturating_add(T::DbWeight::get().reads_writes(1, 1));
+        <T as Config>::WeightInfo::remove_permissioned_validator()
+            .saturating_add(per_stash.saturating_mul(stashes.into()))
+    }
+
     /// Removes the permissioned `identity` and returns the number of stashes that were chilled.
     pub(crate) fn base_remove_permissioned_validator(
         origin: OriginFor<T>,
@@ -278,10 +288,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IdentityNotFound
         );
 
-        // Chill every stash of the identity that is still validating
-        let stashes: Vec<T::AccountId> = pallet_identity::DidKeys::<T>::iter_key_prefix(identity)
-            .filter(|key| Validators::<T>::contains_key(key))
-            .collect();
+        // Chill every stash of the identity that is still validating.
+        let stashes: Vec<T::AccountId> =
+            IdentityValidatorStashes::<T>::iter_key_prefix(identity).collect();
         for stash in &stashes {
             StakingPallet::<T>::chill_stash(stash);
         }

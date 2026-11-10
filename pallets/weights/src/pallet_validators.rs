@@ -47,16 +47,13 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     }
     // Storage: `Validators::PermissionedIdentity` (r:1 w:1)
     // Proof: `Validators::PermissionedIdentity` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
-    /// The range of component `s` is `[0, 329]`.
-    fn remove_permissioned_validator(s: u32) -> Weight {
-        // Minimum execution time: 16_530 nanoseconds.
-        Weight::from_parts(18_270_000, 0)
-            // Not benchmarked yet: per-stash cost taken from `chill_from_governance`.
-            .saturating_add(Weight::from_parts(30_769_431, 0).saturating_mul(s.into()))
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(s.into())))
-            .saturating_add(DbWeight::get().writes(2))
-            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(s.into())))
+    // Storage: `Validators::IdentityValidatorStashes` (r:1 w:0)
+    // Proof: `Validators::IdentityValidatorStashes` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    fn remove_permissioned_validator() -> Weight {
+        // Minimum execution time: 32_022 nanoseconds.
+        Weight::from_parts(33_237_000, 0)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Validators::SlashingAllowedFor` (r:0 w:1)
     // Proof: `Validators::SlashingAllowedFor` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
