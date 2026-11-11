@@ -31,16 +31,20 @@ pub mod worker;
 
 /// The max supported worker version.
 ///
-/// This version number should be incremented if the worker <-> backend module interface changes in a non-backwards-compatible way.
-/// Only changes like the following (the module exported/imported function signatures):
-/// - Changing how modules are initialized.
-/// - Changing how scratch space is managed and accessed.
-/// - Changing the execute work functinon signature.
-/// - Adding new import functions (like host_msm_unchecked) that the modules can use to access host functionalities.
+/// This version number should be incremented when the worker <-> host interface changes in a
+/// non-backwards-compatible way, including changes to how the runtime communicates with the
+/// worker host.
 ///
-/// If the runtime requires a newer worker version, then it can fallback to executing the work in the runtime instead of the worker.
-/// This allows node running older versions to continue syncing with the network (at a slower speed).
-pub const WORKER_VERSION: WorkerVersion = 1;
+/// If the runtime requires a newer worker version, it must fall back to executing the work in the
+/// runtime instead of the worker.  This allows nodes running older versions to continue syncing
+/// with the network (at a slower speed).
+///
+/// Version history:
+/// - 1: Initial worker host interface (v8.0.0 - v8.1.3).
+/// - 2: v8.2.0.  The worker validates the requested protocol version while loading modules.
+///   Runtimes that require version 2 must not use older hosts, whose builtin module lookup
+///   ignores the protocol version.
+pub const WORKER_VERSION: WorkerVersion = 2;
 
 /// Decompress the given module code bytes if they are compressed, otherwise return the original bytes.
 pub fn decompress_module_code(bytes: &[u8]) -> Option<Vec<u8>> {
@@ -306,4 +310,26 @@ pub fn blake2b256_hash(data: &[u8]) -> [u8; 32] {
     use digest::{Digest, generic_array::typenum::U32};
     type Blake2b256 = blake2::Blake2b<U32>;
     Blake2b256::digest(data).into()
+}
+
+#[cfg(all(test, feature = "testing"))]
+mod tests {
+    use super::*;
+    use crate::backend::BackendModuleLoader;
+
+    #[test]
+    fn static_modules_require_exact_protocol_version() {
+        let mut modules = StaticModules::new();
+        let v1 = Protocol {
+            id: PROTOCOL_PDART,
+            version: ProtocolVersion::new(1, 0, 0),
+        };
+        assert!(modules.get_protocol_module_config_hash(v1).is_some());
+
+        let unknown = Protocol {
+            id: PROTOCOL_PDART,
+            version: ProtocolVersion::new(9, 0, 0),
+        };
+        assert!(modules.get_protocol_module_config_hash(unknown).is_none());
+    }
 }

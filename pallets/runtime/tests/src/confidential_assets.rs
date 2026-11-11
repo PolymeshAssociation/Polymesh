@@ -1,7 +1,7 @@
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok,
-    traits::{Currency, Get, StorageVersion},
+    traits::{Currency, Get, Hooks, StorageVersion},
 };
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
@@ -488,6 +488,32 @@ fn confidential_assets_migration_skips_invalid_legacy_keys_without_panic() {
             sp_io::storage::get(&Keys::<Runtime>::hashed_key_for(asset_id))
                 .map(|bytes| bytes.to_vec()),
             Some(invalid_keys)
+        );
+    });
+}
+
+#[test]
+fn confidential_assets_runtime_upgrade_refreshes_dart_parameters() {
+    ExtBuilder::default().build().execute_with(|| {
+        let cache_key =
+            frame_support::storage::storage_prefix(b"ConfidentialAssets", b"CachedDartParameters");
+        let old_cache = vec![1u8, 2, 3];
+        sp_io::storage::set(&cache_key, &old_cache.encode());
+        pallet_confidential_assets::CachedDartParametersVersion::<Runtime>::kill();
+        StorageVersion::new(1).put::<Pallet<Runtime>>();
+
+        Pallet::<Runtime>::on_runtime_upgrade();
+
+        let new_cache = sp_io::storage::get(&cache_key).expect("DART parameters should be cached");
+        assert_ne!(new_cache, old_cache.encode());
+        assert!(new_cache.len() > old_cache.len());
+        assert!(
+            pallet_confidential_assets::CachedDartParametersVersion::<Runtime>::exists(),
+            "the DART parameter version should be recorded"
+        );
+        assert_eq!(
+            StorageVersion::get::<Pallet<Runtime>>(),
+            StorageVersion::new(1)
         );
     });
 }
