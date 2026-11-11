@@ -103,7 +103,7 @@ pub mod migrations {
             }
         }
 
-        StorageVersion::new(2).put::<Pallet<T>>();
+        Pallet::<T>::in_code_storage_version().put::<Pallet<T>>();
         writes += 1;
 
         log::info!(
