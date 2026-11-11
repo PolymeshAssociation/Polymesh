@@ -38,10 +38,11 @@ mkdir -p "$TOOLS_DIR/home"
 docker run --rm \
     --platform linux/amd64 \
     --user "$(id -u):$(id -g)" \
-    --env CARGO_HOME=/workspace/target/home/.cargo \
+    --env CARGO_HOME=/home/builder/.cargo \
     --env CARGO_INCREMENTAL=0 \
-    --env HOME=/workspace/target/home \
-    --volume "$CARGO_CACHE_DIR:/workspace/target/home/.cargo" \
+    --env HOME=/home/builder \
+    --volume "$TOOLS_DIR/home:/home/builder" \
+    --volume "$CARGO_CACHE_DIR:/home/builder/.cargo" \
     --volume "$REPO_ROOT:/workspace" \
     --volume "$TOOLS_DIR:/workspace/target" \
     --workdir /workspace \
@@ -78,11 +79,12 @@ for VERSION in "${VERSIONS[@]}"; do
     docker run --rm \
         --platform linux/amd64 \
         --user "$(id -u):$(id -g)" \
-        --env CARGO_HOME=/workspace/target/home/.cargo \
+        --env CARGO_HOME=/home/builder/.cargo \
         --env CARGO_INCREMENTAL=0 \
-        --env HOME=/workspace/target/home \
+        --env HOME=/home/builder \
         --env POLYMESH_WORKER_TOOLS=/usr/local/bin/polymesh-worker-tools \
-        --volume "$CARGO_CACHE_DIR:/workspace/target/home/.cargo" \
+        --volume "$BUILD_DIR/$VERSION/home:/home/builder" \
+        --volume "$CARGO_CACHE_DIR:/home/builder/.cargo" \
         --volume "$REPO_ROOT:/workspace" \
         --volume "$BUILD_DIR/$VERSION:/workspace/target" \
         --volume "$TOOLS_BINARY:/usr/local/bin/polymesh-worker-tools:ro" \

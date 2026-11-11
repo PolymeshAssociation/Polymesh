@@ -179,6 +179,9 @@ fn develop_genesis_config(
         "protocolFee": protocol_fee_genesis_config(),
         "corporateAction": corporate_actions_genesis_config(),
         "revive": revive_config(),
+        "confidentialAssets": {
+            "trustedIssuer": Some(identity_1),
+        },
     })
 }
 

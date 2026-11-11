@@ -1,13 +1,58 @@
 use codec::{Decode, Encode};
 use polymesh_dart::{
-    AccountAssetRegistrationProof, BatchedAccountAssetRegistrationProof, LegEncrypted,
-    PolymeshLimits, SenderAffirmationProof, curve_tree::AccountTreeConfig,
+    AccountAssetRegistrationProof, AssetPkTLookup, BatchedAccountAssetRegistrationProof,
+    LegEncrypted, PolymeshLimits, SenderAffirmationProof, curve_tree::AccountTreeConfig,
 };
 use polymesh_worker::{backend::*, *};
 use polymesh_worker_common::{PROTOCOL_PDART, ResolvedInitializationMethod};
-use polymesh_worker_protocol_dart_v0::{
+use polymesh_worker_protocol_dart_v1::{
     AccountTreeRoot, DartWorkRequest, DartWorkResponse, VerifyDartAssetRequest,
 };
+
+/// Run the testing protocol in native worker processes, including a trap.
+fn native_testing() {
+    use polymesh_worker_protocol_testing::{
+        PROTOCOL, TestWorkRequest, TestWorkResponse, VerifyVersionRequest,
+    };
+
+    let backend = polymesh_worker_native::NativeBackend;
+    let module = backend
+        .load_module(&PROTOCOL.encode())
+        .expect("Failed to load native testing module");
+    let verify = WorkRequest::new(TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+        protocol: PROTOCOL,
+    }));
+    let trap = WorkRequest::new(TestWorkRequest::Trap);
+
+    for round in 0..2 {
+        let now = std::time::Instant::now();
+        let mut instance = module
+            .instantiate()
+            .expect("Failed to start worker process");
+        println!("[{round}] Worker process started in: {:?}", now.elapsed());
+        instance.initialize(None).expect("Failed to initialize");
+        let ctx = instance.save_context().expect("Failed to save context");
+        println!(
+            "[{round}] Saved context: {:?} bytes",
+            ctx.map(|ctx| ctx.len())
+        );
+
+        let res = instance.execute(&verify).expect("VerifyVersion failed");
+        let res = res.expect("VerifyVersion protocol error");
+        let res: TestWorkResponse = res.decode().expect("Failed to decode response");
+        println!("[{round}] VerifyVersion: {res:?}");
+
+        let now = std::time::Instant::now();
+        let res = instance.execute(&trap);
+        println!("[{round}] Trap: {res:?} in {:?}", now.elapsed());
+        assert!(matches!(res, Err(WorkerError::ModuleExecutionFailed)));
+        assert!(matches!(
+            instance.execute(&verify),
+            Err(WorkerError::ModuleExecutionFailed)
+        ));
+    }
+    println!("Native testing protocol: OK");
+}
 
 pub fn signer_to_did(signer_name: &str) -> [u8; 32] {
     let mut did = [0u8; 32];
@@ -18,7 +63,12 @@ pub fn signer_to_did(signer_name: &str) -> [u8; 32] {
 }
 
 pub fn main() {
+    polymesh_worker_native::run_child_if_requested();
     env_logger::init();
+    if std::env::args().nth(1).as_deref() == Some("native-testing") {
+        native_testing();
+        return;
+    }
     // Parse the first command line argument as the backend kind, default to PolkaVM if not provided or invalid.
     let backend_kind = std::env::args()
         .nth(1)
@@ -109,7 +159,7 @@ pub fn main() {
     };
     if let Some(ref ctx) = saved_ctx {
         const REF_CONTEXT_DATA: &[u8] =
-            include_bytes!("../../modules/dart/v0/polymesh-worker-protocol-dart-v0.context.bin");
+            include_bytes!("../../modules/dart/v1/polymesh-worker-protocol-dart-v1.context.bin");
         let ref_hash = hex::encode(sp_core::blake2_256(REF_CONTEXT_DATA));
         let hash = hex::encode(sp_core::blake2_256(ctx));
         println!("Saved context size: {} bytes", ctx.len());
@@ -157,6 +207,7 @@ pub fn main() {
             "verify_register_account_asset_proof",
             DartWorkRequest::VerifyProof(VerifyDartAssetRequest::BatchedAccountAssetRegistration {
                 did,
+                asset_lookup: AssetPkTLookup::new(),
                 proof: BatchedAccountAssetRegistrationProof {
                     proofs: vec![proof]
                         .try_into()
@@ -184,10 +235,44 @@ pub fn main() {
         execute_work(
             "verify_sender_affirm_proof",
             DartWorkRequest::VerifyProof(VerifyDartAssetRequest::SenderAffirmation {
+                ctx: None,
                 proof,
                 leg_enc,
                 root,
             }),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DartWorkRequest;
+    use polymesh_worker_common::{ProtocolError, module::catch_runtime_fallback};
+
+    #[test]
+    fn runtime_fallback_panics_become_protocol_errors() {
+        let result: Result<(), ProtocolError> =
+            catch_runtime_fallback(|| panic!("runtime fallback panic"));
+        assert!(matches!(result, Err(ProtocolError::ExecuteWorkFailed)));
+    }
+
+    #[test]
+    fn native_worker_panics_request_runtime_fallback() {
+        let result = polymesh_worker_native::execute_native_work(|| panic!("native worker panic"));
+        assert!(matches!(
+            result,
+            Err(polymesh_worker_common::WorkerError::ModuleExecutionFailed)
+        ));
+    }
+
+    #[test]
+    fn oversized_runtime_requests_are_rejected_before_decode() {
+        use polymesh_worker_common::{MAX_WORK_REQUEST_SIZE, ProtocolError, WorkRequest};
+
+        let request = WorkRequest(vec![0; MAX_WORK_REQUEST_SIZE + 1]);
+        assert!(matches!(
+            DartWorkRequest::execute_work(&request),
+            Err(ProtocolError::UnexpectedResponse)
+        ));
     }
 }

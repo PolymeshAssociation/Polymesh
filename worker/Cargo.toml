@@ -40,6 +40,13 @@ digest = { version = "0.10.7", default-features = false }
 # EC Math
 ark-host-msm-impl = { workspace = true, default-features = false }
 bulletproofs = { workspace = true, default-features = false, features = ["impl_host_hash_to_curve"] }
+serde_json = { version = "1.0", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+polymesh-worker-protocol-testing = { workspace = true, default-features = false, features = ["std", "native", "testing"] }
 
 [features]
 default = [
@@ -74,6 +81,11 @@ llvm = [
 
 testing = [
 	"polymesh-worker-common/testing",
+]
+
+worker-differential = [
+	"std",
+	"dep:serde_json",
 ]
 
 asm = ["ark-host-msm-impl/asm"]

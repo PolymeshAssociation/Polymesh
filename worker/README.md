@@ -49,7 +49,7 @@ The polymesh-worker crate serves as the core execution engine that:
 ├─────────────────────────────────────────────────────────────┤
 │              Compiled Protocol Modules                      │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │  DART v0: polymesh-worker-protocol-dart-v0           │   │
+│  │  DART v1: polymesh-worker-protocol-dart-v1           │   │
 │  │  Available as: PolkaVM, WASM (+ Native fallback)     │   │
 │  │  Stored as: Compressed binary in crate (zst)         │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -194,7 +194,7 @@ for id in pending_ids {
 - **Per-session coordination**: Each session maintains its own pending work tracking
 - **Response channels**: Crossbeam channels for thread-safe result delivery
 
-## Protocol Implementation: DART v0
+## Protocol Implementation: DART v1
 
 DART is the first protocol implemented in this worker:
 
@@ -202,11 +202,11 @@ DART is the first protocol implemented in this worker:
 
 Two variants are compiled and distributed:
 
-1. **Production**: `polymesh-worker-protocol-dart-v0.{polkavm,wasm}.zst`
+1. **Production**: `polymesh-worker-protocol-dart-v1.{polkavm,wasm}.zst`
    - Optimized for performance
    - Compressed for efficient distribution
 
-2. **Testing**: `polymesh-worker-protocol-dart-v0.testing.{polkavm,wasm}.zst`
+2. **Testing**: `polymesh-worker-protocol-dart-v1.testing.{polkavm,wasm}.zst`
    - Includes proof generation support.
    - Used to generate proofs needed when benchmarking proof verification.
 
@@ -246,6 +246,33 @@ cargo build -p polymesh-worker-tester
 - Test protocol module compilation and execution
 - Compare backend performance characteristics
 
+### Node differential mode
+
+The opt-in `worker-differential` node feature runs each worker request through every available compatible backend, bypasses the result cache, and appends JSONL comparisons to `WORKER_DIFF_LOG`. Records contain request/result hashes and backend/context metadata, not request or response payloads. `WORKER_DIFF_LOG` only selects the output path; the node must be compiled with `worker-differential`. Feature-enabled nodes create the file at startup, while feature-off nodes warn that the setting is ignored.
+
+Build the node and start it with a writable log path and the desired backend set:
+
+```bash
+cargo build --locked --release --features ci-runtime,worker-differential
+WORKER_DIFF_LOG=/tmp/worker-diff.jsonl POLYMESH_WORKER_BACKENDS=all \
+    ./target/release/polymesh --bob --dev --tmp \
+    --unsafe-force-node-key-generation --no-prometheus --no-telemetry
+```
+
+After the node is accepting RPC, export the same log path and node URL in the integration terminal. Run the full suite to compare real DART requests as well as the testing protocol request:
+
+```bash
+cd integration
+export POLYMESH_NODE_URL=ws://127.0.0.1:9944
+export WORKER_DIFF_LOG=/tmp/worker-diff.jsonl
+# Required after starting a fresh --tmp chain; do not run on a healthy existing chain.
+./reset_db.sh
+cargo nextest run --release --features current_release,timed,worker-differential --locked
+python3 check_worker_diff_log.py "$WORKER_DIFF_LOG"
+```
+
+The integration feature only enables the log assertion; the node must also be built with the root `worker-differential` feature. Set `WORKER_DIFF_LOG` in both processes. At least two compatible backends must be available. The checker fails on any non-match, missing backend, malformed/empty log, or incomplete comparison. The full suite's `revive_*` tests also need eth-rpc; see `integration/AGENTS.md` for its startup command and `ETH_RPC_URL` setting.
+
 ### CLI Tools (`tools/`)
 
 Protocol module management and utilities:
@@ -270,17 +297,17 @@ Automated compilation of protocol modules:
 ```bash
 # Build PolkaVM module
 ./build_polkavm.sh
-# Generates: polymesh-worker-protocol-dart-v0.polkavm.zst
+# Generates: polymesh-worker-protocol-dart-v1.polkavm.zst
 
 # Build WASM module
 ./build_wasm.sh
-# Generates: polymesh-worker-protocol-dart-v0.wasm.zst
+# Generates: polymesh-worker-protocol-dart-v1.wasm.zst
 
 # Build testing variants
 ./build_polkavm_testing.sh
 ./build_wasm_testing.sh
 
-# Full rebuild of both PolkaVM/WASM modules and the testing variants.
+# Full rebuild of PolkaVM, WASM, and testing variants.
 ./rebuild.sh
 ```
 
@@ -381,7 +408,7 @@ pub trait BackendModuleLoader {
 
 **Built-in implementations:**
 
-- **StaticModules**: Loads DART v0 protocol from embedded binaries
+- **StaticModules**: Loads DART v1 protocol from embedded binaries
 - **SubstrateModuleLoader**: Loads modules from Substrate storage
 
 ## Features
@@ -414,7 +441,7 @@ pub trait BackendModuleLoader {
 cd Polymesh/worker
 
 # Reproducibly build modules and release configs for one or more DART versions
-./rebuild.sh v0
+./rebuild.sh v0 v1
 
 # Low-level host builds for development only
 ./build_polkavm.sh
@@ -426,6 +453,40 @@ cd Polymesh/worker
 pin its own `polkatool` version. Cargo uses `Cargo.lock`, and the container uses
 fixed paths and isolated build state so host toolchains and caches do not affect
 the committed module files.
+
+### Building Native Modules
+
+`polymesh-worker-native/build.rs` builds native modules from source whenever
+Cargo builds the native backend for x86_64 or AArch64 GNU/Linux. It uses the
+target of the enclosing build, the pinned nightly toolchain, `Cargo.lock`, and
+a `no_std` cdylib configuration with `panic=abort`. DART proof generation is
+enabled only when the backend's `testing` feature is enabled.
+
+The shared objects are compressed using Substrate's compressed-blob format
+and embedded from Cargo's `OUT_DIR`. Nested Cargo builds use a separate target
+directory to avoid locking the enclosing build. The build script runs on every
+Cargo invocation so transitive source changes are checked; nested Cargo builds
+reuse their incremental artifacts. Native libraries in `worker/modules` are
+ignored, never embedded, and must not be committed. CI rejects tracked native
+libraries, and ARM64 builds no longer consume artifacts from another CI job.
+
+The deterministic `./rebuild.sh v0 v1` workflow builds only VM artifacts and
+release configs. Building native modules does not require Docker.
+
+For native-only iteration, build the native backend crate directly with Cargo.
+When cross-building from x86_64 to AArch64, install an AArch64 GNU cross
+compiler and sysroot (for Debian, `gcc-aarch64-linux-gnu` and
+`libc6-dev-arm64-cross`). The build script defaults to `aarch64-linux-gnu-gcc`
+for this cross-build; override
+`CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER` and
+`CC_aarch64_unknown_linux_gnu` if your toolchain uses different paths.
+
+```bash
+# From the repository root
+cargo build --locked -p polymesh-worker-native
+cargo build --locked -p polymesh-worker-native --no-default-features --features std
+cargo build --locked -p polymesh-worker-native --target aarch64-unknown-linux-gnu
+```
 
 `protocol/dart-v0` is a standalone Cargo workspace with its own `Cargo.lock`
 and DART crate patches. Future DART dependency updates in the root workspace do
@@ -441,22 +502,22 @@ used because the native backend supports both module versions.
 ```bash
 cargo run -r -p polymesh-worker-tools -- build-release-config \
     --protocol-version 1.0.0 \
-    --polkavm modules/dart/v0/polymesh-worker-protocol-dart-v0.polkavm.zst \
-    --wasm modules/dart/v0/polymesh-worker-protocol-dart-v0.wasm.zst \
-    --output modules/dart/v0/config.scale
+    --polkavm modules/dart/v1/polymesh-worker-protocol-dart-v1.polkavm.zst \
+    --wasm modules/dart/v1/polymesh-worker-protocol-dart-v1.wasm.zst \
+    --output modules/dart/v1/config.scale
 ```
 
 Export or verify a saved config:
 
 ```bash
 cargo run -r -p polymesh-worker-tools -- export-config-json \
-    --config modules/dart/v0/config.scale \
-    --output modules/dart/v0/config.json
+    --config modules/dart/v1/config.scale \
+    --output modules/dart/v1/config.json
 
 cargo run -r -p polymesh-worker-tools -- check-release-config \
-    --config modules/dart/v0/config.scale \
-    --polkavm modules/dart/v0/polymesh-worker-protocol-dart-v0.polkavm.zst \
-    --wasm modules/dart/v0/polymesh-worker-protocol-dart-v0.wasm.zst
+    --config modules/dart/v1/config.scale \
+    --polkavm modules/dart/v1/polymesh-worker-protocol-dart-v1.polkavm.zst \
+    --wasm modules/dart/v1/polymesh-worker-protocol-dart-v1.wasm.zst
 ```
 
 ## Performance Considerations

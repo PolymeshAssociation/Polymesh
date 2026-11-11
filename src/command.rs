@@ -161,14 +161,32 @@ where
     });
     // Initialize Polymesh worker backends.
     Backends::init_global_backends::<polymesh_worker_native::NativeBackend>(&supported_kinds);
+    #[cfg(feature = "worker-differential")]
+    polymesh_worker::initialize_differential_log();
+    #[cfg(not(feature = "worker-differential"))]
+    if std::env::var_os("WORKER_DIFF_LOG").is_some() {
+        eprintln!(
+            "WORKER_DIFF_LOG is set, but this node was built without the worker-differential feature"
+        );
+    }
     // Print the available backends after initialization.
-    let backends = Backends::get_available_backends();
-    println!("Polymesh Worker: Available backends: {:?}", backends);
+    let print_backends = || {
+        let backends = Backends::get_available_backends();
+        log::info!("Polymesh Worker: Available backends: {:?}", backends);
+    };
 
     match &cli.subcommand {
+        Some(Subcommand::WorkerSelfTest) => match polymesh_worker_native::self_test_dart_v1() {
+            Ok(()) => {
+                println!("Native DART v1 worker self-test passed.");
+                Ok(())
+            }
+            Err(err) => Err(format!("Native DART v1 worker self-test failed: {err:?}").into()),
+        },
         None => {
             let runner = cli.create_runner(&cli.run)?;
 
+            print_backends();
             info!(
                 "Reserved nodes: {:?}",
                 cli.run.network_params.reserved_nodes
@@ -184,6 +202,7 @@ where
         }
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
+            print_backends();
             let network = runner.config().chain_spec.network();
 
             runner.sync_run(|mut config| {

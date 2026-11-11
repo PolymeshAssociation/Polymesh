@@ -28,7 +28,7 @@ cargo rustc --crate-type cdylib \
     -Z build-std=core,alloc \
     --target $TARGET_JSON_PATH \
 		--no-default-features \
-		--features polkavm,version_$VERSION \
+    --features polkavm,testing,version_$VERSION \
     --release --lib -p $crate
 
 polkatool link \

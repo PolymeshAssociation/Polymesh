@@ -106,6 +106,12 @@ mod host_fn {
         fn log(&self, record: &Record) {
             if self.enabled(record.metadata()) {
                 let level = from_log_level(record.level());
+                // Native modules need the target in module memory (below 4 GiB), not in `.rodata`.
+                #[cfg(feature = "native_module")]
+                let target = ark_std::string::String::from(record.target());
+                #[cfg(feature = "native_module")]
+                let target = target.as_bytes();
+                #[cfg(not(feature = "native_module"))]
                 let target = record.target().as_bytes();
                 let msg = ark_std::format!("{}", record.args());
                 unsafe {

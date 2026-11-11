@@ -102,12 +102,15 @@ substrate-test-utils = { workspace = true }
 
 # Runtime APIs
 node-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-confidential-assets-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-group-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { workspace = true, default-features = false }
 pallet-staking-runtime-api = { workspace = true, default-features = false }
 frame-system-rpc-runtime-api = { workspace = true, default-features = false }
 
 [dev-dependencies]
+pallet-confidential-assets = { workspace = true, default-features = false, features = ["std"] }
+polymesh-dart = { workspace = true, default-features = false, features = ["std", "backend_bp", "host_proofs"] }
 wat = "1.0"
 sp-tracing = { workspace = true, default-features = false, features = ["std"] }
 

@@ -1,7 +1,11 @@
 // >=v7.3
 #[cfg(feature = "current_release")]
 mod worker_modules_tests {
-    use anyhow::{anyhow, Result};
+    use anyhow::{anyhow, Context, Result};
+    use codec::{Decode, Encode};
+    use polymesh_api::types::polymesh_worker_protocol_testing::TestWorkRequest;
+    #[cfg(feature = "worker-differential")]
+    use polymesh_api::types::polymesh_worker_protocol_testing::VerifyVersionRequest;
 
     use integration::{
         worker_modules_helper::*, PolymeshTester, RuntimeEvent, User, WorkerTestingEvent,
@@ -31,7 +35,6 @@ mod worker_modules_tests {
             .events()
             .await?
             .ok_or_else(|| anyhow!("no events for `test_version({protocol:?})`"))?;
-        // Copy the task result out so the borrow on `res` ends before finalizing below.
         let task_result = events
             .0
             .iter()
@@ -50,7 +53,6 @@ mod worker_modules_tests {
             .ok_or_else(|| {
                 anyhow!("missing `TestingProtocolTask` event for `test_version({protocol:?})`")
             })?;
-        res.wait_finalized().await?;
 
         match (expect_active, task_result) {
             (true, Err(err)) => Err(anyhow!(
@@ -100,6 +102,204 @@ mod worker_modules_tests {
         Ok(())
     }
 
+    async fn check_vm_trap(tester: &PolymeshTester, user: &mut User) -> Result<()> {
+        // Trap and TrapFallback are testing-only SCALE variants at index 1.
+        let request = TestWorkRequest::decode(&mut &[1u8][..])
+            .context("Trap requires a develop runtime built with testing requests enabled (runtime-benchmarks)")?;
+        let mut res = tester
+            .api
+            .call()
+            .worker_testing()
+            .submit_work_request(request)?
+            .submit_and_watch(user)
+            .await?;
+        res.ok().await?;
+        let events = res
+            .events()
+            .await?
+            .ok_or_else(|| anyhow!("no events for the Trap work request"))?;
+        let response = events
+            .0
+            .iter()
+            .find_map(|rec| match &rec.event {
+                RuntimeEvent::WorkerTesting(WorkerTestingEvent::TestingProtocolTask {
+                    request,
+                    result,
+                }) if request.encode() == [1u8] => Some(
+                    result
+                        .as_ref()
+                        .map(Encode::encode)
+                        .map_err(|err| anyhow!("Trap did not fall back successfully: {err:?}")),
+                ),
+                _ => None,
+            })
+            .ok_or_else(|| anyhow!("missing TestingProtocolTask event for Trap"))??;
+        assert_eq!(response, [1u8], "expected the TrapFallback response");
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    #[ignore = "requires a dev runtime with testing requests enabled"]
+    async fn test_trap_fallback_builtin_module() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut users = tester
+            .users(&["WorkerBuiltinTrapTester"])
+            .await?
+            .into_iter();
+        let mut user = users.next().expect("User not found");
+        let protocol = tester
+            .api
+            .query()
+            .worker_testing()
+            .current_protocol_version()
+            .await?
+            .ok_or_else(|| anyhow!("Current protocol version not found"))?;
+        let original_sessions = tester
+            .api
+            .query()
+            .worker_testing()
+            .enable_work_session()
+            .await?;
+        let mut helper = WorkerModulesHelper::new(&tester, protocol.clone());
+        helper
+            .sudo_call(
+                tester
+                    .api
+                    .call()
+                    .worker_testing()
+                    .set_enable_work_session(true)?,
+            )
+            .await?;
+
+        let result = async {
+            check_active_version(&tester, &mut user, &protocol, true).await?;
+            check_vm_trap(&tester, &mut user).await?;
+            check_active_version(&tester, &mut user, &protocol, true).await?;
+            check_vm_trap(&tester, &mut user).await?;
+            check_active_version(&tester, &mut user, &protocol, true).await
+        }
+        .await;
+
+        let restore_sessions = helper
+            .sudo_call(
+                tester
+                    .api
+                    .call()
+                    .worker_testing()
+                    .set_enable_work_session(original_sessions)?,
+            )
+            .await;
+        result?;
+        restore_sessions?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    #[ignore = "requires a dev runtime with testing requests enabled and a VM worker backend (uploaded modules)"]
+    async fn test_vm_trap_fallback() -> Result<()> {
+        let mut tester = PolymeshTester::new().await?;
+        let mut users = tester.users(&["WorkerVmTrapTester"]).await?.into_iter();
+        let mut user = users.next().expect("User not found");
+        let original_protocol = tester
+            .api
+            .query()
+            .worker_testing()
+            .current_protocol_version()
+            .await?
+            .ok_or_else(|| anyhow!("Current protocol version not found"))?;
+        let original_sessions = tester
+            .api
+            .query()
+            .worker_testing()
+            .enable_work_session()
+            .await?;
+        let mut helper = WorkerModulesHelper::new(&tester, original_protocol.clone());
+        if tester
+            .api
+            .query()
+            .worker_modules()
+            .metadata(original_protocol.id.clone())
+            .await?
+            .is_none()
+        {
+            helper
+                .register_protocol(
+                    "Testing",
+                    "Polymesh Worker Protocol Testing",
+                    original_protocol.version.clone(),
+                )
+                .await?;
+        }
+        helper.update_version(ProtocolVersion {
+            major: 1,
+            minor: 0,
+            patch: 0,
+        });
+        if tester
+            .api
+            .query()
+            .worker_modules()
+            .protocol_config_hash(helper.protocol.clone())
+            .await?
+            .is_none()
+        {
+            upload_v1(&mut helper).await?;
+        }
+        let protocol = helper.protocol.clone();
+
+        let result = async {
+            helper
+                .sudo_call(
+                    tester
+                        .api
+                        .call()
+                        .worker_testing()
+                        .set_protocol_version(protocol.clone())?,
+                )
+                .await?;
+            helper
+                .sudo_call(
+                    tester
+                        .api
+                        .call()
+                        .worker_testing()
+                        .set_enable_work_session(true)?,
+                )
+                .await?;
+            check_active_version(&tester, &mut user, &protocol, true).await?;
+            check_vm_trap(&tester, &mut user).await?;
+            check_active_version(&tester, &mut user, &protocol, true).await?;
+            check_vm_trap(&tester, &mut user).await?;
+            check_active_version(&tester, &mut user, &protocol, true).await
+        }
+        .await;
+
+        let restore_protocol = helper
+            .sudo_call(
+                tester
+                    .api
+                    .call()
+                    .worker_testing()
+                    .set_protocol_version(original_protocol)?,
+            )
+            .await;
+        let restore_sessions = helper
+            .sudo_call(
+                tester
+                    .api
+                    .call()
+                    .worker_testing()
+                    .set_enable_work_session(original_sessions)?,
+            )
+            .await;
+        result?;
+        restore_protocol?;
+        restore_sessions?;
+        Ok(())
+    }
+
     async fn upload_v2(helper: &mut WorkerModulesHelper) -> Result<()> {
         let polkavm_zst = include_bytes!(
             "../../worker/modules/testing/v2/polymesh-worker-protocol-testing.polkavm.zst"
@@ -140,6 +340,16 @@ mod worker_modules_tests {
     #[tokio::test]
     #[test_log::test]
     async fn test_protocol_upgrades() -> Result<()> {
+        #[cfg(feature = "worker-differential")]
+        let (diff_log_path, diff_log_start) = {
+            let path = std::env::var_os("WORKER_DIFF_LOG")
+                .context("WORKER_DIFF_LOG must be set for differential worker tests")?;
+            let len = std::fs::metadata(&path)
+                .map(|metadata| metadata.len() as usize)
+                .unwrap_or_default();
+            (path, len)
+        };
+
         let mut tester = PolymeshTester::new().await?;
         let mut users = tester.users(&["ProtocolTester"]).await?.into_iter();
         let mut user = users.next().expect("User not found");
@@ -167,6 +377,34 @@ mod worker_modules_tests {
 
         // Run the `VerifyVersion` work request against the genesis protocol version.
         check_active_version(&tester, &mut user, &protocol, true).await?;
+
+        #[cfg(feature = "worker-differential")]
+        {
+            let request = TestWorkRequest::VerifyVersion(VerifyVersionRequest {
+                protocol: protocol.clone(),
+            });
+            let request_hash = sp_core::blake2_256(&request.encode().encode())
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>();
+            let log = std::fs::read(&diff_log_path)?;
+            let appended = log
+                .get(diff_log_start..)
+                .ok_or_else(|| anyhow!("WORKER_DIFF_LOG was truncated during the test"))?;
+            let appended = std::str::from_utf8(appended)?;
+            let record = appended
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .find(|record| record["request_hash"].as_str() == Some(&request_hash))
+                .ok_or_else(|| anyhow!("no differential record found for test_version request"))?;
+
+            if record["status"] != "match" {
+                return Err(anyhow!("worker backends disagreed: {record}"));
+            }
+            if record["backends"].as_array().map_or(0, Vec::len) < 2 {
+                return Err(anyhow!("fewer than two backends were compared: {record}"));
+            }
+        }
 
         // Register the testing protocol with the WorkerModules pallet.
         worker_helper
