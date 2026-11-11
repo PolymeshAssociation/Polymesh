@@ -19,7 +19,7 @@ Detailed specs of the chain logic (identity/permissions, assets, settlement, etc
 ./scripts/rustfmt.sh                     # == cargo fmt -- --check
 SKIP_WASM_BUILD=1 cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf   # non-standard flags
 ./scripts/test.sh                        # canonical unit-test subset (sets SKIP_WASM_BUILD/RUST_BACKTRACE)
-cargo test -p <crate>                    # single package, e.g. -p pallet-asset
+cargo nextest run -p <crate>             # single package, e.g. -p pallet-asset
 ```
 
 Two extra CI checks that break silently-unrelated-looking PRs:

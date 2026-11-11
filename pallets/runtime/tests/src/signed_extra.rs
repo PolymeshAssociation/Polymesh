@@ -1,7 +1,5 @@
 use frame_support::dispatch::{DispatchClass, DispatchInfo};
 use frame_support::weights::Weight;
-use frame_system::{CheckEra, CheckGenesis, CheckNonce};
-use frame_system::{CheckSpecVersion, CheckTxVersion, CheckWeight};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
@@ -30,22 +28,10 @@ pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
 ///     - Only `Operational` transactions could have `tip` != 0.
 ///     - `Normal` transactions have `priority` == 0, as `tip` == 0.
 fn make_signed_extra(current_block: u64, period: u64, nonce: Nonce, tip: u128) -> TxExtension {
-    (
-        (
-            frame_system::AuthorizeCall::new(),
-            frame_system::CheckNonZeroSender::new(),
-            CheckSpecVersion::<Runtime>::new(),
-            CheckTxVersion::<Runtime>::new(),
-            CheckGenesis::<Runtime>::new(),
-        ),
-        CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
-        CheckNonce::<Runtime>::from(nonce),
-        CheckWeight::<Runtime>::new(),
-        polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-        pallet_permissions::StoreCallMetadata::<Runtime>::new(),
-        frame_metadata_hash_extension::CheckMetadataHash::new(false),
-        pallet_revive::evm::tx_extension::SetOrigin::default(),
-        frame_system::WeightReclaim::<Runtime>::new(),
+    polymesh_runtime_develop::runtime::native_tx_extension(
+        nonce,
+        tip,
+        generic::Era::mortal(period, current_block),
     )
 }
 

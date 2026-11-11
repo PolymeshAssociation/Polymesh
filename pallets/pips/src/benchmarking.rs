@@ -239,24 +239,6 @@ benchmarks! {
         expiry_verify::<T>();
     }
 
-    // `propose` from a committee origin.
-    propose_from_committee {
-        let user = user::<T>("proposer", 0);
-        let (proposal, url, description) = make_proposal::<T>();
-        let origin = T::UpgradeCommitteeVMO::try_successful_origin().unwrap();
-        zeroize_deposit::<T>();
-        setup_worst_case_expiry::<T>();
-        let some_url = Some(url.clone());
-        let some_desc = Some(description.clone());
-        let call = Call::<T>::propose { proposal, deposit: 0u32.into(), url: some_url, description: some_desc };
-    }: {
-        call.dispatch_bypass_filter(origin).unwrap();
-    }
-    verify {
-        propose_verify::<T>(url, description).unwrap();
-        expiry_verify::<T>();
-    }
-
     vote {
         let proposer = user::<T>("proposer", 0);
         let (proposal, url, description) = make_proposal::<T>();

@@ -7,7 +7,54 @@ use polymesh_worker_common::*;
 use crate::cache::modules::{BackendModuleCache, ProtocolModuleRef};
 use crate::decompress_module_code;
 
-#[cfg(feature = "polkavm")]
+#[cfg(all(test, feature = "testing"))]
+mod tests {
+    use super::*;
+    use polymesh_worker_protocol_testing::{TestWorkRequest, TestWorkResponse};
+
+    #[test]
+    fn vm_traps_are_worker_errors_and_allow_runtime_fallback() {
+        let kinds = [
+            #[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
+            BackendKind::PolkaVM,
+            #[cfg(feature = "wasmer")]
+            BackendKind::Wasmer,
+            #[cfg(feature = "wasmtime")]
+            BackendKind::Wasmtime,
+        ];
+        let backends = Backends::with_backends(&kinds, None);
+        assert_eq!(backends.backends.len(), kinds.len());
+        let wasm_bytes =
+            include_bytes!("../modules/testing/v0/polymesh-worker-protocol-testing.wasm.zst");
+        let polkavm_bytes =
+            include_bytes!("../modules/testing/v0/polymesh-worker-protocol-testing.polkavm.zst");
+        for backend in &backends.backends {
+            let module_bytes = match backend.kind() {
+                BackendKind::PolkaVM => decompress_module_code(polkavm_bytes).unwrap(),
+                _ => decompress_module_code(wasm_bytes).unwrap(),
+            };
+            let module = backend.load_module(&module_bytes).unwrap();
+            let mut instance = module.instantiate().unwrap();
+            instance.initialize(None).unwrap();
+            let result = instance.execute(&WorkRequest::new(TestWorkRequest::Trap));
+            let fallback = match result {
+                Err(WorkerError::ModuleExecutionFailed) => TestWorkRequest::Trap.execute(),
+                other => panic!(
+                    "{:?} returned {other:?} for the trap request",
+                    backend.kind()
+                ),
+            };
+            assert_eq!(
+                fallback,
+                Ok(TestWorkResponse::TrapFallback),
+                "{:?} runtime fallback failed",
+                backend.kind(),
+            );
+        }
+    }
+}
+
+#[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
 mod polkavm;
 #[cfg(feature = "wasmer")]
 mod wasmer;
@@ -35,9 +82,13 @@ impl Backends {
 
     pub fn new(native: Option<Box<dyn Backend>>) -> Self {
         // Try loading all backends and see which ones are available.
+        // Note: PolkaVM has no native execution on non-x86_64 hosts (e.g. ARM)
+        // and falls back to a slower interpreter, so it is excluded from the
+        // default backends there.
         Self::with_backends(
             &[
                 BackendKind::Native,
+                #[cfg(target_arch = "x86_64")]
                 BackendKind::PolkaVM,
                 BackendKind::Wasmer,
                 BackendKind::Wasmtime,
@@ -57,7 +108,10 @@ impl Backends {
                     }
                 }
                 BackendKind::PolkaVM => {
-                    #[cfg(feature = "polkavm")]
+                    // Note: PolkaVM has no native execution on non-x86_64 hosts
+                    // (e.g. ARM) and falls back to a slower interpreter, so it
+                    // is only available on x86_64.
+                    #[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
                     {
                         match polkavm::PolkavmBackend::new_boxed() {
                             Ok(backend) => backends.push(backend as _),
@@ -65,6 +119,12 @@ impl Backends {
                                 "Failed to initialize PolkaVM backend, disabling it: {err:?}"
                             ),
                         }
+                    }
+                    #[cfg(all(feature = "polkavm", not(target_arch = "x86_64")))]
+                    {
+                        log::warn!(
+                            "PolkaVM backend was requested, but it is only supported on x86_64 hosts; skipping it."
+                        );
                     }
                 }
                 BackendKind::Wasmtime => {
@@ -146,6 +206,16 @@ impl BackendManager {
         }
 
         self.inner.lock().load_protocol(allowed, protocol, loader)
+    }
+
+    /// Load the protocol module for every available compatible backend.
+    pub fn load_protocols(
+        &self,
+        allowed: BackendBitmask,
+        protocol: Protocol,
+        loader: &mut dyn BackendModuleLoader,
+    ) -> Vec<ProtocolModuleRef> {
+        self.inner.lock().load_protocols(allowed, protocol, loader)
     }
 }
 
@@ -312,16 +382,12 @@ pub trait BackendModuleInstance: Send + Sync {
         let res_fat_ptr = match self.call_execute(req_len) {
             Ok(fat_ptr) => fat_ptr,
             Err(err) => {
-                // The `execute` call should only fail if the work request execution panicked,
-                // in which case we want to reject the work request (for proof validation this means the proof is rejected)
-                // instead of treating it as a module execution error, so we return an `ExecuteWorkFailed` protocol error
-                // instead of a `ModuleExecutionFailed` worker error.
                 log::warn!(
                     "Backend[{}] Failed to call execute: {err:?}",
                     std::any::type_name::<Self>()
                 );
                 self.release_scratch_pad(ptr, size)?;
-                return Ok(Err(ProtocolError::ExecuteWorkFailed));
+                return Err(WorkerError::ModuleExecutionFailed);
             }
         };
 

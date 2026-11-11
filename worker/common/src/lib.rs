@@ -41,6 +41,24 @@ pub use config::*;
 #[cfg(feature = "host_logger")]
 pub mod logger;
 
+#[cfg(feature = "native_module")]
+pub mod native_module;
+
+pub mod module;
+
+/// The host functions available to protocol modules built as native shared libraries.
+///
+/// Pointers in fat pointers are module addresses, which the host maps below 4 GiB.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct NativeHostFunctions {
+    pub logger_max_level: extern "C" fn() -> u32,
+    pub logger_enabled: extern "C" fn(level: u32) -> u32,
+    pub logger_log: extern "C" fn(level: u32, target_fat_ptr: u64, msg_fat_ptr: u64),
+    pub msm_unchecked: extern "C" fn(fat_ptr: u64) -> u32,
+    pub batch_hash_to_curve: extern "C" fn(fat_ptr: u64) -> u32,
+}
+
 /// Seed used for verifying or generating proofs.
 pub type WorkSeed = [u8; 32];
 
@@ -134,6 +152,8 @@ pub struct BackendModuleDefinition {
 
 /// The maximum module code size limit, used for decompression safety (e.g. to prevent decompression bombs).
 pub const MODULE_CODE_SIZE_LIMIT: usize = 10 * 1024 * 1024; // 10 MB
+/// Maximum encoded work request/response size, matching the DART worker scratch limit.
+pub const MAX_WORK_REQUEST_SIZE: usize = 10 * 1024 * 1024;
 
 /// Pack a fat pointer (ptr and length) into a u64.
 pub fn pack_fat_pointer(ptr: u32, len: u32) -> u64 {

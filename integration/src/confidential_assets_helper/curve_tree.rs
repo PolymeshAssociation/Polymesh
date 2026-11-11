@@ -16,7 +16,6 @@ use polymesh_dart::{
 pub use polymesh_api::types::polymesh_dart::curve_tree::common::{
     NodeLocation as ChainNodeLocation, NodePosition as ChainNodePosition,
 };
-use polymesh_api::ChainApi as _;
 pub use polymesh_api::{Api, TransactionResults};
 
 use super::*;

@@ -72,12 +72,47 @@ macro_rules! log {
 
 /// Weight functions needed for pallet_staking.
 pub trait WeightInfo {
-    fn add_permissioned_validator(m: u32) -> Weight;
+    fn add_permissioned_validator() -> Weight;
     fn remove_permissioned_validator() -> Weight;
     fn change_slashing_allowed_for() -> Weight;
     fn update_permissioned_validator_intended_count() -> Weight;
     fn chill_from_governance(n: u32) -> Weight;
     fn set_commission_cap(n: u32) -> Weight;
+}
+
+pub mod migrations {
+    use super::*;
+    use frame_support::traits::GetStorageVersion;
+
+    /// Populates [`IdentityValidatorStashes`] with the stashes that are already validating.
+    pub fn migrate_v2<T: Config>() -> Weight {
+        if Pallet::<T>::on_chain_storage_version() >= 2 {
+            return Weight::zero();
+        }
+
+        let mut reads: u64 = 0;
+        let mut writes: u64 = 0;
+        for stash in Validators::<T>::iter_keys() {
+            reads += 2;
+            let stash_did = pallet_identity::KeyRecords::<T>::get(&stash)
+                .and_then(|record| record.get_did_key_type())
+                .map(|(did, _)| did);
+            if let Some(did) = stash_did {
+                IdentityValidatorStashes::<T>::insert(did, stash, ());
+                writes += 1;
+            }
+        }
+
+        StorageVersion::new(2).put::<Pallet<T>>();
+        writes += 1;
+
+        log::info!(
+            target: crate::LOG_TARGET,
+            "Tracked {} validator stashes in IdentityValidatorStashes",
+            writes - 1,
+        );
+        T::DbWeight::get().reads_writes(reads + 1, writes)
+    }
 }
 
 pub use pallet::*;
@@ -86,7 +121,7 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
 
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -128,6 +163,18 @@ pub mod pallet {
     #[pallet::getter(fn permissioned_identity)]
     pub type PermissionedIdentity<T: Config> =
         StorageMap<_, Twox64Concat, IdentityId, PermissionedIdentityPrefs, OptionQuery>;
+
+    /// Stash accounts of an identity that are currently validating.
+    #[pallet::storage]
+    pub type IdentityValidatorStashes<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        IdentityId,
+        Blake2_128Concat,
+        T::AccountId,
+        (),
+        OptionQuery,
+    >;
 
     /// Slashing switch for validators & Nominators.
     #[pallet::storage]
@@ -264,6 +311,10 @@ pub mod pallet {
         fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
             Self::payouts()
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            migrations::migrate_v2::<T>()
+        }
     }
 
     #[pallet::call]
@@ -272,7 +323,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator(20))]
+        #[pallet::weight(<T as Config>::WeightInfo::add_permissioned_validator())]
         pub fn add_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
@@ -288,13 +339,22 @@ pub mod pallet {
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
         /// * identity Validator's IdentityId.
+        ///
+        /// All stashes of `identity` that are still validating are chilled.
+        ///
+        /// The worst-case weight is charged up front and refunded down to the number of stashes
+        /// actually chilled.
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_permissioned_validator())]
+        #[pallet::weight(Pallet::<T>::remove_permissioned_validator_weight(
+            Pallet::<T>::max_validators_per_identity_bound()
+        ))]
         pub fn remove_permissioned_validator(
             origin: OriginFor<T>,
             identity: IdentityId,
-        ) -> DispatchResult {
-            Self::base_remove_permissioned_validator(origin, identity)
+        ) -> DispatchResultWithPostInfo {
+            let chilled = Self::base_remove_permissioned_validator(origin, identity)?;
+            let actual_weight = Self::remove_permissioned_validator_weight(chilled);
+            Ok(Some(actual_weight).into())
         }
 
         /// Switch slashing status on the basis of given `slashing_switch`. Can only be called by root.

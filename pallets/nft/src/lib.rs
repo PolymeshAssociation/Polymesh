@@ -1342,6 +1342,7 @@ impl<T: Config> Pallet<T> {
         match (sender_did, receiver_did) {
             (Ok(sender_did), Ok(receiver_did)) if sender_did == receiver_did => {
                 sender != receiver
+                    && nfts.len() > 0
                     && pallet_asset::Pallet::<T>::ensure_valid_holder(receiver).is_ok()
                     && Self::ensure_same_identity_nft_transfer(sender, nfts).is_ok()
             }

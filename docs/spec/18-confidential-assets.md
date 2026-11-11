@@ -3,7 +3,7 @@
 Sources: `pallets/confidential-assets/src/{lib.rs,settlement.rs,curve_tree.rs}`,
 `worker/` (proof-execution engine), external crate `polymesh-dart`
 (github.com/PolymeshAssociation/polymesh-dart, pinned in root `Cargo.toml:39-41`).
-Availability: **develop & testnet only** (pallet index 70); not in mainnet.
+Availability: **develop, testnet, and mainnet** (pallet index 70).
 Related specs: [14-fees-and-extensions](14-fees-and-extensions.md), [README](README.md) runtime matrix.
 
 ## 1. Purpose & privacy model
@@ -28,6 +28,18 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
   (decrypt-only observers) and **mediators** (must affirm), bounded by `MaxAssetAuditors`/
   `MaxAssetMediators` = 2 (:739, :68-74); every asset needs ≥1 auditor or mediator
   (`NoAuditorsOrMediators`, :2521-2525). `NextAssetId` :730, names/symbols/decimals :744-755.
+- Freeze commitment state: `AssetFrozen` stores an optional `FreezeOrigin` (`Issuer` or `Root`),
+  separate from `Details` so existing detail entries need no conversion. No entry means unfrozen.
+  Every pallet-created `AssetState`, including the
+  shared asset-leaf update path, reads this flag. DART's `AssetState::commitment()` and
+  `asset_data()` use the struct's `frozen` field; `AssetData` carries the same flag and commits
+  `(asset_id + 1) * j_0 + frozen * freeze_gen` in the existing asset-id coordinate slots.
+  Unfrozen leaves are unchanged. `get_asset_keys_lookup` takes the revealed asset-id set, reads
+  current keys and freeze flags, rejects frozen assets, and returns the complete lookup.
+  Normal and instant settlement creation reject a revealed frozen asset
+  with `AssetIsFrozen` before worker verification; the instant path also rejects before checking
+  leg references. The freeze-state setter is described in section 10. The changed DART
+  state/request encoding requires matching worker module blobs before deployment.
 - Accounts: `AccountDid`/`EncryptionKeyDid`/`DidAccounts` (:773-791),
   `AccountAssetRegistrations` (per-asset init guard :814-822), `FeeAccountDid` (:795).
 - **Three curve trees** (storage groups):
@@ -41,7 +53,7 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 - Settlements: `SettlementState` (:1002), `SettlementLegs` (encrypted legs :1020-1025),
   `SettlementPendingAffirmations` / `SettlementPendingFinalizations` (:1035-1042),
   `LegAffirmationStatus` (:1047-1056), memo (:1007).
-- Worker session: `CurrentWorkerSessionId` (:1060).
+- Worker session: `CurrentWorkerSessionId` (set lazily, taken in `on_finalize`; see §6).
 
 ## 3. Extrinsics (selected; full list lib.rs:1153-1883)
 
@@ -56,8 +68,88 @@ the DART protocol (ZK proofs implemented in the external `polymesh-dart` crate):
 | `submit_batched_proofs(16)` | any signed | atomic batch of ops | :1771 |
 | `relayer_submit_batched_proofs(17)` | any signed **relayer** | private fee payment (§5) | :1800 |
 | `execute_instant_settlement(18)`, instant affirmations (19/20) | any signed | single-tx create+affirm+execute | :1822-1883 |
+| `set_required_claim(21)` / `remove_required_claim(22)` | Root | set/clear the required-claim spec for a role | §9 |
+| `distribute_encryption_key(23)` | DID meeting `Auditor` requirements | register a new shared encryption key to the caller and distribute its secret to registered recipient encryption keys (proof-verified) | §9 |
+| `update_asset_keys(24)` | confidential asset issuer | replace the asset's mediator/auditor key set after owner, registration, distribution, and role-claim checks | §9 |
+| `set_asset_frozen(25)` | confidential asset issuer or Root | set `frozen` and recommit the leaf; Root may override either state, while issuers cannot change a Root freeze | §10 |
 
-No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
+No burn extrinsic; no manual root updates (hooks maintain roots, §6).
+
+## 10. Confidential Asset Freeze
+
+`set_asset_frozen(asset_id, frozen)` accepts Root or a permissioned caller whose DID owns the
+asset. `true` freezes and `false` unfreezes. Root always has authority over an existing asset. Issuers cannot unfreeze a Root freeze
+or overwrite it with an issuer freeze. Repeating an authorized call in the same state is a no-op.
+`AssetFrozen` records `Issuer` or `Root`; unfreezing removes the entry. Successful transitions
+emit `AssetFrozen`/`AssetUnfrozen` with the acting authority. `recommit_asset_leaf` emits
+`AssetStateLeafUpdated` after every successful asset-leaf write, including key updates.
+
+Freezing is scoped to preventing new asset transfers: it rejects new settlement and instant-settlement
+proofs for the asset, subject to the hidden-asset root-age window below. It does not disable issuer
+administration such as minting, account registration, or updating auditor and mediator keys. These
+operations preserve the frozen state; only an authorized unfreeze clears it.
+
+State changes and asset-tree updates use FRAME's extrinsic storage transaction, without an
+explicit `transactional` attribute: failed worker execution or tree
+updates leave both freeze authority and the asset leaf unchanged. Key updates retain the freeze
+state. Freezing does not affect affirmation, execution, or finalization of existing settlements.
+Revealed-asset settlement creation checks the current freeze state immediately. Hidden-asset
+proofs cannot use a frozen leaf, but pre-freeze roots remain usable until
+`MaxAssetCurveTreeRootAge` expires, so enforcement for hidden assets has that delay.
+
+The parameterless `set_asset_frozen` weight benchmarks the worst-case `frozen = true` transition
+with maximum auditor/mediator counts. Current weights
+provisionally charge the worst-case key-update weight plus additional database work; production
+weight generation and metadata refresh remain release gates. Issuer unfreeze currently checks
+ownership and Root precedence, not a fresh validation of every auditor/mediator role claim.
+
+## 9. Role gating via claims
+
+No registry: auditors/mediators never register — they just need valid claims on their DIDs.
+Root can gate three roles with a required-claim spec (`RequiredClaims`: `Claim` + bounded
+trusted-issuer list, `MaxTrustedClaimIssuers = 2` in develop, testnet and mainnet): `AssetCreator`,
+`Auditor`, `Mediator`.
+Mediators fall back to the auditor spec when no mediator spec is set, so one spec can cover both.
+An empty issuer list blocks the role entirely (deny-all).
+
+Genesis config `trustedIssuer: Option<IdentityId>` installs, per role, a
+`KnowYourCustomer(Scope::Custom(b"DART:<Role>"))` spec (`RoleKind::default_claim`, e.g.
+`DART:AssetCreator`, `DART:Auditor`, `DART:Mediator`) trusting that DID
+(dev/CI/testnet chain specs use the first GC member DID). Without it —
+and on upgraded chains (v0→v1 migration) — all roles start deny-all, so no one can act before
+Root installs the correct requirements (Mainnet safety).
+Removing a spec restores permissionless behavior for that role.
+
+Only **live (unexpired)** claims equal to the spec's `Claim` (type, scope and value) count
+(`fetch_claim` filters expiry at read time), so
+expiry is enforced at use time on every check: `base_create_asset` requires the issuer's DID to
+meet the `AssetCreator` requirements, and `ensure_mediators_registered` /
+`ensure_auditors_registered` require each key-owning DID to meet the mediator/auditor
+requirements — at asset creation and on owner-triggered updates via `update_asset_keys`.
+
+**Shared encryption keys.** `distribute_encryption_key` verifies a `KeyDistributionProof`
+(nonce = caller DID) that the shared key's secret was encrypted to each recipient encryption
+key, and registers the shared key (`EncryptionKeyDid` → caller; must not already be registered,
+so each shared key is distributed once). The caller (normally the asset issuer) and every
+recipient key's DID must meet the `Auditor` requirements at distribution time. Recipients are
+stored in `SharedKeyRecipients` (bounded by `MaxSharedKeyRecipients`); there is no removal yet
+(key de-registration is future work). `MaxSharedKeyRecipients = 5` in develop, testnet and mainnet.
+- Auditor keys, shared or not: the DID linked to the encryption key must meet the `Auditor`
+  requirements at asset creation. For shared keys this is the key creator; recipient claims are
+  not re-checked at asset creation.
+- Mediator `(account, enc)` pair: `enc` is either the account's own encryption key, or a shared
+  key distributed to the account's own encryption key (`EncryptionKeyNotShared` otherwise);
+  the account's DID must meet the `Mediator` requirements.
+- `update_asset_keys` is owner-only and applies the same mediator/auditor registration and claim
+  checks as asset creation before replacing the key set and updating the current asset-tree leaf.
+  Existing settlements retain their encrypted leg and mediator snapshots. Proofs using a
+  historical asset root remain valid until the root reaches `MaxAssetCurveTreeRootAge`.
+
+Integration tests rely on the genesis specs: Alice (a key of GC 1) adds the role-specific
+`KnowYourCustomer(Custom(b"DART:<Role>"))` claim to each test's issuer/auditors/mediators
+(`DartAssetTester::onboard_confidential_roles`, hooked into asset creation). Negative tests
+assert `MissingRequiredClaim` failures for claimless creators/auditors/mediators and for DIDs
+holding only another role's claim.
 
 ## 4. Settlement flow (settlement.rs)
 
@@ -72,6 +164,21 @@ No freeze/burn extrinsics; no manual root updates (hooks maintain roots, §6).
   (:484-551); actual balance effects happen through each party's own proofs — sender finalizes
   with `sender_update_counter` (:361-385), receiver credits funds with `receiver_claim`
   (:458-482). When pending finalizations hit 0, storage is pruned (`finalize` :554-597).
+  Finalization also fires on the **Rejected** path: revert affirmations
+  (`sender_revert_affirmation` / `receiver_revert_affirmation` / mediator reject) finalize
+  the settlement once all pending finals complete — rejected settlements must not get stuck.
+- Finalization prunes **everything except the `SettlementState` Finalized tombstone**:
+  `SettlementPendingFinalizations`, `SettlementPendingAffirmations`, `SettlementMemo`,
+  `SettlementLegCount`, `SettlementLegs`,
+  `LegAffirmationStatus` and `LegMediators` are all removed. The tombstone is kept **forever**
+  — it is the settlement-proof replay guard in `base_create_settlement`
+  (`SettlementAlreadyExists`).
+- `StorageVersion` 0→1 migration (`migrate_to_v1` in `settlement.rs`, run from
+  `on_runtime_upgrade`; version-gated, no-op on fresh chains):
+  - every `Pending` settlement is rejected through the normal reject path (finalized and
+    pruned if it has no pending finalizations, otherwise left `Rejected`);
+  - every already-`Rejected` settlement with zero pending finalizations is finalized and pruned;
+  - v0.1 settlement legs are left unchanged.
 - Reverts: sender/receiver can revert affirmations while Pending/Rejected (:390-455); reverting
   a Pending settlement rejects it (:416-419). Transition guards in `set_party_status`
   (:135-198).
@@ -87,18 +194,70 @@ privacy:
    `relayer_submit_batched_proofs` (:1800 → :2338-2386): the `FeePaymentWithBatchedProofs`
    includes a `FeeAccountPaymentProof` bound to the batch content hash (:2356), spending the
    user's private fee balance (nullifier double-spend check :2411). The pool reimburses the
-   relayer publicly (:2429); the fee must cover the weight-derived tx fee (:2399-2402,
-   commission permitted). **The batch rolls back atomically on failure but the relayer is still
-   paid** (:2360-2383) — relayers are compensated for wasted work; users must trust their proofs.
+   relayer publicly (:2429). Relayers should preflight the fee payment and batch proofs. The
+  signed extension enforces the weight-derived fee floor and commission cap (:2399-2402), and
+  rejects an already-spent nullifier; dispatch rechecks the nullifier as its very first check and
+  verifies the payment proof. If the nullifier was already burnt by a competing transaction, that
+  first check fails and charges only a trivial fee (the proof is never verified); other
+  verification failures charge the full verification weight. Fee-account roots have a four-hour maximum age (two minutes in `ci-runtime`) for both
+  top-ups and relayer payments. Users should choose fresh asset/account roots whose remaining
+  validity exceeds that of the fee-account root, so they cannot expire first while a relayer is
+  holding the submission. If a root expires before inclusion, dispatch fails and the relayer pays
+  the transaction fee. **The batch rolls back atomically on
+  failure but the relayer is still paid once the fee payment succeeds** (:2360-2383) — relayers
+  are compensated for wasted batch work; users must trust their proofs.
 
 This decouples the fee-paying origin from sender/receiver/mediator identities.
+
+### Proof submission binding
+
+Every proof in a relayer batch, including settlement creation and all nested instant-settlement
+proofs, is verified with context bytes selected by the pallet. The runtime derives the context
+from the enclosing fee-payment proof's nullifier before moving that proof, and processes
+the batch only after payment verification succeeds. Direct extrinsics, direct composite
+settlements, and ordinary `submit_batched_proofs` all select `None` internally. Callers
+cannot supply a dispatch-level context or override the fee nullifier. Verification never
+falls back from relayer context to ordinary verification.
+
+The DART v1 protocol accepts an opaque `ctx: Option<Vec<u8>>` for affected verification and
+generation requests. `None` passes an empty slice to DART, just like `Some(Vec::new())`.
+The protocol does not interpret the context. The shared
+`polymesh_dart::relayer_batch_proof_context` defines the client/verifier bytes. Pallet handlers
+borrow these bytes as `Option<&Vec<u8>>` and clone them into owned worker requests:
+
+- Ordinary: `None` (empty bytes), preserving existing ordinary proof transcripts.
+- Relayer batch: `Some` containing the SCALE encoding of
+  `(b"polymesh/dart/submission/v1".as_slice(), 1u8, fee_nullifier)`. The domain slice has a
+  SCALE length prefix; the nullifier uses its canonical SCALE encoding. No extra batch envelope
+  is required.
+
+DART's `*_with_context` APIs compose these bytes with the existing operation-specific context,
+including settlement memo/root/leg digest/index and affirmation leg references. The worker
+request includes the optional context bytes, so request/cache hashes distinguish ordinary submissions
+and different fee nullifiers. Settlement verification uses `verify_with_context` for fewer
+than two legs: the local DART API's batched single-leg shortcut currently drops the context.
+Multi-leg verification retains the optimized `batched_verify_with_context` path.
+
+Clients must top up/select the fee state first, snapshot its current-state nullifier, generate
+every batch proof with that context, assemble the ordered batch, and then generate the payment
+from the same fee state. Integration builders check the state has not advanced and the completed
+payment uses the snapshotted nullifier. Instant-settlement participants use the venue's context,
+not their own fee accounts. Existing complete-batch ordering/content and broadcast/target fee
+commitments remain unchanged. Failed batches retain payment, reimbursement, and the consumed
+fee nullifier; successful fee verification followed by batch failure does not reduce the
+declared call weight to a processed prefix.
+
+This changes the undeployed DART v1 worker request ABI without bumping its `1.0.0` version.
+Matching native, PolkaVM, WASM, and testing modules must be rebuilt together before deploying v1.
+DART v0 dependencies and historical modules are unchanged. No pallet storage layout or
+extrinsic/proof payload change is introduced. Full confidential-asset benchmarks, refreshed
+weights/fee measurements, and live worker differential tests remain deployment gates.
 
 ## 6. Curve trees, roots & the worker engine
 
 - Trees are recomputed **once per block**: extrinsics only append leaves; `on_finalize` commits
   batched leaves and re-roots (`finalize_block` lib.rs:2936-2944, `commit_leaves_to_tree`
-  :2895-2913); `on_initialize` starts the per-block worker session and prunes old roots
-  (:2926-2934).
+  :2895-2913); `on_initialize` prunes old roots (:2926-2934).
 - Roots are timestamped per block (`TimestampedTreeRoot`, curve_tree.rs:159-254) and kept
   historically; a proof's `root_block` is accepted only if younger than
   `MaxAssetCurveTreeRootAge` (24h) / `MaxAccountCurveTreeRootAge` (2d) /
@@ -112,25 +271,37 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
   `worker/README.md`). The pallet calls it synchronously via a runtime interface
   (`submit_and_wait` lib.rs:2970-2974); request enum `VerifyDartAssetRequest`
   (worker/protocol/dart-v1/src/verify.rs:30-124) covers registration, minting, settlement,
-  affirmation, revert, claim, fee-payment and key-distribution proofs. A worker panic ⇒ proof
-  rejected (worker/native/src/lib.rs:48-74).
+  affirmation, revert, claim, fee-payment and key-distribution proofs. If a worker backend fails
+  to execute a request (e.g. a module trap or OOM), verification falls back to the runtime (WASM),
+  which is the authoritative verifier (`worker/common/src/module.rs` `do_execute_fallback`).
+  A panic during that runtime re-verification aborts the runtime call: the extrinsic can never be
+  included, block production skips it and removes it from the tx pool, and a block containing it
+  fails to import.
+- **Worker session**: started lazily by `Pallet::session_id()` (`start_session` host function,
+  id cached in `CurrentWorkerSessionId`) and ended in `on_finalize`. The host keeps sessions in
+  a `WorkerSessionExt` externalities extension, so they are also dropped when the runtime
+  call's extensions are dropped (one `ApiRef` for block building/import, one call for
+  `state_call`/benchmarks).
 
 ## 7. Invariants & review checklist
 
 - [ ] **Nullifier uniqueness** (`NullifierAlreadyUsed`) is the double-spend defense — every
       state-consuming proof path must check-and-insert atomically.
-- [ ] Root age windows bound proof staleness; extending max ages or pruning windows changes the
-      security/liveness tradeoff — keep `RECENT_BLOCKS_TO_KEEP` ≥ age windows in blocks.
+- [x] Root age windows bound proof staleness; every proof lookup rejects missing or expired roots.
+  Pruning removes only expired roots and stops at the first unexpired root, so
+  `RECENT_BLOCKS_TO_KEEP` is a work-avoidance margin, not a requirement to cover the age window.
 - [ ] Leaf commits are batched per block; any new leaf-writing path must go through the
       `NextLeafIndex`/`LastCommitted*` machinery or root recomputation misses leaves.
 - [ ] Settlement pending counters (affirmations/finalizations) must be exact — premature zero ⇒
       premature execute/finalize.
 - [ ] Fee-pool solvency: pool balance must always cover Σ outstanding private fee balances
       (deposits on register/topup; withdrawals only via verified payment proofs).
-- [ ] Proof context binding: batched proofs bind to content hash (`fee_payment_ctx`), settlement
-      proofs bind to root_block — never verify a proof without its binding context.
-- [ ] Worker sessions must bracket every block (`NoCurrentWorkerSession` guard); upgrading the
-      worker protocol blob is consensus-critical.
+- [ ] Proof context binding: fee payments bind to the complete batch and target
+  (`fee_payment_ctx`); every relayer-batch proof additionally binds to that payment's
+  spent-state nullifier. Preserve settlement/leg bindings and never retry in ordinary mode.
+- [ ] Worker sessions are scoped to the runtime call (host `WorkerSessionExt`); an unknown
+      session id makes requests fall back to runtime execution. Upgrading the worker protocol
+      blob is consensus-critical.
 
 ## 8. Test map
 

@@ -26,7 +26,7 @@ RUSTFLAGS="-C target-feature=+simd128 --remap-path-prefix=$(pwd)= --remap-path-p
 	cargo rustc --crate-type cdylib \
 	--target=$target \
 	--no-default-features \
-	--features wasm,version_$VERSION \
+	--features wasm,testing,version_$VERSION \
   --release --lib -p $crate
 
 cp "$wasm_path" "$output_path"

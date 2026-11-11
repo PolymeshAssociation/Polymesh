@@ -58,6 +58,8 @@ use pallet_session::historical as pallet_session_historical;
 use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE};
 
 type Runtime = TestStorage;
+type ConfidentialAssetsTxExtension =
+    pallet_confidential_assets::CheckRelayerSubmitBatchedProofs<Runtime>;
 
 lazy_static! {
     pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
@@ -417,6 +419,9 @@ mod runtime {
     #[runtime::pallet_index(60)]
     pub type WorkerModules = pallet_worker_modules::Pallet<Runtime>;
 
+    #[runtime::pallet_index(70)]
+    pub type ConfidentialAssets = pallet_confidential_assets::Pallet<Runtime>;
+
     #[runtime::pallet_index(80)]
     pub type Revive = pallet_revive::Pallet<Runtime>;
 
@@ -425,6 +430,29 @@ mod runtime {
 }
 
 polymesh_runtime_common::runtime_apis! {}
+
+parameter_types! {
+    pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMaxRelayerCommission: Balance = 10 * POLY;
+    pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000;
+    pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000;
+    pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000;
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 14_400_000;
+}
+
+type ConfidentialAssetsMaxAssetDataLength = polymesh_dart::ConstSize<8192>;
+type ConfidentialAssetsMaxSettlementLegs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxKeysPerRegProof = polymesh_dart::ConstSize<20>;
+type ConfidentialAssetsMaxBatchedProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxFeeAccountTopupProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxAccountAssetRegProofs = polymesh_dart::ConstSize<10>;
+type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
+type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxTrustedClaimIssuers = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxSharedKeyRecipients = polymesh_dart::ConstSize<5>;
 
 // Precompiles
 type Precompiles = (
@@ -1128,6 +1156,7 @@ fn signed_extra(nonce: Nonce) -> TxExtension {
         polymesh_transaction_payment::ChargeTransactionPayment::from(0),
         pallet_permissions::StoreCallMetadata::new(),
         frame_metadata_hash_extension::CheckMetadataHash::new(false),
+        ConfidentialAssetsTxExtension::default(),
         pallet_revive::evm::tx_extension::SetOrigin::default(),
         frame_system::WeightReclaim::new(),
     )

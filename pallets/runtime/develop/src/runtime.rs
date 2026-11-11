@@ -45,6 +45,8 @@ pub use pallet_timestamp::Call as TimestampCall;
 /// 100% goes to the block author.
 pub type DealWithFees = Author<Runtime>;
 pub type TxFeeHandler = polymesh_runtime_common::fee_details::TxFeeHandler<Runtime>;
+pub type ConfidentialAssetsTxExtension =
+    pallet_confidential_assets::CheckRelayerSubmitBatchedProofs<Runtime>;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -109,6 +111,7 @@ parameter_types! {
 
     // Confidential asset parameters
     pub const ConfidentialAssetsMaxTotalSupply: Balance = polymesh_dart::MAX_BALANCE as _;
+    pub const ConfidentialAssetsMaxRelayerCommission: Balance = 10 * ONE_POLY;
 
     // Multisig
     pub const MaxMultiSigSigners: u32 = 50;
@@ -197,7 +200,7 @@ parameter_types! {
     pub const ConfidentialAssetsMinCurveTreeRootUpdateInterval: Moment = 600_000; // 10 min
     pub const ConfidentialAssetsMaxAssetCurveTreeRootAge: Moment = 86_400_000; // 24 hours
     pub const ConfidentialAssetsMaxAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
-    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 172_800_000; // 2 days
+    pub const ConfidentialAssetsMaxFeeAccountCurveTreeRootAge: Moment = 14_400_000; // 4 hours
 }
 
 // Precompiles
@@ -243,6 +246,8 @@ type ConfidentialAssetsMaxSettlementMemoLength = polymesh_dart::ConstSize<256>;
 type ConfidentialAssetsMaxAssetAuditors = polymesh_dart::ConstSize<2>;
 type ConfidentialAssetsMaxAssetMediators = polymesh_dart::ConstSize<2>;
 type ConfidentialAssetsMaxAssetEncryptionKeys = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxTrustedClaimIssuers = polymesh_dart::ConstSize<2>;
+type ConfidentialAssetsMaxSharedKeyRecipients = polymesh_dart::ConstSize<5>;
 
 // Staking:
 pallet_staking_reward_curve::build! {
@@ -574,31 +579,6 @@ mod runtime {
 
 impl pallet_worker_testing::Config for Runtime {
     type WeightInfo = pallet_worker_testing::weights::SubstrateWeight;
-}
-
-impl pallet_confidential_assets::Config for Runtime {
-    type Currency = Balances;
-
-    type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
-
-    type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
-    type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
-
-    // These are for publishing as constants in the pallet metadata.
-    type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
-    type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
-    type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
-    type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
-    type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
-    type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
-    type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
-    type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
-    type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
-    type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
-    type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
-    type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
-    type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
-    type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

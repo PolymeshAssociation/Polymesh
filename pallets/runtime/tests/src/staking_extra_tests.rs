@@ -2,7 +2,7 @@ use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{DispatchResult, Perbill};
 
-use polymesh_primitives::{AuthorizationData, IdentityId, Permissions};
+use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Permissions};
 
 use crate::ext_builder::ExtBuilder;
 use crate::storage::{add_secondary_key, TestStorage, User};
@@ -59,13 +59,10 @@ fn updating_controller() {
                 )
             );
 
-            assert_eq!(
-                pallet_identity::AccountKeyRefCount::<TestStorage>::get(alice.acc()),
-                1
-            );
-
-            assert_ok!(pallet_staking::Pallet::<TestStorage>::chill(alice.origin(),));
-
+            // Removing the permission chills the stash, releasing its ref count.
+            assert!(!pallet_staking::Validators::<TestStorage>::contains_key(
+                alice.acc()
+            ));
             assert_eq!(
                 pallet_identity::AccountKeyRefCount::<TestStorage>::get(alice.acc()),
                 0
@@ -106,14 +103,27 @@ fn permission(did: IdentityId, intended_count: u32) {
     );
 }
 
+fn remove_permission(did: IdentityId) {
+    assert_ok!(
+        pallet_validators::Pallet::<TestStorage>::remove_permissioned_validator(
+            Origin::root(),
+            did,
+        )
+    );
+}
+
 fn running_count(did: IdentityId) -> u32 {
     pallet_validators::PermissionedIdentity::<TestStorage>::get(did)
         .unwrap()
         .running_count
 }
 
+fn key_ref_count(key: Sr25519Keyring) -> u64 {
+    pallet_identity::AccountKeyRefCount::<TestStorage>::get(key.to_account_id())
+}
+
 #[test]
-fn readding_identity_counts_stashes_left_by_remove_permissioned_validator() {
+fn remove_permissioned_validator_chills_all_stashes() {
     ExtBuilder::default().build().execute_with(|| {
         pallet_staking::ValidatorCount::<TestStorage>::put(100);
         let alice: User = User::new(Sr25519Keyring::Alice);
@@ -125,49 +135,94 @@ fn readding_identity_counts_stashes_left_by_remove_permissioned_validator() {
             Sr25519Keyring::Charlie
         ));
         assert_eq!(running_count(alice.did), 2);
+        assert_eq!(key_ref_count(Sr25519Keyring::Bob), 1);
 
-        // De-permissioning leaves both stashes validating.
-        assert_ok!(
-            pallet_validators::Pallet::<TestStorage>::remove_permissioned_validator(
-                Origin::root(),
-                alice.did,
-            )
-        );
-        assert_eq!(pallet_staking::Validators::<TestStorage>::count(), 2);
+        remove_permission(alice.did);
+        assert_eq!(pallet_staking::Validators::<TestStorage>::count(), 0);
+        assert_eq!(key_ref_count(Sr25519Keyring::Bob), 0);
+        assert_eq!(key_ref_count(Sr25519Keyring::Charlie), 0);
 
-        // The live stashes still occupy the identity's slots after the re-add.
+        // The re-added identity starts with all of its slots free.
         permission(alice.did, 2);
-        assert_eq!(running_count(alice.did), 2);
-        assert_eq!(
-            validate_from_secondary_key(alice.did, Sr25519Keyring::Dave),
-            Err(pallet_staking::Error::<TestStorage>::TooManyValidators.into())
-        );
+        assert_eq!(running_count(alice.did), 0);
+        assert_ok!(validate_from_secondary_key(alice.did, Sr25519Keyring::Dave));
+        assert_eq!(running_count(alice.did), 1);
     });
 }
 
 #[test]
-fn readding_frozen_identity_counts_secondary_key_stashes() {
+fn remove_permissioned_validator_chills_frozen_secondary_key_stashes() {
     ExtBuilder::default().build().execute_with(|| {
         pallet_staking::ValidatorCount::<TestStorage>::put(100);
         let alice: User = User::new(Sr25519Keyring::Alice);
 
         permission(alice.did, 2);
         assert_ok!(validate_from_secondary_key(alice.did, Sr25519Keyring::Bob));
-        assert_ok!(
-            pallet_validators::Pallet::<TestStorage>::remove_permissioned_validator(
-                Origin::root(),
-                alice.did,
-            )
-        );
         assert_ok!(pallet_identity::Pallet::<TestStorage>::freeze_secondary_keys(alice.origin()));
 
+        remove_permission(alice.did);
+        assert_eq!(pallet_staking::Validators::<TestStorage>::count(), 0);
+        assert_eq!(key_ref_count(Sr25519Keyring::Bob), 0);
+    });
+}
+
+fn tracked_stashes(did: IdentityId) -> Vec<AccountId> {
+    let mut stashes: Vec<AccountId> =
+        pallet_validators::IdentityValidatorStashes::<TestStorage>::iter_key_prefix(did).collect();
+    stashes.sort();
+    stashes
+}
+
+fn sorted(mut keys: Vec<AccountId>) -> Vec<AccountId> {
+    keys.sort();
+    keys
+}
+
+#[test]
+fn validator_stashes_are_tracked_by_staking_hooks() {
+    ExtBuilder::default().build().execute_with(|| {
+        pallet_staking::ValidatorCount::<TestStorage>::put(100);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Sr25519Keyring::Charlie.to_account_id();
+
         permission(alice.did, 2);
-        assert_eq!(running_count(alice.did), 1);
+        assert_ok!(validate_from_secondary_key(alice.did, Sr25519Keyring::Bob));
+        assert_ok!(validate_from_secondary_key(
+            alice.did,
+            Sr25519Keyring::Charlie
+        ));
+        assert_eq!(
+            tracked_stashes(alice.did),
+            sorted(vec![bob.clone(), charlie.clone()])
+        );
+
+        // Re-validating an existing validator doesn't change anything.
+        assert_ok!(pallet_staking::Pallet::<TestStorage>::validate(
+            Origin::signed(bob.clone()),
+            pallet_staking::ValidatorPrefs::default(),
+        ));
+        assert_eq!(running_count(alice.did), 2);
+        assert_eq!(tracked_stashes(alice.did).len(), 2);
+
+        // Chill releases the stash.
+        assert_ok!(pallet_staking::Pallet::<TestStorage>::chill(
+            Origin::signed(bob)
+        ));
+        assert_eq!(tracked_stashes(alice.did), vec![charlie.clone()]);
+
+        // Switching to nominating also releases the stash.
+        assert_ok!(pallet_staking::Pallet::<TestStorage>::nominate(
+            Origin::signed(charlie.clone()),
+            vec![charlie.clone().into()],
+        ));
+        assert!(tracked_stashes(alice.did).is_empty());
+        assert_eq!(running_count(alice.did), 0);
     });
 }
 
 #[test]
-fn readding_identity_counts_stashes_left_by_chill_from_governance() {
+fn remove_permissioned_validator_chills_stashes_left_by_chill_from_governance() {
     ExtBuilder::default().build().execute_with(|| {
         pallet_staking::ValidatorCount::<TestStorage>::put(100);
         let alice: User = User::new(Sr25519Keyring::Alice);
@@ -181,7 +236,7 @@ fn readding_identity_counts_stashes_left_by_chill_from_governance() {
             Sr25519Keyring::Charlie
         ));
 
-        // Only one of the two stashes is chilled.
+        // Only one of the two stashes is chilled; the other stays tracked.
         assert_ok!(
             pallet_validators::Pallet::<TestStorage>::chill_from_governance(
                 Origin::root(),
@@ -189,20 +244,55 @@ fn readding_identity_counts_stashes_left_by_chill_from_governance() {
                 vec![bob],
             )
         );
-        assert_eq!(pallet_staking::Validators::<TestStorage>::count(), 1);
+        assert_eq!(tracked_stashes(alice.did), vec![charlie.clone()]);
 
-        permission(alice.did, 1);
-        assert_eq!(running_count(alice.did), 1);
+        permission(alice.did, 2);
+        remove_permission(alice.did);
+        assert!(!pallet_staking::Validators::<TestStorage>::contains_key(
+            &charlie
+        ));
+        assert!(tracked_stashes(alice.did).is_empty());
+        assert_eq!(key_ref_count(Sr25519Keyring::Charlie), 0);
+    });
+}
+
+#[test]
+fn migrate_v2_tracks_existing_validator_stashes() {
+    use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+    ExtBuilder::default().build().execute_with(|| {
+        pallet_staking::ValidatorCount::<TestStorage>::put(100);
+        let alice: User = User::new(Sr25519Keyring::Alice);
+        let bob = Sr25519Keyring::Bob.to_account_id();
+        let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+        permission(alice.did, 2);
+        assert_ok!(validate_from_secondary_key(alice.did, Sr25519Keyring::Bob));
+        assert_ok!(validate_from_secondary_key(
+            alice.did,
+            Sr25519Keyring::Charlie
+        ));
+
+        // Simulate the pre-upgrade state.
+        let _ = pallet_validators::IdentityValidatorStashes::<TestStorage>::clear(u32::MAX, None);
+        StorageVersion::new(1).put::<pallet_validators::Pallet<TestStorage>>();
+
+        pallet_validators::migrations::migrate_v2::<TestStorage>();
         assert_eq!(
-            validate_from_secondary_key(alice.did, Sr25519Keyring::Dave),
-            Err(pallet_staking::Error::<TestStorage>::TooManyValidators.into())
+            pallet_validators::Pallet::<TestStorage>::on_chain_storage_version(),
+            2
+        );
+        assert_eq!(
+            tracked_stashes(alice.did),
+            sorted(vec![bob.clone(), charlie])
         );
 
-        // Chilling the remaining stash releases its slot.
+        // Running it again is a no-op.
         assert_ok!(pallet_staking::Pallet::<TestStorage>::chill(
-            Origin::signed(charlie)
+            Origin::signed(bob)
         ));
-        assert_eq!(running_count(alice.did), 0);
+        pallet_validators::migrations::migrate_v2::<TestStorage>();
+        assert_eq!(tracked_stashes(alice.did).len(), 1);
     });
 }
 

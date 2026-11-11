@@ -106,6 +106,7 @@ use pallet_base::{
 };
 use pallet_external_agents::Config as EAConfig;
 use pallet_identity::PermissionedCallOriginData;
+use pallet_statistics::WeightInfo as _;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetHolder, AssetHolderKind, AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId,
@@ -962,14 +963,14 @@ pub mod pallet {
         /// * `InvalidGranularity` - If the value to redeem does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[pallet::call_index(8)]
-        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(<T as Config>::WeightInfo::redeem()))]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(Pallet::<T>::redeem_base_weight()))]
         pub fn redeem(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             asset_holder_kind: AssetHolderKind,
         ) -> DispatchResultWithPostInfo {
-            let base_weight = <T as Config>::WeightInfo::redeem();
+            let base_weight = Self::redeem_base_weight();
             let mut weight_meter = WeightMeter::from_limit_unchecked(
                 base_weight,
                 Self::weight_limit_with_statistics(base_weight),
@@ -2346,6 +2347,15 @@ impl<T: AssetConfig> Pallet<T> {
     /// statistics change, so the `redeem` and `controller_transfer*` benchmarks don't measure them.
     fn weight_limit_with_statistics(base_weight: Weight) -> Weight {
         base_weight.saturating_add(Statistics::<T>::update_asset_stats_weight_limit())
+    }
+
+    /// Returns the [`WeightInfo::redeem`] weight without the active statistics load.
+    fn redeem_base_weight() -> Weight {
+        <T as Config>::WeightInfo::redeem().saturating_sub(
+            <T as pallet_statistics::Config>::WeightInfo::active_asset_statistics_load(
+                <T as pallet_statistics::Config>::MaxStatsPerAsset::get(),
+            ),
+        )
     }
 
     /// Reduces `value` tokens from `asset_holder_kind` and [`AssetDetails::total_supply`].

@@ -695,23 +695,7 @@ macro_rules! misc_pallet_impls {
                     // so the actual block number is `n`.
                     .saturating_sub(1);
                 let era = generic::Era::mortal(period, current_block);
-                let tx_ext: TxExtension = (
-                    (
-                        frame_system::AuthorizeCall::new(),
-                        frame_system::CheckNonZeroSender::new(),
-                        frame_system::CheckSpecVersion::new(),
-                        frame_system::CheckTxVersion::new(),
-                        frame_system::CheckGenesis::new(),
-                    ),
-                    frame_system::CheckEra::from(era),
-                    frame_system::CheckNonce::from(nonce),
-                    frame_system::CheckWeight::new(),
-                    polymesh_transaction_payment::ChargeTransactionPayment::from(tip),
-                    pallet_permissions::StoreCallMetadata::new(),
-                    frame_metadata_hash_extension::CheckMetadataHash::new(false),
-                    pallet_revive::evm::tx_extension::SetOrigin::default(),
-                    frame_system::WeightReclaim::new(),
-                );
+                let tx_ext = native_tx_extension(nonce, tip, era);
                 let raw_payload = SignedPayload::new(call, tx_ext)
                     .map_err(|e| {
                         log::warn!("Unable to create signed payload: {:?}", e);
@@ -757,6 +741,7 @@ macro_rules! misc_pallet_impls {
                     polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
                     pallet_permissions::StoreCallMetadata::<Runtime>::new(),
                     frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    ConfidentialAssetsTxExtension::default(),
                     pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )
@@ -882,7 +867,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_migrations::SubstrateWeight;
         }
 
-        pub type MaxModuleCodeSize = polymesh_primitives::ConstSize<{ 2 * 1024 * 1024 }>; // 2 MiB
+        pub type MaxModuleCodeSize = polymesh_primitives::ConstSize<{ 3 * 1024 * 1024 }>; // 3 MiB
         pub type MaxModuleContextSize = polymesh_primitives::ConstSize<{ 2 * 1024 * 1024 }>; // 2 MiB
         pub type MaxModulesPerConfig = polymesh_primitives::ConstSize<8>; // 8 modules per config
 
@@ -891,6 +876,30 @@ macro_rules! misc_pallet_impls {
             type MaxModuleCodeSize = MaxModuleCodeSize;
             type MaxModuleContextSize = MaxModuleContextSize;
             type MaxModulesPerConfig = MaxModulesPerConfig;
+        }
+
+        impl pallet_confidential_assets::Config for Runtime {
+            type Currency = Balances;
+            type WeightInfo = pallet_confidential_assets::weights::SubstrateWeight;
+            type MaxTotalSupply = ConfidentialAssetsMaxTotalSupply;
+            type MaxRelayerCommission = ConfidentialAssetsMaxRelayerCommission;
+            type MaxAssetDataLength = ConfidentialAssetsMaxAssetDataLength;
+            type MaxKeysPerRegProof = ConfidentialAssetsMaxKeysPerRegProof;
+            type MaxBatchedProofs = ConfidentialAssetsMaxBatchedProofs;
+            type MaxFeeAccountRegProofs = ConfidentialAssetsMaxFeeAccountRegProofs;
+            type MaxFeeAccountTopupProofs = ConfidentialAssetsMaxFeeAccountTopupProofs;
+            type MaxAccountAssetRegProofs = ConfidentialAssetsMaxAccountAssetRegProofs;
+            type MaxSettlementLegs = ConfidentialAssetsMaxSettlementLegs;
+            type MaxSettlementMemoLength = ConfidentialAssetsMaxSettlementMemoLength;
+            type MaxAssetAuditors = ConfidentialAssetsMaxAssetAuditors;
+            type MaxAssetMediators = ConfidentialAssetsMaxAssetMediators;
+            type MaxAssetEncryptionKeys = ConfidentialAssetsMaxAssetEncryptionKeys;
+            type MaxTrustedClaimIssuers = ConfidentialAssetsMaxTrustedClaimIssuers;
+            type MaxSharedKeyRecipients = ConfidentialAssetsMaxSharedKeyRecipients;
+            type MinCurveTreeRootUpdateInterval = ConfidentialAssetsMinCurveTreeRootUpdateInterval;
+            type MaxAssetCurveTreeRootAge = ConfidentialAssetsMaxAssetCurveTreeRootAge;
+            type MaxAccountCurveTreeRootAge = ConfidentialAssetsMaxAccountCurveTreeRootAge;
+            type MaxFeeAccountCurveTreeRootAge = ConfidentialAssetsMaxFeeAccountCurveTreeRootAge;
         }
     };
 }
@@ -943,9 +952,35 @@ macro_rules! runtime_apis {
             polymesh_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
             frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+            ConfidentialAssetsTxExtension,
             pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
             frame_system::WeightReclaim<Runtime>,
         );
+
+        pub fn native_tx_extension(
+            nonce: Nonce,
+            tip: Balance,
+            era: generic::Era,
+        ) -> TxExtension {
+            (
+                (
+                    frame_system::AuthorizeCall::<Runtime>::new(),
+                    frame_system::CheckNonZeroSender::<Runtime>::new(),
+                    frame_system::CheckSpecVersion::<Runtime>::new(),
+                    frame_system::CheckTxVersion::<Runtime>::new(),
+                    frame_system::CheckGenesis::<Runtime>::new(),
+                ),
+                frame_system::CheckEra::<Runtime>::from(era),
+                frame_system::CheckNonce::<Runtime>::from(nonce),
+                frame_system::CheckWeight::<Runtime>::new(),
+                polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+                pallet_permissions::StoreCallMetadata::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                ConfidentialAssetsTxExtension::default(),
+                pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+                frame_system::WeightReclaim::<Runtime>::new(),
+            )
+        }
 
         #[derive(Clone, PartialEq, Eq, Debug)]
         pub struct EthExtraImpl;
@@ -969,6 +1004,7 @@ macro_rules! runtime_apis {
                     polymesh_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                     frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+                    ConfidentialAssetsTxExtension::default(),
                     pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
                     frame_system::WeightReclaim::<Runtime>::new(),
                 )
@@ -1701,6 +1737,22 @@ macro_rules! runtime_apis {
                 ) -> Result<(), mmr::Error> {
                     let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
                     pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
+                }
+            }
+
+            impl pallet_confidential_assets_rpc_runtime_api::ConfidentialAssetsApi<Block> for Runtime {
+                fn relayer_submit_batched_fee_info(
+                    batch: polymesh_dart::BatchedProofs<polymesh_dart::PolymeshLimits>,
+                ) -> pallet_confidential_assets_rpc_runtime_api::RelayerSubmitBatchedFeeInfo {
+                    use sp_runtime::traits::TransactionExtension;
+
+                    let extension = native_tx_extension(0, 0, generic::Era::Immortal);
+                    let extension_weight = extension
+                        .weight(&RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() }))
+                        .saturating_add(
+                            pallet_confidential_assets::CheckRelayerSubmitBatchedProofs::<Runtime>::relayer_submit_batched_proofs_weight(),
+                        );
+                    ConfidentialAssets::relayer_submit_batched_fee_info(&batch, extension_weight)
                 }
             }
 

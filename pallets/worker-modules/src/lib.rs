@@ -35,7 +35,23 @@ pub trait WeightInfo {
     fn register_protocol() -> Weight;
     fn upload_protocol_module_code() -> Weight;
     fn upload_protocol_module_context() -> Weight;
-    fn upload_protocol_module_config(m: u32) -> Weight;
+    fn upload_protocol_module_config_context_data(m: u32, context_bytes: u32) -> Weight;
+    fn upload_protocol_module_config_context_hash(m: u32) -> Weight;
+
+    fn upload_protocol_module_config<MaxModuleContextSize: Get<u32>>(
+        modules: u32,
+        initialization_method: &ProtocolInitializationMethod<MaxModuleContextSize>,
+    ) -> Weight {
+        match initialization_method {
+            ProtocolInitializationMethod::ContextData(context) => {
+                Self::upload_protocol_module_config_context_data(modules, context.len() as u32)
+            }
+            ProtocolInitializationMethod::ContextHash(_) => {
+                Self::upload_protocol_module_config_context_hash(modules)
+            }
+            _ => Self::upload_protocol_module_config_context_hash(modules),
+        }
+    }
 }
 
 /// Protocol metadata for a protocol supported by the Polymesh Worker extension.
@@ -421,7 +437,10 @@ pub mod pallet {
         /// * `Error::<T>::ProtocolNotRegistered` - If the protocol is not registered.
         /// * `Error::<T>::ProtocolModuleConfigAlreadyExists` - If the protocol module config already exists.
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::upload_protocol_module_config(config.modules.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::upload_protocol_module_config(
+            config.modules.len() as u32,
+            &config.initialization_method,
+        ))]
         pub fn upload_protocol_module_config(
             origin: OriginFor<T>,
             config: ProtocolModuleConfig<T::MaxModuleContextSize, T::MaxModulesPerConfig>,
