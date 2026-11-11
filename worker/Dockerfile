@@ -4,7 +4,7 @@ FROM --platform=linux/amd64 polymeshassociation/rust:debian-${RUST_TOOLCHAIN}
 ARG RUST_TOOLCHAIN
 ARG POLKATOOL_VERSION
 
-RUN rustup component add rust-src && \
+RUN rustup component add --toolchain "${RUST_TOOLCHAIN}" rust-src && \
     cargo install polkatool \
         --version "=${POLKATOOL_VERSION}" \
         --locked && \

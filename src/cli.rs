@@ -30,6 +30,11 @@ pub struct Cli {
 /// Possible subcommands of the main binary.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
+    /// Load and execute the embedded DART v1 native worker module.
+    ///
+    /// This command is for testing only.
+    WorkerSelfTest,
+
     /// Sub-commands concerned with benchmarking.
     ///
     /// The pallet benchmarking moved to the `pallet` sub-command.

@@ -68,6 +68,14 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Reject checked-in native worker libraries
+          command: |
+            artifacts="$(git ls-files -- 'worker/modules/*.so' 'worker/modules/*.so.zst')"
+            if [[ -n "$artifacts" ]]; then
+              echo "$artifacts"
+              exit 1
+            fi
+      - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
       - run:
@@ -102,7 +110,7 @@ jobs:
       - run:
           name: Check deterministic worker module artifacts
           command: |
-            ./worker/rebuild.sh v0
+            ./worker/rebuild.sh v0 v1
             changes="$(git status --porcelain --untracked-files=all -- worker/modules/dart)"
             if [[ -n "$changes" ]]; then
               echo "$changes"
@@ -154,7 +162,7 @@ jobs:
       - restore-sccache-cache
       - run:
           name: Build ci-runtime
-          command: cargo build --locked --release --features ci-runtime
+          command: cargo build --locked --release --features ci-runtime,worker-differential
           no_output_timeout: 30m
       - save-sccache-cache
       - run:
@@ -186,6 +194,9 @@ jobs:
           name: Build release
           command: cargo build --locked --release
           no_output_timeout: 30m
+      - run:
+          name: Native DART v1 worker self-test
+          command: ./target/release/polymesh worker-self-test
       - run:
           name: Create assets directory for releases
           command: mkdir ./assets
@@ -469,7 +480,7 @@ jobs:
       - run:
           name: Tests
           command: >-
-            cargo test
+            cargo nextest run
             --package pallet-validators
             --package pallet-group
             --package pallet-sudo
@@ -508,6 +519,8 @@ jobs:
       - RUST_BACKTRACE: "1"
       - WAIT_FOR_FINALIZE: "1"
       - ETH_RPC_URL: http://127.0.0.1:8545
+      - POLYMESH_WORKER_BACKENDS: all
+      - WORKER_DIFF_LOG: /tmp/worker-diff.jsonl
     steps:
       - checkout
       - attach_workspace:
@@ -524,6 +537,9 @@ jobs:
       - run:
           name: Install cargo-nextest
           command: curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "$HOME/.cargo/bin"
+      - run:
+          name: Clear worker differential log
+          command: rm -f "$WORKER_DIFF_LOG"
       - run:
           name: Start a Polymesh ci-runtime dev chain using the previous chain version.
           command: >-
@@ -563,8 +579,60 @@ jobs:
             exit 1
       - run:
           name: Run polymesh-api integration tests
-          command: cargo nextest run --release --features current_release,timed --locked
+          command: cargo nextest run --release --features current_release,timed,worker-differential --locked
           working_directory: ./integration
+          no_output_timeout: 30m
+      - run:
+          name: Fail on worker backend mismatches
+          command: python3 check_worker_diff_log.py "$WORKER_DIFF_LOG"
+          working_directory: ./integration
+          when: always
+      - run:
+          name: Preserve worker differential log
+          command: |
+            if [ -f "$WORKER_DIFF_LOG" ]; then
+              cp "$WORKER_DIFF_LOG" ./worker-diff.jsonl
+            else
+              : > ./worker-diff.jsonl
+            fi
+          working_directory: ./integration
+          when: always
+      - store_artifacts:
+          path: ./integration/worker-diff.jsonl
+          destination: worker-diff.jsonl
+      - run:
+          name: Start runtime-fallback-only DART chain
+          command: >-
+            env -u WORKER_DIFF_LOG POLYMESH_WORKER_BACKENDS=none
+            ./assets/ci-runtime/polymesh --bob --dev --tmp
+            --unsafe-force-node-key-generation --no-prometheus --no-telemetry
+            --pool-limit 100000 --port 30334 --rpc-port 9945
+          background: true
+      - run:
+          name: Wait for runtime-fallback chain
+          command: |
+            for _ in $(seq 1 60); do
+              if curl -sf -H 'Content-Type: application/json' \
+                  -d '{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}' \
+                  http://127.0.0.1:9945 > /dev/null; then
+                echo "runtime-fallback chain is up"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "runtime-fallback chain did not start" >&2
+            exit 1
+      - run:
+          name: Reset runtime-fallback test accounts
+          command: ./reset_db.sh
+          working_directory: ./integration
+      - run:
+          name: Run confidential transfer tests with runtime fallback only
+          command: cargo nextest run --release --features current_release,timed --locked -E 'binary(confidential_transfers)'
+          working_directory: ./integration
+          environment:
+            POLYMESH_NODE_URL: ws://127.0.0.1:9945
+            POLYMESH_WORKER_BACKENDS: none
           no_output_timeout: 30m
   contract-deploy-test-foundry:
     machine:
