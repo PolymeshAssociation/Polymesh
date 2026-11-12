@@ -1,5 +1,4 @@
 use chrono::prelude::Utc;
-use frame_support::traits::UncheckedOnRuntimeUpgrade;
 use frame_support::{assert_noop, assert_ok};
 
 use pallet_nft::Event;
