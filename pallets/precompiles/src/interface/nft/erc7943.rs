@@ -76,7 +76,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     ///
     /// Bypasses compliance and frozen checks; the caller must be an agent of the collection.
     /// If the token was frozen for `from`, the runtime unfreezes it and a `Frozen` event is
-    /// emitted before `Transfer`, as ERC-7943 requires.
+    /// emitted before `Transfer`, as ERC-7943 requires. `ForcedTransfer` is emitted last.
     ///
     /// Only an asset holder account is supported as the destination for now.
     pub(crate) fn forced_transfer(
@@ -115,9 +115,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
             )?;
         }
 
+        // Same order as the ERC-7943 reference implementation: the base `Transfer` first
         Common::<T>::deposit_event(
             env,
-            INonFungibleAssetEvents::ForcedTransfer(INonFungibleAsset::ForcedTransfer {
+            INonFungibleAssetEvents::Transfer(INonFungibleAsset::Transfer {
                 from: call.from,
                 to: call.to,
                 tokenId: call.tokenId,
@@ -126,7 +127,7 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         Common::<T>::deposit_event(
             env,
-            INonFungibleAssetEvents::Transfer(INonFungibleAsset::Transfer {
+            INonFungibleAssetEvents::ForcedTransfer(INonFungibleAsset::ForcedTransfer {
                 from: call.from,
                 to: call.to,
                 tokenId: call.tokenId,

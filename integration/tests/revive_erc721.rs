@@ -8,6 +8,7 @@
 use anyhow::Result;
 
 use alloy::primitives::{Address, U256};
+use alloy::sol_types::SolEvent;
 
 use integration::*;
 use polymesh_api::types::polymesh_primitives::asset_metadata::{
@@ -346,6 +347,16 @@ async fn erc721_forced_transfer() -> Result<()> {
     assert_eq!(events[0].from, holder_address);
     assert_eq!(events[0].to, owner_address);
     assert_eq!(events[0].tokenId, U256::from(1));
+
+    // The token wasn't frozen, so no `Frozen`. The base `Transfer` comes first, as in the
+    // fungible precompile.
+    assert_eq!(
+        contract_event_order(&logs, &nft.h160()),
+        [
+            ierc721::Transfer::SIGNATURE_HASH,
+            ierc721::ForcedTransfer::SIGNATURE_HASH,
+        ],
+    );
 
     assert_eq!(nft.owner_of(1).await?, owner_address);
 
@@ -735,10 +746,14 @@ async fn erc721_forced_transfer_unfreezes() -> Result<()> {
     assert!(!frozen[0].frozenStatus);
 
     // ERC-7943: the `Frozen` event must come before the base `Transfer` event.
-    let frozen_at = contract_log_position::<ierc721::Frozen>(&logs, &nft.h160());
-    let transfer_at = contract_log_position::<ierc721::Transfer>(&logs, &nft.h160());
-    assert!(transfer_at.is_some(), "expected a Transfer event");
-    assert!(frozen_at < transfer_at, "Frozen must precede Transfer");
+    assert_eq!(
+        contract_event_order(&logs, &nft.h160()),
+        [
+            ierc721::Frozen::SIGNATURE_HASH,
+            ierc721::Transfer::SIGNATURE_HASH,
+            ierc721::ForcedTransfer::SIGNATURE_HASH,
+        ],
+    );
 
     assert_eq!(nft.owner_of(1).await?, owner_address);
     assert!(!nft.get_frozen_tokens(holder_address, 1).await?);

@@ -191,7 +191,7 @@ interface INonFungibleAsset {
     /// If the token was frozen for `from`, it is unfrozen first and a {Frozen} event is emitted
     /// before the {Transfer} event.
     ///
-    /// Emits {ForcedTransfer} and {Transfer} events.
+    /// Emits {Transfer} then {ForcedTransfer}.
     function forcedTransfer(address from, address to, uint256 tokenId) external returns (bool);
 
     /// @dev Freezes (`frozenStatus` true) or unfreezes `tokenId` for `account`. A frozen token

@@ -1196,7 +1196,6 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| pallet_base::Error::<T>::InvalidAccountId.into())
     }
 
-    #[require_transactional]
     pub fn base_controller_transfer(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
@@ -1238,7 +1237,6 @@ impl<T: Config> Pallet<T> {
     /// Same as [`Self::base_controller_transfer`], but `destination` is given explicitly
     /// instead of being derived from the caller's identity. The transfer is rejected if
     /// `destination` requires receiver affirmation for the NFT's asset.
-    #[require_transactional]
     pub fn base_controller_transfer_to(
         origin: T::RuntimeOrigin,
         nfts: NFTs,
@@ -1656,12 +1654,14 @@ impl<T: Config> Pallet<T> {
         frozen: bool,
     ) -> DispatchResult {
         let asset_id = *nfts.asset_id();
-        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
-
+        // Checked first: nobody is an agent of an asset that doesn't exist, so the agent check
+        // would otherwise hide this error.
         ensure!(
             CollectionAsset::<T>::contains_key(&asset_id),
             Error::<T>::CollectionNotFound
         );
+        let caller_did = ExternalAgents::<T>::ensure_perms(origin, &asset_id)?;
+
         Self::ensure_within_nfts_transfer_limits(&nfts)?;
         Self::ensure_no_duplicate_nfts(&nfts)?;
         // Only a new freeze needs a valid holder and existing NFTs. Unfreezing only lifts a

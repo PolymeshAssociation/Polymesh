@@ -210,6 +210,17 @@ fn freeze_rejects_invalid_input() {
             ),
             PortfolioError::PortfolioDoesNotExist
         );
+        // The collection does not exist. Nobody is its agent, but the missing collection is
+        // what gets reported.
+        assert_noop!(
+            NFT::set_nfts_frozen(
+                alice.origin(),
+                holder,
+                nfts(AssetId::from([0xab; 16]), &[1]),
+                true
+            ),
+            NFTError::CollectionNotFound
+        );
     });
 }
 
