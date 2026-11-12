@@ -55,6 +55,29 @@ mod tests {
     use polymesh_worker_protocol_testing::{PROTOCOL, TestWorkRequest, VerifyVersionRequest};
 
     #[test]
+    fn protocol_config_must_match_requested_protocol() {
+        let requested = Protocol {
+            id: PROTOCOL_PDART,
+            version: ProtocolVersion::new(1, 0, 0),
+        };
+        let matching = ProtocolModuleConfig {
+            protocol: requested,
+            initialization_method: ProtocolInitializationMethod::NoInitializationNeeded,
+            modules: Vec::new(),
+        };
+        assert!(protocol_matches(&matching, requested));
+
+        let mismatched = ProtocolModuleConfig {
+            protocol: Protocol {
+                version: ProtocolVersion::new(0, 1, 0),
+                ..requested
+            },
+            ..matching
+        };
+        assert!(!protocol_matches(&mismatched, requested));
+    }
+
+    #[test]
     fn trapped_instances_are_discarded_but_protocol_errors_are_cached() {
         let kinds = [
             #[cfg(all(feature = "polkavm", target_arch = "x86_64"))]
@@ -352,6 +375,24 @@ impl ProtocolModuleRef {
     }
 }
 
+/// Check that a loaded protocol config belongs to the requested protocol.
+///
+/// On-chain protocol configs are looked up by protocol, but a malicious or buggy config could
+/// contain a different protocol.  Reject it so the caller falls back to the builtin static
+/// modules, which are keyed by the exact protocol (id and version).
+fn protocol_matches(config: &ProtocolModuleConfig, protocol: Protocol) -> bool {
+    if config.protocol == protocol {
+        true
+    } else {
+        log::error!(
+            "Protocol module config mismatch: requested {:?}, got {:?}",
+            protocol,
+            config.protocol
+        );
+        false
+    }
+}
+
 pub(crate) struct BackendModuleCache {
     protocols: BTreeMap<(ProtocolModuleConfigHash, BackendKind, BackendBitmask), ProtocolModuleRef>,
     builtin: StaticModules,
@@ -463,6 +504,9 @@ impl BackendModuleCache {
             let Some(config) = config.as_ref() else {
                 return None;
             };
+            if !protocol_matches(config, protocol) {
+                return None;
+            }
 
             if let Some(module) = ProtocolModule::load_from_backend(
                 config,
@@ -514,6 +558,9 @@ impl BackendModuleCache {
             let Some(config) = config.as_ref() else {
                 return modules;
             };
+            if !protocol_matches(config, protocol) {
+                return modules;
+            }
 
             if let Some(module) = ProtocolModule::load_from_backend(
                 config,
