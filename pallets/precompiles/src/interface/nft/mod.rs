@@ -48,8 +48,6 @@ pub(crate) const ERR_UNSAFE_CONTRACT_RECEIVER: &str =
 // ========================================================
 
 // ERC-165 interface identifiers, each the XOR of the selectors of the interface's functions.
-/// `IERC165`: `supportsInterface(bytes4)`.
-pub const ERC165_INTERFACE_ID: [u8; 4] = [0x01, 0xff, 0xc9, 0xa7];
 /// `IERC721`.
 pub const ERC721_INTERFACE_ID: [u8; 4] = [0x80, 0xac, 0x58, 0xcd];
 /// `IERC721Metadata`: `name()`, `symbol()`, `tokenURI(uint256)`.

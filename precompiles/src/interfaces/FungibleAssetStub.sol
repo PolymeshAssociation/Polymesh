@@ -163,7 +163,9 @@ interface IFungibleAsset {
     /// @param amount The amount seized.
     event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
 
-    /// @notice Emitted when `setFrozenTokens` is called, changing the frozen `amount` of tokens for `account`.
+    /// @notice Emitted on every `setFrozenTokens` call, even when the amount is unchanged, as ERC-7943
+    /// requires. Also emitted by `freezePartialTokens`, `unfreezePartialTokens`, and by a `forcedTransfer`
+    /// that has to unfreeze tokens, in which case it comes before the `Transfer` event.
     /// @param account The address of the account whose tokens are being frozen.
     /// @param amount The amount of tokens frozen after the change.
     event Frozen(address indexed account, uint256 amount);
@@ -179,7 +181,8 @@ interface IFungibleAsset {
 
     /// @notice Takes tokens from one address and transfers them to another.
     /// @dev Requires specific authorization. Used for regulatory compliance or recovery scenarios.
-    /// Emits {ForcedTransfer} and {Transfer} events.
+    /// Emits {Transfer} then {ForcedTransfer}. If frozen tokens had to be unfrozen to cover
+    /// `amount`, {TokensUnfrozen} and {Frozen} are emitted first.
     /// @param from The address from which `amount` is taken.
     /// @param to The address which receives the seized tokens.
     /// @param amount The amount to force transfer.
@@ -211,6 +214,16 @@ interface IFungibleAsset {
     /// @param account The address to check.
     /// @return True if the account is allowed to receive, false otherwise.
     function canReceive(address account) external view returns (bool);
+
+    // ============================================================
+    // IERC165 - Standard Interface Detection
+    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/IERC165.sol
+    // ============================================================
+
+    /// @dev Returns true if this contract implements the interface defined by `interfaceId`.
+    ///
+    /// Reports `true` for `IERC165` and `IERC7943Fungible`, as ERC-7943 requires, and for `IERC20`.
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
     // ============================================================
     // ERC-3643
@@ -387,6 +400,11 @@ contract FungibleAssetStub is IFungibleAsset {
 
     function canReceive(address account) external view override returns (bool) {
         account;
+        revert NotExecutable();
+    }
+
+    function supportsInterface(bytes4 interfaceId) external view override returns (bool) {
+        interfaceId;
         revert NotExecutable();
     }
 

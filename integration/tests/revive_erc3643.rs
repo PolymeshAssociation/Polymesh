@@ -7,7 +7,11 @@
 
 use anyhow::Result;
 
+use alloy::primitives::U256;
+use alloy::sol_types::SolEvent;
+
 use integration::*;
+use polymesh_precompiles::IFungibleAsset as ierc20;
 
 /// Initial supply issued to the asset owner's account.
 const MINT: u128 = 1_000_000;
@@ -204,14 +208,47 @@ async fn erc3643_freeze_partial_tokens() -> Result<()> {
     );
 
     // Freezing again adds to the amount already frozen, rather than replacing it.
-    erc3643
+    let logs = erc3643
         .freeze_partial_tokens(&mut caller, holder_address, 50)
         .await?;
+
+    // ERC-3643 reports the difference, ERC-7943 the new total, in that order.
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [
+            ierc20::TokensFrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH
+        ],
+    );
+    let tokens_frozen: Vec<ierc20::TokensFrozen> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(tokens_frozen.len(), 1, "expected one TokensFrozen event");
+    assert_eq!(tokens_frozen[0].amount, U256::from(50));
+    let frozen: Vec<ierc20::Frozen> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(frozen.len(), 1, "expected one Frozen event");
+    assert_eq!(frozen[0].amount, U256::from(150));
 
     assert_eq!(
         erc3643.get_frozen_tokens(holder_address).await.unwrap(),
         150
     );
+
+    // ERC-3643 emits `TokensFrozen` on every call, even for 0, as T-REX does.
+    let logs = erc3643
+        .freeze_partial_tokens(&mut caller, holder_address, 0)
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [
+            ierc20::TokensFrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH
+        ],
+    );
+    let tokens_frozen: Vec<ierc20::TokensFrozen> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(tokens_frozen.len(), 1, "expected one TokensFrozen event");
+    assert_eq!(tokens_frozen[0].amount, U256::ZERO);
+    let frozen: Vec<ierc20::Frozen> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(frozen.len(), 1, "expected one Frozen event");
+    assert_eq!(frozen[0].amount, U256::from(150));
 
     Ok(())
 }
@@ -242,11 +279,26 @@ async fn erc3643_unfreeze_partial_tokens() -> Result<()> {
         100
     );
 
-    erc3643
+    let logs = erc3643
         .unfreeze_partial_tokens(&mut caller, holder_address, 40)
         .await?;
 
     assert_eq!(erc3643.get_frozen_tokens(holder_address).await.unwrap(), 60);
+
+    // ERC-3643 reports the difference, ERC-7943 the new total, in that order.
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [
+            ierc20::TokensUnfrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH
+        ],
+    );
+    let unfrozen: Vec<ierc20::TokensUnfrozen> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(unfrozen.len(), 1, "expected one TokensUnfrozen event");
+    assert_eq!(unfrozen[0].amount, U256::from(40));
+    let frozen: Vec<ierc20::Frozen> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(frozen.len(), 1, "expected one Frozen event");
+    assert_eq!(frozen[0].amount, U256::from(60));
 
     Ok(())
 }

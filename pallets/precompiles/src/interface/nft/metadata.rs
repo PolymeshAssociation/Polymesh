@@ -31,9 +31,9 @@ use polymesh_primitives::nft::NFTId;
 
 use crate::common::revert;
 use crate::interface::nft::{
-    NonFungibleAssetInterface, ERC165_INTERFACE_ID, ERC721_INTERFACE_ID,
-    ERC721_METADATA_INTERFACE_ID, ERR_NFT_NOT_FOUND,
+    NonFungibleAssetInterface, ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID, ERR_NFT_NOT_FOUND,
 };
+use crate::interface::ERC165_INTERFACE_ID;
 use crate::{Config, WeightInfo};
 
 /// The placeholder substituted with the token id when resolving a token URI.
