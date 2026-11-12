@@ -35,8 +35,6 @@ type PortfolioPallet<T> = pallet_portfolio::Pallet<T>;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub mod migrations;
-
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;

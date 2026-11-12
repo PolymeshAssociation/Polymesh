@@ -45,8 +45,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub mod migrations;
-
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
