@@ -93,6 +93,9 @@ benchmarks! {
     where_clause { where T: Config + pallet_babe::Config, Slot: From<T::Moment> }
 
     generate_and_save_dart_params {
+        // Clear the cache so the benchmark always regenerates the parameters.
+        CachedDartParameters::<T>::kill();
+        CachedDartParametersVersion::<T>::kill();
     }: {
         // Make sure to unload the previously loaded parameters, to force generating new parameters for the benchmarks.
         polymesh_dart::init::unload_params();

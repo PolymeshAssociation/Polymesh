@@ -41,11 +41,13 @@ pub struct SubstrateWeight;
 impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::CachedDartParameters` (r:1 w:1)
     // Proof: `ConfidentialAssets::CachedDartParameters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    // Storage: `ConfidentialAssets::CachedDartParametersVersion` (r:1 w:1)
+    // Proof: `ConfidentialAssets::CachedDartParametersVersion` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn generate_and_save_dart_params() -> Weight {
         // Minimum execution time: 48_357_301 nanoseconds.
         Weight::from_parts(49_708_034_000, 0)
-            .saturating_add(DbWeight::get().reads(1))
-            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: `ConfidentialAssets::CurrentWorkerSessionId` (r:1 w:1)
     // Proof: `ConfidentialAssets::CurrentWorkerSessionId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
