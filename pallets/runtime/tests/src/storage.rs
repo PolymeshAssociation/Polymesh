@@ -644,6 +644,9 @@ impl CurrentFeePayer<AccountId, RuntimeCall> for TestStorage {
     fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
         TxFeeHandler::decrease_authorization_count(call_payment_info);
     }
+    fn increase_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
+        TxFeeHandler::increase_authorization_count(call_payment_info);
+    }
 }
 
 /// PolymeshCommittee as an instance of group

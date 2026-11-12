@@ -143,7 +143,9 @@ where
     <T as pallet_revive::Config>::RuntimeCall: GetCallMetadata,
 {
     fn weight() -> Weight {
+        // Includes giving back a pre-charged authorization retry.
         call_metadata_weight::<T>()
+            .saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(3, 2))
     }
 
     fn dispatch(
@@ -151,7 +153,13 @@ where
         origin: OriginFor<T>,
     ) -> DispatchResultWithPostInfo {
         let payer = frame_system::ensure_signed(origin.clone()).ok();
-        with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin))
+        let result =
+            with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin));
+        // The authorization retry charged before dispatch is only given back on success.
+        if result.is_ok() {
+            polymesh_transaction_payment::Pallet::<T>::refund_auth_retry();
+        }
+        result
     }
 }
 

@@ -34,6 +34,18 @@ where
     Relayer(&'a pallet_relayer::Call<R>),
 }
 
+/// A [`Call`] that `TxFeeHandler` recognizes, together with whether it was wrapped in
+/// `Revive::eth_substrate_call`.
+pub struct FeeCall<'a, R>
+where
+    R: IdentityConfig + pallet_multisig::Config + pallet_relayer::Config,
+{
+    /// The call used to resolve the fee payer.
+    pub call: Call<'a, R>,
+    /// `true` if `call` was wrapped in `Revive::eth_substrate_call`.
+    pub eth_wrapped: bool,
+}
+
 /// The implementation of `CurrentFeePayer` for the chain.
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
 pub struct TxFeeHandler<A>(PhantomData<A>);
@@ -253,15 +265,26 @@ where
         Ok(CallPaymentInfo::new(caller_acc_id, None, None))
     }
 
-    /// Decreases the authorization count for the given target and auth_id.
-    fn decrease_auth_count(signatory: &Signatory<AccountId>, auth_id: &u64) {
-        pallet_identity::Pallet::<A>::decrease_authorization_count(&signatory, auth_id);
+    /// Returns the authorization target and id whose retry count is charged for a failed call.
+    fn auth_retry_target(
+        call_payment_info: &CallPaymentInfo<AccountId>,
+    ) -> Option<(Signatory<AccountId>, u64)> {
+        let auth_id = call_payment_info.auth_id()?;
+        if let Some(target) = call_payment_info.ms_signatory() {
+            return Some((target.clone(), auth_id));
+        }
+
+        let payer_record =
+            pallet_identity::KeyRecords::<A>::get(call_payment_info.paying_account())?;
+        let payer_did = payer_record.as_did()?;
+        let signatory = pallet_identity::AuthorizationsGiven::<A>::get(&payer_did, &auth_id);
+        Some((signatory, auth_id))
     }
 }
 
 impl<C, A> CurrentFeePayer<AccountId, C> for TxFeeHandler<A>
 where
-    for<'a> Call<'a, A>: TryFrom<&'a C>,
+    for<'a> FeeCall<'a, A>: TryFrom<&'a C>,
     A: IdentityConfig<AccountId = AccountId>
         + pallet_multisig::Config
         + pallet_relayer::Config
@@ -271,18 +294,21 @@ where
         call: &C,
         caller_acc_id: AccountId,
     ) -> Result<CallPaymentInfo<AccountId>, InvalidTransaction> {
-        match call.try_into() {
-            Ok(Call::MultiSig(multi_sig_call)) => {
+        let Ok(FeeCall { call, eth_wrapped }) = call.try_into() else {
+            return Ok(CallPaymentInfo::new(caller_acc_id, None, None));
+        };
+        let info = match call {
+            Call::MultiSig(multi_sig_call) => {
                 TxFeeHandler::<A>::handle_multisig_calls(multi_sig_call, caller_acc_id)
             }
-            Ok(Call::Identity(identity_call)) => {
+            Call::Identity(identity_call) => {
                 TxFeeHandler::<A>::handle_identity_calls(identity_call, caller_acc_id)
             }
-            Ok(Call::Relayer(relayer_call)) => {
+            Call::Relayer(relayer_call) => {
                 TxFeeHandler::<A>::handle_relayer_calls(relayer_call, caller_acc_id)
             }
-            Err(_) => Ok(CallPaymentInfo::new(caller_acc_id, None, None)),
-        }
+        }?;
+        Ok(info.with_eth_wrapped(eth_wrapped))
     }
 
     fn set_payer_context(payer: Option<AccountId>) {
@@ -294,22 +320,14 @@ where
     }
 
     fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
-        if let Some(auth_id) = call_payment_info.auth_id() {
-            if let Some(target) = call_payment_info.ms_signatory() {
-                return TxFeeHandler::<A>::decrease_auth_count(target, &auth_id);
-            }
+        if let Some((target, auth_id)) = TxFeeHandler::<A>::auth_retry_target(call_payment_info) {
+            pallet_identity::Pallet::<A>::decrease_authorization_count(&target, &auth_id);
+        }
+    }
 
-            if let Some(payer_record) =
-                pallet_identity::KeyRecords::<A>::get(call_payment_info.paying_account())
-            {
-                if let Some(payer_did) = payer_record.as_did() {
-                    let signatory =
-                        pallet_identity::AuthorizationsGiven::<A>::get(&payer_did, &auth_id);
-                    pallet_identity::Pallet::<A>::decrease_authorization_count(
-                        &signatory, &auth_id,
-                    );
-                }
-            }
+    fn increase_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
+        if let Some((target, auth_id)) = TxFeeHandler::<A>::auth_retry_target(call_payment_info) {
+            pallet_identity::Pallet::<A>::increase_authorization_count(&target, &auth_id);
         }
     }
 }

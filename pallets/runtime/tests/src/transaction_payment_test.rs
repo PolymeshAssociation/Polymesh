@@ -10,7 +10,7 @@ use sp_runtime::generic::UncheckedExtrinsic;
 use sp_runtime::traits::{Dispatchable, TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::TransactionSource;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
-use sp_runtime::{FixedPointNumber, MultiAddress};
+use sp_runtime::{DispatchResult, FixedPointNumber, MultiAddress};
 
 use pallet_balances::Call as BalancesCall;
 use pallet_identity::Authorizations;
@@ -1057,5 +1057,145 @@ fn post_dispatch_decreases_auth_count() {
             let auth_after_retry =
                 Authorizations::<TestStorage>::get(&ms_signatory, auth_id).unwrap();
             assert_eq!(auth_before.count, auth_after_retry.count + 1);
+        });
+}
+
+/// Runs `call` wrapped in `Revive::eth_substrate_call` through the fee extension, signed by `signer`.
+/// Returns the outer dispatch result.
+fn run_eth_wrapped(call: RuntimeCall, signer: AccountId) -> DispatchResult {
+    let call = RuntimeCall::Revive(pallet_revive::Call::eth_substrate_call {
+        call: Box::new(call),
+        transaction_encoded: vec![],
+    });
+    let info = call.get_dispatch_info();
+    let len = 10;
+    let ext = ChargeTransactionPayment::<TestStorage>::from(0);
+    let (_, val, _) = ext
+        .validate(
+            Origin::signed(signer.clone()),
+            &call,
+            &info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+    let pre = ext
+        .prepare(val, &Origin::signed(signer.clone()), &call, &info, len)
+        .unwrap();
+    let eth_origin: Origin = pallet_revive::Origin::<TestStorage>::EthTransaction(signer).into();
+    let (mut post_info, result) = match call.dispatch(eth_origin) {
+        Ok(info) => (info, Ok(())),
+        Err(err) => (err.post_info, Err(err.error)),
+    };
+    assert_ok!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
+        pre,
+        &info,
+        &mut post_info,
+        len,
+        &result,
+    ));
+    assert!(polymesh_transaction_payment::PendingAuthRetryRefund::<TestStorage>::get().is_none());
+    result
+}
+
+#[test]
+fn eth_wrapped_failed_auth_call_decreases_auth_count() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            let alice = User::new(Sr25519Keyring::Alice);
+            // Bob already has an identity, so joining Alice's identity fails.
+            let bob = User::new(Sr25519Keyring::Bob);
+            let bob_signatory = Signatory::Account(bob.acc());
+            let auth_id = Identity::add_auth(
+                alice.did,
+                bob_signatory.clone(),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
+                None,
+            )
+            .unwrap();
+            let call =
+                RuntimeCall::Identity(pallet_identity::Call::join_identity_as_key { auth_id });
+            let count_before = Authorizations::<TestStorage>::get(&bob_signatory, auth_id)
+                .unwrap()
+                .count;
+            let alice_before = Balances::free_balance(&alice.acc());
+
+            // The wrapper hides the inner failure from `post_dispatch`.
+            assert_ok!(run_eth_wrapped(call, bob.acc()));
+            assert!(alice_before > Balances::free_balance(&alice.acc()));
+            assert!(System::events().iter().any(|e| matches!(
+                e.event,
+                crate::storage::EventTest::Revive(pallet_revive::Event::EthExtrinsicRevert { .. })
+            )));
+
+            let count_after = Authorizations::<TestStorage>::get(&bob_signatory, auth_id)
+                .unwrap()
+                .count;
+            assert_eq!(count_after + 1, count_before);
+        });
+}
+
+#[test]
+fn eth_wrapped_successful_auth_call_keeps_auth_count() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(|| {
+            let alice = User::new(Sr25519Keyring::Alice);
+            let bob = Sr25519Keyring::Bob.to_account_id();
+            let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+            // Create a 2-of-2 multisig, so a single approval doesn't consume the authorization.
+            let ms_address = create_multisig_default_perms(
+                alice.acc(),
+                create_signers(vec![bob.clone(), charlie.clone()]),
+                2,
+            );
+            let bob_auth_id = get_last_auth_id(&Signatory::Account(bob.clone()));
+            let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie.clone()));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(bob.clone()),
+                bob_auth_id
+            ));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(charlie.clone()),
+                charlie_auth_id,
+            ));
+            assert_ok!(Identity::leave_identity_as_key(Origin::signed(
+                ms_address.clone()
+            )));
+            let ms_signatory = Signatory::Account(ms_address.clone());
+            let auth_id = Identity::add_auth(
+                alice.did,
+                ms_signatory.clone(),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
+                None,
+            )
+            .unwrap();
+            let call = RuntimeCall::MultiSig(pallet_multisig::Call::approve_join_identity {
+                multisig: ms_address.clone(),
+                auth_id,
+            });
+            let count_before = Authorizations::<TestStorage>::get(&ms_signatory, auth_id)
+                .unwrap()
+                .count;
+
+            assert_ok!(run_eth_wrapped(call, bob.clone()));
+            assert!(
+                pallet_multisig::AuthToProposalId::<TestStorage>::get(&ms_address, &auth_id)
+                    .is_some()
+            );
+
+            let count_after = Authorizations::<TestStorage>::get(&ms_signatory, auth_id)
+                .unwrap()
+                .count;
+            assert_eq!(count_after, count_before);
         });
 }

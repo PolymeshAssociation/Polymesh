@@ -245,4 +245,14 @@ impl<T: Config> Pallet<T> {
             }
         }
     }
+
+    /// Increases the authorization count for the given target and auth_id, up to `MaxAuthRetries`.
+    pub fn increase_authorization_count(target: &Signatory<T::AccountId>, auth_id: &u64) {
+        if let Some(mut auth) = Authorizations::<T>::get(target, auth_id) {
+            if auth.count < T::MaxAuthRetries::get() as u32 {
+                auth.count += 1;
+                Authorizations::<T>::insert(target, auth_id, auth);
+            }
+        }
+    }
 }

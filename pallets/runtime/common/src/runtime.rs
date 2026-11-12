@@ -185,28 +185,25 @@ macro_rules! misc_pallet_impls {
         }
 
         impl<'a> core::convert::TryFrom<&'a RuntimeCall>
-            for polymesh_runtime_common::fee_details::Call<'a, Runtime>
+            for polymesh_runtime_common::fee_details::FeeCall<'a, Runtime>
         {
             type Error = ();
             fn try_from(call: &'a RuntimeCall) -> Result<Self, ()> {
                 use polymesh_runtime_common::fee_details::Call::*;
-                Ok(match call {
-                    RuntimeCall::Identity(x) => Identity(x),
-                    RuntimeCall::MultiSig(x) => MultiSig(x),
-                    RuntimeCall::Relayer(x) => Relayer(x),
-                    RuntimeCall::Revive(call) => {
-                        match call {
-                            pallet_revive::Call::eth_substrate_call { call, ..} => match &**call {
-                                RuntimeCall::Identity(x) => Identity(x),
-                                RuntimeCall::MultiSig(x) => MultiSig(x),
-                                RuntimeCall::Relayer(x) => Relayer(x),
-                                _ => return Err(()),
-                            }
-                            _ => return Err(()),
-                        }
+                let fee_call = |call: &'a RuntimeCall| -> Result<_, ()> {
+                    Ok(match call {
+                        RuntimeCall::Identity(x) => Identity(x),
+                        RuntimeCall::MultiSig(x) => MultiSig(x),
+                        RuntimeCall::Relayer(x) => Relayer(x),
+                        _ => return Err(()),
+                    })
+                };
+                match call {
+                    RuntimeCall::Revive(pallet_revive::Call::eth_substrate_call { call, .. }) => {
+                        Ok(Self { call: fee_call(&**call)?, eth_wrapped: true })
                     }
-                    _ => return Err(()),
-                })
+                    call => Ok(Self { call: fee_call(call)?, eth_wrapped: false }),
+                }
             }
         }
 

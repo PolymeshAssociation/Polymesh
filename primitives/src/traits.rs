@@ -50,6 +50,8 @@ pub trait CurrentFeePayer<AccountId, Call> {
     /// - pallet-identity (accept_primary_key, join_identity_as_key, rotate_primary_key_to_secondary)
     /// - pallet-multisig (accept_multisig_signer)
     fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>);
+    /// Gives back an authorization retry that was charged before the call was dispatched.
+    fn increase_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>);
 }
 
 pub trait IdentityFnTrait<AccountId> {
