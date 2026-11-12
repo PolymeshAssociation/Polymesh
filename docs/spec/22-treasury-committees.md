@@ -18,7 +18,8 @@ paired with a `pallet_group` instance holding its membership.
   :173, `PolymeshVotes { index, ayes, nays, expiry }` :142-151).
 - Threshold: `VoteThreshold` (n, d) — pass when `votes × d ≥ n × seats` (:509-512); GC default
   is 2/3 (chain spec). Both approval and rejection use the same threshold with a
-  plurality requirement (`main ≥ other`, :541-548).
+  plurality requirement (`main ≥ other`, :541-548) and need at least one vote, so a motion left
+  with no votes stays open, even with no seats, until it expires or a later member votes on it.
 - `ReleaseCoordinator` (:191): a member with PIP-rescheduling power (doc 19 §3).
 - Proposal expiry: `ExpiresAfter` (:196); expired proposals are pruned on touch (:611-625).
 - **Execution origin**: passing proposals dispatch with `RawOrigin::Endorsed` (:627-631,
@@ -86,7 +87,8 @@ manage their own membership but the GC can reset them.
 
 - [ ] `Endorsed` origin must only be constructible by threshold-satisfied proposal execution —
       it is the root-equivalent for many pallets via `VMO`.
-- [ ] Threshold math `votes × d ≥ n × seats` with plurality (`ayes ≥ nays` / vice versa) —
+- [ ] Threshold math `votes × d ≥ n × seats` with plurality (`ayes ≥ nays` / vice versa) and at
+      least one vote —
       changing it changes every VMO-gated pallet.
 - [ ] Group→committee membership sync must retract votes of removed members and clear the
       release coordinator when they leave.

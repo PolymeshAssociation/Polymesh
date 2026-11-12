@@ -287,6 +287,24 @@ impl Token {
         caller.send_call(self.h160(), call.abi_encode()).await
     }
 
+    pub async fn forced_transfer(
+        &self,
+        caller: &mut dyn ContractCaller,
+        from: Address,
+        to: Address,
+        amount: u128,
+    ) -> Result<Vec<ContractLog>> {
+        self.send(
+            caller,
+            ierc20::forcedTransferCall {
+                from,
+                to,
+                amount: U256::from(amount),
+            },
+        )
+        .await
+    }
+
     pub async fn set_frozen_tokens(
         &self,
         caller: &mut dyn ContractCaller,

@@ -316,6 +316,58 @@ fn add_works() {
 }
 
 #[test]
+fn pending_become_agent_auth_invalidated_by_remove_and_abdicate() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = create_and_issue_sample_asset(&owner);
+        let other_asset_id = create_and_issue_sample_asset(&owner);
+
+        let add_auth = |asset_id| {
+            let data = AuthorizationData::BecomeAgent(asset_id, AgentGroup::Full);
+            Id::add_auth(owner.did, Signatory::Identity(bob.did), data, None).unwrap()
+        };
+        let accept = |auth| ExternalAgents::accept_become_agent(bob.origin(), auth);
+        let assert_group = |g| assert_eq!(GroupOfAgent::get(asset_id, bob.did), g);
+
+        let first = add_auth(asset_id);
+        let stale = add_auth(asset_id);
+        let other_asset_auth = add_auth(other_asset_id);
+
+        assert_ok!(accept(first));
+        assert_group(Some(AgentGroup::Full));
+
+        // After `remove_agent`, the pending auth can't be used, but a new one can.
+        assert_ok!(ExternalAgents::remove_agent(
+            owner.origin(),
+            asset_id,
+            bob.did
+        ));
+        assert_noop!(accept(stale), Error::StaleAuthorization);
+        assert_group(None);
+        let stale = add_auth(asset_id);
+        let fresh = add_auth(asset_id);
+        assert_ok!(accept(fresh));
+        assert_group(Some(AgentGroup::Full));
+
+        // The same applies after `abdicate`.
+        assert_ok!(ExternalAgents::abdicate(bob.origin(), asset_id));
+        assert_noop!(accept(stale), Error::StaleAuthorization);
+        assert_group(None);
+        let fresh = add_auth(asset_id);
+        assert_ok!(accept(fresh));
+        assert_group(Some(AgentGroup::Full));
+
+        // Auths for other assets are unaffected.
+        assert_ok!(accept(other_asset_auth));
+        assert_eq!(
+            GroupOfAgent::get(other_asset_id, bob.did),
+            Some(AgentGroup::Full)
+        );
+    });
+}
+
+#[test]
 fn agent_of_mapping_works() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(Sr25519Keyring::Alice);

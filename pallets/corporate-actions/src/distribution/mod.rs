@@ -65,7 +65,7 @@
 pub mod benchmarking;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo};
 use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
@@ -78,6 +78,8 @@ use sp_std::prelude::*;
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_primitives::settlement::AssetCount;
+use polymesh_primitives::traits::SettlementFnTrait;
 use polymesh_primitives::{
     constants::currency::ONE_UNIT, storage_migration_ver, Balance, EventDid, IdentityId, Moment,
     PortfolioId, PortfolioNumber, SecondaryKey, WeightMeter,
@@ -271,10 +273,11 @@ pub mod pallet {
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as ca::Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get()))]
-        pub fn claim(origin: OriginFor<T>, ca_id: CAId) -> DispatchResult {
-            Self::base_claim(origin, ca_id)?;
-            Ok(())
+        #[pallet::weight(Pallet::<T>::benefit_weight_limit(Pallet::<T>::claim_base_weight()))]
+        pub fn claim(origin: OriginFor<T>, ca_id: CAId) -> DispatchResultWithPostInfo {
+            let mut weight_meter = Self::benefit_weight_meter(Self::claim_base_weight());
+            Self::base_claim(origin, ca_id, &mut weight_meter)?;
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Push benefit of an ongoing distribution to the given `holder`.
@@ -302,14 +305,15 @@ pub mod pallet {
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as ca::Config>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get()))]
+        #[pallet::weight(Pallet::<T>::benefit_weight_limit(Pallet::<T>::push_benefit_base_weight()))]
         pub fn push_benefit(
             origin: OriginFor<T>,
             ca_id: CAId,
             holder: IdentityId,
-        ) -> DispatchResult {
-            Self::base_push_benefit(origin, ca_id, holder)?;
-            Ok(())
+        ) -> DispatchResultWithPostInfo {
+            let mut weight_meter = Self::benefit_weight_meter(Self::push_benefit_base_weight());
+            Self::base_push_benefit(origin, ca_id, holder, &mut weight_meter)?;
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Assuming a distribution has expired,
@@ -440,9 +444,43 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    fn base_claim(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
+    /// Benchmarked weight of `claim`, excluding the currency's transfer restrictions.
+    fn claim_base_weight() -> Weight {
+        <T as ca::Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())
+    }
+
+    /// Benchmarked weight of `push_benefit`, excluding the currency's transfer restrictions.
+    fn push_benefit_base_weight() -> Weight {
+        <T as ca::Config>::DistWeightInfo::push_benefit(
+            T::MaxTargetIds::get(),
+            T::MaxDidWhts::get(),
+        )
+    }
+
+    /// Worst-case weight of paying a benefit, given the `base` weight of the extrinsic.
+    fn benefit_weight_limit(base: Weight) -> Weight {
+        base.saturating_add(
+            <T as pallet_asset::Config>::SettlementFn::try_execute_weight(AssetCount::new(1, 0, 0)),
+        )
+    }
+
+    /// Returns a meter that has already consumed `base`,
+    /// and is limited to the weight declared by [`Self::benefit_weight_limit`].
+    fn benefit_weight_meter(base: Weight) -> WeightMeter {
+        let mut weight_meter =
+            WeightMeter::from_limit_unchecked(base, Self::benefit_weight_limit(base));
+        // Cannot fail, as the limit includes `base`.
+        let _ = weight_meter.consume_weight_until_limit(base);
+        weight_meter
+    }
+
+    fn base_claim(
+        origin: T::RuntimeOrigin,
+        ca_id: CAId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         let did = <Identity<T>>::ensure_perms(origin)?;
-        Self::transfer_benefit(did.for_event(), did, ca_id)?;
+        Self::transfer_benefit(did.for_event(), did, ca_id, weight_meter)?;
         Ok(())
     }
 
@@ -450,9 +488,10 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         ca_id: CAId,
         holder: IdentityId,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let agent = <ExternalAgents<T>>::ensure_perms(origin, &ca_id.asset_id)?.for_event();
-        Self::transfer_benefit(agent, holder, ca_id)?;
+        Self::transfer_benefit(agent, holder, ca_id, weight_meter)?;
         Ok(())
     }
 
@@ -534,7 +573,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Transfer `holder`'s benefit in `ca_id` to them.
-    fn transfer_benefit(actor: EventDid, holder: IdentityId, ca_id: CAId) -> DispatchResult {
+    ///
+    /// The cost of the currency's transfer restrictions is consumed from `weight_meter`.
+    fn transfer_benefit(
+        actor: EventDid,
+        holder: IdentityId,
+        ca_id: CAId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         // Ensure holder not paid yet.
         ensure!(
             !HolderPaid::<T>::get((ca_id, holder)),
@@ -577,7 +623,6 @@ impl<T: Config> Pallet<T> {
 
         // Transfer remainder (`gain`) to DID.
         let to = PortfolioId::default_portfolio(holder);
-        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         Asset::<T>::base_transfer(
             dist.from.clone().into(),
             to.into(),
@@ -586,7 +631,7 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             actor.clone().risky_into_inner(),
-            &mut weight_meter,
+            weight_meter,
         )?;
 
         // Note that DID was paid.

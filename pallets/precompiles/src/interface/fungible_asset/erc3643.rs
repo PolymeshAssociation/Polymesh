@@ -16,6 +16,7 @@
 use alloc::vec::Vec;
 
 use frame_support::traits::Get;
+use pallet_asset::{AssetIdTicker, WeightInfo};
 use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -25,7 +26,7 @@ use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
-use crate::common::Common;
+use crate::common::{extrinsic_error, Common};
 use crate::interface::FungibleAssetInterface;
 use crate::interface::ERR_INVALID_SYMBOL;
 use crate::Config;
@@ -94,6 +95,8 @@ impl<T: Config> FungibleAssetInterface<T> {
     }
 
     /// Sets the token symbol. Only the owner of the token contract can call this function.
+    ///
+    /// Registers the new ticker and links it to the asset. A previously linked ticker is unlinked.
     pub(crate) fn set_symbol(
         asset_id: AssetId,
         call: &IFungibleAsset::setSymbolCall,
@@ -110,12 +113,48 @@ impl<T: Config> FungibleAssetInterface<T> {
         let ticker = Ticker::from_slice_truncated(new_symbol);
         let caller = Common::<T>::caller(env)?;
 
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+        let current_ticker = AssetIdTicker::<T>::get(asset_id);
+
+        if current_ticker == Some(ticker) {
+            // Nothing to change, but the caller must still be allowed to call it.
+            env.charge(<T as pallet_asset::Config>::WeightInfo::link_ticker_to_asset_id())?;
+            // Sets the call metadata but only runs the permission check, not the actual extrinsic.
+            Common::<T>::with_runtime_call(
+                env,
+                caller.account_id.clone(),
+                pallet_asset::Call::<T>::link_ticker_to_asset_id { ticker, asset_id },
+                || {
+                    pallet_external_agents::Pallet::<T>::ensure_perms(
+                        caller.runtime_origin(),
+                        &asset_id,
+                    )
+                },
+            )?
+            .map_err(extrinsic_error)?;
+
+            return Ok(Vec::new());
+        }
+
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),
             caller.account_id.clone(),
             pallet_asset::Call::<T>::register_unique_ticker { ticker },
         )?;
+
+        if let Some(current_ticker) = current_ticker {
+            Common::<T>::call_runtime(
+                env,
+                caller.runtime_origin(),
+                caller.account_id.clone(),
+                pallet_asset::Call::<T>::unlink_ticker_from_asset_id {
+                    ticker: current_ticker,
+                    asset_id,
+                },
+            )?;
+        }
+
         Common::<T>::call_runtime(
             env,
             caller.runtime_origin(),

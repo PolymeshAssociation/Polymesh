@@ -536,7 +536,7 @@ impl<T: Config<I>, I: 'static> GroupTrait<T::Moment> for Pallet<T, I> {
                 if !Self::is_member_expired(m, now) {
                     true
                 } else {
-                    Self::deposit_event(Event::MemberRemoved(current_did, who));
+                    Self::deposit_event(Event::MemberRemoved(current_did, m.id));
                     false
                 }
             });

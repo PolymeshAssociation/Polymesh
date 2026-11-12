@@ -140,15 +140,13 @@ benchmarks! {
     }
 
     remove_permissioned_validator {
-        clear_validators_and_nominators::<T>();
-        let (stash, controller) =
-            create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
-        add_permissioned_validator_::<T>(&stash);
-        let did = get_did::<T>(&stash);
+        let validator = create_funded_user::<T>("validator", USER_SEED, 10_000);
+        StakingPallet::<T>::set_validator_count(RawOrigin::Root.into(), 10).unwrap();
+        let did = get_did::<T>(&validator);
+        Pallet::<T>::add_permissioned_validator(RawOrigin::Root.into(), did, Some(1)).unwrap();
     }: _(RawOrigin::Root, did)
     verify {
-        let identity_preferences = Pallet::<T>::permissioned_identity(did);
-        assert!(identity_preferences.is_none());
+        assert!(Pallet::<T>::permissioned_identity(did).is_none());
     }
 
     change_slashing_allowed_for {}: _(RawOrigin::Root, SlashingSwitch::ValidatorAndNominator)

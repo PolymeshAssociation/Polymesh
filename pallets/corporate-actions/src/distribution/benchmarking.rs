@@ -87,6 +87,8 @@ fn prepare_transfer<T: CAConfig + pallet_compliance_manager::Config>(
     <pallet_timestamp::Now<T>>::set(3000u32.into());
 
     let holder = user::<T>("holder", SEED);
+    // A requirement without conditions: `claim` and `push_benefit` measure only their base cost,
+    // as the cost of evaluating the currency's restrictions is charged through a weight meter.
     <ComplianceManager<T>>::add_compliance_requirement(
         owner.origin().into(),
         currency,

@@ -182,11 +182,13 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Proof: `Nft::Owner` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
     /// The range of component `n` is `[1, 10]`.
     fn base_nft_transfer(n: u32) -> Weight {
+        // Not generated: one more read than measured, for checking in `Portfolio::Portfolios` that
+        // the receiving portfolio exists, until this benchmark is run again.
         // Minimum execution time: 157_180 nanoseconds.
         Weight::from_parts(121_716_478, 0)
             // Standard Error: 81_056
             .saturating_add(Weight::from_parts(41_772_794, 0).saturating_mul(n.into()))
-            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(n.into())))
@@ -320,8 +322,10 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `ComplianceManager::AssetCompliances` (r:1 w:0)
     // Proof: `ComplianceManager::AssetCompliances` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn nft_transfer_report_best_case() -> Weight {
+        // Not generated: one more read than measured, for checking in `Portfolio::Portfolios` that
+        // the receiving portfolio exists, until this benchmark is run again.
         // Minimum execution time: 104_180 nanoseconds.
-        Weight::from_parts(107_960_000, 0).saturating_add(DbWeight::get().reads(9))
+        Weight::from_parts(107_960_000, 0).saturating_add(DbWeight::get().reads(10))
     }
     // Storage: `Nft::CollectionAsset` (r:1 w:0)
     // Proof: `Nft::CollectionAsset` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
@@ -344,7 +348,9 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: `Identity::Claims` (r:50 w:0)
     // Proof: `Identity::Claims` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn nft_transfer_report_worst_case() -> Weight {
+        // Not generated: one more read than measured, for checking in `Portfolio::Portfolios` that
+        // the receiving portfolio exists, until this benchmark is run again.
         // Minimum execution time: 285_700 nanoseconds.
-        Weight::from_parts(294_620_000, 0).saturating_add(DbWeight::get().reads(60))
+        Weight::from_parts(294_620_000, 0).saturating_add(DbWeight::get().reads(61))
     }
 }

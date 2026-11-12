@@ -106,6 +106,7 @@ use pallet_base::{
 };
 use pallet_external_agents::Config as EAConfig;
 use pallet_identity::PermissionedCallOriginData;
+use pallet_statistics::WeightInfo as _;
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::{
     AssetHolder, AssetHolderKind, AssetId, AssetName, AssetType, CheckpointId, CustomAssetTypeId,
@@ -962,21 +963,31 @@ pub mod pallet {
         /// * `InvalidGranularity` - If the value to redeem does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::redeem())]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(Pallet::<T>::redeem_base_weight()))]
         pub fn redeem(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             asset_holder_kind: AssetHolderKind,
-        ) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        ) -> DispatchResultWithPostInfo {
+            let base_weight = Self::redeem_base_weight();
+            let mut weight_meter = WeightMeter::from_limit_unchecked(
+                base_weight,
+                Self::weight_limit_with_statistics(base_weight),
+            );
+            weight_meter
+                .check_accrue(base_weight)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
             Self::base_redeem(
                 origin,
                 asset_id,
                 value,
                 asset_holder_kind,
                 &mut weight_meter,
-            )
+            )?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// If the asset associated to `asset_id` is indivisible, sets [`AssetDetails::divisible`] to true.
@@ -1131,15 +1142,23 @@ pub mod pallet {
         /// * `InvalidGranularity` - If the amount to transfer does not meet the granularity requirements.
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         #[pallet::call_index(14)]
-        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer())]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(<T as Config>::WeightInfo::controller_transfer()))]
         pub fn controller_transfer(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             source: AssetHolder,
             destination_kind: AssetHolderKind,
-        ) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        ) -> DispatchResultWithPostInfo {
+            let base_weight = <T as Config>::WeightInfo::controller_transfer();
+            let mut weight_meter = WeightMeter::from_limit_unchecked(
+                base_weight,
+                Self::weight_limit_with_statistics(base_weight),
+            );
+            weight_meter
+                .check_accrue(base_weight)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
             Self::base_controller_transfer(
                 origin,
                 asset_id,
@@ -1147,7 +1166,9 @@ pub mod pallet {
                 source,
                 destination_kind,
                 &mut weight_meter,
-            )
+            )?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Registers a custom asset type.
@@ -1240,6 +1261,7 @@ pub mod pallet {
         /// * `AssetMetadataKeyIsMissing` - If the metadata key is missing.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
+        /// * `AssetMetadataValueIsEmpty` - If `details` lock an empty metadata value.
         #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::set_asset_metadata())]
         pub fn set_asset_metadata(
@@ -1306,6 +1328,7 @@ pub mod pallet {
         /// * `AssetMetadataLocalKeyAlreadyExists` - If the local metadata key already exists.
         /// * `AssetMetadataValueIsLocked` - If the metadata value is locked.
         /// * `AssetMetadataValueMaxLengthExceeded` - If the metadata value length exceeds the maximum allowed length.
+        /// * `AssetMetadataValueIsEmpty` - If `details` lock an empty metadata value.
         #[pallet::call_index(19)]
         #[pallet::weight(<T as Config>::WeightInfo::register_and_set_local_asset_metadata())]
         pub fn register_and_set_local_asset_metadata(
@@ -1890,15 +1913,23 @@ pub mod pallet {
         /// * `TotalSupplyOverflow` - If the total supply exceeds the maximum allowed limit.
         /// * `ReceiverAffirmationRequired` - If `destination` requires receiver affirmation for the asset.
         #[pallet::call_index(40)]
-        #[pallet::weight(<T as Config>::WeightInfo::controller_transfer_to())]
+        #[pallet::weight(Pallet::<T>::weight_limit_with_statistics(<T as Config>::WeightInfo::controller_transfer_to()))]
         pub fn controller_transfer_to(
             origin: OriginFor<T>,
             asset_id: AssetId,
             value: Balance,
             source: AssetHolder,
             destination: AssetHolder,
-        ) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+        ) -> DispatchResultWithPostInfo {
+            let base_weight = <T as Config>::WeightInfo::controller_transfer_to();
+            let mut weight_meter = WeightMeter::from_limit_unchecked(
+                base_weight,
+                Self::weight_limit_with_statistics(base_weight),
+            );
+            weight_meter
+                .check_accrue(base_weight)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+
             Self::base_controller_transfer_to(
                 origin,
                 asset_id,
@@ -1906,7 +1937,9 @@ pub mod pallet {
                 source,
                 destination,
                 &mut weight_meter,
-            )
+            )?;
+
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Freezes an additional `amount` of `asset_id` tokens from `asset_holder`, on top of
@@ -2308,6 +2341,23 @@ impl<T: AssetConfig> Pallet<T> {
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
+    /// Returns `base_weight` plus the worst-case weight of updating the asset's statistics.
+    ///
+    /// `base_weight` must not include the per-statistic updates. These only run when the
+    /// statistics change, so the `redeem` and `controller_transfer*` benchmarks don't measure them.
+    fn weight_limit_with_statistics(base_weight: Weight) -> Weight {
+        base_weight.saturating_add(Statistics::<T>::update_asset_stats_weight_limit())
+    }
+
+    /// Returns the [`WeightInfo::redeem`] weight without the active statistics load.
+    fn redeem_base_weight() -> Weight {
+        <T as Config>::WeightInfo::redeem().saturating_sub(
+            <T as pallet_statistics::Config>::WeightInfo::active_asset_statistics_load(
+                <T as pallet_statistics::Config>::MaxStatsPerAsset::get(),
+            ),
+        )
+    }
+
     /// Reduces `value` tokens from `asset_holder_kind` and [`AssetDetails::total_supply`].
     fn base_redeem(
         origin: T::RuntimeOrigin,
@@ -2643,8 +2693,10 @@ impl<T: AssetConfig> Pallet<T> {
 
         // Prevent locking an asset metadata with no value
         if detail.is_locked(<pallet_timestamp::Pallet<T>>::get()) {
-            AssetMetadataValues::<T>::try_get(&asset_id, &key)
-                .map_err(|_| Error::<T>::AssetMetadataValueIsEmpty)?;
+            ensure!(
+                AssetMetadataValues::<T>::get(&asset_id, &key).is_some_and(|v| !v.0.is_empty()),
+                Error::<T>::AssetMetadataValueIsEmpty
+            );
         }
 
         // Set asset metadata value details.
@@ -4531,6 +4583,14 @@ impl<T: AssetConfig> Pallet<T> {
             !Self::is_asset_metadata_locked(&asset_id, key),
             Error::<T>::AssetMetadataValueIsLocked
         );
+
+        // Prevent locking an asset metadata with no value
+        if let Some(ref detail) = detail {
+            ensure!(
+                !value.0.is_empty() || !detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
+                Error::<T>::AssetMetadataValueIsEmpty
+            );
+        }
 
         // Set asset metadata value for asset.
         AssetMetadataValues::<T>::insert(asset_id, key, &value);

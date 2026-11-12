@@ -120,7 +120,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
     // Storage: `Settlement::InstructionMediatorsAffirmations` (r:1 w:0)
     // Proof: `Settlement::InstructionMediatorsAffirmations` (`max_values`: None, `max_size`: Some(58), added: 2533, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Asset::BalanceOf` (r:4 w:4)
     // Proof: `Asset::BalanceOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
@@ -163,10 +163,12 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::InstructionLegStatus` (r:0 w:2)
     // Proof: `Settlement::InstructionLegStatus` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     fn invest_onchain() -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 1_483_238 nanoseconds.
         Weight::from_parts(1_524_948_000, 0)
             .saturating_add(DbWeight::get().reads(230))
-            .saturating_add(DbWeight::get().writes(53))
+            .saturating_add(DbWeight::get().writes(54))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -218,7 +220,7 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Proof: `Portfolio::PortfolioFrozenAssets` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `MaxEncodedLen`)
     // Storage: `Settlement::InstructionMediatorsAffirmations` (r:1 w:0)
     // Proof: `Settlement::InstructionMediatorsAffirmations` (`max_values`: None, `max_size`: Some(58), added: 2533, mode: `MaxEncodedLen`)
-    // Storage: `Settlement::InstructionMemos` (r:1 w:0)
+    // Storage: `Settlement::InstructionMemos` (r:1 w:1)
     // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     // Storage: `Asset::BalanceOf` (r:2 w:2)
     // Proof: `Asset::BalanceOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
@@ -261,10 +263,12 @@ impl pallet_sto::WeightInfo for SubstrateWeight {
     // Storage: `Settlement::InstructionLegStatus` (r:0 w:1)
     // Proof: `Settlement::InstructionLegStatus` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     fn invest_offchain() -> Weight {
+        // Not generated: one more write than measured, for removing `InstructionMemos` in
+        // `prune_instruction`, until this benchmark is run again.
         // Minimum execution time: 909_609 nanoseconds.
         Weight::from_parts(945_909_000, 0)
             .saturating_add(DbWeight::get().reads(124))
-            .saturating_add(DbWeight::get().writes(32))
+            .saturating_add(DbWeight::get().writes(33))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)

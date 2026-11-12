@@ -47,10 +47,12 @@ impl pallet_validators::WeightInfo for SubstrateWeight {
     }
     // Storage: `Validators::PermissionedIdentity` (r:1 w:1)
     // Proof: `Validators::PermissionedIdentity` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+    // Storage: `Validators::IdentityValidatorStashes` (r:1 w:0)
+    // Proof: `Validators::IdentityValidatorStashes` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
     fn remove_permissioned_validator() -> Weight {
-        // Minimum execution time: 16_530 nanoseconds.
-        Weight::from_parts(18_270_000, 0)
-            .saturating_add(DbWeight::get().reads(1))
+        // Minimum execution time: 32_022 nanoseconds.
+        Weight::from_parts(33_237_000, 0)
+            .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Validators::SlashingAllowedFor` (r:0 w:1)

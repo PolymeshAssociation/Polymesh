@@ -45,8 +45,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub mod migrations;
-
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
@@ -892,6 +890,8 @@ impl<T: Config> Pallet<T> {
                 pid.kind != PortfolioKind::Default,
                 Error::<T>::DefaultPortfoliosCannotHaveCustodians
             );
+
+            Self::ensure_portfolio_validity(&pid)?;
 
             let curr = Self::custodian(&pid);
             pallet_identity::Pallet::<T>::ensure_auth_by(from, curr)?;
