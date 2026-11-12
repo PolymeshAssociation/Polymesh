@@ -40,6 +40,9 @@ pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long"
 
 pub const DECIMALS: u8 = 6;
 
+/// `IERC20`: the XOR of the selectors of its six functions.
+pub const ERC20_INTERFACE_ID: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
+
 /// `IERC7943Fungible`: the XOR of the selectors of its functions.
 pub const ERC7943_FUNGIBLE_INTERFACE_ID: [u8; 4] = [0x3e, 0xdb, 0xb4, 0xc4];
 

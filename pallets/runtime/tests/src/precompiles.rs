@@ -1,5 +1,7 @@
 use pallet_precompiles::interface::nft::{ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID};
-use pallet_precompiles::interface::{ERC165_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID};
+use pallet_precompiles::interface::{
+    ERC165_INTERFACE_ID, ERC20_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID,
+};
 use pallet_revive::precompiles::alloy::sol_types::{SolCall, SolEvent};
 use polymesh_precompiles::{IFungibleAsset, INonFungibleAsset};
 use sp_core::hashing::keccak_256;
@@ -55,13 +57,27 @@ fn erc165_interface_ids_match_our_selectors() {
     );
 }
 
-/// Same check for the fungible precompile, which reports `IERC165` and `IERC7943Fungible`.
+/// Same check for the fungible precompile, which reports `IERC165`, `IERC20` and
+/// `IERC7943Fungible`.
 #[test]
 fn erc7943_fungible_interface_ids_match_our_selectors() {
     assert_eq!(
         xor(&[IFungibleAsset::supportsInterfaceCall::SELECTOR]),
         ERC165_INTERFACE_ID,
         "IERC165 interface id mismatch"
+    );
+
+    assert_eq!(
+        xor(&[
+            IFungibleAsset::totalSupplyCall::SELECTOR,
+            IFungibleAsset::balanceOfCall::SELECTOR,
+            IFungibleAsset::transferCall::SELECTOR,
+            IFungibleAsset::allowanceCall::SELECTOR,
+            IFungibleAsset::approveCall::SELECTOR,
+            IFungibleAsset::transferFromCall::SELECTOR,
+        ]),
+        ERC20_INTERFACE_ID,
+        "IERC20 interface id mismatch"
     );
 
     assert_eq!(

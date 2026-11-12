@@ -158,6 +158,8 @@ async fn erc7943_supports_interface() -> Result<()> {
 
     assert!(erc7943.supports_interface([0x01, 0xff, 0xc9, 0xa7]).await?);
     assert!(erc7943.supports_interface([0x3e, 0xdb, 0xb4, 0xc4]).await?);
+    // `IERC20`
+    assert!(erc7943.supports_interface([0x36, 0x37, 0x2b, 0x07]).await?);
     // ERC-165 requires `false` for `0xffffffff`.
     assert!(!erc7943.supports_interface([0xff, 0xff, 0xff, 0xff]).await?);
 

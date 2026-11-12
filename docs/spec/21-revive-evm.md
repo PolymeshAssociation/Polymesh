@@ -121,7 +121,7 @@ rejected, rather than silently permitted to change state.
 | ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer_to` / `set_frozen_tokens` | fungible_asset/erc7943.rs:86, 148 |
 | ERC-3643 freezePartialTokens / unfreezePartialTokens | `Asset::freeze_partial_tokens` / `unfreeze_partial_tokens` | fungible_asset/erc3643.rs:181, 219 |
 | ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:36-161 |
-| `supportsInterface` | constant match on ERC-165 / IERC7943Fungible ids | fungible_asset/erc7943.rs:331 |
+| `supportsInterface` | constant match on ERC-165 / IERC20 / IERC7943Fungible ids | fungible_asset/erc7943.rs:331 |
 
 **Frozen-token events.** Each standard logs a frozen change differently: ERC-3643 emits
 `TokensFrozen`/`TokensUnfrozen` with the *difference*, ERC-7943 emits `Frozen` with the new
@@ -159,7 +159,7 @@ one NFT collection.
 | `mint` / `burn` | `Nft::issue_nft` / `Nft::redeem_nft` (agent-gated) | nft/polymesh_specific.rs:62, 116 |
 | `tokenURI` | `Nft::MetadataValue[tokenUri]`, falling back to `Asset::AssetMetadataValues[baseTokenUri]`, with `{tokenId}` substitution | nft/metadata.rs:80 |
 | `supportsInterface` | constant match on ERC-165 / 721 / 721Metadata ids | nft/metadata.rs:113 |
-| ERC-7943 canTransfer / forcedTransfer | `Nft::can_transfer_funds` / `Nft::controller_transfer` | nft/erc7943.rs:37, 73 |
+| ERC-7943 canTransfer / forcedTransfer | `Nft::can_transfer_funds` / `Nft::controller_transfer` | nft/erc7943.rs:38, 78 |
 
 **Deliberate deviations from ERC-721**, documented in the `.sol` NatSpec:
 

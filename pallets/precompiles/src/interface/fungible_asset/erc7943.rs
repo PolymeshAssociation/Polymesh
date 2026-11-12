@@ -28,7 +28,7 @@ use sp_runtime::Weight;
 
 use crate::common::{revert, Common, ERR_WEIGHT_LIMIT_EXCEEDED};
 use crate::interface::{
-    FungibleAssetInterface, ERC165_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID,
+    FungibleAssetInterface, ERC165_INTERFACE_ID, ERC20_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID,
 };
 use crate::Config;
 
@@ -333,7 +333,9 @@ impl<T: Config> FungibleAssetInterface<T> {
         _env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
         let id = call.interfaceId.0;
-        let supported = id == ERC165_INTERFACE_ID || id == ERC7943_FUNGIBLE_INTERFACE_ID;
+        let supported = id == ERC165_INTERFACE_ID
+            || id == ERC20_INTERFACE_ID
+            || id == ERC7943_FUNGIBLE_INTERFACE_ID;
 
         Ok(IFungibleAsset::supportsInterfaceCall::abi_encode_returns(
             &supported,

@@ -181,7 +181,8 @@ interface IFungibleAsset {
 
     /// @notice Takes tokens from one address and transfers them to another.
     /// @dev Requires specific authorization. Used for regulatory compliance or recovery scenarios.
-    /// Emits {ForcedTransfer} and {Transfer} events.
+    /// Emits {Transfer} then {ForcedTransfer}. If frozen tokens had to be unfrozen to cover
+    /// `amount`, {TokensUnfrozen} and {Frozen} are emitted first.
     /// @param from The address from which `amount` is taken.
     /// @param to The address which receives the seized tokens.
     /// @param amount The amount to force transfer.
@@ -221,7 +222,7 @@ interface IFungibleAsset {
 
     /// @dev Returns true if this contract implements the interface defined by `interfaceId`.
     ///
-    /// Reports `true` for `IERC165` and `IERC7943Fungible`, as ERC-7943 requires.
+    /// Reports `true` for `IERC165` and `IERC7943Fungible`, as ERC-7943 requires, and for `IERC20`.
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
     // ============================================================
