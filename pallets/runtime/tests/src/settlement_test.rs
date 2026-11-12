@@ -344,6 +344,44 @@ fn basic_settlement() {
 }
 
 #[test]
+fn rejecting_instruction_prunes_memo() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let charlie = User::new(Sr25519Keyring::Charlie);
+        let (asset_id, venue_counter) = create_and_issue_sample_asset_with_venue(&alice);
+        let instruction_id = InstructionCounter::<TestStorage>::get();
+
+        assert_ok!(Settlement::add_instruction_with_mediators(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg::Fungible {
+                sender: PortfolioId::default_portfolio(alice.did).into(),
+                receiver: PortfolioId::default_portfolio(bob.did).into(),
+                asset_id,
+                amount: 100,
+            }],
+            Some(Memo::default()),
+            BTreeSet::from([charlie.did]).try_into().unwrap()
+        ));
+        assert_eq!(
+            InstructionMemos::<TestStorage>::get(instruction_id),
+            Some(Memo::default())
+        );
+
+        assert_ok!(Settlement::reject_instruction_as_mediator(
+            charlie.origin(),
+            instruction_id,
+            None
+        ));
+        assert_eq!(InstructionMemos::<TestStorage>::get(instruction_id), None);
+    });
+}
+
+#[test]
 fn create_and_affirm_instruction() {
     test_with_did_registrar(|_eve| {
         let alice = User::new(Sr25519Keyring::Alice);
@@ -2281,6 +2319,9 @@ fn basic_settlement_with_memo() {
         next_block();
         alice.assert_balance_decreased(&asset_id, amount);
         bob.assert_balance_increased(&asset_id, amount);
+
+        // The memo is pruned together with the rest of the instruction.
+        assert_eq!(InstructionMemos::<TestStorage>::get(instruction_id), None);
     });
 }
 

@@ -124,7 +124,6 @@ pub trait WeightInfo {
     fn set_max_pip_skip_count() -> Weight;
     fn set_active_pip_limit() -> Weight;
     fn propose_from_community() -> Weight;
-    fn propose_from_committee() -> Weight;
     fn vote() -> Weight;
     fn approve_committee_proposal() -> Weight;
     fn reject_proposal() -> Weight;

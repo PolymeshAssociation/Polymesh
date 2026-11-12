@@ -118,9 +118,11 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: `Identity::AuthorizationsGiven` (r:0 w:1)
     // Proof: `Identity::AuthorizationsGiven` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
     fn accept_portfolio_custody() -> Weight {
+        // Not generated: one more read than measured, for checking in `Portfolio::Portfolios` that
+        // the portfolio exists, until this benchmark is run again.
         // Minimum execution time: 44_260 nanoseconds.
         Weight::from_parts(47_530_000, 0)
-            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)

@@ -57,7 +57,7 @@ use frame_support::{pallet_prelude::*, weights::Weight};
 use frame_system::pallet_prelude::*;
 
 use pallet_base::{try_next_post, try_next_pre};
-use pallet_identity::{Config as IdentityConfig, PermissionedCallOriginData};
+use pallet_identity::{Config as IdentityConfig, CurrentAuthId, PermissionedCallOriginData};
 use pallet_permissions::Config as PermConfig;
 use pallet_permissions::{CurrentDispatchableName, CurrentPalletName};
 use polymesh_primitives::agent::{AGId, AgentGroup};
@@ -132,6 +132,13 @@ pub mod pallet {
     pub type GroupPermissions<T> =
         StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, AGId, ExtrinsicPermissions>;
 
+    /// For each asset and removed agent, the value of `CurrentAuthId` at the time of removal.
+    ///
+    /// A `BecomeAgent` authorization with an ID at or below this value can't be accepted.
+    #[pallet::storage]
+    pub type AgentAuthCutoff<T> =
+        StorageDoubleMap<_, Blake2_128Concat, AssetId, Twox64Concat, IdentityId, u64, ValueQuery>;
+
     /// Storage version.
     #[pallet::storage]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery>;
@@ -198,6 +205,8 @@ pub mod pallet {
         BadAuthorizationType,
         /// Except `ExtrinsicPermissions` are not allowed for external agents.
         ExceptPermissionsNotAllowed,
+        /// The `BecomeAgent` authorization was issued before the target was last removed as an agent.
+        StaleAuthorization,
     }
 
     #[pallet::call]
@@ -397,6 +406,10 @@ impl<T: Config> Pallet<T> {
                 GroupOfAgent::<T>::get(&asset_id, to).is_none(),
                 Error::<T>::AlreadyAnAgent
             );
+            ensure!(
+                auth_id > AgentAuthCutoff::<T>::get(&asset_id, to),
+                Error::<T>::StaleAuthorization
+            );
 
             Self::unchecked_add_agent(asset_id, to, group)?;
             Ok(())
@@ -577,6 +590,7 @@ impl<T: Config> Pallet<T> {
             // Removal
             if group.is_none() {
                 AgentOf::<T>::remove(agent, asset_id);
+                AgentAuthCutoff::<T>::insert(asset_id, agent, CurrentAuthId::<T>::get());
             }
 
             *slot = group;

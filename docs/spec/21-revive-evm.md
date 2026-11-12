@@ -136,7 +136,7 @@ one NFT collection.
 | `mint` / `burn` | `Nft::issue_nft` / `Nft::redeem_nft` (agent-gated) | nft/polymesh_specific.rs:62, 116 |
 | `tokenURI` | `Nft::MetadataValue[tokenUri]`, falling back to `Asset::AssetMetadataValues[baseTokenUri]`, with `{tokenId}` substitution | nft/metadata.rs:80 |
 | `supportsInterface` | constant match on ERC-165 / 721 / 721Metadata ids | nft/metadata.rs:113 |
-| ERC-7943 canTransfer / forcedTransfer | `Nft::nft_transfer_report` / `Nft::controller_transfer` | nft/erc7943.rs:37, 73 |
+| ERC-7943 canTransfer / forcedTransfer | `Nft::can_transfer_funds` / `Nft::controller_transfer` | nft/erc7943.rs:37, 73 |
 
 **Deliberate deviations from ERC-721**, documented in the `.sol` NatSpec:
 

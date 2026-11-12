@@ -123,6 +123,7 @@ impl<T: Config> PermissionedStaking<T> for Pallet<T> {
             stash_did_prefs.running_count += 1;
             pallet_identity::Pallet::<T>::add_account_key_ref_count(&stash);
             PermissionedIdentity::<T>::insert(stash_did, stash_did_prefs);
+            IdentityValidatorStashes::<T>::insert(stash_did, stash, ());
         }
 
         Ok(())
@@ -198,7 +199,11 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        if let Some(did) = pallet_identity::Pallet::<T>::get_identity(stash) {
+        let stash_did = pallet_identity::KeyRecords::<T>::get(stash)
+            .and_then(|record| record.get_did_key_type())
+            .map(|(did, _)| did);
+
+        if let Some(did) = stash_did {
             PermissionedIdentity::<T>::mutate(&did, |preferences| {
                 if let Some(p) = preferences {
                     if p.running_count > 0 {
@@ -207,6 +212,7 @@ impl<T: Config> Pallet<T> {
                 }
             });
             pallet_identity::Pallet::<T>::remove_account_key_ref_count(&stash);
+            IdentityValidatorStashes::<T>::remove(did, stash);
         }
     }
 
@@ -255,10 +261,26 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Returns a static upper bound on the number of validators a single identity can run.
+    pub fn max_validators_per_identity_bound() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * <T as StakingConfig>::MaxValidatorSet::get())
+            .max(1)
+            .saturating_sub(1)
+    }
+
+    /// Weight of `remove_permissioned_validator`.
+    pub fn remove_permissioned_validator_weight(stashes: u32) -> Weight {
+        let per_stash = <T as StakingConfig>::WeightInfo::chill()
+            .saturating_add(T::DbWeight::get().reads_writes(1, 1));
+        <T as Config>::WeightInfo::remove_permissioned_validator()
+            .saturating_add(per_stash.saturating_mul(stashes.into()))
+    }
+
+    /// Removes the permissioned `identity` and returns the number of stashes that were chilled.
     pub(crate) fn base_remove_permissioned_validator(
         origin: OriginFor<T>,
         identity: IdentityId,
-    ) -> DispatchResult {
+    ) -> Result<u32, DispatchError> {
         T::AdminOrigin::ensure_origin(origin)?;
 
         ensure!(
@@ -266,13 +288,20 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IdentityNotFound
         );
 
+        // Chill every stash of the identity that is still validating.
+        let stashes: Vec<T::AccountId> =
+            IdentityValidatorStashes::<T>::iter_key_prefix(identity).collect();
+        for stash in &stashes {
+            StakingPallet::<T>::chill_stash(stash);
+        }
+
         PermissionedIdentity::<T>::remove(&identity);
 
         Pallet::<T>::deposit_event(Event::<T>::PermissionedIdentityRemoved {
             governance_councill_did: GC_DID,
             validators_identity: identity,
         });
-        Ok(())
+        Ok(stashes.len() as u32)
     }
 
     pub(crate) fn base_change_slashing_allowed_for(

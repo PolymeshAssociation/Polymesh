@@ -671,6 +671,52 @@ fn mesh_1065_regression_test() {
 }
 
 #[test]
+fn removing_multiple_members_retracts_all_their_votes() {
+    ExtBuilder::default()
+        .governance_committee_vote_threshold((1, 1))
+        .build()
+        .execute_with(removing_multiple_members_retracts_all_their_votes_we);
+}
+
+fn removing_multiple_members_retracts_all_their_votes_we() {
+    System::set_block_number(1);
+
+    let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+    let bob_signer = Origin::signed(Sr25519Keyring::Bob.to_account_id());
+    let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+    let charlie_signer = Origin::signed(Sr25519Keyring::Charlie.to_account_id());
+    let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
+    let dave_did = register_keyring_account(Sr25519Keyring::Dave).unwrap();
+    set_members(vec![alice_did, bob_did, charlie_did, dave_did]);
+    assert_mem_len(4);
+
+    let hash = hash_enact_snapshot_results();
+    let ayes = || {
+        let mut ayes = Voting::<TestStorage, committee::Instance1>::get(&hash)
+            .expect("motion should still be open")
+            .ayes;
+        ayes.sort();
+        ayes
+    };
+
+    // Bob and Charlie both vote for the same motion.
+    assert_ok!(vote(&bob_signer, true));
+    assert_ok!(vote(&charlie_signer, true));
+    let mut expected = vec![bob_did, charlie_did];
+    expected.sort();
+    assert_eq!(ayes(), expected);
+
+    // Remove Bob and Charlie in a single membership change.
+    set_members(vec![alice_did, dave_did]);
+    assert_mem_len(2);
+    assert_mem(bob_did, false);
+    assert_mem(charlie_did, false);
+
+    // Both outgoing members' votes must be retracted, not only the first one.
+    assert_eq!(ayes(), Vec::<IdentityId>::new());
+}
+
+#[test]
 fn expiry_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -708,4 +754,95 @@ fn expiry_works() {
             committee::Error::<TestStorage, committee::Instance1>::ProposalExpired
         );
     });
+}
+
+/// Returns `true` if `hash` is still an open motion and was never executed.
+fn motion_is_open_and_unexecuted(hash: H256) -> bool {
+    let executed = System::events().iter().any(|record| {
+        matches!(
+            &record.event,
+            EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(_, h, _)) if *h == hash
+        )
+    });
+    !executed
+        && Voting::<TestStorage, committee::Instance1>::contains_key(&hash)
+        && committee::ProposalOf::<TestStorage, committee::Instance1>::contains_key(&hash)
+}
+
+#[test]
+fn resetting_to_empty_set_does_not_execute_pending_motions() {
+    ExtBuilder::default()
+        .governance_committee_vote_threshold((1, 1))
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let alice_signer = Origin::signed(Sr25519Keyring::Alice.to_account_id());
+            let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+            let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+            let dave_signer = Origin::signed(Sr25519Keyring::Dave.to_account_id());
+            let dave_did = register_keyring_account(Sr25519Keyring::Dave).unwrap();
+            set_members(vec![alice_did, bob_did]);
+
+            let hash = hash_enact_snapshot_results();
+            assert_ok!(vote(&alice_signer, true));
+
+            set_members(vec![]);
+            assert_mem_len(0);
+            assert!(motion_is_open_and_unexecuted(hash));
+
+            // A later committee has to vote for the motion to execute it.
+            set_members(vec![dave_did]);
+            assert!(motion_is_open_and_unexecuted(hash));
+            assert_ok!(vote(&dave_signer, true));
+            assert!(!motion_is_open_and_unexecuted(hash));
+        });
+}
+
+#[test]
+fn removing_last_member_does_not_execute_pending_motions() {
+    ExtBuilder::default()
+        .governance_committee_vote_threshold((1, 1))
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let alice_signer = Origin::signed(Sr25519Keyring::Alice.to_account_id());
+            let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+            let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+            set_members(vec![alice_did, bob_did]);
+
+            let hash = hash_enact_snapshot_results();
+            assert_ok!(vote(&alice_signer, true));
+
+            // Bob holds no vote, so the motion isn't reassessed when Bob leaves.
+            assert_ok!(CommitteeGroup::remove_member(root(), bob_did));
+            assert!(motion_is_open_and_unexecuted(hash));
+
+            assert_ok!(CommitteeGroup::remove_member(root(), alice_did));
+            assert_mem_len(0);
+            assert!(motion_is_open_and_unexecuted(hash));
+        });
+}
+
+#[test]
+fn zero_threshold_does_not_execute_motion_without_votes() {
+    ExtBuilder::default()
+        .governance_committee_vote_threshold((0, 1))
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let alice_signer = Origin::signed(Sr25519Keyring::Alice.to_account_id());
+            let alice_did = register_keyring_account(Sr25519Keyring::Alice).unwrap();
+            let bob_did = register_keyring_account(Sr25519Keyring::Bob).unwrap();
+            let charlie_did = register_keyring_account(Sr25519Keyring::Charlie).unwrap();
+            set_members(vec![alice_did, bob_did, charlie_did]);
+
+            let hash = hash_enact_snapshot_results();
+            assert_ok!(vote(&alice_signer, true));
+
+            set_members(vec![bob_did, charlie_did]);
+            assert!(motion_is_open_and_unexecuted(hash));
+        });
 }

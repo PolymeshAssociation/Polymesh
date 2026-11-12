@@ -60,6 +60,98 @@ async fn erc3643_set_symbol() -> Result<()> {
     Ok(())
 }
 
+/// `setSymbol` can be called repeatedly, and releases the ticker it replaces.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_set_symbol_replaces_linked_ticker() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc3643SymbolReplacer"]).await?;
+    let api = tester.api.clone();
+    let issuer = &mut users[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 Replace", MINT).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    let first = unique_symbol("FIRST");
+    erc3643.set_symbol(&mut caller, first.clone()).await?;
+    assert_eq!(erc3643.symbol().await?, first);
+
+    let second = unique_symbol("SECOND");
+    erc3643.set_symbol(&mut caller, second.clone()).await?;
+    assert_eq!(erc3643.symbol().await?, second);
+
+    // The first ticker was released, so it can be registered again.
+    erc3643.set_symbol(&mut caller, first.clone()).await?;
+    assert_eq!(erc3643.symbol().await?, first);
+
+    Ok(())
+}
+
+/// Setting the current symbol again succeeds for an agent, and still reverts for anyone else.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_set_symbol_to_current_symbol() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc3643SameSymbol", "Erc3643SameSymbolOther"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, others) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let other = &mut others[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 Same", MINT).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    let symbol = unique_symbol("SAME");
+    erc3643.set_symbol(&mut caller, symbol.clone()).await?;
+    erc3643.set_symbol(&mut caller, symbol.clone()).await?;
+    assert_eq!(erc3643.symbol().await?, symbol);
+
+    let mut other_caller = SubstrateCaller::new(&api, other).await?;
+    assert!(
+        erc3643
+            .set_symbol(&mut other_caller, symbol.clone())
+            .await
+            .is_err(),
+        "a non-agent must not be able to call setSymbol"
+    );
+
+    Ok(())
+}
+
+/// A failed `setSymbol` leaves the current symbol linked.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_set_symbol_taken_ticker_keeps_current_symbol() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc3643TakenSymbol", "Erc3643TakenSymbolOther"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, others) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let other = &mut others[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 Taken", MINT).await?;
+    let (_, other_erc3643) =
+        create_erc20_asset(&api, &node, other, "ERC3643 Taken Other", MINT).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    let mut other_caller = SubstrateCaller::new(&api, other).await?;
+
+    let symbol = unique_symbol("KEEP");
+    erc3643.set_symbol(&mut caller, symbol.clone()).await?;
+    let taken = unique_symbol("TAKEN");
+    other_erc3643
+        .set_symbol(&mut other_caller, taken.clone())
+        .await?;
+
+    assert!(erc3643.set_symbol(&mut caller, taken).await.is_err());
+    assert_eq!(erc3643.symbol().await?, symbol);
+
+    Ok(())
+}
+
 #[tokio::test]
 #[test_log::test]
 async fn erc3643_set_name() -> Result<()> {

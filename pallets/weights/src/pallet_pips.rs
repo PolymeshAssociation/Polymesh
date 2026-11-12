@@ -125,37 +125,16 @@ impl pallet_pips::WeightInfo for SubstrateWeight {
     // Proof: `Pips::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Pips::ProposalStates` (r:0 w:1)
     // Proof: `Pips::ProposalStates` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
+    // Storage: `Scheduler::Lookup` (r:1 w:1)
+    // Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+    // Storage: `Scheduler::Agenda` (r:1 w:1)
+    // Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(10463), added: 12938, mode: `MaxEncodedLen`)
     fn propose_from_community() -> Weight {
-        // Minimum execution time: 101_560 nanoseconds.
-        Weight::from_parts(108_929_000, 0)
-            .saturating_add(DbWeight::get().reads(14))
-            .saturating_add(DbWeight::get().writes(12))
-    }
-    // Storage: `Pips::PipIdSequence` (r:1 w:1)
-    // Proof: `Pips::PipIdSequence` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-    // Storage: `ProtocolFee::Coefficient` (r:1 w:0)
-    // Proof: `ProtocolFee::Coefficient` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-    // Storage: `ProtocolFee::BaseFees` (r:1 w:0)
-    // Proof: `ProtocolFee::BaseFees` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
-    // Storage: `Pips::PendingPipExpiry` (r:1 w:0)
-    // Proof: `Pips::PendingPipExpiry` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-    // Storage: `Pips::ActivePipCount` (r:1 w:1)
-    // Proof: `Pips::ActivePipCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-    // Storage: `Pips::CommitteePips` (r:1 w:1)
-    // Proof: `Pips::CommitteePips` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-    // Storage: `Pips::ProposalMetadata` (r:0 w:1)
-    // Proof: `Pips::ProposalMetadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    // Storage: `Pips::ProposalProposers` (r:0 w:1)
-    // Proof: `Pips::ProposalProposers` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-    // Storage: `Pips::Proposals` (r:0 w:1)
-    // Proof: `Pips::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    // Storage: `Pips::ProposalStates` (r:0 w:1)
-    // Proof: `Pips::ProposalStates` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
-    fn propose_from_committee() -> Weight {
-        // Minimum execution time: 44_770 nanoseconds.
-        Weight::from_parts(48_880_000, 0)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(7))
+        // Not generated: the measured 108_929_000 plus `pallet_scheduler::schedule_named(49)`
+        // (49_238_678, r:2, w:2) for the expiry task, until this benchmark is run again.
+        Weight::from_parts(158_167_678, 0)
+            .saturating_add(DbWeight::get().reads(16))
+            .saturating_add(DbWeight::get().writes(14))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
