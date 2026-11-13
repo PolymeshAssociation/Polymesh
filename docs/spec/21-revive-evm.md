@@ -153,10 +153,11 @@ one NFT collection.
 
 | Solidity | Runtime call / storage | Ref |
 |---|---|---|
-| `balanceOf` | `Nft::NFTAccountCount` (account-scoped, not per-DID) | nft/erc721.rs:44 |
+| `balanceOf` | `Nft::NFTAccountCount` (account-scoped, not per-DID); reverts for the zero address, as ERC-721 requires | nft/erc721.rs `balance_of` |
 | `ownerOf` / `totalSupply` | `Nft::Owner` / `Nft::NFTsInCollection` | nft/erc721.rs:60, nft/polymesh_specific.rs:44 |
 | `transferFrom` / `safeTransferFrom` | `Settlement::transfer_funds` with `FundDescription::NonFungible` (doc 09 §4, incl. approval spend); the `safe` variants additionally reject receivers with code | nft/erc721.rs:78, 265 |
 | `approve` / `setApprovalForAll` | `Nft::approve` / `Nft::set_approval_for_all` (doc 04 §4) | nft/erc721.rs:107, 143 |
+| `getApproved` | `Nft::TokenApproval`; reverts when the token has no `Nft::Owner` entry (never minted, or redeemed), as ERC-721 requires | nft/erc721.rs `get_approved` |
 | `mint` / `burn` | `Nft::issue_nft` / `Nft::redeem_nft` (agent-gated) | nft/polymesh_specific.rs:62, 116 |
 | `tokenURI` | `Nft::MetadataValue[tokenUri]`, falling back to `Asset::AssetMetadataValues[baseTokenUri]`, with `{tokenId}` substitution | nft/metadata.rs:80 |
 | `supportsInterface` | constant match on ERC-165 / 721 / 721Metadata ids | nft/metadata.rs:113 |

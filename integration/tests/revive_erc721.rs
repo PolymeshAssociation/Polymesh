@@ -388,7 +388,7 @@ async fn erc721_transfer_restrictions() -> Result<()> {
     Ok(())
 }
 
-/// `ownerOf` reverts for a token that was never issued.
+/// `ownerOf` and `getApproved` revert for a token that was never issued.
 #[tokio::test]
 #[test_log::test]
 async fn erc721_unknown_token_reverts() -> Result<()> {
@@ -405,6 +405,38 @@ async fn erc721_unknown_token_reverts() -> Result<()> {
     };
     assert!(
         format!("{err:?}").contains("NFT does not exist"),
+        "unexpected error: {err:?}"
+    );
+
+    let err = match nft.get_approved(999).await {
+        Ok(_) => panic!("getApproved() of a non-existent token should revert"),
+        Err(err) => err,
+    };
+    assert!(
+        format!("{err:?}").contains("NFT does not exist"),
+        "unexpected error: {err:?}"
+    );
+
+    Ok(())
+}
+
+/// `balanceOf` reverts for the zero address.
+#[tokio::test]
+#[test_log::test]
+async fn erc721_balance_of_zero_address_reverts() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc721ZeroBalance"]).await?;
+    let api = tester.api.clone();
+    let owner = &mut users[0];
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 Zero Balance").await?;
+
+    let err = match nft.balance_of(ZERO).await {
+        Ok(_) => panic!("balanceOf() of the zero address should revert"),
+        Err(err) => err,
+    };
+    assert!(
+        format!("{err:?}").contains("The zero address is not a valid owner"),
         "unexpected error: {err:?}"
     );
 

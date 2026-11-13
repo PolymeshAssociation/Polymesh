@@ -51,6 +51,8 @@ interface INonFungibleAsset {
     ///
     /// Only NFTs held by the account key are counted; NFTs the same identity holds in portfolios
     /// are not.
+    ///
+    /// Reverts if `owner` is the zero address.
     function balanceOf(address owner) external view returns (uint256 balance);
 
     /// @dev Returns the owner of the `tokenId` token.
@@ -114,6 +116,8 @@ interface INonFungibleAsset {
     function setApprovalForAll(address operator, bool approved) external;
 
     /// @dev Returns the account approved for `tokenId` token, or the zero address if none.
+    ///
+    /// Reverts if `tokenId` does not exist.
     function getApproved(uint256 tokenId) external view returns (address operator);
 
     /// @dev Returns if the `operator` is allowed to manage all of the assets of `owner`.

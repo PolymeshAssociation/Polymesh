@@ -203,7 +203,7 @@ use frame_support::weights::Weight;
 use pallet_revive::precompiles::alloy::primitives::{Address, U256};
 use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
 use pallet_revive::{AddressMapper, ExecConfig, TransactionLimits, H160};
-use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::{AssetId, AssetType, NonFungibleType};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
 
@@ -212,6 +212,7 @@ use polymesh_primitives::{AssetHolderKind, Balance};
 
 use crate::asset_pallet::setup::ISSUE_AMOUNT;
 use crate::ext_builder::ExtBuilder;
+use crate::nft::{create_nft_collection, mint_nft};
 use crate::storage::{EventTest, TestStorage, User};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
@@ -229,6 +230,11 @@ fn precompile_address(asset_id: AssetId, prefix_id: u8) -> H160 {
 /// The fungible precompile address of `asset_id`.
 fn fungible(asset_id: AssetId) -> H160 {
     precompile_address(asset_id, 8)
+}
+
+/// The non-fungible precompile address of `asset_id`.
+fn non_fungible(asset_id: AssetId) -> H160 {
+    precompile_address(asset_id, 9)
 }
 
 /// Registers `user`'s account with the address mapper and returns its ethereum address.
@@ -291,6 +297,12 @@ fn call<C: SolCall>(caller: &User, to: H160, call: C) -> Result<(C::Return, Vec<
     Ok((value, logs))
 }
 
+/// Calls `c` on the precompile at `to` as `caller` and returns the logs it emitted, or the
+/// revert reason.
+fn send<C: SolCall>(caller: &User, to: H160, c: C) -> Result<Vec<Log>, String> {
+    call(caller, to, c).map(|(_, logs)| logs)
+}
+
 /// Calls a view on the precompile at `to` and returns its value.
 fn view<C: SolCall>(caller: &User, to: H160, c: C) -> C::Return {
     call(caller, to, c).expect("the view must not revert").0
@@ -321,6 +333,19 @@ fn fungible_asset(owner: &User) -> AssetId {
         ISSUE_AMOUNT,
         AssetHolderKind::Account
     ));
+    asset_id
+}
+
+/// A collection owned by `owner`, with NFTs 1 to `n` in the owner's account key.
+fn nft_collection(owner: &User, n: u64) -> AssetId {
+    let asset_id = create_nft_collection(
+        *owner,
+        AssetType::NonFungible(NonFungibleType::Derivative),
+        Vec::new().into(),
+    );
+    for _ in 0..n {
+        mint_nft(*owner, asset_id, Vec::new(), AssetHolderKind::Account);
+    }
     asset_id
 }
 
@@ -370,7 +395,7 @@ fn approve_uint256_max_is_an_infinite_allowance() {
             to: spender,
             value: U256::from(1_000_000u64),
         };
-        assert_ok!(call(&bob, token, spend));
+        assert_ok!(send(&bob, token, spend));
         assert_eq!(view(&bob, token, allowance), U256::from(u128::MAX));
     });
 }
@@ -430,5 +455,72 @@ fn is_divisible_reports_the_assets_divisibility() {
         assert_ok!(Asset::make_divisible(alice.origin(), indivisible));
         assert!(view(&alice, token, IFungibleAsset::isDivisibleCall {}));
         assert_eq!(view(&alice, token, IFungibleAsset::decimalsCall {}), 6);
+    });
+}
+
+/// `getApproved` reverts for a token that does not exist, as ERC-721 requires (N3).
+#[test]
+fn get_approved_reverts_for_a_token_that_does_not_exist() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = nft_collection(&alice, 2);
+        let collection = non_fungible(asset_id);
+        let get_approved = |id: u64| INonFungibleAsset::getApprovedCall {
+            tokenId: U256::from(id),
+        };
+
+        // An existing token with no approval still returns the zero address
+        assert_eq!(view(&alice, collection, get_approved(1)), Address::ZERO);
+
+        let approved = eth_address(&bob);
+        assert_ok!(send(
+            &alice,
+            collection,
+            INonFungibleAsset::approveCall {
+                to: approved,
+                tokenId: U256::from(1u8),
+            },
+        ));
+        assert_eq!(view(&alice, collection, get_approved(1)), approved);
+
+        // Never minted
+        assert_eq!(
+            call(&alice, collection, get_approved(3)).unwrap_err(),
+            "NFT does not exist"
+        );
+
+        // Redeemed
+        assert_ok!(send(
+            &alice,
+            collection,
+            INonFungibleAsset::burnCall {
+                tokenId: U256::from(2u8),
+            },
+        ));
+        assert_eq!(
+            call(&alice, collection, get_approved(2)).unwrap_err(),
+            "NFT does not exist"
+        );
+    });
+}
+
+/// `balanceOf(address(0))` reverts, as ERC-721 requires (N4).
+#[test]
+fn nft_balance_of_the_zero_address_reverts() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = nft_collection(&alice, 2);
+        let collection = non_fungible(asset_id);
+        let balance_of = |owner: Address| INonFungibleAsset::balanceOfCall { owner };
+
+        assert_eq!(
+            view(&alice, collection, balance_of(eth_address(&alice))),
+            U256::from(2u8)
+        );
+        assert_eq!(
+            call(&alice, collection, balance_of(Address::ZERO)).unwrap_err(),
+            "The zero address is not a valid owner"
+        );
     });
 }
