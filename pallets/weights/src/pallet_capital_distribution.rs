@@ -34,7 +34,7 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_capital_distribution using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
-impl pallet_capital_distribution::WeightInfo for SubstrateWeight {
+impl pallet_corporate_actions::distribution::WeightInfo for SubstrateWeight {
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
     // Storage: `ExternalAgents::GroupOfAgent` (r:1 w:0)
