@@ -1619,12 +1619,10 @@ impl<T: Config> Pallet<T> {
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
                     ensure!(amount > 0, Error::<T>::ZeroAmount);
-                    Asset::<T>::ensure_asset_is_not_frozen(&asset_id)?;
-                    Asset::<T>::ensure_sufficient_balance(
+                    Asset::<T>::ensure_same_identity_asset_transfer(
                         &resolved_from,
                         &asset_id,
                         amount,
-                        false,
                     )?;
                     Asset::<T>::transfer_holders_balance(
                         resolved_from.clone(),

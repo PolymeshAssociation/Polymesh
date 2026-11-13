@@ -3852,6 +3852,54 @@ impl<T: AssetConfig> Pallet<T> {
         asset_transfer_errors
     }
 
+    /// Returns `Ok` if `sender` can move `value` of `asset_id` to another holder of its own
+    /// identity.
+    ///
+    /// The tokens stay with the same identity, so compliance and statistics don't apply. What is
+    /// left is that the asset and the sender are not frozen, the amount respects the asset's
+    /// granularity, and the sender has that much balance that is neither locked nor frozen.
+    pub fn ensure_same_identity_asset_transfer(
+        sender: &AssetHolder,
+        asset_id: &AssetId,
+        value: Balance,
+    ) -> DispatchResult {
+        Self::ensure_asset_is_not_frozen(asset_id)?;
+        Self::ensure_sufficient_balance(sender, asset_id, value, false)?;
+        Ok(())
+    }
+
+    /// Returns `true` if `Settlement::transfer_funds` can move `value` of `asset_id` from `sender`
+    /// to `receiver`.
+    ///
+    /// Two holders of one identity move funds directly, without compliance or statistics, so
+    /// only that path's checks apply to them. Everything else is answered by
+    /// [`Pallet::asset_transfer_report`].
+    ///
+    /// This covers the rules of the transfer itself. It does not cover the caller's
+    /// authorisation (allowance or custody), nor an affirmation the transfer may have to wait for.
+    pub fn can_transfer_funds(
+        sender: &AssetHolder,
+        receiver: &AssetHolder,
+        asset_id: &AssetId,
+        value: Balance,
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
+        let sender_did = pallet_identity::Pallet::<T>::asset_holder_did(sender);
+        let receiver_did = pallet_identity::Pallet::<T>::asset_holder_did(receiver);
+        match (sender_did, receiver_did) {
+            (Ok(sender_did), Ok(receiver_did)) if sender_did == receiver_did => {
+                sender != receiver
+                    && Self::ensure_valid_holder(receiver).is_ok()
+                    && Self::ensure_same_identity_asset_transfer(sender, asset_id, value).is_ok()
+            }
+            (Ok(_), Ok(_)) => {
+                Self::asset_transfer_report(sender, receiver, asset_id, value, false, weight_meter)
+                    .is_empty()
+            }
+            _ => false,
+        }
+    }
+
     /// Returns [`AssetDetails::total_supply`] for the given `asset_id`.
     pub fn total_supply(asset_id: &AssetId) -> Balance {
         Assets::<T>::get(asset_id)

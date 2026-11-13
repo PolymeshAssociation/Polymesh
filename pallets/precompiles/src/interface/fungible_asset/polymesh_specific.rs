@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -74,5 +75,22 @@ impl<T: Config> FungibleAssetInterface<T> {
         )?;
 
         Ok(IFungibleAsset::burnCall::abi_encode_returns(&true))
+    }
+
+    /// Returns `true` if the token is divisible.
+    ///
+    /// `decimals()` is 6 for every asset, so this is how a caller learns that an asset only
+    /// moves in whole units before a transfer reverts with `InvalidGranularity`.
+    pub(crate) fn is_divisible(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let divisible = pallet_asset::Pallet::<T>::is_divisible(&asset_id);
+
+        Ok(IFungibleAsset::isDivisibleCall::abi_encode_returns(
+            &divisible,
+        ))
     }
 }

@@ -116,11 +116,17 @@ rejected, rather than silently permitted to change state.
 | Solidity | Runtime call | Ref |
 |---|---|---|
 | `transfer`/`transferFrom` | `Settlement::transfer_funds` (doc 09 §4, incl. allowance spend) | fungible_asset/erc20.rs:66, 215 |
-| `approve` | `Asset::approve` | fungible_asset/erc20.rs:166 |
+| `approve` | `Asset::approve`; exactly `type(uint256).max` is stored as `Balance::MAX` (infinite, doc 09 §6), any other value above `2^128-1` reverts; `Approval` carries the value passed. `allowance()` reports an infinite allowance as `2^128-1` | fungible_asset/erc20.rs `approve` |
 | `mint`/`burn` | `Asset::issue`/`redeem` (agent-gated) | fungible_asset/polymesh_specific.rs:27, 58 |
+| `isDivisible` (view) | `Assets[asset].divisible`. `decimals()` stays 6 for every asset, so this is how a caller detects the whole-unit rule (`InvalidGranularity`) | fungible_asset/polymesh_specific.rs `is_divisible` |
+| ERC-7943 canTransfer | `Asset::can_transfer_funds` (see "Transfer checks" below) | fungible_asset/erc7943.rs `can_transfer` |
 | ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer_to` / `set_frozen_tokens` | fungible_asset/erc7943.rs:86, 148 |
 | ERC-3643 freezePartialTokens / unfreezePartialTokens | `Asset::freeze_partial_tokens` / `unfreeze_partial_tokens` | fungible_asset/erc3643.rs:181, 219 |
 | ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:36-161 |
+| ERC-3643 `setName` / `setSymbol` event | Both emit `UpdatedTokenInformation(string indexed, string indexed, uint8, string, address indexed)`, the signature of the EIP's `IERC3643.sol`, with the name and symbol read back from storage after the call. `setSymbol` emits it on its no-op path too. Decimals 6, version empty, ONCHAINID zero. The indexed strings are logged as keccak-256 hashes | fungible_asset/erc3643.rs `deposit_token_information` |
+| ERC-3643 `batchTransfer`, `batchForcedTransfer`, `batchSetAddressFrozen`, `batchFreezePartialTokens`, `batchUnfreezePartialTokens` | The single call's handler, once per element in order (see "Batch functions" below) | fungible_asset/batch.rs |
+| ERC-3643 `removeAgent(address)` | `ExternalAgents::remove_agent(asset, did)` for the identity of the address (resolved as `isAgent` does), then `AgentRemoved(address indexed)`. Agents are identities, so every key of that identity stops being an agent. Reverts for an address without an identity. No `addAgent`: becoming an agent needs the target's consent, so it stays the two-step `externalAgents*` flow of §5.3 | fungible_asset/erc3643.rs `remove_agent` |
+| ERC-3643 `paused` / `isFrozen` (views) | `Asset::Frozen[asset]` / the account's `Asset::FrozenAccounts` entry (`ensure_holder_is_not_frozen`). `isFrozen` is the whole-account freeze only; a frozen amount is `getFrozenTokens` | fungible_asset/erc3643.rs `paused`, `is_frozen` |
 | `supportsInterface` | constant match on ERC-165 / IERC20 / IERC7943Fungible ids | fungible_asset/erc7943.rs:331 |
 
 **Frozen-token events.** Each standard logs a frozen change differently: ERC-3643 emits
@@ -144,6 +150,52 @@ first, then `Frozen` (`deposit_frozen_change` / `deposit_frozen_total`, fungible
   controller transfer) emits no EVM log. This is the general gap that runtime-side actions are not
   mirrored as EVM events for any precompile.
 
+**Batch functions (fungible precompile).** The five ERC-3643 `batch*` calls above loop over the
+handler of the matching single call, so each element is checked, charged and logged exactly as
+the single call is, in array order.
+
+- **All-or-nothing.** The first failing element fails the call, and `pallet_revive` rolls back
+  the frame: no state change and no log of an earlier element survives.
+- **Bounded.** The arrays must have equal lengths, of at most `MAX_BATCH_SIZE` (16) elements, or
+  the call reverts before doing anything. 16 worst-case transfers stay under half of the largest
+  normal extrinsic (`precompiles.rs::the_largest_batch_fits_in_an_extrinsic`). An empty batch
+  succeeds and does nothing.
+- **Weight.** Before the first element runs, `reserve_batch_weight` charges the worst case of the
+  whole batch (elements × the weight the single call charges up front) and releases it again, so
+  a batch that cannot finish fails without doing work. Each element then charges, and is
+  refunded, as the single call is.
+- `batchMint` and `batchBurn` are absent until the precompile has `mint(address,uint256)` and
+  `burn(address,uint256)`.
+
+**Transfer checks (`canTransfer`, `canSend`, `canReceive`), both asset precompiles.** ERC-7943
+says these views must not revert.
+
+- `canTransfer` returns `false` for input that cannot name a transfer: a fungible `value` above
+  `2^128-1`, or an NFT `tokenId` above `2^64-1`. Every other call with a `tokenId` still reverts
+  for an out-of-range id.
+- The fungible `canTransfer` is `Asset::can_transfer_funds` and the NFT one is
+  `Nft::can_transfer_funds`. Both pick the path `Settlement::transfer_funds` would take (doc 09
+  §4): two holders of one identity get only the same-identity checks, with no compliance or
+  statistics; two identities get the full transfer report (doc 09 §8). So a transfer between two
+  keys of one identity is not reported as blocked by a compliance rule it never runs.
+  `precompiles.rs::a_fungible_transfer_that_succeeds_implies_can_transfer` checks the ERC-7943
+  rule that a transfer must not succeed when `canTransfer` is `false`, over random states.
+- A precompile transfer between two identities reverts unless its instruction executes inline
+  (doc 09 §4). `Common::transfer_needs_affirmation` finds the cases where it never can, and
+  `canTransfer` is `false` for them: the asset has `MandatoryMediators`, or the receiver must
+  affirm. `Common::receiver_must_affirm` is `!Asset::skip_asset_holder_affirmation` (doc 09 §5):
+  the receiver's identity set `MandatoryReceiverAffirmation`, the asset is not exempt, and the
+  identity has not pre-approved it. `canReceive` is `false` for such a receiver too. Mediators
+  are not a receiver-side rule, so they do not affect `canReceive`. Neither rule applies between
+  two holders of one identity, which create no instruction.
+- **Known exception.** `transfer_funds` lets the receiver affirm in the same call when the
+  caller's key is the receiving account (doc 09 §4, spender mode). So a receiver that must
+  affirm can still pull funds with `transferFrom(from, itself, …)` given an allowance or NFT
+  approval, while `canTransfer(from, receiver, …)` is `false`: the view has no caller to
+  consider. Pinned by `precompiles.rs::a_receiver_that_must_affirm_can_still_pull_with_transfer_from`.
+- All three still revert with "Benchmarked weight limit exceeded" if the compliance or statistics
+  work exceeds the benchmarked worst case. There is no truthful answer to give in that case.
+
 ### 5.2 The non-fungible-asset precompile
 
 Stub `NonFungibleAssetStub.sol`/`.bin`, built by the same `scripts/build_precompile_stub.sh`
@@ -152,10 +204,11 @@ one NFT collection.
 
 | Solidity | Runtime call / storage | Ref |
 |---|---|---|
-| `balanceOf` | `Nft::NFTAccountCount` (account-scoped, not per-DID) | nft/erc721.rs:44 |
+| `balanceOf` | `Nft::NFTAccountCount` (account-scoped, not per-DID); reverts for the zero address, as ERC-721 requires | nft/erc721.rs `balance_of` |
 | `ownerOf` / `totalSupply` | `Nft::Owner` / `Nft::NFTsInCollection` | nft/erc721.rs:60, nft/polymesh_specific.rs:44 |
 | `transferFrom` / `safeTransferFrom` | `Settlement::transfer_funds` with `FundDescription::NonFungible` (doc 09 §4, incl. approval spend); the `safe` variants additionally reject receivers with code | nft/erc721.rs:78, 265 |
 | `approve` / `setApprovalForAll` | `Nft::approve` / `Nft::set_approval_for_all` (doc 04 §4) | nft/erc721.rs:107, 143 |
+| `getApproved` | `Nft::TokenApproval`; reverts when the token has no `Nft::Owner` entry (never minted, or redeemed), as ERC-721 requires | nft/erc721.rs `get_approved` |
 | `mint` / `burn` | `Nft::issue_nft` / `Nft::redeem_nft` (agent-gated) | nft/polymesh_specific.rs:62, 116 |
 | `tokenURI` | `Nft::MetadataValue[tokenUri]`, falling back to `Asset::AssetMetadataValues[baseTokenUri]`, with `{tokenId}` substitution | nft/metadata.rs:80 |
 | `supportsInterface` | constant match on ERC-165 / 721 / 721Metadata ids | nft/metadata.rs:113 |

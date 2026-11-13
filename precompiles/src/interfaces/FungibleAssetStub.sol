@@ -64,7 +64,11 @@ interface IFungibleAsset {
     /// desired value afterwards:
     /// https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
     ///
-    /// Emits an {Approval} event.
+    /// `type(uint256).max` sets an infinite allowance, which {transferFrom} does not
+    /// reduce. Any other `value` above `type(uint128).max` reverts. {allowance} reports
+    /// an infinite allowance as `type(uint128).max`.
+    ///
+    /// Emits an {Approval} event with the `value` passed.
     function approve(address spender, uint256 value) external returns (bool);
 
     /// @dev Moves a `value` amount of tokens from `from` to `to` using the
@@ -153,6 +157,13 @@ interface IFungibleAsset {
     /// Emits a {Transfer} event.
     function burn(uint256 value) external returns (bool);
 
+    /// @dev Returns `true` if the token can be transferred in fractions of a whole unit.
+    ///
+    /// {decimals} is 6 for every token. A token that is not divisible only moves in
+    /// multiples of `10 ** 6`; any other amount reverts with `InvalidGranularity`.
+    /// A token can become divisible later, but never the reverse.
+    function isDivisible() external view returns (bool);
+
     // ============================================================
     // ERC-7943
     // ============================================================
@@ -172,7 +183,16 @@ interface IFungibleAsset {
 
 
     /// @notice Checks if a transfer is possible according to token rules.
-    /// @dev This involves compliance checks.
+    /// @dev This involves compliance checks. Returns false, without reverting, for a `value`
+    /// above `type(uint128).max`, which no balance can hold.
+    ///
+    /// Two accounts of the same identity move tokens without compliance checks, and this
+    /// function answers for that case accordingly.
+    ///
+    /// Also returns false when {transfer} could not complete in one call and would revert:
+    /// the token has mandatory mediators, or the receiver's identity requires its own
+    /// affirmation and has not pre-approved the token. One case is not covered: a receiver that
+    /// requires affirmation can still pull tokens itself with {transferFrom}.
     /// @param from The address sending tokens.
     /// @param to The address receiving tokens.
     /// @param value The amount being transferred.
@@ -210,7 +230,9 @@ interface IFungibleAsset {
     function canSend(address account) external view returns (bool);
 
     /// @notice Checks if a specific account is allowed to receive tokens according to token rules.
-    /// @dev This is often used for allowlist/KYC/KYB/AML checks.
+    /// @dev This is often used for allowlist/KYC/KYB/AML checks. Returns false when the account's
+    /// identity requires its own affirmation of incoming transfers and has not pre-approved the
+    /// token, because {transfer} to it reverts.
     /// @param account The address to check.
     /// @return True if the account is allowed to receive, false otherwise.
     function canReceive(address account) external view returns (bool);
@@ -229,6 +251,22 @@ interface IFungibleAsset {
     // ERC-3643
     // ============================================================
 
+    /// @notice Emitted by {setName} and {setSymbol} with the token's name and symbol after the call,
+    /// including a {setSymbol} that sets the current symbol again.
+    /// @dev `newName` and `newSymbol` are indexed strings, so the log carries their keccak-256
+    /// hashes, as in the ERC-3643 interface. `newDecimals` is always 6. This token has no version
+    /// and no ONCHAINID, so `newVersion` is empty and `newOnchainID` is the zero address.
+    event UpdatedTokenInformation(
+        string indexed newName,
+        string indexed newSymbol,
+        uint8 newDecimals,
+        string newVersion,
+        address indexed newOnchainID
+    );
+
+    /// @notice Emitted when `agent` is removed as an agent of the token by {removeAgent}.
+    event AgentRemoved(address indexed agent);
+
     /// @notice Emitted when the token contract is paused.
     event Paused(address userAddress);
 
@@ -245,11 +283,13 @@ interface IFungibleAsset {
     event TokensUnfrozen(address indexed account, uint256 amount);
 
     /// @notice Sets the token name. Only the owner of the token contract can call this function.
+    /// @dev Emits an {UpdatedTokenInformation} event.
     function setName(string calldata name) external;
 
     /// @notice Sets the token symbol. Only the owner of the token contract can call this function.
     /// @dev The symbol is a unique ticker, which the caller must be able to register. The previous
     /// ticker is released. It must be owned by the caller. Setting the current symbol again has no effect.
+    /// Emits an {UpdatedTokenInformation} event in both cases.
     function setSymbol(string calldata symbol) external;
 
     /// @notice Pauses the token contract, preventing token transfers. Only an agent of the token can call this function.
@@ -258,13 +298,33 @@ interface IFungibleAsset {
     /// @notice Unpauses the token contract, allowing token transfers. Only an agent of the token can call this function.
     function unpause() external;
 
+    /// @notice Returns true if the token contract is paused, which blocks every transfer except a
+    /// forced transfer.
+    function paused() external view returns (bool);
+
     /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
     function setAddressFrozen(address account, bool freeze) external;
+
+    /// @notice Returns true if `account` is frozen by {setAddressFrozen}, which stops it sending
+    /// tokens. It can still receive them.
+    /// @dev This is the freeze of the whole account. Use {getFrozenTokens} for an amount frozen
+    /// by {freezePartialTokens} or {setFrozenTokens}.
+    function isFrozen(address account) external view returns (bool);
 
     /// @notice Checks if a specific account is an agent of the token.
     /// @param account The address to check.
     /// @return True if the account is an agent, false otherwise.
     function isAgent(address account) external view returns (bool);
+
+    /// @notice Removes the identity of `agent` as an agent of the token. Only an agent of the token
+    /// that is permitted to remove agents can call this function.
+    /// @dev Agents are identities, so every account of that identity stops being an agent, not only
+    /// `agent`. Reverts if `agent` has no identity, if its identity is not an agent, or if it is
+    /// the last agent with full permissions. There is no `addAgent`: becoming an agent requires
+    /// the new agent's consent, which takes two calls on the Polymesh runtime precompile.
+    ///
+    /// Emits an {AgentRemoved} event.
+    function removeAgent(address agent) external;
 
     /// @notice Freezes an additional `amount` of tokens for `account`, on top of any tokens already frozen.
     /// Only an agent of the token can call this function.
@@ -273,6 +333,33 @@ interface IFungibleAsset {
     /// @notice Unfreezes `amount` of tokens for `account`, reducing the amount currently frozen.
     /// Only an agent of the token can call this function.
     function unfreezePartialTokens(address account, uint256 amount) external;
+
+    // The batch functions below apply the single call to each element in order. A batch is
+    // all-or-nothing: if any element reverts, the whole call reverts. Each element emits the
+    // events of the single call. The arrays must have the same length, of at most 16 elements.
+
+    /// @notice Calls {transfer} for each `toList[i]` and `amounts[i]`.
+    function batchTransfer(address[] calldata toList, uint256[] calldata amounts) external;
+
+    /// @notice Calls {forcedTransfer} for each `fromList[i]`, `toList[i]` and `amounts[i]`.
+    /// Only an agent of the token can call this function.
+    function batchForcedTransfer(
+        address[] calldata fromList,
+        address[] calldata toList,
+        uint256[] calldata amounts
+    ) external;
+
+    /// @notice Calls {setAddressFrozen} for each `userAddresses[i]` and `freeze[i]`.
+    /// Only an agent of the token can call this function.
+    function batchSetAddressFrozen(address[] calldata userAddresses, bool[] calldata freeze) external;
+
+    /// @notice Calls {freezePartialTokens} for each `userAddresses[i]` and `amounts[i]`.
+    /// Only an agent of the token can call this function.
+    function batchFreezePartialTokens(address[] calldata userAddresses, uint256[] calldata amounts) external;
+
+    /// @notice Calls {unfreezePartialTokens} for each `userAddresses[i]` and `amounts[i]`.
+    /// Only an agent of the token can call this function.
+    function batchUnfreezePartialTokens(address[] calldata userAddresses, uint256[] calldata amounts) external;
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -364,6 +451,10 @@ contract FungibleAssetStub is IFungibleAsset {
         revert NotExecutable();
     }
 
+    function isDivisible() external view override returns (bool) {
+        revert NotExecutable();
+    }
+
     function canTransfer(
         address from,
         address to,
@@ -441,6 +532,20 @@ contract FungibleAssetStub is IFungibleAsset {
         account;
         revert NotExecutable();
     }
+
+    function paused() external view override returns (bool) {
+        revert NotExecutable();
+    }
+
+    function removeAgent(address agent) external override {
+        agent;
+        revert NotExecutable();
+    }
+
+    function isFrozen(address account) external view override returns (bool) {
+        account;
+        revert NotExecutable();
+    }
     
     /// @notice Freezes an additional `amount` of tokens for `account`, on top of any tokens already frozen.
     /// Only an agent of the token can call this function.
@@ -455,6 +560,47 @@ contract FungibleAssetStub is IFungibleAsset {
     function unfreezePartialTokens(address account, uint256 amount) external override {
         account;
         amount;
+        revert NotExecutable();
+    }
+
+    function batchTransfer(address[] calldata toList, uint256[] calldata amounts) external override {
+        toList;
+        amounts;
+        revert NotExecutable();
+    }
+
+    function batchForcedTransfer(
+        address[] calldata fromList,
+        address[] calldata toList,
+        uint256[] calldata amounts
+    ) external override {
+        fromList;
+        toList;
+        amounts;
+        revert NotExecutable();
+    }
+
+    function batchSetAddressFrozen(address[] calldata userAddresses, bool[] calldata freeze) external override {
+        userAddresses;
+        freeze;
+        revert NotExecutable();
+    }
+
+    function batchFreezePartialTokens(
+        address[] calldata userAddresses,
+        uint256[] calldata amounts
+    ) external override {
+        userAddresses;
+        amounts;
+        revert NotExecutable();
+    }
+
+    function batchUnfreezePartialTokens(
+        address[] calldata userAddresses,
+        uint256[] calldata amounts
+    ) external override {
+        userAddresses;
+        amounts;
         revert NotExecutable();
     }
 }

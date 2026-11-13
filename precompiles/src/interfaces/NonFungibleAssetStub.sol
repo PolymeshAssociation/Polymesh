@@ -51,6 +51,8 @@ interface INonFungibleAsset {
     ///
     /// Only NFTs held by the account key are counted; NFTs the same identity holds in portfolios
     /// are not.
+    ///
+    /// Reverts if `owner` is the zero address.
     function balanceOf(address owner) external view returns (uint256 balance);
 
     /// @dev Returns the owner of the `tokenId` token.
@@ -114,6 +116,8 @@ interface INonFungibleAsset {
     function setApprovalForAll(address operator, bool approved) external;
 
     /// @dev Returns the account approved for `tokenId` token, or the zero address if none.
+    ///
+    /// Reverts if `tokenId` does not exist.
     function getApproved(uint256 tokenId) external view returns (address operator);
 
     /// @dev Returns if the `operator` is allowed to manage all of the assets of `owner`.
@@ -183,6 +187,14 @@ interface INonFungibleAsset {
     event Frozen(address indexed account, uint256 indexed tokenId, bool indexed frozenStatus);
 
     /// @dev Returns true if `tokenId` can currently be transferred from `from` to `to`.
+    ///
+    /// Returns false, without reverting, for a `tokenId` above `type(uint64).max`, which no
+    /// token can have.
+    ///
+    /// Also returns false when {transferFrom} could not complete in one call and would revert:
+    /// the collection has mandatory mediators, or the receiver's identity requires its own
+    /// affirmation and has not pre-approved the collection. One case is not covered: a receiver
+    /// that requires affirmation can still pull an approved token itself with {transferFrom}.
     function canTransfer(address from, address to, uint256 tokenId) external view returns (bool);
 
     /// @dev Forcibly transfers `tokenId` from `from` to `to`, bypassing compliance and
@@ -210,6 +222,9 @@ interface INonFungibleAsset {
     function canSend(address account) external view returns (bool);
 
     /// @dev Returns true if `account` is currently allowed to receive tokens of this collection.
+    ///
+    /// Returns false when the account's identity requires its own affirmation of incoming
+    /// transfers and has not pre-approved the collection, because {transferFrom} to it reverts.
     function canReceive(address account) external view returns (bool);
 }
 

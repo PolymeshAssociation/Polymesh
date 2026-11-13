@@ -36,17 +36,23 @@ use polymesh_primitives::WeightMeter;
 use crate::common::{revert, Common, ERR_INST_NOT_EXECUTED};
 use crate::interface::nft::{
     NonFungibleAssetInterface, ERR_NFT_NOT_FOUND, ERR_OWNER_NOT_AN_ACCOUNT,
-    ERR_UNSAFE_CONTRACT_RECEIVER,
+    ERR_UNSAFE_CONTRACT_RECEIVER, ERR_ZERO_ADDRESS_OWNER,
 };
 use crate::Config;
 
 impl<T: Config> NonFungibleAssetInterface<T> {
     /// Returns the number of NFTs of this collection held by `owner`'s account key.
+    ///
+    /// Reverts for the zero address, as ERC-721 requires.
     pub(crate) fn balance_of(
         asset_id: AssetId,
         call: &INonFungibleAsset::balanceOfCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        if call.owner == Address::ZERO {
+            return Err(revert(ERR_ZERO_ADDRESS_OWNER));
+        }
+
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let owner = Common::<T>::account_id32(env, call.owner)?;
@@ -206,14 +212,21 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     }
 
     /// Returns the account approved for `tokenId`, or the zero address if there is none.
+    ///
+    /// Reverts if the token does not exist, as ERC-721 requires.
     pub(crate) fn get_approved(
         asset_id: AssetId,
         call: &INonFungibleAsset::getApprovedCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+        // `Owner` for the existence check, then `TokenApproval`
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(2))?;
 
         let nft_id = Self::nft_id(call.tokenId)?;
+        if !Owner::<T>::contains_key(asset_id, nft_id) {
+            return Err(revert(ERR_NFT_NOT_FOUND));
+        }
+
         let approved = match TokenApproval::<T>::get(&asset_id, &nft_id) {
             Some(account) => Common::<T>::address_of(&account)?,
             None => Address::ZERO,
