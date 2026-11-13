@@ -644,6 +644,9 @@ impl CurrentFeePayer<AccountId, RuntimeCall> for TestStorage {
     fn decrease_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
         TxFeeHandler::decrease_authorization_count(call_payment_info);
     }
+    fn increase_authorization_count(call_payment_info: &CallPaymentInfo<AccountId>) {
+        TxFeeHandler::increase_authorization_count(call_payment_info);
+    }
 }
 
 /// PolymeshCommittee as an instance of group
@@ -809,6 +812,9 @@ impl pallet_sudo::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
+
+/// Accounts allowed to submit signed `Operational` transactions.
+pub type OperationalCallers = CommitteeMembers;
 
 polymesh_runtime_common::misc_pallet_impls!();
 

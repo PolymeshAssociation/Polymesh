@@ -10,7 +10,7 @@ use sp_runtime::generic::UncheckedExtrinsic;
 use sp_runtime::traits::{Dispatchable, TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::TransactionSource;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
-use sp_runtime::{FixedPointNumber, MultiAddress};
+use sp_runtime::{DispatchResult, FixedPointNumber, MultiAddress};
 
 use pallet_balances::Call as BalancesCall;
 use pallet_identity::Authorizations;
@@ -20,7 +20,9 @@ use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::traits::CurrentFeePayer;
 use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::TransactionError;
-use polymesh_primitives::{AccountId, AuthorizationData, Permissions, Signatory};
+use polymesh_primitives::{
+    AccountId, AuthorizationData, Claim, ClaimType, IdentityId, Permissions, Scope, Signatory,
+};
 use polymesh_transaction_payment::{ChargeTransactionPayment, Val};
 
 use super::ext_builder::ExtBuilder;
@@ -244,6 +246,7 @@ fn signed_extension_allows_free_transactions() {
     ExtBuilder::default()
         .transaction_fees(100, 1, 1)
         .balance_factor(0)
+        .governance_committee(vec![Sr25519Keyring::Bob.to_account_id()])
         .build()
         .execute_with(|| {
             let user = Sr25519Keyring::Bob.to_account_id();
@@ -768,6 +771,104 @@ fn operational_tx_with_tip_ext(registrar: AccountId, gc: AccountId) {
 }
 
 #[test]
+fn operational_tx_is_restricted_to_committee_members() {
+    let gc_member = Sr25519Keyring::Charlie.to_account_id();
+
+    ExtBuilder::default()
+        .monied(true)
+        .governance_committee(vec![gc_member.clone()])
+        .build()
+        .execute_with(|| {
+            let validate = |origin: RuntimeOrigin, info: &DispatchInfo| {
+                ChargeTransactionPayment::<TestStorage>::from(0)
+                    .validate(
+                        origin,
+                        &call(),
+                        info,
+                        10,
+                        Default::default(),
+                        &TxBaseImplication(()),
+                        TransactionSource::InBlock,
+                    )
+                    .map(|_| ())
+            };
+            let not_allowed = Err(TransactionValidityError::Invalid(
+                InvalidTransaction::Custom(TransactionError::NotOperationalCaller as u8),
+            ));
+            let alice = User::new(Sr25519Keyring::Alice);
+            let operational_info = operational_info_from_weight(100);
+
+            // A funded account outside the committees can't submit any operational call. That
+            // includes committee calls and an empty batch, which is always operational.
+            let vote: RuntimeCall =
+                pallet_committee::Call::<TestStorage, pallet_committee::Instance1>::vote {
+                    proposal: Default::default(),
+                    index: 0,
+                    approve: true,
+                }
+                .into();
+            let empty_batch: RuntimeCall =
+                pallet_utility::Call::<TestStorage>::batch { calls: vec![] }.into();
+            for info in [
+                operational_info,
+                vote.get_dispatch_info(),
+                empty_batch.get_dispatch_info(),
+            ] {
+                assert_eq!(info.class, DispatchClass::Operational);
+                assert_eq!(validate(alice.origin(), &info), not_allowed);
+            }
+
+            // Normal transactions and unsigned operational ones are not affected.
+            assert_ok!(validate(alice.origin(), &info_from_weight(100)));
+            assert_ok!(validate(RuntimeOrigin::none(), &operational_info));
+
+            // Members of any of the committees are allowed.
+            assert_ok!(validate(
+                RuntimeOrigin::signed(gc_member.clone()),
+                &operational_info
+            ));
+            pallet_committee::Members::<TestStorage, pallet_committee::Instance3>::put(vec![
+                alice.did,
+            ]);
+            assert_ok!(validate(alice.origin(), &operational_info));
+            pallet_committee::Members::<TestStorage, pallet_committee::Instance3>::kill();
+            assert_eq!(validate(alice.origin(), &operational_info), not_allowed);
+            pallet_committee::Members::<TestStorage, pallet_committee::Instance4>::put(vec![
+                alice.did,
+            ]);
+            assert_ok!(validate(alice.origin(), &operational_info));
+        });
+}
+
+#[test]
+fn revoke_claim_class_does_not_depend_on_claim_type() {
+    ExtBuilder::default().build().execute_with(|| {
+        let target = IdentityId::from(1u128);
+        let revoke_by_index = |claim_type| -> RuntimeCall {
+            pallet_identity::Call::<TestStorage>::revoke_claim_by_index {
+                target,
+                claim_type,
+                scope: None,
+            }
+            .into()
+        };
+        let revoke = |claim| -> RuntimeCall {
+            pallet_identity::Call::<TestStorage>::revoke_claim { target, claim }.into()
+        };
+        let scope = Scope::Identity(target);
+
+        for call in [
+            revoke_by_index(ClaimType::CustomerDueDiligence),
+            revoke_by_index(ClaimType::Accredited),
+            revoke(Claim::CustomerDueDiligence(Default::default())),
+            revoke(Claim::Accredited(scope)),
+        ] {
+            assert_eq!(call.get_dispatch_info().class, DispatchClass::Normal);
+        }
+    });
+}
+
+#[test]
 fn validation_should_reject_duplicate_votes() {
     ExtBuilder::default()
         .monied(true)
@@ -956,5 +1057,145 @@ fn post_dispatch_decreases_auth_count() {
             let auth_after_retry =
                 Authorizations::<TestStorage>::get(&ms_signatory, auth_id).unwrap();
             assert_eq!(auth_before.count, auth_after_retry.count + 1);
+        });
+}
+
+/// Runs `call` wrapped in `Revive::eth_substrate_call` through the fee extension, signed by `signer`.
+/// Returns the outer dispatch result.
+fn run_eth_wrapped(call: RuntimeCall, signer: AccountId) -> DispatchResult {
+    let call = RuntimeCall::Revive(pallet_revive::Call::eth_substrate_call {
+        call: Box::new(call),
+        transaction_encoded: vec![],
+    });
+    let info = call.get_dispatch_info();
+    let len = 10;
+    let ext = ChargeTransactionPayment::<TestStorage>::from(0);
+    let (_, val, _) = ext
+        .validate(
+            Origin::signed(signer.clone()),
+            &call,
+            &info,
+            len,
+            Default::default(),
+            &TxBaseImplication(()),
+            TransactionSource::InBlock,
+        )
+        .unwrap();
+    let pre = ext
+        .prepare(val, &Origin::signed(signer.clone()), &call, &info, len)
+        .unwrap();
+    let eth_origin: Origin = pallet_revive::Origin::<TestStorage>::EthTransaction(signer).into();
+    let (mut post_info, result) = match call.dispatch(eth_origin) {
+        Ok(info) => (info, Ok(())),
+        Err(err) => (err.post_info, Err(err.error)),
+    };
+    assert_ok!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
+        pre,
+        &info,
+        &mut post_info,
+        len,
+        &result,
+    ));
+    assert!(polymesh_transaction_payment::PendingAuthRetryRefund::<TestStorage>::get().is_none());
+    result
+}
+
+#[test]
+fn eth_wrapped_failed_auth_call_decreases_auth_count() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            let alice = User::new(Sr25519Keyring::Alice);
+            // Bob already has an identity, so joining Alice's identity fails.
+            let bob = User::new(Sr25519Keyring::Bob);
+            let bob_signatory = Signatory::Account(bob.acc());
+            let auth_id = Identity::add_auth(
+                alice.did,
+                bob_signatory.clone(),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
+                None,
+            )
+            .unwrap();
+            let call =
+                RuntimeCall::Identity(pallet_identity::Call::join_identity_as_key { auth_id });
+            let count_before = Authorizations::<TestStorage>::get(&bob_signatory, auth_id)
+                .unwrap()
+                .count;
+            let alice_before = Balances::free_balance(&alice.acc());
+
+            // The wrapper hides the inner failure from `post_dispatch`.
+            assert_ok!(run_eth_wrapped(call, bob.acc()));
+            assert!(alice_before > Balances::free_balance(&alice.acc()));
+            assert!(System::events().iter().any(|e| matches!(
+                e.event,
+                crate::storage::EventTest::Revive(pallet_revive::Event::EthExtrinsicRevert { .. })
+            )));
+
+            let count_after = Authorizations::<TestStorage>::get(&bob_signatory, auth_id)
+                .unwrap()
+                .count;
+            assert_eq!(count_after + 1, count_before);
+        });
+}
+
+#[test]
+fn eth_wrapped_successful_auth_call_keeps_auth_count() {
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .build()
+        .execute_with(|| {
+            let alice = User::new(Sr25519Keyring::Alice);
+            let bob = Sr25519Keyring::Bob.to_account_id();
+            let charlie = Sr25519Keyring::Charlie.to_account_id();
+
+            // Create a 2-of-2 multisig, so a single approval doesn't consume the authorization.
+            let ms_address = create_multisig_default_perms(
+                alice.acc(),
+                create_signers(vec![bob.clone(), charlie.clone()]),
+                2,
+            );
+            let bob_auth_id = get_last_auth_id(&Signatory::Account(bob.clone()));
+            let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie.clone()));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(bob.clone()),
+                bob_auth_id
+            ));
+            assert_ok!(MultiSig::accept_multisig_signer(
+                Origin::signed(charlie.clone()),
+                charlie_auth_id,
+            ));
+            assert_ok!(Identity::leave_identity_as_key(Origin::signed(
+                ms_address.clone()
+            )));
+            let ms_signatory = Signatory::Account(ms_address.clone());
+            let auth_id = Identity::add_auth(
+                alice.did,
+                ms_signatory.clone(),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
+                None,
+            )
+            .unwrap();
+            let call = RuntimeCall::MultiSig(pallet_multisig::Call::approve_join_identity {
+                multisig: ms_address.clone(),
+                auth_id,
+            });
+            let count_before = Authorizations::<TestStorage>::get(&ms_signatory, auth_id)
+                .unwrap()
+                .count;
+
+            assert_ok!(run_eth_wrapped(call, bob.clone()));
+            assert!(
+                pallet_multisig::AuthToProposalId::<TestStorage>::get(&ms_address, &auth_id)
+                    .is_some()
+            );
+
+            let count_after = Authorizations::<TestStorage>::get(&ms_signatory, auth_id)
+                .unwrap()
+                .count;
+            assert_eq!(count_after, count_before);
         });
 }

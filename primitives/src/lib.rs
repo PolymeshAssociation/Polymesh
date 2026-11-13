@@ -323,6 +323,8 @@ pub enum TransactionError {
     PalletNotSubsidised = 4,
     /// The caller has already voted.
     AlreadyVoted = 5,
+    /// The caller is not allowed to submit `DispatchClass::Operational` transactions.
+    NotOperationalCaller = 6,
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.

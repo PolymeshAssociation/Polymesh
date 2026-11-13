@@ -1097,6 +1097,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Proof: `Settlement::AffirmsReceived` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
     // Storage: `Settlement::InstructionRelockCount` (r:0 w:1)
     // Proof: `Settlement::InstructionRelockCount` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `MaxEncodedLen`)
+    // Storage: `Settlement::InstructionMemos` (r:0 w:1)
+    // Proof: `Settlement::InstructionMemos` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
     /// The range of component `f` is `[0, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.

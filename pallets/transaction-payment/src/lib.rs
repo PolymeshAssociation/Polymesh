@@ -14,7 +14,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, DispatchResult};
-use frame_support::traits::{Imbalance, SuppressedDrop};
+use frame_support::traits::{Contains, Imbalance, SuppressedDrop};
 use frame_support::weights::Weight;
 use frame_support::DebugNoBound;
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -82,6 +82,13 @@ pub mod pallet {
         type GovernanceCommittee: GroupTrait<Self::Moment>;
 
         type Identity: IdentityFnTrait<Self::AccountId>;
+
+        /// Accounts allowed to submit signed `DispatchClass::Operational` transactions.
+        ///
+        /// The dispatch class is computed without looking at the origin, and origins are only
+        /// checked when dispatching. Without this filter any funded account could use the higher
+        /// priority and the block space reserved for `Operational` transactions.
+        type OperationalCallers: Contains<Self::AccountId>;
     }
 
     #[cfg(feature = "disable_fees")]
@@ -91,6 +98,15 @@ pub mod pallet {
     /// It stores the current gas fee payer for the current transaction.
     #[pallet::storage]
     pub type CurrentPayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+    /// The authorization retry charged up front for an issuer-paid call wrapped in
+    /// `Revive::eth_substrate_call`.
+    ///
+    /// Set in `prepare` and given back by [`Pallet::refund_auth_retry`] when the inner call
+    /// succeeds. Always cleared in `post_dispatch`.
+    #[pallet::storage]
+    pub type PendingAuthRetryRefund<T: Config> =
+        StorageValue<_, CallPaymentInfo<T::AccountId>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -135,6 +151,17 @@ impl<T: Config> Pallet<T> {
     /// Fetches the fee payer from the context.
     pub fn current_payer() -> Option<T::AccountId> {
         CurrentPayer::<T>::get()
+    }
+
+    /// Gives back the authorization retry charged up front for an `eth_substrate_call` wrapped call.
+    ///
+    /// Must be called from within the `eth_substrate_call` dispatch, only when the inner call
+    /// succeeded. If the inner call fails, the wrapper rolls back its storage changes, so the
+    /// retry stays charged.
+    pub fn refund_auth_retry() {
+        if let Some(call_payment_info) = PendingAuthRetryRefund::<T>::take() {
+            T::TxFeeHandler::increase_authorization_count(&call_payment_info);
+        }
     }
 
     /// Sets the fee payer in the context.
@@ -344,6 +371,19 @@ where
         }
     }
 
+    /// Ensures that only `T::OperationalCallers` can submit `DispatchClass::Operational` transactions.
+    pub(crate) fn ensure_valid_operational_caller(
+        who: &T::AccountId,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+    ) -> Result<(), TransactionValidityError> {
+        if info.class == DispatchClass::Operational && !T::OperationalCallers::contains(who) {
+            return Err(TransactionValidityError::Invalid(
+                InvalidTransaction::Custom(TransactionError::NotOperationalCaller as u8),
+            ));
+        }
+        Ok(())
+    }
+
     // -----------------------------------------------------------------
 }
 
@@ -433,6 +473,7 @@ where
         };
 
         let tip = self.ensure_valid_tip(&who, info)?;
+        Self::ensure_valid_operational_caller(&who, info)?;
 
         let (fee_with_tip, subsidiser) = self.can_withdraw_fee(who.clone(), call, info, len)?;
 
@@ -477,6 +518,14 @@ where
                 let storage_deposit = self.storage_deposit;
                 let (_, subsidiser, imbalance, call_payment_info) =
                     self.withdraw_fee(&who, call, info, fee_with_tip)?;
+
+                // `eth_substrate_call` returns `Ok` even when the inner call fails, so
+                // `post_dispatch` can't detect a failed attempt. Charge the retry now (outside
+                // the wrapper's rollback) and give it back if the inner call succeeds.
+                if call_payment_info.is_eth_wrapped() && call_payment_info.auth_id().is_some() {
+                    T::TxFeeHandler::decrease_authorization_count(&call_payment_info);
+                    PendingAuthRetryRefund::<T>::put(call_payment_info.clone());
+                }
 
                 // Reserve the full tx fee and the pre-charged storage deposit from the subsidy
                 // budget so that protocol fees charged during dispatch cannot exhaust
@@ -530,8 +579,11 @@ where
             }
         };
 
-        // We want to decrease the counter of Authorization.count when the caller is not paying for the fee and the call failed
-        if result.is_err() {
+        // We want to decrease the counter of Authorization.count when the caller is not paying for the fee and the call failed.
+        // For `eth_substrate_call` wrapped calls the retry was already charged in `prepare`.
+        if call_payment_info.is_eth_wrapped() {
+            PendingAuthRetryRefund::<T>::kill();
+        } else if result.is_err() {
             T::TxFeeHandler::decrease_authorization_count(&call_payment_info);
         }
 

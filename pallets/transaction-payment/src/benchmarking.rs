@@ -64,7 +64,7 @@ mod benchmarks {
         let info = DispatchInfo {
             call_weight: Weight::from_parts(100, 0),
             extension_weight,
-            class: DispatchClass::Operational,
+            class: DispatchClass::Normal,
             pays_fee: Pays::Yes,
         };
         let mut post_info = PostDispatchInfo {

@@ -204,7 +204,8 @@ impl<T: Config> Pallet<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        Self::withdraw_from_payer(fee)
+        // A subsidy only pays if it can pay for every operation.
+        Self::withdraw_from_payer(fee, ops.iter().all(ProtocolOp::is_subsidisable))
     }
 
     /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
@@ -213,15 +214,23 @@ impl<T: Config> Pallet<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        Self::withdraw_from_payer(fee)
+        Self::withdraw_from_payer(fee, op.is_subsidisable())
     }
 
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
-    /// identity otherwise.
-    fn withdraw_fee(account: T::AccountId, fee: Balance) -> WithdrawFeeResult<T> {
+    /// identity otherwise. Any subsidy of `account` is ignored unless `subsidisable` is `true`.
+    fn withdraw_fee(
+        account: T::AccountId,
+        fee: Balance,
+        subsidisable: bool,
+    ) -> WithdrawFeeResult<T> {
         // Check if the `account` is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&account, fee, None)
-            .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
+        let subsidiser = if subsidisable {
+            T::Subsidiser::check_subsidy(&account, fee, None)
+                .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?
+        } else {
+            None
+        };
 
         // `fee_key` is either a subsidiser or the original payer.
         let fee_key = if let Some(subsidiser_key) = subsidiser {
@@ -249,9 +258,9 @@ impl<T: Config> Pallet<T> {
         Ok(ret)
     }
 
-    fn withdraw_from_payer(fee: Balance) -> DispatchResult {
+    fn withdraw_from_payer(fee: Balance, subsidisable: bool) -> DispatchResult {
         if let Some(payer) = T::TxFeeHandler::get_payer_from_context() {
-            let imbalance = Self::withdraw_fee(payer, fee)?;
+            let imbalance = Self::withdraw_fee(payer, fee, subsidisable)?;
             T::OnProtocolFeePayment::on_unbalanced(imbalance);
         }
         Ok(())

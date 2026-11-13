@@ -15,7 +15,7 @@ use pallet_relayer::{RelayTxNonces, Subsidy};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::protocol_fee::ProtocolOp;
-use polymesh_primitives::traits::CurrentFeePayer;
+use polymesh_primitives::traits::{CurrentFeePayer, SubsidiserTrait};
 use polymesh_primitives::transaction_payment::CallPaymentInfo;
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
 use polymesh_runtime_develop::runtime::{RuntimeCall as DevRuntimeCall, TxFeeHandler};
@@ -1108,4 +1108,132 @@ fn nested_relay_tx_through_multisig_is_rejected() {
         RelayTxNonces::<TestStorage>::get(&charlie),
         charlie_nonce + 1
     );
+}
+
+/// A `Pips::propose` call, which is not in `SubsidyFilter` but charges a protocol fee.
+fn call_pips_propose(deposit: Balance) -> RuntimeCall {
+    RuntimeCall::Pips(pallet_pips::Call::propose {
+        proposal: Box::new(call_system_remark(1)),
+        deposit,
+        url: None,
+        description: None,
+    })
+}
+
+#[test]
+fn relay_tx_protocol_fee_ignores_subsidy_for_unsubsidised_op() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(do_relay_tx_protocol_fee_ignores_subsidy_for_unsubsidised_op);
+}
+
+fn do_relay_tx_protocol_fee_ignores_subsidy_for_unsubsidised_op() {
+    System::set_block_number(1);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let charlie = User::new(Sr25519Keyring::Charlie);
+    let limit = 2_000 * POLY;
+    setup_subsidy(bob, alice, limit);
+
+    let fee = ProtocolFee::compute_fee(&[ProtocolOp::PipsPropose]);
+    assert!(fee > 0);
+    let alice_before = Balances::free_balance(&alice.acc());
+    let bob_before = Balances::free_balance(&bob.acc());
+    let pip_id = pallet_pips::PipIdSequence::<TestStorage>::get();
+
+    // Bob's subsidy is the fee payer of the `relay_tx` transaction.
+    TxFeeHandler::set_payer_context(Some(bob.acc()));
+    let deposit = pallet_pips::MinimumProposalDeposit::<TestStorage>::get();
+    let nonce = RelayTxNonces::<TestStorage>::get(charlie.acc());
+    let relay = relay_call(
+        Sr25519Keyring::Charlie,
+        call_pips_propose(deposit),
+        nonce,
+        100,
+    );
+    assert_ok!(relay.dispatch(bob.origin()));
+    assert_ne!(pallet_pips::PipIdSequence::<TestStorage>::get(), pip_id);
+
+    // The subsidiser pays nothing: the caller pays for the unsubsidised operation.
+    assert_subsidy(bob, Some((alice, limit)));
+    assert_eq!(Balances::free_balance(&alice.acc()), alice_before);
+    assert_eq!(Balances::free_balance(&bob.acc()), bob_before - fee);
+}
+
+#[test]
+fn multisig_protocol_fee_ignores_subsidy_for_unsubsidised_op() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(do_multisig_protocol_fee_ignores_subsidy_for_unsubsidised_op);
+}
+
+fn do_multisig_protocol_fee_ignores_subsidy_for_unsubsidised_op() {
+    System::set_block_number(1);
+    let alice = User::new(Sr25519Keyring::Alice);
+    let charlie = User::new(Sr25519Keyring::Charlie);
+    let bob = Sr25519Keyring::Bob.to_account_id();
+
+    let ms_address =
+        create_multisig_default_perms(alice.acc(), create_signers(vec![bob.clone()]), 1);
+    let auth_id = get_last_auth_id(&Signatory::Account(bob.clone()));
+    assert_ok!(MultiSig::accept_multisig_signer(
+        RuntimeOrigin::signed(bob.clone()),
+        auth_id
+    ));
+
+    let fee = ProtocolFee::compute_fee(&[ProtocolOp::PipsPropose]);
+    assert!(fee > 0);
+    let deposit = pallet_pips::MinimumProposalDeposit::<TestStorage>::get();
+    assert_ok!(Balances::transfer_allow_death(
+        alice.origin(),
+        ms_address.clone().into(),
+        deposit + 1_000,
+    ));
+
+    // Alice's DID pays for the multisig, and Alice's primary key is subsidised.
+    let limit = 2_000 * POLY;
+    setup_subsidy(alice, charlie, limit);
+    let payer = TxFeeHandler::call_payment_info(
+        &DevRuntimeCall::MultiSig(pallet_multisig::Call::create_proposal {
+            multisig: ms_address.clone(),
+            proposal: Box::new(DevRuntimeCall::System(frame_system::Call::remark {
+                remark: vec![],
+            })),
+            expiry: None,
+        }),
+        bob.clone(),
+    )
+    .unwrap();
+    assert_eq!(payer.paying_account(), &alice.acc());
+    TxFeeHandler::set_payer_context(Some(alice.acc()));
+
+    // The transaction fee is subsidised, while signing `Pips::propose` directly is rejected.
+    let create_proposal = RuntimeCall::MultiSig(pallet_multisig::Call::create_proposal {
+        multisig: ms_address,
+        proposal: Box::new(call_pips_propose(deposit)),
+        expiry: None,
+    });
+    assert_eq!(
+        Relayer::check_subsidy(&alice.acc(), 1, Some(&create_proposal)),
+        Ok(Some(charlie.acc()))
+    );
+    assert_eq!(
+        Relayer::check_subsidy(&alice.acc(), 1, Some(&call_pips_propose(deposit))),
+        Err(InvalidTransaction::Custom(
+            TransactionError::PalletNotSubsidised as u8
+        ))
+    );
+
+    let charlie_before = Balances::free_balance(&charlie.acc());
+    let alice_before = Balances::free_balance(&alice.acc());
+    let pip_id = pallet_pips::PipIdSequence::<TestStorage>::get();
+    assert_ok!(create_proposal.dispatch(RuntimeOrigin::signed(bob)));
+    assert_ne!(pallet_pips::PipIdSequence::<TestStorage>::get(), pip_id);
+
+    // The subsidiser pays nothing: the multisig's payer pays for the unsubsidised operation.
+    assert_subsidy(alice, Some((charlie, limit)));
+    assert_eq!(Balances::free_balance(&charlie.acc()), charlie_before);
+    assert_eq!(Balances::free_balance(&alice.acc()), alice_before - fee);
 }

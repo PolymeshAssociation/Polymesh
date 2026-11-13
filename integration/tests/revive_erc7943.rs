@@ -271,3 +271,47 @@ async fn erc7943_forced_transfer_unfreezes() -> Result<()> {
 
     Ok(())
 }
+
+/// `forcedTransfer` claws tokens back to the agent, emitting both `ForcedTransfer` and `Transfer`.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_forced_transfer() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc7943ForceAgent", "Erc7943ForceHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_, erc7943) = create_erc20_asset(&api, &node, issuer, "ERC7943 Forced", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    erc7943.transfer(&mut caller, holder_address, 1_000).await?;
+    assert_eq!(erc7943.balance_of(holder_address).await?, 1_000);
+
+    // The agent takes part of it back.
+    let logs = erc7943
+        .forced_transfer(&mut caller, holder_address, issuer_address, 400)
+        .await?;
+
+    let forced: Vec<ierc20::ForcedTransfer> = decode_contract_logs(&logs, &erc7943.h160())?;
+    assert_eq!(forced.len(), 1, "expected one ForcedTransfer event");
+    assert_eq!(forced[0].from, holder_address);
+    assert_eq!(forced[0].to, issuer_address);
+    assert_eq!(forced[0].amount, U256::from(400));
+
+    let transfers: Vec<ierc20::Transfer> = decode_contract_logs(&logs, &erc7943.h160())?;
+    assert_eq!(transfers.len(), 1, "expected one Transfer event");
+    assert_eq!(transfers[0].from, holder_address);
+    assert_eq!(transfers[0].to, issuer_address);
+    assert_eq!(transfers[0].value, U256::from(400));
+
+    assert_eq!(erc7943.balance_of(holder_address).await?, 600);
+    assert_eq!(erc7943.balance_of(issuer_address).await?, MINT - 600);
+
+    Ok(())
+}

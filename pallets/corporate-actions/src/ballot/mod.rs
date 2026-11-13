@@ -80,7 +80,7 @@ pub mod benchmarking;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use core::mem;
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Get;
@@ -434,9 +434,16 @@ pub mod pallet {
         /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
-        #[pallet::weight(<T as ca::Config>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get()))]
+        #[pallet::weight(
+            Pallet::<T>::vote_base_weight(votes.len() as u32)
+                .saturating_add(<Checkpoint<T>>::balance_at_max_weight(ca_id.asset_id))
+        )]
         #[pallet::call_index(1)]
-        pub fn vote(origin: OriginFor<T>, ca_id: CAId, votes: Vec<BallotVote>) -> DispatchResult {
+        pub fn vote(
+            origin: OriginFor<T>,
+            ca_id: CAId,
+            votes: Vec<BallotVote>,
+        ) -> DispatchResultWithPostInfo {
             let did = pallet_identity::Pallet::<T>::ensure_perms(origin)?;
 
             // Ensure ballot has started but not ended, i.e. `start <= now <= end`.
@@ -498,7 +505,9 @@ pub mod pallet {
             // Extract `did`'s balance at the record date.
             // Record date has passed by definition.
             let cp_id = <CA<T>>::record_date_cp(&ca, ca_id)?;
-            let available_power = <CA<T>>::balance_at_cp(did, ca_id, cp_id);
+            let (available_power, balance_updates) = <CA<T>>::balance_at_cp(did, ca_id, cp_id);
+            let actual_weight = Self::vote_base_weight(votes.len() as u32)
+                .saturating_add(<Checkpoint<T>>::balance_at_weight(balance_updates));
 
             // Ensure the total balance used in each motion doesn't exceed caller's voting power.
             motions
@@ -528,7 +537,7 @@ pub mod pallet {
 
             // Emit event.
             Self::deposit_event(Event::VoteCast(did, ca_id, votes));
-            Ok(().into())
+            Ok(Some(actual_weight).into())
         }
 
         /// Amend the end date of the ballot of the CA identified by `ca_id`.
@@ -704,6 +713,11 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Benchmarked weight of `vote`, excluding reading the voter's balance at the record date.
+    fn vote_base_weight(votes: u32) -> Weight {
+        <T as ca::Config>::BallotWeightInfo::vote(votes, T::MaxTargetIds::get())
+    }
+
     /// Returns the number-of-choices-in-motion if all rules for creating a ballot are satisfied. Otherwise, an error.
     pub(crate) fn validate_ballot_creation_rules(
         ca_id: CAId,
