@@ -28,9 +28,9 @@ use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
-use crate::common::{extrinsic_error, Common};
+use crate::common::{extrinsic_error, revert, Common};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::{DECIMALS, ERR_INVALID_SYMBOL};
+use crate::interface::{DECIMALS, ERR_INVALID_SYMBOL, ERR_NO_IDENTITY};
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
@@ -271,6 +271,41 @@ impl<T: Config> FungibleAssetInterface<T> {
         };
 
         Ok(IFungibleAsset::isAgentCall::abi_encode_returns(&is_agent))
+    }
+
+    /// Removes the identity of `agent` as an agent of the token.
+    ///
+    /// Polymesh agents are identities, not keys, so every key of that identity stops being an
+    /// agent. The identity is resolved as `isAgent` resolves it. The caller must be an agent
+    /// allowed to call `ExternalAgents::remove_agent`, and the last full agent cannot be removed.
+    ///
+    /// There is no `addAgent` counterpart: becoming an agent needs the new agent's consent, so
+    /// it stays the two-step flow of `IPolymeshRuntime`.
+    pub(crate) fn remove_agent(
+        asset_id: AssetId,
+        call: &IFungibleAsset::removeAgentCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+
+        // The key's record, and whether its identity is frozen
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(2))?;
+        let account_id = Common::<T>::account_id(env, call.agent)?;
+        let agent = pallet_identity::Pallet::<T>::get_identity(&account_id)
+            .ok_or_else(|| revert(ERR_NO_IDENTITY))?;
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            caller.account_id,
+            pallet_external_agents::Call::<T>::remove_agent { asset_id, agent },
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::AgentRemoved(IFungibleAsset::AgentRemoved { agent: call.agent }),
+        )?;
+        Ok(Vec::new())
     }
 
     /// Freezes an additional amount of tokens for a specific address, on top of any tokens

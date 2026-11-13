@@ -211,11 +211,13 @@ use sp_core::H256;
 use sp_keyring::Sr25519Keyring;
 
 use pallet_asset::Allowances;
+use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::asset::AssetHolder;
 use polymesh_primitives::constants::currency::ONE_UNIT;
 use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::{
-    AssetHolderKind, Balance, Claim, Condition, ConditionType, CountryCode, Scope, WeightMeter,
+    AssetHolderKind, AuthorizationData, Balance, Claim, Condition, ConditionType, CountryCode,
+    Scope, Signatory, WeightMeter,
 };
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -227,6 +229,8 @@ use crate::storage::{add_secondary_key, root, EventTest, TestStorage, User};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
+type ExternalAgents = pallet_external_agents::Pallet<TestStorage>;
+type Identity = pallet_identity::Pallet<TestStorage>;
 type Revive = pallet_revive::Pallet<TestStorage>;
 type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
@@ -1607,6 +1611,91 @@ fn batch_freeze_and_unfreeze_partial_tokens() {
                 IFungibleAsset::TokensUnfrozen::SIGNATURE_HASH.0,
                 IFungibleAsset::Frozen::SIGNATURE_HASH.0,
             ]
+        );
+    });
+}
+
+/// Makes `agent`'s identity an agent of `asset_id` in `group`.
+fn add_agent(owner: &User, asset_id: AssetId, agent: &User, group: AgentGroup) {
+    let auth_id = Identity::add_auth(
+        owner.did,
+        Signatory::Identity(agent.did),
+        AuthorizationData::BecomeAgent(asset_id, group),
+        None,
+    )
+    .unwrap();
+    assert_ok!(ExternalAgents::accept_become_agent(agent.origin(), auth_id));
+}
+
+/// `removeAgent(address)` removes the address's identity as an agent and emits `AgentRemoved`
+/// (T7).
+#[test]
+fn remove_agent_removes_the_identity_of_the_address() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let bob_2 = secondary_key(&bob, Sr25519Keyring::Charlie);
+        let asset_id = fungible_asset(&alice);
+        let token = fungible(asset_id);
+        let is_agent = |user: &User| {
+            let account = eth_address(user);
+            view(&alice, token, IFungibleAsset::isAgentCall { account })
+        };
+        let remove = |user: &User| IFungibleAsset::removeAgentCall {
+            agent: eth_address(user),
+        };
+
+        // The signature of ERC-3643's `IAgentRole`
+        assert_eq!(
+            IFungibleAsset::AgentRemoved::SIGNATURE_HASH.0,
+            keccak_256(b"AgentRemoved(address)")
+        );
+        assert_eq!(
+            IFungibleAsset::removeAgentCall::SELECTOR,
+            selector("removeAgent(address)")
+        );
+
+        add_agent(&alice, asset_id, &bob, AgentGroup::ExceptMeta);
+        assert!(is_agent(&bob));
+        assert!(is_agent(&bob_2));
+
+        // An agent that may not manage agents cannot remove one
+        assert_eq!(
+            send(&bob, token, remove(&alice)).unwrap_err(),
+            extrinsic_error("UnauthorizedAgent")
+        );
+
+        // Named by one of its keys, the whole identity stops being an agent
+        let logs = send(&alice, token, remove(&bob_2)).unwrap();
+        assert_eq!(logs.len(), 1);
+        let event = IFungibleAsset::AgentRemoved::decode_raw_log(
+            logs[0].0.iter().map(|topic| topic.0),
+            &logs[0].1,
+        )
+        .unwrap();
+        assert_eq!(event.agent, eth_address(&bob_2));
+        assert!(!is_agent(&bob));
+        assert!(!is_agent(&bob_2));
+
+        // Not an agent any more
+        assert_eq!(
+            send(&alice, token, remove(&bob)).unwrap_err(),
+            extrinsic_error("NotAnAgent")
+        );
+        // The last full agent stays
+        assert_eq!(
+            send(&alice, token, remove(&alice)).unwrap_err(),
+            extrinsic_error("RemovingLastFullAgent")
+        );
+        assert!(is_agent(&alice));
+
+        // An address without an identity, the zero address included
+        let nobody = IFungibleAsset::removeAgentCall {
+            agent: Address::ZERO,
+        };
+        assert_eq!(
+            send(&alice, token, nobody).unwrap_err(),
+            "The address has no identity"
         );
     });
 }

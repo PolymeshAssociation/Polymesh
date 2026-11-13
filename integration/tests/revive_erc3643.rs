@@ -11,6 +11,9 @@ use alloy::primitives::{keccak256, Address, U256};
 use alloy::sol_types::SolEvent;
 
 use integration::*;
+use polymesh_api::types::polymesh_primitives::{
+    agent::AgentGroup, authorization::AuthorizationData, secondary_key::Signatory,
+};
 use polymesh_precompiles::IFungibleAsset as ierc20;
 
 /// Initial supply issued to the asset owner's account.
@@ -397,6 +400,79 @@ async fn erc3643_is_agent() -> Result<()> {
     assert!(erc3643.is_agent(owner_address).await.unwrap());
     // An unrelated identity is not an agent of the asset.
     assert!(!erc3643.is_agent(non_agent_address).await.unwrap());
+
+    Ok(())
+}
+
+/// `removeAgent` removes the identity behind an address as an agent and emits `AgentRemoved`.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_remove_agent() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc3643RemoveOwner", "Erc3643RemoveAgent"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, agents) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let agent = &mut agents[0];
+
+    let (asset, erc3643) =
+        create_erc20_asset(&api, &node, owner, "ERC3643 RemoveAgent", MINT).await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+    let agent_address = eth_address_of(&api, agent).await?;
+
+    // Becoming an agent takes the target's consent: authorise, then accept.
+    let mut res = api
+        .call()
+        .identity()
+        .add_authorization(
+            Signatory::Identity(agent.did.unwrap()),
+            AuthorizationData::BecomeAgent(asset.asset_id, AgentGroup::ExceptMeta),
+            None,
+        )?
+        .execute(owner)
+        .await?;
+    let auth_id = get_auth_id(&mut res)
+        .await?
+        .expect("Missing BecomeAgent auth id");
+    api.call()
+        .external_agents()
+        .accept_become_agent(auth_id)?
+        .execute(agent)
+        .await?;
+    assert!(erc3643.is_agent(agent_address).await?);
+
+    // An agent that may not manage agents cannot remove one.
+    {
+        let mut agent_caller = SubstrateCaller::new(&api, agent).await?;
+        let remove_owner = ierc20::removeAgentCall {
+            agent: owner_address,
+        };
+        assert!(erc3643.send(&mut agent_caller, remove_owner).await.is_err());
+    }
+    assert!(erc3643.is_agent(owner_address).await?);
+
+    let mut caller = SubstrateCaller::new(&api, owner).await?;
+    let remove_agent = ierc20::removeAgentCall {
+        agent: agent_address,
+    };
+    let logs = erc3643.send(&mut caller, remove_agent.clone()).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::AgentRemoved::SIGNATURE_HASH],
+    );
+    let events: Vec<ierc20::AgentRemoved> = decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(events[0].agent, agent_address);
+    assert!(!erc3643.is_agent(agent_address).await?);
+
+    // No longer an agent, and the last full agent cannot be removed.
+    assert!(erc3643.send(&mut caller, remove_agent).await.is_err());
+    let remove_owner = ierc20::removeAgentCall {
+        agent: owner_address,
+    };
+    assert!(erc3643.send(&mut caller, remove_owner).await.is_err());
+    assert!(erc3643.is_agent(owner_address).await?);
 
     Ok(())
 }

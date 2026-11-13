@@ -264,6 +264,9 @@ interface IFungibleAsset {
         address indexed newOnchainID
     );
 
+    /// @notice Emitted when `agent` is removed as an agent of the token by {removeAgent}.
+    event AgentRemoved(address indexed agent);
+
     /// @notice Emitted when the token contract is paused.
     event Paused(address userAddress);
 
@@ -312,6 +315,16 @@ interface IFungibleAsset {
     /// @param account The address to check.
     /// @return True if the account is an agent, false otherwise.
     function isAgent(address account) external view returns (bool);
+
+    /// @notice Removes the identity of `agent` as an agent of the token. Only an agent of the token
+    /// that is permitted to remove agents can call this function.
+    /// @dev Agents are identities, so every account of that identity stops being an agent, not only
+    /// `agent`. Reverts if `agent` has no identity, if its identity is not an agent, or if it is
+    /// the last agent with full permissions. There is no `addAgent`: becoming an agent requires
+    /// the new agent's consent, which takes two calls on the Polymesh runtime precompile.
+    ///
+    /// Emits an {AgentRemoved} event.
+    function removeAgent(address agent) external;
 
     /// @notice Freezes an additional `amount` of tokens for `account`, on top of any tokens already frozen.
     /// Only an agent of the token can call this function.
@@ -521,6 +534,11 @@ contract FungibleAssetStub is IFungibleAsset {
     }
 
     function paused() external view override returns (bool) {
+        revert NotExecutable();
+    }
+
+    function removeAgent(address agent) external override {
+        agent;
         revert NotExecutable();
     }
 

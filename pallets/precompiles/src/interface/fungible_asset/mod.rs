@@ -37,6 +37,7 @@ mod polymesh_specific;
 
 // ==================== Error Messages ====================
 pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long";
+pub(crate) const ERR_NO_IDENTITY: &str = "The address has no identity";
 // ========================================================
 
 pub const DECIMALS: u8 = 6;
@@ -157,6 +158,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             IFungibleAssetCalls::unfreezePartialTokens(call) => {
                 Self::unfreeze_partial_tokens(asset_id, call, env)
             }
+            IFungibleAssetCalls::removeAgent(call) => Self::remove_agent(asset_id, call, env),
 
             // ERC3643 batch functions
             IFungibleAssetCalls::batchTransfer(call) => Self::batch_transfer(asset_id, call, env),
