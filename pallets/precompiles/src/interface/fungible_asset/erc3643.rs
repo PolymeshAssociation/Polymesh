@@ -13,10 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use frame_support::traits::Get;
 use pallet_asset::{AssetIdTicker, WeightInfo};
+use pallet_revive::precompiles::alloy::primitives::{keccak256, Address};
 use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -28,7 +30,7 @@ use polymesh_primitives::Ticker;
 
 use crate::common::{extrinsic_error, Common};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::ERR_INVALID_SYMBOL;
+use crate::interface::{DECIMALS, ERR_INVALID_SYMBOL};
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
@@ -117,6 +119,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             },
         )?;
 
+        Self::deposit_token_information(asset_id, env)?;
         Ok(Vec::new())
     }
 
@@ -159,6 +162,8 @@ impl<T: Config> FungibleAssetInterface<T> {
             )?
             .map_err(extrinsic_error)?;
 
+            // ERC-3643 emits the event on every successful call, changed or not
+            Self::deposit_token_information(asset_id, env)?;
             return Ok(Vec::new());
         }
 
@@ -188,7 +193,34 @@ impl<T: Config> FungibleAssetInterface<T> {
             pallet_asset::Call::<T>::link_ticker_to_asset_id { ticker, asset_id },
         )?;
 
+        Self::deposit_token_information(asset_id, env)?;
         Ok(Vec::new())
+    }
+
+    /// Emits ERC-3643 `UpdatedTokenInformation` with the asset's stored name and symbol.
+    ///
+    /// Both are read back from storage, so the event reports what `name()` and `symbol()` now
+    /// return. The name and symbol are indexed strings, which a log carries as their keccak-256
+    /// hashes. The asset has no version and no ONCHAINID.
+    fn deposit_token_information(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<(), Error> {
+        let name = Self::asset_name(asset_id, env)?;
+        let symbol = Self::asset_symbol(asset_id, env)?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::UpdatedTokenInformation(
+                IFungibleAsset::UpdatedTokenInformation {
+                    newName: keccak256(name.as_bytes()),
+                    newSymbol: keccak256(symbol.as_bytes()),
+                    newDecimals: DECIMALS,
+                    newVersion: String::new(),
+                    newOnchainID: Address::ZERO,
+                },
+            ),
+        )
     }
 
     /// Sets the frozen status of a specific address. Only an agent of the token can call this function.

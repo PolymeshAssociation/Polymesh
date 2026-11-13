@@ -1106,3 +1106,154 @@ fn is_frozen_reports_the_account_freeze() {
         assert!(!is_frozen(account));
     });
 }
+
+/// The ERC-3643 events the fungible precompile emits have the signatures of the published
+/// interface (`IERC3643.sol` of the EIP, the same as T-REX's `IToken`). Indexers match on the
+/// signature hash, so it must be exact.
+#[test]
+fn erc3643_events_match_the_published_standard() {
+    let events = [
+        (
+            "UpdatedTokenInformation(string,string,uint8,string,address)",
+            IFungibleAsset::UpdatedTokenInformation::SIGNATURE_HASH,
+        ),
+        ("Paused(address)", IFungibleAsset::Paused::SIGNATURE_HASH),
+        (
+            "Unpaused(address)",
+            IFungibleAsset::Unpaused::SIGNATURE_HASH,
+        ),
+        (
+            "AddressFrozen(address,bool,address)",
+            IFungibleAsset::AddressFrozen::SIGNATURE_HASH,
+        ),
+        (
+            "TokensFrozen(address,uint256)",
+            IFungibleAsset::TokensFrozen::SIGNATURE_HASH,
+        ),
+        (
+            "TokensUnfrozen(address,uint256)",
+            IFungibleAsset::TokensUnfrozen::SIGNATURE_HASH,
+        ),
+    ];
+    for (signature, ours) in events {
+        assert_eq!(keccak_256(signature.as_bytes()), ours.0, "{signature}");
+    }
+}
+
+/// Checks that `log` is an `UpdatedTokenInformation` for `name` and `symbol`.
+///
+/// The name, the symbol and the ONCHAINID are indexed, as in the published interface, so the
+/// strings are logged as their hashes.
+fn assert_token_information(log: &Log, name: &str, symbol: &str) {
+    let (topics, data) = log;
+    assert_eq!(topics.len(), 4);
+    assert_eq!(
+        topics[0].0,
+        IFungibleAsset::UpdatedTokenInformation::SIGNATURE_HASH.0
+    );
+    assert_eq!(topics[1].0, keccak_256(name.as_bytes()));
+    assert_eq!(topics[2].0, keccak_256(symbol.as_bytes()));
+    // No ONCHAINID
+    assert_eq!(topics[3], H256::zero());
+
+    let event = IFungibleAsset::UpdatedTokenInformation::decode_raw_log(
+        topics.iter().map(|topic| topic.0),
+        data,
+    )
+    .unwrap();
+    assert_eq!(event.newDecimals, 6);
+    assert_eq!(event.newVersion, "");
+}
+
+/// `setName` and `setSymbol` emit ERC-3643 `UpdatedTokenInformation` (T2).
+#[test]
+fn set_name_and_set_symbol_emit_updated_token_information() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = fungible_asset(&alice);
+        let token = fungible(asset_id);
+        let set_symbol = |symbol: &str| IFungibleAsset::setSymbolCall {
+            symbol: symbol.into(),
+        };
+
+        // No symbol yet
+        let logs = send(
+            &alice,
+            token,
+            IFungibleAsset::setNameCall {
+                name: "Renamed".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_token_information(&logs[0], "Renamed", "");
+
+        let logs = send(&alice, token, set_symbol("FIRST")).unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_token_information(&logs[0], "Renamed", "FIRST");
+
+        // Replacing a linked ticker
+        let logs = send(&alice, token, set_symbol("SECOND")).unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_token_information(&logs[0], "Renamed", "SECOND");
+
+        // Setting the current symbol again changes nothing, and still emits the event
+        let logs = send(&alice, token, set_symbol("SECOND")).unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_token_information(&logs[0], "Renamed", "SECOND");
+
+        let logs = send(
+            &alice,
+            token,
+            IFungibleAsset::setNameCall {
+                name: "Again".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_token_information(&logs[0], "Again", "SECOND");
+    });
+}
+
+/// A `setName` or `setSymbol` that fails emits nothing.
+#[test]
+fn a_failed_set_name_or_set_symbol_emits_nothing() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = fungible_asset(&alice);
+        let token = fungible(asset_id);
+        assert_ok!(send(
+            &alice,
+            token,
+            IFungibleAsset::setSymbolCall {
+                symbol: "MINE".into(),
+            },
+        ));
+        // Mapping an account emits an event, so do it before counting
+        eth_address(&bob);
+        let events_before = System::events().len();
+
+        // Not an agent, for a rename and for both `setSymbol` paths
+        assert!(send(
+            &bob,
+            token,
+            IFungibleAsset::setNameCall {
+                name: "Theirs".into(),
+            },
+        )
+        .is_err());
+        for symbol in ["MINE", "OTHER"] {
+            assert!(send(
+                &bob,
+                token,
+                IFungibleAsset::setSymbolCall {
+                    symbol: symbol.into(),
+                },
+            )
+            .is_err());
+        }
+
+        assert_eq!(System::events().len(), events_before);
+    });
+}

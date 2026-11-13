@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use frame_support::traits::Get;
@@ -301,16 +302,34 @@ impl<T: Config> FungibleAssetInterface<T> {
 
     /// Returns the name of the token.
     pub(crate) fn name(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
-
-        let name = AssetNames::<T>::get(asset_id).unwrap_or_default();
-        let name = alloc::string::String::from_utf8_lossy(name.0.as_ref()).into_owned();
+        let name = Self::asset_name(asset_id, env)?;
 
         Ok(IFungibleAsset::nameCall::abi_encode_returns(&name))
     }
 
     /// Returns the symbol of the token.
     pub(crate) fn symbol(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+        let symbol = Self::asset_symbol(asset_id, env)?;
+
+        Ok(IFungibleAsset::symbolCall::abi_encode_returns(&symbol))
+    }
+
+    /// Reads the asset's name, charging the weight of the read.
+    pub(crate) fn asset_name(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<String, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let name = AssetNames::<T>::get(asset_id).unwrap_or_default();
+        Ok(String::from_utf8_lossy(name.0.as_ref()).into_owned())
+    }
+
+    /// Reads the asset's symbol, charging the weight of the read. Empty without a linked ticker.
+    pub(crate) fn asset_symbol(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<String, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let ticker = AssetIdTicker::<T>::get(asset_id).unwrap_or_default();
@@ -322,9 +341,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             .take_while(|&&b| b != 0)
             .copied()
             .collect::<Vec<_>>();
-        let ticker = alloc::string::String::from_utf8_lossy(&trim_ticker).into_owned();
-
-        Ok(IFungibleAsset::symbolCall::abi_encode_returns(&ticker))
+        Ok(String::from_utf8_lossy(&trim_ticker).into_owned())
     }
 
     /// Returns the decimals places of the token

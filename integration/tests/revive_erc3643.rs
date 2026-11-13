@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 
-use alloy::primitives::U256;
+use alloy::primitives::{keccak256, Address, U256};
 use alloy::sol_types::SolEvent;
 
 use integration::*;
@@ -123,8 +123,18 @@ async fn erc3643_set_symbol_to_current_symbol() -> Result<()> {
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
 
     let symbol = unique_symbol("SAME");
-    erc3643.set_symbol(&mut caller, symbol.clone()).await?;
-    erc3643.set_symbol(&mut caller, symbol.clone()).await?;
+    // `UpdatedTokenInformation` is emitted when the symbol changes, and when it does not.
+    for _ in 0..2 {
+        let logs = erc3643.set_symbol(&mut caller, symbol.clone()).await?;
+        assert_eq!(
+            contract_event_order(&logs, &erc3643.h160()),
+            [ierc20::UpdatedTokenInformation::SIGNATURE_HASH],
+        );
+        let events: Vec<ierc20::UpdatedTokenInformation> =
+            decode_contract_logs(&logs, &erc3643.h160())?;
+        assert_eq!(events[0].newName, keccak256("ERC3643 Same"));
+        assert_eq!(events[0].newSymbol, keccak256(&symbol));
+    }
     assert_eq!(erc3643.symbol().await?, symbol);
 
     let mut other_caller = SubstrateCaller::new(&api, other).await?;
@@ -185,11 +195,24 @@ async fn erc3643_set_name() -> Result<()> {
 
     assert_eq!(erc3643.name().await.unwrap(), "ERC3643 Name".to_string());
 
-    erc3643
+    let logs = erc3643
         .set_name(&mut caller, "NEW_NAME".to_string())
         .await?;
 
     assert_eq!(erc3643.name().await.unwrap(), "NEW_NAME".to_string());
+
+    // The name and symbol are indexed strings, so the event carries their hashes.
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::UpdatedTokenInformation::SIGNATURE_HASH],
+    );
+    let events: Vec<ierc20::UpdatedTokenInformation> =
+        decode_contract_logs(&logs, &erc3643.h160())?;
+    assert_eq!(events[0].newName, keccak256("NEW_NAME"));
+    assert_eq!(events[0].newSymbol, keccak256(""));
+    assert_eq!(events[0].newDecimals, ERC20_DECIMALS);
+    assert_eq!(events[0].newVersion, "");
+    assert_eq!(events[0].newOnchainID, Address::ZERO);
 
     Ok(())
 }

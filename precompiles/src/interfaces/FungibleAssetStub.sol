@@ -251,6 +251,19 @@ interface IFungibleAsset {
     // ERC-3643
     // ============================================================
 
+    /// @notice Emitted by {setName} and {setSymbol} with the token's name and symbol after the call,
+    /// including a {setSymbol} that sets the current symbol again.
+    /// @dev `newName` and `newSymbol` are indexed strings, so the log carries their keccak-256
+    /// hashes, as in the ERC-3643 interface. `newDecimals` is always 6. This token has no version
+    /// and no ONCHAINID, so `newVersion` is empty and `newOnchainID` is the zero address.
+    event UpdatedTokenInformation(
+        string indexed newName,
+        string indexed newSymbol,
+        uint8 newDecimals,
+        string newVersion,
+        address indexed newOnchainID
+    );
+
     /// @notice Emitted when the token contract is paused.
     event Paused(address userAddress);
 
@@ -267,11 +280,13 @@ interface IFungibleAsset {
     event TokensUnfrozen(address indexed account, uint256 amount);
 
     /// @notice Sets the token name. Only the owner of the token contract can call this function.
+    /// @dev Emits an {UpdatedTokenInformation} event.
     function setName(string calldata name) external;
 
     /// @notice Sets the token symbol. Only the owner of the token contract can call this function.
     /// @dev The symbol is a unique ticker, which the caller must be able to register. The previous
     /// ticker is released. It must be owned by the caller. Setting the current symbol again has no effect.
+    /// Emits an {UpdatedTokenInformation} event in both cases.
     function setSymbol(string calldata symbol) external;
 
     /// @notice Pauses the token contract, preventing token transfers. Only an agent of the token can call this function.
