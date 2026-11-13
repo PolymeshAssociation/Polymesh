@@ -15,6 +15,9 @@ use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
 use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::traits::{AffirmationFnTrait, AssetFnTrait, ComplianceFnConfig};
 use polymesh_primitives::{with_transaction, AuthorizationData};
+use polymesh_primitives::{
+    ExtrinsicPermissions, PalletPermissions, Permissions, SubsetRestriction,
+};
 use polymesh_primitives::{IdentityId, PortfolioNumber, Signatory, WeightMeter};
 
 use crate::*;
@@ -256,6 +259,11 @@ benchmarks! {
         // Before the controller transfer all NFTs belong to bob
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), n as u64);
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), alice.did()), 0);
+
+        // Worst case: every NFT is frozen, so the transfer has to clear each freeze
+        for nft_id in nfts.ids() {
+            FrozenNFT::<T>::insert((&asset_id, &bob_holdings, nft_id), true);
+        }
     }: _(alice.origin.clone(), nfts.clone(), bob_holdings.clone(), alice_holdings.clone().into())
     verify {
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), bob.did()), 0);
@@ -263,6 +271,7 @@ benchmarks! {
         for i in 1..n + 1 {
             assert!(Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &alice_holdings));
             assert!(!Pallet::<T>::is_holder_of_nft(&asset_id, &NFTId(i.into()), &bob_holdings));
+            assert!(!Pallet::<T>::is_nft_frozen(&asset_id, &NFTId(i.into()), &bob_holdings));
         }
         assert_eq!(NFTsInCollection::<T>::get(nfts.asset_id()), n as u64);
     }
@@ -313,9 +322,72 @@ benchmarks! {
         );
 
         let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+
+        // Worst case: every NFT is frozen, so the transfer has to clear each freeze
+        for nft_id in nfts.ids() {
+            FrozenNFT::<T>::insert((&asset_id, &alice_holdings, nft_id), true);
+        }
     }: _(bob.origin.clone(), nfts.clone(), alice_holdings.clone(), charlie_holdings.clone())
     verify {
         assert_eq!(NumberOfNFTs::<T>::get(nfts.asset_id(), charlie.did()), n as u64);
+        for nft_id in nfts.ids() {
+            assert!(!Pallet::<T>::is_nft_frozen(&asset_id, nft_id, &alice_holdings));
+        }
+    }
+
+    set_nfts_frozen {
+        let n in 1..T::MaxNumberOfNFTsCount::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        let alice_holdings = create_portfolio::<T>(&alice, "AlicePortfolio");
+        let asset_id =
+            create_collection_issue_nfts::<T>(&alice, 0, n, alice_holdings.clone().into());
+
+        // Worst case: the caller is a restricted secondary key of an agent in a restricted
+        // custom group, so every permission check reads and evaluates a whitelist.
+        let only_this_call = ExtrinsicPermissions::these([PalletPermissions::new(
+            "Nft".into(),
+            SubsetRestriction::elems(["set_nfts_frozen".into()]),
+        )]);
+        pallet_external_agents::Pallet::<T>::create_group(
+            alice.origin().into(),
+            asset_id,
+            only_this_call.clone(),
+        )
+        .unwrap();
+        let auth_id = pallet_identity::Pallet::<T>::add_auth(
+            alice.did(),
+            Signatory::from(bob.did()),
+            AuthorizationData::BecomeAgent(asset_id, AgentGroup::Custom(AGId(1))),
+            None,
+        )
+        .unwrap();
+        pallet_external_agents::Pallet::<T>::accept_become_agent(bob.origin().into(), auth_id)?;
+
+        let bob_key = UserBuilder::<T>::default().build("BobSecondaryKey");
+        pallet_identity::Pallet::<T>::unsafe_join_identity(
+            bob.did(),
+            Permissions {
+                asset: SubsetRestriction::elems([asset_id]),
+                extrinsic: only_this_call,
+                portfolio: SubsetRestriction::Whole,
+            },
+            bob_key.account(),
+        );
+        // Benchmarks bypass the dispatch wrapper that normally records the call being made.
+        pallet_permissions::StoreCallMetadata::<T>::set_call_metadata(
+            "Nft".into(),
+            "set_nfts_frozen".into(),
+        );
+
+        let nfts = NFTs::new_unverified(asset_id, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+    }: _(bob_key.origin.clone(), alice_holdings.clone(), nfts.clone(), true)
+    verify {
+        for nft_id in nfts.ids() {
+            assert!(Pallet::<T>::is_nft_frozen(&asset_id, nft_id, &alice_holdings));
+        }
     }
 
     approve {
