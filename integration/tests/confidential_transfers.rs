@@ -11,8 +11,8 @@ mod confidential_assets_tests {
     #[tokio::test]
     #[test_log::test]
     async fn relayer_submission_nested_in_utility_batch_is_rejected() -> Result<()> {
-        let tester = DartAssetTester::init_with_relayer(&["NestedRelayerSubmitter"], "Relayer")
-            .await?;
+        let tester =
+            DartAssetTester::init_with_relayer(&["NestedRelayerSubmitter"], "Relayer").await?;
         let submitter = tester.user("NestedRelayerSubmitter").await;
         let relayer = tester.user("Relayer").await;
         let payment = submitter

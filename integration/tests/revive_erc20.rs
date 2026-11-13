@@ -249,6 +249,79 @@ async fn erc20_unknown_asset_reverts() -> Result<()> {
     Ok(())
 }
 
+/// The precompile's functions are non-payable: a call carrying POLYX reverts.
+#[tokio::test]
+#[test_log::test]
+async fn erc20_call_with_value_reverts() -> Result<()> {
+    use alloy::providers::Provider;
+    use alloy::rpc::types::TransactionRequest;
+    use alloy::sol_types::SolCall;
+
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester.users(&["Erc20ValueIssuer"]).await?;
+    let api = tester.api.clone();
+    let issuer = &mut users[0];
+
+    let (_asset, erc20) = create_erc20_asset(&api, &node, issuer, "ERC20 Value", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+
+    let mut wallet = node.new_wallet();
+    wallet.onboard(&mut tester, REVIVE_INIT_POLYX).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    erc20.transfer(&mut caller, wallet.address, 5_000).await?;
+
+    let transfer = TransactionRequest::default()
+        .from(wallet.address)
+        .to(erc20.address)
+        .input(
+            ierc20::transferCall {
+                to: issuer_address,
+                value: U256::from(1_000),
+            }
+            .abi_encode()
+            .into(),
+        );
+    // 1 POLYX, in the EVM's 18 decimal representation.
+    let polyx = U256::from(10).pow(U256::from(18));
+
+    // The dry run reverts.
+    node.wait_for_sync().await?;
+    let err = node
+        .provider
+        .call(transfer.clone().value(polyx))
+        .await
+        .expect_err("transfer() with value should revert");
+    assert!(
+        format!("{err:?}").contains("Precompile does not accept value"),
+        "unexpected error: {err:?}"
+    );
+
+    // the submitted transaction reverts
+    let gas = node.provider.estimate_gas(transfer.clone()).await? * wallet.gas_multiplier;
+    let wallet_polyx = node.balance(wallet.address).await?;
+    let err = wallet
+        .send_with_gas(transfer.value(polyx), gas)
+        .await
+        .expect_err("transfer() with value should revert");
+    assert!(
+        err.to_string().contains("reverted"),
+        "transfer() should have been included in a block and reverted, got: {err}"
+    );
+
+    // No POLYX reached the precompile, and the wallet only paid for gas.
+    assert_eq!(node.balance(erc20.address).await?, U256::ZERO);
+    let spent = wallet_polyx - node.balance(wallet.address).await?;
+    assert!(
+        spent < polyx,
+        "the attached value was not refunded: spent {spent}"
+    );
+    // The token transfer was rolled back as well.
+    assert_eq!(erc20.balance_of(wallet.address).await?, 5_000);
+    assert_eq!(erc20.balance_of(issuer_address).await?, MINT - 5_000);
+
+    Ok(())
+}
+
 /// Incomplete `transfer` call reverts.
 #[tokio::test]
 #[test_log::test]

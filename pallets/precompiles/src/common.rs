@@ -48,6 +48,7 @@ pub const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub const ERR_WEIGHT_LIMIT_EXCEEDED: &str = "Benchmarked weight limit exceeded";
+pub const ERR_VALUE_NOT_ACCEPTED: &str = "Precompile does not accept value";
 pub const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 const ERR_ASSET_NOT_NON_FUNGIBLE: &str = "Asset is not non-fungible";
@@ -210,6 +211,14 @@ impl<T: Config> Common<T> {
             !env.is_delegate_call(),
             pallet_revive::Error::<T>::PrecompileDelegateDenied,
         );
+        Ok(())
+    }
+
+    /// Ensure no POLYX value was attached to the call.
+    pub fn ensure_no_value(env: &impl Ext<T = T>) -> Result<(), Error> {
+        if !env.value_transferred().is_zero() {
+            return Err(revert(ERR_VALUE_NOT_ACCEPTED));
+        }
         Ok(())
     }
 
