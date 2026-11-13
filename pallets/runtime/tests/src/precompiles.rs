@@ -5,7 +5,7 @@ use pallet_precompiles::interface::nft::{
     ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID, ERC7943_NON_FUNGIBLE_INTERFACE_ID,
 };
 use pallet_precompiles::interface::{
-    ERC165_INTERFACE_ID, ERC20_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID,
+    ERC165_INTERFACE_ID, ERC20_INTERFACE_ID, ERC7943_FUNGIBLE_INTERFACE_ID, MAX_BATCH_SIZE,
 };
 use pallet_revive::precompiles::alloy::sol_types::{SolCall, SolEvent};
 use polymesh_precompiles::{IFungibleAsset, INonFungibleAsset};
@@ -1255,5 +1255,358 @@ fn a_failed_set_name_or_set_symbol_emits_nothing() {
         }
 
         assert_eq!(System::events().len(), events_before);
+    });
+}
+
+/// The revert reason of an extrinsic that failed with the pallet error `name`.
+fn extrinsic_error(name: &str) -> String {
+    format!("Extrinsic returned an error: {name}")
+}
+
+/// `account`'s balance of `asset_id`, held by its account key.
+fn balance(asset_id: AssetId, account: &User) -> Balance {
+    Asset::get_holders_balance(&holder(account), &asset_id)
+}
+
+/// `account`'s frozen balance of `asset_id`.
+fn frozen(asset_id: AssetId, account: &User) -> Balance {
+    Asset::get_holders_frozen_balance(&holder(account), &asset_id)
+}
+
+/// The signature hashes of `logs`, in emission order.
+fn event_order(logs: &[Log]) -> Vec<[u8; 32]> {
+    logs.iter().map(|(topics, _)| topics[0].0).collect()
+}
+
+/// An asset with compliance paused, and three users: its owner and two other identities.
+fn batch_setup() -> (AssetId, User, User, User) {
+    let alice = User::new(Sr25519Keyring::Alice);
+    let bob = User::new(Sr25519Keyring::Bob);
+    let dave = User::new(Sr25519Keyring::Dave);
+    let asset_id = fungible_asset(&alice);
+    assert_ok!(ComplianceManager::pause_asset_compliance(
+        alice.origin(),
+        asset_id
+    ));
+    (asset_id, alice, bob, dave)
+}
+
+/// `batchTransfer` moves each amount from the caller, with one `Transfer` per element (T5).
+#[test]
+fn batch_transfer_moves_every_element() {
+    run(|| {
+        let (asset_id, alice, bob, dave) = batch_setup();
+        let batch = IFungibleAsset::batchTransferCall {
+            toList: vec![eth_address(&bob), eth_address(&dave), eth_address(&bob)],
+            amounts: vec![U256::from(1u8), U256::from(2u8), U256::from(3u8)],
+        };
+
+        let logs = send(&alice, fungible(asset_id), batch).unwrap();
+
+        assert_eq!(balance(asset_id, &bob), 4);
+        assert_eq!(balance(asset_id, &dave), 2);
+        assert_eq!(balance(asset_id, &alice), ISSUE_AMOUNT - 6);
+
+        let transfer = IFungibleAsset::Transfer::SIGNATURE_HASH.0;
+        assert_eq!(event_order(&logs), [transfer; 3]);
+        let receivers = [(bob, 1u8), (dave, 2), (bob, 3)];
+        for (log, (to, value)) in logs.iter().zip(receivers) {
+            let event = IFungibleAsset::Transfer::decode_raw_log(log.0.iter().map(|t| t.0), &log.1)
+                .unwrap();
+            assert_eq!(event.from, eth_address(&alice));
+            assert_eq!(event.to, eth_address(&to));
+            assert_eq!(event.value, U256::from(value));
+        }
+    });
+}
+
+/// A batch is all-or-nothing: one failing element reverts the elements before it.
+#[test]
+fn batch_transfer_is_all_or_nothing() {
+    run(|| {
+        let (asset_id, alice, bob, dave) = batch_setup();
+        // Mapping an account emits an event, so do it before counting
+        for user in [&alice, &bob, &dave] {
+            eth_address(user);
+        }
+        let events_before = System::events().len();
+
+        // The second element is more than the caller holds
+        let batch = IFungibleAsset::batchTransferCall {
+            toList: vec![eth_address(&bob), eth_address(&dave)],
+            amounts: vec![U256::from(1u8), U256::from(ISSUE_AMOUNT)],
+        };
+        assert!(send(&alice, fungible(asset_id), batch).is_err());
+
+        assert_eq!(balance(asset_id, &bob), 0);
+        assert_eq!(balance(asset_id, &dave), 0);
+        assert_eq!(balance(asset_id, &alice), ISSUE_AMOUNT);
+        assert_eq!(System::events().len(), events_before);
+    });
+}
+
+/// Arrays of different lengths, or longer than the cap, revert before anything moves.
+#[test]
+fn batch_calls_check_their_arrays() {
+    run(|| {
+        let (asset_id, alice, bob, _) = batch_setup();
+        let token = fungible(asset_id);
+        let to = eth_address(&bob);
+        let one = U256::from(1u8);
+        let max = MAX_BATCH_SIZE;
+
+        let mismatch = "Batch arrays have different lengths";
+        let too_long = "Batch is longer than the maximum of 16 elements";
+
+        // batchTransfer
+        let call = |n: usize, m: usize| IFungibleAsset::batchTransferCall {
+            toList: vec![to; n],
+            amounts: vec![one; m],
+        };
+        assert_eq!(send(&alice, token, call(2, 1)).unwrap_err(), mismatch);
+        assert_eq!(
+            send(&alice, token, call(max + 1, max + 1)).unwrap_err(),
+            too_long
+        );
+        assert_ok!(send(&alice, token, call(max, max)));
+        assert_eq!(balance(asset_id, &bob), max as Balance);
+        // An empty batch does nothing
+        assert_eq!(send(&alice, token, call(0, 0)).unwrap().len(), 0);
+
+        // batchForcedTransfer
+        let call = |f: usize, n: usize, m: usize| IFungibleAsset::batchForcedTransferCall {
+            fromList: vec![to; f],
+            toList: vec![eth_address(&alice); n],
+            amounts: vec![one; m],
+        };
+        assert_eq!(send(&alice, token, call(1, 2, 2)).unwrap_err(), mismatch);
+        assert_eq!(send(&alice, token, call(2, 2, 1)).unwrap_err(), mismatch);
+        assert_eq!(
+            send(&alice, token, call(max + 1, max + 1, max + 1)).unwrap_err(),
+            too_long
+        );
+
+        // batchSetAddressFrozen
+        let call = |n: usize, m: usize| IFungibleAsset::batchSetAddressFrozenCall {
+            userAddresses: vec![to; n],
+            freeze: vec![true; m],
+        };
+        assert_eq!(send(&alice, token, call(2, 1)).unwrap_err(), mismatch);
+        assert_eq!(
+            send(&alice, token, call(max + 1, max + 1)).unwrap_err(),
+            too_long
+        );
+
+        // batchFreezePartialTokens
+        let call = |n: usize, m: usize| IFungibleAsset::batchFreezePartialTokensCall {
+            userAddresses: vec![to; n],
+            amounts: vec![one; m],
+        };
+        assert_eq!(send(&alice, token, call(2, 1)).unwrap_err(), mismatch);
+        assert_eq!(
+            send(&alice, token, call(max + 1, max + 1)).unwrap_err(),
+            too_long
+        );
+
+        // batchUnfreezePartialTokens
+        let call = |n: usize, m: usize| IFungibleAsset::batchUnfreezePartialTokensCall {
+            userAddresses: vec![to; n],
+            amounts: vec![one; m],
+        };
+        assert_eq!(send(&alice, token, call(2, 1)).unwrap_err(), mismatch);
+        assert_eq!(
+            send(&alice, token, call(max + 1, max + 1)).unwrap_err(),
+            too_long
+        );
+    });
+}
+
+/// The largest batch of the most expensive element fits well inside one extrinsic.
+#[test]
+fn the_largest_batch_fits_in_an_extrinsic() {
+    run(|| {
+        use frame_support::dispatch::DispatchClass;
+        use polymesh_primitives::portfolio::{Fund, FundDescription};
+        use polymesh_primitives::traits::SettlementFnTrait;
+
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = fungible_asset(&alice);
+        let fund = Fund::new(
+            FundDescription::Fungible {
+                asset_id,
+                amount: 1,
+            },
+            None,
+        );
+        let per_transfer =
+            <Settlement as SettlementFnTrait<TestStorage>>::transfer_funds_weight_limit(
+                None, &fund,
+            );
+        let max_extrinsic = <TestStorage as frame_system::Config>::BlockWeights::get()
+            .get(DispatchClass::Normal)
+            .max_extrinsic
+            .unwrap();
+
+        let batch = per_transfer.saturating_mul(MAX_BATCH_SIZE as u64);
+        assert!(batch.ref_time() <= max_extrinsic.ref_time() / 2);
+    });
+}
+
+/// `batchForcedTransfer` emits each element's events in the single call's order (T5).
+#[test]
+fn batch_forced_transfer_moves_every_element() {
+    run(|| {
+        let (asset_id, alice, bob, dave) = batch_setup();
+        assert_ok!(transfer(asset_id, &alice, &bob, 10));
+        assert_ok!(transfer(asset_id, &alice, &dave, 10));
+        // Bob's tokens are all frozen, so taking them unfreezes what is taken
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            holder(&bob),
+            10
+        ));
+
+        let batch = IFungibleAsset::batchForcedTransferCall {
+            fromList: vec![eth_address(&bob), eth_address(&dave)],
+            toList: vec![eth_address(&alice), eth_address(&alice)],
+            amounts: vec![U256::from(4u8), U256::from(10u8)],
+        };
+        let logs = send(&alice, fungible(asset_id), batch).unwrap();
+
+        assert_eq!(balance(asset_id, &bob), 6);
+        assert_eq!(frozen(asset_id, &bob), 6);
+        assert_eq!(balance(asset_id, &dave), 0);
+        assert_eq!(
+            event_order(&logs),
+            [
+                IFungibleAsset::TokensUnfrozen::SIGNATURE_HASH.0,
+                IFungibleAsset::Frozen::SIGNATURE_HASH.0,
+                IFungibleAsset::Transfer::SIGNATURE_HASH.0,
+                IFungibleAsset::ForcedTransfer::SIGNATURE_HASH.0,
+                IFungibleAsset::Transfer::SIGNATURE_HASH.0,
+                IFungibleAsset::ForcedTransfer::SIGNATURE_HASH.0,
+            ]
+        );
+
+        // All-or-nothing, and agent only
+        let batch = IFungibleAsset::batchForcedTransferCall {
+            fromList: vec![eth_address(&bob), eth_address(&dave)],
+            toList: vec![eth_address(&alice), eth_address(&alice)],
+            amounts: vec![U256::from(1u8), U256::from(1u8)],
+        };
+        assert!(send(&alice, fungible(asset_id), batch.clone()).is_err());
+        assert_eq!(balance(asset_id, &bob), 6);
+        assert_eq!(
+            send(&bob, fungible(asset_id), batch).unwrap_err(),
+            extrinsic_error("UnauthorizedAgent")
+        );
+    });
+}
+
+/// `batchSetAddressFrozen` sets each account's freeze, with one `AddressFrozen` each (T5).
+#[test]
+fn batch_set_address_frozen_sets_every_element() {
+    run(|| {
+        let (asset_id, alice, bob, dave) = batch_setup();
+        let token = fungible(asset_id);
+        let is_frozen = |user: &User| {
+            let account = eth_address(user);
+            view(&alice, token, IFungibleAsset::isFrozenCall { account })
+        };
+        assert_ok!(send(
+            &alice,
+            token,
+            IFungibleAsset::setAddressFrozenCall {
+                account: eth_address(&dave),
+                freeze: true,
+            },
+        ));
+
+        let batch = IFungibleAsset::batchSetAddressFrozenCall {
+            userAddresses: vec![eth_address(&bob), eth_address(&dave)],
+            freeze: vec![true, false],
+        };
+        let logs = send(&alice, token, batch.clone()).unwrap();
+
+        assert!(is_frozen(&bob));
+        assert!(!is_frozen(&dave));
+        assert_eq!(
+            event_order(&logs),
+            [IFungibleAsset::AddressFrozen::SIGNATURE_HASH.0; 2]
+        );
+        for (log, (user, freeze)) in logs.iter().zip([(bob, true), (dave, false)]) {
+            let event =
+                IFungibleAsset::AddressFrozen::decode_raw_log(log.0.iter().map(|t| t.0), &log.1)
+                    .unwrap();
+            assert_eq!(event.account, eth_address(&user));
+            assert_eq!(event.freeze, freeze);
+            assert_eq!(event.owner, eth_address(&alice));
+        }
+
+        assert_eq!(
+            send(&bob, token, batch).unwrap_err(),
+            extrinsic_error("UnauthorizedAgent")
+        );
+    });
+}
+
+/// `batchFreezePartialTokens` and `batchUnfreezePartialTokens` emit both standards' events for
+/// each element, and are all-or-nothing (T5).
+#[test]
+fn batch_freeze_and_unfreeze_partial_tokens() {
+    run(|| {
+        let (asset_id, alice, bob, dave) = batch_setup();
+        let token = fungible(asset_id);
+        let accounts = vec![eth_address(&bob), eth_address(&dave)];
+        // A partial freeze cannot exceed the holder's balance
+        assert_ok!(transfer(asset_id, &alice, &bob, 10));
+        assert_ok!(transfer(asset_id, &alice, &dave, 10));
+
+        let freeze = IFungibleAsset::batchFreezePartialTokensCall {
+            userAddresses: accounts.clone(),
+            amounts: vec![U256::from(5u8), U256::from(7u8)],
+        };
+        let logs = send(&alice, token, freeze.clone()).unwrap();
+        assert_eq!(frozen(asset_id, &bob), 5);
+        assert_eq!(frozen(asset_id, &dave), 7);
+        assert_eq!(
+            event_order(&logs),
+            [
+                IFungibleAsset::TokensFrozen::SIGNATURE_HASH.0,
+                IFungibleAsset::Frozen::SIGNATURE_HASH.0,
+                IFungibleAsset::TokensFrozen::SIGNATURE_HASH.0,
+                IFungibleAsset::Frozen::SIGNATURE_HASH.0,
+            ]
+        );
+        assert_eq!(
+            send(&bob, token, freeze).unwrap_err(),
+            extrinsic_error("UnauthorizedAgent")
+        );
+
+        // The second element unfreezes more than is frozen, so the first is undone too
+        let too_much = IFungibleAsset::batchUnfreezePartialTokensCall {
+            userAddresses: accounts.clone(),
+            amounts: vec![U256::from(5u8), U256::from(8u8)],
+        };
+        assert!(send(&alice, token, too_much).is_err());
+        assert_eq!(frozen(asset_id, &bob), 5);
+
+        let unfreeze = IFungibleAsset::batchUnfreezePartialTokensCall {
+            userAddresses: accounts,
+            amounts: vec![U256::from(2u8), U256::from(7u8)],
+        };
+        let logs = send(&alice, token, unfreeze).unwrap();
+        assert_eq!(frozen(asset_id, &bob), 3);
+        assert_eq!(frozen(asset_id, &dave), 0);
+        assert_eq!(
+            event_order(&logs),
+            [
+                IFungibleAsset::TokensUnfrozen::SIGNATURE_HASH.0,
+                IFungibleAsset::Frozen::SIGNATURE_HASH.0,
+                IFungibleAsset::TokensUnfrozen::SIGNATURE_HASH.0,
+                IFungibleAsset::Frozen::SIGNATURE_HASH.0,
+            ]
+        );
     });
 }

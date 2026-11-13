@@ -400,3 +400,215 @@ async fn erc3643_is_agent() -> Result<()> {
 
     Ok(())
 }
+
+/// `batchTransfer` emits one `Transfer` per element, and moves nothing if one element fails.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_batch_transfer() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc3643BatchIssuer", "Erc3643BatchA", "Erc3643BatchB"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 Batch", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let a = eth_address_of(&api, &mut holders[0]).await?;
+    let b = eth_address_of(&api, &mut holders[1]).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    let logs = erc3643
+        .send(
+            &mut caller,
+            ierc20::batchTransferCall {
+                toList: vec![a, b, a],
+                amounts: vec![U256::from(100), U256::from(200), U256::from(300)],
+            },
+        )
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::Transfer::SIGNATURE_HASH; 3],
+    );
+    let transfers: Vec<ierc20::Transfer> = decode_contract_logs(&logs, &erc3643.h160())?;
+    for (event, (to, value)) in transfers.iter().zip([(a, 100), (b, 200), (a, 300)]) {
+        assert_eq!(event.from, issuer_address);
+        assert_eq!(event.to, to);
+        assert_eq!(event.value, U256::from(value));
+    }
+    assert_eq!(erc3643.balance_of(a).await?, 400);
+    assert_eq!(erc3643.balance_of(b).await?, 200);
+
+    // The second element is more than the caller holds, so the first is not applied either.
+    let failing = ierc20::batchTransferCall {
+        toList: vec![a, b],
+        amounts: vec![U256::from(1), U256::from(MINT)],
+    };
+    assert!(erc3643.send(&mut caller, failing).await.is_err());
+    assert_eq!(erc3643.balance_of(a).await?, 400);
+
+    // Arrays of different lengths, or longer than 16 elements, revert.
+    let mismatch = ierc20::batchTransferCall {
+        toList: vec![a, b],
+        amounts: vec![U256::from(1)],
+    };
+    assert!(erc3643.send(&mut caller, mismatch).await.is_err());
+    let too_long = ierc20::batchTransferCall {
+        toList: vec![a; 17],
+        amounts: vec![U256::from(1); 17],
+    };
+    assert!(erc3643.send(&mut caller, too_long).await.is_err());
+    assert_eq!(erc3643.balance_of(a).await?, 400);
+
+    Ok(())
+}
+
+/// `batchForcedTransfer` emits each element's events in the order of a single `forcedTransfer`.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_batch_forced_transfer() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&[
+            "Erc3643BatchForceIssuer",
+            "Erc3643BatchForceA",
+            "Erc3643BatchForceB",
+        ])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 BatchForce", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let a = eth_address_of(&api, &mut holders[0]).await?;
+    let b = eth_address_of(&api, &mut holders[1]).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    erc3643.transfer(&mut caller, a, 1_000).await?;
+    erc3643.transfer(&mut caller, b, 1_000).await?;
+    // All of A's tokens are frozen, so taking some unfreezes them first.
+    erc3643.set_frozen_tokens(&mut caller, a, 1_000).await?;
+
+    let logs = erc3643
+        .send(
+            &mut caller,
+            ierc20::batchForcedTransferCall {
+                fromList: vec![a, b],
+                toList: vec![issuer_address, issuer_address],
+                amounts: vec![U256::from(400), U256::from(1_000)],
+            },
+        )
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [
+            ierc20::TokensUnfrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH,
+            ierc20::Transfer::SIGNATURE_HASH,
+            ierc20::ForcedTransfer::SIGNATURE_HASH,
+            ierc20::Transfer::SIGNATURE_HASH,
+            ierc20::ForcedTransfer::SIGNATURE_HASH,
+        ],
+    );
+    assert_eq!(erc3643.balance_of(a).await?, 600);
+    assert_eq!(erc3643.get_frozen_tokens(a).await?, 600);
+    assert_eq!(erc3643.balance_of(b).await?, 0);
+
+    Ok(())
+}
+
+/// The batch freeze functions emit the events of the single calls for each element.
+#[tokio::test]
+#[test_log::test]
+async fn erc3643_batch_freezes() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&[
+            "Erc3643BatchFrzIssuer",
+            "Erc3643BatchFrzA",
+            "Erc3643BatchFrzB",
+        ])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+
+    let (_, erc3643) = create_erc20_asset(&api, &node, issuer, "ERC3643 BatchFrz", MINT).await?;
+    let a = eth_address_of(&api, &mut holders[0]).await?;
+    let b = eth_address_of(&api, &mut holders[1]).await?;
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+
+    erc3643.transfer(&mut caller, a, 1_000).await?;
+    erc3643.transfer(&mut caller, b, 1_000).await?;
+
+    let logs = erc3643
+        .send(
+            &mut caller,
+            ierc20::batchSetAddressFrozenCall {
+                userAddresses: vec![a, b],
+                freeze: vec![true, false],
+            },
+        )
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::AddressFrozen::SIGNATURE_HASH; 2],
+    );
+    assert!(erc3643.is_frozen(a).await?);
+    assert!(!erc3643.is_frozen(b).await?);
+
+    let logs = erc3643
+        .send(
+            &mut caller,
+            ierc20::batchFreezePartialTokensCall {
+                userAddresses: vec![a, b],
+                amounts: vec![U256::from(500), U256::from(700)],
+            },
+        )
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [
+            ierc20::TokensFrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH,
+            ierc20::TokensFrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH,
+        ],
+    );
+    assert_eq!(erc3643.get_frozen_tokens(a).await?, 500);
+    assert_eq!(erc3643.get_frozen_tokens(b).await?, 700);
+
+    // The second element unfreezes more than is frozen, so the first is not applied either.
+    let too_much = ierc20::batchUnfreezePartialTokensCall {
+        userAddresses: vec![a, b],
+        amounts: vec![U256::from(500), U256::from(701)],
+    };
+    assert!(erc3643.send(&mut caller, too_much).await.is_err());
+    assert_eq!(erc3643.get_frozen_tokens(a).await?, 500);
+
+    let logs = erc3643
+        .send(
+            &mut caller,
+            ierc20::batchUnfreezePartialTokensCall {
+                userAddresses: vec![a, b],
+                amounts: vec![U256::from(200), U256::from(700)],
+            },
+        )
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [
+            ierc20::TokensUnfrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH,
+            ierc20::TokensUnfrozen::SIGNATURE_HASH,
+            ierc20::Frozen::SIGNATURE_HASH,
+        ],
+    );
+    assert_eq!(erc3643.get_frozen_tokens(a).await?, 300);
+    assert_eq!(erc3643.get_frozen_tokens(b).await?, 0);
+
+    Ok(())
+}

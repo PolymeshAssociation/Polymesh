@@ -320,6 +320,33 @@ interface IFungibleAsset {
     /// @notice Unfreezes `amount` of tokens for `account`, reducing the amount currently frozen.
     /// Only an agent of the token can call this function.
     function unfreezePartialTokens(address account, uint256 amount) external;
+
+    // The batch functions below apply the single call to each element in order. A batch is
+    // all-or-nothing: if any element reverts, the whole call reverts. Each element emits the
+    // events of the single call. The arrays must have the same length, of at most 16 elements.
+
+    /// @notice Calls {transfer} for each `toList[i]` and `amounts[i]`.
+    function batchTransfer(address[] calldata toList, uint256[] calldata amounts) external;
+
+    /// @notice Calls {forcedTransfer} for each `fromList[i]`, `toList[i]` and `amounts[i]`.
+    /// Only an agent of the token can call this function.
+    function batchForcedTransfer(
+        address[] calldata fromList,
+        address[] calldata toList,
+        uint256[] calldata amounts
+    ) external;
+
+    /// @notice Calls {setAddressFrozen} for each `userAddresses[i]` and `freeze[i]`.
+    /// Only an agent of the token can call this function.
+    function batchSetAddressFrozen(address[] calldata userAddresses, bool[] calldata freeze) external;
+
+    /// @notice Calls {freezePartialTokens} for each `userAddresses[i]` and `amounts[i]`.
+    /// Only an agent of the token can call this function.
+    function batchFreezePartialTokens(address[] calldata userAddresses, uint256[] calldata amounts) external;
+
+    /// @notice Calls {unfreezePartialTokens} for each `userAddresses[i]` and `amounts[i]`.
+    /// Only an agent of the token can call this function.
+    function batchUnfreezePartialTokens(address[] calldata userAddresses, uint256[] calldata amounts) external;
 }
 
 contract FungibleAssetStub is IFungibleAsset {
@@ -515,6 +542,47 @@ contract FungibleAssetStub is IFungibleAsset {
     function unfreezePartialTokens(address account, uint256 amount) external override {
         account;
         amount;
+        revert NotExecutable();
+    }
+
+    function batchTransfer(address[] calldata toList, uint256[] calldata amounts) external override {
+        toList;
+        amounts;
+        revert NotExecutable();
+    }
+
+    function batchForcedTransfer(
+        address[] calldata fromList,
+        address[] calldata toList,
+        uint256[] calldata amounts
+    ) external override {
+        fromList;
+        toList;
+        amounts;
+        revert NotExecutable();
+    }
+
+    function batchSetAddressFrozen(address[] calldata userAddresses, bool[] calldata freeze) external override {
+        userAddresses;
+        freeze;
+        revert NotExecutable();
+    }
+
+    function batchFreezePartialTokens(
+        address[] calldata userAddresses,
+        uint256[] calldata amounts
+    ) external override {
+        userAddresses;
+        amounts;
+        revert NotExecutable();
+    }
+
+    function batchUnfreezePartialTokens(
+        address[] calldata userAddresses,
+        uint256[] calldata amounts
+    ) external override {
+        userAddresses;
+        amounts;
         revert NotExecutable();
     }
 }

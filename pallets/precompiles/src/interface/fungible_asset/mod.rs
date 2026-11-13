@@ -29,6 +29,7 @@ use polymesh_precompiles::{IFungibleAssetCalls, FUNGIBLE_ASSET_CODE};
 use crate::common::{AssetKind, Common};
 use crate::Config;
 
+mod batch;
 mod erc20;
 mod erc3643;
 mod erc7943;
@@ -39,6 +40,9 @@ pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long"
 // ========================================================
 
 pub const DECIMALS: u8 = 6;
+
+/// The most elements a `batch*` call accepts.
+pub const MAX_BATCH_SIZE: usize = 16;
 
 /// `IERC20`: the XOR of the selectors of its six functions.
 pub const ERC20_INTERFACE_ID: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
@@ -152,6 +156,21 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             }
             IFungibleAssetCalls::unfreezePartialTokens(call) => {
                 Self::unfreeze_partial_tokens(asset_id, call, env)
+            }
+
+            // ERC3643 batch functions
+            IFungibleAssetCalls::batchTransfer(call) => Self::batch_transfer(asset_id, call, env),
+            IFungibleAssetCalls::batchForcedTransfer(call) => {
+                Self::batch_forced_transfer(asset_id, call, env)
+            }
+            IFungibleAssetCalls::batchSetAddressFrozen(call) => {
+                Self::batch_set_address_frozen(asset_id, call, env)
+            }
+            IFungibleAssetCalls::batchFreezePartialTokens(call) => {
+                Self::batch_freeze_partial_tokens(asset_id, call, env)
+            }
+            IFungibleAssetCalls::batchUnfreezePartialTokens(call) => {
+                Self::batch_unfreeze_partial_tokens(asset_id, call, env)
             }
         }
     }

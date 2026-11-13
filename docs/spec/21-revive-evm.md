@@ -124,6 +124,7 @@ rejected, rather than silently permitted to change state.
 | ERC-3643 freezePartialTokens / unfreezePartialTokens | `Asset::freeze_partial_tokens` / `unfreeze_partial_tokens` | fungible_asset/erc3643.rs:181, 219 |
 | ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:36-161 |
 | ERC-3643 `setName` / `setSymbol` event | Both emit `UpdatedTokenInformation(string indexed, string indexed, uint8, string, address indexed)`, the signature of the EIP's `IERC3643.sol`, with the name and symbol read back from storage after the call. `setSymbol` emits it on its no-op path too. Decimals 6, version empty, ONCHAINID zero. The indexed strings are logged as keccak-256 hashes | fungible_asset/erc3643.rs `deposit_token_information` |
+| ERC-3643 `batchTransfer`, `batchForcedTransfer`, `batchSetAddressFrozen`, `batchFreezePartialTokens`, `batchUnfreezePartialTokens` | The single call's handler, once per element in order (see "Batch functions" below) | fungible_asset/batch.rs |
 | ERC-3643 `paused` / `isFrozen` (views) | `Asset::Frozen[asset]` / the account's `Asset::FrozenAccounts` entry (`ensure_holder_is_not_frozen`). `isFrozen` is the whole-account freeze only; a frozen amount is `getFrozenTokens` | fungible_asset/erc3643.rs `paused`, `is_frozen` |
 | `supportsInterface` | constant match on ERC-165 / IERC20 / IERC7943Fungible ids | fungible_asset/erc7943.rs:331 |
 
@@ -147,6 +148,23 @@ first, then `Frozen` (`deposit_frozen_change` / `deposit_frozen_total`, fungible
   by a native extrinsic (`Asset::set_frozen_tokens`, `controller_transfer_to`, a settlement
   controller transfer) emits no EVM log. This is the general gap that runtime-side actions are not
   mirrored as EVM events for any precompile.
+
+**Batch functions (fungible precompile).** The five ERC-3643 `batch*` calls above loop over the
+handler of the matching single call, so each element is checked, charged and logged exactly as
+the single call is, in array order.
+
+- **All-or-nothing.** The first failing element fails the call, and `pallet_revive` rolls back
+  the frame: no state change and no log of an earlier element survives.
+- **Bounded.** The arrays must have equal lengths, of at most `MAX_BATCH_SIZE` (16) elements, or
+  the call reverts before doing anything. 16 worst-case transfers stay under half of the largest
+  normal extrinsic (`precompiles.rs::the_largest_batch_fits_in_an_extrinsic`). An empty batch
+  succeeds and does nothing.
+- **Weight.** Before the first element runs, `reserve_batch_weight` charges the worst case of the
+  whole batch (elements × the weight the single call charges up front) and releases it again, so
+  a batch that cannot finish fails without doing work. Each element then charges, and is
+  refunded, as the single call is.
+- `batchMint` and `batchBurn` are absent until the precompile has `mint(address,uint256)` and
+  `burn(address,uint256)`.
 
 **Transfer checks (`canTransfer`, `canSend`, `canReceive`), both asset precompiles.** ERC-7943
 says these views must not revert.
