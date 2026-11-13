@@ -157,6 +157,13 @@ interface IFungibleAsset {
     /// Emits a {Transfer} event.
     function burn(uint256 value) external returns (bool);
 
+    /// @dev Returns `true` if the token can be transferred in fractions of a whole unit.
+    ///
+    /// {decimals} is 6 for every token. A token that is not divisible only moves in
+    /// multiples of `10 ** 6`; any other amount reverts with `InvalidGranularity`.
+    /// A token can become divisible later, but never the reverse.
+    function isDivisible() external view returns (bool);
+
     // ============================================================
     // ERC-7943
     // ============================================================
@@ -365,6 +372,10 @@ contract FungibleAssetStub is IFungibleAsset {
 
     function burn(uint256 value) external override returns (bool) {
         value;
+        revert NotExecutable();
+    }
+
+    function isDivisible() external view override returns (bool) {
         revert NotExecutable();
     }
 

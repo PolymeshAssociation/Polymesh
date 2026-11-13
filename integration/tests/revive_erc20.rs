@@ -41,6 +41,8 @@ async fn erc20_metadata() -> Result<()> {
     assert_eq!(erc20.name().await?, "ERC20 Metadata");
     assert_eq!(erc20.symbol().await?, String::from_utf8(ticker.0.to_vec())?);
     assert_eq!(erc20.decimals().await?, ERC20_DECIMALS);
+    // `AssetHelper` creates divisible assets.
+    assert!(erc20.is_divisible().await?);
     assert_eq!(erc20.total_supply().await?, MINT);
     // The whole supply was issued to the owner's account balance.
     assert_eq!(erc20.balance_of(issuer_address).await?, MINT);

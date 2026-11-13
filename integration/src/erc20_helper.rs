@@ -157,6 +157,12 @@ impl Token {
         self.node.call(self.address, &ierc20::decimalsCall {}).await
     }
 
+    pub async fn is_divisible(&self) -> Result<bool> {
+        self.node
+            .call(self.address, &ierc20::isDivisibleCall {})
+            .await
+    }
+
     pub async fn total_supply(&self) -> Result<u128> {
         let value = self
             .node

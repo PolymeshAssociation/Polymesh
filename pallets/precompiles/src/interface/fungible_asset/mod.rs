@@ -84,6 +84,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 | IFungibleAssetCalls::name(_)
                 | IFungibleAssetCalls::symbol(_)
                 | IFungibleAssetCalls::decimals(_)
+                | IFungibleAssetCalls::isDivisible(_)
                 | IFungibleAssetCalls::canTransfer(_)
                 | IFungibleAssetCalls::canSend(_)
                 | IFungibleAssetCalls::canReceive(_)
@@ -118,6 +119,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             // Polymesh-specific functions
             IFungibleAssetCalls::mint(call) => Self::issue(asset_id, call, env),
             IFungibleAssetCalls::burn(call) => Self::redeem(asset_id, call, env),
+            IFungibleAssetCalls::isDivisible(_) => Self::is_divisible(asset_id, env),
 
             // ERC7943 functions
             IFungibleAssetCalls::canTransfer(call) => Self::can_transfer(asset_id, call, env),

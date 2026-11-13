@@ -400,3 +400,35 @@ fn approve_other_values_above_u128_max_revert() {
         );
     });
 }
+
+/// `isDivisible()` reports the asset's divisibility, and follows `make_divisible` (F2).
+#[test]
+fn is_divisible_reports_the_assets_divisibility() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let divisible = fungible_asset(&alice);
+        assert!(view(
+            &alice,
+            fungible(divisible),
+            IFungibleAsset::isDivisibleCall {}
+        ));
+
+        let indivisible = Asset::generate_asset_id(alice.acc(), false);
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            b"Whole".into(),
+            false,
+            Default::default(),
+            Vec::new(),
+            None,
+        ));
+        let token = fungible(indivisible);
+        assert!(!view(&alice, token, IFungibleAsset::isDivisibleCall {}));
+        // `decimals()` does not depend on divisibility
+        assert_eq!(view(&alice, token, IFungibleAsset::decimalsCall {}), 6);
+
+        assert_ok!(Asset::make_divisible(alice.origin(), indivisible));
+        assert!(view(&alice, token, IFungibleAsset::isDivisibleCall {}));
+        assert_eq!(view(&alice, token, IFungibleAsset::decimalsCall {}), 6);
+    });
+}
