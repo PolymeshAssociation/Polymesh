@@ -40,8 +40,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::CachedDartParameters` (r:0 w:1)
     // Proof: `ConfidentialAssets::CachedDartParameters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn generate_and_save_dart_params() -> Weight {
-        // Minimum execution time: 312_532_322 nanoseconds.
-        Weight::from_parts(317_802_311_000, 0)
+        // Minimum execution time: 312_866_515 nanoseconds.
+        Weight::from_parts(319_063_983_000, 0)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -50,8 +50,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `WorkerModules::ProtocolConfigHash` (r:1 w:0)
     // Proof: `WorkerModules::ProtocolConfigHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn session_overhead() -> Weight {
-        // Minimum execution time: 8_379 nanoseconds.
-        Weight::from_parts(9_930_000, 0)
+        // Minimum execution time: 8_290 nanoseconds.
+        Weight::from_parts(9_820_000, 0)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -76,8 +76,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AssetCurveTreeRoots` (r:0 w:1)
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn curve_tree_min_update() -> Weight {
-        // Minimum execution time: 47_680 nanoseconds.
-        Weight::from_parts(53_120_000, 0)
+        // Minimum execution time: 44_750 nanoseconds.
+        Weight::from_parts(46_700_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -87,10 +87,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `r` is `[0, 10]`.
     fn root_pruning(r: u32) -> Weight {
-        // Minimum execution time: 13_350 nanoseconds.
-        Weight::from_parts(16_170_886, 0)
-            // Standard Error: 192_647
-            .saturating_add(Weight::from_parts(5_120_220, 0).saturating_mul(r.into()))
+        // Minimum execution time: 13_000 nanoseconds.
+        Weight::from_parts(16_123_662, 0)
+            // Standard Error: 100_224
+            .saturating_add(Weight::from_parts(4_117_393, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(1))
@@ -118,10 +118,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::AccountCurveTreeLastUpdate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     /// The range of component `l` is `[0, 65]`.
     fn update_account_curve_tree_root(l: u32) -> Weight {
-        // Minimum execution time: 6_690 nanoseconds.
-        Weight::from_parts(52_000_434_569, 0)
-            // Standard Error: 1_013_919_346
-            .saturating_add(Weight::from_parts(724_943_168, 0).saturating_mul(l.into()))
+        // Minimum execution time: 6_840 nanoseconds.
+        Weight::from_parts(51_664_195_787, 0)
+            // Standard Error: 1_005_606_828
+            .saturating_add(Weight::from_parts(717_672_998, 0).saturating_mul(l.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(l.into())))
             .saturating_add(DbWeight::get().writes(6))
@@ -148,10 +148,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::FeeAccountCurveTreeLastUpdate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     /// The range of component `l` is `[0, 65]`.
     fn update_fee_account_curve_tree_root(l: u32) -> Weight {
-        // Minimum execution time: 7_010 nanoseconds.
-        Weight::from_parts(51_727_409_527, 0)
-            // Standard Error: 1_006_214_604
-            .saturating_add(Weight::from_parts(716_872_499, 0).saturating_mul(l.into()))
+        // Minimum execution time: 6_970 nanoseconds.
+        Weight::from_parts(51_728_431_966, 0)
+            // Standard Error: 1_005_422_580
+            .saturating_add(Weight::from_parts(714_722_971, 0).saturating_mul(l.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(l.into())))
             .saturating_add(DbWeight::get().writes(6))
@@ -174,10 +174,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::DidAccounts` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `k` is `[0, 20]`.
     fn register_accounts(k: u32) -> Weight {
-        // Minimum execution time: 154_209 nanoseconds.
-        Weight::from_parts(193_848_502, 0)
-            // Standard Error: 106_039
-            .saturating_add(Weight::from_parts(84_089_850, 0).saturating_mul(k.into()))
+        // Minimum execution time: 151_220 nanoseconds.
+        Weight::from_parts(184_828_720, 0)
+            // Standard Error: 72_135
+            .saturating_add(Weight::from_parts(79_149_949, 0).saturating_mul(k.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(k.into())))
             .saturating_add(DbWeight::get().writes((5_u64).saturating_mul(k.into())))
@@ -190,10 +190,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::CurrentWorkerSessionId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     /// The range of component `k` is `[0, 20]`.
     fn register_encryption_keys(k: u32) -> Weight {
-        // Minimum execution time: 96_750 nanoseconds.
-        Weight::from_parts(116_051_678, 0)
-            // Standard Error: 46_772
-            .saturating_add(Weight::from_parts(38_989_475, 0).saturating_mul(k.into()))
+        // Minimum execution time: 93_690 nanoseconds.
+        Weight::from_parts(111_562_104, 0)
+            // Standard Error: 37_865
+            .saturating_add(Weight::from_parts(36_559_404, 0).saturating_mul(k.into()))
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(k.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -214,10 +214,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::FeeAccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `p` is `[0, 10]`.
     fn register_fee_accounts(p: u32) -> Weight {
-        // Minimum execution time: 50_320 nanoseconds.
-        Weight::from_parts(95_951_221, 0)
-            // Standard Error: 358_747
-            .saturating_add(Weight::from_parts(592_217_006, 0).saturating_mul(p.into()))
+        // Minimum execution time: 50_099 nanoseconds.
+        Weight::from_parts(91_590_254, 0)
+            // Standard Error: 390_971
+            .saturating_add(Weight::from_parts(589_534_032, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(p.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -273,10 +273,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::Symbols` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `k` is `[1, 2]`.
     fn create_asset(k: u32) -> Weight {
-        // Minimum execution time: 1_314_403 nanoseconds.
-        Weight::from_parts(1_345_953_666, 0)
-            // Standard Error: 319_177_351
-            .saturating_add(Weight::from_parts(276_159_333, 0).saturating_mul(k.into()))
+        // Minimum execution time: 1_322_442 nanoseconds.
+        Weight::from_parts(1_356_581_466, 0)
+            // Standard Error: 314_150_501
+            .saturating_add(Weight::from_parts(253_966_266, 0).saturating_mul(k.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(k.into())))
             .saturating_add(DbWeight::get().writes(16))
@@ -319,10 +319,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `k` is `[1, 2]`.
     fn update_asset_keys(k: u32) -> Weight {
-        // Minimum execution time: 1_058_763 nanoseconds.
-        Weight::from_parts(883_445_733, 0)
-            // Standard Error: 6_158_087
-            .saturating_add(Weight::from_parts(204_313_466, 0).saturating_mul(k.into()))
+        // Minimum execution time: 1_013_664 nanoseconds.
+        Weight::from_parts(934_747_466, 0)
+            // Standard Error: 7_429_925
+            .saturating_add(Weight::from_parts(101_065_266, 0).saturating_mul(k.into()))
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(k.into())))
             .saturating_add(DbWeight::get().writes(9))
@@ -354,8 +354,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AssetCurveTreeRoots` (r:0 w:1)
     // Proof: `ConfidentialAssets::AssetCurveTreeRoots` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn set_asset_frozen() -> Weight {
-        // Minimum execution time: 972_024 nanoseconds.
-        Weight::from_parts(994_545_000, 0)
+        // Minimum execution time: 955_495 nanoseconds.
+        Weight::from_parts(973_566_000, 0)
             .saturating_add(DbWeight::get().reads(14))
             .saturating_add(DbWeight::get().writes(9))
     }
@@ -377,10 +377,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `p` is `[0, 10]`.
     fn register_account_assets(p: u32) -> Weight {
-        // Minimum execution time: 27_850 nanoseconds.
-        Weight::from_parts(5_282_203_468, 0)
-            // Standard Error: 183_635_704
-            .saturating_add(Weight::from_parts(4_074_541_746, 0).saturating_mul(p.into()))
+        // Minimum execution time: 31_840 nanoseconds.
+        Weight::from_parts(4_783_133_691, 0)
+            // Standard Error: 158_524_857
+            .saturating_add(Weight::from_parts(4_113_922_095, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(p.into())))
             .saturating_add(DbWeight::get().writes(1))
@@ -407,8 +407,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn mint_asset() -> Weight {
-        // Minimum execution time: 14_868_935 nanoseconds.
-        Weight::from_parts(15_033_296_000, 0)
+        // Minimum execution time: 12_490_885 nanoseconds.
+        Weight::from_parts(14_893_063_000, 0)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(4))
     }
@@ -432,10 +432,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::FeeAccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `p` is `[0, 10]`.
     fn topup_fee_accounts(p: u32) -> Weight {
-        // Minimum execution time: 96_259 nanoseconds.
-        Weight::from_parts(9_493_013_309, 0)
-            // Standard Error: 292_827_761
-            .saturating_add(Weight::from_parts(8_037_439_309, 0).saturating_mul(p.into()))
+        // Minimum execution time: 92_269 nanoseconds.
+        Weight::from_parts(13_079_524_867, 0)
+            // Standard Error: 612_752_726
+            .saturating_add(Weight::from_parts(7_641_987_064, 0).saturating_mul(p.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(p.into())))
             .saturating_add(DbWeight::get().writes(2))
@@ -456,8 +456,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::FeeAccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::FeeAccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn verify_fee_payment() -> Weight {
-        // Minimum execution time: 12_168_721 nanoseconds.
-        Weight::from_parts(13_822_221_000, 0)
+        // Minimum execution time: 13_535_391 nanoseconds.
+        Weight::from_parts(13_831_300_000, 0)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -481,10 +481,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::SettlementLegCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `l` is `[0, 10]`.
     fn create_settlement(l: u32) -> Weight {
-        // Minimum execution time: 87_029 nanoseconds.
-        Weight::from_parts(12_523_487_740, 0)
-            // Standard Error: 633_265_151
-            .saturating_add(Weight::from_parts(14_893_664_382, 0).saturating_mul(l.into()))
+        // Minimum execution time: 83_159 nanoseconds.
+        Weight::from_parts(13_336_749_967, 0)
+            // Standard Error: 434_584_232
+            .saturating_add(Weight::from_parts(14_312_415_543, 0).saturating_mul(l.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(4))
             .saturating_add(DbWeight::get().writes((5_u64).saturating_mul(l.into())))
@@ -507,10 +507,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::SettlementMemo` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `l` is `[1, 10]`.
     fn finalize_settlement(l: u32) -> Weight {
-        // Minimum execution time: 49_700 nanoseconds.
-        Weight::from_parts(37_724_177, 0)
-            // Standard Error: 683_882
-            .saturating_add(Weight::from_parts(15_061_658, 0).saturating_mul(l.into()))
+        // Minimum execution time: 51_270 nanoseconds.
+        Weight::from_parts(40_544_466, 0)
+            // Standard Error: 703_358
+            .saturating_add(Weight::from_parts(14_190_351, 0).saturating_mul(l.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(l.into())))
             .saturating_add(DbWeight::get().writes(5))
@@ -539,8 +539,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn sender_affirmation() -> Weight {
-        // Minimum execution time: 14_241_780 nanoseconds.
-        Weight::from_parts(14_544_518_000, 0)
+        // Minimum execution time: 11_527_921 nanoseconds.
+        Weight::from_parts(14_257_337_000, 0)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -567,8 +567,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn receiver_affirmation() -> Weight {
-        // Minimum execution time: 14_120_668 nanoseconds.
-        Weight::from_parts(14_291_869_000, 0)
+        // Minimum execution time: 13_996_849 nanoseconds.
+        Weight::from_parts(14_205_688_000, 0)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -597,8 +597,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn instant_sender_affirmation() -> Weight {
-        // Minimum execution time: 12_165_951 nanoseconds.
-        Weight::from_parts(14_283_709_000, 0)
+        // Minimum execution time: 14_274_127 nanoseconds.
+        Weight::from_parts(14_352_207_000, 0)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -627,8 +627,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn instant_receiver_affirmation() -> Weight {
-        // Minimum execution time: 14_586_657 nanoseconds.
-        Weight::from_parts(14_601_467_000, 0)
+        // Minimum execution time: 14_289_367 nanoseconds.
+        Weight::from_parts(14_384_017_000, 0)
             .saturating_add(DbWeight::get().reads(11))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -645,8 +645,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::CurrentWorkerSessionId` (r:1 w:0)
     // Proof: `ConfidentialAssets::CurrentWorkerSessionId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
     fn mediator_affirmation() -> Weight {
-        // Minimum execution time: 2_967_394 nanoseconds.
-        Weight::from_parts(3_049_374_000, 0)
+        // Minimum execution time: 2_932_285 nanoseconds.
+        Weight::from_parts(2_970_315_000, 0)
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -673,8 +673,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn receiver_claim() -> Weight {
-        // Minimum execution time: 14_826_235 nanoseconds.
-        Weight::from_parts(15_037_514_000, 0)
+        // Minimum execution time: 14_370_687 nanoseconds.
+        Weight::from_parts(14_575_596_000, 0)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -701,8 +701,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::AccountLeaves` (r:0 w:1)
     // Proof: `ConfidentialAssets::AccountLeaves` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn sender_update_counter() -> Weight {
-        // Minimum execution time: 13_975_061 nanoseconds.
-        Weight::from_parts(14_024_380_000, 0)
+        // Minimum execution time: 14_069_788 nanoseconds.
+        Weight::from_parts(14_152_938_000, 0)
             .saturating_add(DbWeight::get().reads(10))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -735,8 +735,8 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::SettlementMemo` (r:0 w:1)
     // Proof: `ConfidentialAssets::SettlementMemo` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn sender_revert_affirmation() -> Weight {
-        // Minimum execution time: 14_165_199 nanoseconds.
-        Weight::from_parts(14_419_958_000, 0)
+        // Minimum execution time: 14_526_957 nanoseconds.
+        Weight::from_parts(14_610_026_000, 0)
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(13))
     }
@@ -769,22 +769,22 @@ impl crate::WeightInfo for SubstrateWeight {
     // Storage: `ConfidentialAssets::SettlementMemo` (r:0 w:1)
     // Proof: `ConfidentialAssets::SettlementMemo` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn receiver_revert_affirmation() -> Weight {
-        // Minimum execution time: 13_730_075 nanoseconds.
-        Weight::from_parts(14_176_534_000, 0)
+        // Minimum execution time: 14_025_188 nanoseconds.
+        Weight::from_parts(14_083_478_000, 0)
             .saturating_add(DbWeight::get().reads(12))
             .saturating_add(DbWeight::get().writes(13))
     }
     // Storage: `ConfidentialAssets::RequiredClaims` (r:0 w:1)
     // Proof: `ConfidentialAssets::RequiredClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn set_required_claim() -> Weight {
-        // Minimum execution time: 8_370 nanoseconds.
-        Weight::from_parts(10_570_000, 0).saturating_add(DbWeight::get().writes(1))
+        // Minimum execution time: 8_310 nanoseconds.
+        Weight::from_parts(10_700_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `ConfidentialAssets::RequiredClaims` (r:0 w:1)
     // Proof: `ConfidentialAssets::RequiredClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn remove_required_claim() -> Weight {
-        // Minimum execution time: 7_080 nanoseconds.
-        Weight::from_parts(8_840_000, 0).saturating_add(DbWeight::get().writes(1))
+        // Minimum execution time: 7_170 nanoseconds.
+        Weight::from_parts(9_121_000, 0).saturating_add(DbWeight::get().writes(1))
     }
     // Storage: `Identity::KeyRecords` (r:1 w:0)
     // Proof: `Identity::KeyRecords` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
@@ -802,10 +802,10 @@ impl crate::WeightInfo for SubstrateWeight {
     // Proof: `ConfidentialAssets::SharedKeyRecipients` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `r` is `[1, 4]`.
     fn distribute_encryption_key(r: u32) -> Weight {
-        // Minimum execution time: 7_216_691 nanoseconds.
-        Weight::from_parts(8_544_151_227, 0)
-            // Standard Error: 36_998_342
-            .saturating_add(Weight::from_parts(360_063_783, 0).saturating_mul(r.into()))
+        // Minimum execution time: 8_684_377 nanoseconds.
+        Weight::from_parts(7_950_478_661, 0)
+            // Standard Error: 154_760_525
+            .saturating_add(Weight::from_parts(660_856_883, 0).saturating_mul(r.into()))
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(r.into())))
             .saturating_add(DbWeight::get().writes(2))
