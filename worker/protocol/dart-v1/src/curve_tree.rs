@@ -59,6 +59,15 @@ impl<const M: usize> Default for UpdateTreeNodeResult<M> {
 
 pub trait GetSessionId {
     fn session_id(&self) -> Option<WorkerSessionId>;
+
+    /// Returns true when the host worker may be used for curve tree updates.
+    ///
+    /// The runtime overrides this to require a registered protocol module config.  When no config
+    /// is registered, older nodes would otherwise use their builtin (incompatible) protocol
+    /// module instead of falling back to the runtime.
+    fn host_worker_enabled() -> bool {
+        true
+    }
 }
 
 /// Curve tree updater that helps updating the tree root when a leaf is added or updated.
@@ -93,6 +102,16 @@ impl<S: GetSessionId> CurveTreeUpdater<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConf
         old_child: Option<CompressedChildCommitments<ASSET_TREE_M>>,
         new_child: CompressedChildCommitments<ASSET_TREE_M>,
     ) -> Result<CompressedXCoords<ASSET_TREE_M>, DartError> {
+        if !S::host_worker_enabled() {
+            return DefaultCurveTreeUpdater::<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig>::update_node(
+                inner,
+                child_index,
+                old_child,
+                new_child,
+            )
+            .map_err(|_| DartError::CurveTreeUpdateError);
+        }
+
         let req = UpdateTreeNodeRequest::<ASSET_TREE_L, ASSET_TREE_M, AssetTreeConfig> {
             inner: inner.clone(),
             child_index,
@@ -124,6 +143,16 @@ impl<S: GetSessionId> CurveTreeUpdater<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTr
         old_child: Option<CompressedChildCommitments<ACCOUNT_TREE_M>>,
         new_child: CompressedChildCommitments<ACCOUNT_TREE_M>,
     ) -> Result<CompressedXCoords<ACCOUNT_TREE_M>, DartError> {
+        if !S::host_worker_enabled() {
+            return DefaultCurveTreeUpdater::<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig>::update_node(
+                inner,
+                child_index,
+                old_child,
+                new_child,
+            )
+            .map_err(|_| DartError::CurveTreeUpdateError);
+        }
+
         let req = UpdateTreeNodeRequest::<ACCOUNT_TREE_L, ACCOUNT_TREE_M, AccountTreeConfig> {
             inner: inner.clone(),
             child_index,
@@ -155,6 +184,15 @@ impl<S: GetSessionId> CurveTreeUpdater<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, F
         old_child: Option<CompressedChildCommitments<FEE_ACCOUNT_TREE_M>>,
         new_child: CompressedChildCommitments<FEE_ACCOUNT_TREE_M>,
     ) -> Result<CompressedXCoords<FEE_ACCOUNT_TREE_M>, DartError> {
+        if !S::host_worker_enabled() {
+            return DefaultCurveTreeUpdater::<
+                FEE_ACCOUNT_TREE_L,
+                FEE_ACCOUNT_TREE_M,
+                FeeAccountTreeConfig,
+            >::update_node(inner, child_index, old_child, new_child)
+            .map_err(|_| DartError::CurveTreeUpdateError);
+        }
+
         let req =
             UpdateTreeNodeRequest::<FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FeeAccountTreeConfig> {
                 inner: inner.clone(),

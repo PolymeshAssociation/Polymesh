@@ -9117,6 +9117,7 @@ dependencies = [
  "pallet-base",
  "pallet-external-agents",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-portfolio",
  "parity-scale-codec",
  "polymesh-primitives",

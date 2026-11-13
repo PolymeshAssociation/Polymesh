@@ -137,20 +137,39 @@ pub struct ContractLog {
     pub data: Vec<u8>,
 }
 
+impl ContractLog {
+    /// The event signature hash (first topic) if `address` emitted this log, else `None`.
+    fn signature_from(&self, address: &H160) -> Option<alloy::primitives::B256> {
+        if &self.address != address {
+            return None;
+        }
+        self.topics.first().map(|t| t.0.into())
+    }
+}
+
 /// Decodes the Solidity events of type `E` that `address` emitted in `logs`.
 pub fn decode_contract_logs<E: SolEvent>(logs: &[ContractLog], address: &H160) -> Result<Vec<E>> {
     let mut decoded = Vec::new();
     for log in logs {
-        if &log.address != address {
+        if log.signature_from(address) != Some(E::SIGNATURE_HASH) {
             continue;
         }
-        let topics: Vec<alloy::primitives::B256> = log.topics.iter().map(|t| t.0.into()).collect();
-        if topics.first() != Some(&E::SIGNATURE_HASH) {
-            continue;
-        }
+        let topics = log
+            .topics
+            .iter()
+            .map(|t| alloy::primitives::B256::from(t.0));
         decoded.push(E::decode_raw_log(topics, &log.data)?);
     }
     Ok(decoded)
+}
+
+/// The signature hashes of the events `address` emitted in `logs`, in emission order.
+///
+/// Asserting on the whole sequence checks ordering and that no unexpected event was emitted.
+pub fn contract_event_order(logs: &[ContractLog], address: &H160) -> Vec<alloy::primitives::B256> {
+    logs.iter()
+        .filter_map(|log| log.signature_from(address))
+        .collect()
 }
 
 /// Returns the `ContractEmitted` events of `res`.

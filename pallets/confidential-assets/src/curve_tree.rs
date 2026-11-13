@@ -41,6 +41,14 @@ impl<T: Config> GetSessionId for Pallet<T> {
     fn session_id(&self) -> Option<WorkerSessionId> {
         Pallet::<T>::session_id().ok()
     }
+
+    fn host_worker_enabled() -> bool {
+        let enabled = Pallet::<T>::use_host_worker();
+        if !enabled {
+            Pallet::<T>::ensure_dart_params_loaded();
+        }
+        enabled
+    }
 }
 
 impl<T: Config> Pallet<T> {

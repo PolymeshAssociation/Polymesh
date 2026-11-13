@@ -45,8 +45,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub mod migrations;
-
 use core::mem;
 use frame_support::dispatch::DispatchResult;
 use frame_support::ensure;
@@ -57,7 +55,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 use pallet_identity::PermissionedCallOriginData;
-use polymesh_primitives::asset::AssetId;
+use polymesh_primitives::asset::{AssetHolder, AssetId};
 use polymesh_primitives::nft::NFTCount;
 use polymesh_primitives::traits::{
     AffirmationFnConfig, AffirmationFnTrait, AssetFnConfig, AssetFnTrait, NFTTrait,
@@ -421,6 +419,8 @@ pub mod pallet {
         InsufficientBalance,
         /// The portfolio is frozen for the given asset.
         PortfolioIsFrozen,
+        /// Frozen NFTs can not be moved between portfolios.
+        InvalidTransferNFTIsFrozen,
     }
 
     #[pallet::call]
@@ -605,9 +605,7 @@ pub mod pallet {
             Self::ensure_valid_funds(&from, &funds)?;
 
             // Updates the portfolio of the sender and receiver
-            Self::unchecked_move_funds(primary_did, from, to, funds);
-
-            Ok(())
+            Self::unchecked_move_funds(primary_did, from, to, funds)
         }
 
         /// Pre-approves the receivement of an asset to a portfolio.
@@ -978,12 +976,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Verifies if the portfolio has the nfts and if they are not locked.
+    /// Verifies if the portfolio has the nfts and if they are neither locked nor frozen.
     fn ensure_valid_nfts(
         portfolio: &PortfolioId,
         asset_id: &AssetId,
         nft_ids: &[NFTId],
     ) -> DispatchResult {
+        let holder = AssetHolder::Portfolio(portfolio.clone());
         for nft_id in nft_ids {
             ensure!(
                 Self::is_nft_owner(portfolio, asset_id, nft_id),
@@ -993,17 +992,24 @@ impl<T: Config> Pallet<T> {
                 !Self::is_nft_locked(portfolio, asset_id, nft_id),
                 Error::<T>::InvalidTransferNFTIsLocked
             );
+            ensure!(
+                !T::NFT::is_nft_frozen(asset_id, nft_id, &holder),
+                Error::<T>::InvalidTransferNFTIsFrozen
+            );
         }
         Ok(())
     }
 
     /// Moves all funds from the sender portfolio to the receiver portfolio.
+    ///
+    /// The funds must already have been validated with [`Self::ensure_valid_funds`]. Only fails
+    /// if an NFT is frozen for the sender, which validation already rejects.
     fn unchecked_move_funds(
         origin_did: IdentityId,
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
         funds: Vec<Fund>,
-    ) {
+    ) -> DispatchResult {
         for fund in funds {
             match fund.description {
                 FundDescription::Fungible { asset_id, amount } => {
@@ -1023,7 +1029,11 @@ impl<T: Config> Pallet<T> {
                 }
                 FundDescription::NonFungible(nfts) => {
                     for nft_id in nfts.ids() {
-                        Self::remove_nft_from_portfolio(&sender_portfolio, nfts.asset_id(), nft_id);
+                        Self::remove_nft_from_portfolio(
+                            &sender_portfolio,
+                            nfts.asset_id(),
+                            nft_id,
+                        )?;
                         Self::add_nft_to_portfolio(
                             receiver_portfolio.clone(),
                             *nfts.asset_id(),
@@ -1045,6 +1055,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+        Ok(())
     }
 
     fn base_pre_approve_portfolio(
@@ -1181,17 +1192,29 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Removes the nft from the owner's portfolio.
+    ///
+    /// Fails if the NFT is frozen for the portfolio. Controller transfers unfreeze the NFT before
+    /// calling this.
     pub fn remove_nft_from_portfolio(
         portfolio_id: &PortfolioId,
         asset_id: &AssetId,
         nft_id: &NFTId,
-    ) {
+    ) -> DispatchResult {
+        ensure!(
+            !T::NFT::is_nft_frozen(
+                asset_id,
+                nft_id,
+                &AssetHolder::Portfolio(portfolio_id.clone())
+            ),
+            Error::<T>::InvalidTransferNFTIsFrozen
+        );
         if PortfolioNFT::<T>::contains_key((portfolio_id, asset_id, nft_id)) {
             Self::mutate_portfolio_nft_count(portfolio_id, asset_id, |count| {
                 count.saturating_sub(1)
             });
         }
         PortfolioNFT::<T>::remove((portfolio_id, asset_id, nft_id));
+        Ok(())
     }
 
     /// Adds the nft to the owner's portfolio.

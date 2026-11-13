@@ -233,11 +233,15 @@ impl<T: Config> FungibleAssetInterface<T> {
             caller.account_id,
             pallet_asset::Call::<T>::freeze_partial_tokens {
                 asset_id,
-                asset_holder: acc_to_freeze,
+                asset_holder: acc_to_freeze.clone(),
                 amount,
             },
         )?;
 
+        // Read back the stored total for the ERC-7943 `Frozen` event, rather than recomputing it
+        let frozen_after = Self::frozen_balance(env, &acc_to_freeze, &asset_id)?;
+
+        // ERC-3643 emits this on every call with the requested amount, even 0, as T-REX does
         Common::<T>::deposit_event(
             env,
             IFungibleAssetEvents::TokensFrozen(IFungibleAsset::TokensFrozen {
@@ -245,6 +249,7 @@ impl<T: Config> FungibleAssetInterface<T> {
                 amount: call.amount,
             }),
         )?;
+        Self::deposit_frozen_total(env, call.account, frozen_after)?;
         Ok(Vec::new())
     }
 
@@ -266,11 +271,15 @@ impl<T: Config> FungibleAssetInterface<T> {
             caller.account_id,
             pallet_asset::Call::<T>::unfreeze_partial_tokens {
                 asset_id,
-                asset_holder: acc_to_unfreeze,
+                asset_holder: acc_to_unfreeze.clone(),
                 amount,
             },
         )?;
 
+        // Read back the stored total for the ERC-7943 `Frozen` event, rather than recomputing it
+        let frozen_after = Self::frozen_balance(env, &acc_to_unfreeze, &asset_id)?;
+
+        // ERC-3643 emits this on every call with the requested amount, even 0, as T-REX does
         Common::<T>::deposit_event(
             env,
             IFungibleAssetEvents::TokensUnfrozen(IFungibleAsset::TokensUnfrozen {
@@ -278,6 +287,7 @@ impl<T: Config> FungibleAssetInterface<T> {
                 amount: call.amount,
             }),
         )?;
+        Self::deposit_frozen_total(env, call.account, frozen_after)?;
         Ok(Vec::new())
     }
 }

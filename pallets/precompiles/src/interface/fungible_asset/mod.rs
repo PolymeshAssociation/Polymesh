@@ -40,6 +40,12 @@ pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long"
 
 pub const DECIMALS: u8 = 6;
 
+/// `IERC20`: the XOR of the selectors of its six functions.
+pub const ERC20_INTERFACE_ID: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
+
+/// `IERC7943Fungible`: the XOR of the selectors of its functions.
+pub const ERC7943_FUNGIBLE_INTERFACE_ID: [u8; 4] = [0x3e, 0xdb, 0xb4, 0xc4];
+
 /// All precompile calls exposed by the Polymesh runtime.
 pub struct FungibleAssetInterface<T>(PhantomData<T>);
 
@@ -82,6 +88,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 | IFungibleAssetCalls::canSend(_)
                 | IFungibleAssetCalls::canReceive(_)
                 | IFungibleAssetCalls::getFrozenTokens(_)
+                | IFungibleAssetCalls::supportsInterface(_)
                 | IFungibleAssetCalls::isAgent(_) => {}
                 _ => return Err(Common::<T>::state_change_denied()),
             }
@@ -117,6 +124,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             IFungibleAssetCalls::forcedTransfer(call) => Self::forced_transfer(asset_id, call, env),
             IFungibleAssetCalls::canSend(call) => Self::can_send(asset_id, call, env),
             IFungibleAssetCalls::canReceive(call) => Self::can_receive(asset_id, call, env),
+            IFungibleAssetCalls::supportsInterface(call) => Self::supports_interface(call, env),
             IFungibleAssetCalls::getFrozenTokens(call) => {
                 Self::get_frozen_tokens(asset_id, call, env)
             }

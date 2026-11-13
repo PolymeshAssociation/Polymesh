@@ -106,11 +106,7 @@ macro_rules! misc_pallet_impls {
             /// The maximum number of consumers allowed on a single account.
             type MaxConsumers = frame_support::traits::ConstU32<16>;
             /// The set code logic, just the default since we're not a parachain.
-            type SingleBlockMigrations = (
-                polymesh_runtime_common::migration::MigrateGrandpaToV5<Runtime>,
-                pallet_portfolio::migrations::MigrateToV5<Runtime>,
-                pallet_nft::migrations::MigrateToV8<Runtime>,
-            );
+            type SingleBlockMigrations = ();
             type MultiBlockMigrator = MultiBlockMigrations;
             type PreInherents = ();
             type PostInherents = ();

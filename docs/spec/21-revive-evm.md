@@ -118,8 +118,31 @@ rejected, rather than silently permitted to change state.
 | `transfer`/`transferFrom` | `Settlement::transfer_funds` (doc 09 §4, incl. allowance spend) | fungible_asset/erc20.rs:66, 215 |
 | `approve` | `Asset::approve` | fungible_asset/erc20.rs:166 |
 | `mint`/`burn` | `Asset::issue`/`redeem` (agent-gated) | fungible_asset/polymesh_specific.rs:27, 58 |
-| ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer` / `set_frozen_tokens` | fungible_asset/erc7943.rs:83, 118 |
-| ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:40-136 |
+| ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer_to` / `set_frozen_tokens` | fungible_asset/erc7943.rs:86, 148 |
+| ERC-3643 freezePartialTokens / unfreezePartialTokens | `Asset::freeze_partial_tokens` / `unfreeze_partial_tokens` | fungible_asset/erc3643.rs:181, 219 |
+| ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:36-161 |
+| `supportsInterface` | constant match on ERC-165 / IERC20 / IERC7943Fungible ids | fungible_asset/erc7943.rs:331 |
+
+**Frozen-token events.** Each standard logs a frozen change differently: ERC-3643 emits
+`TokensFrozen`/`TokensUnfrozen` with the *difference*, ERC-7943 emits `Frozen` with the new
+*total*. Every precompile call that changes a holder's frozen amount emits both, ERC-3643 event
+first, then `Frozen` (`deposit_frozen_change` / `deposit_frozen_total`, fungible_asset/erc7943.rs).
+
+- `freezePartialTokens` / `unfreezePartialTokens` emit `TokensFrozen` / `TokensUnfrozen` with the
+  requested amount on every call, even 0, as the ERC-3643 interface and T-REX do. The `Frozen`
+  total is read back from storage after the call, not recomputed.
+- `setFrozenTokens` always emits `Frozen`, even when the amount is unchanged, as ERC-7943 and
+  its reference implementation do.
+- `forcedTransfer` unfreezes the source's tokens when its free balance is too low (doc 04 §5). It
+  then emits `TokensUnfrozen` and `Frozen` **before** `Transfer`, as ERC-7943 requires, followed
+  by `ForcedTransfer` (the reference implementation's order; the standard leaves it open). The
+  change is found by reading the source's frozen balance before and after the call, since a
+  dispatched call returns no data. A source with nothing frozen costs one read, not two.
+- All these reads go through `frozen_balance`, which charges the read's weight.
+- These events are only emitted when the change goes through the precompile. A frozen change made
+  by a native extrinsic (`Asset::set_frozen_tokens`, `controller_transfer_to`, a settlement
+  controller transfer) emits no EVM log. This is the general gap that runtime-side actions are not
+  mirrored as EVM events for any precompile.
 
 ### 5.2 The non-fungible-asset precompile
 
@@ -136,7 +159,7 @@ one NFT collection.
 | `mint` / `burn` | `Nft::issue_nft` / `Nft::redeem_nft` (agent-gated) | nft/polymesh_specific.rs:62, 116 |
 | `tokenURI` | `Nft::MetadataValue[tokenUri]`, falling back to `Asset::AssetMetadataValues[baseTokenUri]`, with `{tokenId}` substitution | nft/metadata.rs:80 |
 | `supportsInterface` | constant match on ERC-165 / 721 / 721Metadata ids | nft/metadata.rs:113 |
-| ERC-7943 canTransfer / forcedTransfer | `Nft::can_transfer_funds` / `Nft::controller_transfer` | nft/erc7943.rs:37, 73 |
+| ERC-7943 canTransfer / forcedTransfer | `Nft::can_transfer_funds` / `Nft::controller_transfer` | nft/erc7943.rs:38, 78 |
 
 **Deliberate deviations from ERC-721**, documented in the `.sol` NatSpec:
 
@@ -221,8 +244,10 @@ Polymesh customization of the fee/subsidy path lives in the runtime's `EthExtraI
       `env.charge` must cover any storage the handler reads directly, and this spec's call table
       needs the new row.
 - [ ] `supportsInterface` must only claim interfaces really implemented with standard
-      signatures — asserted by `precompiles.rs::erc165_interface_ids_match_our_selectors`,
-      which recomputes each id from the generated selectors.
+      signatures — asserted by `precompiles.rs::erc165_interface_ids_match_our_selectors` (NFT)
+      and `erc7943_fungible_interface_ids_match_our_selectors` (fungible), which recompute each
+      id from the generated selectors, and by `erc7943_fungible_matches_the_published_standard`,
+      which checks the selectors and event topics against the EIP's canonical signatures. `ERC165_INTERFACE_ID` is shared, in `interface/mod.rs`.
 - [ ] Balance conversions must use `NativeToEthRatio` consistently (18↔6 decimals); dust
       handling via `new_balance_with_dust`.
 - [ ] `SetOrigin` flag must remain non-codec (`#[codec(skip)]`) — a user-settable variant would
