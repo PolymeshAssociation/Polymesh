@@ -152,13 +152,15 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     /// The range of component `n` is `[1, 128]`.
     /// The range of component `i` is `[1, 512]`.
     /// The range of component `f` is `[1, 128]`.
-    fn create_asset(n: u32, i: u32, _f: u32) -> Weight {
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight {
         // Minimum execution time: 74_860 nanoseconds.
         Weight::from_parts(82_527_155, 0)
             // Standard Error: 2_722
             .saturating_add(Weight::from_parts(2_549, 0).saturating_mul(n.into()))
             // Standard Error: 679
             .saturating_add(Weight::from_parts(62_381, 0).saturating_mul(i.into()))
+            // Manually set for `f`
+            .saturating_add(Weight::from_parts(5_528, 0).saturating_mul(f.into()))
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(9))
     }
