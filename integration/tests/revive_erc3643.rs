@@ -493,7 +493,10 @@ async fn erc3643_batch_transfer() -> Result<()> {
     let issuer_address = eth_address_of(&api, issuer).await?;
     let a = eth_address_of(&api, &mut holders[0]).await?;
     let b = eth_address_of(&api, &mut holders[1]).await?;
-    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    // A batch reserves the worst case of every transfer before the first one runs.
+    let mut caller = SubstrateCaller::new(&api, issuer)
+        .await?
+        .with_weight_limit(BATCH_WEIGHT_LIMIT);
 
     let logs = erc3643
         .send(
