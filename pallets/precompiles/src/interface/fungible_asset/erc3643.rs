@@ -72,6 +72,32 @@ impl<T: Config> FungibleAssetInterface<T> {
         Ok(Vec::new())
     }
 
+    /// Returns `true` if the asset is frozen, which is what `pause` does.
+    pub(crate) fn paused(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let paused = pallet_asset::Frozen::<T>::get(asset_id);
+
+        Ok(IFungibleAsset::pausedCall::abi_encode_returns(&paused))
+    }
+
+    /// Returns `true` if the account is frozen for this asset, which is what `setAddressFrozen`
+    /// sets. A frozen account cannot send; an amount frozen with `freezePartialTokens` or
+    /// `setFrozenTokens` is not reported here but by `getFrozenTokens`.
+    pub(crate) fn is_frozen(
+        asset_id: AssetId,
+        call: &IFungibleAsset::isFrozenCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let holder = Common::<T>::asset_holder(env, call.account)?;
+        let frozen =
+            pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(&holder, &asset_id).is_err();
+
+        Ok(IFungibleAsset::isFrozenCall::abi_encode_returns(&frozen))
+    }
+
     /// Sets the token name. Only the owner of the token contract can call this function.
     pub(crate) fn set_name(
         asset_id: AssetId,

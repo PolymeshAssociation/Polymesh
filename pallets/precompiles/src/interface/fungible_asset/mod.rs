@@ -90,7 +90,9 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 | IFungibleAssetCalls::canReceive(_)
                 | IFungibleAssetCalls::getFrozenTokens(_)
                 | IFungibleAssetCalls::supportsInterface(_)
-                | IFungibleAssetCalls::isAgent(_) => {}
+                | IFungibleAssetCalls::isAgent(_)
+                | IFungibleAssetCalls::paused(_)
+                | IFungibleAssetCalls::isFrozen(_) => {}
                 _ => return Err(Common::<T>::state_change_denied()),
             }
         }
@@ -143,6 +145,8 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 Self::set_address_frozen(asset_id, call, env)
             }
             IFungibleAssetCalls::isAgent(call) => Self::is_agent(asset_id, call, env),
+            IFungibleAssetCalls::paused(_) => Self::paused(asset_id, env),
+            IFungibleAssetCalls::isFrozen(call) => Self::is_frozen(asset_id, call, env),
             IFungibleAssetCalls::freezePartialTokens(call) => {
                 Self::freeze_partial_tokens(asset_id, call, env)
             }

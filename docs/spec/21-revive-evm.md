@@ -123,6 +123,7 @@ rejected, rather than silently permitted to change state.
 | ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer_to` / `set_frozen_tokens` | fungible_asset/erc7943.rs:86, 148 |
 | ERC-3643 freezePartialTokens / unfreezePartialTokens | `Asset::freeze_partial_tokens` / `unfreeze_partial_tokens` | fungible_asset/erc3643.rs:181, 219 |
 | ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:36-161 |
+| ERC-3643 `paused` / `isFrozen` (views) | `Asset::Frozen[asset]` / the account's `Asset::FrozenAccounts` entry (`ensure_holder_is_not_frozen`). `isFrozen` is the whole-account freeze only; a frozen amount is `getFrozenTokens` | fungible_asset/erc3643.rs `paused`, `is_frozen` |
 | `supportsInterface` | constant match on ERC-165 / IERC20 / IERC7943Fungible ids | fungible_asset/erc7943.rs:331 |
 
 **Frozen-token events.** Each standard logs a frozen change differently: ERC-3643 emits

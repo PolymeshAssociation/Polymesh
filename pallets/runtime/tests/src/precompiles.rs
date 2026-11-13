@@ -1054,3 +1054,55 @@ fn a_receiver_that_must_affirm_can_still_pull_with_transfer_from() {
         );
     });
 }
+
+/// `paused()` follows `pause`/`unpause`, and a freeze of the asset made natively (T1).
+#[test]
+fn paused_reports_whether_the_asset_is_frozen() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let asset_id = fungible_asset(&alice);
+        let token = fungible(asset_id);
+        let paused = || view(&alice, token, IFungibleAsset::pausedCall {});
+
+        assert!(!paused());
+        assert_ok!(send(&alice, token, IFungibleAsset::pauseCall {}));
+        assert!(paused());
+        assert_ok!(send(&alice, token, IFungibleAsset::unpauseCall {}));
+        assert!(!paused());
+
+        assert_ok!(Asset::freeze(alice.origin(), asset_id));
+        assert!(paused());
+    });
+}
+
+/// `isFrozen(account)` follows `setAddressFrozen`, and only that freeze (T1).
+#[test]
+fn is_frozen_reports_the_account_freeze() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = fungible_asset(&alice);
+        let token = fungible(asset_id);
+        let account = eth_address(&bob);
+        let is_frozen = |account| view(&alice, token, IFungibleAsset::isFrozenCall { account });
+        let set_frozen = |freeze| IFungibleAsset::setAddressFrozenCall { account, freeze };
+
+        assert!(!is_frozen(account));
+        assert_ok!(send(&alice, token, set_frozen(true)));
+        assert!(is_frozen(account));
+        // Per account, and per asset
+        assert!(!is_frozen(eth_address(&alice)));
+        assert_ok!(send(&alice, token, set_frozen(false)));
+        assert!(!is_frozen(account));
+
+        // Frozen tokens and a paused asset are separate states
+        assert_ok!(Asset::set_frozen_tokens(
+            alice.origin(),
+            asset_id,
+            holder(&bob),
+            ONE_UNIT
+        ));
+        assert_ok!(Asset::freeze(alice.origin(), asset_id));
+        assert!(!is_frozen(account));
+    });
+}

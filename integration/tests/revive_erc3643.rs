@@ -32,12 +32,27 @@ async fn erc3643_set_address_frozen() -> Result<()> {
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
 
     assert!(erc3643.can_send(holder_address).await.unwrap());
+    assert!(!erc3643.is_frozen(holder_address).await?);
 
-    erc3643
+    let logs = erc3643
         .set_address_frozen(&mut caller, holder_address, true)
         .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::AddressFrozen::SIGNATURE_HASH],
+    );
 
     assert!(!erc3643.can_send(holder_address).await.unwrap());
+    assert!(erc3643.is_frozen(holder_address).await?);
+
+    let logs = erc3643
+        .set_address_frozen(&mut caller, holder_address, false)
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::AddressFrozen::SIGNATURE_HASH],
+    );
+    assert!(!erc3643.is_frozen(holder_address).await?);
 
     Ok(())
 }
@@ -317,14 +332,25 @@ async fn erc3643_pause_unpause() -> Result<()> {
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
 
     assert!(erc3643.can_send(issuer_address).await.unwrap());
+    assert!(!erc3643.paused().await?);
 
-    erc3643.pause(&mut caller).await?;
+    let logs = erc3643.pause(&mut caller).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::Paused::SIGNATURE_HASH],
+    );
 
     assert!(!erc3643.can_send(issuer_address).await.unwrap());
+    assert!(erc3643.paused().await?);
 
-    erc3643.unpause(&mut caller).await?;
+    let logs = erc3643.unpause(&mut caller).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc3643.h160()),
+        [ierc20::Unpaused::SIGNATURE_HASH],
+    );
 
     assert!(erc3643.can_send(issuer_address).await.unwrap());
+    assert!(!erc3643.paused().await?);
 
     Ok(())
 }

@@ -280,8 +280,18 @@ interface IFungibleAsset {
     /// @notice Unpauses the token contract, allowing token transfers. Only an agent of the token can call this function.
     function unpause() external;
 
+    /// @notice Returns true if the token contract is paused, which blocks every transfer except a
+    /// forced transfer.
+    function paused() external view returns (bool);
+
     /// @notice Sets the frozen status of a specific address. Only an agent of the token can call this function.
     function setAddressFrozen(address account, bool freeze) external;
+
+    /// @notice Returns true if `account` is frozen by {setAddressFrozen}, which stops it sending
+    /// tokens. It can still receive them.
+    /// @dev This is the freeze of the whole account. Use {getFrozenTokens} for an amount frozen
+    /// by {freezePartialTokens} or {setFrozenTokens}.
+    function isFrozen(address account) external view returns (bool);
 
     /// @notice Checks if a specific account is an agent of the token.
     /// @param account The address to check.
@@ -464,6 +474,15 @@ contract FungibleAssetStub is IFungibleAsset {
     }
 
     function isAgent(address account) external view override returns (bool) {
+        account;
+        revert NotExecutable();
+    }
+
+    function paused() external view override returns (bool) {
+        revert NotExecutable();
+    }
+
+    function isFrozen(address account) external view override returns (bool) {
         account;
         revert NotExecutable();
     }

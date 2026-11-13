@@ -243,6 +243,16 @@ impl Token {
         Ok(value)
     }
 
+    pub async fn paused(&self) -> Result<bool> {
+        self.node.call(self.address, &ierc20::pausedCall {}).await
+    }
+
+    pub async fn is_frozen(&self, account: Address) -> Result<bool> {
+        self.node
+            .call(self.address, &ierc20::isFrozenCall { account })
+            .await
+    }
+
     pub async fn is_agent(&self, account: Address) -> Result<bool> {
         let value = self
             .node
