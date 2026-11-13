@@ -159,6 +159,19 @@ says these views must not revert.
   keys of one identity is not reported as blocked by a compliance rule it never runs.
   `precompiles.rs::a_fungible_transfer_that_succeeds_implies_can_transfer` checks the ERC-7943
   rule that a transfer must not succeed when `canTransfer` is `false`, over random states.
+- A precompile transfer between two identities reverts unless its instruction executes inline
+  (doc 09 §4). `Common::transfer_needs_affirmation` finds the cases where it never can, and
+  `canTransfer` is `false` for them: the asset has `MandatoryMediators`, or the receiver must
+  affirm. `Common::receiver_must_affirm` is `!Asset::skip_asset_holder_affirmation` (doc 09 §5):
+  the receiver's identity set `MandatoryReceiverAffirmation`, the asset is not exempt, and the
+  identity has not pre-approved it. `canReceive` is `false` for such a receiver too. Mediators
+  are not a receiver-side rule, so they do not affect `canReceive`. Neither rule applies between
+  two holders of one identity, which create no instruction.
+- **Known exception.** `transfer_funds` lets the receiver affirm in the same call when the
+  caller's key is the receiving account (doc 09 §4, spender mode). So a receiver that must
+  affirm can still pull funds with `transferFrom(from, itself, …)` given an allowance or NFT
+  approval, while `canTransfer(from, receiver, …)` is `false`: the view has no caller to
+  consider. Pinned by `precompiles.rs::a_receiver_that_must_affirm_can_still_pull_with_transfer_from`.
 - All three still revert with "Benchmarked weight limit exceeded" if the compliance or statistics
   work exceeds the benchmarked worst case. There is no truthful answer to give in that case.
 

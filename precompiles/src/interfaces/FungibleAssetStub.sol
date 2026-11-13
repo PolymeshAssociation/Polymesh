@@ -185,6 +185,14 @@ interface IFungibleAsset {
     /// @notice Checks if a transfer is possible according to token rules.
     /// @dev This involves compliance checks. Returns false, without reverting, for a `value`
     /// above `type(uint128).max`, which no balance can hold.
+    ///
+    /// Two accounts of the same identity move tokens without compliance checks, and this
+    /// function answers for that case accordingly.
+    ///
+    /// Also returns false when {transfer} could not complete in one call and would revert:
+    /// the token has mandatory mediators, or the receiver's identity requires its own
+    /// affirmation and has not pre-approved the token. One case is not covered: a receiver that
+    /// requires affirmation can still pull tokens itself with {transferFrom}.
     /// @param from The address sending tokens.
     /// @param to The address receiving tokens.
     /// @param value The amount being transferred.
@@ -222,7 +230,9 @@ interface IFungibleAsset {
     function canSend(address account) external view returns (bool);
 
     /// @notice Checks if a specific account is allowed to receive tokens according to token rules.
-    /// @dev This is often used for allowlist/KYC/KYB/AML checks.
+    /// @dev This is often used for allowlist/KYC/KYB/AML checks. Returns false when the account's
+    /// identity requires its own affirmation of incoming transfers and has not pre-approved the
+    /// token, because {transfer} to it reverts.
     /// @param account The address to check.
     /// @return True if the account is allowed to receive, false otherwise.
     function canReceive(address account) external view returns (bool);

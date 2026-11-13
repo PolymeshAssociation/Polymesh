@@ -148,7 +148,8 @@ per-DID `NumberOfNFTs` counts + per-NFT owner reassignment (nft:734-766).
   (`ensure_same_identity_asset_transfer` / `ensure_same_identity_nft_transfer`, the very
   functions `base_transfer_funds` calls, plus distinct holders and a valid receiver) and skip
   compliance and statistics. Otherwise they return whether the report is empty. Neither covers
-  the caller's allowance or custody.
+  the caller's allowance or custody, nor a pending affirmation: the precompiles add the
+  mandatory-mediator and receiver-affirmation checks on top (doc 21 §5.1, "Transfer checks").
 - `nft_transfer_report` (nft:830-917) analogous, except a per-NFT freeze is reported even with
   `skip_locked_check=true`: only settlement locks are skippable.
 - `Settlement::transfer_report(leg, skip_locked_check)` dispatches per leg type

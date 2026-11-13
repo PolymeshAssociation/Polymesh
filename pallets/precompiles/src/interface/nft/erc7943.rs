@@ -37,6 +37,9 @@ use crate::Config;
 impl<T: Config> NonFungibleAssetInterface<T> {
     /// Checks whether `tokenId` can currently move from `from` to `to`, compliance included.
     ///
+    /// Also `false` when the transfer would be left waiting for a mediator or for the receiver
+    /// to affirm it: `transferFrom` reverts in that case.
+    ///
     /// ERC-7943 forbids this view from reverting, so a `tokenId` no NFT can have returns
     /// `false`. The one revert left is running out of the benchmarked weight, where there is
     /// no truthful answer to give.
@@ -76,6 +79,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
+
+        // A transfer that would be left waiting for an affirmation reverts
+        let can_transfer =
+            can_transfer && !Common::<T>::transfer_needs_affirmation(env, &asset_id, &from, &to)?;
 
         Ok(INonFungibleAsset::canTransferCall::abi_encode_returns(
             &can_transfer,
@@ -186,6 +193,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     }
 
     /// Returns `true` if the account is allowed to receive tokens of this collection.
+    ///
+    /// `false` for a receiver that affirms its incoming transfers itself and has not
+    /// pre-approved the collection, as no precompile transfer from another identity can reach
+    /// it.
     pub(crate) fn can_receive(
         asset_id: AssetId,
         call: &INonFungibleAsset::canReceiveCall,
@@ -217,6 +228,9 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
+
+        // A receiver that has to affirm the transfer itself cannot be reached in one call
+        let allowed = allowed && !Common::<T>::receiver_must_affirm(env, &asset_id, &receiver)?;
 
         Ok(INonFungibleAsset::canReceiveCall::abi_encode_returns(
             &allowed,

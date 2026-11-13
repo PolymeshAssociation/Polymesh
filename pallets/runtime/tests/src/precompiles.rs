@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use codec::Encode;
 use pallet_precompiles::interface::nft::{
     ERC721_INTERFACE_ID, ERC721_METADATA_INTERFACE_ID, ERC7943_NON_FUNGIBLE_INTERFACE_ID,
@@ -211,6 +213,7 @@ use sp_keyring::Sr25519Keyring;
 use pallet_asset::Allowances;
 use polymesh_primitives::asset::AssetHolder;
 use polymesh_primitives::constants::currency::ONE_UNIT;
+use polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_primitives::{
     AssetHolderKind, Balance, Claim, Condition, ConditionType, CountryCode, Scope, WeightMeter,
 };
@@ -220,11 +223,12 @@ use rand::{Rng, SeedableRng};
 use crate::asset_pallet::setup::ISSUE_AMOUNT;
 use crate::ext_builder::ExtBuilder;
 use crate::nft::{create_nft_collection, mint_nft};
-use crate::storage::{add_secondary_key, EventTest, TestStorage, User};
+use crate::storage::{add_secondary_key, root, EventTest, TestStorage, User};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type Revive = pallet_revive::Pallet<TestStorage>;
+type Settlement = pallet_settlement::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
 /// The address of the precompile registered under `prefix_id` for `asset_id`.
@@ -389,6 +393,68 @@ fn fail_compliance(owner: &User, asset_id: AssetId) {
             issuers: vec![owner.issuer()],
         }],
     ));
+}
+
+/// The revert reason of a transfer left waiting for an affirmation.
+const NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
+
+/// Makes `mediator` a mandatory mediator of `asset_id`.
+fn add_mediator(owner: &User, asset_id: AssetId, mediator: &User) {
+    let mediators = BTreeSet::from([mediator.did]);
+    assert_ok!(Asset::add_mandatory_mediators(
+        owner.origin(),
+        asset_id,
+        mediators.try_into().unwrap()
+    ));
+}
+
+/// Makes `user`'s identity affirm every incoming transfer itself.
+fn require_receiver_affirmation(user: &User) {
+    assert_ok!(Settlement::set_mandatory_receiver_affirmation(
+        user.origin(),
+        AffirmationRequirement::Required
+    ));
+}
+
+/// `canReceive(account)` on the fungible precompile of `asset_id`.
+fn can_receive(asset_id: AssetId, account: &User) -> bool {
+    let call = IFungibleAsset::canReceiveCall {
+        account: eth_address(account),
+    };
+    view(account, fungible(asset_id), call)
+}
+
+/// `canTransfer(from, to, tokenId)` on the NFT precompile of `asset_id`.
+fn nft_can_transfer(asset_id: AssetId, from: &User, to: &User, token_id: u64) -> bool {
+    let call = INonFungibleAsset::canTransferCall {
+        from: eth_address(from),
+        to: eth_address(to),
+        tokenId: U256::from(token_id),
+    };
+    view(from, non_fungible(asset_id), call)
+}
+
+/// `canReceive(account)` on the NFT precompile of `asset_id`.
+fn nft_can_receive(asset_id: AssetId, account: &User) -> bool {
+    let call = INonFungibleAsset::canReceiveCall {
+        account: eth_address(account),
+    };
+    view(account, non_fungible(asset_id), call)
+}
+
+/// `transferFrom(from, to, tokenId)` on the NFT precompile of `asset_id`, sent by `from`.
+fn nft_transfer(
+    asset_id: AssetId,
+    from: &User,
+    to: &User,
+    token_id: u64,
+) -> Result<Vec<Log>, String> {
+    let call = INonFungibleAsset::transferFromCall {
+        from: eth_address(from),
+        to: eth_address(to),
+        tokenId: U256::from(token_id),
+    };
+    send(from, non_fungible(asset_id), call)
 }
 
 /// A collection owned by `owner`, with NFTs 1 to `n` in the owner's account key.
@@ -760,8 +826,9 @@ fn fungible_can_transfer_checks_granularity_for_a_same_identity_transfer() {
 /// ERC-7943: a public transfer must not succeed when `canTransfer` is false.
 ///
 /// Each round builds a random state, asks `canTransfer`, then sends the transfer. The state
-/// covers the asset and holder freezes, frozen tokens, compliance, divisibility, and senders and
-/// receivers of the same and of different identities.
+/// covers the asset and holder freezes, frozen tokens, compliance, divisibility, mandatory
+/// mediators, receiver affirmation with and without a pre-approval, and senders and receivers of
+/// the same and of different identities.
 #[test]
 fn a_fungible_transfer_that_succeeds_implies_can_transfer() {
     let mut rng = StdRng::seed_from_u64(0x7943);
@@ -816,6 +883,15 @@ fn a_fungible_transfer_that_succeeds_implies_can_transfer() {
             if rng.gen_bool(0.15) {
                 assert_ok!(Asset::freeze(alice.origin(), asset_id));
             }
+            if rng.gen_bool(0.15) {
+                add_mediator(&alice, asset_id, &bob);
+            }
+            if rng.gen_bool(0.25) {
+                require_receiver_affirmation(&bob);
+                if rng.gen_bool(0.5) {
+                    assert_ok!(Asset::pre_approve_asset(bob.origin(), asset_id));
+                }
+            }
 
             // Alice holds everything, so she is the usual sender
             let from = if rng.gen_bool(0.9) {
@@ -852,4 +928,129 @@ fn a_fungible_transfer_that_succeeds_implies_can_transfer() {
     assert!(succeeded > 30, "only {succeeded} transfers succeeded");
     assert!(same_identity_succeeded > 10);
     assert!(refused > 30, "canTransfer was false only {refused} times");
+}
+
+/// A transfer between two identities of an asset with mandatory mediators never completes in
+/// one call, so `canTransfer` is `false` (R4).
+#[test]
+fn can_transfer_is_false_when_the_asset_has_mandatory_mediators() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_2 = secondary_key(&alice, Sr25519Keyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let dave = User::new(Sr25519Keyring::Dave);
+
+        let asset_id = fungible_asset(&alice);
+        assert!(can_transfer(asset_id, &alice, &bob, ONE_UNIT));
+        add_mediator(&alice, asset_id, &dave);
+        assert!(!can_transfer(asset_id, &alice, &bob, ONE_UNIT));
+        assert_eq!(
+            transfer(asset_id, &alice, &bob, ONE_UNIT).unwrap_err(),
+            NOT_EXECUTED
+        );
+        // Mediators are not a rule about the receiver
+        assert!(can_receive(asset_id, &bob));
+        // Two keys of one identity move funds without an instruction, so without mediators
+        assert!(can_transfer(asset_id, &alice, &alice_2, ONE_UNIT));
+        assert_ok!(transfer(asset_id, &alice, &alice_2, ONE_UNIT));
+
+        let collection = nft_collection(&alice, 2);
+        assert!(nft_can_transfer(collection, &alice, &bob, 1));
+        add_mediator(&alice, collection, &dave);
+        assert!(!nft_can_transfer(collection, &alice, &bob, 1));
+        assert_eq!(
+            nft_transfer(collection, &alice, &bob, 1).unwrap_err(),
+            NOT_EXECUTED
+        );
+        assert!(nft_can_receive(collection, &bob));
+        assert!(nft_can_transfer(collection, &alice, &alice_2, 1));
+        assert_ok!(nft_transfer(collection, &alice, &alice_2, 1));
+    });
+}
+
+/// A receiver that affirms its incoming transfers itself, and has not pre-approved the asset,
+/// cannot be sent to in one call, so `canTransfer` and `canReceive` are `false` (R4).
+#[test]
+fn can_transfer_and_can_receive_are_false_when_the_receiver_must_affirm() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let alice_2 = secondary_key(&alice, Sr25519Keyring::Charlie);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = fungible_asset(&alice);
+        let collection = nft_collection(&alice, 3);
+
+        assert!(can_transfer(asset_id, &alice, &bob, ONE_UNIT));
+        assert!(can_receive(asset_id, &bob));
+        assert!(nft_can_transfer(collection, &alice, &bob, 1));
+        assert!(nft_can_receive(collection, &bob));
+
+        require_receiver_affirmation(&bob);
+
+        assert!(!can_transfer(asset_id, &alice, &bob, ONE_UNIT));
+        assert!(!can_receive(asset_id, &bob));
+        assert_eq!(
+            transfer(asset_id, &alice, &bob, ONE_UNIT).unwrap_err(),
+            NOT_EXECUTED
+        );
+        assert!(!nft_can_transfer(collection, &alice, &bob, 1));
+        assert!(!nft_can_receive(collection, &bob));
+        assert_eq!(
+            nft_transfer(collection, &alice, &bob, 1).unwrap_err(),
+            NOT_EXECUTED
+        );
+
+        // The sender's own setting is irrelevant, and so is the receiver's when the funds stay
+        // with one identity
+        require_receiver_affirmation(&alice);
+        assert!(can_transfer(asset_id, &alice, &alice_2, ONE_UNIT));
+        assert_ok!(transfer(asset_id, &alice, &alice_2, ONE_UNIT));
+        assert!(nft_can_transfer(collection, &alice, &alice_2, 3));
+        assert_ok!(nft_transfer(collection, &alice, &alice_2, 3));
+
+        // A pre-approval by the receiver lifts it, for that asset only
+        assert_ok!(Asset::pre_approve_asset(bob.origin(), asset_id));
+        assert!(can_transfer(asset_id, &alice, &bob, ONE_UNIT));
+        assert!(can_receive(asset_id, &bob));
+        assert_ok!(transfer(asset_id, &alice, &bob, ONE_UNIT));
+        assert!(!nft_can_transfer(collection, &alice, &bob, 1));
+        assert!(!nft_can_receive(collection, &bob));
+
+        // So does an exemption of the asset
+        assert_ok!(Asset::exempt_asset_affirmation(root(), collection));
+        assert!(nft_can_transfer(collection, &alice, &bob, 1));
+        assert!(nft_can_receive(collection, &bob));
+        assert_ok!(nft_transfer(collection, &alice, &bob, 1));
+    });
+}
+
+/// The one transfer that completes although the receiver must affirm: the receiver pulling the
+/// funds itself with `transferFrom`. Its call is its affirmation. `canTransfer` takes no caller,
+/// so it still answers `false` for that pair.
+#[test]
+fn a_receiver_that_must_affirm_can_still_pull_with_transfer_from() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = fungible_asset(&alice);
+        require_receiver_affirmation(&bob);
+
+        assert_ok!(Asset::approve(
+            alice.origin(),
+            asset_id,
+            bob.acc(),
+            ONE_UNIT
+        ));
+        assert!(!can_transfer(asset_id, &alice, &bob, ONE_UNIT));
+
+        let pull = IFungibleAsset::transferFromCall {
+            from: eth_address(&alice),
+            to: eth_address(&bob),
+            value: U256::from(ONE_UNIT),
+        };
+        assert_ok!(send(&bob, fungible(asset_id), pull));
+        assert_eq!(
+            Asset::get_holders_balance(&holder(&bob), &asset_id),
+            ONE_UNIT
+        );
+    });
 }

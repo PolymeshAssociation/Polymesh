@@ -190,6 +190,11 @@ interface INonFungibleAsset {
     ///
     /// Returns false, without reverting, for a `tokenId` above `type(uint64).max`, which no
     /// token can have.
+    ///
+    /// Also returns false when {transferFrom} could not complete in one call and would revert:
+    /// the collection has mandatory mediators, or the receiver's identity requires its own
+    /// affirmation and has not pre-approved the collection. One case is not covered: a receiver
+    /// that requires affirmation can still pull an approved token itself with {transferFrom}.
     function canTransfer(address from, address to, uint256 tokenId) external view returns (bool);
 
     /// @dev Forcibly transfers `tokenId` from `from` to `to`, bypassing compliance and
@@ -217,6 +222,9 @@ interface INonFungibleAsset {
     function canSend(address account) external view returns (bool);
 
     /// @dev Returns true if `account` is currently allowed to receive tokens of this collection.
+    ///
+    /// Returns false when the account's identity requires its own affirmation of incoming
+    /// transfers and has not pre-approved the collection, because {transferFrom} to it reverts.
     function canReceive(address account) external view returns (bool);
 }
 

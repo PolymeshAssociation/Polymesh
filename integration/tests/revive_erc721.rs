@@ -14,6 +14,7 @@ use integration::*;
 use polymesh_api::types::polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataName, AssetMetadataValue,
 };
+use polymesh_api::types::polymesh_primitives::settlement::AffirmationRequirement;
 use polymesh_precompiles::INonFungibleAsset as ierc721;
 
 /// The zero address, used by the `Transfer` events of `mint` and `burn`.
@@ -394,6 +395,71 @@ async fn erc721_transfer_restrictions() -> Result<()> {
         };
         assert!(!nft.try_call(owner_address, &can_transfer).await?);
     }
+
+    Ok(())
+}
+
+/// `canTransfer` and `canReceive` are false while the receiver has to affirm the transfer itself,
+/// because `transferFrom` reverts instead of leaving an instruction pending.
+#[tokio::test]
+#[test_log::test]
+async fn erc721_receiver_affirmation_blocks_can_transfer() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc721AffirmFrom", "Erc721AffirmTo"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, holders) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let holder = &mut holders[0];
+
+    let nft = create_erc721_collection(&api, &node, owner, "ERC721 Affirmation").await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    {
+        let mut caller = SubstrateCaller::new(&api, owner).await?;
+        nft.mint(&mut caller, vec![]).await?;
+    }
+
+    api.call()
+        .settlement()
+        .set_mandatory_receiver_affirmation(AffirmationRequirement::Required)?
+        .execute(holder)
+        .await?;
+
+    assert!(!nft.can_transfer(owner_address, holder_address, 1).await?);
+    assert!(!nft.can_receive(holder_address).await?);
+    {
+        let mut caller = SubstrateCaller::new(&api, owner).await?;
+        assert!(
+            nft.transfer_from(&mut caller, owner_address, holder_address, 1)
+                .await
+                .is_err(),
+            "transferFrom() without receiver affirmation should revert"
+        );
+    }
+    assert_eq!(nft.owner_of(1).await?, owner_address);
+
+    // The receiver pre-approves the collection, so its transfers no longer wait for it.
+    api.call()
+        .asset()
+        .pre_approve_asset(nft.asset_id)?
+        .execute(holder)
+        .await?;
+
+    assert!(nft.can_transfer(owner_address, holder_address, 1).await?);
+    assert!(nft.can_receive(holder_address).await?);
+
+    let mut caller = SubstrateCaller::new(&api, owner).await?;
+    let logs = nft
+        .transfer_from(&mut caller, owner_address, holder_address, 1)
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &nft.h160()),
+        [ierc721::Transfer::SIGNATURE_HASH],
+    );
+    assert_eq!(nft.owner_of(1).await?, holder_address);
 
     Ok(())
 }

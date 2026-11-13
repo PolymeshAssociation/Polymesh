@@ -324,7 +324,8 @@ async fn erc20_unknown_asset_reverts() -> Result<()> {
     Ok(())
 }
 
-/// Incomplete `transfer` call reverts.
+/// A `transfer` to a receiver that has to affirm it reverts, and `canTransfer` and `canReceive`
+/// say so beforehand.
 #[tokio::test]
 #[test_log::test]
 async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
@@ -337,7 +338,17 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     let issuer = &mut issuers[0];
     let holder = &mut holders[0];
 
-    let (_asset, erc20) = create_erc20_asset(&api, &node, issuer, "ERC20 Sub", MINT).await?;
+    let (asset, erc20) = create_erc20_asset(&api, &node, issuer, "ERC20 Sub", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    assert!(
+        erc20
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    assert!(erc20.can_receive(holder_address).await?);
+
     erc20
         .api
         .call()
@@ -346,17 +357,50 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
         .execute(holder)
         .await?;
 
-    let _issuer_address = eth_address_of(&api, issuer).await?;
-    let holder_address = eth_address_of(&api, holder).await?;
+    assert!(
+        !erc20
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?,
+        "canTransfer must be false for a transfer that cannot complete in one call"
+    );
+    assert!(
+        !erc20.can_receive(holder_address).await?,
+        "canReceive must be false for a receiver that has to affirm"
+    );
+
+    {
+        let mut caller = SubstrateCaller::new(&api, issuer).await?;
+        if erc20
+            .transfer(&mut caller, holder_address, 1_000)
+            .await
+            .is_ok()
+        {
+            panic!("transfer() without receiver affirmation should revert");
+        }
+    }
+    assert_eq!(erc20.balance_of(holder_address).await?, 0);
+
+    // The receiver pre-approves the asset, so its transfers no longer wait for it.
+    api.call()
+        .asset()
+        .pre_approve_asset(asset.asset_id)?
+        .execute(holder)
+        .await?;
+
+    assert!(
+        erc20
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    assert!(erc20.can_receive(holder_address).await?);
 
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
-    if erc20
-        .transfer(&mut caller, holder_address, 1_000)
-        .await
-        .is_ok()
-    {
-        panic!("transfer() without receiver affirmation should revert");
-    }
+    let logs = erc20.transfer(&mut caller, holder_address, 1_000).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc20.h160()),
+        [ierc20::Transfer::SIGNATURE_HASH],
+    );
+    assert_eq!(erc20.balance_of(holder_address).await?, 1_000);
 
     Ok(())
 }

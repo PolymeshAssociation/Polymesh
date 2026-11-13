@@ -5,6 +5,8 @@
 // The Revive pallet was added in v8.
 #![cfg(feature = "current_release")]
 
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use alloy::primitives::U256;
@@ -126,6 +128,62 @@ async fn erc7943_can_transfer_same_identity_skips_compliance() -> Result<()> {
         [ierc20::Transfer::SIGNATURE_HASH],
     );
     assert_eq!(erc7943.balance_of(key_address).await?, 1_000);
+
+    Ok(())
+}
+
+/// A transfer of an asset with mandatory mediators cannot complete in one call, so `canTransfer`
+/// is false. Mediators say nothing about the receiver, so `canReceive` stays true.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_can_transfer_is_false_with_mandatory_mediators() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&[
+            "Erc7943MediatedIssuer",
+            "Erc7943MediatedHolder",
+            "Erc7943Mediator",
+        ])
+        .await?;
+    let api = tester.api.clone();
+    let mediator_did = users[2].did.unwrap();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (asset_helper, erc7943) =
+        create_erc20_asset(&api, &node, issuer, "ERC7943 Mediated", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    assert!(
+        erc7943
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+
+    api.call()
+        .asset()
+        .add_mandatory_mediators(asset_helper.asset_id, BTreeSet::from([mediator_did]))?
+        .execute(issuer)
+        .await?;
+
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    assert!(erc7943.can_receive(holder_address).await?);
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    assert!(
+        erc7943
+            .transfer(&mut caller, holder_address, 1_000)
+            .await
+            .is_err(),
+        "transfer() of a mediated asset should revert"
+    );
+    assert_eq!(erc7943.balance_of(holder_address).await?, 0);
 
     Ok(())
 }

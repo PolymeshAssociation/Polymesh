@@ -235,6 +235,14 @@ impl Token {
         Ok(value)
     }
 
+    pub async fn can_receive(&self, account: Address) -> Result<bool> {
+        let value = self
+            .node
+            .call(self.address, &ierc20::canReceiveCall { account })
+            .await?;
+        Ok(value)
+    }
+
     pub async fn is_agent(&self, account: Address) -> Result<bool> {
         let value = self
             .node
