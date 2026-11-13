@@ -385,6 +385,16 @@ async fn erc721_transfer_restrictions() -> Result<()> {
     assert!(nft.can_receive(holder_address).await?);
     assert!(nft.can_transfer(owner_address, holder_address, 1).await?);
 
+    // ERC-7943 forbids `canTransfer` from reverting: an id no NFT can have is just `false`.
+    for token_id in [U256::from(u64::MAX) + U256::from(1), U256::MAX] {
+        let can_transfer = ierc721::canTransferCall {
+            from: owner_address,
+            to: holder_address,
+            tokenId: token_id,
+        };
+        assert!(!nft.try_call(owner_address, &can_transfer).await?);
+    }
+
     Ok(())
 }
 

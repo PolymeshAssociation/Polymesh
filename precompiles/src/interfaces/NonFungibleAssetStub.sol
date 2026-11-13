@@ -187,6 +187,9 @@ interface INonFungibleAsset {
     event Frozen(address indexed account, uint256 indexed tokenId, bool indexed frozenStatus);
 
     /// @dev Returns true if `tokenId` can currently be transferred from `from` to `to`.
+    ///
+    /// Returns false, without reverting, for a `tokenId` above `type(uint64).max`, which no
+    /// token can have.
     function canTransfer(address from, address to, uint256 tokenId) external view returns (bool);
 
     /// @dev Forcibly transfers `tokenId` from `from` to `to`, bypassing compliance and

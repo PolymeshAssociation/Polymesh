@@ -183,7 +183,8 @@ interface IFungibleAsset {
 
 
     /// @notice Checks if a transfer is possible according to token rules.
-    /// @dev This involves compliance checks.
+    /// @dev This involves compliance checks. Returns false, without reverting, for a `value`
+    /// above `type(uint128).max`, which no balance can hold.
     /// @param from The address sending tokens.
     /// @param to The address receiving tokens.
     /// @param value The amount being transferred.

@@ -145,6 +145,15 @@ first, then `Frozen` (`deposit_frozen_change` / `deposit_frozen_total`, fungible
   controller transfer) emits no EVM log. This is the general gap that runtime-side actions are not
   mirrored as EVM events for any precompile.
 
+**Transfer checks (`canTransfer`, `canSend`, `canReceive`), both asset precompiles.** ERC-7943
+says these views must not revert.
+
+- `canTransfer` returns `false` for input that cannot name a transfer: a fungible `value` above
+  `2^128-1`, or an NFT `tokenId` above `2^64-1`. Every other call with a `tokenId` still reverts
+  for an out-of-range id.
+- All three still revert with "Benchmarked weight limit exceeded" if the compliance or statistics
+  work exceeds the benchmarked worst case. There is no truthful answer to give in that case.
+
 ### 5.2 The non-fungible-asset precompile
 
 Stub `NonFungibleAssetStub.sol`/`.bin`, built by the same `scripts/build_precompile_stub.sh`

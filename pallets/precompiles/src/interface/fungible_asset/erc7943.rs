@@ -34,11 +34,20 @@ use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
     /// Checks if a transfer is possible according to token rules. It includes compliance checks.
+    ///
+    /// ERC-7943 forbids this view from reverting, so a `value` no balance can hold returns
+    /// `false`. The one revert left is running out of the benchmarked weight, where there is
+    /// no truthful answer to give.
     pub(crate) fn can_transfer(
         asset_id: AssetId,
         call: &IFungibleAsset::canTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        // No transfer can move more than `Balance::MAX`
+        let Ok(value) = Balance::try_from(call.value) else {
+            return Ok(IFungibleAsset::canTransferCall::abi_encode_returns(&false));
+        };
+
         let best_case_weight =
             <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_best_case();
         let worst_case_weight =
@@ -47,7 +56,6 @@ impl<T: Config> FungibleAssetInterface<T> {
 
         let from = Common::<T>::asset_holder(env, call.from)?;
         let to = Common::<T>::asset_holder(env, call.to)?;
-        let value = Common::<T>::to_balance(call.value)?;
 
         // The best case covers the fixed work, the meter only gets the variable rest
         let mut weight_meter = WeightMeter::from_limit_unchecked(

@@ -20,6 +20,40 @@ use polymesh_precompiles::IFungibleAsset as ierc20;
 /// Initial supply issued to the asset owner's account.
 const MINT: u128 = 1_000_000;
 
+/// ERC-7943 forbids `canTransfer` from reverting: a value no balance can hold is just `false`.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_can_transfer_out_of_range_value_is_false() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc7943RangeIssuer", "Erc7943RangeHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_, erc7943) = create_erc20_asset(&api, &node, issuer, "ERC7943 Range", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    assert!(
+        erc7943
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    for value in [U256::from(u128::MAX) + U256::from(1), U256::MAX] {
+        let can_transfer = ierc20::canTransferCall {
+            from: issuer_address,
+            to: holder_address,
+            value,
+        };
+        assert!(!erc7943.try_call(issuer_address, &can_transfer).await?);
+    }
+
+    Ok(())
+}
+
 /// Can transfer returns false after receiver fails compliance check.
 #[tokio::test]
 #[test_log::test]

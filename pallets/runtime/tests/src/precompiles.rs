@@ -216,6 +216,7 @@ use crate::nft::{create_nft_collection, mint_nft};
 use crate::storage::{EventTest, TestStorage, User};
 
 type Asset = pallet_asset::Pallet<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Pallet<TestStorage>;
 type Revive = pallet_revive::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 
@@ -522,5 +523,61 @@ fn nft_balance_of_the_zero_address_reverts() {
             call(&alice, collection, balance_of(Address::ZERO)).unwrap_err(),
             "The zero address is not a valid owner"
         );
+    });
+}
+
+/// `canTransfer` returns `false` for a value no balance can hold, where it used to revert (R1).
+#[test]
+fn fungible_can_transfer_is_false_for_an_out_of_range_value() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = fungible_asset(&alice);
+        assert_ok!(ComplianceManager::pause_asset_compliance(
+            alice.origin(),
+            asset_id
+        ));
+        let can_transfer = |value: U256| IFungibleAsset::canTransferCall {
+            from: eth_address(&alice),
+            to: eth_address(&bob),
+            value,
+        };
+        let token = fungible(asset_id);
+
+        assert!(view(&alice, token, can_transfer(U256::from(1_000_000u64))));
+        assert!(!view(
+            &alice,
+            token,
+            can_transfer(U256::from(u128::MAX) + U256::from(1u8))
+        ));
+        assert!(!view(&alice, token, can_transfer(U256::MAX)));
+    });
+}
+
+/// `canTransfer` returns `false` for a token id no NFT can have, where it used to revert (R1).
+#[test]
+fn nft_can_transfer_is_false_for_an_out_of_range_token_id() {
+    run(|| {
+        let alice = User::new(Sr25519Keyring::Alice);
+        let bob = User::new(Sr25519Keyring::Bob);
+        let asset_id = nft_collection(&alice, 1);
+        assert_ok!(ComplianceManager::pause_asset_compliance(
+            alice.origin(),
+            asset_id
+        ));
+        let can_transfer = |token_id: U256| INonFungibleAsset::canTransferCall {
+            from: eth_address(&alice),
+            to: eth_address(&bob),
+            tokenId: token_id,
+        };
+        let collection = non_fungible(asset_id);
+
+        assert!(view(&alice, collection, can_transfer(U256::from(1u8))));
+        assert!(!view(
+            &alice,
+            collection,
+            can_transfer(U256::from(u64::MAX) + U256::from(1u8))
+        ));
+        assert!(!view(&alice, collection, can_transfer(U256::MAX)));
     });
 }
