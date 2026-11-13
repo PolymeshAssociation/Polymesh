@@ -54,6 +54,82 @@ async fn erc7943_can_transfer_out_of_range_value_is_false() -> Result<()> {
     Ok(())
 }
 
+/// Two keys of one identity move tokens without compliance, and `canTransfer` agrees.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_can_transfer_same_identity_skips_compliance() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users_with_secondary_keys(&[("Erc7943SameIdIssuer", 1), ("Erc7943SameIdOther", 0)])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, others) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let other = &mut others[0];
+
+    let (asset_helper, erc7943) =
+        create_erc20_asset(&api, &node, issuer, "ERC7943 SameId", MINT).await?;
+    // A requirement nobody meets, so every transfer between identities fails compliance.
+    api.call()
+        .compliance_manager()
+        .add_compliance_requirement(
+            asset_helper.asset_id,
+            Default::default(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(issuer.did.unwrap()),
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: issuer.did.unwrap(),
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction]),
+                }],
+            }],
+        )?
+        .execute(issuer)
+        .await?;
+
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let other_address = eth_address_of(&api, other).await?;
+    let key_address = eth_address_of(&api, issuer.get_sk_mut(0)?).await?;
+
+    // Another identity fails compliance.
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, other_address, 1_000)
+            .await?
+    );
+
+    // The issuer's own secondary key does not go through compliance.
+    assert!(
+        erc7943
+            .can_transfer(issuer_address, key_address, 1_000)
+            .await?
+    );
+    // The same holder on both sides is not a transfer the precompile accepts.
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, issuer_address, 1_000)
+            .await?
+    );
+    // More than the balance is refused on this path too.
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, key_address, MINT + 1)
+            .await?
+    );
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    let logs = erc7943.transfer(&mut caller, key_address, 1_000).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc7943.h160()),
+        [ierc20::Transfer::SIGNATURE_HASH],
+    );
+    assert_eq!(erc7943.balance_of(key_address).await?, 1_000);
+
+    Ok(())
+}
+
 /// Can transfer returns false after receiver fails compliance check.
 #[tokio::test]
 #[test_log::test]

@@ -15,6 +15,7 @@
 
 use alloc::vec::Vec;
 
+use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::primitives::Address;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
@@ -35,6 +36,9 @@ use crate::Config;
 impl<T: Config> FungibleAssetInterface<T> {
     /// Checks if a transfer is possible according to token rules. It includes compliance checks.
     ///
+    /// Two holders of one identity move funds without compliance or statistics, so
+    /// `Asset::can_transfer_funds` applies only that path's checks to them.
+    ///
     /// ERC-7943 forbids this view from reverting, so a `value` no balance can hold returns
     /// `false`. The one revert left is running out of the benchmarked weight, where there is
     /// no truthful answer to give.
@@ -53,6 +57,8 @@ impl<T: Config> FungibleAssetInterface<T> {
         let worst_case_weight =
             <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_worst_case();
         let charged = env.charge(worst_case_weight)?;
+        // `can_transfer_funds` resolves both identities before it picks a path
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(2))?;
 
         let from = Common::<T>::asset_holder(env, call.from)?;
         let to = Common::<T>::asset_holder(env, call.to)?;
@@ -62,12 +68,11 @@ impl<T: Config> FungibleAssetInterface<T> {
             Weight::zero(),
             worst_case_weight.saturating_sub(best_case_weight),
         );
-        let errors = pallet_asset::Pallet::<T>::asset_transfer_report(
+        let can_transfer = pallet_asset::Pallet::<T>::can_transfer_funds(
             &from,
             &to,
             &asset_id,
             value,
-            false,
             &mut weight_meter,
         );
 
@@ -79,7 +84,7 @@ impl<T: Config> FungibleAssetInterface<T> {
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
         Ok(IFungibleAsset::canTransferCall::abi_encode_returns(
-            &errors.is_empty(),
+            &can_transfer,
         ))
     }
 

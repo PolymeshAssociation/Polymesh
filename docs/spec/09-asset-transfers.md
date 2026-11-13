@@ -141,6 +141,14 @@ per-DID `NumberOfNFTs` counts + per-NFT owner reassignment (nft:734-766).
 - `asset_transfer_report(sender, receiver, asset, value, skip_locked_check)` (asset:3462-3570) —
   accumulates all failing checks; `skip_locked_check=true` ignores locks/frozen when sizing
   balance (used to pre-validate instructions whose locks are already placed).
+- `Asset::can_transfer_funds(sender, receiver, asset, value)` and
+  `Nft::can_transfer_funds(sender, receiver, nfts)` answer "would `transfer_funds` move this?"
+  for the precompiles' `canTransfer` (doc 21 §5.1). They are not RPCs and leave both reports
+  unchanged. When both holders belong to one identity they apply that fast path's checks
+  (`ensure_same_identity_asset_transfer` / `ensure_same_identity_nft_transfer`, the very
+  functions `base_transfer_funds` calls, plus distinct holders and a valid receiver) and skip
+  compliance and statistics. Otherwise they return whether the report is empty. Neither covers
+  the caller's allowance or custody.
 - `nft_transfer_report` (nft:830-917) analogous, except a per-NFT freeze is reported even with
   `skip_locked_check=true`: only settlement locks are skippable.
 - `Settlement::transfer_report(leg, skip_locked_check)` dispatches per leg type
@@ -153,6 +161,10 @@ per-DID `NumberOfNFTs` counts + per-NFT owner reassignment (nft:734-766).
       relaxation reintroduces unchecked cross-identity movement.
 - [ ] Every path that changes identity-level `BalanceOf` must run checkpoint-advance +
       statistics-update; every path that doesn't change it must not (doc 04 §8, doc 11).
+- [ ] The same-identity checks live in one function per asset kind
+      (`Asset::ensure_same_identity_asset_transfer`, `Nft::ensure_same_identity_nft_transfer`),
+      shared by `base_transfer_funds` and `can_transfer_funds`. Add a check to the function, not
+      to one caller, or `canTransfer` and the transfer disagree.
 - [ ] Custody/permission is checked at affirmation (settlement) or at source-authorization
       (transfer_funds), **never** in `base_transfer` — don't add transfer-time custody checks
       (double-check) or remove affirmation-time ones (hole).

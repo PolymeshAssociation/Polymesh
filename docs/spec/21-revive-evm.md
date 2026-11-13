@@ -119,6 +119,7 @@ rejected, rather than silently permitted to change state.
 | `approve` | `Asset::approve`; exactly `type(uint256).max` is stored as `Balance::MAX` (infinite, doc 09 §6), any other value above `2^128-1` reverts; `Approval` carries the value passed. `allowance()` reports an infinite allowance as `2^128-1` | fungible_asset/erc20.rs `approve` |
 | `mint`/`burn` | `Asset::issue`/`redeem` (agent-gated) | fungible_asset/polymesh_specific.rs:27, 58 |
 | `isDivisible` (view) | `Assets[asset].divisible`. `decimals()` stays 6 for every asset, so this is how a caller detects the whole-unit rule (`InvalidGranularity`) | fungible_asset/polymesh_specific.rs `is_divisible` |
+| ERC-7943 canTransfer | `Asset::can_transfer_funds` (see "Transfer checks" below) | fungible_asset/erc7943.rs `can_transfer` |
 | ERC-7943 forcedTransfer / setFrozenTokens | `Asset::controller_transfer_to` / `set_frozen_tokens` | fungible_asset/erc7943.rs:86, 148 |
 | ERC-3643 freezePartialTokens / unfreezePartialTokens | `Asset::freeze_partial_tokens` / `unfreeze_partial_tokens` | fungible_asset/erc3643.rs:181, 219 |
 | ERC-3643 pause/unpause, setName, freeze wallet, ... | `Asset::freeze`/`unfreeze`/`rename_asset`/`set_holder_frozen`/ticker calls | fungible_asset/erc3643.rs:36-161 |
@@ -151,6 +152,13 @@ says these views must not revert.
 - `canTransfer` returns `false` for input that cannot name a transfer: a fungible `value` above
   `2^128-1`, or an NFT `tokenId` above `2^64-1`. Every other call with a `tokenId` still reverts
   for an out-of-range id.
+- The fungible `canTransfer` is `Asset::can_transfer_funds` and the NFT one is
+  `Nft::can_transfer_funds`. Both pick the path `Settlement::transfer_funds` would take (doc 09
+  §4): two holders of one identity get only the same-identity checks, with no compliance or
+  statistics; two identities get the full transfer report (doc 09 §8). So a transfer between two
+  keys of one identity is not reported as blocked by a compliance rule it never runs.
+  `precompiles.rs::a_fungible_transfer_that_succeeds_implies_can_transfer` checks the ERC-7943
+  rule that a transfer must not succeed when `canTransfer` is `false`, over random states.
 - All three still revert with "Benchmarked weight limit exceeded" if the compliance or statistics
   work exceeds the benchmarked worst case. There is no truthful answer to give in that case.
 
