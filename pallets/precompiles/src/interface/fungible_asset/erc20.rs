@@ -17,6 +17,7 @@ use alloc::vec::Vec;
 
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use pallet_revive::precompiles::alloy::primitives::U256;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -28,7 +29,7 @@ use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
-use polymesh_primitives::WeightMeter;
+use polymesh_primitives::{Balance, WeightMeter};
 
 use crate::common::{revert, revert_err, Common, ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::interface::FungibleAssetInterface;
@@ -152,6 +153,10 @@ impl<T: Config> FungibleAssetInterface<T> {
     }
 
     /// Sets a value amount of tokens as the allowance of spender over the caller’s tokens.
+    ///
+    /// `type(uint256).max` is the ERC-20 convention for an infinite allowance, so exactly that
+    /// value is stored as `Balance::MAX`, which the asset pallet never decrements. Any other
+    /// value above `Balance::MAX` reverts. `Approval` carries the value the caller passed.
     pub(crate) fn approve(
         asset_id: AssetId,
         call: &IFungibleAsset::approveCall,
@@ -159,7 +164,11 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
         let spender = Common::<T>::account_id(env, call.spender)?;
-        let amount = Common::<T>::to_balance(call.value)?;
+        let amount = if call.value == U256::MAX {
+            Balance::MAX
+        } else {
+            Common::<T>::to_balance(call.value)?
+        };
 
         Common::<T>::call_runtime(
             env,

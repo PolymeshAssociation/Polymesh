@@ -64,7 +64,11 @@ interface IFungibleAsset {
     /// desired value afterwards:
     /// https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
     ///
-    /// Emits an {Approval} event.
+    /// `type(uint256).max` sets an infinite allowance, which {transferFrom} does not
+    /// reduce. Any other `value` above `type(uint128).max` reverts. {allowance} reports
+    /// an infinite allowance as `type(uint128).max`.
+    ///
+    /// Emits an {Approval} event with the `value` passed.
     function approve(address spender, uint256 value) external returns (bool);
 
     /// @dev Moves a `value` amount of tokens from `from` to `to` using the

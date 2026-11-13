@@ -123,7 +123,9 @@ Pending/Failed instruction.
   (settlement:2802). Spenders bear that risk; wallets should surface it.
 - Owner/spender granularity is per **account key**, not per identity.
 - RPC: `allowance(owner, spender, asset)` runtime API (rpc/runtime-api/src/asset.rs:53-57).
-  EVM surface: `FungibleAssetStub.sol` approve/transferFrom (doc 21).
+  EVM surface: `FungibleAssetStub.sol` approve/transferFrom (doc 21). The precompile's `approve`
+  maps `type(uint256).max` to `Balance::MAX`, so the ERC-20 infinite-approval idiom reaches the
+  infinite allowance above.
 
 ## 7. NFT specifics
 
