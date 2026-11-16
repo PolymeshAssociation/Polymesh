@@ -276,7 +276,7 @@ jobs:
         description: "Which profile to use with cargo build."
       build_opts:
         type: string
-        default: " --features on-chain-release-build "
+        default: " --features on-chain-release-build,host_workers "
         description: "Additional options to pass to cargo build."
       parachain_pallet_id:
         type: string
