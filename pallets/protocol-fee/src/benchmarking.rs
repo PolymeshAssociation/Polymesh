@@ -22,7 +22,7 @@ use polymesh_primitives::PosRatio;
 benchmarks! {
     change_coefficient {
         let origin = RawOrigin::Root;
-        let coefficient = PosRatio::from((0, 0));
+        let coefficient = PosRatio::from((1, 1));
     }: _(origin, coefficient)
 
     change_base_fee {

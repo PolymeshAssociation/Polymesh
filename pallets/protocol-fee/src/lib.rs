@@ -39,6 +39,7 @@
 pub mod benchmarking;
 
 use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{
     fungible::{Balanced, Credit, Inspect},
@@ -95,6 +96,8 @@ pub mod pallet {
         UnHandledImbalances,
         /// Insufficient subsidy balance to pay the fee.
         InsufficientSubsidyBalance,
+        /// The fee coefficient must be in the range `[0, 1]`.
+        InvalidCoefficient,
     }
 
     #[pallet::pallet]
@@ -129,6 +132,10 @@ pub mod pallet {
             if self.coefficient.1 == 0 {
                 Coefficient::<T>::put(&PosRatio(1, 1));
             } else {
+                assert!(
+                    Pallet::<T>::is_valid_coefficient(&self.coefficient),
+                    "protocol fee coefficient must be in the range [0, 1]"
+                );
                 Coefficient::<T>::put(&self.coefficient);
             }
         }
@@ -149,8 +156,13 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Changes the fee coefficient for the root origin.
         ///
+        /// The coefficient is a discount applied to the base fees and must be in the range `[0, 1]`,
+        /// i.e., the denominator must be non-zero and not smaller than the numerator.
+        /// To raise fees above their base value, use [`Pallet::change_base_fee`] instead.
+        ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
+        /// * `InvalidCoefficient` - The coefficient is not in the range `[0, 1]`.
         #[pallet::weight(<T as Config>::WeightInfo::change_coefficient())]
         #[pallet::call_index(0)]
         pub fn change_coefficient(
@@ -158,6 +170,10 @@ pub mod pallet {
             coefficient: PosRatio,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+            ensure!(
+                Self::is_valid_coefficient(&coefficient),
+                Error::<T>::InvalidCoefficient
+            );
             Coefficient::<T>::put(&coefficient);
             Self::deposit_event(Event::<T>::CoefficientSet(GC_DID, coefficient));
             Ok(().into())
@@ -184,6 +200,11 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
+    /// Returns `true` if `coefficient` is in the range `[0, 1]`.
+    pub fn is_valid_coefficient(coefficient: &PosRatio) -> bool {
+        coefficient.1 != 0 && coefficient.0 <= coefficient.1
+    }
+
     pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
         let coefficient = Coefficient::<T>::get();
         let ratio = Perbill::from_rational(coefficient.0, coefficient.1);
