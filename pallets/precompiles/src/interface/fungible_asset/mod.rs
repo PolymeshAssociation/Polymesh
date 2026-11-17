@@ -66,6 +66,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
         env: &mut impl Ext<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
         Common::<T>::ensure_direct_call(env)?;
+        Common::<T>::ensure_no_value(env)?;
 
         let asset_id = Common::<T>::asset_id_from_address(env, address, AssetKind::Fungible)?;
         let contract_addr = H160::from(*address);

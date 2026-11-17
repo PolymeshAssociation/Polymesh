@@ -55,6 +55,28 @@ pub enum ProtocolOp {
     NFTMint,
 }
 
+impl ProtocolOp {
+    /// Returns `true` if a subsidy can pay the fee of this operation.
+    pub fn is_subsidisable(&self) -> bool {
+        match self {
+            Self::AssetRegisterTicker
+            | Self::AssetIssue
+            | Self::AssetAddDocuments
+            | Self::AssetCreateAsset
+            | Self::CheckpointCreateSchedule
+            | Self::ComplianceManagerAddComplianceRequirement
+            | Self::IdentityRegisterDid
+            | Self::IdentityAddClaim
+            | Self::IdentityAddSecondaryKeysWithAuthorization
+            | Self::CorporateBallotAttachBallot
+            | Self::CapitalDistributionDistribute
+            | Self::NFTCreateCollection
+            | Self::NFTMint => true,
+            Self::PipsPropose | Self::ContractsPutCode => false,
+        }
+    }
+}
+
 /// Common interface to protocol fees for runtime modules.
 pub trait ChargeProtocolFee<AccountId> {
     /// Computes the fee of the operation and charges it to the given signatory.

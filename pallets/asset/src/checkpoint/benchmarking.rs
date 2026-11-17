@@ -22,6 +22,7 @@ use super::*;
 use crate::benchmarking::create_sample_asset;
 
 const CP_BASE: u64 = 2000;
+const MAX_BALANCE_UPDATES: u32 = 100_000;
 
 fn init_with_existing<T: Config>(asset_owner: &User<T>, existing: u64) -> AssetId {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
@@ -81,5 +82,20 @@ benchmarks! {
     }: _(alice.origin, asset_id, id)
     verify {
         assert_eq!(ScheduledCheckpoints::<T>::get(asset_id, id), None);
+    }
+
+    balance_at {
+        let n in 1..MAX_BALANCE_UPDATES;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let did = alice.did();
+        let asset_id = create_sample_asset::<T>(&alice, true);
+
+        let updates = (1..=n as u64).map(CheckpointId).collect::<Vec<_>>();
+        CheckpointIdSequence::<T>::insert(asset_id, CheckpointId(n as u64));
+        BalanceUpdates::<T>::insert(asset_id, did, updates);
+        Balance::<T>::insert((asset_id, CheckpointId(1)), did, 1u128);
+    }: {
+        assert_eq!(Pallet::<T>::balance_at(asset_id, did, CheckpointId(1)), Some(1));
     }
 }

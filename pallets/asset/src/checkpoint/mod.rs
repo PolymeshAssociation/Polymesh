@@ -67,6 +67,7 @@ pub trait WeightInfo {
     fn set_schedules_max_complexity() -> Weight;
     fn create_schedule() -> Weight;
     fn remove_schedule() -> Weight;
+    fn balance_at(n: u32) -> Weight;
 }
 
 pub use pallet::*;
@@ -406,21 +407,45 @@ impl<T: AssetConfig> Pallet<T> {
         did: IdentityId,
         cp: CheckpointId,
     ) -> Option<polymesh_primitives::Balance> {
+        Self::balance_at_with_updates(asset_id, did, cp).0
+    }
+
+    /// Same as [`Self::balance_at`], but also returns the length of the `BalanceUpdates` history
+    /// that had to be decoded, which is the input of [`Self::balance_at_weight`].
+    pub fn balance_at_with_updates(
+        asset_id: AssetId,
+        did: IdentityId,
+        cp: CheckpointId,
+    ) -> (Option<polymesh_primitives::Balance>, u32) {
         if Self::checkpoint_exists(&asset_id, cp)
             && BalanceUpdates::<T>::contains_key(asset_id, did)
         {
             // Checkpoint exists and user has some part in that.
             let balance_updates = BalanceUpdates::<T>::get(asset_id, did);
+            let updates = balance_updates.len().saturated_into::<u32>();
             if cp <= balance_updates.last().copied().unwrap_or(CheckpointId(0)) {
                 // Use first checkpoint created after target checkpoint.
                 // The user has data for that checkpoint.
                 let id = *find_ceiling(&balance_updates, &cp);
-                return Some(Balance::<T>::get((asset_id, id), did));
+                return (Some(Balance::<T>::get((asset_id, id), did)), updates);
             }
             // User has not transacted after checkpoint creation.
             // This means their current balance = their balance at that cp.
+            return (None, updates);
         }
-        None
+        (None, 0)
+    }
+
+    /// Weight of [`Self::balance_at`] when decoding a `BalanceUpdates` history of length `updates`.
+    pub fn balance_at_weight(updates: u32) -> Weight {
+        // The extra read is `CheckpointIdSequence`, in `Self::balance_at_max_weight`.
+        <T as Config>::WeightInfo::balance_at(updates).saturating_add(T::DbWeight::get().reads(1))
+    }
+
+    /// Worst-case weight of [`Self::balance_at`] for any DID holding `asset_id`.
+    pub fn balance_at_max_weight(asset_id: AssetId) -> Weight {
+        let checkpoints = CheckpointIdSequence::<T>::get(asset_id);
+        Self::balance_at_weight(checkpoints.0.saturated_into::<u32>())
     }
 
     /// Advances checkpoints for `asset_id`,

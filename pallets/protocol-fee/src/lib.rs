@@ -39,6 +39,7 @@
 pub mod benchmarking;
 
 use frame_support::dispatch::DispatchResult;
+use frame_support::ensure;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{
     fungible::{Balanced, Credit, Inspect},
@@ -95,6 +96,8 @@ pub mod pallet {
         UnHandledImbalances,
         /// Insufficient subsidy balance to pay the fee.
         InsufficientSubsidyBalance,
+        /// The fee coefficient must be in the range `[0, 1]`.
+        InvalidCoefficient,
     }
 
     #[pallet::pallet]
@@ -129,6 +132,10 @@ pub mod pallet {
             if self.coefficient.1 == 0 {
                 Coefficient::<T>::put(&PosRatio(1, 1));
             } else {
+                assert!(
+                    Pallet::<T>::is_valid_coefficient(&self.coefficient),
+                    "protocol fee coefficient must be in the range [0, 1]"
+                );
                 Coefficient::<T>::put(&self.coefficient);
             }
         }
@@ -149,8 +156,13 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Changes the fee coefficient for the root origin.
         ///
+        /// The coefficient is a discount applied to the base fees and must be in the range `[0, 1]`,
+        /// i.e., the denominator must be non-zero and not smaller than the numerator.
+        /// To raise fees above their base value, use [`Pallet::change_base_fee`] instead.
+        ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
+        /// * `InvalidCoefficient` - The coefficient is not in the range `[0, 1]`.
         #[pallet::weight(<T as Config>::WeightInfo::change_coefficient())]
         #[pallet::call_index(0)]
         pub fn change_coefficient(
@@ -158,6 +170,10 @@ pub mod pallet {
             coefficient: PosRatio,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+            ensure!(
+                Self::is_valid_coefficient(&coefficient),
+                Error::<T>::InvalidCoefficient
+            );
             Coefficient::<T>::put(&coefficient);
             Self::deposit_event(Event::<T>::CoefficientSet(GC_DID, coefficient));
             Ok(().into())
@@ -184,6 +200,11 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
+    /// Returns `true` if `coefficient` is in the range `[0, 1]`.
+    pub fn is_valid_coefficient(coefficient: &PosRatio) -> bool {
+        coefficient.1 != 0 && coefficient.0 <= coefficient.1
+    }
+
     pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
         let coefficient = Coefficient::<T>::get();
         let ratio = Perbill::from_rational(coefficient.0, coefficient.1);
@@ -204,7 +225,8 @@ impl<T: Config> Pallet<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        Self::withdraw_from_payer(fee)
+        // A subsidy only pays if it can pay for every operation.
+        Self::withdraw_from_payer(fee, ops.iter().all(ProtocolOp::is_subsidisable))
     }
 
     /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
@@ -213,15 +235,23 @@ impl<T: Config> Pallet<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        Self::withdraw_from_payer(fee)
+        Self::withdraw_from_payer(fee, op.is_subsidisable())
     }
 
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
-    /// identity otherwise.
-    fn withdraw_fee(account: T::AccountId, fee: Balance) -> WithdrawFeeResult<T> {
+    /// identity otherwise. Any subsidy of `account` is ignored unless `subsidisable` is `true`.
+    fn withdraw_fee(
+        account: T::AccountId,
+        fee: Balance,
+        subsidisable: bool,
+    ) -> WithdrawFeeResult<T> {
         // Check if the `account` is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&account, fee, None)
-            .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
+        let subsidiser = if subsidisable {
+            T::Subsidiser::check_subsidy(&account, fee, None)
+                .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?
+        } else {
+            None
+        };
 
         // `fee_key` is either a subsidiser or the original payer.
         let fee_key = if let Some(subsidiser_key) = subsidiser {
@@ -249,9 +279,9 @@ impl<T: Config> Pallet<T> {
         Ok(ret)
     }
 
-    fn withdraw_from_payer(fee: Balance) -> DispatchResult {
+    fn withdraw_from_payer(fee: Balance, subsidisable: bool) -> DispatchResult {
         if let Some(payer) = T::TxFeeHandler::get_payer_from_context() {
-            let imbalance = Self::withdraw_fee(payer, fee)?;
+            let imbalance = Self::withdraw_fee(payer, fee, subsidisable)?;
             T::OnProtocolFeePayment::on_unbalanced(imbalance);
         }
         Ok(())
