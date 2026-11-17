@@ -37,7 +37,7 @@ use polymesh_primitives::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_primitives::SystematicIssuers;
 use polymesh_primitives::{
     extract_auth, AuthorizationData, DidRecord, ExtrinsicName, ExtrinsicPermissions, IdentityId,
-    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory,
+    KeyRecord, PalletName, Permissions, SecondaryKey, Signatory, SubsetRestriction,
 };
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::AccountIdConversion as _;
@@ -106,9 +106,11 @@ impl<T: Config> Pallet<T> {
     /// Get the full permissions of a key.
     pub fn get_key_permissions(key: &T::AccountId) -> Permissions {
         Permissions {
-            asset: KeyAssetPermissions::<T>::get(key).unwrap_or_default(),
-            extrinsic: KeyExtrinsicPermissions::<T>::get(key).unwrap_or_default(),
-            portfolio: KeyPortfolioPermissions::<T>::get(key).unwrap_or_default(),
+            asset: KeyAssetPermissions::<T>::get(key).unwrap_or_else(SubsetRestriction::empty),
+            extrinsic: KeyExtrinsicPermissions::<T>::get(key)
+                .unwrap_or_else(ExtrinsicPermissions::empty),
+            portfolio: KeyPortfolioPermissions::<T>::get(key)
+                .unwrap_or_else(SubsetRestriction::empty),
         }
     }
 
