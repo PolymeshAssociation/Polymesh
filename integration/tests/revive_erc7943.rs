@@ -275,10 +275,10 @@ async fn erc7943_forced_transfer_unfreezes() -> Result<()> {
 /// `forcedTransfer` claws tokens back to the agent, emitting both `ForcedTransfer` and `Transfer`.
 #[tokio::test]
 #[test_log::test]
-async fn erc7943_forced_transfer() -> Result<()> {
+async fn erc7943_forced_transfer_clawback() -> Result<()> {
     let (mut tester, node) = revive_tester().await?;
     let mut users = tester
-        .users(&["Erc7943ForceAgent", "Erc7943ForceHolder"])
+        .users(&["Erc7943ForceAgent", "Erc7943ClawbackHolder"])
         .await?;
     let api = tester.api.clone();
     let (issuers, holders) = users.split_at_mut(1);
