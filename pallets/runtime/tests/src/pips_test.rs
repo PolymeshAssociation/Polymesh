@@ -2138,3 +2138,76 @@ fn prune_data_with_leftover() {
         );
     });
 }
+
+#[test]
+fn execute_scheduled_pip_rejects_transaction_version_mismatch() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        let pip_id = PipIdSequence::<TestStorage>::get();
+        let user = User::new(Sr25519Keyring::Alice);
+        // The proposal sets the minimum deposit to 42, so its execution is observable.
+        assert_ok!(standard_proposal(
+            &user.origin(),
+            &Proposer::Community(user.acc()),
+            0
+        ));
+        set_members(vec![user.did]);
+        assert_ok!(Pips::snapshot(user.origin(), 1000));
+        assert_ok!(Pips::enact_snapshot_results(
+            gc_vmo(),
+            vec![(pip_id, SnapshotResult::Approve)],
+        ));
+        assert_state(pip_id, false, ProposalState::Scheduled);
+
+        // Simulate a PIP proposed before a transaction version bump.
+        let current_version = ProposalMetadata::<TestStorage>::get(pip_id)
+            .unwrap()
+            .transaction_version;
+        let stale_version = current_version - 1;
+        ProposalMetadata::<TestStorage>::mutate(pip_id, |meta| {
+            meta.as_mut().unwrap().transaction_version = stale_version;
+        });
+        let active = ActivePipCount::<TestStorage>::get();
+
+        assert_ok!(Pips::execute_scheduled_pip(root(), pip_id));
+
+        // The stored call was not dispatched and the PIP is failed.
+        assert_eq!(MinimumProposalDeposit::<TestStorage>::get(), 0);
+        assert_state(pip_id, false, ProposalState::Failed);
+        assert_eq!(ActivePipCount::<TestStorage>::get(), active - 1);
+        assert_eq!(PendingRefunds::<TestStorage>::get(pip_id), Some(true));
+        assert_last_event!(
+            Event::ExecutionRejectedTransactionVersionMismatch(id, stored, current),
+            *id == pip_id && *stored == stale_version && *current == current_version
+        );
+    });
+}
+
+#[test]
+fn execute_scheduled_pip_dispatches_matching_transaction_version() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        let pip_id = PipIdSequence::<TestStorage>::get();
+        let user = User::new(Sr25519Keyring::Alice);
+        assert_ok!(standard_proposal(
+            &user.origin(),
+            &Proposer::Community(user.acc()),
+            0
+        ));
+        set_members(vec![user.did]);
+        assert_ok!(Pips::snapshot(user.origin(), 1000));
+        assert_ok!(Pips::enact_snapshot_results(
+            gc_vmo(),
+            vec![(pip_id, SnapshotResult::Approve)],
+        ));
+
+        assert_ok!(Pips::execute_scheduled_pip(root(), pip_id));
+
+        assert_eq!(MinimumProposalDeposit::<TestStorage>::get(), 42);
+        assert_state(pip_id, false, ProposalState::Executed);
+    });
+}
