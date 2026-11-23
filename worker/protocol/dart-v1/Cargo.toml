@@ -1,6 +1,6 @@
 [package]
 name = "polymesh-worker-protocol-dart-v1"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Polymesh Labs"]
 license-file = "../../../LICENSE"
 repository = "https://github.com/PolymeshAssociation/Polymesh"
