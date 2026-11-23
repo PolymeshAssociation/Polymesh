@@ -9734,7 +9734,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-worker-modules"
-version = "8.2.0"
+version = "8.2.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10777,7 +10777,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "8.2.0"
+version = "8.2.1"
 dependencies = [
  "array-bytes 6.2.3",
  "clap",
