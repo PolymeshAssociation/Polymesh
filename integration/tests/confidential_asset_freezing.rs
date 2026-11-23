@@ -19,6 +19,7 @@ mod confidential_asset_freezing_tests {
         receiver: &DartUser,
         revealed: bool,
         memo: &[u8],
+        is_instant: bool,
     ) -> Result<SettlementProof<()>> {
         let tree = tester.asset_tree().await;
         let block = tree.get_block_number().await?;
@@ -41,7 +42,12 @@ mod confidential_asset_freezing_tests {
             },
             public_enc_keys: vec![],
         });
-        Ok(builder.build(&mut rand::thread_rng())?)
+        let ctx = if is_instant {
+            INSTANT_SETTLEMENT_CTX
+        } else {
+            BATCHED_PROOFS_CTX
+        };
+        Ok(builder.build_with_context(ctx, &mut rand::thread_rng())?)
     }
 
     async fn assert_leaf_event(
@@ -270,6 +276,17 @@ mod confidential_asset_freezing_tests {
             &receiver,
             true,
             b"Freeze revealed settlement",
+            false,
+        )
+        .await?;
+        let instant_proof = settlement_proof(
+            &tester,
+            &asset,
+            &issuer,
+            &receiver,
+            true,
+            b"Freeze revealed settlement",
+            true,
         )
         .await?;
         issuer.set_asset_frozen(asset.id, true).await?;
@@ -281,7 +298,7 @@ mod confidential_asset_freezing_tests {
         assert_operation_fails_with(
             venue
                 .execute_instant_settlement(InstantSettlementProof {
-                    settlement: proof.clone(),
+                    settlement: instant_proof.clone(),
                     leg_affirmations: Default::default(),
                 })
                 .await,
@@ -333,6 +350,7 @@ mod confidential_asset_freezing_tests {
             &receiver,
             false,
             b"Freeze historical root",
+            false,
         )
         .await?;
         issuer.set_asset_frozen(asset.id, true).await?;

@@ -115,6 +115,9 @@ pub use curve_tree::*;
 mod settlement;
 pub use settlement::*;
 
+pub const BATCHED_PROOFS_CTX: &[u8] = b"polymesh-dart-batched";
+pub const INSTANT_SETTLEMENT_CTX: &[u8] = b"polymesh-dart-instant-settlement";
+
 /// Pallet ID for Confidential Assets pallet.
 ///
 /// This is used to hold the POLYX used in private fee payments.
@@ -2337,7 +2340,8 @@ pub mod pallet {
                 Error::<T>::TooManyProofs
             );
 
-            let actual_weight = Self::process_batched_proofs(proof, None)?;
+            let actual_weight =
+                Self::process_batched_proofs(proof, Some(&BATCHED_PROOFS_CTX.to_vec()))?;
 
             Ok(PostDispatchInfo {
                 actual_weight: Some(actual_weight),
@@ -2400,7 +2404,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::base_execute_instant_settlement(proof, None)
+            Self::base_execute_instant_settlement(proof, Some(&INSTANT_SETTLEMENT_CTX.to_vec()))
         }
 
         /// Sender affirms a settlement leg as the last pending affirmation.

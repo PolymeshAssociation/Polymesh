@@ -7,6 +7,7 @@ use frame_system::RawOrigin;
 use pallet_confidential_assets::{
     weights::SubstrateWeight, AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error,
     FeeAccountDid, FreezeOrigin, Keys, Pallet, RelayerSubmitExtensionMarker, WeightInfo,
+    BATCHED_PROOFS_CTX,
 };
 use polymesh_dart::{
     curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
@@ -517,7 +518,7 @@ fn confidential_assets_ordinary_submission_context() {
             RawOrigin::Signed(account.clone()).into(),
             ordinary,
         ));
-        let ordinary = submission_settlement(&[], 2, false);
+        let ordinary = submission_settlement(BATCHED_PROOFS_CTX, 2, false);
         let batch = BatchedProofs {
             proofs: vec![BatchedProof::CreateSettlement(ordinary)]
                 .try_into()

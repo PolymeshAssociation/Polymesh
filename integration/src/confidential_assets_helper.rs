@@ -44,6 +44,9 @@ pub use polymesh_api_tester::{
 pub mod curve_tree;
 pub use curve_tree::*;
 
+pub const BATCHED_PROOFS_CTX: &[u8] = b"polymesh-dart-batched";
+pub const INSTANT_SETTLEMENT_CTX: &[u8] = b"polymesh-dart-instant-settlement";
+
 use crate::wait_for_results;
 
 pub fn print_curve_tree_path<const L: usize, P0: SWCurveConfig + Copy, P1: SWCurveConfig + Copy>(
@@ -654,7 +657,7 @@ impl DartProofSubmitter {
 
     pub async fn prepare_submission_context(&mut self) -> Result<Option<Vec<u8>>> {
         if !self.method.is_relayer() {
-            return Ok(None);
+            return Ok(Some(BATCHED_PROOFS_CTX.to_vec()));
         }
         if self.submission.is_some() {
             return Ok(self.submission.clone());
