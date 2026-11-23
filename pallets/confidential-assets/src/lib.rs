@@ -32,10 +32,6 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::key_distribution_proof::KeyDistributionProof;
-use polymesh_dart::{
-    AccountStateUpdateAction, AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof,
-};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, Claim, IdentityId, Scope,
@@ -54,17 +50,19 @@ use sp_std::convert::From;
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
 use polymesh_dart::{
     relayer_batch_proof_context, AccountPublicKey, AccountRegistrationProof,
-    AccountStateCommitment, AccountStateNullifier, AccountStateUpdate,
-    AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
-    BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
+    AccountStateCommitment, AccountStateNullifier, AccountStateUpdate, AccountStateUpdateAction,
+    AssetId as ConfidentialAssetId, AssetKeys, AssetKeysLookup, AssetMintingProof, AssetPkTLookup,
+    AssetState, BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, BatchedProof, BatchedProofs, BatchedSettlementProof, DartLimits,
     EncryptionKeyRegistrationProof, EncryptionPublicKey, Error as DartError,
     FeeAccountPaymentProof, FeeAccountStateCommitment, FeeAccountStateNullifier,
-    FeePaymentWithBatchedProofs, InstantReceiverAffirmationProof, InstantSenderAffirmationProof,
-    InstantSettlementProof, LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof,
-    NodeLevel, PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
+    FeeAccountStateUpdate, FeeAccountStateUpdateAction, FeePaymentWithBatchedProofs,
+    InstantReceiverAffirmationProof, InstantSenderAffirmationProof, InstantSettlementProof,
+    LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof, NodeLevel, PolymeshLimits,
+    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
     SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
     SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
@@ -879,6 +877,8 @@ pub mod pallet {
         /// Fee account curve tree leaf inserted.
         ///
         /// This curve tree is append-only, so we only store the new leaf.
+        ///
+        /// @deprecated Use event `FeeAccountStateUpdated` instead.
         FeeAccountStateLeafInserted {
             /// The new leaf index.
             leaf_index: LeafIndex,
@@ -888,6 +888,8 @@ pub mod pallet {
         /// An asset state leaf has been updated.
         ///
         /// This curve tree is mutable, so we can update existing leaves.
+        ///
+        /// @deprecated Use event `AccountStateUpdated` instead.
         AssetStateLeafUpdated {
             /// The new leaf index.
             leaf_index: LeafIndex,
@@ -988,8 +990,8 @@ pub mod pallet {
             leaf_index: LeafIndex,
             /// The new fee account state commitment.
             fee_account_commitment: FeeAccountStateCommitment,
-            /// The nullifier to burn the previous fee account state commitment.
-            nullifier: Option<FeeAccountStateNullifier>,
+            /// The update action that led to this fee account state update.
+            update_action: FeeAccountStateUpdateAction,
         },
     }
 
@@ -2187,7 +2189,12 @@ pub mod pallet {
                 ensure!(p.asset_id == FEE_ASSET_ID, Error::<T>::InvalidFeeAssetId);
 
                 let amount = Self::amount_to_balance(p.amount)?;
-                registrations.push((p.account, amount, p.account_state_commitment));
+                registrations.push((
+                    p.account,
+                    amount,
+                    p.account_state_commitment,
+                    p.update_action(),
+                ));
             }
 
             // Deposit the total POLYX amount into the fee pool.
@@ -2201,9 +2208,9 @@ pub mod pallet {
             })?;
 
             // Process each registration.
-            for (account, amount, account_state_commitment) in registrations {
+            for (account, amount, account_state_commitment, update_action) in registrations {
                 // Insert the new fee account state commitment from the proof into the fee account curve tree.
-                Self::insert_fee_account_leaf(account_state_commitment, None)?;
+                Self::insert_fee_account_leaf(account_state_commitment, update_action)?;
 
                 // Emit an event for the fee account registration.
                 Self::deposit_event(Event::<T>::FeeAccountUpdated {
@@ -2270,7 +2277,7 @@ pub mod pallet {
                     p.account,
                     amount,
                     p.updated_account_state_commitment,
-                    p.nullifier,
+                    p.update_action(),
                 ));
             }
 
@@ -2290,9 +2297,9 @@ pub mod pallet {
             })?;
 
             // Process each topup.
-            for (account, amount, account_state_commitment, nullifier) in topups {
+            for (account, amount, account_state_commitment, update_action) in topups {
                 // Insert the new fee account state commitment from the proof into the fee account curve tree.
-                Self::insert_fee_account_leaf(account_state_commitment, Some(nullifier))?;
+                Self::insert_fee_account_leaf(account_state_commitment, update_action)?;
 
                 // Emit an event for the fee account topup.
                 Self::deposit_event(Event::<T>::FeeAccountUpdated {
@@ -3483,7 +3490,7 @@ impl<T: Config> Pallet<T> {
         proof: FeeAccountPaymentProof<PolymeshLimits>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         let account_state_commitment = proof.updated_account_state_commitment;
-        let nullifier = proof.nullifier;
+        let update_action = proof.update_action();
         let amount = Self::amount_to_balance(proof.amount)?;
 
         // Ensure the fee asset id is valid.  Only one is supported now.
@@ -3505,7 +3512,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::InvalidFeePaymentProof)?;
 
         // Insert the new fee account state commitment from the proof into the fee account curve tree.
-        Self::insert_fee_account_leaf(account_state_commitment, Some(nullifier))?;
+        Self::insert_fee_account_leaf(account_state_commitment, update_action)?;
 
         // Withdraw the fee amount from the fee pool.
         Self::fee_account_withdraw(relayer.clone(), amount)?;
@@ -3743,9 +3750,9 @@ impl<T: Config> Pallet<T> {
     /// Insert a new fee account state commitment into the fee account curve tree.
     fn insert_fee_account_leaf(
         fee_account_commitment: FeeAccountStateCommitment,
-        nullifier: Option<FeeAccountStateNullifier>,
+        update_action: FeeAccountStateUpdateAction,
     ) -> Result<(), Error<T>> {
-        if let Some(nullifier) = nullifier {
+        if let Some(nullifier) = update_action.nullifier() {
             // Burn the nullifier for the old fee account commitment to ensure it cannot be used again.
             FeeAccountStateCommitmentNullifiers::<T>::try_mutate(nullifier, |maybe_val| {
                 if maybe_val.is_some() {
@@ -3768,7 +3775,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::FeeAccountStateUpdated {
             leaf_index,
             fee_account_commitment,
-            nullifier,
+            update_action,
         });
         Ok(())
     }
