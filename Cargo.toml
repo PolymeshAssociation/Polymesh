@@ -142,7 +142,7 @@ members = [
 exclude = ["contracts", "integration", "metadata-tools", "worker/protocol/dart-v0"]
 
 [workspace.package]
-version = "8.2.0"
+version = "8.2.1"
 authors = ["PolymeshAssociation"]
 license-file = "./LICENSE"
 edition = "2021"
