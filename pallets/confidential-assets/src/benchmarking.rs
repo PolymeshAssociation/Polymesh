@@ -61,7 +61,12 @@ fn init_curve_trees<T: Config>() {
         let nullifier = account_state
             .nullifier()
             .expect("Failed to get fee account state nullifier");
-        Pallet::<T>::insert_fee_account_leaf(commitment, Some(nullifier))
+        let fake_action = FeeAccountStateUpdateAction::FeePayment {
+            asset_id: 0,
+            amount: 0,
+            nullifier,
+        };
+        Pallet::<T>::insert_fee_account_leaf(commitment, fake_action)
             .expect("Failed to insert fee account leaf");
     }
 
@@ -76,7 +81,11 @@ fn init_curve_trees<T: Config>() {
         let nullifier = account_state
             .nullifier()
             .expect("Failed to get account state nullifier");
-        Pallet::<T>::insert_account_leaf(account_commitment, Some(nullifier))
+        let fake_action = AccountStateUpdateAction::SenderAffirmation {
+            nullifier,
+            leg_ref: LegRef::default(),
+        };
+        Pallet::<T>::insert_account_leaf(account_commitment, fake_action)
             .expect("Failed to insert account leaf");
     }
 
@@ -185,7 +194,11 @@ benchmarks! {
 
         // Insert the account state commitments into the account curve tree.
         for (account_commitment, nullifier) in account_commitments {
-            Pallet::<T>::insert_account_leaf(account_commitment, Some(nullifier))
+            let fake_action = AccountStateUpdateAction::SenderAffirmation {
+                nullifier,
+                leg_ref: LegRef::default(),
+            };
+            Pallet::<T>::insert_account_leaf(account_commitment, fake_action)
                 .expect("Failed to insert account leaf");
         }
     }: {
@@ -215,7 +228,12 @@ benchmarks! {
 
         // Insert the account state commitments into the account curve tree.
         for (account_commitment, nullifier) in fee_account_commitments {
-            Pallet::<T>::insert_fee_account_leaf(account_commitment, Some(nullifier))
+            let fake_action = FeeAccountStateUpdateAction::FeePayment {
+                asset_id: 0,
+                amount: 0,
+                nullifier,
+            };
+            Pallet::<T>::insert_fee_account_leaf(account_commitment, fake_action)
                 .expect("Failed to insert fee account leaf");
         }
     }: {
