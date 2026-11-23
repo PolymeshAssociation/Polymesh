@@ -4,7 +4,7 @@
     "version": {
       "major": 1,
       "minor": 0,
-      "patch": 0
+      "patch": 1
     }
   },
   "initialization_method": "SaveContextFromFirstInstance",
@@ -12,27 +12,17 @@
     {
       "module_kind": "PolkaVM",
       "module_version": 2,
-      "code_hash": "0x51a5d18086b1c79180a15c053bce928ab3a45ceeb12b0c7c3cbc88c24771cfa0"
-    },
-    {
-      "module_kind": "PolkaVM",
-      "module_version": 1,
-      "code_hash": "0x8b850f12211768e855d76a3da9dd0438f6aa13503750f15ca44d0b68e5bd4313"
+      "code_hash": "0x50686f505f1d4d85c983cf52193d0919c774b5231c9e66b55d7a389aac5726a6"
     },
     {
       "module_kind": "Wasm",
       "module_version": 2,
-      "code_hash": "0x13101f81fb1efad0bdd9b3ad636c8529caf110a8e66895cc9d1fff5a6b2a4f2d"
-    },
-    {
-      "module_kind": "Wasm",
-      "module_version": 1,
-      "code_hash": "0x5e8bd282dd341748feb36814ab184b3630a278648125a69d9c6ed25d18375cfe"
+      "code_hash": "0xc3f044f9f0d4903fb3c8ecbf5fb535a5017b8984decf9ca407bbb52c18f2645e"
     },
     {
       "module_kind": "Native",
       "module_version": 1,
-      "code_hash": "0xcbed914ab0ea7a2050886b399a7eda8dd68d07b0250dbdc4f72a786ca7c1d73f"
+      "code_hash": "0x29ccbdb785fefba3b1539c6d699cee20be6fc8397051080b2604edfd6c98b3d7"
     }
   ]
 }
