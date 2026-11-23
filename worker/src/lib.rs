@@ -210,7 +210,7 @@ impl StaticModules {
     fn add_dart_v1(&mut self) {
         let protocol = Protocol {
             id: PROTOCOL_PDART,
-            version: ProtocolVersion::new(1, 0, 0),
+            version: ProtocolVersion::new(1, 0, 1),
         };
         self.protocols.insert(
             protocol,

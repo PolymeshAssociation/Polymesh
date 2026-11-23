@@ -868,6 +868,8 @@ pub mod pallet {
         /// Account curve tree leaf inserted.
         ///
         /// This curve tree is append-only, so we only store the new leaf.
+        ///
+        /// @deprecated Use event `AccountStateUpdated` instead.
         AccountStateLeafInserted {
             /// The new leaf index.
             leaf_index: LeafIndex,
@@ -888,8 +890,6 @@ pub mod pallet {
         /// An asset state leaf has been updated.
         ///
         /// This curve tree is mutable, so we can update existing leaves.
-        ///
-        /// @deprecated Use event `AccountStateUpdated` instead.
         AssetStateLeafUpdated {
             /// The new leaf index.
             leaf_index: LeafIndex,
