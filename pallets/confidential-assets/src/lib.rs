@@ -1537,8 +1537,12 @@ pub mod pallet {
                 AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
                 AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
                 FeeAccountCurveTreeHeight::<T>::put(FEE_ACCOUNT_TREE_HEIGHT);
-
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 3));
+
+                // MAINNET: Block all roles without a spec, so no one can act before Root installs
+                // the correct claim requirements (Mainnet safety).
+                Pallet::<T>::initialize_required_claims(None);
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
             } else {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
             }
@@ -1558,9 +1562,6 @@ pub mod pallet {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
             }
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 0));
-
-            // Recover stuck settlements (0 -> 1).
-            weight = weight.saturating_add(Self::migrate_to_v1());
 
             weight
         }
