@@ -66,6 +66,7 @@ use polymesh_dart::{
     SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
     SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
+pub use polymesh_dart::{BATCHED_PROOFS_CTX, INSTANT_SETTLEMENT_CTX};
 
 #[cfg(feature = "host_workers")]
 use polymesh_worker_common::WorkerVersion;
@@ -114,9 +115,6 @@ pub use curve_tree::*;
 
 mod settlement;
 pub use settlement::*;
-
-pub const BATCHED_PROOFS_CTX: &[u8] = b"polymesh-dart-batched";
-pub const INSTANT_SETTLEMENT_CTX: &[u8] = b"polymesh-dart-instant-settlement";
 
 /// Pallet ID for Confidential Assets pallet.
 ///

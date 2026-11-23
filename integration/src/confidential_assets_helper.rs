@@ -30,7 +30,10 @@ use polymesh_dart::{
     SenderCounterUpdateProof, SenderRevertAffirmationProof, SettlementBuilder, SettlementProof,
     SettlementRef, ACCOUNT_TREE_L, ACCOUNT_TREE_M,
 };
-pub use polymesh_dart::{AccountAssetState, AccountKeys, AssetId as DartAssetId};
+pub use polymesh_dart::{
+    AccountAssetState, AccountKeys, AssetId as DartAssetId, BATCHED_PROOFS_CTX,
+    INSTANT_SETTLEMENT_CTX,
+};
 
 use polymesh_api::types::pallet_confidential_assets::RoleKind;
 use polymesh_api::types::polymesh_primitives::identity_claim::{Claim, Scope};
@@ -43,9 +46,6 @@ pub use polymesh_api_tester::{
 
 pub mod curve_tree;
 pub use curve_tree::*;
-
-pub const BATCHED_PROOFS_CTX: &[u8] = b"polymesh-dart-batched";
-pub const INSTANT_SETTLEMENT_CTX: &[u8] = b"polymesh-dart-instant-settlement";
 
 use crate::wait_for_results;
 
