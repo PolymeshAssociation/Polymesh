@@ -33,7 +33,9 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use polymesh_dart::key_distribution_proof::KeyDistributionProof;
-use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
+use polymesh_dart::{
+    AccountStateUpdateAction, AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof,
+};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, Claim, IdentityId, Scope,
@@ -957,13 +959,37 @@ pub mod pallet {
             /// Key distribution proof (contains the recipients and their ciphertexts).
             proof: KeyDistributionProof<PolymeshLimits>,
         },
+        /// An asset has been frozen.
         AssetFrozen {
             asset_id: ConfidentialAssetId,
             freeze_origin: FreezeOrigin,
         },
+        /// An asset has been unfrozen.
         AssetUnfrozen {
             asset_id: ConfidentialAssetId,
             unfreeze_origin: FreezeOrigin,
+        },
+        /// A new account state commitment has been added.
+        ///
+        /// This curve tree is append-only, so we only store the new leaf.
+        AccountStateUpdated {
+            /// The new leaf index.
+            leaf_index: LeafIndex,
+            /// The new account state commitment.
+            account_commitment: AccountStateCommitment,
+            /// The update action that led to this account state update.
+            update_action: AccountStateUpdateAction,
+        },
+        /// A new fee account state commitment has been added.
+        ///
+        /// This curve tree is append-only, so we only store the new leaf.
+        FeeAccountStateUpdated {
+            /// The new leaf index.
+            leaf_index: LeafIndex,
+            /// The new fee account state commitment.
+            fee_account_commitment: FeeAccountStateCommitment,
+            /// The nullifier to burn the previous fee account state commitment.
+            nullifier: Option<FeeAccountStateNullifier>,
         },
     }
 
@@ -1743,7 +1769,7 @@ pub mod pallet {
                 );
                 AccountAssetRegistrations::<T>::insert((&p.account.acct, &p.asset_id), true);
 
-                registrations.push((p.account, p.asset_id, p.account_state_commitment));
+                registrations.push((p.account, p.asset_id, p.counter, p.account_state_commitment));
             }
 
             // Verify the proof.
@@ -1755,9 +1781,16 @@ pub mod pallet {
             })?;
 
             // Process each registration.
-            for (account, asset_id, account_state_commitment) in registrations {
+            for (account, asset_id, counter, account_state_commitment) in registrations {
                 // Insert the new account state commitment from the proof into the account curve tree.
-                Self::insert_account_leaf(account_state_commitment, None)?;
+                Self::insert_account_leaf(
+                    account_state_commitment,
+                    AccountStateUpdateAction::AccountAssetRegistration {
+                        account: account.acct,
+                        asset_id,
+                        counter,
+                    },
+                )?;
 
                 // Emit an event for the account asset registration.
                 Self::deposit_event(Event::<T>::AccountAssetRegistered {
@@ -3582,6 +3615,7 @@ impl<T: Config> Pallet<T> {
         verify: impl FnOnce(P, AccountTreeRoot) -> DispatchResult,
     ) -> DispatchResult {
         let nullifier = proof.nullifier();
+        let update_action = proof.update_action();
         let account_commitment = proof.account_state_commitment();
         // Ensure the nullifier is unique.
         Self::ensure_account_state_nullifier_unique(&nullifier)?;
@@ -3592,7 +3626,7 @@ impl<T: Config> Pallet<T> {
         verify(proof, root)?;
 
         // Insert the update account state commitment into the account curve tree.
-        Self::insert_account_leaf(account_commitment, Some(nullifier))?;
+        Self::insert_account_leaf(account_commitment, update_action)?;
 
         Ok(())
     }
@@ -3675,9 +3709,9 @@ impl<T: Config> Pallet<T> {
     /// Insert a new account state commitment into the account curve tree.
     fn insert_account_leaf(
         account_commitment: AccountStateCommitment,
-        nullifier: Option<AccountStateNullifier>,
+        update_action: AccountStateUpdateAction,
     ) -> Result<(), Error<T>> {
-        if let Some(nullifier) = nullifier {
+        if let Some(nullifier) = update_action.nullifier() {
             // Burn the nullifier for the old account commitment to ensure it cannot be used again.
             AccountStateCommitmentNullifiers::<T>::try_mutate(nullifier, |maybe_val| {
                 if maybe_val.is_some() {
@@ -3696,6 +3730,11 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::AccountStateLeafInserted {
             leaf_index,
             account_commitment,
+        });
+        Self::deposit_event(Event::<T>::AccountStateUpdated {
+            leaf_index,
+            account_commitment,
+            update_action,
         });
 
         Ok(())
@@ -3725,6 +3764,11 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::FeeAccountStateLeafInserted {
             leaf_index,
             fee_account_commitment,
+        });
+        Self::deposit_event(Event::<T>::FeeAccountStateUpdated {
+            leaf_index,
+            fee_account_commitment,
+            nullifier,
         });
         Ok(())
     }
