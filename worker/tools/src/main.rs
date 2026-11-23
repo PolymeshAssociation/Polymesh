@@ -93,16 +93,14 @@ fn build_release_config(
     wasm_compressed: &[u8],
 ) -> Result<ProtocolModuleConfig> {
     let protocol = Protocol::new(PROTOCOL_PDART, protocol_version);
-    let polkavm = decompress_module(polkavm_compressed, "PolkaVM")?;
-    let wasm = decompress_module(wasm_compressed, "Wasm")?;
+    decompress_module(polkavm_compressed, "PolkaVM")?;
+    decompress_module(wasm_compressed, "Wasm")?;
     Ok(ProtocolModuleConfig {
         protocol,
         initialization_method: ProtocolInitializationMethod::SaveContextFromFirstInstance,
         modules: vec![
             module_definition(BackendModuleKind::PolkaVM, 2, polkavm_compressed),
-            module_definition(BackendModuleKind::PolkaVM, 1, &polkavm),
             module_definition(BackendModuleKind::Wasm, 2, wasm_compressed),
-            module_definition(BackendModuleKind::Wasm, 1, &wasm),
             module_definition(BackendModuleKind::Native, 1, &protocol.encode()),
         ],
     })
