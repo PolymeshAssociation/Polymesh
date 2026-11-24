@@ -8,7 +8,9 @@ use sp_runtime::traits::Dispatchable;
 use pallet_identity::MultiPurposeNonce;
 use pallet_multisig::{self as multisig, Proposals, Votes, WeightInfo as _};
 use pallet_multisig::{AdminDid, LastInvalidProposal, MultiSigSignsRequired, NextProposalId};
-use pallet_multisig::{NumberOfSigners, ProposalStates, ProposalVoteCounts, ProposalWeights};
+use pallet_multisig::{
+    NumberOfSigners, ProposalStates, ProposalVoteCounts, ProposalWeights, MIN_PROPOSAL_WEIGHT,
+};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
 use polymesh_primitives::RocksDbWeight as DbWeight;
@@ -2066,5 +2068,28 @@ fn reject_removes_proposal_weight() {
             &ms_address,
             proposal_id
         ));
+    });
+}
+
+#[test]
+fn unrecorded_proposal_weight_requires_minimum() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (ms_address, dave_signer, proposal_id) =
+            setup_pending_proposal(large_batch_proposal(1, 0));
+        // Simulate a proposal created before `ProposalWeights` existed.
+        ProposalWeights::<TestStorage>::remove(&ms_address, proposal_id);
+
+        let below_min = MIN_PROPOSAL_WEIGHT.saturating_sub(Weight::from_parts(1, 0));
+        let err = approve_call(&ms_address, proposal_id, below_min)
+            .dispatch(Origin::signed(dave_signer.clone()))
+            .expect_err("approve must fail with MaxWeightTooLow");
+        assert_eq!(err.error, Error::MaxWeightTooLow.into());
+
+        assert_ok!(approve_call(&ms_address, proposal_id, MIN_PROPOSAL_WEIGHT)
+            .dispatch(Origin::signed(dave_signer)));
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
+            Some(ProposalState::ExecutionSuccessful)
+        );
     });
 }

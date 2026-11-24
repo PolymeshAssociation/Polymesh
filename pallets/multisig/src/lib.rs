@@ -132,7 +132,10 @@ pub trait WeightInfo {
 
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
 
-storage_migration_ver!(4);
+storage_migration_ver!(3);
+
+/// Minimum `max_weight` required to execute a proposal
+pub const MIN_PROPOSAL_WEIGHT: Weight = Weight::from_parts(1_000_000_000, 0);
 
 fn add_base_weight(base_weight: Weight, post_info: &mut PostDispatchInfo) {
     if let Some(actual_weight) = &mut post_info.actual_weight {
@@ -771,7 +774,7 @@ pub mod pallet {
     /// Weight needed to execute a stored proposal: its call weight plus the cost of decoding it.
     #[pallet::storage]
     pub type ProposalWeights<T: Config> =
-        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, Weight>;
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, Weight, OptionQuery>;
 
     /// Individual multisig signer votes.
     ///
@@ -859,7 +862,7 @@ pub mod pallet {
         fn build(&self) {
             MultiSigNonce::<T>::put(1);
             TransactionVersion::<T>::put(0);
-            StorageVersion::<T>::put(Version::new(4));
+            StorageVersion::<T>::put(Version::new(3));
         }
     }
 }
@@ -1161,10 +1164,17 @@ impl<T: Config> Pallet<T> {
         caller_did: Option<IdentityId>,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
-        // Ensure `max_weight` covers the weight recorded at creation
-        let recorded_weight = ProposalWeights::<T>::get(multisig, proposal_id)
-            .ok_or_else(|| Error::<T>::ProposalMissing)?;
-        if recorded_weight.any_gt(max_weight) {
+        // Ensure `max_weight` covers the weight recorded at creation.
+        // Proposals created before `ProposalWeights` existed have no recorded weight; for those,
+        // `max_weight` must be at least `MIN_PROPOSAL_WEIGHT`.
+        let recorded_weight =
+            ProposalWeights::<T>::get(multisig, proposal_id).unwrap_or(Weight::zero());
+        let required_weight = if recorded_weight == Weight::zero() {
+            MIN_PROPOSAL_WEIGHT
+        } else {
+            recorded_weight
+        };
+        if required_weight.any_gt(max_weight) {
             return Err(DispatchErrorWithPostInfo {
                 post_info: Some(DbWeight::get().reads(1)).into(),
                 error: Error::<T>::MaxWeightTooLow.into(),
