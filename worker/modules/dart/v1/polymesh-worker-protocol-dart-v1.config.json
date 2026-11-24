@@ -12,12 +12,12 @@
     {
       "module_kind": "PolkaVM",
       "module_version": 2,
-      "code_hash": "0x50686f505f1d4d85c983cf52193d0919c774b5231c9e66b55d7a389aac5726a6"
+      "code_hash": "0x780d19a85126928b4abdd7bc36528cd4bf4f1734cb69a2949e1256de475a32b3"
     },
     {
       "module_kind": "Wasm",
       "module_version": 2,
-      "code_hash": "0xc3f044f9f0d4903fb3c8ecbf5fb535a5017b8984decf9ca407bbb52c18f2645e"
+      "code_hash": "0x67f370042b32a43c60b811d2ee7aa41cc7f77a8933af7e2651c81f52316d4adb"
     },
     {
       "module_kind": "Native",
