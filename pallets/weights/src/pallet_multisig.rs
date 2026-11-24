@@ -139,9 +139,12 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     }
     // Storage: `MultiSig::Proposals` (r:1 w:1)
     // Proof: `MultiSig::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn decode_proposal() -> Weight {
-        // Minimum execution time: 1_361_553 nanoseconds.
-        Weight::from_parts(1_408_162_000, 0)
+    /// The range of component `b` is `[0, 7000000]`.
+    fn decode_proposal(b: u32) -> Weight {
+        // Minimum execution time: 2_374_351 nanoseconds.
+        Weight::from_parts(3_817_427_109, 0)
+            // Standard Error: 17
+            .saturating_add(Weight::from_parts(1_256, 0).saturating_mul(b.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }

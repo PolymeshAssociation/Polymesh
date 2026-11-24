@@ -70,8 +70,8 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::convert::From;
 use frame_support::dispatch::{
-    DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
-    PostDispatchInfo,
+    DispatchClass, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+    GetDispatchInfo, PostDispatchInfo,
 };
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::{Get, GetCallMetadata, IsSubType, UnfilteredDispatchable};
@@ -97,7 +97,7 @@ pub trait WeightInfo {
     fn create_proposal() -> Weight;
     fn approve() -> Weight;
     fn execute_proposal() -> Weight;
-    fn decode_proposal() -> Weight;
+    fn decode_proposal(b: u32) -> Weight;
     fn reject() -> Weight;
     fn accept_multisig_signer() -> Weight;
     fn add_multisig_signers(signers: u32) -> Weight;
@@ -122,9 +122,9 @@ pub trait WeightInfo {
         })
     }
 
-    fn approve_and_execute(max_weight: &Option<Weight>) -> Weight {
+    fn approve_and_execute(max_weight: &Option<Weight>, max_proposal_len: u32) -> Weight {
         Self::approve()
-            .saturating_add(Self::decode_proposal())
+            .saturating_add(Self::decode_proposal(max_proposal_len))
             .saturating_add(Self::execute_proposal())
             .saturating_add(Self::default_max_weight(max_weight))
     }
@@ -267,6 +267,7 @@ pub mod pallet {
         #[pallet::call_index(1)]
         #[pallet::weight({
           <T as Config>::WeightInfo::create_proposal()
+            .saturating_add(<T as Config>::WeightInfo::decode_proposal(proposal.encoded_size() as u32))
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
             .saturating_add(proposal.get_dispatch_info().call_weight)
         })]
@@ -291,7 +292,10 @@ pub mod pallet {
         ///
         /// If quorum is reached, the proposal will be immediately executed.
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::approve_and_execute(max_weight))]
+        #[pallet::weight(<T as Config>::WeightInfo::approve_and_execute(
+            max_weight,
+            Pallet::<T>::max_proposal_len(),
+        ))]
         pub fn approve(
             origin: OriginFor<T>,
             multisig: T::AccountId,
@@ -526,6 +530,9 @@ pub mod pallet {
         #[pallet::weight({
           <T as Config>::WeightInfo::create_join_identity()
             .saturating_add(<T as Config>::WeightInfo::approve_join_identity())
+            .saturating_add(<T as Config>::WeightInfo::decode_proposal(
+                Pallet::<T>::join_identity_proposal_len(*auth_id),
+            ))
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
             .saturating_add(<T as Config>::WeightInfo::join_identity())
         })]
@@ -852,6 +859,18 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Upper bound on the encoded length of a stored proposal.
+    pub fn max_proposal_len() -> u32 {
+        *<T as frame_system::Config>::BlockLength::get()
+            .max
+            .get(DispatchClass::Normal)
+    }
+
+    /// Encoded length of the `join_identity` proposal created by `approve_join_identity`.
+    pub fn join_identity_proposal_len(auth_id: u64) -> u32 {
+        <T as Config>::Proposal::from(Call::<T>::join_identity { auth_id }).encoded_size() as u32
+    }
+
     pub fn get_paying_did(multisig: &T::AccountId) -> Option<IdentityId> {
         PayingDid::<T>::get(multisig)
     }
@@ -1138,12 +1157,14 @@ impl<T: Config> Pallet<T> {
         let proposal = Proposals::<T>::take(multisig, proposal_id)
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
+        let decode_weight =
+            <T as Config>::WeightInfo::decode_proposal(proposal.encoded_size() as u32);
+
         // Ensure `max_weight` was enough to cover the worst-case weight.
-        // The proposal has already been loaded, so charge for decoding it.
         let proposal_weight = proposal.get_dispatch_info().call_weight;
         if !proposal_weight.all_lte(max_weight) {
             return Err(DispatchErrorWithPostInfo {
-                post_info: Some(<T as Config>::WeightInfo::decode_proposal()).into(),
+                post_info: Some(decode_weight).into(),
                 error: Error::<T>::MaxWeightTooLow.into(),
             });
         }
@@ -1193,10 +1214,11 @@ impl<T: Config> Pallet<T> {
             result,
         });
         // If the proposal call doesn't return an `actual_weight`, then default to `proposal_weight`.
-        // Also include the overhead of this `execute_proposal` method.
+        // Also include the overhead of this `execute_proposal` method and of decoding the proposal.
         let actual_weight = actual_weight
             .unwrap_or(proposal_weight)
-            .saturating_add(<T as Config>::WeightInfo::execute_proposal());
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
+            .saturating_add(decode_weight);
         Ok(Some(actual_weight).into())
     }
 

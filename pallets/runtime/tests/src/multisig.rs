@@ -1,3 +1,4 @@
+use codec::Encode;
 use frame_support::dispatch::{DispatchResult, GetDispatchInfo};
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok};
@@ -1904,6 +1905,16 @@ fn large_batch_proposal(n: usize, remark_len: usize) -> RuntimeCall {
 
 #[test]
 fn approve_max_weight_too_low_charges_decode_cost() {
+    let small = large_batch_proposal(1_000, 0);
+    let large = large_batch_proposal(1_000, 1_000);
+    let small_charged = failing_approve_charge(small);
+    let large_charged = failing_approve_charge(large);
+    assert!(large_charged.ref_time() > small_charged.ref_time());
+}
+
+/// Stores `proposal` in a 2-of-2 multisig and makes the quorum-reaching approval fail with
+/// `MaxWeightTooLow`, returning the charged weight after checking it is length-dependent and rolled back.
+fn failing_approve_charge(proposal: RuntimeCall) -> Weight {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(Sr25519Keyring::Alice);
         let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
@@ -1918,7 +1929,7 @@ fn approve_max_weight_too_low_charges_decode_cost() {
             create_signers(vec![charlie_signer.clone(), dave_signer.clone()]),
         );
 
-        let proposal = large_batch_proposal(1_000, 0);
+        let proposal_len = proposal.encoded_size() as u32;
         assert_ok!(MultiSig::create_proposal(
             charlie,
             ms_address.clone(),
@@ -1940,7 +1951,8 @@ fn approve_max_weight_too_low_charges_decode_cost() {
             .expect_err("approve must fail with MaxWeightTooLow");
         assert_eq!(err.error, Error::MaxWeightTooLow.into());
         // Only the approval and the proposal decoding are charged.
-        let charged = MultiSigWeights::approve().saturating_add(MultiSigWeights::decode_proposal());
+        let charged = MultiSigWeights::approve()
+            .saturating_add(MultiSigWeights::decode_proposal(proposal_len));
         assert_eq!(err.post_info.actual_weight, Some(charged));
         // The charged weight was reserved by the pre-dispatch weight.
         assert!(charged.all_lte(info.call_weight));
@@ -1965,5 +1977,6 @@ fn approve_max_weight_too_low_charges_decode_cost() {
             ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
             Some(ProposalState::Active { until: None })
         );
-    });
+        charged
+    })
 }
