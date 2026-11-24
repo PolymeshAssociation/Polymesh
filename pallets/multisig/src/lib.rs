@@ -88,8 +88,8 @@ use pallet_identity::WeightInfo as IdentityWeightInfo;
 use pallet_permissions::with_call_metadata;
 use polymesh_primitives::multisig::{ProposalState, ProposalVoteCount};
 use polymesh_primitives::{
-    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
-    KeyRecord, Permissions, RocksDbWeight as DbWeight, Signatory,
+    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
+    RocksDbWeight as DbWeight, Signatory,
 };
 
 pub trait WeightInfo {
