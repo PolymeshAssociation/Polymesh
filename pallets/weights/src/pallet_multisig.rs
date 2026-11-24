@@ -89,13 +89,15 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof: `MultiSig::ProposalVoteCounts` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::Proposals` (r:0 w:1)
     // Proof: `MultiSig::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `MultiSig::ProposalWeights` (r:0 w:1)
+    // Proof: `MultiSig::ProposalWeights` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::ProposalStates` (r:0 w:1)
     // Proof: `MultiSig::ProposalStates` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn create_proposal() -> Weight {
         // Minimum execution time: 75_770 nanoseconds.
         Weight::from_parts(82_460_000, 0)
             .saturating_add(DbWeight::get().reads(8))
-            .saturating_add(DbWeight::get().writes(5))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: `MultiSig::ProposalStates` (r:1 w:0)
     // Proof: `MultiSig::ProposalStates` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -121,6 +123,8 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(2))
     }
+    // Storage: `MultiSig::ProposalWeights` (r:1 w:1)
+    // Proof: `MultiSig::ProposalWeights` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::Proposals` (r:1 w:1)
     // Proof: `MultiSig::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `Permissions::CurrentPalletName` (r:1 w:1)
@@ -134,20 +138,22 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     fn execute_proposal() -> Weight {
         // Minimum execution time: 32_129 nanoseconds.
         Weight::from_parts(34_960_000, 0)
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(5))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: `MultiSig::Proposals` (r:1 w:1)
     // Proof: `MultiSig::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
     /// The range of component `b` is `[0, 7000000]`.
     fn decode_proposal(b: u32) -> Weight {
-        // Minimum execution time: 2_374_351 nanoseconds.
-        Weight::from_parts(3_817_427_109, 0)
-            // Standard Error: 17
-            .saturating_add(Weight::from_parts(1_256, 0).saturating_mul(b.into()))
+        // Minimum execution time: 18_144 nanoseconds.
+        Weight::from_parts(18_371_000, 0)
+            // Standard Error: 5
+            .saturating_add(Weight::from_parts(1_104, 0).saturating_mul(b.into()))
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
+    // Storage: `MultiSig::ProposalWeights` (r:0 w:1)
+    // Proof: `MultiSig::ProposalWeights` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::ProposalStates` (r:1 w:1)
     // Proof: `MultiSig::ProposalStates` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::LastInvalidProposal` (r:1 w:0)
@@ -172,7 +178,7 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
         // Minimum execution time: 66_799 nanoseconds.
         Weight::from_parts(73_299_000, 0)
             .saturating_add(DbWeight::get().reads(9))
-            .saturating_add(DbWeight::get().writes(4))
+            .saturating_add(DbWeight::get().writes(5))
     }
     // Storage: `Identity::Authorizations` (r:1 w:1)
     // Proof: `Identity::Authorizations` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -444,13 +450,15 @@ impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Proof: `MultiSig::ProposalVoteCounts` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::Proposals` (r:0 w:1)
     // Proof: `MultiSig::Proposals` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `MultiSig::ProposalWeights` (r:0 w:1)
+    // Proof: `MultiSig::ProposalWeights` (`max_values`: None, `max_size`: None, mode: `Measured`)
     // Storage: `MultiSig::ProposalStates` (r:0 w:1)
     // Proof: `MultiSig::ProposalStates` (`max_values`: None, `max_size`: None, mode: `Measured`)
     fn create_join_identity() -> Weight {
         // Minimum execution time: 71_749 nanoseconds.
         Weight::from_parts(78_159_000, 0)
             .saturating_add(DbWeight::get().reads(7))
-            .saturating_add(DbWeight::get().writes(6))
+            .saturating_add(DbWeight::get().writes(7))
     }
     // Storage: `MultiSig::AuthToProposalId` (r:1 w:0)
     // Proof: `MultiSig::AuthToProposalId` (`max_values`: None, `max_size`: None, mode: `Measured`)

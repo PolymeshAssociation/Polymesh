@@ -1,5 +1,6 @@
-use codec::Encode;
 use frame_support::dispatch::{DispatchResult, GetDispatchInfo};
+use frame_support::storage::{storage_prefix, unhashed};
+use frame_support::traits::{OnRuntimeUpgrade, PalletInfoAccess};
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok};
 use frame_support::{assert_storage_noop, BoundedVec};
@@ -9,9 +10,10 @@ use sp_runtime::traits::Dispatchable;
 use pallet_identity::MultiPurposeNonce;
 use pallet_multisig::{self as multisig, Proposals, Votes, WeightInfo as _};
 use pallet_multisig::{AdminDid, LastInvalidProposal, MultiSigSignsRequired, NextProposalId};
-use pallet_multisig::{NumberOfSigners, ProposalStates, ProposalVoteCounts};
+use pallet_multisig::{NumberOfSigners, ProposalStates, ProposalVoteCounts, ProposalWeights};
 use polymesh_primitives::constants::currency::POLY;
 use polymesh_primitives::multisig::ProposalState;
+use polymesh_primitives::RocksDbWeight as DbWeight;
 use polymesh_primitives::{AccountId, AuthorizationData, ExtrinsicPermissions, PalletName};
 use polymesh_primitives::{PalletPermissions, Permissions, SecondaryKey, Signatory};
 
@@ -1903,59 +1905,59 @@ fn large_batch_proposal(n: usize, remark_len: usize) -> RuntimeCall {
     RuntimeCall::Utility(pallet_utility::Call::batch { calls })
 }
 
-#[test]
-fn approve_max_weight_too_low_charges_decode_cost() {
-    let small = large_batch_proposal(1_000, 0);
-    let large = large_batch_proposal(1_000, 1_000);
-    let small_charged = failing_approve_charge(small);
-    let large_charged = failing_approve_charge(large);
-    assert!(large_charged.ref_time() > small_charged.ref_time());
+/// Creates a 2-of-2 multisig where Charlie stores `proposal` (1 approval), so Dave's approval is the
+/// quorum-reaching one. Returns the multisig address, Dave's account and the proposal id.
+fn setup_pending_proposal(proposal: RuntimeCall) -> (AccountId, AccountId, u64) {
+    let alice = User::new(Sr25519Keyring::Alice);
+    let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
+    let dave_signer = Sr25519Keyring::Dave.to_account_id();
+    let ms_address = setup_multisig(
+        alice.acc(),
+        2,
+        create_signers(vec![charlie_signer.clone(), dave_signer.clone()]),
+    );
+    assert_ok!(MultiSig::create_proposal(
+        Origin::signed(charlie_signer),
+        ms_address.clone(),
+        Box::new(proposal),
+        None,
+    ));
+    let proposal_id = NextProposalId::<TestStorage>::get(&ms_address) - 1;
+    (ms_address, dave_signer, proposal_id)
 }
 
-/// Stores `proposal` in a 2-of-2 multisig and makes the quorum-reaching approval fail with
-/// `MaxWeightTooLow`, returning the charged weight after checking it is length-dependent and rolled back.
+fn approve_call(multisig: &AccountId, proposal_id: u64, max_weight: Weight) -> RuntimeCall {
+    RuntimeCall::MultiSig(multisig::Call::approve {
+        multisig: multisig.clone(),
+        proposal_id,
+        max_weight: Some(max_weight),
+    })
+}
+
+#[test]
+fn approve_max_weight_too_low_does_not_decode_proposal() {
+    let small = failing_approve_charge(large_batch_proposal(1_000, 0));
+    let large = failing_approve_charge(large_batch_proposal(1_000, 1_000));
+    // The failing approval never loads the proposal, so its size doesn't affect the charge.
+    assert_eq!(small, large);
+}
+
+/// Makes the quorum-reaching approval of `proposal` fail with `MaxWeightTooLow`, checks it was rolled
+/// back without consuming the proposal, and returns the charged weight.
 fn failing_approve_charge(proposal: RuntimeCall) -> Weight {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(Sr25519Keyring::Alice);
-        let charlie_signer = Sr25519Keyring::Charlie.to_account_id();
-        let dave_signer = Sr25519Keyring::Dave.to_account_id();
-        let charlie = Origin::signed(charlie_signer.clone());
-        let dave = Origin::signed(dave_signer.clone());
+        let (ms_address, dave_signer, proposal_id) = setup_pending_proposal(proposal);
 
-        // 2-of-2 multisig: Dave's approval is the quorum-reaching one.
-        let ms_address = setup_multisig(
-            alice.acc(),
-            2,
-            create_signers(vec![charlie_signer.clone(), dave_signer.clone()]),
-        );
-
-        let proposal_len = proposal.encoded_size() as u32;
-        assert_ok!(MultiSig::create_proposal(
-            charlie,
-            ms_address.clone(),
-            Box::new(proposal),
-            None,
-        ));
-        let proposal_id = NextProposalId::<TestStorage>::get(&ms_address) - 1;
-
-        let approve_call = RuntimeCall::MultiSig(multisig::Call::approve {
-            multisig: ms_address.clone(),
-            proposal_id,
-            max_weight: Some(Weight::from_parts(1, 0)),
-        });
-        let info = approve_call.get_dispatch_info();
-
+        let call = approve_call(&ms_address, proposal_id, Weight::from_parts(1, 0));
+        let info = call.get_dispatch_info();
         // Dispatch through `RuntimeCall` to get the same transactional semantics as a real extrinsic.
-        let err = approve_call
-            .dispatch(dave)
+        let err = call
+            .dispatch(Origin::signed(dave_signer.clone()))
             .expect_err("approve must fail with MaxWeightTooLow");
         assert_eq!(err.error, Error::MaxWeightTooLow.into());
-        // Only the approval and the proposal decoding are charged.
-        let charged = MultiSigWeights::approve()
-            .saturating_add(MultiSigWeights::decode_proposal(proposal_len));
+        // Only the approval and the read of the recorded weight are charged.
+        let charged = MultiSigWeights::approve().saturating_add(DbWeight::get().reads(1));
         assert_eq!(err.post_info.actual_weight, Some(charged));
-        // The charged weight was reserved by the pre-dispatch weight.
-        assert!(charged.all_lte(info.call_weight));
         assert_eq!(err.post_info.calc_actual_weight(&info), charged);
 
         // The vote was rolled back and the proposal is still active.
@@ -1973,10 +1975,98 @@ fn failing_approve_charge(proposal: RuntimeCall) -> Weight {
             &ms_address,
             proposal_id
         ));
+        assert!(ProposalWeights::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
         assert_eq!(
             ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
             Some(ProposalState::Active { until: None })
         );
         charged
     })
+}
+
+#[test]
+fn approve_max_weight_must_cover_decode_cost() {
+    ExtBuilder::default().build().execute_with(|| {
+        let proposal = large_batch_proposal(10, 1_000);
+        let call_weight = proposal.get_dispatch_info().call_weight;
+        let (ms_address, dave_signer, proposal_id) = setup_pending_proposal(proposal);
+
+        let recorded = ProposalWeights::<TestStorage>::get(&ms_address, proposal_id).unwrap();
+        assert!(call_weight.ref_time() < recorded.ref_time());
+
+        let err = approve_call(&ms_address, proposal_id, call_weight)
+            .dispatch(Origin::signed(dave_signer.clone()))
+            .expect_err("approve must fail with MaxWeightTooLow");
+        assert_eq!(err.error, Error::MaxWeightTooLow.into());
+
+        assert_ok!(
+            approve_call(&ms_address, proposal_id, recorded).dispatch(Origin::signed(dave_signer))
+        );
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
+            Some(ProposalState::ExecutionSuccessful)
+        );
+        assert!(!Proposals::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
+        assert!(!ProposalWeights::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
+    });
+}
+
+#[test]
+fn stale_proposal_weight_fails_without_rollback() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (ms_address, dave_signer, proposal_id) =
+            setup_pending_proposal(large_batch_proposal(10, 1_000));
+
+        let stale = Weight::from_parts(1, 0);
+        ProposalWeights::<TestStorage>::insert(&ms_address, proposal_id, stale);
+
+        assert_ok!(approve_call(&ms_address, proposal_id, stale)
+            .dispatch(Origin::signed(dave_signer.clone())));
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
+            Some(ProposalState::ExecutionFailed)
+        );
+        assert!(!Proposals::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
+        assert!(!ProposalWeights::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
+        assert!(Votes::<TestStorage>::get(
+            (&ms_address, proposal_id),
+            &dave_signer
+        ));
+    });
+}
+
+#[test]
+fn reject_removes_proposal_weight() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (ms_address, dave_signer, proposal_id) =
+            setup_pending_proposal(large_batch_proposal(1, 0));
+        assert_ok!(MultiSig::reject(
+            Origin::signed(dave_signer),
+            ms_address.clone(),
+            proposal_id
+        ));
+        assert_eq!(
+            ProposalStates::<TestStorage>::get(&ms_address, proposal_id),
+            Some(ProposalState::Rejected)
+        );
+        assert!(!ProposalWeights::<TestStorage>::contains_key(
+            &ms_address,
+            proposal_id
+        ));
+    });
 }
