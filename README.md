@@ -17,7 +17,10 @@ See the `audit` folder for details of audits undertaken on the Polymesh code bas
 
 Independent audits were completed by:  
 https://www.srlabs.de/  
-https://www.atredis.com/
+https://www.atredis.com/  
+https://hacken.io/  
+https://hashlock.com/  
+https://leastauthority.com/
 
 # Networks
 
@@ -39,7 +42,7 @@ For more details on monitoring infrastructure for nodes and running an operator 
 ## Polymesh Testnet
 
 The Testnet does not offer incentives to users to participate and test with it. It has a simple onboarding process (no-KYC required).
-The testnet also includes the `testUtils` pallet that allows easier onboarding for testing, and in addition each new account will receive 100,000 POLYX for testing purposes.
+Each new identity's primary key receives 100,000 POLYX for testing purposes.
 
 To run a node which connects to the Testnet, you can start your node with:
 
@@ -75,7 +78,7 @@ Code documentation can be found at:
 
 # Build
 
-To prepare your development environment with the required compiler and tools refer to https://docs.substrate.io/main-docs/install/ for instructions applicable to your operating system.
+To prepare your development environment with the required compiler and tools refer to https://docs.polkadot.com/ for instructions applicable to your operating system.
 
 Build Wasm and native code:
 
@@ -116,7 +119,7 @@ To access the Polymesh Chain using the [Web Interface] do the following:
 1. Click on the Polymesh logo in the top-left corner of the UI. You can then select "Local Node" under the Development section.
 
    > Note: if the `polymesh` node above is on a different machine than your browser (e.g., a server on your local network), you'll need to use a *"custom endpoint"*, e.g., `ws://192.168.0.100:9944/`.
-   > The [Web Interface] uses `https`, but your `polymesh` instance does not, so you'll need `ws://` as opposed to `wss://`. You'll also need to use `http://httpapp.polymesh.live/` instead of [Web Interface]. Otherwise, you'll have problems with mixed-content blocking (https vs. http).
+   > The [Web Interface] uses `https`, but your `polymesh` instance does not, so you'll need `ws://` as opposed to `wss://`.  
    > Finally, add `--rpc-external --ws-external --rpc-cors all` to the `polymesh` invocation above.
 
 2. If you have [custom types definitions](https://github.com/PolymeshAssociation/Polymesh/blob/develop/polymesh_schema.json) that differ from the Polymesh Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
@@ -129,17 +132,17 @@ Unit tests are packaged with the Rust code. To run these, you can execute:
 
 ```bash
 cargo test --package polymesh-runtime-tests
-cargo test --package pallet-staking
-cargo test --package pallet-balances
+cargo test --package pallet-validators
+cargo test --package pallet-pips
 cargo test --package polymesh-primitives
-cargo test --package pallet-pips-rpc
-cargo test --package pallet-transaction-payment
+cargo test --package node-rpc-runtime-api
+cargo test --package polymesh-transaction-payment
 ```
 
 # Benchmarks
 
 Polymesh runtime benchmarks can be run with a command that specifies the pallet and the name of the
-extrinsic to be benchmarked, for example:
+extrinsic to be benchmarked (or `*` for all), for example:
 
 ```bash
 cargo run --release --features runtime-benchmarks -- \
@@ -204,7 +207,7 @@ Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 
 # License
 
-[LICENSE](https://github.com/PolymeshAssociation/Polymesh/blob/master/LICENSE)
+[LICENSE](https://github.com/PolymeshAssociation/Polymesh/blob/develop/LICENSE)
 
 # Substrate Framework
 
