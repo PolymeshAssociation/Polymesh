@@ -288,6 +288,57 @@ impl<T: Config> Common<T> {
             .map_err(|err| revert_err(err, ERR_INVALID_ACCOUNT_ID))
     }
 
+    /// Returns `true` if a transfer of `asset_id` to `receiver` from another identity has to wait
+    /// for the receiver's affirmation.
+    ///
+    /// That is the case when the receiver's identity affirms its incoming transfers itself, and
+    /// neither the asset is exempt nor the identity pre-approved it. A precompile transfer
+    /// reverts instead of leaving an instruction pending, so it cannot reach such a receiver.
+    ///
+    /// A receiver without an identity is reported as `false`: there is nothing to affirm, and
+    /// the transfer checks reject it on their own.
+    pub fn receiver_must_affirm(
+        env: &mut impl Ext<T = T>,
+        asset_id: &AssetId,
+        receiver: &AssetHolder,
+    ) -> Result<bool, Error> {
+        // The receiver's identity, its affirmation setting, the asset's exemption and the
+        // identity's pre-approval
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(4))?;
+
+        let skip = pallet_asset::Pallet::<T>::skip_asset_holder_affirmation(receiver, asset_id);
+        Ok(!skip.unwrap_or(true))
+    }
+
+    /// Returns `true` if a transfer of `asset_id` from `from` to `to` through
+    /// `Settlement::transfer_funds` would be left waiting for an affirmation.
+    ///
+    /// Only a transfer between two identities creates an instruction. It stays pending when the
+    /// asset has mandatory mediators, or when [`Self::receiver_must_affirm`]. Two holders of one
+    /// identity move funds directly, so neither rule applies to them.
+    pub fn transfer_needs_affirmation(
+        env: &mut impl Ext<T = T>,
+        asset_id: &AssetId,
+        from: &AssetHolder,
+        to: &AssetHolder,
+    ) -> Result<bool, Error> {
+        // Both identities and the asset's mandatory mediators
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(3))?;
+
+        let from_did = pallet_identity::Pallet::<T>::asset_holder_did(from);
+        let to_did = pallet_identity::Pallet::<T>::asset_holder_did(to);
+        match (from_did, to_did) {
+            (Ok(from_did), Ok(to_did)) if from_did != to_did => {}
+            _ => return Ok(false),
+        }
+
+        if !pallet_asset::MandatoryMediators::<T>::get(asset_id).is_empty() {
+            return Ok(true);
+        }
+
+        Self::receiver_must_affirm(env, asset_id, to)
+    }
+
     /// Convert a `U256` value to the balance type [`Balance`].
     pub fn to_balance(value: U256) -> Result<Balance, Error> {
         value

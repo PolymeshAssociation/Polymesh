@@ -22,6 +22,13 @@ use crate::*;
 /// a generous limit instead of running a dry-run for every call.
 pub const CONTRACT_WEIGHT_LIMIT: Weight = Weight::from_parts(50_000_000_000, 2_000_000);
 
+/// Weight limit for calls that reserve the worst case of several transfers up front, such as the
+/// fungible precompile's `batchTransfer`.
+///
+/// Each transfer element reserves about 25_000_000_000 ref time before the batch starts, so a
+/// batch of 8 fits. Pass it with [`SubstrateCaller::with_weight_limit`].
+pub const BATCH_WEIGHT_LIMIT: Weight = Weight::from_parts(200_000_000_000, 2_000_000);
+
 /// Storage deposit limit used for contract extrinsics.
 ///
 /// `DepositPerByte` is 0.06 POLYX, so deploying a few KB of bytecode needs a
@@ -339,6 +346,8 @@ pub struct SubstrateCaller<'a, S: Signer> {
     pub api: Api,
     pub address: H160,
     pub signer: &'a mut S,
+    /// The weight limit each call is sent with, [`CONTRACT_WEIGHT_LIMIT`] by default.
+    pub weight_limit: Weight,
 }
 
 impl<'a, S: Signer> SubstrateCaller<'a, S> {
@@ -353,7 +362,14 @@ impl<'a, S: Signer> SubstrateCaller<'a, S> {
             api: api.clone(),
             address,
             signer,
+            weight_limit: CONTRACT_WEIGHT_LIMIT,
         })
+    }
+
+    /// Sends every call with `weight_limit` instead of [`CONTRACT_WEIGHT_LIMIT`].
+    pub fn with_weight_limit(mut self, weight_limit: Weight) -> Self {
+        self.weight_limit = weight_limit;
+        self
     }
 }
 
@@ -372,7 +388,7 @@ impl<S: Signer> ContractCaller for SubstrateCaller<'_, S> {
             .api
             .call()
             .revive()
-            .call(to, 0, CONTRACT_WEIGHT_LIMIT, STORAGE_DEPOSIT_LIMIT, data)?
+            .call(to, 0, self.weight_limit, STORAGE_DEPOSIT_LIMIT, data)?
             .execute(self.signer)
             .await?;
         res.ok().await?;

@@ -5,6 +5,8 @@
 // The Revive pallet was added in v8.
 #![cfg(feature = "current_release")]
 
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 
 use alloy::primitives::U256;
@@ -19,6 +21,172 @@ use polymesh_precompiles::IFungibleAsset as ierc20;
 
 /// Initial supply issued to the asset owner's account.
 const MINT: u128 = 1_000_000;
+
+/// ERC-7943 forbids `canTransfer` from reverting: a value no balance can hold is just `false`.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_can_transfer_out_of_range_value_is_false() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc7943RangeIssuer", "Erc7943RangeHolder"])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (_, erc7943) = create_erc20_asset(&api, &node, issuer, "ERC7943 Range", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    assert!(
+        erc7943
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    for value in [U256::from(u128::MAX) + U256::from(1), U256::MAX] {
+        let can_transfer = ierc20::canTransferCall {
+            from: issuer_address,
+            to: holder_address,
+            value,
+        };
+        assert!(!erc7943.try_call(issuer_address, &can_transfer).await?);
+    }
+
+    Ok(())
+}
+
+/// Two keys of one identity move tokens without compliance, and `canTransfer` agrees.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_can_transfer_same_identity_skips_compliance() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users_with_secondary_keys(&[("Erc7943SameIdIssuer", 1), ("Erc7943SameIdOther", 0)])
+        .await?;
+    let api = tester.api.clone();
+    let (issuers, others) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let other = &mut others[0];
+
+    let (asset_helper, erc7943) =
+        create_erc20_asset(&api, &node, issuer, "ERC7943 SameId", MINT).await?;
+    // A requirement nobody meets, so every transfer between identities fails compliance.
+    api.call()
+        .compliance_manager()
+        .add_compliance_requirement(
+            asset_helper.asset_id,
+            Default::default(),
+            vec![Condition {
+                condition_type: ConditionType::IsPresent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Identity(issuer.did.unwrap()),
+                )),
+                issuers: vec![TrustedIssuer {
+                    issuer: issuer.did.unwrap(),
+                    trusted_for: TrustedFor::Specific(vec![ClaimType::Jurisdiction]),
+                }],
+            }],
+        )?
+        .execute(issuer)
+        .await?;
+
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let other_address = eth_address_of(&api, other).await?;
+    let key_address = eth_address_of(&api, issuer.get_sk_mut(0)?).await?;
+
+    // Another identity fails compliance.
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, other_address, 1_000)
+            .await?
+    );
+
+    // The issuer's own secondary key does not go through compliance.
+    assert!(
+        erc7943
+            .can_transfer(issuer_address, key_address, 1_000)
+            .await?
+    );
+    // The same holder on both sides is not a transfer the precompile accepts.
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, issuer_address, 1_000)
+            .await?
+    );
+    // More than the balance is refused on this path too.
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, key_address, MINT + 1)
+            .await?
+    );
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    let logs = erc7943.transfer(&mut caller, key_address, 1_000).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc7943.h160()),
+        [ierc20::Transfer::SIGNATURE_HASH],
+    );
+    assert_eq!(erc7943.balance_of(key_address).await?, 1_000);
+
+    Ok(())
+}
+
+/// A transfer of an asset with mandatory mediators cannot complete in one call, so `canTransfer`
+/// is false. Mediators say nothing about the receiver, so `canReceive` stays true.
+#[tokio::test]
+#[test_log::test]
+async fn erc7943_can_transfer_is_false_with_mandatory_mediators() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&[
+            "Erc7943MediatedIssuer",
+            "Erc7943MediatedHolder",
+            "Erc7943Mediator",
+        ])
+        .await?;
+    let api = tester.api.clone();
+    let mediator_did = users[2].did.unwrap();
+    let (issuers, holders) = users.split_at_mut(1);
+    let issuer = &mut issuers[0];
+    let holder = &mut holders[0];
+
+    let (asset_helper, erc7943) =
+        create_erc20_asset(&api, &node, issuer, "ERC7943 Mediated", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    assert!(
+        erc7943
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+
+    api.call()
+        .asset()
+        .add_mandatory_mediators(asset_helper.asset_id, BTreeSet::from([mediator_did]))?
+        .execute(issuer)
+        .await?;
+
+    assert!(
+        !erc7943
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    assert!(erc7943.can_receive(holder_address).await?);
+
+    let mut caller = SubstrateCaller::new(&api, issuer).await?;
+    assert!(
+        erc7943
+            .transfer(&mut caller, holder_address, 1_000)
+            .await
+            .is_err(),
+        "transfer() of a mediated asset should revert"
+    );
+    assert_eq!(erc7943.balance_of(holder_address).await?, 0);
+
+    Ok(())
+}
 
 /// Can transfer returns false after receiver fails compliance check.
 #[tokio::test]

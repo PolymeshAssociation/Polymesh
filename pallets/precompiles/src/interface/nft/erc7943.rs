@@ -36,18 +36,31 @@ use crate::Config;
 
 impl<T: Config> NonFungibleAssetInterface<T> {
     /// Checks whether `tokenId` can currently move from `from` to `to`, compliance included.
+    ///
+    /// Also `false` when the transfer would be left waiting for a mediator or for the receiver
+    /// to affirm it: `transferFrom` reverts in that case.
+    ///
+    /// ERC-7943 forbids this view from reverting, so a `tokenId` no NFT can have returns
+    /// `false`. The one revert left is running out of the benchmarked weight, where there is
+    /// no truthful answer to give.
     pub(crate) fn can_transfer(
         asset_id: AssetId,
         call: &INonFungibleAsset::canTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        // An id beyond `u64::MAX` cannot name an NFT
+        let Ok(nft_id) = Self::nft_id(call.tokenId) else {
+            return Ok(INonFungibleAsset::canTransferCall::abi_encode_returns(
+                &false,
+            ));
+        };
+
         let best_case_weight =
             <T as pallet_nft::Config>::WeightInfo::nft_transfer_report_best_case();
         let worst_case_weight =
             <T as pallet_nft::Config>::WeightInfo::nft_transfer_report_worst_case();
         let charged = env.charge(worst_case_weight)?;
 
-        let nft_id = Self::nft_id(call.tokenId)?;
         let from = Common::<T>::asset_holder(env, call.from)?;
         let to = Common::<T>::asset_holder(env, call.to)?;
         let nfts = NFTs::new_unverified(asset_id, vec![nft_id]);
@@ -66,6 +79,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
+
+        // A transfer that would be left waiting for an affirmation reverts
+        let can_transfer =
+            can_transfer && !Common::<T>::transfer_needs_affirmation(env, &asset_id, &from, &to)?;
 
         Ok(INonFungibleAsset::canTransferCall::abi_encode_returns(
             &can_transfer,
@@ -176,6 +193,10 @@ impl<T: Config> NonFungibleAssetInterface<T> {
     }
 
     /// Returns `true` if the account is allowed to receive tokens of this collection.
+    ///
+    /// `false` for a receiver that affirms its incoming transfers itself and has not
+    /// pre-approved the collection, as no precompile transfer from another identity can reach
+    /// it.
     pub(crate) fn can_receive(
         asset_id: AssetId,
         call: &INonFungibleAsset::canReceiveCall,
@@ -207,6 +228,9 @@ impl<T: Config> NonFungibleAssetInterface<T> {
 
         let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
+
+        // A receiver that has to affirm the transfer itself cannot be reached in one call
+        let allowed = allowed && !Common::<T>::receiver_must_affirm(env, &asset_id, &receiver)?;
 
         Ok(INonFungibleAsset::canReceiveCall::abi_encode_returns(
             &allowed,

@@ -13,10 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use pallet_revive::precompiles::alloy::primitives::U256;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -28,7 +30,7 @@ use polymesh_precompiles::{IFungibleAsset, IFungibleAssetEvents};
 use polymesh_primitives::asset::AssetId;
 use polymesh_primitives::portfolio::{Fund, FundDescription};
 use polymesh_primitives::traits::SettlementFnTrait;
-use polymesh_primitives::WeightMeter;
+use polymesh_primitives::{Balance, WeightMeter};
 
 use crate::common::{revert, revert_err, Common, ERR_ASSET_NOT_FOUND, ERR_INST_NOT_EXECUTED};
 use crate::interface::FungibleAssetInterface;
@@ -152,6 +154,10 @@ impl<T: Config> FungibleAssetInterface<T> {
     }
 
     /// Sets a value amount of tokens as the allowance of spender over the caller’s tokens.
+    ///
+    /// `type(uint256).max` is the ERC-20 convention for an infinite allowance, so exactly that
+    /// value is stored as `Balance::MAX`, which the asset pallet never decrements. Any other
+    /// value above `Balance::MAX` reverts. `Approval` carries the value the caller passed.
     pub(crate) fn approve(
         asset_id: AssetId,
         call: &IFungibleAsset::approveCall,
@@ -159,7 +165,11 @@ impl<T: Config> FungibleAssetInterface<T> {
     ) -> Result<Vec<u8>, Error> {
         let caller = Common::<T>::caller(env)?;
         let spender = Common::<T>::account_id(env, call.spender)?;
-        let amount = Common::<T>::to_balance(call.value)?;
+        let amount = if call.value == U256::MAX {
+            Balance::MAX
+        } else {
+            Common::<T>::to_balance(call.value)?
+        };
 
         Common::<T>::call_runtime(
             env,
@@ -292,16 +302,34 @@ impl<T: Config> FungibleAssetInterface<T> {
 
     /// Returns the name of the token.
     pub(crate) fn name(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
-
-        let name = AssetNames::<T>::get(asset_id).unwrap_or_default();
-        let name = alloc::string::String::from_utf8_lossy(name.0.as_ref()).into_owned();
+        let name = Self::asset_name(asset_id, env)?;
 
         Ok(IFungibleAsset::nameCall::abi_encode_returns(&name))
     }
 
     /// Returns the symbol of the token.
     pub(crate) fn symbol(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+        let symbol = Self::asset_symbol(asset_id, env)?;
+
+        Ok(IFungibleAsset::symbolCall::abi_encode_returns(&symbol))
+    }
+
+    /// Reads the asset's name, charging the weight of the read.
+    pub(crate) fn asset_name(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<String, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let name = AssetNames::<T>::get(asset_id).unwrap_or_default();
+        Ok(String::from_utf8_lossy(name.0.as_ref()).into_owned())
+    }
+
+    /// Reads the asset's symbol, charging the weight of the read. Empty without a linked ticker.
+    pub(crate) fn asset_symbol(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<String, Error> {
         env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
 
         let ticker = AssetIdTicker::<T>::get(asset_id).unwrap_or_default();
@@ -313,9 +341,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             .take_while(|&&b| b != 0)
             .copied()
             .collect::<Vec<_>>();
-        let ticker = alloc::string::String::from_utf8_lossy(&trim_ticker).into_owned();
-
-        Ok(IFungibleAsset::symbolCall::abi_encode_returns(&ticker))
+        Ok(String::from_utf8_lossy(&trim_ticker).into_owned())
     }
 
     /// Returns the decimals places of the token

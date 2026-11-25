@@ -15,6 +15,7 @@
 
 use alloc::vec::Vec;
 
+use frame_support::traits::Get;
 use pallet_revive::precompiles::alloy::primitives::Address;
 use pallet_revive::precompiles::alloy::sol_types::SolCall;
 use pallet_revive::precompiles::Error;
@@ -34,32 +35,47 @@ use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
     /// Checks if a transfer is possible according to token rules. It includes compliance checks.
+    ///
+    /// Two holders of one identity move funds without compliance or statistics, so
+    /// `Asset::can_transfer_funds` applies only that path's checks to them.
+    ///
+    /// Also `false` when the transfer would be left waiting for a mediator or for the receiver
+    /// to affirm it: `transfer` and `transferFrom` revert in that case.
+    ///
+    /// ERC-7943 forbids this view from reverting, so a `value` no balance can hold returns
+    /// `false`. The one revert left is running out of the benchmarked weight, where there is
+    /// no truthful answer to give.
     pub(crate) fn can_transfer(
         asset_id: AssetId,
         call: &IFungibleAsset::canTransferCall,
         env: &mut impl Ext<T = T>,
     ) -> Result<Vec<u8>, Error> {
+        // No transfer can move more than `Balance::MAX`
+        let Ok(value) = Balance::try_from(call.value) else {
+            return Ok(IFungibleAsset::canTransferCall::abi_encode_returns(&false));
+        };
+
         let best_case_weight =
             <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_best_case();
         let worst_case_weight =
             <T as pallet_asset::Config>::WeightInfo::asset_transfer_report_worst_case();
         let charged = env.charge(worst_case_weight)?;
+        // `can_transfer_funds` resolves both identities before it picks a path
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(2))?;
 
         let from = Common::<T>::asset_holder(env, call.from)?;
         let to = Common::<T>::asset_holder(env, call.to)?;
-        let value = Common::<T>::to_balance(call.value)?;
 
         // The best case covers the fixed work, the meter only gets the variable rest
         let mut weight_meter = WeightMeter::from_limit_unchecked(
             Weight::zero(),
             worst_case_weight.saturating_sub(best_case_weight),
         );
-        let errors = pallet_asset::Pallet::<T>::asset_transfer_report(
+        let can_transfer = pallet_asset::Pallet::<T>::can_transfer_funds(
             &from,
             &to,
             &asset_id,
             value,
-            false,
             &mut weight_meter,
         );
 
@@ -70,8 +86,12 @@ impl<T: Config> FungibleAssetInterface<T> {
         let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
 
+        // A transfer that would be left waiting for an affirmation reverts
+        let can_transfer =
+            can_transfer && !Common::<T>::transfer_needs_affirmation(env, &asset_id, &from, &to)?;
+
         Ok(IFungibleAsset::canTransferCall::abi_encode_returns(
-            &errors.is_empty(),
+            &can_transfer,
         ))
     }
 
@@ -228,6 +248,9 @@ impl<T: Config> FungibleAssetInterface<T> {
     }
 
     /// Returns `true` if the account is allowed to receive tokens according to token rules.
+    ///
+    /// `false` for a receiver that affirms its incoming transfers itself and has not
+    /// pre-approved the asset, as no precompile transfer from another identity can reach it.
     pub(crate) fn can_receive(
         asset_id: AssetId,
         call: &IFungibleAsset::canReceiveCall,
@@ -259,6 +282,9 @@ impl<T: Config> FungibleAssetInterface<T> {
 
         let real_consumed_weight = best_case_weight.saturating_add(weight_meter.consumed());
         env.adjust_gas(charged, real_consumed_weight.min(worst_case_weight));
+
+        // A receiver that has to affirm the transfer itself cannot be reached in one call
+        let allowed = allowed && !Common::<T>::receiver_must_affirm(env, &asset_id, &receiver)?;
 
         Ok(IFungibleAsset::canReceiveCall::abi_encode_returns(&allowed))
     }

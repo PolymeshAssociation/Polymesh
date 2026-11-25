@@ -29,6 +29,7 @@ use polymesh_precompiles::{IFungibleAssetCalls, FUNGIBLE_ASSET_CODE};
 use crate::common::{AssetKind, Common};
 use crate::Config;
 
+mod batch;
 mod erc20;
 mod erc3643;
 mod erc7943;
@@ -36,9 +37,13 @@ mod polymesh_specific;
 
 // ==================== Error Messages ====================
 pub(crate) const ERR_INVALID_SYMBOL: &str = "Invalid symbol; Ticker is too long";
+pub(crate) const ERR_NO_IDENTITY: &str = "The address has no identity";
 // ========================================================
 
 pub const DECIMALS: u8 = 6;
+
+/// The most elements a `batch*` call accepts.
+pub const MAX_BATCH_SIZE: usize = 16;
 
 /// `IERC20`: the XOR of the selectors of its six functions.
 pub const ERC20_INTERFACE_ID: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
@@ -84,12 +89,15 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 | IFungibleAssetCalls::name(_)
                 | IFungibleAssetCalls::symbol(_)
                 | IFungibleAssetCalls::decimals(_)
+                | IFungibleAssetCalls::isDivisible(_)
                 | IFungibleAssetCalls::canTransfer(_)
                 | IFungibleAssetCalls::canSend(_)
                 | IFungibleAssetCalls::canReceive(_)
                 | IFungibleAssetCalls::getFrozenTokens(_)
                 | IFungibleAssetCalls::supportsInterface(_)
-                | IFungibleAssetCalls::isAgent(_) => {}
+                | IFungibleAssetCalls::isAgent(_)
+                | IFungibleAssetCalls::paused(_)
+                | IFungibleAssetCalls::isFrozen(_) => {}
                 _ => return Err(Common::<T>::state_change_denied()),
             }
         }
@@ -118,6 +126,7 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
             // Polymesh-specific functions
             IFungibleAssetCalls::mint(call) => Self::issue(asset_id, call, env),
             IFungibleAssetCalls::burn(call) => Self::redeem(asset_id, call, env),
+            IFungibleAssetCalls::isDivisible(_) => Self::is_divisible(asset_id, env),
 
             // ERC7943 functions
             IFungibleAssetCalls::canTransfer(call) => Self::can_transfer(asset_id, call, env),
@@ -141,11 +150,29 @@ impl<T: Config> Precompile for FungibleAssetInterface<T> {
                 Self::set_address_frozen(asset_id, call, env)
             }
             IFungibleAssetCalls::isAgent(call) => Self::is_agent(asset_id, call, env),
+            IFungibleAssetCalls::paused(_) => Self::paused(asset_id, env),
+            IFungibleAssetCalls::isFrozen(call) => Self::is_frozen(asset_id, call, env),
             IFungibleAssetCalls::freezePartialTokens(call) => {
                 Self::freeze_partial_tokens(asset_id, call, env)
             }
             IFungibleAssetCalls::unfreezePartialTokens(call) => {
                 Self::unfreeze_partial_tokens(asset_id, call, env)
+            }
+            IFungibleAssetCalls::removeAgent(call) => Self::remove_agent(asset_id, call, env),
+
+            // ERC3643 batch functions
+            IFungibleAssetCalls::batchTransfer(call) => Self::batch_transfer(asset_id, call, env),
+            IFungibleAssetCalls::batchForcedTransfer(call) => {
+                Self::batch_forced_transfer(asset_id, call, env)
+            }
+            IFungibleAssetCalls::batchSetAddressFrozen(call) => {
+                Self::batch_set_address_frozen(asset_id, call, env)
+            }
+            IFungibleAssetCalls::batchFreezePartialTokens(call) => {
+                Self::batch_freeze_partial_tokens(asset_id, call, env)
+            }
+            IFungibleAssetCalls::batchUnfreezePartialTokens(call) => {
+                Self::batch_unfreeze_partial_tokens(asset_id, call, env)
             }
         }
     }

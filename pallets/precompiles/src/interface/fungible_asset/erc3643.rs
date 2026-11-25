@@ -13,10 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use frame_support::traits::Get;
 use pallet_asset::{AssetIdTicker, WeightInfo};
+use pallet_revive::precompiles::alloy::primitives::{keccak256, Address};
 use pallet_revive::precompiles::alloy::sol_types::{Revert, SolCall};
 use pallet_revive::precompiles::Error;
 use pallet_revive::precompiles::Ext;
@@ -26,9 +28,9 @@ use polymesh_primitives::asset::{AssetId, AssetName};
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::Ticker;
 
-use crate::common::{extrinsic_error, Common};
+use crate::common::{extrinsic_error, revert, Common};
 use crate::interface::FungibleAssetInterface;
-use crate::interface::ERR_INVALID_SYMBOL;
+use crate::interface::{DECIMALS, ERR_INVALID_SYMBOL, ERR_NO_IDENTITY};
 use crate::Config;
 
 impl<T: Config> FungibleAssetInterface<T> {
@@ -72,6 +74,32 @@ impl<T: Config> FungibleAssetInterface<T> {
         Ok(Vec::new())
     }
 
+    /// Returns `true` if the asset is frozen, which is what `pause` does.
+    pub(crate) fn paused(asset_id: AssetId, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let paused = pallet_asset::Frozen::<T>::get(asset_id);
+
+        Ok(IFungibleAsset::pausedCall::abi_encode_returns(&paused))
+    }
+
+    /// Returns `true` if the account is frozen for this asset, which is what `setAddressFrozen`
+    /// sets. A frozen account cannot send; an amount frozen with `freezePartialTokens` or
+    /// `setFrozenTokens` is not reported here but by `getFrozenTokens`.
+    pub(crate) fn is_frozen(
+        asset_id: AssetId,
+        call: &IFungibleAsset::isFrozenCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(1))?;
+
+        let holder = Common::<T>::asset_holder(env, call.account)?;
+        let frozen =
+            pallet_asset::Pallet::<T>::ensure_holder_is_not_frozen(&holder, &asset_id).is_err();
+
+        Ok(IFungibleAsset::isFrozenCall::abi_encode_returns(&frozen))
+    }
+
     /// Sets the token name. Only the owner of the token contract can call this function.
     pub(crate) fn set_name(
         asset_id: AssetId,
@@ -91,6 +119,7 @@ impl<T: Config> FungibleAssetInterface<T> {
             },
         )?;
 
+        Self::deposit_token_information(asset_id, env)?;
         Ok(Vec::new())
     }
 
@@ -133,6 +162,8 @@ impl<T: Config> FungibleAssetInterface<T> {
             )?
             .map_err(extrinsic_error)?;
 
+            // ERC-3643 emits the event on every successful call, changed or not
+            Self::deposit_token_information(asset_id, env)?;
             return Ok(Vec::new());
         }
 
@@ -162,7 +193,34 @@ impl<T: Config> FungibleAssetInterface<T> {
             pallet_asset::Call::<T>::link_ticker_to_asset_id { ticker, asset_id },
         )?;
 
+        Self::deposit_token_information(asset_id, env)?;
         Ok(Vec::new())
+    }
+
+    /// Emits ERC-3643 `UpdatedTokenInformation` with the asset's stored name and symbol.
+    ///
+    /// Both are read back from storage, so the event reports what `name()` and `symbol()` now
+    /// return. The name and symbol are indexed strings, which a log carries as their keccak-256
+    /// hashes. The asset has no version and no ONCHAINID.
+    fn deposit_token_information(
+        asset_id: AssetId,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<(), Error> {
+        let name = Self::asset_name(asset_id, env)?;
+        let symbol = Self::asset_symbol(asset_id, env)?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::UpdatedTokenInformation(
+                IFungibleAsset::UpdatedTokenInformation {
+                    newName: keccak256(name.as_bytes()),
+                    newSymbol: keccak256(symbol.as_bytes()),
+                    newDecimals: DECIMALS,
+                    newVersion: String::new(),
+                    newOnchainID: Address::ZERO,
+                },
+            ),
+        )
     }
 
     /// Sets the frozen status of a specific address. Only an agent of the token can call this function.
@@ -213,6 +271,41 @@ impl<T: Config> FungibleAssetInterface<T> {
         };
 
         Ok(IFungibleAsset::isAgentCall::abi_encode_returns(&is_agent))
+    }
+
+    /// Removes the identity of `agent` as an agent of the token.
+    ///
+    /// Polymesh agents are identities, not keys, so every key of that identity stops being an
+    /// agent. The identity is resolved as `isAgent` resolves it. The caller must be an agent
+    /// allowed to call `ExternalAgents::remove_agent`, and the last full agent cannot be removed.
+    ///
+    /// There is no `addAgent` counterpart: becoming an agent needs the new agent's consent, so
+    /// it stays the two-step flow of `IPolymeshRuntime`.
+    pub(crate) fn remove_agent(
+        asset_id: AssetId,
+        call: &IFungibleAsset::removeAgentCall,
+        env: &mut impl Ext<T = T>,
+    ) -> Result<Vec<u8>, Error> {
+        let caller = Common::<T>::caller(env)?;
+
+        // The key's record, and whether its identity is frozen
+        env.charge(<T as frame_system::Config>::DbWeight::get().reads(2))?;
+        let account_id = Common::<T>::account_id(env, call.agent)?;
+        let agent = pallet_identity::Pallet::<T>::get_identity(&account_id)
+            .ok_or_else(|| revert(ERR_NO_IDENTITY))?;
+
+        Common::<T>::call_runtime(
+            env,
+            caller.runtime_origin(),
+            caller.account_id,
+            pallet_external_agents::Call::<T>::remove_agent { asset_id, agent },
+        )?;
+
+        Common::<T>::deposit_event(
+            env,
+            IFungibleAssetEvents::AgentRemoved(IFungibleAsset::AgentRemoved { agent: call.agent }),
+        )?;
+        Ok(Vec::new())
     }
 
     /// Freezes an additional amount of tokens for a specific address, on top of any tokens

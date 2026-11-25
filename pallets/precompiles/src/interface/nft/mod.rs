@@ -41,6 +41,7 @@ mod polymesh_specific;
 // ==================== Error Messages ====================
 pub(crate) const ERR_TOKEN_ID_OUT_OF_RANGE: &str = "Token id out of range";
 pub(crate) const ERR_NFT_NOT_FOUND: &str = "NFT does not exist";
+pub(crate) const ERR_ZERO_ADDRESS_OWNER: &str = "The zero address is not a valid owner";
 pub(crate) const ERR_OWNER_NOT_AN_ACCOUNT: &str =
     "NFT is held in a portfolio, which has no address";
 pub(crate) const ERR_UNSAFE_CONTRACT_RECEIVER: &str =

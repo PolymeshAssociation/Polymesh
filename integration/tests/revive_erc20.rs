@@ -8,6 +8,7 @@
 use anyhow::Result;
 
 use alloy::primitives::{Address, U256};
+use alloy::sol_types::SolEvent;
 
 use integration::*;
 use polymesh_api::types::polymesh_primitives::{
@@ -40,6 +41,8 @@ async fn erc20_metadata() -> Result<()> {
     assert_eq!(erc20.name().await?, "ERC20 Metadata");
     assert_eq!(erc20.symbol().await?, String::from_utf8(ticker.0.to_vec())?);
     assert_eq!(erc20.decimals().await?, ERC20_DECIMALS);
+    // `AssetHelper` creates divisible assets.
+    assert!(erc20.is_divisible().await?);
     assert_eq!(erc20.total_supply().await?, MINT);
     // The whole supply was issued to the owner's account balance.
     assert_eq!(erc20.balance_of(issuer_address).await?, MINT);
@@ -183,6 +186,78 @@ async fn erc20_approve_and_transfer_from() -> Result<()> {
     Ok(())
 }
 
+/// `approve(spender, type(uint256).max)` sets an infinite allowance that a spend does not reduce.
+#[tokio::test]
+#[test_log::test]
+async fn erc20_approve_uint256_max_is_infinite() -> Result<()> {
+    let (mut tester, node) = revive_tester().await?;
+    let mut users = tester
+        .users(&["Erc20InfiniteOwner", "Erc20InfiniteSpender"])
+        .await?;
+    let api = tester.api.clone();
+    let (owners, spenders) = users.split_at_mut(1);
+    let owner = &mut owners[0];
+    let spender = &mut spenders[0];
+
+    let (_asset, erc20) = create_erc20_asset(&api, &node, owner, "ERC20 Infinite", MINT).await?;
+    let owner_address = eth_address_of(&api, owner).await?;
+    let spender_address = eth_address_of(&api, spender).await?;
+
+    let mut owner_caller = SubstrateCaller::new(&api, owner).await?;
+    let approve = |value: U256| ierc20::approveCall {
+        spender: spender_address,
+        value,
+    };
+
+    // Only the exact maximum is accepted above 2^128-1.
+    for value in [
+        U256::from(u128::MAX) + U256::from(1),
+        U256::MAX - U256::from(1),
+    ] {
+        assert!(
+            erc20.send(&mut owner_caller, approve(value)).await.is_err(),
+            "approve({value}) should revert"
+        );
+    }
+
+    let logs = erc20.send(&mut owner_caller, approve(U256::MAX)).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc20.h160()),
+        [ierc20::Approval::SIGNATURE_HASH],
+    );
+    let events: Vec<ierc20::Approval> = decode_contract_logs(&logs, &erc20.h160())?;
+    assert_eq!(events[0].owner, owner_address);
+    assert_eq!(events[0].spender, spender_address);
+    assert_eq!(
+        events[0].value,
+        U256::MAX,
+        "Approval carries the value passed"
+    );
+
+    // `allowance()` reports the infinite allowance as 2^128-1.
+    assert_eq!(
+        erc20.allowance(owner_address, spender_address).await?,
+        u128::MAX
+    );
+
+    let mut spender_caller = SubstrateCaller::new(&api, spender).await?;
+    let logs = erc20
+        .transfer_from(&mut spender_caller, owner_address, spender_address, 4_000)
+        .await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc20.h160()),
+        [ierc20::Transfer::SIGNATURE_HASH],
+    );
+    assert_eq!(erc20.balance_of(spender_address).await?, 4_000);
+    assert_eq!(
+        erc20.allowance(owner_address, spender_address).await?,
+        u128::MAX,
+        "an infinite allowance is not reduced"
+    );
+
+    Ok(())
+}
+
 /// `mint` and `burn` change the asset's total supply.
 #[tokio::test]
 #[test_log::test]
@@ -249,7 +324,8 @@ async fn erc20_unknown_asset_reverts() -> Result<()> {
     Ok(())
 }
 
-/// Incomplete `transfer` call reverts.
+/// A `transfer` to a receiver that has to affirm it reverts, and `canTransfer` and `canReceive`
+/// say so beforehand.
 #[tokio::test]
 #[test_log::test]
 async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
@@ -262,7 +338,17 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
     let issuer = &mut issuers[0];
     let holder = &mut holders[0];
 
-    let (_asset, erc20) = create_erc20_asset(&api, &node, issuer, "ERC20 Sub", MINT).await?;
+    let (asset, erc20) = create_erc20_asset(&api, &node, issuer, "ERC20 Sub", MINT).await?;
+    let issuer_address = eth_address_of(&api, issuer).await?;
+    let holder_address = eth_address_of(&api, holder).await?;
+
+    assert!(
+        erc20
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    assert!(erc20.can_receive(holder_address).await?);
+
     erc20
         .api
         .call()
@@ -271,17 +357,50 @@ async fn erc20_missing_affirmation_transfer_reverts() -> Result<()> {
         .execute(holder)
         .await?;
 
-    let _issuer_address = eth_address_of(&api, issuer).await?;
-    let holder_address = eth_address_of(&api, holder).await?;
+    assert!(
+        !erc20
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?,
+        "canTransfer must be false for a transfer that cannot complete in one call"
+    );
+    assert!(
+        !erc20.can_receive(holder_address).await?,
+        "canReceive must be false for a receiver that has to affirm"
+    );
+
+    {
+        let mut caller = SubstrateCaller::new(&api, issuer).await?;
+        if erc20
+            .transfer(&mut caller, holder_address, 1_000)
+            .await
+            .is_ok()
+        {
+            panic!("transfer() without receiver affirmation should revert");
+        }
+    }
+    assert_eq!(erc20.balance_of(holder_address).await?, 0);
+
+    // The receiver pre-approves the asset, so its transfers no longer wait for it.
+    api.call()
+        .asset()
+        .pre_approve_asset(asset.asset_id)?
+        .execute(holder)
+        .await?;
+
+    assert!(
+        erc20
+            .can_transfer(issuer_address, holder_address, 1_000)
+            .await?
+    );
+    assert!(erc20.can_receive(holder_address).await?);
 
     let mut caller = SubstrateCaller::new(&api, issuer).await?;
-    if erc20
-        .transfer(&mut caller, holder_address, 1_000)
-        .await
-        .is_ok()
-    {
-        panic!("transfer() without receiver affirmation should revert");
-    }
+    let logs = erc20.transfer(&mut caller, holder_address, 1_000).await?;
+    assert_eq!(
+        contract_event_order(&logs, &erc20.h160()),
+        [ierc20::Transfer::SIGNATURE_HASH],
+    );
+    assert_eq!(erc20.balance_of(holder_address).await?, 1_000);
 
     Ok(())
 }

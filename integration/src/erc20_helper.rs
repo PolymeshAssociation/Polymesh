@@ -157,6 +157,12 @@ impl Token {
         self.node.call(self.address, &ierc20::decimalsCall {}).await
     }
 
+    pub async fn is_divisible(&self) -> Result<bool> {
+        self.node
+            .call(self.address, &ierc20::isDivisibleCall {})
+            .await
+    }
+
     pub async fn total_supply(&self) -> Result<u128> {
         let value = self
             .node
@@ -227,6 +233,24 @@ impl Token {
             .call(self.address, &ierc20::canSendCall { account })
             .await?;
         Ok(value)
+    }
+
+    pub async fn can_receive(&self, account: Address) -> Result<bool> {
+        let value = self
+            .node
+            .call(self.address, &ierc20::canReceiveCall { account })
+            .await?;
+        Ok(value)
+    }
+
+    pub async fn paused(&self) -> Result<bool> {
+        self.node.call(self.address, &ierc20::pausedCall {}).await
+    }
+
+    pub async fn is_frozen(&self, account: Address) -> Result<bool> {
+        self.node
+            .call(self.address, &ierc20::isFrozenCall { account })
+            .await
     }
 
     pub async fn is_agent(&self, account: Address) -> Result<bool> {
