@@ -203,7 +203,7 @@ mod confidential_key_distribution_tests {
         assert_operation_fails_with(
             res,
             "distribute an already shared key",
-            "Encryption key already registered",
+            "Encryption key is already registered",
         );
 
         // The issuer's own (registered) account encryption key.
@@ -215,7 +215,7 @@ mod confidential_key_distribution_tests {
         assert_operation_fails_with(
             res,
             "distribute a registered account key",
-            "Encryption key already registered",
+            "Encryption key is already registered",
         );
 
         Ok(())
