@@ -34,8 +34,11 @@ pub struct PendingCounts {
     Eq
 )]
 pub enum LegAffirmParty {
+    /// The sender for the leg.
     Sender,
+    /// The receiver for the leg.
     Receiver,
+    /// A mediator for the leg, identified by its index.
     Mediator(MediatorId),
 }
 
@@ -81,9 +84,13 @@ pub enum AffirmationStatus {
     Eq
 )]
 pub enum SettlementStatus {
+    /// The settlement is waiting for affirmations.
     Pending,
+    /// All required affirmations have been received and the settlement has executed.
     Executed,
+    /// A mediator rejected the settlement.
     Rejected,
+    /// All parties have finalized their legs and the settlement is complete.
     Finalized,
 }
 
