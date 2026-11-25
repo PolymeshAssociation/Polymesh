@@ -14,6 +14,7 @@ mod confidential_asset_freezing_tests {
 
     async fn settlement_proof(
         tester: &DartAssetTester,
+        venue: &DartUser,
         asset: &DartTestAsset,
         sender: &DartUser,
         receiver: &DartUser,
@@ -41,7 +42,8 @@ mod confidential_asset_freezing_tests {
             },
             public_enc_keys: vec![],
         });
-        Ok(builder.build(&mut rand::thread_rng())?)
+        let context = non_relayer_batch_proof_context(&venue.account_id().await);
+        Ok(builder.build_with_context(&context, &mut rand::thread_rng())?)
     }
 
     async fn assert_leaf_event(
@@ -265,6 +267,7 @@ mod confidential_asset_freezing_tests {
             .await?;
         let proof = settlement_proof(
             &tester,
+            &venue,
             &asset,
             &issuer,
             &receiver,
@@ -328,6 +331,7 @@ mod confidential_asset_freezing_tests {
             .await?;
         let proof = settlement_proof(
             &tester,
+            &venue,
             &asset,
             &issuer,
             &receiver,

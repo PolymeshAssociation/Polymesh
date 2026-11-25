@@ -10,6 +10,19 @@
 //! These pallets call out to the [Polymesh DART library](https://github.com/PolymeshAssociation/polymesh-dart)
 //! which implements the ZK-proofs for DART.
 //!
+//! ## Proof submission contexts
+//!
+//! Batched entry points bind every proof in the batch to the submission selected by the pallet;
+//! there is no caller-supplied context and no fallback to an unbound context:
+//!
+//! - [`Call::batched_settlement`], [`Call::submit_batched_proofs`], and
+//!   [`Call::execute_instant_settlement`] derive the context from the signing account id using
+//!   [`non_relayer_batch_proof_context`].  This prevents another account from submitting the
+//!   batch, or extracting one proof and submitting that instead.
+//! - [`Call::relayer_submit_batched_proofs`] derives the context from the fee-payment proof's
+//!   one-time nullifier, so every proof is also bound to that payment and to the relayer batch.
+//!
+//! Direct, non-batched extrinsics verify with no submission context.
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -32,8 +45,6 @@ use frame_support::{
     BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use polymesh_dart::key_distribution_proof::KeyDistributionProof;
-use polymesh_dart::{AssetKeysLookup, AssetPkTLookup, ReceiverRevertAffirmationProof};
 use polymesh_primitives::{
     erc20::{Name, Symbol, MAX_DECIMALS, MAX_NAME_LEN, MAX_SYMBOL_LEN},
     Balance, Claim, IdentityId, Scope,
@@ -52,17 +63,19 @@ use sp_std::convert::From;
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
+use polymesh_dart::key_distribution_proof::KeyDistributionProof;
 use polymesh_dart::{
     relayer_batch_proof_context, AccountPublicKey, AccountRegistrationProof,
-    AccountStateCommitment, AccountStateNullifier, AccountStateUpdate,
-    AssetId as ConfidentialAssetId, AssetKeys, AssetMintingProof, AssetState,
-    BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
+    AccountStateCommitment, AccountStateNullifier, AccountStateUpdate, AccountStateUpdateAction,
+    AssetId as ConfidentialAssetId, AssetKeys, AssetKeysLookup, AssetMintingProof, AssetPkTLookup,
+    AssetState, BatchedAccountAssetRegistrationProof, BatchedFeeAccountRegistrationProof,
     BatchedFeeAccountTopupProof, BatchedProof, BatchedProofs, BatchedSettlementProof, DartLimits,
     EncryptionKeyRegistrationProof, EncryptionPublicKey, Error as DartError,
     FeeAccountPaymentProof, FeeAccountStateCommitment, FeeAccountStateNullifier,
-    FeePaymentWithBatchedProofs, InstantReceiverAffirmationProof, InstantSenderAffirmationProof,
-    InstantSettlementProof, LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof,
-    NodeLevel, PolymeshLimits, ProofHash, ReceiverAffirmationProof, ReceiverClaimProof,
+    FeeAccountStateUpdate, FeeAccountStateUpdateAction, FeePaymentWithBatchedProofs,
+    InstantReceiverAffirmationProof, InstantSenderAffirmationProof, InstantSettlementProof,
+    LeafIndex, LegEncrypted, LegId, LegRef, MediatorAffirmationProof, NodeLevel, PolymeshLimits,
+    ProofHash, ReceiverAffirmationProof, ReceiverClaimProof, ReceiverRevertAffirmationProof,
     SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
     SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
@@ -149,6 +162,24 @@ const MIN_WORKER_VERSION: WorkerVersion = 2;
 /// for the relayer, whereas underestimating it would make the estimated minimum fee payment
 /// insufficient to cover the actual transaction fee.
 pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
+
+/// Builds the DART transcript context for a non-relayer batched proof submission.
+///
+/// Every proof in the batch is bound to the account that signs the extrinsic.  The pallet derives
+/// the context from the actual signer, so another account cannot extract a proof from the batch
+/// (or submit the whole batch) under its own origin.  This is the non-relayer counterpart to
+/// `polymesh_dart::relayer_batch_proof_context`, which binds relayer batches to the one-time
+/// fee-payment nullifier.
+///
+/// The relayer context uses tag `1` in the same domain; this uses tag `2` and the SCALE encoding
+/// of the signing account id.
+///
+/// Clients generating proofs for `batched_settlement`, `submit_batched_proofs`, or
+/// `execute_instant_settlement` must build them with this context for the account that will sign
+/// the extrinsic.
+pub fn non_relayer_batch_proof_context<AccountId: Encode>(account: &AccountId) -> Vec<u8> {
+    (b"polymesh/dart/submission/v1".as_slice(), 2u8, account).encode()
+}
 
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
@@ -370,6 +401,11 @@ pub trait WeightInfo {
     }
 }
 
+/// Transaction extension that validates relayer-submitted fee payments before dispatch.
+///
+/// It checks the fee-payment nullifier, enforces the fee bounds, and provides a transaction-pool
+/// tag for the fee nullifier.  It also sets `RelayerSubmitExtensionMarker` so the dispatch path can
+/// require a top-level relayer call.
 #[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckRelayerSubmitBatchedProofs<T>(PhantomData<T>);
@@ -551,7 +587,9 @@ pub struct AssetDetails<T: Config> {
     Eq
 )]
 pub enum FreezeOrigin {
+    /// Freeze applied by the asset issuer.
     Issuer,
+    /// Freeze applied by Root.
     Root,
 }
 
@@ -656,7 +694,7 @@ pub mod pallet {
         #[pallet::constant]
         type MaxKeysPerRegProof: Get<u32>;
 
-        /// The maximum number of proofs in a single batched proof.
+        /// The maximum number of proofs in a single batch.
         #[pallet::constant]
         type MaxBatchedProofs: Get<u32>;
 
@@ -702,7 +740,8 @@ pub mod pallet {
 
         /// The minimum time between curve tree root updates.
         ///
-        /// If there hasn't been transactions to cause a curve tree root update for a while, a new root will be recorded.
+        /// If there have been no transactions that update a curve tree for this interval, a new
+        /// root is recorded with a refreshed timestamp so provers can find a fresh root.
         #[pallet::constant]
         type MinCurveTreeRootUpdateInterval: Get<Self::Moment>;
 
@@ -726,9 +765,9 @@ pub mod pallet {
         AccountRegistered {
             /// Caller's identity.
             caller_did: IdentityId,
-            /// Confidential account (public key)
+            /// Confidential account public key.
             account: AccountPublicKey,
-            /// Confidential account (encryuption key)
+            /// Confidential account encryption key.
             encryption_key: EncryptionPublicKey,
         },
         /// An encryption key has been registered.
@@ -798,9 +837,9 @@ pub mod pallet {
             caller_did: IdentityId,
             /// Confidential account (public key)
             account: AccountPublicKey,
-            /// Is registration or top-up.
+            /// Is registration (`true`) or top-up (`false`).
             is_registration: bool,
-            /// If this was a registration then `amount` is the initial top-up amount.
+            /// Amount added to the fee account by this update.
             amount: BalanceOf<T>,
         },
         /// Settlement created.
@@ -868,6 +907,8 @@ pub mod pallet {
         /// Account curve tree leaf inserted.
         ///
         /// This curve tree is append-only, so we only store the new leaf.
+        ///
+        /// @deprecated Use event `AccountStateUpdated` instead.
         AccountStateLeafInserted {
             /// The new leaf index.
             leaf_index: LeafIndex,
@@ -877,6 +918,8 @@ pub mod pallet {
         /// Fee account curve tree leaf inserted.
         ///
         /// This curve tree is append-only, so we only store the new leaf.
+        ///
+        /// @deprecated Use event `FeeAccountStateUpdated` instead.
         FeeAccountStateLeafInserted {
             /// The new leaf index.
             leaf_index: LeafIndex,
@@ -925,11 +968,12 @@ pub mod pallet {
         RelayerBatchedProofs {
             /// Relayer account.
             relayer: T::AccountId,
-            /// Fee amount.
+            /// Fee amount reimbursed to the relayer.
             amount: BalanceOf<T>,
-            /// Batch proofs context hash.
+            /// Fee-payment batch hash, committing to the ordered batch and target/broadcast mode.
             batch_hash: ProofHash,
-            /// Batch results.
+            /// Result of processing the batched proofs.  A failed batch is reported here and does
+            /// not revert the fee payment.
             batch_result: DispatchResult,
         },
         /// Required claim set for a gated role.
@@ -957,13 +1001,41 @@ pub mod pallet {
             /// Key distribution proof (contains the recipients and their ciphertexts).
             proof: KeyDistributionProof<PolymeshLimits>,
         },
+        /// An asset has been frozen.
         AssetFrozen {
+            /// Confidential asset ID.
             asset_id: ConfidentialAssetId,
+            /// Whether the freeze was applied by the issuer or Root.
             freeze_origin: FreezeOrigin,
         },
+        /// An asset has been unfrozen.
         AssetUnfrozen {
+            /// Confidential asset ID.
             asset_id: ConfidentialAssetId,
+            /// Whether the prior freeze was applied by the issuer or Root.
             unfreeze_origin: FreezeOrigin,
+        },
+        /// A new account state commitment has been added.
+        ///
+        /// This curve tree is append-only, so we only store the new leaf.
+        AccountStateUpdated {
+            /// The new leaf index.
+            leaf_index: LeafIndex,
+            /// The new account state commitment.
+            account_commitment: AccountStateCommitment,
+            /// The update action that led to this account state update.
+            update_action: AccountStateUpdateAction,
+        },
+        /// A new fee account state commitment has been added.
+        ///
+        /// This curve tree is append-only, so we only store the new leaf.
+        FeeAccountStateUpdated {
+            /// The new leaf index.
+            leaf_index: LeafIndex,
+            /// The new fee account state commitment.
+            fee_account_commitment: FeeAccountStateCommitment,
+            /// The update action that led to this fee account state update.
+            update_action: FeeAccountStateUpdateAction,
         },
     }
 
@@ -971,33 +1043,33 @@ pub mod pallet {
     pub enum Error<T> {
         /// Confidential account hasn't been registered yet.
         AccountMissing,
-        /// Confidential account already exists.
+        /// Confidential account is already registered.
         AccountAlreadyCreated,
         /// Confidential account has already registered that asset.
         AccountAssetAlreadyRegistered,
-        /// Encryption key already registered.
+        /// Encryption key is already registered.
         EncryptionKeyAlreadyRegistered,
         /// Confidential fee account hasn't been registered yet.
         FeeAccountMissing,
-        /// Confidential fee account already registered.
+        /// Confidential fee account is already registered.
         FeeAccountAlreadyRegistered,
-        /// Invalid Fee Payment proof.
+        /// Fee payment proof is invalid.
         InvalidFeePaymentProof,
-        /// Batch of proofs can't be empty.
+        /// A relayer proof batch cannot be empty.
         EmptyBatchedProofs,
-        /// Invalid fee asset id.
+        /// The fee asset ID is invalid.
         InvalidFeeAssetId,
-        /// Amount overflow.
+        /// The amount does not fit the pallet balance type.
         AmountOverflow,
-        /// CurveTree error.
+        /// A DART proof or curve-tree operation failed.
         CurveTreeError,
-        /// CurveTree root not found.
+        /// The curve-tree root is missing or older than the configured maximum age.
         CurveTreeRootNotFound,
         /// Leaf not found in the curve tree.
         LeafNotFound,
-        /// Invalid proof provided.
+        /// Proof verification failed.
         InvalidProof,
-        /// Asset state is invalid.
+        /// The asset state or asset keys are invalid.
         AssetStateInvalid,
         /// Confidential asset hasn't been registered yet.
         AssetMissing,
@@ -1005,9 +1077,9 @@ pub mod pallet {
         NotAccountOwner,
         /// The caller is not the owner of the Confidential asset.
         NotAssetOwner,
-        /// The asset total supply cannot exceed the maximum total supply.
+        /// The asset total supply would exceed the maximum total supply.
         MaxTotalSupplyExceeded,
-        /// The nullifier for the account state commitment has already been used.
+        /// The nullifier for this state update has already been used.
         NullifierAlreadyUsed,
         /// Encryption key for the Confidential account is missing.
         EncryptionKeyMissing,
@@ -1017,37 +1089,37 @@ pub mod pallet {
         SettlementMissingLegs,
         /// Settlement has too many legs.
         SettlementTooManyLegs,
-        /// Batched settlement has invalid leg references.
+        /// A batched settlement proof contains invalid leg references.
         BatchedSettlementInvalidLegRefs,
-        /// Already affirmed.
+        /// The party has already affirmed.
         AlreadyAffirmed,
-        /// Already rejected.
+        /// The party has already rejected.
         AlreadyRejected,
-        /// Already finalized.
+        /// The party has already finalized.
         AlreadyFinalized,
-        /// Too many mediators for this leg.
+        /// The leg has more mediators than are supported.
         TooManyMediators,
-        /// Wrong mediator id for this leg.
+        /// The mediator ID is not valid for this leg.
         WrongMediatorId,
-        /// No pending affirmations for this settlement.
+        /// The settlement has no pending affirmations.
         NoPendingAffirmations,
         /// Settlement not found.
         SettlementNotFound,
         /// Leg not found in the settlement.
         LegNotFound,
-        /// Settlement not pending.
+        /// Settlement is not pending.
         SettlementNotPending,
-        /// Settlement not executed.
+        /// Settlement is not executed.
         SettlementNotExecuted,
-        /// Settlement has executed, cannot be reverted.
+        /// Settlement has executed and can no longer be reverted.
         SettlementAlreadyExecuted,
-        /// CurveTree parameters not set.
+        /// DART curve-tree parameters have not been initialized.
         CurveTreeParametersNotSet,
-        /// No current worker session.
+        /// No worker session is available for this call.
         NoCurrentWorkerSession,
         /// Confidential assets require at least one mediator or auditor.
         NoAuditorsOrMediators,
-        /// Not the last pending affirmation for the settlement.
+        /// The affirmation is not the last pending affirmation for the settlement.
         NotLastPendingAffirmation,
         /// Too many decimals for the asset.
         TooManyDecimals,
@@ -1055,11 +1127,11 @@ pub mod pallet {
         NameTooLong,
         /// Symbol too long for the asset.
         SymbolTooLong,
-        /// Invalid asset name.
+        /// Asset name must not be empty.
         InvalidAssetName,
         /// Invalid affirmation status transition.
         InvalidAffirmationStatusTransition,
-        /// Missing leg mediators.
+        /// The leg's mediator keys are missing for a revealed asset ID.
         MissingLegMediators,
         /// Encryption key does not match the registered key for the account.
         EncryptionKeyMismatch,
@@ -1091,7 +1163,9 @@ pub mod pallet {
         }
     }
 
-    /// Cache DART parameters.
+    /// Cached DART parameters used by in-runtime proof verification.
+    ///
+    /// Regenerated on runtime upgrade when the cached protocol version is stale.
     #[pallet::storage]
     pub(crate) type CachedDartParameters<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
@@ -1103,6 +1177,10 @@ pub mod pallet {
     pub type CachedDartParametersVersion<T: Config> = StorageValue<_, ProtocolVersion, OptionQuery>;
 
     /// Marks a relayer submission while its transaction extension is executing.
+    ///
+    /// Set by `CheckRelayerSubmitBatchedProofs::prepare` and cleared in `post_dispatch`. Dispatch
+    /// requires this marker, which keeps the fee-checked relayer call from being invoked through
+    /// another call path (for example nested inside `utility.batch`).
     #[pallet::storage]
     pub type RelayerSubmitExtensionMarker<T: Config> = StorageValue<_, (), OptionQuery>;
 
@@ -1154,7 +1232,7 @@ pub mod pallet {
 
     /// Encryption key to identity mapping.
     ///
-    /// This is used for the auditor and mediator encryption keys.
+    /// Used for Confidential account encryption keys and for auditor/mediator/shared keys.
     #[pallet::storage]
     pub(super) type EncryptionKeyDid<T: Config> =
         StorageMap<_, Twox64Concat, EncryptionPublicKey, IdentityId, OptionQuery>;
@@ -1169,12 +1247,12 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Confidential account to identity mapping.
+    /// Confidential asset account to identity mapping.
     #[pallet::storage]
     pub type AccountDid<T: Config> =
         StorageMap<_, Twox64Concat, AccountPublicKey, IdentityId, OptionQuery>;
 
-    /// Mapping of identity to their Confidential accounts.
+    /// Mapping of identity to their Confidential asset accounts.
     #[pallet::storage]
     pub(super) type DidAccounts<T: Config> = StorageNMap<
         _,
@@ -1238,17 +1316,17 @@ pub mod pallet {
     #[pallet::storage]
     pub(crate) type AssetCurveTreeHeight<T: Config> = StorageValue<_, NodeLevel, ValueQuery>;
 
-    /// CurveTree Roots for Confidential assets curve tree.
+    /// Historical Confidential asset curve tree roots, keyed by block number.
     ///
-    /// At the end of each block we will store the root of the assets curve tree.
-    /// The map key is the block number and the value is the root of the assets curve tree.
+    /// Proofs select a root by block number; roots are accepted only while younger than
+    /// `MaxAssetCurveTreeRootAge`.  Old roots are pruned incrementally in `on_initialize`.
     #[pallet::storage]
     pub(super) type AssetCurveTreeRoots<T: Config> =
         StorageMap<_, Identity, BlockNumberFor<T>, TimestampedAssetTreeRoot<T>, OptionQuery>;
 
-    /// The block number of the last asset curve tree root update.
+    /// The timestamp of the last asset curve tree root update.
     ///
-    /// This is used to track the last time the asset curve tree was updated.
+    /// Used to re-stamp inactive curve trees at `MinCurveTreeRootUpdateInterval`.
     #[pallet::storage]
     pub(crate) type AssetCurveTreeLastUpdate<T: Config> =
         StorageValue<_, CurveTreeTimestamp<T>, ValueQuery>;
@@ -1294,17 +1372,17 @@ pub mod pallet {
     #[pallet::storage]
     pub(crate) type AccountCurveTreeHeight<T: Config> = StorageValue<_, NodeLevel, ValueQuery>;
 
-    /// CurveTree Roots for Confidential accounts curve tree.
+    /// Historical Confidential account curve tree roots, keyed by block number.
     ///
-    /// At the end of each block we will store the root of the accounts curve tree.
-    /// The map key is the block number and the value is the root of the accounts curve tree.
+    /// Proofs select a root by block number; roots are accepted only while younger than
+    /// `MaxAccountCurveTreeRootAge`.  Old roots are pruned incrementally in `on_initialize`.
     #[pallet::storage]
     pub(super) type AccountCurveTreeRoots<T: Config> =
         StorageMap<_, Identity, BlockNumberFor<T>, TimestampedAccountTreeRoot<T>, OptionQuery>;
 
-    /// The block number of the last account curve tree root update.
+    /// The timestamp of the last account curve tree root update.
     ///
-    /// This is used to track the last time the account curve tree was updated.
+    /// Used to re-stamp inactive curve trees at `MinCurveTreeRootUpdateInterval`.
     #[pallet::storage]
     pub(crate) type AccountCurveTreeLastUpdate<T: Config> =
         StorageValue<_, CurveTreeTimestamp<T>, ValueQuery>;
@@ -1316,9 +1394,10 @@ pub mod pallet {
     pub(crate) type AccountCurveTreeLastPruned<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-    /// Nullifiers for Confidential account state commitments.
+    /// Nullifiers consumed by Confidential account state updates.
     ///
-    /// This is used to ensure that the same account state commitment cannot be used twice.
+    /// This prevents replay of a state-consuming proof (mint, affirmation, counter update,
+    /// claim, or revert) whose account state has already been spent.
     #[pallet::storage]
     pub(super) type AccountStateCommitmentNullifiers<T: Config> =
         StorageMap<_, Identity, AccountStateNullifier, (), OptionQuery>;
@@ -1357,17 +1436,17 @@ pub mod pallet {
     #[pallet::storage]
     pub(crate) type FeeAccountCurveTreeHeight<T: Config> = StorageValue<_, NodeLevel, ValueQuery>;
 
-    /// CurveTree Roots for Confidential fee accounts curve tree.
+    /// Historical Confidential fee account curve tree roots, keyed by block number.
     ///
-    /// At the end of each block we will store the root of the fee accounts curve tree.
-    /// The map key is the block number and the value is the root of the fee accounts curve tree.
+    /// Proofs select a root by block number; roots are accepted only while younger than
+    /// `MaxFeeAccountCurveTreeRootAge`.  Old roots are pruned incrementally in `on_initialize`.
     #[pallet::storage]
     pub(super) type FeeAccountCurveTreeRoots<T: Config> =
         StorageMap<_, Identity, BlockNumberFor<T>, TimestampedFeeAccountTreeRoot<T>, OptionQuery>;
 
-    /// The block number of the last fee account curve tree root update.
+    /// The timestamp of the last fee account curve tree root update.
     ///
-    /// This is used to track the last time the fee account curve tree was updated.
+    /// Used to re-stamp inactive curve trees at `MinCurveTreeRootUpdateInterval`.
     #[pallet::storage]
     pub(crate) type FeeAccountCurveTreeLastUpdate<T: Config> =
         StorageValue<_, CurveTreeTimestamp<T>, ValueQuery>;
@@ -1379,19 +1458,20 @@ pub mod pallet {
     pub(crate) type FeeAccountCurveTreeLastPruned<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-    /// Nullifiers for Confidential fee account state commitments.
+    /// Nullifiers consumed by Confidential fee account state updates.
     ///
-    /// This is used to ensure that the same fee account state commitment cannot be used twice.
+    /// This prevents replay of a fee-account state update or fee payment whose committed state
+    /// has already been spent.
     #[pallet::storage]
     pub(super) type FeeAccountStateCommitmentNullifiers<T: Config> =
         StorageMap<_, Identity, FeeAccountStateNullifier, (), OptionQuery>;
 
-    /// The settlement status.
+    /// The settlement status, keyed by settlement reference.
     #[pallet::storage]
     pub(crate) type SettlementState<T: Config> =
         StorageMap<_, Identity, SettlementRef, SettlementStatus, OptionQuery>;
 
-    /// The settlement memo.
+    /// The settlement memo, keyed by settlement reference.
     #[pallet::storage]
     pub(crate) type SettlementMemo<T: Config> = StorageMap<
         _,
@@ -1401,10 +1481,9 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// The settlement legs.
+    /// The encrypted settlement legs.
     ///
-    /// This is a double map where the first key is the settlement ID and the second key is the leg ID.
-    /// The value is the DartSettlementLeg.
+    /// This is a double map keyed by settlement reference and leg ID.
     #[pallet::storage]
     pub(crate) type SettlementLegs<T: Config> = StorageNMap<
         _,
@@ -1413,7 +1492,7 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// The number of legs in each settlement.
+    /// The number of legs in each settlement, keyed by settlement reference.
     #[pallet::storage]
     pub(crate) type SettlementLegCount<T: Config> =
         StorageMap<_, Identity, SettlementRef, Compact<u32>, OptionQuery>;
@@ -1461,7 +1540,8 @@ pub mod pallet {
     pub(crate) type RequiredClaims<T: Config> =
         StorageMap<_, Twox64Concat, RoleKind, RequiredClaim<T>, OptionQuery>;
 
-    /// The WorkerSessionId for the current block (started lazily, removed in `on_finalize`).
+    /// The WorkerSessionId for the current block, started lazily on first use and cleared in
+    /// `on_finalize`.
     #[pallet::storage]
     pub(crate) type CurrentWorkerSessionId<T: Config> =
         StorageValue<_, WorkerSessionId, OptionQuery>;
@@ -1509,8 +1589,12 @@ pub mod pallet {
                 AssetCurveTreeHeight::<T>::put(ASSET_TREE_HEIGHT);
                 AccountCurveTreeHeight::<T>::put(ACCOUNT_TREE_HEIGHT);
                 FeeAccountCurveTreeHeight::<T>::put(FEE_ACCOUNT_TREE_HEIGHT);
-
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 3));
+
+                // MAINNET: Block all roles without a spec, so no one can act before Root installs
+                // the correct claim requirements (Mainnet safety).
+                Pallet::<T>::initialize_required_claims(None);
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
             } else {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
             }
@@ -1530,9 +1614,6 @@ pub mod pallet {
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
             }
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 0));
-
-            // Recover stuck settlements (0 -> 1).
-            weight = weight.saturating_add(Self::migrate_to_v1());
 
             weight
         }
@@ -1561,16 +1642,20 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Register a dart account.
+        /// Register Confidential accounts and their encryption keys.
         ///
         /// # Arguments
-        /// * `account` the dart account to register.
-        /// * `encryption_key` the encryption key for the dart account.
+        /// * `origin` - The origin of the call.
+        /// * `proof` - The account registration proof.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
-        /// * `AccountAlreadyCreated` if the dart account or encryption key is already registered.
-        /// * `NotAccountOwner` if the account key is registered to another identity as a fee account.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `TooManyProofs` if the proof exceeds `MaxKeysPerRegProof`.
+        /// * `AccountAlreadyCreated` if a Confidential account is already registered.
+        /// * `EncryptionKeyAlreadyRegistered` if an encryption key is already registered.
+        /// * `NotAccountOwner` if an account key is already registered to another identity as a fee
+        ///   account.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::register_accounts(proof.len() as u32))]
         pub fn register_accounts(
@@ -1632,8 +1717,9 @@ pub mod pallet {
         /// * `proof` - The auditor/mediator encryption registration proof.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
-        /// * `EncryptionKeyAlreadyRegistered` if the encryption key is already registered.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `TooManyProofs` if the proof exceeds `MaxKeysPerRegProof`.
+        /// * `EncryptionKeyAlreadyRegistered` if an encryption key is already registered.
         /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::register_encryption_keys(proof.len() as u32))]
@@ -1660,15 +1746,32 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Create a new Confidential Asset.
+        /// Create a new Confidential asset.
         ///
         /// # Arguments
-        /// * `auditor_or_mediator` - The auditor or mediator public key.
+        /// * `origin` - The origin of the call.
+        /// * `name` - Asset name.
+        /// * `symbol` - Asset symbol.
+        /// * `decimals` - Asset decimals.
+        /// * `mediators` - Mediator account and encryption keys.
+        /// * `auditors` - Auditor encryption keys.
+        /// * `data` - Extra asset metadata.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
-        /// * `AccountMissing` if the auditor or mediator is not registered.
-        /// * `EncryptionKeyMissing` if the encryption key of the auditor or mediator is not registered.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `InvalidAssetName` if `name` is empty.
+        /// * `NameTooLong` if `name` exceeds `MAX_NAME_LEN`.
+        /// * `SymbolTooLong` if `symbol` exceeds `MAX_SYMBOL_LEN`.
+        /// * `TooManyDecimals` if `decimals` exceeds `MAX_DECIMALS`.
+        /// * `MissingRequiredClaim` if the caller lacks the asset-creator claim, or a selected
+        ///   auditor/mediator lacks the required role claim.
+        /// * `AccountMissing` if a mediator Confidential account is not registered.
+        /// * `EncryptionKeyMissing` if an auditor/mediator encryption key is not registered.
+        /// * `EncryptionKeyNotShared` if a mediator key was neither the account's own key nor
+        ///   shared with it.
+        /// * `NoAuditorsOrMediators` if neither auditors nor mediators are provided.
+        /// * `AssetStateInvalid` if the asset keys or asset state cannot be built/committed.
+        /// * `AssetIdOverflow` if no more asset IDs are available.
         #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::create_asset(
             mediators.len().saturating_add(auditors.len()) as u32
@@ -1697,12 +1800,15 @@ pub mod pallet {
         /// * `proof` - The Batched Account asset registration proof.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `TooManyProofs` if the proof exceeds `MaxAccountAssetRegProofs`.
         /// * `AccountMissing` if the Confidential account is not registered.
-        /// * `AssetMissing` if the Confidential asset is not registered.
-        /// * `AccountAssetAlreadyRegistered` if the Confidential account has already registered the Confidential asset.
-        /// * `NotAccountOwner` if the caller is not the owner of the Confidential account.
+        /// * `EncryptionKeyMissing` if the account's encryption key is missing.
         /// * `EncryptionKeyMismatch` if the proof key doesn't match the account's registered key.
+        /// * `AssetMissing` if the Confidential asset is not registered.
+        /// * `AccountAssetAlreadyRegistered` if the Confidential account has already registered the
+        ///   Confidential asset.
+        /// * `NotAccountOwner` if the caller is not the owner of the Confidential account.
         /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::register_account_assets_with_leaf(proof.len() as u32))]
@@ -1743,7 +1849,7 @@ pub mod pallet {
                 );
                 AccountAssetRegistrations::<T>::insert((&p.account.acct, &p.asset_id), true);
 
-                registrations.push((p.account, p.asset_id, p.account_state_commitment));
+                registrations.push((p.account, p.asset_id, p.counter, p.account_state_commitment));
             }
 
             // Verify the proof.
@@ -1755,9 +1861,16 @@ pub mod pallet {
             })?;
 
             // Process each registration.
-            for (account, asset_id, account_state_commitment) in registrations {
+            for (account, asset_id, counter, account_state_commitment) in registrations {
                 // Insert the new account state commitment from the proof into the account curve tree.
-                Self::insert_account_leaf(account_state_commitment, None)?;
+                Self::insert_account_leaf(
+                    account_state_commitment,
+                    AccountStateUpdateAction::AccountAssetRegistration {
+                        account: account.acct,
+                        asset_id,
+                        counter,
+                    },
+                )?;
 
                 // Emit an event for the account asset registration.
                 Self::deposit_event(Event::<T>::AccountAssetRegistered {
@@ -1777,14 +1890,17 @@ pub mod pallet {
         /// * `proof` - The minting proof.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
         /// * `AccountMissing` if the Confidential account is not registered.
-        /// * `AssetMissing` if the Confidential asset is not registered.
+        /// * `EncryptionKeyMissing` if the account's encryption key is missing.
+        /// * `EncryptionKeyMismatch` if the proof encryption key doesn't match the account's key.
         /// * `NotAccountOwner` if the caller is not the owner of the Confidential account.
-        /// * `InvalidProof` if the proof is invalid.
+        /// * `AssetMissing` if the Confidential asset is not registered.
         /// * `NotAssetOwner` if the caller is not the owner of the Confidential asset.
-        /// * `MaxTotalSupplyExceeded` if the total supply of the Confidential asset exceeds the maximum total supply.
-        /// * `NullifierAlreadyUsed` if the nullifier for the account state commitment has already been used.
+        /// * `MaxTotalSupplyExceeded` if the new total supply would exceed the configured maximum.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::mint_asset_with_leaf())]
         pub fn mint_asset(
@@ -1844,9 +1960,14 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `InvalidProof` if the proof is invalid.
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
+        /// * `SettlementAlreadyExists` if this settlement reference has already been created.
+        /// * `AssetMissing` if a revealed asset or a leg's asset keys are missing.
+        /// * `AssetIsFrozen` if a revealed asset is frozen.
+        /// * `CurveTreeRootNotFound` if the asset curve-tree root is missing or expired.
+        /// * `CurveTreeError` if a leg's mediator count cannot be derived.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::create_settlement(proof.legs.len() as u32))]
         pub fn create_settlement(
@@ -1866,10 +1987,18 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotPending` if the settlement is not pending.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotPending` if the settlement is not pending.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        /// * `AlreadyAffirmed` if the leg has already been affirmed by the sender.
+        /// * `AlreadyRejected` if the sender has already rejected the leg.
+        /// * `AlreadyFinalized` if the sender has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the sender has already affirmed or the status
+        ///   transition is otherwise invalid.
+        /// * `NoPendingAffirmations` if the settlement's pending-affirmation counter is already
+        ///   zero.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::sender_affirmation_with_leaf())]
         pub fn sender_affirmation(
@@ -1889,10 +2018,18 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotPending` if the settlement is not pending.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotPending` if the settlement is not pending.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        /// * `AlreadyAffirmed` if the leg has already been affirmed by the receiver.
+        /// * `AlreadyRejected` if the receiver has already rejected the leg.
+        /// * `AlreadyFinalized` if the receiver has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the receiver has already affirmed or the
+        ///   status transition is otherwise invalid.
+        /// * `NoPendingAffirmations` if the settlement's pending-affirmation counter is already
+        ///   zero.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::receiver_affirmation_with_leaf())]
         pub fn receiver_affirmation(
@@ -1912,11 +2049,18 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotPending` if the settlement is not pending.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotPending` if the settlement is not pending.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        /// * `AlreadyAffirmed` if the leg has already been affirmed by the mediator.
-        /// * `WrongMediatorId` if the mediator ID does not match the expected mediator for the leg.
+        /// * `WrongMediatorId` if the mediator index is not valid for the leg.
+        /// * `MissingLegMediators` if the revealed leg has no stored mediator keys.
+        /// * `AlreadyAffirmed` if the mediator has already affirmed the leg.
+        /// * `AlreadyRejected` if the mediator has already rejected the leg.
+        /// * `AlreadyFinalized` if the mediator has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the requested status transition is invalid.
+        /// * `NoPendingAffirmations` if the settlement's pending-affirmation counter is already
+        ///   zero.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(8)]
         #[pallet::weight(
             <T as Config>::WeightInfo::mediator_affirmation().saturating_add(if proof.accept {
@@ -1954,9 +2098,16 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotExecuted` if the settlement has not been executed.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotExecuted` if the settlement has not been executed.
         /// * `LegNotFound` if the leg is not found in the settlement.
+        /// * `AlreadyRejected` if the sender has already rejected the leg.
+        /// * `AlreadyFinalized` if the sender has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the leg is still pending or the status
+        ///   transition is otherwise invalid.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(9)]
         #[pallet::weight(
             <T as Config>::WeightInfo::sender_update_counter_with_leaf()
@@ -1987,9 +2138,16 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementAlreadyExecuted` if the settlement has already been executed.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementAlreadyExecuted` if the settlement has already been executed.
         /// * `LegNotFound` if the leg is not found in the settlement.
+        /// * `AlreadyRejected` if the sender has already rejected the leg.
+        /// * `AlreadyFinalized` if the sender has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the sender has not affirmed the leg or the
+        ///   status transition is otherwise invalid.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(10)]
         #[pallet::weight(
             <T as Config>::WeightInfo::sender_revert_affirmation_with_leaf()
@@ -2020,9 +2178,16 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementAlreadyExecuted` if the settlement has already been executed.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementAlreadyExecuted` if the settlement has already been executed.
         /// * `LegNotFound` if the leg is not found in the settlement.
+        /// * `AlreadyRejected` if the receiver has already rejected the leg.
+        /// * `AlreadyFinalized` if the receiver has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the receiver has not affirmed the leg or the
+        ///   status transition is otherwise invalid.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(11)]
         #[pallet::weight(
             <T as Config>::WeightInfo::receiver_revert_affirmation_with_leaf()
@@ -2053,9 +2218,16 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotExecuted` if the settlement has not been executed.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotExecuted` if the settlement has not been executed.
         /// * `LegNotFound` if the leg is not found in the settlement.
+        /// * `AlreadyRejected` if the receiver has already rejected the leg.
+        /// * `AlreadyFinalized` if the receiver has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the receiver has not affirmed the leg or the
+        ///   status transition is otherwise invalid.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(12)]
         #[pallet::weight(
             <T as Config>::WeightInfo::receiver_claim_with_leaf()
@@ -2080,15 +2252,31 @@ pub mod pallet {
 
         /// Create a settlement with batched leg affirmations.
         ///
+        /// All proofs in the batch are verified with a context derived from the signing account,
+        /// so another account cannot extract and submit a subset of the batch.  Clients must
+        /// generate the proofs with [`non_relayer_batch_proof_context`] for that account.
+        ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The settlement proof with batched leg affirmations.
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `InvalidProof` if the proof is invalid.
+        /// * `BatchedSettlementInvalidLegRefs` if an included affirmation references a different
+        ///   settlement or leg.
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
+        /// * `SettlementAlreadyExists` if this settlement reference has already been created.
+        /// * `AssetMissing` if a revealed asset or a leg's asset keys are missing.
+        /// * `AssetIsFrozen` if a revealed asset is frozen.
+        /// * `CurveTreeRootNotFound` if an asset or account curve-tree root is missing or expired.
+        /// * `CurveTreeError` if a leg's mediator count cannot be derived.
+        /// * `NullifierAlreadyUsed` if an included affirmation's account state nullifier has
+        ///   already been used.
+        /// * `SettlementNotPending`, `LegNotFound`, `AlreadyRejected`, `AlreadyFinalized`,
+        ///   `InvalidAffirmationStatusTransition`, or `NoPendingAffirmations` if an included
+        ///   sender/receiver affirmation is invalid.
+        /// * `InvalidProof` if the settlement or an included affirmation proof is invalid.
         #[pallet::call_index(13)]
         #[pallet::weight(<T as Config>::WeightInfo::batched_settlement(SettlementCounts {
             // Charge creation for every leg; `leg_affirmations` is optional and may be shorter.
@@ -2099,9 +2287,10 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: BatchedSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
+            let context = non_relayer_batch_proof_context(&signer);
 
-            Self::base_batched_settlement(proof, None)
+            Self::base_batched_settlement(proof, Some(&context))
         }
 
         /// Batch register multiple fee accounts.
@@ -2113,13 +2302,15 @@ pub mod pallet {
         /// * `proof` - The batched fee account registration proof.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
-        /// * `FeeAccountAlreadyRegistered` if the fee account or encryption key is already registered.
-        /// * `NotAccountOwner` if the account key is registered to another identity as an asset account.
-        /// * `NullifierAlreadyUsed` if the nullifier for the fee account state commitment has already been used.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `TooManyProofs` if the proof exceeds `MaxFeeAccountRegProofs`.
+        /// * `NotAccountOwner` if the account key is already registered to another identity as a
+        ///   Confidential account.
+        /// * `FeeAccountAlreadyRegistered` if a fee account is already registered.
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
+        /// * `AmountOverflow` if an amount does not fit the pallet balance type.
         /// * `InvalidProof` if the proof is invalid.
-        /// * `InsufficientBalance` if the caller has insufficient balance to pay the deposit.
+        /// * `InsufficientBalance` if the caller cannot fund the total fee-account deposit.
         #[pallet::call_index(14)]
         #[pallet::weight(<T as Config>::WeightInfo::register_fee_accounts_with_leaf(proof.len() as u32))]
         pub fn register_fee_accounts(
@@ -2154,7 +2345,12 @@ pub mod pallet {
                 ensure!(p.asset_id == FEE_ASSET_ID, Error::<T>::InvalidFeeAssetId);
 
                 let amount = Self::amount_to_balance(p.amount)?;
-                registrations.push((p.account, amount, p.account_state_commitment));
+                registrations.push((
+                    p.account,
+                    amount,
+                    p.account_state_commitment,
+                    p.update_action(),
+                ));
             }
 
             // Deposit the total POLYX amount into the fee pool.
@@ -2168,9 +2364,9 @@ pub mod pallet {
             })?;
 
             // Process each registration.
-            for (account, amount, account_state_commitment) in registrations {
+            for (account, amount, account_state_commitment, update_action) in registrations {
                 // Insert the new fee account state commitment from the proof into the fee account curve tree.
-                Self::insert_fee_account_leaf(account_state_commitment, None)?;
+                Self::insert_fee_account_leaf(account_state_commitment, update_action)?;
 
                 // Emit an event for the fee account registration.
                 Self::deposit_event(Event::<T>::FeeAccountUpdated {
@@ -2184,19 +2380,24 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Toup a batch of fee accounts.
+        /// Top up a batch of fee accounts.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The batched fee account topup proof.
         ///
         /// # Errors
-        /// * `BadOrigin` if `origin` isn't signed.
-        /// * `FeeAccountMissing` if the fee account is not registered.
-        /// * `NotAccountOwner` if the caller does not own the fee account.
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `TooManyProofs` if the proof exceeds `MaxFeeAccountTopupProofs`.
+        /// * `FeeAccountMissing` if a fee account is not registered.
+        /// * `NotAccountOwner` if the caller does not own a fee account.
         /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
+        /// * `NullifierAlreadyUsed` if a nullifier is repeated in the batch or has already been
+        ///   used on-chain.
+        /// * `AmountOverflow` if an amount does not fit the pallet balance type.
+        /// * `CurveTreeRootNotFound` if the fee-account curve-tree root is missing or expired.
         /// * `InvalidProof` if the proof is invalid.
-        /// * `InsufficientBalance` if the caller has insufficient balance to pay the deposit.
+        /// * `InsufficientBalance` if the caller cannot fund the total top-up.
         #[pallet::call_index(15)]
         #[pallet::weight(<T as Config>::WeightInfo::topup_fee_accounts_with_leaf(proof.len() as u32))]
         pub fn topup_fee_accounts(
@@ -2237,7 +2438,7 @@ pub mod pallet {
                     p.account,
                     amount,
                     p.updated_account_state_commitment,
-                    p.nullifier,
+                    p.update_action(),
                 ));
             }
 
@@ -2257,9 +2458,9 @@ pub mod pallet {
             })?;
 
             // Process each topup.
-            for (account, amount, account_state_commitment, nullifier) in topups {
+            for (account, amount, account_state_commitment, update_action) in topups {
                 // Insert the new fee account state commitment from the proof into the fee account curve tree.
-                Self::insert_fee_account_leaf(account_state_commitment, Some(nullifier))?;
+                Self::insert_fee_account_leaf(account_state_commitment, update_action)?;
 
                 // Emit an event for the fee account topup.
                 Self::deposit_event(Event::<T>::FeeAccountUpdated {
@@ -2275,13 +2476,28 @@ pub mod pallet {
 
         /// Submit a batch of proofs.
         ///
+        /// All proofs in the batch are verified with a context derived from the signing account,
+        /// so another account cannot extract and submit a subset of the batch.  Clients must
+        /// generate the proofs with [`non_relayer_batch_proof_context`] for that account.
+        ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The batched proofs.
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `InvalidProof` if any of the proofs are invalid.
+        /// * `TooManyProofs` if the batch exceeds `MaxBatchedProofs`.
+        /// * `InvalidProof` if any included proof is invalid.
+        /// * `SettlementMissingLegs`, `SettlementTooManyLegs`, `SettlementAlreadyExists`,
+        ///   `AssetMissing`, `AssetIsFrozen`, `CurveTreeRootNotFound`, `CurveTreeError`, or
+        ///   `BatchedSettlementInvalidLegRefs` for an included settlement or instant-settlement
+        ///   proof.
+        /// * `NullifierAlreadyUsed`, `SettlementNotFound`, `SettlementNotPending`,
+        ///   `SettlementNotExecuted`, `SettlementAlreadyExecuted`, `NotLastPendingAffirmation`,
+        ///   `LegNotFound`, `AlreadyAffirmed`, `AlreadyRejected`, `AlreadyFinalized`,
+        ///   `InvalidAffirmationStatusTransition`, `NoPendingAffirmations`, `WrongMediatorId`,
+        ///   `MissingLegMediators`, or `SettlementLegCountMismatch` for an included affirmation,
+        ///   counter update, revert, claim, or instant affirmation proof.
         #[pallet::call_index(16)]
         #[pallet::weight(
             <T as Config>::WeightInfo::batched_proofs(&proof, T::MaxSettlementLegs::get())
@@ -2290,13 +2506,14 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: BatchedProofs<PolymeshLimits>,
         ) -> DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
             ensure!(
                 proof.len() <= T::MaxBatchedProofs::get() as usize,
                 Error::<T>::TooManyProofs
             );
 
-            let actual_weight = Self::process_batched_proofs(proof, None)?;
+            let context = non_relayer_batch_proof_context(&signer);
+            let actual_weight = Self::process_batched_proofs(proof, Some(&context))?;
 
             Ok(PostDispatchInfo {
                 actual_weight: Some(actual_weight),
@@ -2311,6 +2528,10 @@ pub mod pallet {
         ///
         /// Relayers can charge a commission fee on top of the transaction fee (i.e. `commission fee + transaction fee = fee amount`).
         ///
+        /// Every proof in the batch is verified with a context derived from the fee payment's
+        /// one-time nullifier.  The fee payment itself commits to the complete ordered batch and,
+        /// unless broadcast, the submitting relayer.
+        ///
         /// Relayers are responsible for checking the fee payment terms and the fee and batch proofs before submission.
         /// The signed extension checks whether the fee nullifier is already spent; a concurrent spend can still make
         /// that check stale before inclusion. Fee-payment roots are checked against the shorter relayer root-age limit
@@ -2323,9 +2544,19 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
-        /// * `CurveTreeRootNotFound` if the fee payment root is missing or too old.
+        /// * `NullifierAlreadyUsed` if the fee-payment nullifier has already been spent.
         /// * `RelayerCallMustBeTopLevel` if this call is nested or the signed extension did not run.
+        /// * `TooManyProofs` if the batch exceeds `MaxBatchedProofs`.
+        /// * `EmptyBatchedProofs` if the batch contains no proofs.
+        /// * `AmountOverflow` if the fee amount does not fit the pallet balance type.
+        /// * `InvalidFeeAssetId` if the fee asset ID is invalid.
+        /// * `CurveTreeRootNotFound` if the fee-payment root is missing or too old.
+        /// * `InvalidFeePaymentProof` if the fee payment proof is invalid.
+        /// * `InsufficientBalance` if the fee pool cannot reimburse the relayer.
+        ///
+        /// Errors from processing the batched Confidential proofs do not fail this extrinsic.
+        /// They are reported in the `RelayerBatchedProofs.batch_result` event after the fee payment
+        /// has been verified and charged.
         #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::relayer_submit_batched_proofs(
             &proof,
@@ -2342,24 +2573,44 @@ pub mod pallet {
 
         /// Create and execute an instant settlement.
         ///
+        /// All proofs in the instant settlement are verified with a context derived from the
+        /// signing account, so another account cannot extract and submit a subset of the batch.
+        /// Clients must generate the proofs with [`non_relayer_batch_proof_context`] for that
+        /// account.
+        ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The settlement proof with batched leg affirmations.
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `InvalidProof` if the proof is invalid.
+        /// * `BatchedSettlementInvalidLegRefs` if the leg affirmations do not match the settlement
+        ///   legs or a mediator rejected.
         /// * `SettlementMissingLegs` if the settlement has no legs.
         /// * `SettlementTooManyLegs` if the settlement has more legs than the maximum allowed.
+        /// * `SettlementAlreadyExists` if this settlement reference has already been created.
+        /// * `AssetMissing` if a revealed asset or a leg's asset keys are missing.
+        /// * `AssetIsFrozen` if a revealed asset is frozen.
+        /// * `CurveTreeRootNotFound` if an asset or account curve-tree root is missing or expired.
+        /// * `CurveTreeError` if a leg's mediator count cannot be derived.
+        /// * `NullifierAlreadyUsed` if an included affirmation's account state nullifier has
+        ///   already been used.
+        /// * `SettlementNotPending`, `LegNotFound`, `WrongMediatorId`, `MissingLegMediators`,
+        ///   `AlreadyAffirmed`, `AlreadyRejected`, `AlreadyFinalized`,
+        ///   `InvalidAffirmationStatusTransition`, or `NoPendingAffirmations` if an included
+        ///   affirmation is invalid.
+        /// * `SettlementNotExecuted` if the settlement did not finalize successfully.
+        /// * `InvalidProof` if the settlement or an included affirmation proof is invalid.
         #[pallet::call_index(18)]
         #[pallet::weight(<T as Config>::WeightInfo::execute_instant_settlement(proof.count_leg_affirmations()))]
         pub fn execute_instant_settlement(
             origin: OriginFor<T>,
             proof: InstantSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
+            let context = non_relayer_batch_proof_context(&signer);
 
-            Self::base_execute_instant_settlement(proof, None)
+            Self::base_execute_instant_settlement(proof, Some(&context))
         }
 
         /// Sender affirms a settlement leg as the last pending affirmation.
@@ -2372,11 +2623,20 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotPending` if the settlement is not pending.
+        /// * `NotLastPendingAffirmation` if this is not the settlement's last pending affirmation.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotPending` if the settlement is not pending.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        /// * `AlreadyAffirmed` if the leg has already been affirmed by the sender.
-        /// * `NotLastPendingAffirmation` if the sender affirmation is not the last pending affirmation for the settlement.
+        /// * `AlreadyRejected` if the sender has already rejected the leg.
+        /// * `AlreadyFinalized` if the sender has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the sender has already affirmed or the status
+        ///   transition is otherwise invalid.
+        /// * `NoPendingAffirmations` if the settlement's pending-affirmation counter is already
+        ///   zero.
+        /// * `SettlementNotExecuted` if the settlement did not execute after the affirmation.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(19)]
         #[pallet::weight(
             <T as Config>::WeightInfo::instant_sender_affirmation_with_leaf()
@@ -2410,11 +2670,20 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        /// * `SettlementNotPending` if the settlement is not pending.
+        /// * `NotLastPendingAffirmation` if this is not the settlement's last pending affirmation.
+        /// * `NullifierAlreadyUsed` if the account state nullifier has already been used.
+        /// * `CurveTreeRootNotFound` if the account curve-tree root is missing or expired.
         /// * `SettlementNotFound` if the settlement is not found.
+        /// * `SettlementNotPending` if the settlement is not pending.
         /// * `LegNotFound` if the leg is not found in the settlement.
-        /// * `AlreadyAffirmed` if the leg has already been affirmed by the receiver.
-        /// * `NotLastPendingAffirmation` if the receiver affirmation is not the last pending affirmation for the settlement.
+        /// * `AlreadyRejected` if the receiver has already rejected the leg.
+        /// * `AlreadyFinalized` if the receiver has already finalized the leg.
+        /// * `InvalidAffirmationStatusTransition` if the receiver has already affirmed or the
+        ///   status transition is otherwise invalid.
+        /// * `NoPendingAffirmations` if the settlement's pending-affirmation counter is already
+        ///   zero.
+        /// * `SettlementNotExecuted` if the settlement did not execute after the affirmation.
+        /// * `InvalidProof` if the proof is invalid.
         #[pallet::call_index(20)]
         #[pallet::weight(
             <T as Config>::WeightInfo::instant_receiver_affirmation_with_leaf()
@@ -2522,6 +2791,24 @@ pub mod pallet {
         ///
         /// The asset owner must retain the required live claims for every selected auditor and
         /// mediator. Existing settlements keep their creation-time encrypted legs and mediator set.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call.
+        /// * `asset_id` - Confidential asset ID.
+        /// * `mediators` - New mediator account and encryption keys.
+        /// * `auditors` - New auditor encryption keys.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed or lacks call permissions.
+        /// * `AssetMissing` if the Confidential asset is not registered.
+        /// * `NotAssetOwner` if the caller is not the owner of the Confidential asset.
+        /// * `AccountMissing` if a mediator Confidential account is not registered.
+        /// * `EncryptionKeyMissing` if an auditor/mediator encryption key is not registered.
+        /// * `EncryptionKeyNotShared` if a mediator key was neither the account's own key nor
+        ///   shared with it.
+        /// * `MissingRequiredClaim` if a selected auditor/mediator lacks the required role claim.
+        /// * `NoAuditorsOrMediators` if neither auditors nor mediators are provided.
+        /// * `AssetStateInvalid` if the asset keys or asset state cannot be built/committed.
         #[pallet::call_index(24)]
         #[pallet::weight(<T as Config>::WeightInfo::update_asset_keys(
             mediators.len().saturating_add(auditors.len()) as u32
@@ -2538,6 +2825,18 @@ pub mod pallet {
         }
 
         /// Set the freeze state as the issuer or Root. Only Root may change a Root freeze.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call (asset issuer or Root).
+        /// * `asset_id` - Confidential asset ID.
+        /// * `frozen` - Whether the asset should be frozen.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't Root, signed, or permitted to act for the asset owner.
+        /// * `AssetMissing` if the Confidential asset is not registered.
+        /// * `NotAssetOwner` if a signed caller is not the owner of the Confidential asset.
+        /// * `AssetFrozenByRoot` if a non-Root caller tries to change or clear a Root freeze.
+        /// * `AssetStateInvalid` if the updated asset state cannot be committed.
         #[pallet::call_index(25)]
         #[pallet::weight(<T as Config>::WeightInfo::set_asset_frozen())]
         pub fn set_asset_frozen(
@@ -2899,6 +3198,10 @@ impl<T: Config> Pallet<T> {
         Self::update_asset_leaf(caller_did, asset_id, &mediators, &auditors, false)
     }
 
+    /// Create a settlement from a settlement proof.
+    ///
+    /// The proof is verified with `ctx`; direct calls pass `None`, while batched entry points pass
+    /// their derived submission context.
     pub fn base_create_settlement(
         proof: SettlementProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3010,6 +3313,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Create a settlement with batched leg affirmations.
+    ///
+    /// The settlement proof and every included sender/receiver affirmation are verified with
+    /// `ctx`, which the entry point derives from its submission mode.
     pub fn base_batched_settlement(
         proof: BatchedSettlementProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3036,6 +3343,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Create, affirm, and finalize an instant settlement.
+    ///
+    /// The settlement proof, all mediator affirmations, and every instant sender/receiver
+    /// affirmation are verified with `ctx`, which the entry point derives from its submission
+    /// mode.
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3069,6 +3381,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a sender affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_sender_affirmation(
         proof: SenderAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3089,6 +3404,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a receiver affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_receiver_affirmation(
         proof: ReceiverAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3109,6 +3427,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify an instant sender affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
+    /// When `normal_settlement` is true, this must be the settlement's last pending affirmation.
     pub fn base_instant_sender_affirmation(
         proof: InstantSenderAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
@@ -3145,6 +3467,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify an instant receiver affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
+    /// When `normal_settlement` is true, this must be the settlement's last pending affirmation.
     pub fn base_instant_receiver_affirmation(
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
@@ -3216,6 +3542,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a mediator affirmation.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_mediator_affirmation(
         proof: MediatorAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3239,6 +3568,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a sender counter update and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_sender_update_counter(
         proof: SenderCounterUpdateProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3259,6 +3591,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a sender revert affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_sender_revert_affirmation(
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3279,6 +3614,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a receiver revert affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_receiver_revert_affirmation(
         proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3299,6 +3637,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a receiver claim and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_receiver_claim(
         proof: ReceiverClaimProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3319,6 +3660,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a relayer fee payment and process its batched proofs atomically.
+    ///
+    /// The batch proofs are verified with a context derived from the fee payment's one-time
+    /// nullifier.  The payment and its reimbursement persist even when the batch fails.
     pub fn base_relayer_submit_batched_proofs(
         relayer: T::AccountId,
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
@@ -3444,13 +3789,17 @@ impl<T: Config> Pallet<T> {
         batch.encoded_size() as u32 + fee_payment_proof_len as u32 + 1
     }
 
+    /// Verify a fee payment proof and withdraw the payment to the relayer.
+    ///
+    /// `batch_hash` commits to the complete ordered proof batch and the target/broadcast mode.
+    /// Fee-account state that is spent here cannot be reused for another payment.
     pub fn verify_fee_payment(
         relayer: T::AccountId,
         batch_hash: ProofHash,
         proof: FeeAccountPaymentProof<PolymeshLimits>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         let account_state_commitment = proof.updated_account_state_commitment;
-        let nullifier = proof.nullifier;
+        let update_action = proof.update_action();
         let amount = Self::amount_to_balance(proof.amount)?;
 
         // Ensure the fee asset id is valid.  Only one is supported now.
@@ -3472,7 +3821,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::InvalidFeePaymentProof)?;
 
         // Insert the new fee account state commitment from the proof into the fee account curve tree.
-        Self::insert_fee_account_leaf(account_state_commitment, Some(nullifier))?;
+        Self::insert_fee_account_leaf(account_state_commitment, update_action)?;
 
         // Withdraw the fee amount from the fee pool.
         Self::fee_account_withdraw(relayer.clone(), amount)?;
@@ -3481,6 +3830,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs inside a transaction.
+    ///
+    /// Uses the same `ctx` semantics as [`Self::process_batched_proofs`], but rolls back every
+    /// storage change if any proof fails.
     pub fn process_batched_proofs_atomic(
         proof: BatchedProofs<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3497,6 +3849,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs, this should be called inside a transaction.
+    ///
+    /// `ctx` is forwarded to every proof verifier; callers must supply the context for their
+    /// submission mode.  There is no fallback to an unbound context.
     ///
     /// Returns the actual weight used.
     pub fn process_batched_proofs(
@@ -3582,6 +3937,7 @@ impl<T: Config> Pallet<T> {
         verify: impl FnOnce(P, AccountTreeRoot) -> DispatchResult,
     ) -> DispatchResult {
         let nullifier = proof.nullifier();
+        let update_action = proof.update_action();
         let account_commitment = proof.account_state_commitment();
         // Ensure the nullifier is unique.
         Self::ensure_account_state_nullifier_unique(&nullifier)?;
@@ -3592,7 +3948,7 @@ impl<T: Config> Pallet<T> {
         verify(proof, root)?;
 
         // Insert the update account state commitment into the account curve tree.
-        Self::insert_account_leaf(account_commitment, Some(nullifier))?;
+        Self::insert_account_leaf(account_commitment, update_action)?;
 
         Ok(())
     }
@@ -3675,9 +4031,9 @@ impl<T: Config> Pallet<T> {
     /// Insert a new account state commitment into the account curve tree.
     fn insert_account_leaf(
         account_commitment: AccountStateCommitment,
-        nullifier: Option<AccountStateNullifier>,
+        update_action: AccountStateUpdateAction,
     ) -> Result<(), Error<T>> {
-        if let Some(nullifier) = nullifier {
+        if let Some(nullifier) = update_action.nullifier() {
             // Burn the nullifier for the old account commitment to ensure it cannot be used again.
             AccountStateCommitmentNullifiers::<T>::try_mutate(nullifier, |maybe_val| {
                 if maybe_val.is_some() {
@@ -3697,6 +4053,11 @@ impl<T: Config> Pallet<T> {
             leaf_index,
             account_commitment,
         });
+        Self::deposit_event(Event::<T>::AccountStateUpdated {
+            leaf_index,
+            account_commitment,
+            update_action,
+        });
 
         Ok(())
     }
@@ -3704,9 +4065,9 @@ impl<T: Config> Pallet<T> {
     /// Insert a new fee account state commitment into the fee account curve tree.
     fn insert_fee_account_leaf(
         fee_account_commitment: FeeAccountStateCommitment,
-        nullifier: Option<FeeAccountStateNullifier>,
+        update_action: FeeAccountStateUpdateAction,
     ) -> Result<(), Error<T>> {
-        if let Some(nullifier) = nullifier {
+        if let Some(nullifier) = update_action.nullifier() {
             // Burn the nullifier for the old fee account commitment to ensure it cannot be used again.
             FeeAccountStateCommitmentNullifiers::<T>::try_mutate(nullifier, |maybe_val| {
                 if maybe_val.is_some() {
@@ -3725,6 +4086,11 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::FeeAccountStateLeafInserted {
             leaf_index,
             fee_account_commitment,
+        });
+        Self::deposit_event(Event::<T>::FeeAccountStateUpdated {
+            leaf_index,
+            fee_account_commitment,
+            update_action,
         });
         Ok(())
     }

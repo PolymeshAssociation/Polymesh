@@ -13,7 +13,7 @@ worker_tools() {
 for VERSION in "${VERSIONS[@]}"; do
 	case "$VERSION" in
 		v0) PROTOCOL_VERSION="0.1.0" ;;
-		v1) PROTOCOL_VERSION="1.0.0" ;;
+		v1) PROTOCOL_VERSION="1.0.1" ;;
 		*)
 			echo "Unknown DART module version: $VERSION" >&2
 			exit 1

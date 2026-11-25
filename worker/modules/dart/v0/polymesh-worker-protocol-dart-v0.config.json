@@ -15,19 +15,9 @@
       "code_hash": "0x003e4a13b769f5ae7cc18574e939b7f5008de0b2a1d1252958e12ef5888ef351"
     },
     {
-      "module_kind": "PolkaVM",
-      "module_version": 1,
-      "code_hash": "0x68da449aac1f6e3982e725960d504fc039f1ac98e925a070c2073f1bcc83e236"
-    },
-    {
       "module_kind": "Wasm",
       "module_version": 2,
       "code_hash": "0x80bee15ba33b2b7b8b9cc5a7f2ed5ab13f1c35b367da13e70ab54dd1992ecc74"
-    },
-    {
-      "module_kind": "Wasm",
-      "module_version": 1,
-      "code_hash": "0x5e29ed70fdce214ecb58bb19a1bf686edc9d0a2af49d4b7cbce6619964a7d06f"
     },
     {
       "module_kind": "Native",

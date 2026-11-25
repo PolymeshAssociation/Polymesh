@@ -210,7 +210,7 @@ impl StaticModules {
     fn add_dart_v1(&mut self) {
         let protocol = Protocol {
             id: PROTOCOL_PDART,
-            version: ProtocolVersion::new(1, 0, 0),
+            version: ProtocolVersion::new(1, 0, 1),
         };
         self.protocols.insert(
             protocol,
@@ -322,7 +322,7 @@ mod tests {
         let mut modules = StaticModules::new();
         let v1 = Protocol {
             id: PROTOCOL_PDART,
-            version: ProtocolVersion::new(1, 0, 0),
+            version: ProtocolVersion::new(1, 0, 1),
         };
         assert!(modules.get_protocol_module_config_hash(v1).is_some());
 

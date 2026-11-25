@@ -1,6 +1,6 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::{dispatch::DispatchResult, ensure, traits::GetStorageVersion};
+use frame_support::{dispatch::DispatchResult, ensure};
 use scale_info::TypeInfo;
 
 use polymesh_dart::{
@@ -11,22 +11,6 @@ use polymesh_dart::{
 };
 
 use super::*;
-
-mod v0 {
-    use super::*;
-    use frame_support::pallet_prelude::*;
-    use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-
-    #[derive(Encode, Decode, TypeInfo)]
-    pub struct AssetKeys {
-        pub enc_keys: BTreeSet<EncryptionPublicKey>,
-        pub mediators: BTreeMap<AccountPublicKey, u8>,
-    }
-
-    #[frame_support::storage_alias]
-    pub type Keys<T: Config> =
-        StorageMap<Pallet<T>, Twox64Concat, ConfidentialAssetId, AssetKeys, OptionQuery>;
-}
 
 /// Pending counts.
 #[derive(Copy, Clone, Debug)]
@@ -50,8 +34,11 @@ pub struct PendingCounts {
     Eq
 )]
 pub enum LegAffirmParty {
+    /// The sender for the leg.
     Sender,
+    /// The receiver for the leg.
     Receiver,
+    /// A mediator for the leg, identified by its index.
     Mediator(MediatorId),
 }
 
@@ -97,9 +84,13 @@ pub enum AffirmationStatus {
     Eq
 )]
 pub enum SettlementStatus {
+    /// The settlement is waiting for affirmations.
     Pending,
+    /// All required affirmations have been received and the settlement has executed.
     Executed,
+    /// A mediator rejected the settlement.
     Rejected,
+    /// All parties have finalized their legs and the settlement is complete.
     Finalized,
 }
 
@@ -253,6 +244,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a sender affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn sender_affirmation(
         &self,
         proof: SenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -279,6 +272,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a receiver affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn receiver_affirmation(
         &self,
         proof: ReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -304,6 +299,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify an instant sender affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn instant_sender_affirmation(
         &self,
         proof: InstantSenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -330,6 +327,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify an instant receiver affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn instant_receiver_affirmation(
         &self,
         proof: InstantReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -355,6 +354,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a mediator affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn mediator_affirmation(
         &self,
         proof: MediatorAffirmationProof<PolymeshLimits>,
@@ -401,6 +402,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify the sender's counter update proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn sender_counter_update(
         &self,
         proof: SenderCounterUpdateProof<PolymeshLimits, AccountTreeConfig>,
@@ -432,6 +435,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify the sender's revert affirmation proof for a specific leg in the settlement to claim back their assets.
     ///
     /// This can only be done if the settlement has been rejected or is still pending.
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn sender_revert_affirmation(
         &self,
         proof: SenderRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -469,6 +473,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify the receiver's revert affirmation proof for a specific leg in the settlement to return the assets to the sender.
     ///
     /// This can only be done if the settlement has been rejected or is still pending.
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn receiver_revert_affirmation(
         &self,
         proof: ReceiverRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -504,6 +509,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify the receiver's claim proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn receiver_claim(
         &self,
         proof: ReceiverClaimProof<PolymeshLimits, AccountTreeConfig>,
@@ -645,180 +652,5 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
-    }
-
-    fn migrate_legacy_asset_keys_and_leaves() -> (u64, Weight) {
-        let mut reads = 1u64; // Details iterator termination lookup.
-        let mut weight = Weight::zero();
-        let mut tree = match Pallet::<T>::get_asset_curve_tree() {
-            Ok(tree) => tree,
-            Err(error) => {
-                log::error!(
-                    "Unable to initialize the asset curve tree for v0 migration: {error:?}"
-                );
-                return (reads, weight);
-            }
-        };
-
-        let max_encryption_keys =
-            <PolymeshLimits as DartLimits>::MaxAssetEncryptionKeys::get() as usize;
-        let max_mediators = <PolymeshLimits as DartLimits>::MaxAssetMediators::get() as usize;
-
-        for asset_id in Details::<T>::iter_keys() {
-            reads = reads.saturating_add(2); // Details entry and legacy Keys entry.
-            let Some(legacy) = v0::Keys::<T>::get(asset_id) else {
-                log::error!("Skipping v0 asset {asset_id}: legacy Keys entry is missing");
-                continue;
-            };
-            if legacy
-                .mediators
-                .values()
-                .any(|index| (*index as usize) >= legacy.enc_keys.len())
-                || legacy.enc_keys.len() > max_encryption_keys
-                || legacy.mediators.len() > max_mediators
-            {
-                log::error!("Skipping v0 asset {asset_id}: legacy Keys entry is invalid or exceeds DART bounds");
-                continue;
-            }
-
-            let keys = AssetKeys {
-                enc_keys: legacy.enc_keys,
-                mediators: legacy.mediators.keys().copied().collect(),
-            };
-            // Charge the per-key update weight before deriving the leaf so the
-            // charge also covers assets that fail the derivation below.
-            let key_count = keys.enc_keys.len().saturating_add(keys.mediators.len()) as u32;
-            weight = weight.saturating_add(<T as Config>::WeightInfo::update_asset_keys(key_count));
-            let asset_state = AssetState {
-                asset_id,
-                frozen: false,
-                keys: keys.clone(),
-            };
-            let leaf = match UpdateAssetStateRequest::new(asset_state).do_update() {
-                Ok(result) => result.asset_leaf(),
-                Err(error) => {
-                    log::error!(
-                        "Skipping v0 asset {asset_id}: failed to derive v1 asset leaf: {error:?}"
-                    );
-                    continue;
-                }
-            };
-            if let Err(error) = tree.update_leaf(asset_id.into(), leaf) {
-                log::error!(
-                    "Skipping v0 asset {asset_id}: failed to recommit v1 asset leaf: {error:?}"
-                );
-                continue;
-            }
-
-            // Replace the legacy SCALE value only after the leaf/tree update succeeds.
-            Keys::<T>::insert(asset_id, keys);
-        }
-
-        (reads, weight)
-    }
-
-    /// Migrate confidential-assets storage from version 0 to version 1.
-    ///
-    /// - Rejects all `Pending` settlements via the normal reject path (their v0.1 legs can't be affirmed).
-    /// - Finalizes `Rejected` settlements that already had no pending finalizations.
-    ///
-    /// v0.1 settlement legs are not migrated: since the DART unbounded-mint fix they can't be
-    /// converted to v1.0 on-chain, so they stay as-is (unaffirmable).
-    /// No-op on fresh chains (genesis already puts version 1).
-    pub fn migrate_to_v1() -> Weight {
-        let mut reads: u64 = 1; // On-chain storage version read.
-        let mut writes: u64 = 0;
-        let mut weight = Weight::zero();
-        if Pallet::<T>::on_chain_storage_version() >= Pallet::<T>::in_code_storage_version() {
-            return T::DbWeight::get().reads(reads);
-        }
-
-        // 0. Block all roles without a spec, so no one can act before Root installs
-        // the correct claim requirements (Mainnet safety).
-        Pallet::<T>::initialize_required_claims(None);
-        reads += 3;
-        writes += 3;
-
-        // Convert legacy Keys values and recommit their leaves. Per-asset failures
-        // are logged and skipped so the rest of the migration can continue.
-        let (asset_reads, asset_weight) = Self::migrate_legacy_asset_keys_and_leaves();
-        reads = reads.saturating_add(asset_reads);
-
-        // 1. Collect `Pending` settlements and stuck `Rejected` ones (no pending finalizations).
-        let mut pending = Vec::new();
-        let mut stuck = Vec::new();
-        let mut settlements = 0;
-        for (settlement_ref, status) in SettlementState::<T>::iter() {
-            settlements += 1;
-            match status {
-                SettlementStatus::Pending => pending.push(settlement_ref),
-                SettlementStatus::Rejected => {
-                    reads += 1;
-                    if SettlementPendingFinalizations::<T>::get(settlement_ref) == 0 {
-                        stuck.push(settlement_ref);
-                    }
-                }
-                _ => (),
-            }
-        }
-        reads += settlements.saturating_add(1);
-
-        // Conservative bound per finalized settlement: `finalize_settlement` does
-        // 1 fixed read plus four affirmation-prefix lookups per leg, with five fixed
-        // writes and six writes per leg. V0 proofs may have the DART maximum even if
-        // the current runtime's `MaxSettlementLegs` is lower.
-        let max_legs = T::MaxSettlementLegs::get()
-            .max(<PolymeshLimits as DartLimits>::MaxSettlementLegs::get())
-            as u64;
-        let finalize_reads = 1 + 4 * max_legs;
-        let finalize_writes = 5 + 6 * max_legs;
-        let finalize_cpu_weight = Weight::from_parts(
-            <T as Config>::WeightInfo::finalize_settlement(max_legs as u32).ref_time(),
-            0,
-        );
-
-        // 2. Reject `Pending` settlements (finalizes those with no pending finalizations).
-        log::info!(
-            "Rejecting {} pending confidential settlements out of {settlements} total",
-            pending.len()
-        );
-        for settlement_ref in pending {
-            weight = weight.saturating_add(finalize_cpu_weight);
-            let pending_finals = SettlementPendingFinalizations::<T>::get(settlement_ref);
-            let update = UpdateSettlementStatus::<T> {
-                settlement_ref,
-                leg_id: 0,
-                status: SettlementStatus::Pending,
-                _marker: core::marker::PhantomData,
-            };
-            if let Err(err) = update.reject(pending_finals) {
-                log::error!(
-                    "Failed to reject pending confidential settlement during migration: {err:?}"
-                );
-            }
-            reads += 1 + finalize_reads;
-            writes += 2 + finalize_writes;
-        }
-
-        // 3. Finalize stuck `Rejected` settlements.
-        log::info!("Finalizing {} stuck confidential settlements", stuck.len());
-        for settlement_ref in stuck {
-            let result = Self::finalize_settlement(settlement_ref);
-            reads += finalize_reads;
-            writes += finalize_writes;
-            weight = weight.saturating_add(finalize_cpu_weight);
-            if let Err(err) = result {
-                log::error!(
-                    "Failed to finalize stuck confidential settlement during migration: {err:?}"
-                );
-            }
-        }
-
-        Pallet::<T>::in_code_storage_version().put::<Pallet<T>>();
-        writes += 1;
-        T::DbWeight::get()
-            .reads_writes(reads, writes)
-            .saturating_add(asset_weight)
-            .saturating_add(weight)
     }
 }

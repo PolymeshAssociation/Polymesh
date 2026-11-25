@@ -93,16 +93,14 @@ fn build_release_config(
     wasm_compressed: &[u8],
 ) -> Result<ProtocolModuleConfig> {
     let protocol = Protocol::new(PROTOCOL_PDART, protocol_version);
-    let polkavm = decompress_module(polkavm_compressed, "PolkaVM")?;
-    let wasm = decompress_module(wasm_compressed, "Wasm")?;
+    decompress_module(polkavm_compressed, "PolkaVM")?;
+    decompress_module(wasm_compressed, "Wasm")?;
     Ok(ProtocolModuleConfig {
         protocol,
         initialization_method: ProtocolInitializationMethod::SaveContextFromFirstInstance,
         modules: vec![
             module_definition(BackendModuleKind::PolkaVM, 2, polkavm_compressed),
-            module_definition(BackendModuleKind::PolkaVM, 1, &polkavm),
             module_definition(BackendModuleKind::Wasm, 2, wasm_compressed),
-            module_definition(BackendModuleKind::Wasm, 1, &wasm),
             module_definition(BackendModuleKind::Native, 1, &protocol.encode()),
         ],
     })
@@ -137,18 +135,18 @@ fn check_release_config(
         "config is not for DART"
     );
     ensure!(
-        config.modules.len() == 5,
-        "config must contain exactly five modules"
+        config.modules.len() == 3,
+        "config must contain exactly three modules"
     );
 
     let native_code = config.protocol.encode();
-    let polkavm = decompress_module(polkavm_compressed, "PolkaVM")?;
-    let wasm = decompress_module(wasm_compressed, "Wasm")?;
+    // Validate that both compressed blobs decompress; the config only carries the
+    // compressed modules, so hashes are checked against the compressed bytes.
+    decompress_module(polkavm_compressed, "PolkaVM")?;
+    decompress_module(wasm_compressed, "Wasm")?;
     for (kind, version, code) in [
         (BackendModuleKind::PolkaVM, 2, polkavm_compressed),
-        (BackendModuleKind::PolkaVM, 1, polkavm.as_slice()),
         (BackendModuleKind::Wasm, 2, wasm_compressed),
-        (BackendModuleKind::Wasm, 1, wasm.as_slice()),
         (BackendModuleKind::Native, 1, native_code.as_slice()),
     ] {
         let matching: Vec<_> = config
@@ -179,7 +177,7 @@ fn save_protocol_context() {
         version: ProtocolVersion {
             major: 1,
             minor: 0,
-            patch: 0,
+            patch: 1,
         },
     };
 
@@ -281,16 +279,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn release_config_contains_raw_and_compressed_module_versions() {
+    fn release_config_contains_compressed_module_versions() {
         let polkavm = compress_strongly(b"polkavm", MODULE_CODE_SIZE_LIMIT).unwrap();
         let wasm = compress_strongly(b"wasm", MODULE_CODE_SIZE_LIMIT).unwrap();
-        let config = build_release_config(ProtocolVersion::new(1, 2, 3), &polkavm, &wasm).unwrap();
+        let protocol_version = ProtocolVersion::new(1, 2, 3);
+        let config = build_release_config(protocol_version, &polkavm, &wasm).unwrap();
 
         check_release_config(&config, &polkavm, &wasm).unwrap();
         assert_eq!(config.modules[0].code_hash, sp_core::blake2_256(&polkavm));
-        assert_eq!(config.modules[1].code_hash, sp_core::blake2_256(b"polkavm"));
-        assert_eq!(config.modules[2].code_hash, sp_core::blake2_256(&wasm));
-        assert_eq!(config.modules[3].code_hash, sp_core::blake2_256(b"wasm"));
+        assert_eq!(config.modules[1].code_hash, sp_core::blake2_256(&wasm));
+        assert_eq!(
+            config.modules[2].code_hash,
+            sp_core::blake2_256(&config.protocol.encode())
+        );
         assert_eq!(
             config
                 .modules
@@ -299,9 +300,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 (BackendModuleKind::PolkaVM, 2),
-                (BackendModuleKind::PolkaVM, 1),
                 (BackendModuleKind::Wasm, 2),
-                (BackendModuleKind::Wasm, 1),
                 (BackendModuleKind::Native, 1),
             ]
         );

@@ -116,7 +116,8 @@ Genesis config `trustedIssuer: Option<IdentityId>` installs, per role, a
 `KnowYourCustomer(Scope::Custom(b"DART:<Role>"))` spec (`RoleKind::default_claim`, e.g.
 `DART:AssetCreator`, `DART:Auditor`, `DART:Mediator`) trusting that DID
 (dev/CI/testnet chain specs use the first GC member DID). Without it —
-and on upgraded chains (v0→v1 migration) — all roles start deny-all, so no one can act before
+and on chains where the pallet is first activated by a runtime upgrade (the
+`AssetCurveTreeHeight == 0` branch of `on_runtime_upgrade`) — all roles start deny-all, so no one can act before
 Root installs the correct requirements (Mainnet safety).
 Removing a spec restores permissionless behavior for that role.
 
@@ -173,12 +174,12 @@ holding only another role's claim.
   `LegAffirmationStatus` and `LegMediators` are all removed. The tombstone is kept **forever**
   — it is the settlement-proof replay guard in `base_create_settlement`
   (`SettlementAlreadyExists`).
-- `StorageVersion` 0→1 migration (`migrate_to_v1` in `settlement.rs`, run from
-  `on_runtime_upgrade`; version-gated, no-op on fresh chains):
-  - every `Pending` settlement is rejected through the normal reject path (finalized and
-    pruned if it has no pending finalizations, otherwise left `Rejected`);
-  - every already-`Rejected` settlement with zero pending finalizations is finalized and pruned;
-  - v0.1 settlement legs are left unchanged.
+- The `StorageVersion` 0→1 migration (`migrate_to_v1` in `settlement.rs`) was **removed**
+  in the DART v1.0.1 release: every live chain that needed it already ran it (v8.2.0),
+  so chains upgrading into this release are at storage version 1 (v0.1 settlement legs
+  stayed as-is, unaffirmable). A chain below v8.2.0 upgrading **directly** to this release
+  gets none of the v0 cleanup (legacy `Keys` entries stay undecodable, stuck settlements
+  stay stuck) and must pass through v8.2.0 first.
 - Reverts: sender/receiver can revert affirmations while Pending/Rejected (:390-455); reverting
   a Pending settlement rejects it (:416-419). Transition guards in `set_party_status`
   (:135-198).
@@ -211,46 +212,63 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
 
 ### Proof submission binding
 
-Every proof in a relayer batch, including settlement creation and all nested instant-settlement
-proofs, is verified with context bytes selected by the pallet. The runtime derives the context
-from the enclosing fee-payment proof's nullifier before moving that proof, and processes
-the batch only after payment verification succeeds. Direct extrinsics, direct composite
-settlements, and ordinary `submit_batched_proofs` all select `None` internally. Callers
-cannot supply a dispatch-level context or override the fee nullifier. Verification never
-falls back from relayer context to ordinary verification.
+Every proof in a batched submission, including settlement creation and all nested instant-settlement
+proofs, is verified with context bytes selected by the pallet. Relayer batches derive the context
+from the enclosing fee-payment proof's nullifier before moving that proof, and the batch is
+processed only after payment verification succeeds. Non-relayer batched entry points derive the
+context from the extrinsic's signing account. Every entry point selects its context internally;
+callers cannot supply a dispatch-level context or override the derived binding. Nested proofs are
+verified under the context of the submission entry point, so a
+`BatchedProof::ExecuteInstantSettlement` nested in a batch binds to the enclosing batch context,
+not to the dedicated instant-settlement one. Verification never falls back from one context to
+another.
 
 The DART v1 protocol accepts an opaque `ctx: Option<Vec<u8>>` for affected verification and
 generation requests. `None` passes an empty slice to DART, just like `Some(Vec::new())`.
-The protocol does not interpret the context. The shared
-`polymesh_dart::relayer_batch_proof_context` defines the client/verifier bytes. Pallet handlers
-borrow these bytes as `Option<&Vec<u8>>` and clone them into owned worker requests:
+The protocol does not interpret the context. `polymesh_dart::relayer_batch_proof_context` defines
+the relayer client/verifier bytes, and
+`pallet_confidential_assets::non_relayer_batch_proof_context` defines the non-relayer bytes; the
+integration helpers mirror the latter for client-side proof generation. Pallet handlers borrow
+these bytes as `Option<&Vec<u8>>` and clone them into owned worker requests:
 
-- Ordinary: `None` (empty bytes), preserving existing ordinary proof transcripts.
+- Non-relayer batched entry points (`batched_settlement`, `submit_batched_proofs`,
+  `execute_instant_settlement`): `Some` containing the SCALE encoding of
+  `(b"polymesh/dart/submission/v1".as_slice(), 2u8, signer_account_id)`. The domain slice and
+  account id use their canonical SCALE encodings. All nested proofs inherit this context. Binding
+  to the signer means another account cannot submit the batch or extract a single proof and submit
+  that instead.
 - Relayer batch: `Some` containing the SCALE encoding of
   `(b"polymesh/dart/submission/v1".as_slice(), 1u8, fee_nullifier)`. The domain slice has a
   SCALE length prefix; the nullifier uses its canonical SCALE encoding. No extra batch envelope
   is required.
+- Direct non-batch extrinsics (`create_settlement`, affirmations, minting, registrations):
+  `None` (empty bytes), preserving existing direct proof transcripts. Account-bound batch proofs
+  cannot be replayed through these extrinsics.
 
 DART's `*_with_context` APIs compose these bytes with the existing operation-specific context,
 including settlement memo/root/leg digest/index and affirmation leg references. The worker
-request includes the optional context bytes, so request/cache hashes distinguish ordinary submissions
-and different fee nullifiers. Settlement verification uses `verify_with_context` for fewer
-than two legs: the local DART API's batched single-leg shortcut currently drops the context.
-Multi-leg verification retains the optimized `batched_verify_with_context` path.
+request includes the optional context bytes, so request/cache hashes distinguish non-relayer
+signer accounts and different fee nullifiers. Settlement verification uses `verify_with_context`
+for fewer than two legs: the local DART API's batched single-leg shortcut currently drops the
+context. Multi-leg verification retains the optimized `batched_verify_with_context` path.
 
-Clients must top up/select the fee state first, snapshot its current-state nullifier, generate
-every batch proof with that context, assemble the ordered batch, and then generate the payment
-from the same fee state. Integration builders check the state has not advanced and the completed
-payment uses the snapshotted nullifier. Instant-settlement participants use the venue's context,
-not their own fee accounts. Existing complete-batch ordering/content and broadcast/target fee
-commitments remain unchanged. Failed batches retain payment, reimbursement, and the consumed
-fee nullifier; successful fee verification followed by batch failure does not reduce the
-declared call weight to a processed prefix.
+Clients using a non-relayer batched entry point must generate every proof in the batch with their
+signing account id as the context. Relayer clients must top up/select the fee state first,
+snapshot its current-state nullifier, generate every batch proof with that context, assemble the
+ordered batch, and then generate the payment from the same fee state. Integration builders check
+the fee state has not advanced and the completed payment uses the snapshotted nullifier.
+Existing complete-batch ordering/content and broadcast/target fee commitments remain unchanged.
+Failed batches retain payment, reimbursement, and the consumed fee nullifier; successful fee
+verification followed by batch failure does not reduce the declared call weight to a processed
+prefix.
 
-This changes the undeployed DART v1 worker request ABI without bumping its `1.0.0` version.
-Matching native, PolkaVM, WASM, and testing modules must be rebuilt together before deploying v1.
-DART v0 dependencies and historical modules are unchanged. No pallet storage layout or
-extrinsic/proof payload change is introduced. Full confidential-asset benchmarks, refreshed
+With the v1.0.1 release the DART v1 worker protocol version is bumped to `1.0.1` and the
+release configs drop the uncompressed `module_version 1` PolkaVM/WASM entries
+(configs are now PolkaVM v2 + WASM v2 + Native v1; the v0 `0.1.0` config drops its
+`module_version 1` entries too). Matching native, PolkaVM, WASM, and testing modules must be
+rebuilt together (`worker/rebuild_modules.sh`); the committed blobs and configs live under
+`worker/modules/dart/`. DART v0 dependencies are unchanged. No pallet storage layout
+change is introduced. Full confidential-asset benchmarks, refreshed
 weights/fee measurements, and live worker differential tests remain deployment gates.
 
 ## 6. Curve trees, roots & the worker engine
@@ -258,6 +276,13 @@ weights/fee measurements, and live worker differential tests remain deployment g
 - Trees are recomputed **once per block**: extrinsics only append leaves; `on_finalize` commits
   batched leaves and re-roots (`finalize_block` lib.rs:2936-2944, `commit_leaves_to_tree`
   :2895-2913); `on_initialize` prunes old roots (:2926-2934).
+- Every account/fee-account leaf insert emits the new `AccountStateUpdated` /
+  `FeeAccountStateUpdated` events **in addition to** the deprecated
+  `AccountStateLeafInserted` / `FeeAccountStateLeafInserted` events. The new events carry
+  `leaf_index`, the commitment, and an `update_action` enum describing the triggering
+  operation (registration, mint, affirmations, counter update, claim, revert, fee payment;
+  state-consuming variants embed their nullifier, registration variants carry none) —
+  giving indexers a complete append-only leaf record without decoding proofs.
 - Roots are timestamped per block (`TimestampedTreeRoot`, curve_tree.rs:159-254) and kept
   historically; a proof's `root_block` is accepted only if younger than
   `MaxAssetCurveTreeRootAge` (24h) / `MaxAccountCurveTreeRootAge` (2d) /
@@ -298,7 +323,10 @@ weights/fee measurements, and live worker differential tests remain deployment g
       (deposits on register/topup; withdrawals only via verified payment proofs).
 - [ ] Proof context binding: fee payments bind to the complete batch and target
   (`fee_payment_ctx`); every relayer-batch proof additionally binds to that payment's
-  spent-state nullifier. Preserve settlement/leg bindings and never retry in ordinary mode.
+  spent-state nullifier. Non-relayer batched entry points (`batched_settlement`,
+  `submit_batched_proofs`, `execute_instant_settlement`) bind every proof to the signing
+  account id, and nested proofs inherit their entry point's context. Preserve settlement/leg
+  bindings and never retry under a different context.
 - [ ] Worker sessions are scoped to the runtime call (host `WorkerSessionExt`); an unknown
       session id makes requests fall back to runtime execution. Upgrading the worker protocol
       blob is consensus-critical.

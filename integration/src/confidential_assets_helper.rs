@@ -46,6 +46,15 @@ pub use curve_tree::*;
 
 use crate::wait_for_results;
 
+/// Builds the DART transcript context for a non-relayer batched proof submission.
+///
+/// Every proof in the batch is bound to the account that signs the extrinsic.  Keep this in sync
+/// with `pallet_confidential_assets::non_relayer_batch_proof_context`; the relayer path instead
+/// uses `polymesh_dart::relayer_batch_proof_context`.
+pub fn non_relayer_batch_proof_context(account: &AccountId) -> Vec<u8> {
+    (b"polymesh/dart/submission/v1".as_slice(), 2u8, account).encode()
+}
+
 pub fn print_curve_tree_path<const L: usize, P0: SWCurveConfig + Copy, P1: SWCurveConfig + Copy>(
     path: &CurveTreeWitnessPath<L, P0, P1>,
     action: &str,
@@ -654,7 +663,7 @@ impl DartProofSubmitter {
 
     pub async fn prepare_submission_context(&mut self) -> Result<Option<Vec<u8>>> {
         if !self.method.is_relayer() {
-            return Ok(None);
+            return Ok(Some(non_relayer_batch_proof_context(&self.account_id())));
         }
         if self.submission.is_some() {
             return Ok(self.submission.clone());

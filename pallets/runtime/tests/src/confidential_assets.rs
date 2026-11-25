@@ -5,19 +5,18 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
-    weights::SubstrateWeight, AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error,
-    FeeAccountDid, FreezeOrigin, Keys, Pallet, RelayerSubmitExtensionMarker, WeightInfo,
+    non_relayer_batch_proof_context, weights::SubstrateWeight, AccountDid, AssetDetails,
+    AssetFrozen, AssetLeaves, Details, Error, FeeAccountDid, FreezeOrigin, Keys, Pallet,
+    RelayerSubmitExtensionMarker, WeightInfo,
 };
 use polymesh_dart::{
     curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
-    AccountKeys, AccountPublicKey, AccountRegistrationProof, AssetState,
-    BatchedFeeAccountRegistrationProof, BatchedFeeAccountTopupProof,
-    EncryptionKeyRegistrationProof, EncryptionPublicKey, FeeAccountRegistrationProof, LeafIndex,
-    PolymeshLimits, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
+    AccountKeys, AccountRegistrationProof, AssetState, BatchedFeeAccountRegistrationProof,
+    BatchedFeeAccountTopupProof, EncryptionKeyRegistrationProof, FeeAccountRegistrationProof,
+    LeafIndex, PolymeshLimits, FEE_ACCOUNT_TREE_L, FEE_ACCOUNT_TREE_M, FEE_ASSET_ID,
 };
 use polymesh_primitives::{AccountId, IdentityId};
 use rand::{rngs::StdRng, thread_rng, SeedableRng};
-use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{ExtBuilder, TestStorage as Runtime};
 
@@ -384,115 +383,6 @@ fn confidential_assets_leaf_update_events() {
 }
 
 #[test]
-fn confidential_assets_migrate_v0_keys_and_asset_leaf() {
-    #[derive(Encode)]
-    struct LegacyKeys {
-        enc_keys: BTreeSet<EncryptionPublicKey>,
-        mediators: BTreeMap<AccountPublicKey, u8>,
-    }
-
-    ExtBuilder::default().build().execute_with(|| {
-        frame_system::Pallet::<Runtime>::set_block_number(1);
-        let asset_id = 0;
-        let owner = IdentityId::from(1u128);
-        let mediator_a = AccountKeys::from_seed("LegacyMediatorA").unwrap();
-        let mediator_b = AccountKeys::from_seed("LegacyMediatorB").unwrap();
-        let enc_keys = BTreeSet::from([mediator_a.enc.public, mediator_b.enc.public]);
-        let mediator_index = |key: EncryptionPublicKey| {
-            enc_keys
-                .iter()
-                .position(|candidate| *candidate == key)
-                .unwrap() as u8
-        };
-        let mediator_a_index = mediator_index(mediator_a.enc.public);
-        let mediator_b_index = mediator_index(mediator_b.enc.public);
-        let mediators = BTreeMap::from([
-            (mediator_a.acct.public, mediator_a_index),
-            (mediator_b.acct.public, mediator_b_index),
-        ]);
-        let old_keys = LegacyKeys {
-            enc_keys,
-            mediators,
-        };
-        let raw_keys = old_keys.encode();
-
-        Details::<Runtime>::insert(
-            asset_id,
-            AssetDetails::<Runtime> {
-                owner_did: owner,
-                total_supply: 0,
-                data: Default::default(),
-            },
-        );
-        sp_io::storage::set(&Keys::<Runtime>::hashed_key_for(asset_id), &raw_keys);
-
-        let mediator_pairs = [
-            (mediator_a.acct.public, mediator_a.enc.public),
-            (mediator_b.acct.public, mediator_b.enc.public),
-        ];
-        let expected = AssetState::new::<PolymeshLimits>(asset_id, &mediator_pairs, &[]).unwrap();
-        let stale_key = AccountKeys::from_seed("LegacyStaleAuditor")
-            .unwrap()
-            .enc
-            .public;
-        let stale_leaf = AssetState::new::<PolymeshLimits>(asset_id, &[], &[stale_key])
-            .unwrap()
-            .commitment()
-            .unwrap();
-        AssetLeaves::<Runtime>::insert(LeafIndex::from(asset_id), stale_leaf);
-
-        StorageVersion::new(0).put::<pallet_confidential_assets::Pallet<Runtime>>();
-        let _migration_weight = Pallet::<Runtime>::migrate_to_v1();
-
-        let migrated_keys = Keys::<Runtime>::get(asset_id).unwrap();
-        assert_eq!(migrated_keys.enc_keys, expected.keys.enc_keys);
-        assert_eq!(migrated_keys.mediators, expected.keys.mediators);
-        assert_eq!(
-            AssetLeaves::<Runtime>::get(LeafIndex::from(asset_id)),
-            Some(expected.commitment().unwrap())
-        );
-        assert!(Pallet::<Runtime>::get_asset_curve_tree_root(1).is_ok());
-        assert_eq!(
-            StorageVersion::get::<pallet_confidential_assets::Pallet<Runtime>>(),
-            StorageVersion::new(1)
-        );
-    });
-}
-
-#[test]
-fn confidential_assets_migration_skips_invalid_legacy_keys_without_panic() {
-    ExtBuilder::default().build().execute_with(|| {
-        let asset_id = 0;
-        Details::<Runtime>::insert(
-            asset_id,
-            AssetDetails::<Runtime> {
-                owner_did: IdentityId::from(1u128),
-                total_supply: 0,
-                data: Default::default(),
-            },
-        );
-        let invalid_keys = vec![0xff];
-        sp_io::storage::set(&Keys::<Runtime>::hashed_key_for(asset_id), &invalid_keys);
-        StorageVersion::new(0).put::<pallet_confidential_assets::Pallet<Runtime>>();
-
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            Pallet::<Runtime>::migrate_to_v1()
-        }));
-
-        assert!(result.is_ok());
-        assert_eq!(
-            StorageVersion::get::<pallet_confidential_assets::Pallet<Runtime>>(),
-            StorageVersion::new(1)
-        );
-        assert_eq!(
-            sp_io::storage::get(&Keys::<Runtime>::hashed_key_for(asset_id))
-                .map(|bytes| bytes.to_vec()),
-            Some(invalid_keys)
-        );
-    });
-}
-
-#[test]
 fn confidential_assets_runtime_upgrade_refreshes_dart_parameters() {
     ExtBuilder::default().build().execute_with(|| {
         let cache_key =
@@ -618,19 +508,48 @@ fn confidential_assets_create_settlement_enforces_runtime_leg_limit() {
 }
 
 #[test]
-fn confidential_assets_ordinary_submission_context() {
+fn confidential_assets_non_relayer_submission_context() {
     use polymesh_dart::{BatchedProof, BatchedProofs, FeeAccountState};
     ExtBuilder::default().build().execute_with(|| {
         frame_system::Pallet::<Runtime>::set_block_number(1);
         let account = AccountId::new([72; 32]);
+        let attacker = AccountId::new([76; 32]);
+
+        // Direct, non-batched submissions use no submission context.
         let ordinary = submission_settlement(&[], 1, false);
         assert_ok!(Pallet::<Runtime>::create_settlement(
             RawOrigin::Signed(account.clone()).into(),
             ordinary,
         ));
-        let ordinary = submission_settlement(&[], 2, false);
+
+        // Batched proofs are bound to the signing account.
+        let context = non_relayer_batch_proof_context(&account);
+        let bound = submission_settlement(&context, 2, false);
         let batch = BatchedProofs {
-            proofs: vec![BatchedProof::CreateSettlement(ordinary)]
+            proofs: vec![BatchedProof::CreateSettlement(bound.clone())]
+                .try_into()
+                .unwrap(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::submit_batched_proofs(
+                RawOrigin::Signed(attacker.clone()).into(),
+                batch,
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // An attacker also cannot extract a proof from the batch and submit it directly.
+        assert_noop!(
+            Pallet::<Runtime>::create_settlement(
+                RawOrigin::Signed(attacker).into(),
+                bound.clone(),
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // The original signer can still submit the batch.
+        let batch = BatchedProofs {
+            proofs: vec![BatchedProof::CreateSettlement(bound)]
                 .try_into()
                 .unwrap(),
         };
@@ -638,17 +557,27 @@ fn confidential_assets_ordinary_submission_context() {
             RawOrigin::Signed(account.clone()).into(),
             batch,
         ));
+
+        // The old fixed batch label is no longer accepted.
+        let legacy = submission_settlement(polymesh_dart::BATCHED_PROOFS_CTX, 1, false);
+        let batch = BatchedProofs {
+            proofs: vec![BatchedProof::CreateSettlement(legacy)]
+                .try_into()
+                .unwrap(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::submit_batched_proofs(
+                RawOrigin::Signed(account.clone()).into(),
+                batch,
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // Relayer-bound proofs still cannot be submitted through the direct path.
         let keys = AccountKeys::from_seed("SubmissionFee").unwrap();
         let fee_state = FeeAccountState::new(&mut thread_rng(), &keys.acct.public, 0, 100).unwrap();
         let context = polymesh_dart::relayer_batch_proof_context(&fee_state.nullifier().unwrap());
         let bound = submission_settlement(&context, 1, false);
-        assert_noop!(
-            Pallet::<Runtime>::create_settlement(
-                RawOrigin::Signed(account.clone()).into(),
-                bound.clone(),
-            ),
-            Error::<Runtime>::InvalidProof
-        );
         let batch = BatchedProofs {
             proofs: vec![BatchedProof::CreateSettlement(bound)]
                 .try_into()
@@ -658,6 +587,56 @@ fn confidential_assets_ordinary_submission_context() {
             Pallet::<Runtime>::submit_batched_proofs(RawOrigin::Signed(account).into(), batch),
             Error::<Runtime>::InvalidProof
         );
+    });
+}
+
+#[test]
+fn confidential_assets_batched_settlement_is_bound_to_signer() {
+    use polymesh_dart::BatchedSettlementProof;
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        let signer = AccountId::new([77; 32]);
+        let attacker = AccountId::new([78; 32]);
+
+        // The old unbound submission is no longer accepted.
+        let unbound = submission_settlement(&[], 1, false);
+        let unbound_proof = BatchedSettlementProof {
+            settlement: unbound,
+            leg_affirmations: Default::default(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::batched_settlement(
+                RawOrigin::Signed(signer.clone()).into(),
+                unbound_proof,
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        let context = non_relayer_batch_proof_context(&signer);
+        let settlement = submission_settlement(&context, 1, false);
+        let proof = BatchedSettlementProof {
+            settlement: settlement.clone(),
+            leg_affirmations: Default::default(),
+        };
+
+        // Another account cannot submit the batch, nor extract the settlement proof from it.
+        assert_noop!(
+            Pallet::<Runtime>::batched_settlement(
+                RawOrigin::Signed(attacker.clone()).into(),
+                proof.clone(),
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+        assert_noop!(
+            Pallet::<Runtime>::create_settlement(RawOrigin::Signed(attacker).into(), settlement,),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // The signer's account-bound context is accepted.
+        assert_ok!(Pallet::<Runtime>::batched_settlement(
+            RawOrigin::Signed(signer).into(),
+            proof,
+        ));
     });
 }
 
