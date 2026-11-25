@@ -5,9 +5,9 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_confidential_assets::{
-    weights::SubstrateWeight, AccountDid, AssetDetails, AssetFrozen, AssetLeaves, Details, Error,
-    FeeAccountDid, FreezeOrigin, Keys, Pallet, RelayerSubmitExtensionMarker, WeightInfo,
-    BATCHED_PROOFS_CTX,
+    non_relayer_batch_proof_context, weights::SubstrateWeight, AccountDid, AssetDetails,
+    AssetFrozen, AssetLeaves, Details, Error, FeeAccountDid, FreezeOrigin, Keys, Pallet,
+    RelayerSubmitExtensionMarker, WeightInfo,
 };
 use polymesh_dart::{
     curve_tree::{FeeAccountTreeConfig, ProverCurveTree},
@@ -508,19 +508,48 @@ fn confidential_assets_create_settlement_enforces_runtime_leg_limit() {
 }
 
 #[test]
-fn confidential_assets_ordinary_submission_context() {
+fn confidential_assets_non_relayer_submission_context() {
     use polymesh_dart::{BatchedProof, BatchedProofs, FeeAccountState};
     ExtBuilder::default().build().execute_with(|| {
         frame_system::Pallet::<Runtime>::set_block_number(1);
         let account = AccountId::new([72; 32]);
+        let attacker = AccountId::new([76; 32]);
+
+        // Direct, non-batched submissions use no submission context.
         let ordinary = submission_settlement(&[], 1, false);
         assert_ok!(Pallet::<Runtime>::create_settlement(
             RawOrigin::Signed(account.clone()).into(),
             ordinary,
         ));
-        let ordinary = submission_settlement(BATCHED_PROOFS_CTX, 2, false);
+
+        // Batched proofs are bound to the signing account.
+        let context = non_relayer_batch_proof_context(&account);
+        let bound = submission_settlement(&context, 2, false);
         let batch = BatchedProofs {
-            proofs: vec![BatchedProof::CreateSettlement(ordinary)]
+            proofs: vec![BatchedProof::CreateSettlement(bound.clone())]
+                .try_into()
+                .unwrap(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::submit_batched_proofs(
+                RawOrigin::Signed(attacker.clone()).into(),
+                batch,
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // An attacker also cannot extract a proof from the batch and submit it directly.
+        assert_noop!(
+            Pallet::<Runtime>::create_settlement(
+                RawOrigin::Signed(attacker).into(),
+                bound.clone(),
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // The original signer can still submit the batch.
+        let batch = BatchedProofs {
+            proofs: vec![BatchedProof::CreateSettlement(bound)]
                 .try_into()
                 .unwrap(),
         };
@@ -528,17 +557,27 @@ fn confidential_assets_ordinary_submission_context() {
             RawOrigin::Signed(account.clone()).into(),
             batch,
         ));
+
+        // The old fixed batch label is no longer accepted.
+        let legacy = submission_settlement(polymesh_dart::BATCHED_PROOFS_CTX, 1, false);
+        let batch = BatchedProofs {
+            proofs: vec![BatchedProof::CreateSettlement(legacy)]
+                .try_into()
+                .unwrap(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::submit_batched_proofs(
+                RawOrigin::Signed(account.clone()).into(),
+                batch,
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // Relayer-bound proofs still cannot be submitted through the direct path.
         let keys = AccountKeys::from_seed("SubmissionFee").unwrap();
         let fee_state = FeeAccountState::new(&mut thread_rng(), &keys.acct.public, 0, 100).unwrap();
         let context = polymesh_dart::relayer_batch_proof_context(&fee_state.nullifier().unwrap());
         let bound = submission_settlement(&context, 1, false);
-        assert_noop!(
-            Pallet::<Runtime>::create_settlement(
-                RawOrigin::Signed(account.clone()).into(),
-                bound.clone(),
-            ),
-            Error::<Runtime>::InvalidProof
-        );
         let batch = BatchedProofs {
             proofs: vec![BatchedProof::CreateSettlement(bound)]
                 .try_into()
@@ -548,6 +587,56 @@ fn confidential_assets_ordinary_submission_context() {
             Pallet::<Runtime>::submit_batched_proofs(RawOrigin::Signed(account).into(), batch),
             Error::<Runtime>::InvalidProof
         );
+    });
+}
+
+#[test]
+fn confidential_assets_batched_settlement_is_bound_to_signer() {
+    use polymesh_dart::BatchedSettlementProof;
+    ExtBuilder::default().build().execute_with(|| {
+        frame_system::Pallet::<Runtime>::set_block_number(1);
+        let signer = AccountId::new([77; 32]);
+        let attacker = AccountId::new([78; 32]);
+
+        // The old unbound submission is no longer accepted.
+        let unbound = submission_settlement(&[], 1, false);
+        let unbound_proof = BatchedSettlementProof {
+            settlement: unbound,
+            leg_affirmations: Default::default(),
+        };
+        assert_noop!(
+            Pallet::<Runtime>::batched_settlement(
+                RawOrigin::Signed(signer.clone()).into(),
+                unbound_proof,
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+
+        let context = non_relayer_batch_proof_context(&signer);
+        let settlement = submission_settlement(&context, 1, false);
+        let proof = BatchedSettlementProof {
+            settlement: settlement.clone(),
+            leg_affirmations: Default::default(),
+        };
+
+        // Another account cannot submit the batch, nor extract the settlement proof from it.
+        assert_noop!(
+            Pallet::<Runtime>::batched_settlement(
+                RawOrigin::Signed(attacker.clone()).into(),
+                proof.clone(),
+            ),
+            Error::<Runtime>::InvalidProof
+        );
+        assert_noop!(
+            Pallet::<Runtime>::create_settlement(RawOrigin::Signed(attacker).into(), settlement,),
+            Error::<Runtime>::InvalidProof
+        );
+
+        // The signer's account-bound context is accepted.
+        assert_ok!(Pallet::<Runtime>::batched_settlement(
+            RawOrigin::Signed(signer).into(),
+            proof,
+        ));
     });
 }
 

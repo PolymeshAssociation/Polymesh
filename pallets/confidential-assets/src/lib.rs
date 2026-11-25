@@ -66,7 +66,6 @@ use polymesh_dart::{
     SenderAffirmationProof, SenderCounterUpdateProof, SenderRevertAffirmationProof,
     SettlementCounts, SettlementProof, SettlementRef, FEE_ASSET_ID,
 };
-pub use polymesh_dart::{BATCHED_PROOFS_CTX, INSTANT_SETTLEMENT_CTX};
 
 #[cfg(feature = "host_workers")]
 use polymesh_worker_common::WorkerVersion;
@@ -150,6 +149,20 @@ const MIN_WORKER_VERSION: WorkerVersion = 2;
 /// for the relayer, whereas underestimating it would make the estimated minimum fee payment
 /// insufficient to cover the actual transaction fee.
 pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
+
+/// Builds the DART transcript context for a non-relayer batched proof submission.
+///
+/// Every proof in the batch is bound to the account that signs the extrinsic.  The pallet derives
+/// the context from the actual signer, so another account cannot extract a proof from the batch
+/// (or submit the whole batch) under its own origin.  This is the non-relayer counterpart to
+/// `polymesh_dart::relayer_batch_proof_context`, which binds relayer batches to the one-time
+/// fee-payment nullifier.
+///
+/// The relayer context uses tag `1` in the same domain; this uses tag `2` and the SCALE encoding
+/// of the signing account id.
+pub fn non_relayer_batch_proof_context<AccountId: Encode>(account: &AccountId) -> Vec<u8> {
+    (b"polymesh/dart/submission/v1".as_slice(), 2u8, account).encode()
+}
 
 #[cfg(feature = "testing")]
 pub const ASSET_TREE_HEIGHT: NodeLevel = 4;
@@ -2117,6 +2130,9 @@ pub mod pallet {
 
         /// Create a settlement with batched leg affirmations.
         ///
+        /// All proofs in the batch are bound to the signing account, so another account cannot
+        /// extract and submit a subset of the batch.
+        ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The settlement proof with batched leg affirmations.
@@ -2136,9 +2152,10 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: BatchedSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
+            let context = non_relayer_batch_proof_context(&signer);
 
-            Self::base_batched_settlement(proof, None)
+            Self::base_batched_settlement(proof, Some(&context))
         }
 
         /// Batch register multiple fee accounts.
@@ -2317,6 +2334,9 @@ pub mod pallet {
 
         /// Submit a batch of proofs.
         ///
+        /// All proofs in the batch are bound to the signing account, so another account cannot
+        /// extract and submit a subset of the batch.
+        ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The batched proofs.
@@ -2332,14 +2352,14 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: BatchedProofs<PolymeshLimits>,
         ) -> DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
             ensure!(
                 proof.len() <= T::MaxBatchedProofs::get() as usize,
                 Error::<T>::TooManyProofs
             );
 
-            let actual_weight =
-                Self::process_batched_proofs(proof, Some(&BATCHED_PROOFS_CTX.to_vec()))?;
+            let context = non_relayer_batch_proof_context(&signer);
+            let actual_weight = Self::process_batched_proofs(proof, Some(&context))?;
 
             Ok(PostDispatchInfo {
                 actual_weight: Some(actual_weight),
@@ -2385,6 +2405,9 @@ pub mod pallet {
 
         /// Create and execute an instant settlement.
         ///
+        /// All proofs in the instant settlement are bound to the signing account, so another
+        /// account cannot extract and submit a subset of the batch.
+        ///
         /// # Arguments
         /// * `origin` - The origin of the call.
         /// * `proof` - The settlement proof with batched leg affirmations.
@@ -2400,9 +2423,10 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: InstantSettlementProof<PolymeshLimits>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
+            let context = non_relayer_batch_proof_context(&signer);
 
-            Self::base_execute_instant_settlement(proof, Some(&INSTANT_SETTLEMENT_CTX.to_vec()))
+            Self::base_execute_instant_settlement(proof, Some(&context))
         }
 
         /// Sender affirms a settlement leg as the last pending affirmation.

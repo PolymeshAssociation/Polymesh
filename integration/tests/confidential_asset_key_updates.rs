@@ -61,7 +61,8 @@ mod confidential_asset_key_update_tests {
             public_enc_keys: vec![],
         });
         let mut rng = rand::thread_rng();
-        let proof = settlement.build_with_context(BATCHED_PROOFS_CTX, &mut rng)?;
+        let context = non_relayer_batch_proof_context(&venue.account_id().await);
+        let proof = settlement.build_with_context(&context, &mut rng)?;
         let settlement_ref = proof.settlement_ref();
 
         tester

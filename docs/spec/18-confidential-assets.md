@@ -212,52 +212,55 @@ This decouples the fee-paying origin from sender/receiver/mediator identities.
 
 ### Proof submission binding
 
-Every proof in a relayer batch, including settlement creation and all nested instant-settlement
-proofs, is verified with context bytes selected by the pallet. The runtime derives the context
-from the enclosing fee-payment proof's nullifier before moving that proof, and processes
-the batch only after payment verification succeeds. Every entry point selects its context
-internally; callers cannot supply a dispatch-level context or override the fee nullifier.
-Nested proofs are verified under the context of the submission entry point, so a
-`BatchedProof::ExecuteInstantSettlement` nested in a batch binds to the batch/relayer
-context, not to the dedicated instant-settlement one. Verification never falls back from
-one context to another.
+Every proof in a batched submission, including settlement creation and all nested instant-settlement
+proofs, is verified with context bytes selected by the pallet. Relayer batches derive the context
+from the enclosing fee-payment proof's nullifier before moving that proof, and the batch is
+processed only after payment verification succeeds. Non-relayer batched entry points derive the
+context from the extrinsic's signing account. Every entry point selects its context internally;
+callers cannot supply a dispatch-level context or override the derived binding. Nested proofs are
+verified under the context of the submission entry point, so a
+`BatchedProof::ExecuteInstantSettlement` nested in a batch binds to the enclosing batch context,
+not to the dedicated instant-settlement one. Verification never falls back from one context to
+another.
 
 The DART v1 protocol accepts an opaque `ctx: Option<Vec<u8>>` for affected verification and
 generation requests. `None` passes an empty slice to DART, just like `Some(Vec::new())`.
-The protocol does not interpret the context. The shared `polymesh_dart::relayer_batch_proof_context` defines the client/verifier bytes,
-and the domain-separation constants `polymesh_dart::BATCHED_PROOFS_CTX` /
-`polymesh_dart::INSTANT_SETTLEMENT_CTX` are defined in `polymesh-dart` (`src/bp/mod.rs`);
-the pallet and the integration helpers both import them from the crate, so there is one
-source of truth. Pallet handlers
-borrow these bytes as `Option<&Vec<u8>>` and clone them into owned worker requests:
+The protocol does not interpret the context. `polymesh_dart::relayer_batch_proof_context` defines
+the relayer client/verifier bytes, and
+`pallet_confidential_assets::non_relayer_batch_proof_context` defines the non-relayer bytes; the
+integration helpers mirror the latter for client-side proof generation. Pallet handlers borrow
+these bytes as `Option<&Vec<u8>>` and clone them into owned worker requests:
 
-- Ordinary batch (`submit_batched_proofs`): `Some` of `BATCHED_PROOFS_CTX`
-  (`b"polymesh-dart-batched"`), which nested proofs inherit.
-- Dedicated `execute_instant_settlement` extrinsic: `Some` of `INSTANT_SETTLEMENT_CTX`
-  (`b"polymesh-dart-instant-settlement"`), including its settlement proof and all leg
-  affirmations.
+- Non-relayer batched entry points (`batched_settlement`, `submit_batched_proofs`,
+  `execute_instant_settlement`): `Some` containing the SCALE encoding of
+  `(b"polymesh/dart/submission/v1".as_slice(), 2u8, signer_account_id)`. The domain slice and
+  account id use their canonical SCALE encodings. All nested proofs inherit this context. Binding
+  to the signer means another account cannot submit the batch or extract a single proof and submit
+  that instead.
 - Relayer batch: `Some` containing the SCALE encoding of
   `(b"polymesh/dart/submission/v1".as_slice(), 1u8, fee_nullifier)`. The domain slice has a
   SCALE length prefix; the nullifier uses its canonical SCALE encoding. No extra batch envelope
   is required.
 - Direct non-batch extrinsics (`create_settlement`, affirmations, minting, registrations):
-  `None` (empty bytes), preserving existing direct proof transcripts.
+  `None` (empty bytes), preserving existing direct proof transcripts. Account-bound batch proofs
+  cannot be replayed through these extrinsics.
 
 DART's `*_with_context` APIs compose these bytes with the existing operation-specific context,
 including settlement memo/root/leg digest/index and affirmation leg references. The worker
-request includes the optional context bytes, so request/cache hashes distinguish ordinary submissions
-and different fee nullifiers. Settlement verification uses `verify_with_context` for fewer
-than two legs: the local DART API's batched single-leg shortcut currently drops the context.
-Multi-leg verification retains the optimized `batched_verify_with_context` path.
+request includes the optional context bytes, so request/cache hashes distinguish non-relayer
+signer accounts and different fee nullifiers. Settlement verification uses `verify_with_context`
+for fewer than two legs: the local DART API's batched single-leg shortcut currently drops the
+context. Multi-leg verification retains the optimized `batched_verify_with_context` path.
 
-Clients must top up/select the fee state first, snapshot its current-state nullifier, generate
-every batch proof with that context, assemble the ordered batch, and then generate the payment
-from the same fee state. Integration builders check the state has not advanced and the completed
-payment uses the snapshotted nullifier. Instant-settlement participants use the venue's context,
-not their own fee accounts. Existing complete-batch ordering/content and broadcast/target fee
-commitments remain unchanged. Failed batches retain payment, reimbursement, and the consumed
-fee nullifier; successful fee verification followed by batch failure does not reduce the
-declared call weight to a processed prefix.
+Clients using a non-relayer batched entry point must generate every proof in the batch with their
+signing account id as the context. Relayer clients must top up/select the fee state first,
+snapshot its current-state nullifier, generate every batch proof with that context, assemble the
+ordered batch, and then generate the payment from the same fee state. Integration builders check
+the fee state has not advanced and the completed payment uses the snapshotted nullifier.
+Existing complete-batch ordering/content and broadcast/target fee commitments remain unchanged.
+Failed batches retain payment, reimbursement, and the consumed fee nullifier; successful fee
+verification followed by batch failure does not reduce the declared call weight to a processed
+prefix.
 
 With the v1.0.1 release the DART v1 worker protocol version is bumped to `1.0.1` and the
 release configs drop the uncompressed `module_version 1` PolkaVM/WASM entries
@@ -320,10 +323,10 @@ weights/fee measurements, and live worker differential tests remain deployment g
       (deposits on register/topup; withdrawals only via verified payment proofs).
 - [ ] Proof context binding: fee payments bind to the complete batch and target
   (`fee_payment_ctx`); every relayer-batch proof additionally binds to that payment's
-  spent-state nullifier. Ordinary batches bind to `polymesh_dart::BATCHED_PROOFS_CTX`, the
-  dedicated instant-settlement extrinsic to `polymesh_dart::INSTANT_SETTLEMENT_CTX`, and
-  nested proofs inherit their entry point's context. Preserve settlement/leg bindings and
-  never retry under a different context.
+  spent-state nullifier. Non-relayer batched entry points (`batched_settlement`,
+  `submit_batched_proofs`, `execute_instant_settlement`) bind every proof to the signing
+  account id, and nested proofs inherit their entry point's context. Preserve settlement/leg
+  bindings and never retry under a different context.
 - [ ] Worker sessions are scoped to the runtime call (host `WorkerSessionExt`); an unknown
       session id makes requests fall back to runtime execution. Upgrading the worker protocol
       blob is consensus-critical.
