@@ -10,6 +10,19 @@
 //! These pallets call out to the [Polymesh DART library](https://github.com/PolymeshAssociation/polymesh-dart)
 //! which implements the ZK-proofs for DART.
 //!
+//! ## Proof submission contexts
+//!
+//! Batched entry points bind every proof in the batch to the submission selected by the pallet;
+//! there is no caller-supplied context and no fallback to an unbound context:
+//!
+//! - [`Call::batched_settlement`], [`Call::submit_batched_proofs`], and
+//!   [`Call::execute_instant_settlement`] derive the context from the signing account id using
+//!   [`non_relayer_batch_proof_context`].  This prevents another account from submitting the
+//!   batch, or extracting one proof and submitting that instead.
+//! - [`Call::relayer_submit_batched_proofs`] derives the context from the fee-payment proof's
+//!   one-time nullifier, so every proof is also bound to that payment and to the relayer batch.
+//!
+//! Direct, non-batched extrinsics verify with no submission context.
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -160,6 +173,10 @@ pub const RELAYER_SUBMIT_BATCHED_PROOFS_EXTRINSIC_OVERHEAD: u32 = 128;
 ///
 /// The relayer context uses tag `1` in the same domain; this uses tag `2` and the SCALE encoding
 /// of the signing account id.
+///
+/// Clients generating proofs for `batched_settlement`, `submit_batched_proofs`, or
+/// `execute_instant_settlement` must build them with this context for the account that will sign
+/// the extrinsic.
 pub fn non_relayer_batch_proof_context<AccountId: Encode>(account: &AccountId) -> Vec<u8> {
     (b"polymesh/dart/submission/v1".as_slice(), 2u8, account).encode()
 }
@@ -2130,8 +2147,9 @@ pub mod pallet {
 
         /// Create a settlement with batched leg affirmations.
         ///
-        /// All proofs in the batch are bound to the signing account, so another account cannot
-        /// extract and submit a subset of the batch.
+        /// All proofs in the batch are verified with a context derived from the signing account,
+        /// so another account cannot extract and submit a subset of the batch.  Clients must
+        /// generate the proofs with [`non_relayer_batch_proof_context`] for that account.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.
@@ -2334,8 +2352,9 @@ pub mod pallet {
 
         /// Submit a batch of proofs.
         ///
-        /// All proofs in the batch are bound to the signing account, so another account cannot
-        /// extract and submit a subset of the batch.
+        /// All proofs in the batch are verified with a context derived from the signing account,
+        /// so another account cannot extract and submit a subset of the batch.  Clients must
+        /// generate the proofs with [`non_relayer_batch_proof_context`] for that account.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.
@@ -2374,6 +2393,10 @@ pub mod pallet {
         ///
         /// Relayers can charge a commission fee on top of the transaction fee (i.e. `commission fee + transaction fee = fee amount`).
         ///
+        /// Every proof in the batch is verified with a context derived from the fee payment's
+        /// one-time nullifier.  The fee payment itself commits to the complete ordered batch and,
+        /// unless broadcast, the submitting relayer.
+        ///
         /// Relayers are responsible for checking the fee payment terms and the fee and batch proofs before submission.
         /// The signed extension checks whether the fee nullifier is already spent; a concurrent spend can still make
         /// that check stale before inclusion. Fee-payment roots are checked against the shorter relayer root-age limit
@@ -2405,8 +2428,10 @@ pub mod pallet {
 
         /// Create and execute an instant settlement.
         ///
-        /// All proofs in the instant settlement are bound to the signing account, so another
-        /// account cannot extract and submit a subset of the batch.
+        /// All proofs in the instant settlement are verified with a context derived from the
+        /// signing account, so another account cannot extract and submit a subset of the batch.
+        /// Clients must generate the proofs with [`non_relayer_batch_proof_context`] for that
+        /// account.
         ///
         /// # Arguments
         /// * `origin` - The origin of the call.
@@ -2966,6 +2991,10 @@ impl<T: Config> Pallet<T> {
         Self::update_asset_leaf(caller_did, asset_id, &mediators, &auditors, false)
     }
 
+    /// Create a settlement from a settlement proof.
+    ///
+    /// The proof is verified with `ctx`; direct calls pass `None`, while batched entry points pass
+    /// their derived submission context.
     pub fn base_create_settlement(
         proof: SettlementProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3077,6 +3106,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Create a settlement with batched leg affirmations.
+    ///
+    /// The settlement proof and every included sender/receiver affirmation are verified with
+    /// `ctx`, which the entry point derives from its submission mode.
     pub fn base_batched_settlement(
         proof: BatchedSettlementProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3103,6 +3136,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Create, affirm, and finalize an instant settlement.
+    ///
+    /// The settlement proof, all mediator affirmations, and every instant sender/receiver
+    /// affirmation are verified with `ctx`, which the entry point derives from its submission
+    /// mode.
     pub fn base_execute_instant_settlement(
         proof: InstantSettlementProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3136,6 +3174,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a sender affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_sender_affirmation(
         proof: SenderAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3156,6 +3197,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a receiver affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_receiver_affirmation(
         proof: ReceiverAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3176,6 +3220,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify an instant sender affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
+    /// When `normal_settlement` is true, this must be the settlement's last pending affirmation.
     pub fn base_instant_sender_affirmation(
         proof: InstantSenderAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
@@ -3212,6 +3260,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify an instant receiver affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
+    /// When `normal_settlement` is true, this must be the settlement's last pending affirmation.
     pub fn base_instant_receiver_affirmation(
         proof: InstantReceiverAffirmationProof<PolymeshLimits>,
         normal_settlement: bool,
@@ -3283,6 +3335,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a mediator affirmation.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_mediator_affirmation(
         proof: MediatorAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3306,6 +3361,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a sender counter update and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_sender_update_counter(
         proof: SenderCounterUpdateProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3326,6 +3384,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a sender revert affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_sender_revert_affirmation(
         proof: SenderRevertAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3346,6 +3407,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a receiver revert affirmation and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_receiver_revert_affirmation(
         proof: ReceiverRevertAffirmationProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3366,6 +3430,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a receiver claim and insert the updated account leaf.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn base_receiver_claim(
         proof: ReceiverClaimProof<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3386,6 +3453,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Verify a relayer fee payment and process its batched proofs atomically.
+    ///
+    /// The batch proofs are verified with a context derived from the fee payment's one-time
+    /// nullifier.  The payment and its reimbursement persist even when the batch fails.
     pub fn base_relayer_submit_batched_proofs(
         relayer: T::AccountId,
         proof: FeePaymentWithBatchedProofs<PolymeshLimits>,
@@ -3511,6 +3582,10 @@ impl<T: Config> Pallet<T> {
         batch.encoded_size() as u32 + fee_payment_proof_len as u32 + 1
     }
 
+    /// Verify a fee payment proof and withdraw the payment to the relayer.
+    ///
+    /// `batch_hash` commits to the complete ordered proof batch and the target/broadcast mode.
+    /// Fee-account state that is spent here cannot be reused for another payment.
     pub fn verify_fee_payment(
         relayer: T::AccountId,
         batch_hash: ProofHash,
@@ -3548,6 +3623,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs inside a transaction.
+    ///
+    /// Uses the same `ctx` semantics as [`Self::process_batched_proofs`], but rolls back every
+    /// storage change if any proof fails.
     pub fn process_batched_proofs_atomic(
         proof: BatchedProofs<PolymeshLimits>,
         ctx: Option<&Vec<u8>>,
@@ -3564,6 +3642,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Process a batch of proofs, this should be called inside a transaction.
+    ///
+    /// `ctx` is forwarded to every proof verifier; callers must supply the context for their
+    /// submission mode.  There is no fallback to an unbound context.
     ///
     /// Returns the actual weight used.
     pub fn process_batched_proofs(

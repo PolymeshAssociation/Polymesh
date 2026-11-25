@@ -237,6 +237,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a sender affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn sender_affirmation(
         &self,
         proof: SenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -263,6 +265,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a receiver affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn receiver_affirmation(
         &self,
         proof: ReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -288,6 +292,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify an instant sender affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn instant_sender_affirmation(
         &self,
         proof: InstantSenderAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -314,6 +320,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify an instant receiver affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn instant_receiver_affirmation(
         &self,
         proof: InstantReceiverAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -339,6 +347,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify a mediator affirmation proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn mediator_affirmation(
         &self,
         proof: MediatorAffirmationProof<PolymeshLimits>,
@@ -385,6 +395,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify the sender's counter update proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn sender_counter_update(
         &self,
         proof: SenderCounterUpdateProof<PolymeshLimits, AccountTreeConfig>,
@@ -416,6 +428,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify the sender's revert affirmation proof for a specific leg in the settlement to claim back their assets.
     ///
     /// This can only be done if the settlement has been rejected or is still pending.
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn sender_revert_affirmation(
         &self,
         proof: SenderRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -453,6 +466,7 @@ impl<T: Config> UpdateSettlementStatus<T> {
     /// Verify the receiver's revert affirmation proof for a specific leg in the settlement to return the assets to the sender.
     ///
     /// This can only be done if the settlement has been rejected or is still pending.
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn receiver_revert_affirmation(
         &self,
         proof: ReceiverRevertAffirmationProof<PolymeshLimits, AccountTreeConfig>,
@@ -488,6 +502,8 @@ impl<T: Config> UpdateSettlementStatus<T> {
     }
 
     /// Verify the receiver's claim proof for a specific leg in the settlement.
+    ///
+    /// The proof is verified with the submission context `ctx` selected by the entry point.
     pub fn receiver_claim(
         &self,
         proof: ReceiverClaimProof<PolymeshLimits, AccountTreeConfig>,
