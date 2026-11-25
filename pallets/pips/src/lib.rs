@@ -359,6 +359,14 @@ pub mod pallet {
         /// Parameters:
         /// - `PipId`: The ID of the PIP.
         ExecutionCancellingFailed(PipId),
+        /// The PIP was not executed because it was proposed under a different transaction version,
+        /// so its stored call may no longer decode to the intended call. The PIP is marked as failed.
+        ///
+        /// Parameters:
+        /// - `PipId`: The ID of the PIP.
+        /// - `u32`: The transaction version when the PIP was proposed.
+        /// - `u32`: The current transaction version.
+        ExecutionRejectedTransactionVersionMismatch(PipId, u32, u32),
     }
 
     #[pallet::config]
@@ -1277,7 +1285,8 @@ pub mod pallet {
         /// # Notes
         /// This function will:
         /// - Remove the PIP from the scheduling queue.
-        /// - Execute the proposal associated with the PIP.
+        /// - Execute the proposal associated with the PIP, unless the PIP was proposed under a
+        ///   different transaction version, in which case the PIP is marked as failed instead.
         #[pallet::call_index(15)]
         #[pallet::weight((<T as Config>::WeightInfo::execute_scheduled_pip(), Operational))]
         pub fn execute_scheduled_pip(
@@ -1676,6 +1685,10 @@ impl<T: Config> Pallet<T> {
 
     /// Execute the PIP given by `id`.
     /// Returns an error if the PIP doesn't exist or is not scheduled.
+    ///
+    /// If the PIP was proposed under a different transaction version than the current one,
+    /// its stored call is not dispatched, as it may no longer decode to the intended call.
+    /// Instead, the PIP is marked as [`ProposalState::Failed`].
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
         let proposal = Proposals::<T>::get(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
         let proposal_state =
@@ -1684,6 +1697,20 @@ impl<T: Config> Pallet<T> {
             proposal_state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
         );
+
+        // Fail closed: missing metadata is treated as a version mismatch.
+        let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+        let proposal_version = ProposalMetadata::<T>::get(id).map(|m| m.transaction_version);
+        if proposal_version != Some(current_version) {
+            Self::maybe_prune(GC_DID, id, ProposalState::Failed);
+            Self::deposit_event(Event::ExecutionRejectedTransactionVersionMismatch(
+                id,
+                proposal_version.unwrap_or_default(),
+                current_version,
+            ));
+            return Ok(Some(<T as Config>::WeightInfo::execute_scheduled_pip()).into());
+        }
+
         let res = proposal
             .proposal
             .dispatch(frame_system::RawOrigin::Root.into());

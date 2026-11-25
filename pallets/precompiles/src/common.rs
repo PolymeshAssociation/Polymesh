@@ -48,6 +48,7 @@ pub const ERR_EXTRINSIC_ERROR: &str = "Extrinsic returned an error: ";
 pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id";
 pub const ERR_ASSET_NOT_FOUND: &str = "Asset not found";
 pub const ERR_WEIGHT_LIMIT_EXCEEDED: &str = "Benchmarked weight limit exceeded";
+pub const ERR_VALUE_NOT_ACCEPTED: &str = "Precompile does not accept value";
 pub const ERR_INST_NOT_EXECUTED: &str = "Instruction was not executed; Most likely the instruction is missing an affirmation from the receiver/mediator";
 const ERR_ASSET_NOT_FUNGIBLE: &str = "Asset is not fungible";
 const ERR_ASSET_NOT_NON_FUNGIBLE: &str = "Asset is not non-fungible";
@@ -143,7 +144,9 @@ where
     <T as pallet_revive::Config>::RuntimeCall: GetCallMetadata,
 {
     fn weight() -> Weight {
+        // Includes giving back a pre-charged authorization retry.
         call_metadata_weight::<T>()
+            .saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(3, 2))
     }
 
     fn dispatch(
@@ -151,7 +154,13 @@ where
         origin: OriginFor<T>,
     ) -> DispatchResultWithPostInfo {
         let payer = frame_system::ensure_signed(origin.clone()).ok();
-        with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin))
+        let result =
+            with_call_metadata::<T, _>(call.get_call_metadata(), payer, || call.dispatch(origin));
+        // The authorization retry charged before dispatch is only given back on success.
+        if result.is_ok() {
+            polymesh_transaction_payment::Pallet::<T>::refund_auth_retry();
+        }
+        result
     }
 }
 
@@ -202,6 +211,14 @@ impl<T: Config> Common<T> {
             !env.is_delegate_call(),
             pallet_revive::Error::<T>::PrecompileDelegateDenied,
         );
+        Ok(())
+    }
+
+    /// Ensure no POLYX value was attached to the call.
+    pub fn ensure_no_value(env: &impl Ext<T = T>) -> Result<(), Error> {
+        if !env.value_transferred().is_zero() {
+            return Err(revert(ERR_VALUE_NOT_ACCEPTED));
+        }
         Ok(())
     }
 

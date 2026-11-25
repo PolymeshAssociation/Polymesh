@@ -1,17 +1,20 @@
 use std::convert::TryInto;
 
 use core::iter;
+use frame_support::dispatch::{DispatchResult, GetDispatchInfo};
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
+use frame_support::weights::Weight;
+use frame_support::{assert_noop, assert_ok};
 use sp_arithmetic::Permill;
 use sp_keyring::Sr25519Keyring;
 
-use pallet_asset::checkpoint::{CheckpointIdSequence, ScheduleIdSequence};
+use pallet_asset::checkpoint::{BalanceUpdates, CheckpointIdSequence, ScheduleIdSequence};
 use pallet_asset::checkpoint::{SchedulePoints, ScheduleRefCount, Timestamps};
 use pallet_asset::{Assets, BalanceOf};
 use pallet_corporate_actions::ballot::{BallotMeta, BallotTimeRange, BallotVote};
 use pallet_corporate_actions::ballot::{Metas, Motion, MotionNumChoices, Results};
-use pallet_corporate_actions::ballot::{TimeRanges, Votes, RCV};
+use pallet_corporate_actions::ballot::{TimeRanges, Votes, WeightInfo as _, RCV};
+use pallet_corporate_actions::distribution::WeightInfo as _;
 use pallet_corporate_actions::distribution::{self, Distribution};
 use pallet_corporate_actions::distribution::{Distributions, PER_SHARE_PRECISION};
 use pallet_corporate_actions::TargetTreatment::{Exclude, Include};
@@ -1504,7 +1507,11 @@ fn vote_not_targeted() {
             set_timestamp(T_RANGE.start);
             id
         };
-        let vote = |id| Ballot::vote(voter.origin(), id, votes(&[0, 0, 0, 0]));
+        let vote = |id| {
+            Ballot::vote(voter.origin(), id, votes(&[0, 0, 0, 0]))
+                .map(|_| ())
+                .map_err(|e| e.error)
+        };
         test_not_targeted(ca, voter, other, vote);
     });
 }
@@ -2312,6 +2319,126 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(AssetId, User) -> CAId) {
             AMOUNT * per_share / PER_SHARE_PRECISION
         );
         assert_eq!(BalanceOf::<TestStorage>::get(&currency, other.did), 0);
+    });
+}
+
+/// Gives `holder` a balance recorded at checkpoint 1 and a `BalanceUpdates` history of `updates`
+/// entries, followed by `unrelated` checkpoints where `holder`'s balance doesn't change.
+fn grow_balance_updates(
+    asset_id: AssetId,
+    owner: User,
+    holder: User,
+    updates: u32,
+    unrelated: u32,
+) -> Option<RecordDateSpec> {
+    transfer(&asset_id, owner, holder);
+    for _ in 0..updates {
+        assert_ok!(Checkpoint::create_checkpoint(owner.origin(), asset_id));
+        transfer_amount(&asset_id, owner, holder, 1);
+    }
+    for _ in 0..unrelated {
+        assert_ok!(Checkpoint::create_checkpoint(owner.origin(), asset_id));
+    }
+    assert_eq!(
+        BalanceUpdates::<TestStorage>::get(asset_id, holder.did).len(),
+        updates as usize,
+    );
+    assert_eq!(
+        Asset::get_balance_at(asset_id, holder.did, CheckpointId(1)),
+        AMOUNT,
+    );
+    Some(RecordDateSpec::Existing(CheckpointId(1)))
+}
+
+#[test]
+fn vote_prices_balance_updates() {
+    const UPDATES: u32 = 3;
+    const UNRELATED: u32 = 5;
+    test(|asset_id, [owner, _, voter]| {
+        set_schedule_complexity();
+
+        let rd = grow_balance_updates(asset_id, owner, voter, UPDATES, UNRELATED);
+        let id = notice_ca(owner, asset_id, Some(1000)).unwrap();
+        assert_ok!(CA::change_record_date(owner.origin(), id, rd));
+        assert_ok!(attach(owner, id, false));
+        set_timestamp(T_RANGE.start);
+
+        let votes = votes(&[0, 0, 0, 0]);
+        let base = <TestStorage as pallet_corporate_actions::Config>::BallotWeightInfo::vote(
+            votes.len() as u32,
+            MaxTargetIds::get(),
+        );
+
+        // The declared weight covers a history as long as the number of checkpoints.
+        let call = pallet_corporate_actions::ballot::Call::<TestStorage>::vote {
+            ca_id: id,
+            votes: votes.clone(),
+        };
+        assert_eq!(
+            call.get_dispatch_info().call_weight,
+            base.saturating_add(Checkpoint::balance_at_weight(UPDATES + UNRELATED)),
+        );
+
+        // Only the voter's actual history is charged.
+        let post_info = Ballot::vote(voter.origin(), id, votes).unwrap();
+        assert_eq!(
+            post_info.actual_weight,
+            Some(base.saturating_add(Checkpoint::balance_at_weight(UPDATES))),
+        );
+    });
+}
+
+#[test]
+fn dist_claim_prices_balance_updates() {
+    const UPDATES: u32 = 3;
+    const UNRELATED: u32 = 5;
+    currency_test(|asset_id, currency, [owner, other, holder]| {
+        let rd = grow_balance_updates(asset_id, owner, holder, UPDATES, UNRELATED);
+        let id = dist_ca(owner, asset_id, Some(1000)).unwrap();
+        assert_ok!(CA::change_record_date(owner.origin(), id, rd));
+        assert_ok!(Dist::distribute(
+            owner.origin(),
+            id,
+            None,
+            currency,
+            5 * PER_SHARE_PRECISION,
+            200_000,
+            4000,
+            None,
+        ));
+        set_timestamp(4000);
+
+        let base = <TestStorage as pallet_corporate_actions::Config>::DistWeightInfo::claim(
+            MaxTargetIds::get(),
+            MaxDidWhts::get(),
+        );
+        let max_read = Checkpoint::balance_at_weight(UPDATES + UNRELATED);
+        let actual_read = Checkpoint::balance_at_weight(UPDATES);
+
+        // The declared weight covers a history as long as the number of checkpoints.
+        let call = distribution::Call::<TestStorage>::claim { ca_id: id };
+        let declared: Weight = call.get_dispatch_info().call_weight;
+        assert!(declared.all_gte(base.saturating_add(max_read)));
+
+        // Only the holder's actual history is charged.
+        let actual = Dist::claim(holder.origin(), id)
+            .unwrap()
+            .actual_weight
+            .unwrap();
+        assert!(actual.all_gte(base.saturating_add(actual_read)));
+        assert!(actual.ref_time() < declared.ref_time());
+
+        // `other` has no history at all, and still pays for the read.
+        let push_base =
+            <TestStorage as pallet_corporate_actions::Config>::DistWeightInfo::push_benefit(
+                MaxTargetIds::get(),
+                MaxDidWhts::get(),
+            );
+        let actual = Dist::push_benefit(owner.origin(), id, other.did)
+            .unwrap()
+            .actual_weight
+            .unwrap();
+        assert!(actual.all_gte(push_base.saturating_add(Checkpoint::balance_at_weight(0))));
     });
 }
 

@@ -97,7 +97,7 @@ pub trait WeightInfo {
     fn create_proposal() -> Weight;
     fn approve() -> Weight;
     fn execute_proposal() -> Weight;
-    fn decode_proposal() -> Weight;
+    fn decode_proposal(b: u32) -> Weight;
     fn reject() -> Weight;
     fn accept_multisig_signer() -> Weight;
     fn add_multisig_signers(signers: u32) -> Weight;
@@ -122,9 +122,9 @@ pub trait WeightInfo {
         })
     }
 
+    /// `max_weight` already covers decoding the proposal (see [`ProposalWeights`]).
     fn approve_and_execute(max_weight: &Option<Weight>) -> Weight {
         Self::approve()
-            .saturating_add(Self::decode_proposal())
             .saturating_add(Self::execute_proposal())
             .saturating_add(Self::default_max_weight(max_weight))
     }
@@ -133,6 +133,9 @@ pub trait WeightInfo {
 type IdentityPallet<T> = pallet_identity::Pallet<T>;
 
 storage_migration_ver!(3);
+
+/// Minimum `max_weight` required to execute a proposal
+pub const MIN_PROPOSAL_WEIGHT: Weight = Weight::from_parts(1_000_000_000, 0);
 
 fn add_base_weight(base_weight: Weight, post_info: &mut PostDispatchInfo) {
     if let Some(actual_weight) = &mut post_info.actual_weight {
@@ -205,6 +208,8 @@ pub mod pallet {
                 let mut removed = 0;
                 let res = Proposals::<T>::clear(u32::MAX, None);
                 removed += res.unique;
+                let res = ProposalWeights::<T>::clear(u32::MAX, None);
+                removed += res.unique;
                 let res = ProposalVoteCounts::<T>::clear(u32::MAX, None);
                 removed += res.unique;
                 let res = ProposalStates::<T>::clear(u32::MAX, None);
@@ -267,6 +272,7 @@ pub mod pallet {
         #[pallet::call_index(1)]
         #[pallet::weight({
           <T as Config>::WeightInfo::create_proposal()
+            .saturating_add(<T as Config>::WeightInfo::decode_proposal(proposal.encoded_size() as u32))
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
             .saturating_add(proposal.get_dispatch_info().call_weight)
         })]
@@ -287,7 +293,8 @@ pub mod pallet {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
-        /// * `max_weight` - The maximum weight to execute the proposal.
+        /// * `max_weight` - The maximum weight to execute the proposal. Must cover the proposal's
+        ///   [`ProposalWeights`] entry (its call weight plus the cost of decoding it).
         ///
         /// If quorum is reached, the proposal will be immediately executed.
         #[pallet::call_index(2)]
@@ -526,6 +533,9 @@ pub mod pallet {
         #[pallet::weight({
           <T as Config>::WeightInfo::create_join_identity()
             .saturating_add(<T as Config>::WeightInfo::approve_join_identity())
+            .saturating_add(<T as Config>::WeightInfo::decode_proposal(
+                Pallet::<T>::join_identity_proposal_len(*auth_id),
+            ))
             .saturating_add(<T as Config>::WeightInfo::execute_proposal())
             .saturating_add(<T as Config>::WeightInfo::join_identity())
         })]
@@ -536,7 +546,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             if let Some(proposal_id) = AuthToProposalId::<T>::get(&multisig, auth_id) {
-                let max_weight = <T as Config>::WeightInfo::join_identity();
+                let proposal = Call::<T>::join_identity { auth_id }.into();
+                let max_weight = Self::proposal_execution_weight(&proposal);
                 with_base_weight(<T as Config>::WeightInfo::approve_join_identity(), || {
                     Self::base_approve(&multisig, signer, proposal_id, max_weight)
                 })
@@ -760,6 +771,11 @@ pub mod pallet {
     pub type Proposals<T: Config> =
         StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, <T as Config>::Proposal>;
 
+    /// Weight needed to execute a stored proposal: its call weight plus the cost of decoding it.
+    #[pallet::storage]
+    pub type ProposalWeights<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, u64, Weight, OptionQuery>;
+
     /// Individual multisig signer votes.
     ///
     /// (multisig, proposal_id) -> signer => vote.
@@ -852,6 +868,18 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Weight needed to execute `proposal`: its call weight plus the cost of decoding it from storage.
+    pub fn proposal_execution_weight(proposal: &<T as Config>::Proposal) -> Weight {
+        proposal.get_dispatch_info().call_weight.saturating_add(
+            <T as Config>::WeightInfo::decode_proposal(proposal.encoded_size() as u32),
+        )
+    }
+
+    /// Encoded length of the `join_identity` proposal created by `approve_join_identity`.
+    pub fn join_identity_proposal_len(auth_id: u64) -> u32 {
+        <T as Config>::Proposal::from(Call::<T>::join_identity { auth_id }).encoded_size() as u32
+    }
+
     pub fn get_paying_did(multisig: &T::AccountId) -> Option<IdentityId> {
         PayingDid::<T>::get(multisig)
     }
@@ -1066,12 +1094,14 @@ impl<T: Config> Pallet<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResultWithPostInfo {
         Self::ensure_ms_signer(multisig, &signer)?;
-        let max_weight = proposal.get_dispatch_info().call_weight;
+        // Covered by the weight of every extrinsic that creates a proposal.
+        let max_weight = Self::proposal_execution_weight(proposal);
         let caller_did = Self::ensure_ms_get_did(multisig)?;
         let proposal_id = NextProposalId::<T>::get(multisig);
         Self::ensure_valid_expiry(&expiry)?;
 
         Proposals::<T>::insert(multisig, proposal_id, &*proposal);
+        ProposalWeights::<T>::insert(multisig, proposal_id, max_weight);
         ProposalVoteCounts::<T>::insert(multisig, proposal_id, ProposalVoteCount::default());
         ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::new(expiry));
 
@@ -1134,18 +1164,47 @@ impl<T: Config> Pallet<T> {
         caller_did: Option<IdentityId>,
         max_weight: Weight,
     ) -> DispatchResultWithPostInfo {
-        // Take the proposal.
+        // Ensure `max_weight` covers the weight recorded at creation.
+        // Proposals created before `ProposalWeights` existed have no recorded weight; for those,
+        // `max_weight` must be at least `MIN_PROPOSAL_WEIGHT`.
+        let recorded_weight =
+            ProposalWeights::<T>::get(multisig, proposal_id).unwrap_or(Weight::zero());
+        let required_weight = if recorded_weight == Weight::zero() {
+            MIN_PROPOSAL_WEIGHT
+        } else {
+            recorded_weight
+        };
+        if required_weight.any_gt(max_weight) {
+            return Err(DispatchErrorWithPostInfo {
+                post_info: Some(DbWeight::get().reads(1)).into(),
+                error: Error::<T>::MaxWeightTooLow.into(),
+            });
+        }
+
+        ProposalWeights::<T>::remove(multisig, proposal_id);
         let proposal = Proposals::<T>::take(multisig, proposal_id)
             .ok_or_else(|| Error::<T>::ProposalMissing)?;
 
-        // Ensure `max_weight` was enough to cover the worst-case weight.
-        // The proposal has already been loaded, so charge for decoding it.
+        let decode_weight =
+            <T as Config>::WeightInfo::decode_proposal(proposal.encoded_size() as u32);
         let proposal_weight = proposal.get_dispatch_info().call_weight;
-        if !proposal_weight.all_lte(max_weight) {
-            return Err(DispatchErrorWithPostInfo {
-                post_info: Some(<T as Config>::WeightInfo::decode_proposal()).into(),
-                error: Error::<T>::MaxWeightTooLow.into(),
+
+        // The recorded weight can be stale if a runtime upgrade changed weights since creation.
+        // Fail without rolling back, so this decode can't be repeated against the same proposal.
+        if proposal_weight
+            .saturating_add(decode_weight)
+            .any_gt(max_weight)
+        {
+            ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::ExecutionFailed);
+            Self::deposit_event(Event::ProposalExecuted {
+                caller_did,
+                multisig: multisig.clone(),
+                proposal_id,
+                result: Err(Error::<T>::MaxWeightTooLow.into()),
             });
+            let actual_weight =
+                decode_weight.saturating_add(<T as Config>::WeightInfo::execute_proposal());
+            return Ok(Some(actual_weight).into());
         }
 
         Self::deposit_event(Event::ProposalApproved {
@@ -1193,10 +1252,11 @@ impl<T: Config> Pallet<T> {
             result,
         });
         // If the proposal call doesn't return an `actual_weight`, then default to `proposal_weight`.
-        // Also include the overhead of this `execute_proposal` method.
+        // Also include the overhead of this `execute_proposal` method and of decoding the proposal.
         let actual_weight = actual_weight
             .unwrap_or(proposal_weight)
-            .saturating_add(<T as Config>::WeightInfo::execute_proposal());
+            .saturating_add(<T as Config>::WeightInfo::execute_proposal())
+            .saturating_add(decode_weight);
         Ok(Some(actual_weight).into())
     }
 
@@ -1241,6 +1301,7 @@ impl<T: Config> Pallet<T> {
             }
             // Remove the proposal from storage.
             Proposals::<T>::remove(multisig, proposal_id);
+            ProposalWeights::<T>::remove(multisig, proposal_id);
             ProposalStates::<T>::insert(multisig, proposal_id, ProposalState::Rejected);
             Self::deposit_event(Event::ProposalRejected {
                 caller_did,

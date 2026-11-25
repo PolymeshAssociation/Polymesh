@@ -115,4 +115,17 @@ impl pallet_asset::checkpoint::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(3))
     }
+    // Storage: `Checkpoint::CheckpointIdSequence` (r:1 w:0)
+    // Proof: `Checkpoint::CheckpointIdSequence` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+    // Storage: `Checkpoint::BalanceUpdates` (r:1 w:0)
+    // Proof: `Checkpoint::BalanceUpdates` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    // Storage: `Checkpoint::Balance` (r:1 w:0)
+    // Proof: `Checkpoint::Balance` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+    /// The range of component `n` is `[1, 100000]`.
+    // NOTE: Estimated by hand, not measured. To be replaced by the next benchmark run.
+    fn balance_at(n: u32) -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(Weight::from_parts(50_000, 0).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(3))
+    }
 }

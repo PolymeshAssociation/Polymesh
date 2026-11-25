@@ -211,8 +211,10 @@ macro_rules! assert_number_of_signers {
     };
 }
 
-/// Number of calls in the proposal used to benchmark the proposal decoding cost.
-const DECODE_PROPOSAL_CALLS: usize = 10_000;
+/// Upper bound of the proposal length (bytes) used to benchmark the proposal decoding cost.
+///
+/// Stays below the normal-class block length (~7.5 MiB), which bounds any stored proposal.
+const DECODE_PROPOSAL_MAX_LEN: u32 = 7_000_000;
 
 benchmarks! {
     where_clause {
@@ -253,15 +255,17 @@ benchmarks! {
     }
 
     decode_proposal {
+        // Per-byte cost of loading a proposal. The per-call decoding cost (~0.2 µs) is negligible
+        // next to the call weight of any call (>= tens of µs), which is also part of `ProposalWeights`.
+        let b in 0 .. DECODE_PROPOSAL_MAX_LEN;
+
         let (_, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-        let calls = (0..DECODE_PROPOSAL_CALLS)
-            .map(|_| frame_system::Call::<T>::remark { remark: vec![] }.into())
-            .collect();
-        let proposal: <T as Config>::Proposal = pallet_utility::Call::<T>::batch { calls }.into();
+        let proposal: <T as Config>::Proposal =
+            frame_system::Call::<T>::remark { remark: vec![7u8; b as usize] }.into();
         Proposals::<T>::insert(&multisig, 0, proposal);
     }: {
-        // Same work `execute_proposal` does before checking `max_weight`.
         let proposal = Proposals::<T>::take(&multisig, 0).unwrap();
+        assert!(proposal.encoded_size() as u32 >= b);
         assert!(proposal.get_dispatch_info().call_weight.ref_time() > 0);
     }
 

@@ -93,7 +93,7 @@ pub use types::{
 
 use codec::{Decode, Encode};
 use core::convert::From;
-use frame_support::dispatch::DispatchClass::{Normal, Operational};
+use frame_support::dispatch::DispatchClass::Operational;
 use frame_support::dispatch::{DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::tokens::fungible::{Inspect, Mutate, MutateHold};
@@ -661,7 +661,7 @@ pub mod pallet {
         }
 
         /// Marks the specified claim as revoked.
-        #[pallet::weight((<T as Config>::WeightInfo::revoke_claim(), revoke_claim_class(claim.claim_type())))]
+        #[pallet::weight(<T as Config>::WeightInfo::revoke_claim())]
         #[pallet::call_index(7)]
         pub fn revoke_claim(
             origin: OriginFor<T>,
@@ -740,7 +740,7 @@ pub mod pallet {
         /// `claim_type`, and `scope`.
         ///
         /// Please note that `origin` must be the issuer of the target claim.
-        #[pallet::weight((<T as Config>::WeightInfo::revoke_claim_by_index(), revoke_claim_class(*claim_type)))]
+        #[pallet::weight(<T as Config>::WeightInfo::revoke_claim_by_index())]
         #[pallet::call_index(14)]
         pub fn revoke_claim_by_index(
             origin: OriginFor<T>,
@@ -1045,14 +1045,5 @@ impl<T: Config> InitializeMembers<IdentityId> for Pallet<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
         Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
-    }
-}
-
-/// A `revoke_claim` or `revoke_claim_by_index` TX is operational iff `claim_type` is a `Claim::CustomerDueDiligence`.
-/// Otherwise, it will be a normal transaction.
-fn revoke_claim_class(claim_type: ClaimType) -> frame_support::dispatch::DispatchClass {
-    match claim_type {
-        ClaimType::CustomerDueDiligence => Operational,
-        _ => Normal,
     }
 }

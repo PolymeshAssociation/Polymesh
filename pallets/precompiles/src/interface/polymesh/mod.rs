@@ -50,6 +50,7 @@ impl<T: Config> Precompile for PolymeshRuntimeInterface<T> {
         env: &mut impl Ext<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
         Common::<T>::ensure_direct_call(env)?;
+        Common::<T>::ensure_no_value(env)?;
 
         // Every call in `IPolymeshRuntime` dispatches an extrinsic — none is declared `view` — so
         // the read-only whitelist is empty and the whole interface is rejected in a read-only
