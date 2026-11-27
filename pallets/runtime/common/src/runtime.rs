@@ -967,7 +967,6 @@ macro_rules! runtime_apis {
 
         impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
             type Config = Runtime;
-            type Extension = TxExtension;
 
             fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
                 (

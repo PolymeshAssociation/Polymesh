@@ -35,23 +35,34 @@ use polymesh_primitives::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_im_online using the Substrate node and recommended hardware.
 pub struct SubstrateWeight;
 impl pallet_im_online::WeightInfo for SubstrateWeight {
-    // Storage: `Session::Validators` (r:1 w:0)
-    // Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-    // Storage: `Session::CurrentIndex` (r:1 w:0)
-    // Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-    // Storage: `ImOnline::Keys` (r:1 w:0)
-    // Proof: `ImOnline::Keys` (`max_values`: Some(1), `max_size`: Some(320002), added: 320497, mode: `MaxEncodedLen`)
-    // Storage: `ImOnline::ReceivedHeartbeats` (r:1 w:1)
-    // Proof: `ImOnline::ReceivedHeartbeats` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
-    // Storage: `ImOnline::AuthoredBlocks` (r:1 w:0)
-    // Proof: `ImOnline::AuthoredBlocks` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
+    /// Storage: `Session::CurrentIndex` (r:1 w:0)
+    /// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    /// Storage: `ImOnline::ReceivedHeartbeats` (r:1 w:1)
+    /// Proof: `ImOnline::ReceivedHeartbeats` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+    /// Storage: `ImOnline::Keys` (r:1 w:0)
+    /// Proof: `ImOnline::Keys` (`max_values`: Some(1), `max_size`: Some(320002), added: 320497, mode: `MaxEncodedLen`)
     /// The range of component `k` is `[1, 10000]`.
-    fn validate_unsigned_and_then_heartbeat(k: u32) -> Weight {
-        // Minimum execution time: 76_160 nanoseconds.
-        Weight::from_parts(98_918_012, 0)
-            // Standard Error: 408
-            .saturating_add(Weight::from_parts(36_002, 0).saturating_mul(k.into()))
-            .saturating_add(DbWeight::get().reads(4))
-            .saturating_add(DbWeight::get().writes(1))
+    fn heartbeat(_k: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `4 + k * (32 ±0)`
+        //  Estimated: `321494`
+        // Minimum execution time: 11_000_000 picoseconds.
+        Weight::from_parts(220_000_000, 321494)
+            .saturating_add(DbWeight::get().reads(3_u64))
+            .saturating_add(DbWeight::get().writes(1_u64))
+    }
+    /// Storage: `Session::Validators` (r:1 w:0)
+    /// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    /// Storage: `Session::CurrentIndex` (r:1 w:0)
+    /// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+    /// Storage: `ImOnline::Keys` (r:1 w:0)
+    /// Proof: `ImOnline::Keys` (`max_values`: Some(1), `max_size`: Some(320002), added: 320497, mode: `MaxEncodedLen`)
+    /// The range of component `k` is `[1, 10000]`.
+    fn authorize_heartbeat(_k: u32) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `4 + k * (32 ±0)`
+        //  Estimated: `321494`
+        // Minimum execution time: 46_000_000 picoseconds.
+        Weight::from_parts(135_000_000, 321494).saturating_add(DbWeight::get().reads(3_u64))
     }
 }

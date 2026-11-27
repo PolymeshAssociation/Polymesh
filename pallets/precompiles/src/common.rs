@@ -370,7 +370,7 @@ impl<T: Config> Common<T> {
                 num_topic: topics.len() as u32,
                 len: data.len() as u32,
             })?;
-        env.deposit_event(topics, data.to_vec());
+        let _ = env.deposit_event(topics, data.to_vec());
         Ok(())
     }
 
