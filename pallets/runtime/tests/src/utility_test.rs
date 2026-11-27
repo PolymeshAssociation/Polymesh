@@ -1,6 +1,5 @@
 use frame_support::dispatch::{extract_actual_weight, DispatchErrorWithPostInfo};
 use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
-use sp_runtime::traits::BadOrigin;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Contains;
 use frame_support::weights::Weight;
@@ -8,6 +7,7 @@ use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok};
 use frame_support::{assert_storage_noop, storage};
 use frame_system::{Call as SystemCall, EventRecord};
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::BadOrigin;
 use sp_runtime::traits::Dispatchable;
 
 use pallet_asset::UniqueTickerRegistration;
