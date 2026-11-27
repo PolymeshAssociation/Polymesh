@@ -342,8 +342,12 @@ fn query_info_works() {
             let acc = Sr25519Keyring::Bob.to_account_id();
             let key = Sr25519Keyring::from_account_id(&acc).unwrap();
             let signature = ().using_encoded(|b| key.sign(b));
-            let unchecked_extrinsic =
-                UncheckedExtrinsic::new_signed(call(), Address::Id(acc), signature, ());
+            let unchecked_extrinsic = UncheckedExtrinsic::<_, _, _, _>::new_signed(
+                call(),
+                Address::Id(acc),
+                signature,
+                (),
+            );
             let info = unchecked_extrinsic.get_dispatch_info();
 
             // all fees should be x1.5

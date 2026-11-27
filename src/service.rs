@@ -608,7 +608,7 @@ where
         Vec::default(),
     ));
 
-    let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+    let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
             net_config,
@@ -621,6 +621,7 @@ where
             warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
             block_relay: None,
             metrics,
+            gap_sync_body_policy: None,
         })?;
 
     let net_config_path = config.network.net_config_path.clone();
