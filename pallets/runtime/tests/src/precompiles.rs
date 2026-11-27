@@ -6,7 +6,7 @@ use pallet_precompiles::interface::{
 };
 use pallet_revive::precompiles::alloy::sol_types::{SolCall, SolEvent};
 use polymesh_precompiles::{IFungibleAsset, INonFungibleAsset};
-use sp_core::hashing::keccak_256;
+use sp_io::hashing::keccak_256;
 
 /// An ERC-165 interface id is the XOR of the selectors of the interface's functions.
 fn xor(selectors: &[[u8; 4]]) -> [u8; 4] {

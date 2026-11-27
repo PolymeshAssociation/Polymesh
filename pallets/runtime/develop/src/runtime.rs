@@ -1,8 +1,5 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 

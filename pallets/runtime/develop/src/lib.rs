@@ -2,6 +2,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "1024"]
 
+extern crate alloc;
+
 pub mod constants;
 pub mod runtime;
 
@@ -9,7 +11,7 @@ pub mod runtime;
 pub use pallet_staking::StakerStatus;
 
 #[cfg(feature = "std")]
-pub use runtime::{native_version, WASM_BINARY};
+pub use runtime::WASM_BINARY;
 
 pub use sp_runtime::{Perbill, Permill};
 

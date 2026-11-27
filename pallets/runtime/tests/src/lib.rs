@@ -3,6 +3,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "1024"]
 
+extern crate alloc;
+
 pub(crate) use storage::{next_block, TestStorage};
 
 pub(crate) use ext_builder::ExtBuilder;

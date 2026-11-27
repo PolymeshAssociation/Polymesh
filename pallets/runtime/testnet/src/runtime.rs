@@ -4,8 +4,6 @@
 use frame_support::traits::OnRuntimeUpgrade;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 
 use codec::Encode;
 use core::convert::TryFrom;

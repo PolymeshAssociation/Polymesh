@@ -26,15 +26,6 @@ macro_rules! misc_pallet_impls {
                 allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
             };
 
-        /// Native version.
-        #[cfg(any(feature = "std", test))]
-        pub fn native_version() -> NativeVersion {
-            NativeVersion {
-                runtime_version: VERSION,
-                can_author_with: Default::default(),
-            }
-        }
-
         use sp_runtime::{
             generic, impl_opaque_keys,
             traits::{SaturatedConversion as _, Saturating as _},
@@ -506,6 +497,8 @@ macro_rules! misc_pallet_impls {
             type FeeInfo = pallet_revive::evm::fees::Info<Address, polymesh_primitives::Signature, EthExtraImpl>;
             type MaxEthExtrinsicWeight = polymesh_runtime_common::MaxEthExtrinsicWeight;
             type DebugEnabled = frame_support::traits::ConstBool<false>;
+            type Deposit = ();
+            type AutoMap = frame_support::traits::ConstBool<false>;
             type GasScale = frame_support::traits::ConstU32<100>;
             type OnBurn = ();
             type DispatchHook = pallet_precompiles::common::DispatchWithCallMetadata<Runtime>;
@@ -967,8 +960,10 @@ macro_rules! runtime_apis {
 
         impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
             type Config = Runtime;
+            type ExtensionV0 = TxExtension;
+            type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-            fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+            fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
                 (
                     (
                         frame_system::AuthorizeCall::<Runtime>::new(),
@@ -1014,6 +1009,8 @@ macro_rules! runtime_apis {
                     traits::Zero,
                     transaction_validity::InvalidTransaction,
                 };
+
+                pallet_revive::evm::call::ensure_transaction_payload_size(payload)?;
 
                 let tx = TransactionSigned::decode(&payload).map_err(|err| {
                     log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");

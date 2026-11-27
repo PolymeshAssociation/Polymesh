@@ -1,6 +1,3 @@
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-
 use std::cell::RefCell;
 use std::convert::From;
 
@@ -1133,6 +1130,7 @@ fn sign(checked_extrinsic: CheckedExtrinsic) -> UncheckedExtrinsic {
         preamble,
         function,
         encoded_call: None,
+        encoded_len: None,
     }
     .into()
 }

@@ -1,6 +1,6 @@
 use frame_support::dispatch::{extract_actual_weight, DispatchErrorWithPostInfo};
 use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
-use frame_support::error::BadOrigin;
+use sp_runtime::traits::BadOrigin;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::traits::Contains;
 use frame_support::weights::Weight;
